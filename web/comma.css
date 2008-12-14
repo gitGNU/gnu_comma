@@ -5,31 +5,56 @@
  * Copyright (C) 2008, Stephen Wilson
  */
 
-.web_title {
-    font-family      : "Georgia, Palatino, Times, Roman";
-    font-size        : 18pt;
-    font-weight      : bold;
-    text-align       : left;
+[id=menu] {
+    position         : fixed;
+    width            : 12em;
 }
 
-.web_sectiontitle {
-    width            : 100%;
-    font-family      : "Georgia, Palatino, Times, Roman";
-    font-weight      : bold;
-    font-size        : 16pt;
-    background-color : #cccccc;
-    padding          : 0.1em 0.1em 0.1em 0.1em;
-    border-width     : 1px;
+[id=content] {
+    position         : absolute;
+    left             : 14em;
+    padding-right    : 4em;
 }
 
-.web_sidebar {
-    width            : 100%;
-    text-align       : left;
+#menu .web_submenu {
+    padding-top      : 0em;
+    display          : block;
     font-family      : "Georgia, Palatino, Times, Roman";
     font-size        : 12pt;
     margin-left      : 0em;
     margin-right     : 0em;
     border           : 2px solid #cccccc
+}
+
+#menu label {
+    display          : block;
+    font-weight      : bold;
+    text-align       : center;
+    background-color : #cccccc;
+}
+
+#menu a {
+    padding          : 0 .2em;
+    display          : block;
+    text-align       : center;
+    background-color : #eeeeee;
+}
+
+.web_title {
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-size        : 12pt;
+    font-weight      : bold;
+    text-align       : center;
+}
+
+.web_sectiontitle {
+    width            : 100%;
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-weight      : normal;
+    font-size        : 16pt;
+    background-color : #cccccc;
+    padding          : 0.1em 0.1em 0.1em 0.1em;
+    border-width     : 1px;
 }
 
 .web_text {
