@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2008, Stephen Wilson
+-->
+
+<table xmlns="http://docbook.org/ns/docbook">
+  <title>Standard character set</title>
+
+
+  <tgroup cols='6' align='left' colsep='1' rowsep='1'>
+
+    <thead>
+      <row>
+	<entry align="center">Char</entry>
+	<entry align="center">Hex</entry>
+	<entry align="center">Description</entry>
+	<entry align="center">Char</entry>
+	<entry align="center">Hex</entry>
+	<entry align="center">Description</entry>
+      </row>
+    </thead>
+
+    <tbody>
+
+      <row>
+	<entry>a</entry> <entry>61</entry> <entry>small a</entry>
+	<entry>A</entry> <entry>41</entry> <entry>capital A</entry>
+      </row>
+
+      <row>
+	<entry>b</entry> <entry>62</entry> <entry>small b</entry>
+	<entry>B</entry> <entry>42</entry> <entry>capital B</entry>
+      </row>
+
+      <row>
+	<entry>c</entry> <entry>63</entry> <entry>small c</entry>
+	<entry>C</entry> <entry>43</entry> <entry>capital C</entry>
+      </row>
+
+      <row>
+	<entry>d</entry> <entry>64</entry> <entry>small d</entry>
+	<entry>D</entry> <entry>42</entry> <entry>capital D</entry>
+      </row>
+
+      <row>
+	<entry>e</entry> <entry>65</entry> <entry>small e</entry>
+	<entry>E</entry> <entry>45</entry> <entry>capital E</entry>
+      </row>
+
+      <row>
+	<entry>f</entry> <entry>66</entry> <entry>small f</entry>
+	<entry>F</entry> <entry>46</entry> <entry>capital F</entry>
+      </row>
+
+      <row>
+	<entry>g</entry> <entry>67</entry> <entry>small g</entry>
+	<entry>G</entry> <entry>47</entry> <entry>capital G</entry>
+      </row>
+
+      <row>
+	<entry>h</entry> <entry>68</entry> <entry>small h</entry>
+	<entry>H</entry> <entry>48</entry> <entry>capital H</entry>
+      </row>
+
+      <row>
+	<entry>i</entry> <entry>69</entry> <entry>small i</entry>
+	<entry>I</entry> <entry>49</entry> <entry>capital I</entry>
+      </row>
+
+      <row>
+	<entry>j</entry> <entry>6A</entry> <entry>small j</entry>
+	<entry>J</entry> <entry>4A</entry> <entry>capital J</entry>
+      </row>
+
+      <row>
+	<entry>k</entry> <entry>6B</entry> <entry>small k</entry>
+	<entry>K</entry> <entry>4B</entry> <entry>capital K</entry>
+      </row>
+
+      <row>
+	<entry>l</entry> <entry>6C</entry> <entry>small l</entry>
+	<entry>L</entry> <entry>4C</entry> <entry>capital L</entry>
+      </row>
+
+      <row>
+	<entry>m</entry> <entry>6D</entry> <entry>small m</entry>
+	<entry>M</entry> <entry>4D</entry> <entry>capital M</entry>
+      </row>
+
+      <row>
+	<entry>n</entry> <entry>6E</entry> <entry>small n</entry>
+	<entry>N</entry> <entry>4E</entry> <entry>capital N</entry>
+      </row>
+
+      <row>
+	<entry>o</entry> <entry>6F</entry> <entry>small o</entry>
+	<entry>O</entry> <entry>4F</entry> <entry>capital O</entry>
+      </row>
+
+      <row>
+	<entry>p</entry> <entry>70</entry> <entry>small p</entry>
+	<entry>P</entry> <entry>50</entry> <entry>capital P</entry>
+      </row>
+
+      <row>
+	<entry>q</entry> <entry>71</entry> <entry>small q</entry>
+	<entry>Q</entry> <entry>51</entry> <entry>capital Q</entry>
+      </row>
+
+      <row>
+	<entry>r</entry> <entry>72</entry> <entry>small r</entry>
+	<entry>R</entry> <entry>52</entry> <entry>capital R</entry>
+      </row>
+
+      <row>
+	<entry>s</entry> <entry>73</entry> <entry>small s</entry>
+	<entry>S</entry> <entry>53</entry> <entry>capital S</entry>
+      </row>
+
+      <row>
+	<entry>t</entry> <entry>74</entry> <entry>small t</entry>
+	<entry>T</entry> <entry>54</entry> <entry>capital T</entry>
+      </row>
+
+      <row>
+	<entry>u</entry> <entry>75</entry> <entry>small u</entry>
+	<entry>U</entry> <entry>55</entry> <entry>capital U</entry>
+      </row>
+
+      <row>
+	<entry>v</entry> <entry>76</entry> <entry>small v</entry>
+	<entry>V</entry> <entry>56</entry> <entry>capital V</entry>
+      </row>
+
+      <row>
+	<entry>w</entry> <entry>77</entry> <entry>small w</entry>
+	<entry>W</entry> <entry>57</entry> <entry>capital W</entry>
+      </row>
+
+      <row>
+	<entry>x</entry> <entry>78</entry> <entry>small x</entry>
+	<entry>X</entry> <entry>58</entry> <entry>capital X</entry>
+      </row>
+
+      <row>
+	<entry>y</entry> <entry>79</entry> <entry>small y</entry>
+	<entry>Y</entry> <entry>59</entry> <entry>capital Y</entry>
+      </row>
+
+      <row>
+	<entry>z</entry> <entry>7A</entry> <entry>small z</entry>
+	<entry>Z</entry> <entry>5A</entry> <entry>capital Z</entry>
+      </row>
+
+      <row>
+	<entry>1</entry> <entry>31</entry> <entry>digit 1</entry>
+	<entry>6</entry> <entry>36</entry> <entry>digit 6</entry>
+      </row>
+
+      <row>
+	<entry>2</entry> <entry>32</entry> <entry>digit 2</entry>
+	<entry>7</entry> <entry>37</entry> <entry>digit 7</entry>
+      </row>
+
+      <row>
+	<entry>3</entry> <entry>33</entry> <entry>digit 3</entry>
+	<entry>8</entry> <entry>38</entry> <entry>digit 8</entry>
+      </row>
+
+      <row>
+	<entry>4</entry> <entry>34</entry> <entry>digit 4</entry>
+	<entry>9</entry> <entry>39</entry> <entry>digit 9</entry>
+      </row>
+
+      <row>
+	<entry>5</entry> <entry>35</entry> <entry>digit 5</entry>
+	<entry>0</entry> <entry>30</entry> <entry>digit 0</entry>
+      </row>
+
+      <row>
+	<entry>!</entry> <entry>21</entry> <entry>exclamation mark</entry>
+	<entry>$</entry> <entry>24</entry> <entry>dollar sign</entry>
+      </row>
+
+      <row>
+	<entry>"</entry> <entry>22</entry> <entry>quotation mark, or double quote</entry>
+	<entry>'</entry> <entry>27</entry> <entry>apostrophe, or single quote</entry>
+      </row>
+
+      <row>
+	<entry>(</entry> <entry>28</entry> <entry>left parenthesis, or open parenthesis</entry>
+	<entry>)</entry> <entry>29</entry> <entry>right parenthesis, or close parenthesis</entry>
+      </row>
+
+      <row>
+	<entry>,</entry> <entry>2C</entry> <entry>comma</entry>
+	<entry>_</entry> <entry>5F</entry> <entry>low line, or underscore</entry>
+      </row>
+
+      <row>
+	<entry>-</entry> <entry>2D</entry> <entry>hyphen, or minus </entry>
+	<entry>.</entry> <entry>2E</entry> <entry>full stop, period, or dot</entry>
+      </row>
+
+      <row>
+	<entry>/</entry> <entry>2F</entry> <entry>solidus, or slash</entry>
+	<entry>:</entry> <entry>3A</entry> <entry>colon</entry>
+      </row>
+
+      <row>
+	<entry>;</entry> <entry>3B</entry> <entry>semicolon</entry>
+	<entry>?</entry> <entry>3F</entry> <entry>question mark</entry>
+      </row>
+
+      <row>
+	<entry>+</entry> <entry>2B</entry> <entry>plus </entry>
+	<entry>&lt;</entry> <entry>3C</entry> <entry>less-than</entry>
+      </row>
+
+      <row>
+	<entry>=</entry> <entry>3D</entry> <entry>equals </entry>
+	<entry>&gt;</entry> <entry>3E</entry> <entry>greater-than</entry>
+      </row>
+
+      <row>
+	<entry>#</entry> <entry>23</entry> <entry>number sign, or sharp</entry>
+	<entry>%</entry> <entry>25</entry> <entry>percent</entry>
+      </row>
+
+      <row>
+	<entry>&amp;</entry> <entry>26</entry> <entry>ampersand</entry>
+	<entry>*</entry> <entry>2A</entry> <entry>asterisk, or star</entry>
+      </row>
+
+      <row>
+	<entry>@</entry> <entry>40</entry> <entry>commercial at, or at-sign</entry>
+	<entry>[</entry> <entry>5B</entry> <entry>left bracket</entry>
+      </row>
+
+      <row>
+	<entry>\</entry> <entry>5C</entry> <entry>reverse solidus, or backslash</entry>
+	<entry>]</entry> <entry>5D</entry> <entry>right bracket</entry>
+      </row>
+
+      <row>
+	<entry>{</entry> <entry>7B</entry> <entry>left curly bracket, or left brace</entry>
+	<entry>|</entry> <entry>7C</entry> <entry>vertical bar</entry>
+      </row>
+
+      <row>
+	<entry>}</entry> <entry>7D</entry> <entry>right curly bracket, or right brace</entry>
+	<entry>`</entry> <entry>60</entry> <entry>grave accent, or backquote</entry>
+      </row>
+
+      <row>
+	<entry>^</entry> <entry>5E</entry> <entry>circumflex accent</entry>
+	<entry>~</entry> <entry>7E</entry> <entry>tilde</entry>
+      </row>
+
+      <row>
+	<entry>HT</entry> <entry>09</entry> <entry>horizontal tab</entry>
+	<entry>VT</entry> <entry>0B</entry> <entry>vertical tab</entry>
+      </row>
+
+      <row>
+	<entry>CR</entry> <entry>0D</entry> <entry>carriage return</entry>
+	<entry>LF</entry> <entry>0A</entry> <entry>line feed</entry>
+      </row>
+
+      <row>
+	<entry>SP</entry> <entry>20</entry> <entry>space</entry>
+	<entry>FF</entry> <entry>0C</entry> <entry>form feed</entry>
+      </row>
+
+    </tbody>
+  </tgroup>
+</table>

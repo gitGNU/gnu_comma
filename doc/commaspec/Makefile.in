@@ -1,0 +1,47 @@
+##-- comma/doc/commaspec/Makefile ----------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for
+# details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Relative path to the top of the source tree.
+#
+LEVEL = ../..
+
+include $(LEVEL)/Makefile.common
+
+xml_sources := $(wildcard $(prj_srcdir)/*.xml)
+
+#
+# The current setup generates `chunked' html pages from the xml sources.  Thus,
+# we do not have a clean mapping between xml source and html output.  We use
+# index.html as the sole target of the build (if any source becomes out of date
+# wrt index.html, the full document is rebuilt).
+#
+index_html := $(prj_objdir)/index.html
+
+XSL := $(prj_srcdir)/commaspec.xsl
+CSS := $(prj_srcdir)/commaspec.css
+XML := $(prj_srcdir)/commaspec.xml
+
+all: $(index_html)
+
+$(index_html): $(xml_sources) $(CSS) $(XSL)
+ifeq ($(XSLTPROC),)
+	$(error Cannot build commaspec: xsltproc is not available.)
+else
+	$(ECHO) Building commaspec under $(prj_objdir)
+	$(verb) $(XSLTPROC) --nonet                 \
+	                    --xinclude              \
+	                    --output $(prj_objdir)/ \
+	                    $(XSL) $(XML)
+endif
+
+.PHONY: clean
+
+clean:
+	$(verb) $(RM) -f $(prj_objdir)/*

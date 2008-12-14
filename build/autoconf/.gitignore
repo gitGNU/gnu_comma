@@ -1,0 +1,4 @@
+#
+# Do not track stuff leftover by autoregen.sh
+#
+autom4te.cache

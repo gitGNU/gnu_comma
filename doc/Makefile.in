@@ -1,0 +1,21 @@
+##-- comma/doc/Makefile --------------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for
+# details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Relative path to the top of the source tree.
+#
+LEVEL = ..
+
+#
+# List all of the sub-directories that we will compile.
+#
+DIRS=commaspec
+
+include $(LEVEL)/Makefile.common
+include $(makefiles)/dir-rules.mk

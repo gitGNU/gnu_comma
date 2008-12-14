@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2008, Stephen Wilson
+     -->
+
+<!DOCTYPE book>
+
+<book xmlns="http://docbook.org/ns/docbook"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:xl="http://www.w3.org/1999/xlink" version="5.0">
+
+  <info>
+    <title>The Comma Programming Language</title>
+
+    <releaseinfo>This document is an initial DRAFT.</releaseinfo>
+
+    <author>
+      <personname>
+        <firstname>Stephen</firstname>
+        <surname>Wilson</surname>
+      </personname>
+    </author>
+
+    <copyright>
+      <year>2008</year>
+      <holder>Stephen M. Wilson</holder>
+    </copyright>
+
+    <legalnotice>
+      <para>
+        This documentation is distributed under the <link linkend="license"> MIT
+        license</link>.
+      </para>
+    </legalnotice>
+
+    <abstract>
+      <para>
+        This is a prolusion. It will evolve into a complete specification of the
+        Comma programming language.
+      </para>
+    </abstract>
+  </info>
+
+  <toc></toc>
+
+  <!-- ===================================================================== -->
+
+  <chapter xml:id="general">
+    <title>General</title>
+
+  </chapter>
+
+  <!-- ===================================================================== -->
+
+  <xi:include  href="lexstruct.xml"/>
+
+  <!-- ===================================================================== -->
+
+  <xi:include  href="license.xml"/>
+
+  <index>
+  </index>
+
+</book>

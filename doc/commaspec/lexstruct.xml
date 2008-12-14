@@ -1,0 +1,659 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2008, Stephen Wilson
+-->
+
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+         xml:id="lexical-structure">
+
+  <title>Lexical Structure</title>
+
+  <sect1 xml:id="sect.standard-cset">
+
+    <title>The Standard Character Set</title>
+
+    <para>
+      <indexterm xml:id="index.character.ascii">
+        <primary>character</primary>
+        <secondary><acronym>ASCII</acronym></secondary>
+      </indexterm>
+
+      <indexterm xml:id="index.character.IS0-8859-1">
+        <primary>character</primary>
+        <secondary><acronym>ISO</acronym>8859-1</secondary>
+      </indexterm>
+
+      Comma programs are written using a subset of the 8-bit character set
+      <acronym>ISO</acronym> 8859-1 (Latin-1). This subset is called the
+      <firstterm>standard character set</firstterm> A character not present in
+      the standard character set but occuring in the source code will trigger a
+      compile time error.
+    </para>
+
+    <para>
+      The following table associates with each character a name, the
+      hexadecimal value of its encoding, and a breif description.  The
+      characters name is the standard glyph used to present that character if
+      it is a graphic character.  For characters with no distinct (or visible)
+      graphic representation, a symbolic name is provided.
+    </para>
+
+    <xi:include  href="cset.xml"/>
+
+    <para>
+
+      <indexterm xml:id="index.character.backspace">
+        <primary>character</primary>
+        <secondary>backspace</secondary>
+      </indexterm>
+
+      In addition to the above characters, the language recognizes one
+      adittional character code, the backspace character.
+
+      <informaltable>
+
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+
+          <thead>
+            <row>
+              <entry align="center">Char</entry>
+              <entry align="center">Hex</entry>
+              <entry align="center">Description</entry>
+            </row>
+          </thead>
+
+          <tbody>
+            <row>
+              <entry>BS</entry> <entry>08</entry> <entry>backspace</entry>
+            </row>
+
+          </tbody>
+        </tgroup>
+      </informaltable>
+
+      The backspace character is implied by a designated escape sequence <xref
+      linkend="sect.escape-sequences" xrefstyle="sect"/> which appears in
+      character and string literals.
+
+    </para>
+
+    <note>
+      <indexterm xml:id="index.character.unicode">
+        <primary>character</primary>
+        <secondary>unicode</secondary>
+      </indexterm>
+
+      <para>
+        It is possible that this specification will evolve to include program
+        source written using the UTF-8 encoding, defined by the <link
+        xl:href="http://www.unicode.org">Unicode</link> character standard. All
+        reserved words will be specified using the current, compatable, standard
+        character set.
+      </para>
+    </note>
+  </sect1>
+
+  <sect1 xml:id="sect.maximal-match">
+    <title>The Maximal Match Rule</title>
+
+    <para>
+      Lexical analysis proceeds by obeying the <quote>maximal match</quote>
+      rule: When a character sequence can be transformed into two or more
+      lexemes, the lexeme with the longest character representation is
+      selected.  Thus, although <literal>domain</literal> is a reserved word,
+      <literal>domains</literal> is not.
+    </para>
+  </sect1>
+
+  <sect1>
+
+    <title>Notational Conventions</title>
+
+    <indexterm xml:id="index.notational-conventions">
+      <primary>notational conventaions</primary>
+    </indexterm>
+
+    <para>
+
+      The syntax of the following grammer rules make use of the following constructs:
+
+      <variablelist spacing='compact'>
+        <varlistentry>
+          <term> [<replaceable>pattern</replaceable>] </term>
+          <listitem> <para>
+            <replaceable>pattern</replaceable> my occur optionally.
+          </para> </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term> {<replaceable>pattern</replaceable>} </term>
+          <listitem> <para>
+            <replaceable>pattern</replaceable> my occur zero or more times.
+          </para> </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term> (<replaceable>pattern</replaceable>) </term>
+          <listitem> <para>
+            Pattern grouping.
+          </para> </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <replaceable>pattern1</replaceable> |
+            <replaceable>pattern2</replaceable>
+          </term>
+          <listitem>
+            <para>
+              Choice of either <replaceable>pattern1</replaceable> or
+              <replaceable>pattern2</replaceable>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <replaceable>pattern1</replaceable>
+            <subscript>
+              &lt;<replaceable>pattern2</replaceable>&gt;
+            </subscript>
+          </term>
+          <listitem>
+            <para>
+              All matches accepted by
+              <replaceable>pattern1</replaceable> except for those
+              accepted by <replaceable>pattern2</replaceable>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>...</term>
+          <listitem>
+            <para>
+              Abbreviates a sequence of terminals, the full set being easily
+              discerned from context.
+            </para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </para>
+  </sect1>
+
+  <sect1>
+    <title>Line Terminators</title>
+
+    <para>
+      Input programs are scanned and divided into lines. Error messages
+      reported by the compiler and associated tools will make use of the line
+      number to produce usefull diagnostic messages.  Line terminators also
+      indicate the end of a comment.
+    </para>
+
+    <productionset><title>Line Terminators</title>
+    <production xml:id="ebnf.line-terminator">
+      <lhs>Line-Terminator</lhs>
+      <rhs>
+        Linefeed | Carriage-Return | Carriage-Return Linefeed
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.input-character">
+      <lhs>Input-Character</lhs>
+      <rhs>
+        All characters in the standard character set.
+      </rhs>
+    </production>
+    </productionset>
+
+  </sect1>
+
+
+  <sect1>
+    <title>Comments</title>
+    <para>
+      Comments begin with the two characters --, with no whitespace, and
+      continur to the end of the line.  Comments do not appear within character
+      or string literals.
+    </para>
+
+    <productionset>
+      <title>Comments</title>
+
+      <production xml:id="ebnf.comment">
+        <lhs>Comment</lhs>
+        <rhs>
+	  --
+	  { <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> }
+          <nonterminal def="#ebnf.line-terminator">Line-Terminator</nonterminal>
+        </rhs>
+      </production>
+    </productionset>
+
+  </sect1>
+
+  <sect1>
+    <title>Whitespace</title>
+    <para>
+      Whitespace consists of the space, horizontal tab, and form feed
+      characters, as well as line terminators and comments. Whitespace is a
+      proper delimiter for lexemes.
+    </para>
+
+    <productionset>
+      <title>Whitespace</title>
+      <production xml:id="ebnf.whitespace">
+        <lhs>Whitespace</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.white-char">White-Char</nonterminal> |
+          <nonterminal def="#ebnf.line-terminator">Line-Terminator</nonterminal> |
+          <nonterminal def="#ebnf.comment">Comment</nonterminal>
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.white-char">
+        <lhs>White-Char</lhs>
+        <rhs>
+          Space | Tab | Formfeed
+        </rhs>
+      </production>
+
+    </productionset>
+
+  </sect1>
+
+  <sect1 xml:id="sect.seperators">
+    <title>Seperators</title>
+    <para>
+      The following characters are the <emphasis>seperators</emphasis> (also
+      known as punctuators or delimiters).
+    </para>
+
+    <informaltable frame='none'>
+      <tgroup cols='10' align='left'>
+        <?dbhtml cellspacing="10" ?>
+        <tbody>
+          <row>
+            <entry><keysym>(</keysym></entry>
+            <entry><keysym>)</keysym></entry>
+            <entry><keysym>{</keysym></entry>
+            <entry><keysym>}</keysym></entry>
+            <entry><keysym>[</keysym></entry>
+            <entry><keysym>]</keysym></entry>
+            <entry><keysym>:</keysym></entry>
+            <entry><keysym>;</keysym></entry>
+            <entry><keysym>,</keysym></entry>
+            <entry><keysym>.</keysym></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </informaltable>
+
+  </sect1>
+
+  <sect1>
+    <title>Identifiers</title>
+
+    <para>
+      An identifier is a sequence of characters. The initial character of the
+      sequence must be an alphabetic character.  All remaining characters can be
+      any of the lower or uppercase alphabetic characters, a numeric digit, or
+      the character '_'.
+    </para>
+
+    <para>
+      Two identifiers are considered the same if their respective character
+      sequences are identical.  Thus, identifiers are case sensitive.
+    </para>
+
+    <example>
+      <title>Some valid Comma identifiers:</title>
+      <informaltable frame='none'>
+        <tgroup cols='6' align='left'>
+          <?dbhtml cellspacing="10" ?>
+          <tbody>
+            <row>
+              <entry><varname>x</varname></entry>
+              <entry><varname>integer</varname></entry>
+              <entry><varname>INTEGER</varname></entry>
+              <entry><varname>Max_Index</varname></entry>
+              <entry><varname>x1234</varname></entry>
+              <entry><varname>x___4</varname></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </example>
+
+    <productionset>
+      <title>Identifiers</title>
+
+      <production xml:id="ebnf.identifier">
+        <lhs>Identifier</lhs>
+        <rhs>
+	  <nonterminal def="#ebnf.alpha">Alpha</nonterminal>
+	  { <nonterminal def="#ebnf.identifier-part-char">Indentifier-Part-Char</nonterminal> }
+        </rhs>
+	<constraint linkend="ebnf.identifier-constraint"/>
+      </production>
+
+      <production xml:id="ebnf.identifier-part-char">
+        <lhs>Identifier-Char</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.alpha">Alpha</nonterminal> |
+          <nonterminal def="#ebnf.digit">Digit</nonterminal> |
+          _
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.alpha">
+        <lhs>Alpha</lhs>
+        <rhs>
+	  a | b | ... | z | A | B | ... | Z
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.digit">
+        <lhs>Digit</lhs>
+        <rhs> 0 | 1 | ... | 9 </rhs>
+      </production>
+
+    </productionset>
+
+    <constraintdef id="ebnf.identifier-constraint">
+      <title>Identifiers and Reserved Words</title>
+      <para>An identifier shall not be a reserved word.</para>
+    </constraintdef>
+
+  </sect1>
+
+  <sect1>
+    <title>Reserved Words</title>
+
+    <para>
+      The following character sequences are reserved words and may not be used
+      as identifiers:
+    </para>
+
+    <productionset>
+      <production xml:id="ebnf.reserved-words">
+        <lhs>Reserved Words</lhs>
+        <rhs>
+	  add | begin | body | domain | else | elsif | end | extend |
+	  for | function | if | implement | is | namespace | package |
+	  repeat | signature | then | while | with
+        </rhs>
+      </production>
+    </productionset>
+
+    <sect2>
+      <title>Separators</title>
+      <para>
+        The following <acronym>ASCII</acronym> characters are used to delimit
+        expressions.
+      </para>
+
+      <productionset>
+        <production xml:id="ebnf.seperator">
+          <lhs>Seperator</lhs>
+          <rhs> ( | ) | { | } | [ | ] | ; | . | , </rhs>
+        </production>
+      </productionset>
+
+    </sect2>
+  </sect1>
+
+  <sect1>
+    <title>Literals</title>
+    <para>
+      Literals are primitive values in Comma programs which have a direct
+      representation in source code.  There are literals for integer, floating
+      point, string, and character values.
+    </para>
+
+    <sect2 xml:id="sect.integer-literals">
+      <title>Integer Literals</title>
+
+      <para>
+        An integer literal may be expressed in decimal (base 10), hexadecimal
+        (base 16), octal (base 8), or binary (base 2).
+      </para>
+
+      <para>
+        For the sake of readability the underscore chracter '_' can be appear
+        within an integer literal.  These characters are ignored and serve only
+        to help improve readability.
+      </para>
+
+
+      <productionset>
+        <title>Integer Literals</title>
+
+        <production xml:id="ebnf.integer">
+          <lhs>Integer</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.decimal-literal">Decimal-Literal</nonterminal> |
+            <nonterminal def="#ebnf.hexadecimal-literal">Hexadecimal-Literal</nonterminal> |
+            <nonterminal def="#ebnf.octal-literal">Octal-Literal</nonterminal> |
+            <nonterminal def="#ebnf.binary-literal">Binary-Literal</nonterminal>
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.decimal-literal">
+          <lhs>Decimal-Literal</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.digit">Digit</nonterminal>
+            { <nonterminal def="#ebnf.digit">Digit</nonterminal>
+            | Uscore }
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.hexadecimal-literal">
+          <lhs>Hexadecimal-Literal</lhs>
+          <rhs>
+            (0x | 0X) <nonterminal def="ebnf.hexadecimal-digit">Hexadecimal-Digit</nonterminal>
+            { <nonterminal def="ebnf.hexadecimal-digit">Hexadecimal-Digit</nonterminal>
+            | Uscore }
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.octal-literal">
+          <lhs>Octal-Literal</lhs>
+          <rhs>
+            (0o | 0O) <nonterminal def="#ebnf.octal-digit">Octal-Digit</nonterminal>
+            { <nonterminal def="#ebnf.octal-digit">Octal-Digit</nonterminal>
+            | Uscore }
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.binary-literal">
+          <lhs>Binary-Literal</lhs>
+          <rhs>
+            (0b | 0B) <nonterminal def="#ebnf.binary-digit">Binary-Digit</nonterminal>
+            { <nonterminal def="#ebnf.binary-digit">Binary-Digit</nonterminal>
+            | Uscore }
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.hexadecimal-digit">
+          <lhs>Hexadecimal-Digit</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.digit">Digit</nonterminal> |
+            a | b | ... | f | A | B | ... | F
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.octal-digit">
+          <lhs>Octal-Digit</lhs>
+          <rhs> 0 | 1 | ... | 7 </rhs>
+        </production>
+
+        <production xml:id="ebnf.binary-digit">
+          <lhs>Binary-Digit</lhs>
+          <rhs> 0 | 1 </rhs>
+        </production>
+
+      </productionset>
+
+    </sect2>
+
+    <sect2 xml:id="sect.floating-point-literals">
+      <title>Floating-point Literals</title>
+      <para>
+        A floating-point literal can consist of an integer part, a decimal
+        point, a fractional part, and an exponent.  The decimal point is
+        represented by the <acronym>ASCII</acronym> character '.'. The exponent
+        is represented by either the characters 'e' or 'E', followed by an
+        optional '+' or '-' sign, followed by one or more digits.  In order to
+        avoid ambiguity with integer decimal literals, a floating-point literal
+        must contain either a decimal point, an exponent, or a float type
+        suffix.
+      </para>
+
+      <productionset>
+        <title>Floting-point Literals</title>
+
+        <production xml:id="ebnf.float-literal">
+          <lhs>Float-Literal</lhs>
+          <rhs>
+            { <nonterminal def="#ebnf.digit">Digit</nonterminal> } .
+            [ { <nonterminal def="#ebnf.digit">Digit</nonterminal> } ]
+            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            . { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
+            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
+            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
+            <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal>
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.exponent-part">
+          <lhs>Exponent-Part</lhs>
+          <rhs>
+            (e | E) [ (- | +) ] { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
+          </rhs>
+        </production>
+      </productionset>
+    </sect2>
+
+    <sect2 xml:id="sect.escape-sequences">
+      <title>Escape Sequences</title>
+      <para>
+        Character literals and string literals may contain escape sequences
+        which permit non-graphical characters, or characters which would
+        otherwise conflict lexically, to be written.
+
+        <table frame='all' tocentry='1'>
+          <title>Escape Sequences</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <thead>
+              <row>
+                <entry align='center'>Sequence</entry>
+                <entry align='center'>Character Denoted</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>\\</entry>
+                <entry>backslash (\)</entry>
+              </row>
+              <row>
+                <entry>\"</entry>
+                <entry>double quote (")</entry>
+              </row>
+              <row>
+                <entry>\'</entry>
+                <entry>single quote (')</entry>
+              </row>
+              <row>
+                <entry>\n</entry>
+                <entry>linefeed (LF)</entry>
+              </row>
+              <row>
+                <entry>\r</entry>
+                <entry>carriage return (CR)</entry>
+              </row>
+              <row>
+                <entry>\t</entry>
+                <entry>horizontal tab (HT)</entry>
+              </row>
+              <row>
+                <entry>\b</entry>
+                <entry>backspace (BS)</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+        <!-- This table was wrapped in a para to introduce a vertical
+             space before the following productionset. -->
+      </para>
+
+      <productionset>
+        <production xml:id="ebnf.escape-sequence">
+          <lhs>Esacape-Sequence</lhs>
+          <rhs> \ ( \ | " | ' | n | r | t | b ) </rhs>
+        </production>
+      </productionset>
+    </sect2>
+
+    <sect2>
+      <title>String Literals</title>
+
+      <para>
+        A string literal is a character sequence delimited by the
+        <acronym>ASCII</acronym> " (double quote, code <keycode>0x22</keycode>)
+        character.
+      </para>
+
+      <productionset>
+        <title>String Literals</title>
+
+        <production xml:id="ebnf.string-literal">
+          <lhs>String-Literal</lhs>
+          <rhs>
+            " { <nonterminal def="#ebnf.string-character">String-Character</nonterminal> } "
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.string-character">
+          <lhs>String-Character</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> |
+            <lineannotation>Except " or \.</lineannotation>
+            <nonterminal def="#ebnf.escape-sequence">Escape-Sequence</nonterminal>
+          </rhs>
+        </production>
+
+      </productionset>
+    </sect2>
+
+    <sect2 xml:id="sect.character-literals">
+      <title>Character Literals</title>
+      <para>
+        A character literal is either a single input character or an escape
+        sequence <xref linkend="sect.escape-sequences" xrefstyle="sect"/>)
+        delimited in single quotes (<acronym>ASCII</acronym> code
+        <keycode>0x27</keycode>).
+      </para>
+      <productionset>
+        <title>Character Literals</title>
+        <production xml:id="ebnf.character-literal">
+          <lhs>Character-Literal</lhs>
+          <rhs>
+            ' <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> |
+            <lineannotation>Except ' or \</lineannotation>
+            <nonterminal def="#ebnf.escape-sequence">Escape-Sequence</nonterminal> '
+          </rhs>
+        </production>
+      </productionset>
+    </sect2>
+  </sect1>
+</chapter>

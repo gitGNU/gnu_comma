@@ -1,0 +1,55 @@
+/*
+ * This file is distributed under the MIT License.  See LICENSE.txt for
+ * details.
+ *
+ * Copyright (C) 2008, Stephen Wilson
+ */
+
+.web_title {
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-size        : 18pt;
+    font-weight      : bold;
+    text-align       : left;
+}
+
+.web_sectiontitle {
+    width            : 100%;
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-weight      : bold;
+    font-size        : 16pt;
+    background-color : #cccccc;
+    padding          : 0.1em 0.1em 0.1em 0.1em;
+    border-width     : 1px;
+}
+
+.web_sidebar {
+    width            : 100%;
+    text-align       : left;
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-size        : 12pt;
+    margin-left      : 0.1em;
+    margin-right     : 0.1em;
+    border           : 2px solid #cccccc
+}
+
+.web_text {
+    text-align       : left;
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-size        : 12pt;
+}
+
+.web_code {
+    border           : solid 1px grey;
+    background       : #eeeeee;
+    font-family      : "Monospace";
+    font-size        : 10pt;
+}
+
+body {
+    color            : #000;
+    background-color : #fff;
+    padding          : 24px;
+    margin           : auto;
+    font-family      : "Georgia, Palatino, Times, Roman";
+    font-size        : 12pt;
+}

@@ -1,0 +1,24 @@
+##-- Makefile ------------------------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for
+# details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Indicates our relative path to the projects root directory.
+#
+LEVEL = .
+
+#
+# The top level Makefile simply recurses into all subdirectories.
+#
+DIRS=doc
+
+#
+# Define our environment.
+#
+include $(LEVEL)/Makefile.common
+include $(makefiles)/dir-rules.mk

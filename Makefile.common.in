@@ -1,0 +1,110 @@
+##-- Makefile.common  ----------------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for
+# details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# The following variables control the projects name and current version.
+#
+PRJ_NAME    := @PACKAGE_NAME@
+PRJ_VERSION := @PACKAGE_VERSION@
+
+#
+# This is the root of the source directory.
+#
+comma_srcroot := @abs_top_srcdir@
+
+#
+# This is the root of the object directory -- the location where all output
+# (temporary or otherwise) of the build process resides.
+#
+comma_objroot := @abs_top_builddir@
+
+#
+# In general this variable names a directory identical to that of
+# comma_objroot.  However, certain subprojects might need their own build
+# environment which is seperate from the standard project tree.  This variable
+# can be tailored to meet such needs.
+#
+prj_objroot := $(comma_objroot)
+
+#
+# Analogus to prg_objroot, but pertaining to the source directory.
+#
+prj_srcroot := $(comma_srcroot)
+
+#
+# This is the object directory which we are targeting at present.  In general,
+# it is a subdirectory of comma_objroot.
+#
+prj_objdir := $(CURDIR)
+
+#
+# This is the source directory from which we are building.
+#
+prj_srcdir := $(comma_srcroot)/$(patsubst $(prj_objroot)/%,%,$(prj_objdir))
+
+#
+# This variable defines the output directory where completed files should live.
+#
+build_root := $(comma_objroot)/@target@
+
+#
+# This variable specifies where libraries should be placed during the build.
+#
+libroot := $(build_root)/lib
+
+#
+# This variable specifies the location of generic Makefiles used to specify the
+# build process.
+#
+makefiles := $(prj_srcroot)/build
+
+#
+# The following variable controls how the Makefiles generate output.  If
+# defined, the commands which the Makefiles are executing are printed.
+#
+verbose_build = @VERBOSE_BUILD@
+
+#
+# The following list of commands are required to build the system.
+#
+RM     := @RM@
+MKDIR  := @MKDIR_P@
+RANLIB := @RANLIB@
+AR     := @AR@
+ECHO   := @@ECHO@
+
+XSLTPROC := @XSLTPROC@
+
+#
+# Enable the verbose build switch if enabled.
+#
+ifneq ($(verbose_build), 1)
+   verb := @
+endif
+
+#
+# Our default rule is always all.
+#
+all :
+
+#
+# This rule can be involked from any directory containing a Makefile to inquire
+# about the state of the variables defined above.
+#
+.PHONY: print-vars
+
+print-vars:
+	$(Verb) echo "comma_srcroot = $(comma_srcroot)"
+	$(Verb) echo "comma_objroot = $(comma_objroot)"
+	$(Verb) echo "prj_objdir    = $(prj_objdir)"
+	$(Verb) echo "prj_objroot   = $(prj_objroot)"
+	$(Verb) echo "prj_srcdir    = $(prj_srcdir)"
+	$(Verb) echo "prj_srcroot   = $(prj_srcroot)"
+	$(Verb) echo "libroot       = $(libroot)"
+	$(Verb) echo "makefiles     = $(makefiles)"
