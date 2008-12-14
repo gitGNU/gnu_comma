@@ -27,8 +27,8 @@
     text-align       : left;
     font-family      : "Georgia, Palatino, Times, Roman";
     font-size        : 12pt;
-    margin-left      : 0.1em;
-    margin-right     : 0.1em;
+    margin-left      : 0em;
+    margin-right     : 0em;
     border           : 2px solid #cccccc
 }
 
@@ -39,7 +39,7 @@
 }
 
 .web_code {
-    border           : solid 1px grey;
+    border           : solid 1px #aaaaaa;
     background       : #eeeeee;
     font-family      : "Monospace";
     font-size        : 10pt;
