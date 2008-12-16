@@ -68,6 +68,9 @@
     background       : #eeeeee;
     font-family      : "Monospace";
     font-size        : 10pt;
+    margin           : 0 1em 0 1em;
+    padding          : 0 1em 0 1em;
+    display          : table;
 }
 
 body {
