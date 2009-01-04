@@ -18,4 +18,4 @@ LEVEL = ..
 DIRS=commaspec
 
 include $(LEVEL)/Makefile.common
-include $(makefiles)/dir-rules.mk
+include $(makefiles)/dirrules.mk

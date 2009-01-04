@@ -21,4 +21,4 @@ DIRS=doc
 # Define our environment.
 #
 include $(LEVEL)/Makefile.common
-include $(makefiles)/dir-rules.mk
+include $(makefiles)/dirrules.mk
