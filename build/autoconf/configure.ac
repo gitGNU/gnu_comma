@@ -31,7 +31,6 @@ dnl ****************************************************************************
 dnl * Enable various compile time options.
 dnl ****************************************************************************
 
-
 dnl Enable verbose build.
 AC_ARG_ENABLE([verbosity],
               AS_HELP_STRING([--enable-verbosity],
@@ -66,9 +65,16 @@ AC_PROG_RANLIB
 AC_PATH_PROG(RM,   [rm],   [rm])
 AC_PATH_PROG(AR,   [ar],   [ar])
 AC_PATH_PROG(ECHO, [echo], [echo])
+AC_PATH_PROG(SED,  [sed],  [sed])
 
 AC_CHECK_PROG(XSLTPROC, xsltproc, xsltproc)
 
+dnl ****************************************************************************
+dnl * Check for libraries.
+dnl ****************************************************************************
+
+dnl Check for LLVM.
+AX_LIB_LLVM([2.4])
 
 dnl ****************************************************************************
 dnl * Create the output files.
@@ -76,6 +82,11 @@ dnl ****************************************************************************
 
 AC_CONFIG_FILES(Makefile.common)
 AC_CONFIG_FILES(Makefile)
+AC_CONFIG_FILES(lib/Makefile)
+AC_CONFIG_FILES(lib/ast/Makefile)
+AC_CONFIG_FILES(lib/basic/Makefile)
+AC_CONFIG_FILES(lib/parser/Makefile)
+AC_CONFIG_FILES(lib/typecheck/Makefile)
 AC_CONFIG_FILES(doc/Makefile)
 AC_CONFIG_FILES(doc/commaspec/Makefile)
 

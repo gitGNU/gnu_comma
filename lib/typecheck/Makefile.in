@@ -1,0 +1,18 @@
+##-- lib/typecheck/Makefile ----------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Indicates our relative path to the projects root directory.
+#
+LEVEL = ../..
+
+#
+# We are building a library.  The defaults are fine.
+#
+include $(LEVEL)/Makefile.common
+include $(makefiles)/library.mk

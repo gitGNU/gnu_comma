@@ -1,7 +1,6 @@
 ##-- comma/doc/commaspec/Makefile ----------------------------*- Makefile -*--##
 #
-# This file is distributed under the MIT License.  See LICENSE.txt for
-# details.
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
 # Copyright (C) 2008, Stephen Wilson
 #
@@ -41,7 +40,10 @@ else
 	                    $(XSL) $(XML)
 endif
 
+#
+# Cleanup everything.
+#
 .PHONY: clean
 
 clean:
-	$(verb) $(RM) -f $(prj_objdir)/*
+	$(verb) $(RM) -f $(prj_objdir)/*.html

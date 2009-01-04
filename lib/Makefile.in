@@ -1,7 +1,6 @@
-##-- Makefile ------------------------------------------------*- Makefile -*--##
+##-- lib/Makefile --------------------------------------------*- Makefile -*--##
 #
-# This file is distributed under the MIT License.  See LICENSE.txt for
-# details.
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
 # Copyright (C) 2008, Stephen Wilson
 #
@@ -10,12 +9,12 @@
 #
 # Indicates our relative path to the projects root directory.
 #
-LEVEL = .
+LEVEL = ..
 
 #
-# The top level Makefile simply recurses into all subdirectories.
+# We recurse into the following directories, in the following order.
 #
-DIRS=lib doc
+DIRS=basic parser ast typecheck
 
 #
 # Define our environment.

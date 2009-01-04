@@ -71,6 +71,23 @@ makefiles := $(prj_srcroot)/build
 verbose_build = @VERBOSE_BUILD@
 
 #
+# LLVM preprocessor flags.
+#
+llvm_cpp_flags = $(shell $(LLVM_CONFIG) --cppflags)
+
+#
+# Comma specific preprocessor flags.
+#
+comma_cpp_flags = -I $(comma_srcroot)/include
+
+#
+# Default preprocessor and compiler switches.
+#
+cpp_flags = $(llvm_cpp_flags) $(comma_cpp_flags) $(CPPFLAGS)
+cxx_flags = -g -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
+
+
+#
 # The following list of commands are required to build the system.
 #
 RM     := @RM@
@@ -78,7 +95,9 @@ MKDIR  := @MKDIR_P@
 RANLIB := @RANLIB@
 AR     := @AR@
 ECHO   := @@ECHO@
+SED    := @SED@
 
+LLVM_CONFIG := @LLVM_CONFIG@
 XSLTPROC := @XSLTPROC@
 
 #

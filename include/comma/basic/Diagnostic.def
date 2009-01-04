@@ -1,0 +1,52 @@
+//===-- basic/Diagnostic.def ---------------------------------- -*- C++ -*-===//
+//
+// This file is distributed under the MIT license.  See LICENSE.txt for details.
+//
+// Copyright (C) 2008, Stephen Wilson
+//
+//===----------------------------------------------------------------------===//
+
+//
+// Lexer diagnostics.
+//
+DIAGNOSTIC(ILLEGAL_ESCAPE, ERROR,
+           "Illegal escape sequence `\\%0'.")
+DIAGNOSTIC(UNTERMINATED_STRING, ERROR,
+           "String literal not terminated.")
+DIAGNOSTIC(NEWLINE_IN_STRING_LIT, ERROR,
+           "Illegal newline within string literal.")
+DIAGNOSTIC(LEADING_ZERO_IN_INTEGER_LIT, ERROR,
+           "Invalid integer literal (leading zero).")
+DIAGNOSTIC(INVALID_CHARACTER, ERROR,
+           "Invalid character `%0'.")
+
+//
+// Parser diagnostics.
+//
+DIAGNOSTIC(UNEXPECTED_TOKEN, ERROR,
+           "Unexpected token `%0'.")
+DIAGNOSTIC(UNEXPECTED_TOKEN_WANTED, ERROR,
+           "Unexpected token `%0', wanted `%1'.")
+DIAGNOSTIC(PREMATURE_EOS, ERROR,
+           "Premature end of stream.")
+DIAGNOSTIC(EXPECTED_END_TAG, ERROR,
+           "Expected end tag `%s'.")
+DIAGNOSTIC(ILLEGAL_EMPTY_PARAMS, ERROR,
+           "Illegal empty parameter list.")
+
+
+//
+// Semantic Diagnostics.
+//
+DIAGNOSTIC(DUPLICATE_FORMAL_PARAM, ERROR,
+           "Duplicate formal parameter `%0'.")
+DIAGNOSTIC(NOT_A_SIGNATURE, ERROR,
+           "`%0' does not denote a signature.")
+DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
+           "`%0' does not denote a domain.")
+DIAGNOSTIC(DOES_NOT_SATISFY, ERROR,
+           "`%0' does not satisfy `%0'.")
+DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
+           "The type `%0' is not visible.")
+DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
+           "Wrong number of arguments for type `%0'.")
