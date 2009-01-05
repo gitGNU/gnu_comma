@@ -91,7 +91,7 @@ public:
     bool isValid() const { return validFlag == true; }
 
     // Marks this node as invalid.
-    bool markInvalid() { validFlag = false; }
+    void markInvalid() { validFlag = false; }
 
     bool denotesDecl() const {
         return (FIRST_Decl <= this->getKind() &&
