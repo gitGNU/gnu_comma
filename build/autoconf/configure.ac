@@ -87,6 +87,8 @@ AC_CONFIG_FILES(lib/ast/Makefile)
 AC_CONFIG_FILES(lib/basic/Makefile)
 AC_CONFIG_FILES(lib/parser/Makefile)
 AC_CONFIG_FILES(lib/typecheck/Makefile)
+AC_CONFIG_FILES(tools/Makefile)
+AC_CONFIG_FILES(tools/driver/Makefile)
 AC_CONFIG_FILES(doc/Makefile)
 AC_CONFIG_FILES(doc/commaspec/Makefile)
 

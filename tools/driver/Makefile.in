@@ -1,0 +1,30 @@
+##-- tools/driver/Makefile -----------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Relative path to the top of the source tree.
+#
+LEVEL=../..
+
+#
+# Define the tool name.
+#
+tool_name = driver
+
+#
+# Define the llvm components on which we rely.
+#
+llvm_components = support
+
+#
+# Define the comma components on which we rely.
+#
+comma_components = typecheck parser ast basic
+
+include $(LEVEL)/Makefile.common
+include $(makefiles)/tool.mk

@@ -58,6 +58,11 @@ build_root := $(comma_objroot)/@target@
 libroot := $(build_root)/lib
 
 #
+# This variable specifies where tools should be placed during the build.
+#
+toolroot := $(build_root)/bin
+
+#
 # This variable specifies the location of generic Makefiles used to specify the
 # build process.
 #
