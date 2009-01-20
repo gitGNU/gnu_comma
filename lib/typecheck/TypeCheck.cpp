@@ -9,10 +9,6 @@
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Decl.h"
 #include "TypeEqual.h"
-#include <cstdarg>
-#include <cstdio>
-
-#include <iostream>
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -393,7 +389,7 @@ void TypeCheck::acceptSignatureComponentList(Node    *components,
                                              unsigned numComponents)
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
-    // ambiguity that can arrise is wrt conflicting argument selector sets.
+    // ambiguity that can arise is wrt conflicting argument selector sets.
     ensureNecessaryRedeclarations(getCurrentSignature());
 }
 
