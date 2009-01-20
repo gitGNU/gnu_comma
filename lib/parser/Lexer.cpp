@@ -19,87 +19,46 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
       errorDetected(false)
 { }
 
-const char *Lexer::tokenStrings[LAST_STATIC_CODE - FIRST_STATIC_CODE + 1] = {
-
-    //
-    // Strings for reserved words.
-    //
-    "add",                      // TKN_ADD
-    "begin",                    // TKN_BEGIN
-    "body",                     // TKN_BODY
-    "domain",                   // TKN_DOMAIN
-    "else",                     // TKN_ELSE
-    "elsif",                    // TKN_ELSIF
-    "end",                      // TKN_END
-    "for",                      // TKN_FOR
-    "function",                 // TKN_FUNCTION
-    "if",                       // TKN_IF
-    "is",                       // TKN_IS
-    "module",                   // TKN_MODULE
-    "repeat",                   // TKN_REPEAT
-    "return",                   // TKN_RETURN
-    "signature",                // TKN_SIGNATURE
-    "then",                     // TKN_THEN
-    "while",                    // TKN_WHILE
-    "with",                     // TKN_WITH
-
-    //
-    // Glyph strings.
-    //
-    ",",                        // TKN_COMMA
-    ":",                        // TKN_COLON
-    "::",                       // TKN_DCOLON
-    ".",                        // TKN_DOT
-    "=",                        // TKN_EQUAL
-    "-",                        // TKN_MINUS
-    "~=",                       // TKN_NEQUAL
-    "+",                        // TKN_PLUS
-    "=>",                       // TKN_RDARROW
-    ";",                        // TKN_SEMI
-    "*",                        // TKN_STAR
-    "~",                        // TKN_TILDE
-    ":=",                       // TKN_ASSIGN
-    "{",                        // TKN_LBRACE
-    "}",                        // TKN_RBRACE
-    "[",                        // TKN_LBRACK
-    "]",                        // TKN_RBRACK
-    "(",                        // TKN_LPAREN
-    ")",                        // TKN_RPAREN
-
-    //
-    // "special" tokens.
-    //
-    "%",                        // TKN_PERCENT
-    "<end of stream>"           // TKN_EOT
-};
-
-std::string Lexer::Token::getString() const
+const char *Lexer::Token::getString() const
 {
-    std::string result;
+    return Lexer::tokenString(*this);
+}
+
+const char *Lexer::tokenString(const Code code)
+{
+    const char *result;
 
     switch (code) {
-    case TKN_IDENTIFIER:
-    case TKN_INTEGER:
-    case TKN_STRING:
-        result.insert(0, string, length);
+    default:
+        result = 0;
         break;
 
-    default:
-        // If the token code has a staticly known string representation, the
-        // following call will retrieve it.  If there is no such representation,
-        // result will be set to NULL.
-        result = Lexer::tokenString(code);
+#define KEYWORD(NAME, STRING) case TKN_ ## NAME: result = STRING; break;
+#define GLYPH(NAME, STRING)   case TKN_ ## NAME: result = STRING; break;
+#include "comma/parser/Tokens.def"
+#undef KEYWORD
+#undef GLYPH
     }
 
     return result;
 }
 
-const char *Lexer::tokenString(Code code)
+const char *Lexer::tokenString(const Token &token)
 {
-    const char *result = 0;
+    const char *result;
+    Code code = token.getCode();
 
-    if (hasString(code))
-        return Lexer::tokenStrings[code - FIRST_STATIC_CODE];
+    switch (code) {
+    default:
+        result = tokenString(code);
+        break;
+
+    case TKN_IDENTIFIER:
+    case TKN_INTEGER:
+    case TKN_STRING:
+        result = token.getRep();
+        break;
+    }
 
     return result;
 }

@@ -1,0 +1,124 @@
+//===-- ast/Tokens.def ---------------------------------------- -*- C++ -*-===//
+//
+// This file is distributed under the MIT license.  See LICENSE.txt for details.
+//
+// Copyright (C) 2008, Stephen Wilson
+//
+//===----------------------------------------------------------------------===//
+//
+// Definitions for all token kinds and corresponding string literals.  This file
+// is designed to be #include'ed with one (or all) of the following macros
+// defined:
+//
+//   KEYWORD(name, string) :  Defines a language keyword token with the
+//   specified string as representation.
+//
+//   GLYPH(name, string) : Defines a glyph (seperator, delimiter, operator)
+//   with the specified string as representation.
+//
+//   TOKEN(name) : Defines literal tokens, identifiers, and all other tokens
+//   which do not have a static string representation.
+//
+//===----------------------------------------------------------------------===//
+
+// Give all macros empty expanders by default, and keep track of which macros we
+// have provided a default expansion for.  We clean up all default definitions
+// at the end of this file.
+
+#ifndef KEYWORD
+ #define KEYWORD(X, Y)
+ #define TOKENS_DEF_KWD_DEFINED
+#endif
+#ifndef GLYPH
+  #define GLYPH(X, Y)
+  #define TOKENS_DEF_GLYPH_DEFINED
+#endif
+#ifndef TOKEN
+  #define TOKEN(X)
+  #define TOKENS_DEF_TKN_DEFINED
+#endif
+
+KEYWORD(ADD,       "add")
+KEYWORD(BEGIN,     "begin")
+KEYWORD(DOMAIN,    "domain")
+KEYWORD(ELSE,      "else")
+KEYWORD(ELSIF,     "elsif")
+KEYWORD(END,       "end")
+KEYWORD(FOR,       "for")
+KEYWORD(FUNCTION,  "function")
+KEYWORD(IF,        "if")
+KEYWORD(IS,        "is")
+KEYWORD(MODULE,    "module")
+KEYWORD(REPEAT,    "repeat")
+KEYWORD(RETURN,    "return")
+KEYWORD(SIGNATURE, "signature")
+KEYWORD(THEN,      "then")
+KEYWORD(WHILE,     "while")
+KEYWORD(WITH,      "with")
+
+GLYPH(COMMA,   ",")
+GLYPH(COLON,   ":")
+GLYPH(DOT,     ".")
+GLYPH(SEMI,    ";")
+GLYPH(BANG,    "!")
+GLYPH(PERCENT, "%")
+GLYPH(AMPER,   "&")
+GLYPH(POUND,   "#")
+GLYPH(STAR,    "*")
+GLYPH(PLUS,    "+")
+GLYPH(MINUS,   "-")
+GLYPH(LESS,    "<")
+GLYPH(EQUAL,   "=")
+GLYPH(GREAT,   ">")
+GLYPH(AT,      "@")
+GLYPH(BSLASH,  "\\")
+GLYPH(HAT,     "^")
+GLYPH(GRAVE,   "`")
+GLYPH(BAR,     "|")
+GLYPH(FSLASH,  "/")
+
+GLYPH(LPAREN,  "(")
+GLYPH(RPAREN,  ")")
+GLYPH(LBRACK,  "[")
+GLYPH(RBRACK,  "]")
+GLYPH(LBRACE,  "{")
+GLYPH(RBRACE,  "}")
+
+GLYPH(DDOT,    "..")
+GLYPH(RDARROW, "=>")
+GLYPH(DCOLON,  "::")
+GLYPH(LARROW,  "<-")
+GLYPH(RARROW,  "->")
+GLYPH(LEQ,     "<=")
+GLYPH(DIAMOND, "<>")
+GLYPH(DLESS,   "<<")
+GLYPH(DEQUAL,  "==")
+GLYPH(GEQ,     ">=")
+GLYPH(DGREAT,  ">>")
+GLYPH(DBAR,    "||")
+GLYPH(TILDE,   "~")
+GLYPH(NEQUAL,  "~=")
+GLYPH(ASSIGN,  ":=")
+GLYPH(EOT,     "<EOT>")
+GLYPH(ERROR,   "<ERROR>")
+
+TOKEN(IDENTIFIER)
+TOKEN(INTEGER)
+TOKEN(FLOAT)
+TOKEN(STRING)
+TOKEN(CHARACTER)
+
+// Clean up default macro definitions.
+#ifdef TOKENS_DEF_KWD_DEFINED
+  #undef KEYWORD
+  #undef TOKENS_DEF_KWD_DEFINED
+#endif
+#ifdef TOKENS_DEF_GLYPH_DEFINED
+  #undef GLYPH
+  #undef TOKENS_DEF_GLYPH_DEFINED
+#endif
+#ifdef TOKENS_DEF_TKN_DEFINED
+  #undef TOKEN
+  #undef TOKENS_DEF_TKN_DEFINED
+#endif
+

@@ -30,69 +30,22 @@ public:
     enum Code {
         UNUSED_ID,
 
-        FIRST_KEYWORD,
-        FIRST_STATIC_CODE = FIRST_KEYWORD,
+#define KEYWORD(NAME, STRING) TKN_ ## NAME,
+#define GLYPH(NAME, STRING)   TKN_ ## NAME,
+#define TOKEN(NAME)           TKN_ ## NAME,
+#include "comma/parser/Tokens.def"
+#undef KEYWORD
+#undef GLYPH
+#undef TOKEN
 
-        TKN_ADD           = FIRST_KEYWORD,
-        TKN_BEGIN,
-        TKN_BODY,
-        TKN_DOMAIN,
-        TKN_ELSE,
-        TKN_ELSIF,
-        TKN_END,
-        TKN_FOR,
-        TKN_FUNCTION,
-        TKN_IF,
-        TKN_IS,
-        TKN_MODULE,
-        TKN_REPEAT,
-        TKN_RETURN,
-        TKN_SIGNATURE,
-        TKN_THEN,
-        TKN_WHILE,
-        TKN_WITH,
-
-        LAST_KEYWORD      = TKN_WITH,
-        FIRST_GLYPH,
-
-        TKN_COMMA         = FIRST_GLYPH,
-        TKN_COLON,
-        TKN_DCOLON,
-        TKN_DOT,
-        TKN_EQUAL,
-        TKN_MINUS,
-        TKN_NEQUAL,
-        TKN_PLUS,
-        TKN_RDARROW,
-        TKN_SEMI,
-        TKN_STAR,
-        TKN_TILDE,
-        TKN_ASSIGN,
-        TKN_LBRACE,
-        TKN_RBRACE,
-        TKN_LBRACK,
-        TKN_RBRACK,
-        TKN_LPAREN,
-        TKN_RPAREN,
-
-        LAST_GLYPH        = TKN_RPAREN,
-
-        TKN_PERCENT,
-        TKN_EOT,
-
-        LAST_STATIC_CODE  = TKN_EOT,
-
-        TKN_IDENTIFIER,
-        TKN_STRING,
-        TKN_INTEGER,
-        TKN_FLOAT,
-        TKN_CHARACTER
+        NUMTOKEN_CODES
     };
 
     // The Token class represents the result of lexing process.  Tokens are
     // identified by code.  They provide access to their underlying string
-    // representation, and have position information in the form of line and
-    // column (1-based) coordinates.
+    // representation, and have position information in the form of a single
+    // Location entry (which must be interpreted with respect to a particular
+    // TextProvider).
     class Token {
 
     public:
@@ -106,11 +59,9 @@ public:
 
         unsigned getLength() const { return length; }
 
-        // This method provides a string representation of the token. The only
-        // tokens which do not have string representations are TKN_EOT,
-        // TKN_ERROR, and UNUSED_ID.  When called on any one of these codes this
-        // method returns 0.
-        std::string getString() const;
+        // This method provides a string representation of the token. If the
+        // token does not have a string representation, NULL is returned.
+        const char *getString() const;
 
     private:
         Lexer::Code code   : 8;
@@ -140,22 +91,6 @@ public:
     // Returns true if the lexer has seen an error while scanning its input.
     bool seenError() const { return errorDetected; }
 
-    static bool isReservedWord(Lexer::Code code) {
-        return (FIRST_KEYWORD <= code && code <= LAST_KEYWORD);
-    }
-
-    static bool isReservedWord(const Lexer::Token &tkn) {
-        return isReservedWord(tkn.getCode());
-    }
-
-    static bool isGlyph(Lexer::Code code) {
-        return (FIRST_GLYPH <= code && code <= LAST_GLYPH);
-    }
-
-    static bool isGlyph(const Lexer::Token &tkn) {
-        return isGlyph(tkn.getCode());
-    }
-
     // Returns true if the given token is a glyph and it can name a function
     // (e.g. '+', '*', etc).
     static bool isFunctionGlyph(const Lexer::Token &tkn) {
@@ -172,20 +107,13 @@ public:
         }
     }
 
-    // Returns true if the given code has a known string representation.
-    static bool hasString(Lexer::Code code) {
-        return (FIRST_STATIC_CODE <= code && code <= LAST_STATIC_CODE);
-    }
-
-    static bool hasString(const Lexer::Token &tkn) {
-        return hasString(tkn.getCode());
-    }
-
+    // Returns a static string representation of the given token code, or NULL
+    // if no such representation is available.
     static const char *tokenString(Code code);
 
-    static const char *tokenString(const Lexer::Token &tkn) {
-        return tokenString(tkn.getCode());
-    }
+    // Returns the string representation of the given token, or NULL if no such
+    // representation is available.
+    static const char *tokenString(const Token &tkn);
 
 private:
     bool eatWhitespace();
@@ -273,10 +201,6 @@ private:
     // The token parameter supplied to scan() is maintained here.  This is
     // the destination of the lexing methods.
     Token *targetToken;
-
-    // Static storage for all tokens with a predefined string
-    // representation.
-    static const char *tokenStrings[LAST_STATIC_CODE - FIRST_STATIC_CODE + 1];
 };
 
 } // End comma namespace
