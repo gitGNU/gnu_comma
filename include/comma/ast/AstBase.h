@@ -50,37 +50,54 @@ class TypeDecl;
 class VarietyDecl;
 class VarietyType;
 
-//
-//  The Ast class is the root of the ast hierarchy.
-//
+/// \class Ast
+/// \brief The root of the AST hierarchy.
+///
+///  The Ast class is a common root of all AST nodes in the system, but it is
+///  perhaps better to think of the immediate sub-classes of Ast as being the
+///  real roots of set of hierarchies.  The main components, currently, are
+///  rooted by the Type and Decl nodes.  The former begins a hierarchy of types,
+///  whereas the latter correspond to declarations and definitions.
+///
 class Ast {
 
 public:
+    /// \brief Codes which identify unique members of the AST hierarchy.
+    ///
+    /// Each concrete sub-class has an code which labels its identity.  These
+    /// codes are used, in the main, to implement the LLVM mechanisms for type
+    /// identification and casting (llvm::isa, llvm::dyn_cast, etc).
+    ///
+    /// Codes which do not begin with the prefix AST_ are considered to be
+    /// internal to this enumeration (e.g. FIRST_Decl, LAST_Decl, etc). These
+    /// codes should not be used directly and are subject to change.  Instead,
+    /// use the provided predicate methods such as Ast::denotesDecl,
+    /// Ast::denotesType, etc.
     enum AstKind {
 
         //
-        // Decls
+        // Decl nodes.
         //
-        AST_SignatureDecl,
-        AST_DomainDecl,
-        AST_VarietyDecl,
-        AST_FunctorDecl,
-        AST_FunctionDecl,
+        AST_SignatureDecl,      ///< SignatureDecl
+        AST_DomainDecl,         ///< DomainDecl
+        AST_VarietyDecl,        ///< VarietyDecl
+        AST_FunctorDecl,        ///< FunctorDecl
+        AST_FunctionDecl,       ///< FunctionDecl
 
         //
-        // Types
+        // Type nodes.
         //
-        AST_SignatureType,
-        AST_VarietyType,
-        AST_FunctorType,
-        AST_DomainType,
-        AST_ConcreteDomainType,
-        AST_AbstractDomainType,
-        AST_PercentType,
-        AST_FunctionType,
+        AST_SignatureType,      ///< SignatureType
+        AST_VarietyType,        ///< VarietyType
+        AST_FunctorType,        ///< FunctorType
+        AST_DomainType,         ///< DomainType
+        AST_ConcreteDomainType, ///< ConcreteDomainType
+        AST_AbstractDomainType, ///< AbstractDomainType
+        AST_PercentType,        ///< PercentType
+        AST_FunctionType,       ///< FunctionType
 
         //
-        // Delimiters classifying the above tags.
+        // Delimitiers providing classification of the above codes.
         //
         FIRST_Decl      = AST_SignatureDecl,
         LAST_Decl       = AST_FunctionDecl,
@@ -97,52 +114,68 @@ public:
 
     virtual ~Ast() { }
 
-    // Returns the kind of this node.
+    /// \brief  Accesses the code identifying this node.
     AstKind getKind() const { return kind; }
 
-    // Returns a location object for this node.  If no location information is
-    // available, or if this node was created internally by the compiler, a
-    // location object for which isValid() is true is returned.
+    /// \brief Accesses the location of this node.
+    ///
+    /// If no location information is available, or if this node was created
+    /// internally by the compiler, an invalid location object (queriable by
+    /// Location::isValid()) is returned.
     virtual Location getLocation() const { return Location(); }
 
-    // Returns true if this node is valid.
+    /// \brief Returns true if this node is valid.
+    ///
+    /// The validity of a node does not have an inforced semantics.  The Ast
+    /// classes themselves never consult the validity bit.  Nodes are marked
+    /// invalid by a client of the Ast (for example, the type checker) and the
+    /// meaning of such a mark is left for the client to decide.
     bool isValid() const { return validFlag == true; }
 
-    // Marks this node as invalid.
+    /// \brief Marks this node as invalid.
     void markInvalid() { validFlag = false; }
 
-    // Returns true if one may call "delete" on this node.  Certain nodes are
-    // not deletable since they are allocated in special containers which
-    // perform memoization or manage memory in a special way.  Always test if a
-    // node is deletable.
+    /// \brief Returns true if one may call std::delete on this node.
+    ///
+    /// Certain nodes are not deletable since they are allocated in special
+    /// containers which perform memoization or manage memory in a special way.
+    ///
+    /// \note  This property is likely to disappear in the future.
     bool isDeletable() const { return deletable; }
 
+    /// \brief Returns true if this node denotes a declaration.
     bool denotesDecl() const {
         return (FIRST_Decl <= this->getKind() &&
                 this->getKind() <= LAST_Decl);
     }
 
+    /// \brief Returns true if this node denotes a declaration which also
+    /// describes a type (i.e. SignatureDecl, DomainDecl, etc).
     bool denotesTypeDecl() const {
         return (FIRST_TypeDecl <= this->getKind() &&
                 this->getKind() <= LAST_TypeDecl);
     }
 
+    /// \brief Returns true if this node denotes a Model.
     bool denotesModelDecl() const {
         return (FIRST_ModelDecl <= this->getKind() &&
                 this->getKind() <= LAST_ModelDecl);
     }
 
+    /// \brief Returns true if this node denotes a Type.
     bool denotesType() const {
         return (FIRST_Type <= this->getKind() &&
                 this->getKind() <= LAST_Type);
     }
 
+    /// \brief Returns true if this node denotes a domain type.
     bool denotesDomainType() const {
         return (kind == AST_ConcreteDomainType ||
                 kind == AST_AbstractDomainType ||
                 kind == AST_PercentType);
     }
 
+    /// \brief Returns true if this node denotes a model type.
     bool denotesModelType() const {
         return (denotesDomainType()       ||
                 kind == AST_SignatureType ||
@@ -150,19 +183,23 @@ public:
                 kind == AST_FunctorType);
     }
 
-    // Support isa and dyn_cast.
+    /// \brief Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }
 
 protected:
+    /// \brief Initializes an Ast node of the specified kind.
+    ///
+    /// \param  kind  The kind of node to create.
     Ast(AstKind kind)
         : kind(kind),
           validFlag(true),
           deletable(true) { }
 
-    AstKind  kind      : 8;
-    bool     validFlag : 1;     // Is this node valid?
-    bool     deletable : 1;     // Can we call delete on this node?
-    unsigned bits      : 23;
+
+    AstKind  kind      : 8;     ///< The kind of this node.
+    bool     validFlag : 1;     ///< True if this node is valid.
+    bool     deletable : 1;     ///< True if we may call delete on this node.
+    unsigned bits      : 23;    ///< Unused bits.
 };
 
 } // End comma namespace.
