@@ -464,6 +464,18 @@ FunctionDecl *findComponent(const AstRewriter &rewrites,
 
 void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
 {
+    // We scan the set of declarations for each direct super signature of sig.
+    // When a declaration is found which is not already declared in sig, we add
+    // it on good faith that all upcoming declarations will not conflict.
+    //
+    // When a conflict occurs (that is, when two declarations exists with the
+    // same name and type but have disjoint selector sets) we remember which
+    // (non-direct) declarations in sig need an explicit redeclaration using the
+    // following SmallPtrSet.  Once all the declarations are processed, we
+    // iterate over the set and remove any declarations found to be in conflict.
+    typedef llvm::SmallPtrSet<FunctionDecl*, 4> BadDeclSet;
+    BadDeclSet badDecls;
+
     Sigoid::sig_iterator superIter    = sig->beginDirectSupers();
     Sigoid::sig_iterator endSuperIter = sig->endDirectSupers();
     for ( ; superIter != endSuperIter; ++superIter) {
@@ -477,23 +489,23 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         Sigoid::ComponentIter iter    = sigdecl->beginComponents();
         Sigoid::ComponentIter endIter = sigdecl->endComponents();
         for ( ; iter != endIter; ++iter) {
-            IdentifierInfo *name  = iter->first;
-            FunctionDecl   *fdecl = iter->second;
-            FunctionType   *ftype = fdecl->getFunctionType();
-
-            FunctionDecl *component = findComponent(rewrites, sig, fdecl);
+            IdentifierInfo *name      = iter->first;
+            FunctionDecl   *fdecl     = iter->second;
+            FunctionType   *ftype     = fdecl->getFunctionType();
+            FunctionDecl   *component = findComponent(rewrites, sig, fdecl);
 
             if (component) {
                 FunctionType *componentType = component->getFunctionType();
 
-                // If the component is a direct declaration, then the
-                // component overrides the decl originating from the super
-                // signature.  Otherwise, the selectors must match.
+                // If the component is a direct declaration, then the component
+                // overrides the decl originating from the super signature.
+                // Otherwise, the selectors must match.
                 if (!component->isTypeContext(sig->getPercent()) &&
                     !componentType->selectorsMatch(ftype)) {
-                    report(component->getLocation(),
-                           diag::MISSING_REDECLARATION)
+                    Location loc = component->getLocation();
+                    report(loc, diag::MISSING_REDECLARATION)
                         << component->getString();
+                    badDecls.insert(component);
                 }
             }
             else {
@@ -503,6 +515,16 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                     new FunctionDecl(name, rewriteType, super, 0);
                 sig->addComponent(rewriteDecl);
             }
+        }
+
+        // Remove and clean up memory for each inherited node found to require a
+        // redeclaration.
+        for (BadDeclSet::iterator iter = badDecls.begin();
+             iter != badDecls.end();
+             ++iter) {
+            FunctionDecl *badDecl = *iter;
+            sig->removeComponent(badDecl);
+            delete badDecl;
         }
     }
 }
