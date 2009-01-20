@@ -637,6 +637,8 @@ build_os
 build_vendor
 build_cpu
 build
+ENABLE_DOXYGEN
+DOXYGEN
 VERBOSE_BUILD
 target_alias
 host_alias
@@ -679,6 +681,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_verbosity
+enable_doxygen
 with_llvm
 '
       ac_precious_vars='build_alias
@@ -1320,6 +1323,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-verbosity      Echo compilation commands during build (default is
                           "no")
+  --enable-doxygen        Build Doxygen documentation (default is "no")
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1844,6 +1848,72 @@ case "$enableval" in
 $as_echo "$as_me: error: Invalid setting for --enable-verbosity. Use \"yes\" or \"no\"" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
+
+# Check whether --enable-doxygen was given.
+if test "${enable_doxygen+set}" = set; then
+  enableval=$enable_doxygen;
+else
+  enableval=no
+fi
+
+
+case "$enableval" in
+   yes) # Extract the first word of "doxygen", so it can be a program name with args.
+set dummy doxygen; ac_word=$2
+{ $as_echo "$as_me:$LINENO: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_DOXYGEN+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  case $DOXYGEN in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_DOXYGEN="$DOXYGEN" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_DOXYGEN="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+DOXYGEN=$ac_cv_path_DOXYGEN
+if test -n "$DOXYGEN"; then
+  { $as_echo "$as_me:$LINENO: result: $DOXYGEN" >&5
+$as_echo "$DOXYGEN" >&6; }
+else
+  { $as_echo "$as_me:$LINENO: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+        if test -z "$DOXYGEN"; then
+           { { $as_echo "$as_me:$LINENO: error: Could not detect doxygen. Disabling.." >&5
+$as_echo "$as_me: error: Could not detect doxygen. Disabling.." >&2;}
+   { (exit 1); exit 1; }; }
+           ENABLE_DOXYGEN=0
+
+        else
+           ENABLE_DOXYGEN=1
+
+        fi; ;;
+   no)  ENABLE_DOXYGEN=0
+ ;;
+   *)   { { $as_echo "$as_me:$LINENO: error: Invalid setting for --enable-doxygen. Use \"yes\" or \"no\"" >&5
+$as_echo "$as_me: error: Invalid setting for --enable-doxygen. Use \"yes\" or \"no\"" >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac;
 
 
 # Make sure we can run config.sub.
@@ -3692,6 +3762,13 @@ ac_config_files="$ac_config_files doc/Makefile"
 
 ac_config_files="$ac_config_files doc/commaspec/Makefile"
 
+ac_config_files="$ac_config_files doc/doxygen/Makefile"
+
+
+if test "$ENABLE_DOXYGEN" -eq 1 ; then
+  ac_config_files="$ac_config_files doc/doxygen/doxygen.cfg"
+
+fi;
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -4314,6 +4391,8 @@ do
     "tools/driver/Makefile") CONFIG_FILES="$CONFIG_FILES tools/driver/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "doc/commaspec/Makefile") CONFIG_FILES="$CONFIG_FILES doc/commaspec/Makefile" ;;
+    "doc/doxygen/Makefile") CONFIG_FILES="$CONFIG_FILES doc/doxygen/Makefile" ;;
+    "doc/doxygen/doxygen.cfg") CONFIG_FILES="$CONFIG_FILES doc/doxygen/doxygen.cfg" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
