@@ -15,6 +15,7 @@
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Cunit.h"
 #include "comma/ast/Scope.h"
+#include "comma/ast/AstResource.h"
 #include "llvm/Support/Casting.h"
 #include <iosfwd>
 
@@ -23,50 +24,66 @@ namespace comma {
 class TypeCheck : public Bridge {
 
 public:
-    TypeCheck(Diagnostic &diag,
-              TextProvider &tp,
+    TypeCheck(Diagnostic      &diag,
+              AstResource     &resource,
               CompilationUnit *cunit);
 
     ~TypeCheck();
 
-    // Processing of models begin with a call to beginModelDefinition,
-    // and completed with a call to endModelDefinition.
-    void beginModelDefinition(DefinitionKind kind,
-                              IdentifierInfo *id, Location location);
+    void beginSignatureDefinition(IdentifierInfo *name, Location location);
+    void beginDomainDefinition(IdentifierInfo *name, Location location);
     void endModelDefinition();
 
     // Called immediately after a model definition has been registered.  This
     // call defines a formal parameter of the model (which must be either a
-    // functor or variety). The order of the calls determines the shape of the
-    // models formal parameter list.
-    void acceptModelParameter(IdentifierInfo * formal,
-                              Node type, Location loc);
+    // functor or variety).
+    Node acceptModelParameter(IdentifierInfo *formal, Node type, Location loc);
 
-    // Once the formal parameters have been accepted, this function is called to
-    // begin processing of a models supersignature list.
-    void beginModelSupersignatures();
+    // Once parameter parsing is complete, all nodes returned by calls to
+    // acceptModelParameter are provided to the type checker.
+    void acceptModelParameterList(Node *params, Location *locs, unsigned arity);
 
     // For each supersignature, this function is called to notify the type
     // checker of the existance of a supersignature.
-    void acceptModelSupersignature(Node type, const Location loc);
+    Node acceptModelSupersignature(Node typeNode, Location loc);
 
-    // Called immediately after all supersignatures have been processed.
-    void endModelSupersignatures();
+    // Once the list of supersignatures have been parsed, all nodes returned by
+    // calls to acceptModelSupersignature are provided to the type checker.
+    void acceptModelSupersignatureList(Node *sigs, unsigned numSigs);
+
+    Node acceptSignatureComponent(IdentifierInfo *name,
+                                  Node typeNode, Location loc);
+
+    void acceptSignatureComponentList(Node    *components,
+                                      unsigned numComponents);
 
     Node acceptPercent(Location loc);
 
     Node acceptTypeIdentifier(IdentifierInfo *info, Location loc);
 
-    Node acceptTypeApplication(IdentifierInfo *connective,
-                               Node *arguments, unsigned numArgs,
-                               Location loc);
+    Node acceptTypeApplication(IdentifierInfo  *connective,
+                               Node            *arguments,
+                               Location        *argumentLocs,
+                               unsigned         numArgs,
+                               IdentifierInfo **selectors,
+                               Location        *selectorLocs,
+                               unsigned         numSelectors,
+                               Location         loc);
+
+    Node acceptFunctionType(IdentifierInfo **formals,
+                            Location        *formalLocations,
+                            Node            *types,
+                            Location        *typeLocations,
+                            unsigned         arity,
+                            Node             returnType,
+                            Location         returnLocation);
 
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 
 private:
     Diagnostic &diagnostic;
-    TextProvider &txtProvider;
+    AstResource &resource;
     CompilationUnit *compUnit;
 
     // Lifts a Node to the corresponding Ast type.  If the node is not of the
@@ -76,13 +93,29 @@ private:
         return llvm::dyn_cast_or_null<T>(Node::lift<Ast>(node));
     }
 
+    struct ModelInfo {
+        Ast::AstKind    kind;
+        IdentifierInfo *name;
+        Location        location;
+        ModelDecl      *decl;
+
+        ModelInfo(Ast::AstKind kind, IdentifierInfo *name, Location loc)
+            : kind(kind), name(name), location(loc), decl(0) { }
+    };
+
+    ModelInfo *currentModelInfo;
+
+    ModelDecl *getCurrentModel() const {
+        return currentModelInfo->decl;
+    }
+
+    Sigoid *getCurrentSignature() const;
+
     // The top level scope is a compilation unit scope and never changes during
     // analysis.  The current scope is some inner scope of the top scope and
     // reflects the current state of the analysis.
     Scope *topScope;
     Scope *currentScope;
-
-    ModelDecl *currentModel;
 
     unsigned errorCount;
 
@@ -92,17 +125,12 @@ private:
         return currentScope->getKind();
     }
 
-    void pushModelScope(ModelDecl *model) {
+    void pushModelScope() {
         currentScope = currentScope->pushScope(Scope::MODEL_SCOPE);
-        currentModel = model;
     }
 
     void popModelScope() {
-        // FIXME: This function should restore the model context that existed
-        // before the corresponding call to pushModelScope().  For now this is
-        // not an issue as we do not support nested model definitions.
         popScope();
-        currentModel = 0;
     }
 
     void popScope() {
@@ -117,24 +145,33 @@ private:
     // Lookup operations.
     //===------------------------------------------------------------------===//
 
-    void addModel(ModelDecl *model) {
-        currentScope->addModel(model);
+    void addType(ModelType *type) {
+        currentScope->addType(type);
     }
 
-    ModelDecl *lookupModel(IdentifierInfo *info) {
-        return currentScope->lookupModel(info);
+    ModelType *lookupType(IdentifierInfo *info, bool traverse = true) {
+        return currentScope->lookupType(info, traverse);
     }
 
     //===------------------------------------------------------------------===//
     // Utility functions.
     //===------------------------------------------------------------------===//
 
-    bool checkDuplicateFormalParameters(
-        const std::vector<IdentifierInfo *>& formals,
-        const std::vector<Location> &formalLocations);
+    void ensureNecessaryRedeclarations(Sigoid *sig);
 
-    DiagnosticStream &report(Location loc, diag::Kind kind) {
-        SourceLocation sloc = txtProvider.getSourceLocation(loc);
+    DomainType *ensureDomainType(Node typeNode, Location loc) const;
+
+    static SignatureType *resolveArgumentType(ParameterizedType *target,
+                                              DomainType **actuals,
+                                              unsigned numActuals);
+
+    bool has(DomainType *source, SignatureType *target);
+    bool has(ConcreteDomainType *source, SignatureType *target);
+    bool has(AbstractDomainType *source, SignatureType *target);
+    bool has(PercentType *source, SignatureType *target);
+
+    DiagnosticStream &report(Location loc, diag::Kind kind) const {
+        SourceLocation sloc = resource.getTextProvider().getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 };

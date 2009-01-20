@@ -35,7 +35,7 @@ $(prj_objdir)/%.o: $(prj_srcdir)/%.cpp
 	$(CXX) -MM $(cpp_flags) -o $*.d $<;    \
 	$(CXX) $(cpp_flags) $(cxx_flags) -c -Wall $< -o $@
 
--include $(prj_objects:.o=.d)
+-include $(prj_depends)
 
 #
 # Extend the clean target to handle the generated object and dependency files.

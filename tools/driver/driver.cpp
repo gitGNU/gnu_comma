@@ -7,6 +7,7 @@
 #include "comma/parser/Parser.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Ast.h"
+#include "comma/ast/AstResource.h"
 #include "llvm/System/Path.h"
 #include <iostream>
 #include <fstream>
@@ -23,14 +24,14 @@ int main(int argc, const char **argv)
         return 1;
     }
     llvm::sys::Path path(argv[1]);
+    IdentifierPool idPool;
     TextProvider tp(path);
+    AstResource resource(tp, idPool);
     CompilationUnit cu(path);
-    TypeCheck tc(diag, tp, &cu);
-    Parser p(tp, tc, diag);
+    TypeCheck tc(diag, resource, &cu);
+    Parser p(tp, idPool, tc, diag);
 
     while(p.parseTopLevelDeclaration());
 
     return 0;
 }
-
-IdentifierPool IdentifierPool::spool;

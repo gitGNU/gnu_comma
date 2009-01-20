@@ -11,10 +11,10 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Type.h"
-#include "comma/ast/ParamList.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include <vector>
+#include <map>
 
 namespace comma {
 
@@ -27,7 +27,7 @@ class Decl : public Ast {
 public:
     virtual ~Decl() { };
 
-    // Retuns the IdentifierInfo object associated with this decl, or NULL if
+    // Returns the IdentifierInfo object associated with this decl, or NULL if
     // this is an anonymous decl.
     IdentifierInfo *getIdInfo() const { return idInfo; }
 
@@ -82,6 +82,12 @@ protected:
 //
 // Models represent those attributes and characteristics which both signatures
 // and domains share.
+//
+// The constructors of a ModelDecl (and of all sub-classes) take an
+// IdentifierInfo node as a parameter which is asserted to resolve to "%".  This
+// additional parameter is necessary since the Ast classes cannot create
+// IdentifierInfo's on their own -- we do not have access to a global
+// IdentifierPool with which to create them.
 class ModelDecl : public TypeDecl {
 
 public:
@@ -95,28 +101,10 @@ public:
         return kind == AST_VarietyDecl || kind == AST_FunctorDecl;
     }
 
-    PercentType *getPercent() { return percent; }
+    PercentType *getPercent() const { return percent; }
 
-    ParameterizedModel *getParameterizedModel();
-
-    bool isTypeComplete() const { return typeComplete; }
-    void setTypeComplete() { typeComplete = true; }
-
-
-    struct Assumption {
-        Assumption(SignatureType *type, Location loc)
-            : type(type), loc(loc) { }
-        SignatureType *type;
-        Location loc;
-    };
-
-    void addAssumption(SignatureType *type, Location loc) {
-        assumptions.push_back(Assumption(type, loc));
-    }
-
-    typedef std::vector<Assumption>::const_iterator assumption_iterator;
-    assumption_iterator beginAssumptions() const { return assumptions.begin(); }
-    assumption_iterator endAssumptions()   const { return assumptions.end(); }
+    // Returns the type of this model.
+    virtual ModelType *getType() const = 0;
 
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
@@ -127,56 +115,18 @@ public:
 protected:
     // Creates an anonymous Model.  Note that anonymous models do not have valid
     // location information as they never correspond to a source level construct.
-    ModelDecl(AstKind kind);
+    ModelDecl(AstKind kind, IdentifierInfo *percentId);
 
-    ModelDecl(AstKind kind, IdentifierInfo *info, const Location &loc);
+    ModelDecl(AstKind         kind,
+              IdentifierInfo *percentId,
+              IdentifierInfo *name,
+              const Location &loc);
 
     // Location information provided by the constructor.
     Location location;
 
     // Percent node for this decl.
     PercentType *percent;
-
-    bool typeComplete;
-
-    std::vector<Assumption> assumptions;
-};
-
-//===----------------------------------------------------------------------===//
-// ParameterizedModel
-//
-// Mixin class for signatures and domains which are parameterized.
-class ParameterizedModel {
-
-public:
-    virtual ~ParameterizedModel() { }
-
-    // Adds a formal parameter to the model.  The order in which this function
-    // is called determines the order of the formal parameter list.
-    void addParameter(IdentifierInfo *formal,
-                      SignatureType *type, DomainType *dom) {
-        params.addParameter(formal, type);
-        formalDomains.push_back(dom);
-    }
-
-    unsigned getArity() const { return formalDomains.size(); }
-
-    DomainType *getFormalDomain(unsigned i) const {
-        assert(i < getArity());
-        return formalDomains[i];
-    }
-
-    // Returns the parameter list of this model.
-    ParameterList *getFormalParams() { return &params; }
-    const ParameterList *getFormalParams() const { return &params; }
-
-    virtual ModelType *getCorrespondingType(ModelType **args,
-                                            unsigned numArgs) = 0;
-
-protected:
-    // The parameterization of this model.
-    ParameterList params;
-    std::vector<DomainType *> formalDomains;
 };
 
 //===----------------------------------------------------------------------===//
@@ -187,22 +137,68 @@ protected:
 class Sigoid : public ModelDecl {
 
 public:
-    Sigoid(AstKind kind) : ModelDecl(kind) { }
+    Sigoid(AstKind kind, IdentifierInfo *percentId)
+        : ModelDecl(kind, percentId) { }
 
-    Sigoid(AstKind kind, IdentifierInfo *idInfo, Location loc)
-        : ModelDecl(kind, idInfo, loc) { }
+    Sigoid(AstKind         kind,
+           IdentifierInfo *percentId,
+           IdentifierInfo *idInfo,
+           Location        loc)
+        : ModelDecl(kind, percentId, idInfo, loc) { }
 
     virtual ~Sigoid() { }
+
+    // If this is a SignatureDecl, returns this cast to the refined type,
+    // otherwise returns NULL.
+    SignatureDecl *getSignature();
+
+    // If this is a VarietyDecl, returns this cast to the refined type,
+    // otherwise returns NULL.
+    VarietyDecl *getVariety();
+
 protected:
-    typedef llvm::SmallPtrSet<SignatureType*, 4> DirectSigTable;
-    DirectSigTable directSupers;
+    typedef llvm::SmallPtrSet<SignatureType*, 8> SignatureTable;
+    SignatureTable directSupers;
+    SignatureTable supersignatures;
 
 public:
+    // Adds a direct super signature.
     void addSupersignature(SignatureType *supersignature);
 
-    typedef DirectSigTable::const_iterator sig_iterator;
+    typedef SignatureTable::const_iterator sig_iterator;
     sig_iterator beginDirectSupers() const { return directSupers.begin(); }
     sig_iterator endDirectSupers()   const { return directSupers.end(); }
+
+    sig_iterator beginSupers() const { return supersignatures.begin(); }
+    sig_iterator endSupers()   const { return supersignatures.end(); }
+
+protected:
+    typedef std::multimap<IdentifierInfo*, FunctionDecl*> ComponentTable;
+    ComponentTable components;
+
+public:
+    typedef ComponentTable::iterator ComponentIter;
+    ComponentIter beginComponents() { return components.begin(); }
+    ComponentIter endComponents()   { return components.end(); }
+
+    // Adds a declaration to the set of components for this sigoid.
+    void addComponent(FunctionDecl *fdecl);
+
+    FunctionDecl *findComponent(IdentifierInfo *name,
+                                FunctionType *ftype);
+
+    FunctionDecl *findDirectComponent(IdentifierInfo *name,
+                                      FunctionType *ftype);
+
+
+    typedef std::pair<ComponentIter, ComponentIter> ComponentRange;
+    ComponentRange findComponents(IdentifierInfo *name) {
+        return components.equal_range(name);
+    }
+
+    // Removes the given component from this sigoid.  Returns true if the given
+    // function decl existed and was successfully removed.
+    bool removeComponent(FunctionDecl *fdecl);
 
     static bool classof(const Sigoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -214,42 +210,18 @@ public:
 //===----------------------------------------------------------------------===//
 // SignatureDecl
 //
-// This class defines signature declarations.
-//
-// FIXME: Signatures can be anonymous.  But anonymous signatures are used only
-// to represent the priciple signatures of DomainDecl's.  The correct fix seems
-// to be to have a seperated class AnonymousSignature, or perhaps even
-// PrincipleSignature, which does not inherit from NamedDecl.
+// This class defines (non-parameterized) signature declarations.
 class SignatureDecl : public Sigoid {
-
-    typedef std::pair<IdentifierInfo *, Ast *> DeclEntry;
-    typedef std::vector<DeclEntry> DeclTable;
-    DeclTable declTable;
 
 public:
     // Creates an anonymous signature.
-    SignatureDecl();
-    SignatureDecl(IdentifierInfo *name, const Location &loc);
+    SignatureDecl(IdentifierInfo *percentId);
+    SignatureDecl(IdentifierInfo *percentId,
+                  IdentifierInfo *name,
+                  const Location &loc);
 
-    // Adds a declaration with the given name and associated type to this
-    // signature.  This is the only method available for adding a declaration to
-    // a signature.  The sequence of calls made to this method is important, as
-    // it implicitly defines the declaration order.
-    void addDeclaration(IdentifierInfo *name, Ast *type) {
-        declTable.push_back(DeclEntry(name, type));
-    }
-
-    // Iterators providing access the declarations assoiciated with this
-    // signature.  The order of iteration corresponds to the order of
-    // declaration (as implied by the sequence of calls make to
-    // add_declaration).  These iterators return elements of type
-    // std::pair<Identifier*, Ast*>, where the Identifier names the declaration
-    // and the Ast is a type node.
-    typedef DeclTable::const_iterator decl_iterator;
-    decl_iterator beginDeclarations() const { return declTable.begin(); }
-    decl_iterator endDeclarations()   const { return declTable.end(); }
-
-    SignatureType *getCorrespondingType();
+    SignatureType *getCorrespondingType() { return canonicalType; }
+    SignatureType *getType() const { return canonicalType; }
 
     // Support for isa and dyn_cast.
     static bool classof(const SignatureDecl *node) { return true; }
@@ -267,13 +239,39 @@ private:
 // VarietyDecl
 //
 // Repesentation of parameterized signatures.
-class VarietyDecl : public Sigoid, public ParameterizedModel {
+class VarietyDecl : public Sigoid {
 
 public:
-    VarietyDecl(IdentifierInfo *info, Location loc)
-        : Sigoid(AST_VarietyDecl, info, loc) { }
+    // Creates an anonymous variety.
+    VarietyDecl(IdentifierInfo      *percentId,
+                AbstractDomainType **formals,
+                unsigned             arity);
 
-    SignatureType *getCorrespondingType(ModelType **args, unsigned numArgs);
+    // Creates a VarietyDecl with the given name, location of definition, and
+    // list of AbstractDomainTypes which serve as the formal parameters.
+    VarietyDecl(IdentifierInfo      *percentId,
+                IdentifierInfo      *name,
+                Location             loc,
+                AbstractDomainType **formals,
+                unsigned             arity);
+
+    // Returns the type node corresponding to this variety applied over the
+    // given arguments.
+    SignatureType *getCorrespondingType(DomainType **args, unsigned numArgs);
+    SignatureType *getCorrespondingType();
+
+    // Returns the type of this variety.
+    VarietyType *getVarietyType() const { return varietyType; }
+    VarietyType *getType() const { return varietyType; }
+
+    // Returns the number of arguments accepted by this variety.
+    unsigned getArity() const { return getVarietyType()->getArity(); }
+
+    // Returns the an abstract domain node representing the i'th formal
+    // parameter.
+    AbstractDomainType *getFormalDomain(unsigned i) const {
+        return getVarietyType()->getFormalDomain(i);
+    }
 
     typedef llvm::FoldingSet<SignatureType>::iterator type_iterator;
     type_iterator beginTypes() { return types.begin(); }
@@ -287,6 +285,8 @@ public:
 
 private:
     mutable llvm::FoldingSet<SignatureType> types;
+
+    VarietyType *varietyType;
 };
 
 
@@ -300,7 +300,19 @@ class Domoid : public ModelDecl {
 public:
     virtual ~Domoid() { }
 
-    SignatureType *getPrincipleSignature() const { return principleSignature; }
+    // Returns non-null if this domoid is a DomainDecl.
+    DomainDecl *getDomain();
+
+    // Returns non-null if this domoid is a functorDecl.
+    FunctorDecl *getFunctor();
+
+    // Each Domoid has an associated signature declaration, known as its
+    // "principle signature".  These signatures are unnamed (anonymous) and
+    // provide the public view of the domain (its exports and the super
+    // signatures it implements).
+    SignatureDecl *getPrincipleSignature() const {
+        return principleSignature;
+    }
 
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -309,12 +321,12 @@ public:
     }
 
 protected:
-    Domoid(AstKind kind,
+    Domoid(AstKind         kind,
+           IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
-           Location loc,
-           SignatureType *signature = 0);
+           Location        loc);
 
-    SignatureType *principleSignature;
+    SignatureDecl *principleSignature;
 };
 
 //===----------------------------------------------------------------------===//
@@ -323,10 +335,14 @@ protected:
 class DomainDecl : public Domoid {
 
 public:
-    DomainDecl(IdentifierInfo *name,
-               const Location &loc, SignatureType *sig = 0);
+    DomainDecl(IdentifierInfo *percentId,
+               IdentifierInfo *name,
+               const Location &loc);
 
-    DomainType *getCorrespondingType();
+    ConcreteDomainType *getCorrespondingType() { return canonicalType; }
+    ConcreteDomainType *getType() const { return canonicalType; }
+
+    SignatureDecl *getPrincipleSignature() const { return principleSignature; }
 
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
@@ -337,23 +353,47 @@ public:
 
 protected:
     // For use by subclasses.
-    DomainDecl(AstKind kind, IdentifierInfo *info, Location loc);
+    DomainDecl(AstKind         kind,
+               IdentifierInfo *percentId,
+               IdentifierInfo *info,
+               Location        loc);
 
 private:
-    DomainType *canonicalType;
+    ConcreteDomainType *canonicalType;
+    SignatureDecl *principleSignature;
 };
 
 //===----------------------------------------------------------------------===//
 // FunctorDecl
 //
-// Repesentation of parameterized signatures.
-class FunctorDecl : public Domoid, public ParameterizedModel {
+// Representation of parameterized domains.
+class FunctorDecl : public Domoid {
 
 public:
-    FunctorDecl(IdentifierInfo *info, Location loc)
-        : Domoid(AST_FunctorDecl, info, loc) { }
+    FunctorDecl(IdentifierInfo      *percentId,
+                IdentifierInfo      *name,
+                Location             loc,
+                AbstractDomainType **formals,
+                unsigned             arity);
 
-    DomainType *getCorrespondingType(ModelType **args, unsigned numArgs);
+    // Returns the type node corresponding to this functor applied over the
+    // given arguments.  Such types are memorized.  For a given set of arguments
+    // this function always returns the same type.
+    ConcreteDomainType *getCorrespondingType(DomainType **args,
+                                             unsigned numArgs);
+
+    VarietyDecl *getPrincipleSignature() const { return principleSignature; }
+
+    // Returns the type of this functor.
+    FunctorType *getFunctorType() const { return functor; }
+    FunctorType *getType() const { return functor; }
+
+    // Returns the number of arguments this functor accepts.
+    unsigned getArity() const { return getFunctorType()->getArity(); }
+
+    AbstractDomainType *getFormalDomain(unsigned i) const {
+        return getFunctorType()->getFormalDomain(i);
+    }
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }
@@ -362,9 +402,81 @@ public:
     }
 
 private:
-    mutable llvm::FoldingSet<DomainType> types;
+    mutable llvm::FoldingSet<ConcreteDomainType> types;
+
+    FunctorType *functor;
+    VarietyDecl *principleSignature;
 };
 
+//===----------------------------------------------------------------------===//
+// FunctionDecl
+//
+// Representation of function declarations.
+class FunctionDecl : public Decl {
+
+public:
+    FunctionDecl(IdentifierInfo   *name,
+                 FunctionType     *type,
+                 ModelType        *context,
+                 Location          loc);
+
+    // Returns true if this function declaration was defined in the context of
+    // the given type.
+    bool isTypeContext(const ModelType *type) const {
+        return type == context;
+    }
+
+    // Accessors and forwarding functions to the underlying FuntionType node.
+    FunctionType *getFunctionType() const { return ftype; }
+
+    unsigned getArity() const { return ftype->getArity(); }
+
+    IdentifierInfo *getSelector(unsigned i) const {
+        return ftype->getSelector(i);
+    }
+
+    DomainType *getArgType(unsigned i) const {
+        return ftype->getArgType(i);
+    }
+
+    DomainType *getReturnType() const {
+        return ftype->getReturnType();
+    }
+
+    // Support for isa and dyn_cast.
+    static bool classof(const FunctionDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_FunctionDecl;
+    }
+
+private:
+    FunctionType *ftype;
+    ModelType    *context;
+    Location      location;
+};
+
+//===----------------------------------------------------------------------===//
+// Inline methods, now that the decl hierarchy is in place.
+
+inline SignatureDecl *Sigoid::getSignature()
+{
+    return llvm::dyn_cast<SignatureDecl>(this);
+}
+
+inline VarietyDecl *Sigoid::getVariety()
+{
+    return llvm::dyn_cast<VarietyDecl>(this);
+}
+
+inline DomainDecl *Domoid::getDomain()
+{
+    return llvm::dyn_cast<DomainDecl>(this);
+}
+
+inline FunctorDecl *Domoid::getFunctor()
+{
+    return llvm::dyn_cast<FunctorDecl>(this);
+}
 
 } // End comma namespace
 

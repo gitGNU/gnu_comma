@@ -5,6 +5,11 @@
 // Copyright (C) 2008, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
+//
+// This header contains forwards declarations for all AST nodes, and definitions
+// for a few choice fundamental nodes and types.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef COMMA_AST_ASTBASE_HDR_GUARD
 #define COMMA_AST_ASTBASE_HDR_GUARD
@@ -18,27 +23,35 @@ namespace comma {
 //
 // Forward declarations for all Ast nodes.
 //
+class AbstractDomainType;
 class Ast;
+class AstRewriter;
 class CompilationUnit;
+class ConcreteDomainType;
 class Decl;
 class DomainDecl;
 class DomainType;
 class Domoid;
+class FunctionDecl;
+class FunctionType;
 class FunctorDecl;
+class FunctorType;
 class ModelDecl;
 class ModelType;
 class NamedDecl;
 class PercentType;
 class ParameterizedModel;
+class ParameterizedType;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
 class Type;
 class TypeDecl;
 class VarietyDecl;
+class VarietyType;
 
 //
-//  The ast class is the root of the ast hierarchy.
+//  The Ast class is the root of the ast hierarchy.
 //
 class Ast {
 
@@ -52,12 +65,17 @@ public:
         AST_DomainDecl,
         AST_VarietyDecl,
         AST_FunctorDecl,
+        AST_FunctionDecl,
 
         //
         // Types
         //
         AST_SignatureType,
+        AST_VarietyType,
+        AST_FunctorType,
         AST_DomainType,
+        AST_ConcreteDomainType,
+        AST_AbstractDomainType,
         AST_PercentType,
         AST_FunctionType,
 
@@ -65,7 +83,7 @@ public:
         // Delimiters classifying the above tags.
         //
         FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_FunctorDecl,
+        LAST_Decl       = AST_FunctionDecl,
 
         FIRST_TypeDecl  = AST_SignatureDecl,
         LAST_TypeDecl   = AST_FunctorDecl,
@@ -93,6 +111,12 @@ public:
     // Marks this node as invalid.
     void markInvalid() { validFlag = false; }
 
+    // Returns true if one may call "delete" on this node.  Certain nodes are
+    // not deletable since they are allocated in special containers which
+    // perform memoization or manage memory in a special way.  Always test if a
+    // node is deletable.
+    bool isDeletable() const { return deletable; }
+
     bool denotesDecl() const {
         return (FIRST_Decl <= this->getKind() &&
                 this->getKind() <= LAST_Decl);
@@ -114,21 +138,30 @@ public:
     }
 
     bool denotesDomainType() const {
-        return kind == AST_DomainType || kind == AST_PercentType;
+        return (kind == AST_ConcreteDomainType ||
+                kind == AST_AbstractDomainType ||
+                kind == AST_PercentType);
     }
 
     bool denotesModelType() const {
-        return denotesDomainType() || kind == AST_SignatureType;
+        return (denotesDomainType()       ||
+                kind == AST_SignatureType ||
+                kind == AST_VarietyType   ||
+                kind == AST_FunctorType);
     }
 
     // Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }
 
 protected:
-    Ast(AstKind kind) : kind(kind), validFlag(true) { }
+    Ast(AstKind kind)
+        : kind(kind),
+          validFlag(true),
+          deletable(true) { }
 
     AstKind  kind      : 8;
-    bool     validFlag : 1;
+    bool     validFlag : 1;     // Is this node valid?
+    bool     deletable : 1;     // Can we call delete on this node?
     unsigned bits      : 23;
 };
 

@@ -7,142 +7,249 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/Decl.h"
-#include "comma/basic/IdentifierPool.h"
+#include "comma/ast/AstRewriter.h"
+#include <algorithm>
 
 using namespace comma;
 
 //===----------------------------------------------------------------------===//
 // ModelDecl
-ModelDecl::ModelDecl(AstKind kind)
-    : TypeDecl(kind), location(), typeComplete(false)
+ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
+    : TypeDecl(kind),
+      location()
 {
-    percent = new PercentType(this);
+    assert(std::strcmp(percentId->getString(), "%") == 0 &&
+           "Percent IdInfo not == \"%\"!");
+    percent = new PercentType(percentId, this);
 }
 
-ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *info, const Location &loc)
-    : TypeDecl(kind, info), location(loc), typeComplete(false)
+ModelDecl::ModelDecl(AstKind         kind,
+                     IdentifierInfo *percentId,
+                     IdentifierInfo *info,
+                     const Location &loc)
+    : TypeDecl(kind, info),
+      location(loc)
 {
-    percent = new PercentType(this);
-}
-
-ParameterizedModel *ModelDecl::getParameterizedModel()
-{
-    ParameterizedModel *model;
-    if (model = llvm::dyn_cast<VarietyDecl>(this))
-        return model;
-    else if (model = llvm::dyn_cast<FunctorDecl>(this))
-        return model;
-    return 0;
+    assert(std::strcmp(percentId->getString(), "%") == 0 &&
+           "Percent IdInfo not == \"%\"!");
+    percent = new PercentType(percentId, this);
 }
 
 //===----------------------------------------------------------------------===//
 // Sigoid
+
 void Sigoid::addSupersignature(SignatureType *supersignature)
 {
     if (directSupers.insert(supersignature)) {
-        if (VarietyDecl *variety = llvm::dyn_cast<VarietyDecl>(this)) {
-            VarietyDecl::type_iterator iter = variety->beginTypes();
-            VarietyDecl::type_iterator endIter = variety->endTypes();
-            for ( ; iter != endIter; ++iter)
-                iter->addSupersignature(supersignature);
+        Sigoid *superDecl = supersignature->getDeclaration();
+        AstRewriter rewriter;
+
+        // Rewrite the percent node of the super signature to that of this
+        // signature.
+        rewriter.addRewrite(superDecl->getPercent(), getPercent());
+
+        // If the supplied super signature is parameterized, install rewrites
+        // mapping the formal parameters of the signature to the actual
+        // parameters of the type.
+        if (VarietyDecl *variety = superDecl->getVariety()) {
+            unsigned arity = variety->getArity();
+            for (unsigned i = 0; i < arity; ++i) {
+                DomainType *formal = variety->getFormalDomain(i);
+                DomainType *actual = supersignature->getActualParameter(i);
+                rewriter.addRewrite(formal, actual);
+            }
         }
-        else {
-            SignatureDecl *sig = llvm::dyn_cast<SignatureDecl>(this);
-            assert(sig && "Not a signature or variety?!?");
-            sig->getCorrespondingType()->addSupersignature(supersignature);
+
+        sig_iterator iter = superDecl->beginSupers();
+        sig_iterator endIter = superDecl->endSupers();
+        for ( ; iter != endIter; ++iter) {
+            SignatureType *rewrite = rewriter.rewrite(*iter);
+            supersignatures.insert(rewrite);
         }
+        supersignatures.insert(supersignature);
     }
+}
+
+void Sigoid::addComponent(FunctionDecl *fdecl)
+{
+    IdentifierInfo *name = fdecl->getIdInfo();
+    components.insert(ComponentTable::value_type(name, fdecl));
+}
+
+FunctionDecl *Sigoid::findComponent(IdentifierInfo *name,
+                                    FunctionType *ftype)
+{
+    if (FunctionDecl *fdecl = findDirectComponent(name, ftype))
+        return fdecl;
+
+    ComponentRange range = findComponents(name);
+    for (ComponentIter iter = range.first; iter != range.second; ++iter) {
+        FunctionDecl *fdecl = iter->second;
+        FunctionType *candidateType = fdecl->getFunctionType();
+        if (candidateType->equals(ftype))
+            return fdecl;
+    }
+    return 0;
+}
+
+FunctionDecl *Sigoid::findDirectComponent(IdentifierInfo *name,
+                                          FunctionType *ftype)
+{
+    ComponentRange range = findComponents(name);
+    PercentType *percent = this->getPercent();
+    for (ComponentIter iter = range.first; iter != range.second; ++iter) {
+        FunctionDecl *fdecl = iter->second;
+        FunctionType *candidateType = fdecl->getFunctionType();
+        if (fdecl->isTypeContext(percent) && candidateType->equals(ftype))
+            return fdecl;
+    }
+    return 0;
+}
+
+bool Sigoid::removeComponent(FunctionDecl *fdecl)
+{
+    IdentifierInfo *name = fdecl->getIdInfo();
+    ComponentRange range = findComponents(name);
+    for (ComponentIter iter = range.first; iter != range.second; ++iter)
+        if (iter->second == fdecl) {
+            components.erase(iter);
+            return true;
+        }
+    return false;
 }
 
 //===----------------------------------------------------------------------===//
 // SignatureDecl
-SignatureDecl::SignatureDecl()
-    : Sigoid(AST_SignatureDecl)
+SignatureDecl::SignatureDecl(IdentifierInfo *percentId)
+    : Sigoid(AST_SignatureDecl, percentId)
 {
     canonicalType = new SignatureType(this);
 }
 
-SignatureDecl::SignatureDecl(IdentifierInfo *info, const Location &loc)
-    : Sigoid(AST_SignatureDecl, info, loc)
+SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
+                             IdentifierInfo *info,
+                             const Location &loc)
+    : Sigoid(AST_SignatureDecl, percentId, info, loc)
 {
     canonicalType = new SignatureType(this);
-}
-
-SignatureType *SignatureDecl::getCorrespondingType()
-{
-    return canonicalType;
 }
 
 //===----------------------------------------------------------------------===//
 // VarietyDecl
+
+VarietyDecl::VarietyDecl(IdentifierInfo      *percentId,
+                         AbstractDomainType **formals,
+                         unsigned             arity)
+    : Sigoid(AST_VarietyDecl, percentId)
+{
+    varietyType = new VarietyType(formals, this, arity);
+}
+
+VarietyDecl::VarietyDecl(IdentifierInfo      *percentId,
+                         IdentifierInfo      *name,
+                         Location             loc,
+                         AbstractDomainType **formals,
+                         unsigned             arity)
+    : Sigoid(AST_VarietyDecl, percentId, name, loc)
+{
+    varietyType = new VarietyType(formals, this, arity);
+}
+
 SignatureType *
-VarietyDecl::getCorrespondingType(ModelType **args, unsigned numArgs)
+VarietyDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
     SignatureType *type;
 
     SignatureType::Profile(id, args, numArgs);
-    if (type = types.FindNodeOrInsertPos(id, insertPos))
-        return type;
+    type = types.FindNodeOrInsertPos(id, insertPos);
+    if (type) return type;
 
     type = new SignatureType(this, args, numArgs);
     types.InsertNode(type, insertPos);
     return type;
 }
 
+SignatureType *VarietyDecl::getCorrespondingType()
+{
+    VarietyType *thisType = getType();
+    DomainType **formals = reinterpret_cast<DomainType**>(thisType->formals);
+    return getCorrespondingType(formals, getArity());
+}
+
 //===----------------------------------------------------------------------===//
 // Domoid
 
-Domoid::Domoid(AstKind kind,
+Domoid::Domoid(AstKind         kind,
+               IdentifierInfo *percentId,
                IdentifierInfo *idInfo,
-               Location loc,
-               SignatureType *signature)
-    : ModelDecl(kind, idInfo, loc)
+               Location        loc)
+    : ModelDecl(kind, percentId, idInfo, loc)
 {
-    if (signature)
-        principleSignature = signature;
-    else {
-        SignatureDecl *decl = new SignatureDecl();
-        principleSignature = decl->getCorrespondingType();
-    }
+    principleSignature = new SignatureDecl(percentId);
 }
 
 //===----------------------------------------------------------------------===//
 // DomainDecl
-DomainDecl::DomainDecl(IdentifierInfo *name,
-                       const Location &loc, SignatureType *sig)
-    : Domoid(AST_DomainDecl, name, loc, sig)
+DomainDecl::DomainDecl(IdentifierInfo *percentId,
+                       IdentifierInfo *name,
+                       const Location &loc)
+    : Domoid(AST_DomainDecl, percentId, name, loc)
 {
-    canonicalType = new DomainType(this);
+    canonicalType = new ConcreteDomainType(this);
 }
 
-DomainDecl::DomainDecl(AstKind kind, IdentifierInfo *info, Location loc)
-    : Domoid(kind, info, loc)
+DomainDecl::DomainDecl(AstKind         kind,
+                       IdentifierInfo *percentId,
+                       IdentifierInfo *info,
+                       Location        loc)
+    : Domoid(kind, percentId, info, loc)
 {
-    canonicalType = new DomainType(this);
-}
-
-DomainType * DomainDecl::getCorrespondingType()
-{
-    return canonicalType;
+    canonicalType = new ConcreteDomainType(this);
 }
 
 //===----------------------------------------------------------------------===//
 // FunctorDecl
 
-DomainType *
-FunctorDecl::getCorrespondingType(ModelType **args, unsigned numArgs)
+FunctorDecl::FunctorDecl(IdentifierInfo      *percentId,
+                         IdentifierInfo      *name,
+                         Location             loc,
+                         AbstractDomainType **formals,
+                         unsigned             arity)
+    : Domoid(AST_FunctorDecl, percentId, name, loc)
+{
+    // NOTE: FunctorDecl passes ownership of the formal domain nodes to the
+    // VarietyDecl created below.
+    functor = new FunctorType(formals, this, arity);
+}
+
+ConcreteDomainType *
+FunctorDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
-    DomainType *type;
+    ConcreteDomainType *type;
 
-    DomainType::Profile(id, args, numArgs);
-    if (type = types.FindNodeOrInsertPos(id, insertPos))
-        return type;
+    ConcreteDomainType::Profile(id, args, numArgs);
+    type = types.FindNodeOrInsertPos(id, insertPos);
+    if (type) return type;
 
-    type = new DomainType(this, args, numArgs);
+    type = new ConcreteDomainType(this, args, numArgs);
     types.InsertNode(type, insertPos);
     return type;
+}
+
+//===----------------------------------------------------------------------===//
+// FunctionDecl
+
+FunctionDecl::FunctionDecl(IdentifierInfo *name,
+                           FunctionType   *type,
+                           ModelType      *context,
+                           Location        loc)
+    : Decl(AST_FunctionDecl, name),
+      ftype(type),
+      context(context),
+      location(loc)
+{
 }

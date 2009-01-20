@@ -19,8 +19,6 @@ class IdentifierPool {
     typedef llvm::StringMap<IdentifierInfo> PoolType;
     PoolType pool;
 
-    static IdentifierPool spool;
-
 public:
     IdentifierInfo &getIdentifierInfo(const char *name, size_t len) {
         return pool.GetOrCreateValue(name, name +len).getValue();
@@ -36,14 +34,6 @@ public:
         return getIdentifierInfo(name.c_str());
     }
 
-    static IdentifierInfo &getIdInfo(const char *name) {
-        return spool.getIdentifierInfo(name);
-    }
-
-    static IdentifierInfo &getIdInfo(const char *name, size_t len) {
-        return spool.getIdentifierInfo(name, len);
-    }
-
     // Iterators over the IdentifierInfo entries.
     typedef PoolType::const_iterator iterator;
 
@@ -53,8 +43,6 @@ public:
     // Returns the number of IdentifierInfos managed by this pool.
     unsigned size() const { return pool.size(); }
 };
-
-extern IdentifierPool *identifierPool;
 
 } // End comma namespace
 

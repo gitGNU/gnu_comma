@@ -20,23 +20,57 @@ namespace comma {
 class Parser {
 
 public:
-    Parser(TextProvider &tp, Bridge &bridge, Diagnostic &diag);
+    Parser(TextProvider   &txtProvider,
+           IdentifierPool &idPool,
+           Bridge         &bridge,
+           Diagnostic     &diag);
+
+    // Generic pointer to a parse method.
+    typedef void (Parser::*parseFn)();
+
+    // Generic pointer to a parse method returning a Node.
+    typedef Node (Parser::*parseNodeFn)();
 
     void parseModel();
-    void parseModelParameter();
+    Node parseModelParameter();
     void parseModelParameterization();
     void parseModelSupersignatures();
 
+    void parseSignatureComponents();
+
     Node parseModelInstantiation();
+
+    // The following structure is used to collect the components of a parameter
+    // of the form "X : T", where X is an IdentifierInfo representing the
+    // parameter name, and T is a Node representing the associcate type.  In
+    // addition, the locations of the parameter and type are provided.
+    struct ParameterInfo {
+        IdentifierInfo *formal;
+        Node            type;
+        Location        formalLocation;
+        Location        typeLocation;
+    };
+
+    // Parses a formal parameter of the form "X : T", filling in paramInfo with
+    // the results of the parse.  The supplied parse method is invoked to
+    // consume the rhs of the ":" -- namely, the type expression.  This function
+    // returns true if the parse was successful.  If the parse was not
+    // successful false is returned and paramInfo is not modified.
+    bool parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser);
+
+    Node parseFunctionParameter();
+    Node parseFunctionParmeterList();
+    Node parseFunctionProto();
 
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
     bool parseTopLevelDeclaration();
 
 private:
-    TextProvider &tp;
-    Bridge &action;
-    Diagnostic &diagnostic;
+    TextProvider   &txtProvider;
+    IdentifierPool &idPool;
+    Bridge         &action;
+    Diagnostic     &diagnostic;
 
     Lexer lexer;
 
@@ -47,6 +81,12 @@ private:
     // We may wish to refine this typedef into a few classes which provide
     // different sizes which better accomidate adverage demands.
     typedef llvm::SmallVector<Node, 4> NodeVector;
+
+    // Generic vector type to accumulate locations.
+    typedef llvm::SmallVector<Location, 4> LocationVector;
+
+    // Accumulation of IdentifierInfo nodes.
+    typedef llvm::SmallVector<IdentifierInfo*, 4> IdInfoVector;
 
     unsigned currentLine();
     unsigned currentColumn();
@@ -86,7 +126,7 @@ private:
     bool seekEndLabel(const char *label);
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
-        SourceLocation sloc = tp.getSourceLocation(loc);
+        SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 
@@ -95,16 +135,34 @@ private:
     }
 
     DiagnosticStream &report(diag::Kind kind) {
-        SourceLocation sloc = tp.getSourceLocation(currentLocation());
+        SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
         return diagnostic.report(sloc, kind);
     }
 
     IdentifierInfo *parseIdentifierInfo();
+    IdentifierInfo *parseFunctionIdentifierInfo();
 
     // Parses an end keyword.  If expected_tag is non-NULL, ensures an end tag
     // matches.  Consumes the terminating semicolon.  Returns true if the parse
     // was sucessful and false otherwise.
     bool parseEndTag(IdentifierInfo *expectedTag = 0);
+
+    // Returns true if a matching pair of parens "()" is next on the stream of
+    // tokens.
+    bool unitExprFollows();
+
+    // Returns true if an argument selection expression follows:  That is, if
+    // the token stream admits an IdentifierInfo followed by a '=>' token.
+    bool argumentSelectorFollows();
+
+    // Convenience function for deleting a collection of Node's.
+    template <class T> void deleteNodes(T &nodes) {
+        typename T::iterator iter;
+        typename T::iterator endIter = nodes.end();
+        for (iter = nodes.begin(); iter != endIter; ++iter)
+            action.deleteNode(*iter);
+    }
+
 };
 
 } // End comma namespace

@@ -12,7 +12,7 @@
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstRewriter.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Casting.h"
 #include <vector>
 
@@ -45,45 +45,26 @@ class ModelType : public Type {
 public:
     virtual ~ModelType() { }
 
-    ModelDecl *getDeclaration() const {
-        return declaration;
-    }
+    IdentifierInfo *getIdInfo() const { return idInfo; }
 
-    virtual IdentifierInfo *getIdInfo() const;
-
+    // Returns a c-string representing the name of this model, or NULL if this
+    // model is anonymous.
     const char *getString() const {
         return getIdInfo()->getString();
     }
 
-    bool isParameterized() const { return arity != 0; }
-
-    unsigned getNumArgs() const { return arity; }
-
-    ModelType *getArgument(unsigned i) const { return arguments[i]; }
-
-    typedef ModelType **arg_iterator;
-    arg_iterator beginArguments() const { return &arguments[0]; }
-    arg_iterator endArguments()   const { return &arguments[arity]; }
-
-    virtual bool has(SignatureType *type) = 0;
-
+    // Suport isa and dyn_cast.
     static bool classof(const ModelType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesModelType();
     }
 
 protected:
-    ModelType(AstKind kind, ModelDecl *decl)
-        : Type(kind), declaration(decl), arity(0) {
-        assert(this->denotesModelType());
-    }
+    ModelType(AstKind kind, IdentifierInfo *idInfo)
+        : Type(kind),
+          idInfo(idInfo) { assert(this->denotesModelType()); }
 
-    ModelType(AstKind kind, ModelDecl *decl,
-              ModelType **args, unsigned numArgs);
-
-    ModelDecl *declaration;
-    ModelType **arguments;
-    unsigned arity;
+    IdentifierInfo *idInfo;
 };
 
 //===----------------------------------------------------------------------===//
@@ -93,37 +74,33 @@ class SignatureType : public ModelType, public llvm::FoldingSetNode {
 
 public:
     Sigoid *getDeclaration() const;
+
     SignatureDecl *getSignature() const;
+
     VarietyDecl *getVariety() const;
 
-    // Returns true if the given signature is equal to some supersignature of
-    // this type.
-    bool has(SignatureType *type);
+    // Returns true if this type is a variety instance.
+    bool isParameterized() const { return getVariety() != 0; }
 
-private:
-    // FIXME: Perhaps this should be a pointer.  If this type is not
-    // parametrized then the direct supersignatures are identical to those of
-    // the declaration (and indeed, even for parameterized types, the
-    // supersignatures may not be dependent on a formal parameter), and so we
-    // could save space by referencing the declarations vector directly whenever
-    // possible.
-    typedef std::vector<SignatureType*> SuperSigTable;
-    SuperSigTable directSupers;
+    // Returns the number of arguments used to define this type.  When the
+    // supporting declaration is a signature, the arity is zero.
+    unsigned getArity() const;
 
-public:
-    typedef SuperSigTable::const_iterator sig_iterator;
-    sig_iterator beginDirectSupers() const { return directSupers.begin(); }
-    sig_iterator endDirectSupers()   const { return directSupers.end(); }
+    // Returns the i'th actual parameter.  This function asserts if its argument
+    // is out of range.
+    DomainType *getActualParameter(unsigned n) const;
 
-    void  addSupersignature(SignatureType *sig);
+    typedef DomainType **arg_iterator;
+    arg_iterator beginArguments() const { return arguments; }
+    arg_iterator endArguments() const { return &arguments[getArity()]; }
 
     void Profile(llvm::FoldingSetNodeID &id) {
-        Profile(id, &arguments[0], arity);
+        Profile(id, &arguments[0], getArity());
     }
 
-    // Called by SignatureDecl when memoizing.
+    // Called by VarietyDecl when memoizing.
     static void
-    Profile(llvm::FoldingSetNodeID &id, ModelType **args, unsigned numArgs);
+    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
 
     static bool classof(const SignatureType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -133,55 +110,136 @@ public:
 private:
     friend class SignatureDecl;
     friend class VarietyDecl;
-    friend class llvm::GraphTraits<SignatureType>;
 
     SignatureType(SignatureDecl *decl);
 
-    SignatureType(VarietyDecl *decl, ModelType **args, unsigned numArgs);
+    SignatureType(VarietyDecl *decl, DomainType **args, unsigned numArgs);
 
-    void populateSignatureTable();
+    // The underlying signature decl.
+    Sigoid *sigoid;
 
-    void insertSupersignature(SignatureType *sig);
+    // If the supporting declaration is a variety, then this array contains the
+    // actual arguments defining this instance.
+    DomainType **arguments;
 };
 
-} // End comma namespace
+//===----------------------------------------------------------------------===//
+// ParameterizedType
+//
+// Base class for both functor and variety types.
 
-namespace llvm {
+class ParameterizedType : public ModelType {
 
-// Specialize GraphTraits to privide access to the full signature hierarchy.
-template <>
-struct GraphTraits<comma::SignatureType *> {
-    typedef comma::SignatureType NodeType;
-    typedef comma::SignatureType::sig_iterator ChildIteratorType;
+public:
+    virtual ~ParameterizedType() { }
 
-    static NodeType *getEntryNode(comma::SignatureType *sig) {
-        return sig;
+    unsigned getArity() const { return numFormals; }
+
+    // Returns the abstract domain representing the formal parameter.
+    AbstractDomainType *getFormalDomain(unsigned i) const;
+
+    // Returns the SignatureType which the formal parameter satisfies (or which
+    // an actual parameter must satisfy).
+    SignatureType *getFormalType(unsigned i) const;
+
+    // Returns the IdentifierInfo which labels this formal parameter.
+    IdentifierInfo *getFormalIdInfo(unsigned i) const;
+
+    // Returns the index of the parameter corresponding to the named selector,
+    // or -1 if no such selector exists.
+    int getSelectorIndex(IdentifierInfo *selector) const;
+
+    static bool classof(const ParameterizedType *node) { return true; }
+    static bool classof(const Ast *node) {
+        AstKind kind = node->getKind();
+        return kind == AST_VarietyType || kind == AST_FunctorType;
     }
 
-    static inline ChildIteratorType child_begin(NodeType *node) {
-        return node->beginDirectSupers();
-    }
+protected:
+    ParameterizedType(AstKind              kind,
+                      IdentifierInfo      *idInfo,
+                      AbstractDomainType **formalArguments,
+                      unsigned             arity);
 
-    static inline ChildIteratorType child_end(NodeType *node) {
-        return node->endDirectSupers();
-    }
+    AbstractDomainType **formals;
+    unsigned numFormals;
 };
 
-} // End llvm namespace
+//===----------------------------------------------------------------------===//
+// VarietyType
+//
+// These nodes represent the type of a parameterized signature.  In some sense,
+// they do not represent real types -- they are incomplete until provided with a
+// compatible set of actual arguments.  The main role of these types is to
+// provide a handle for the purpose of lookup resolution.
+//
+// VarietyType nodes are always owned by their associated decl.
+class VarietyType : public ParameterizedType {
 
-namespace comma {
+public:
+    VarietyType(AbstractDomainType **formalArguments,
+                VarietyDecl *variety, unsigned arity);
+
+    ~VarietyType();
+
+    VarietyDecl *getVarietyDecl() const { return variety; }
+
+    static bool classof(const VarietyType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_VarietyType;
+    }
+
+private:
+    friend class VarietyDecl;
+
+    VarietyDecl *variety;
+};
+
+//===----------------------------------------------------------------------===//
+// FunctorType
+//
+// These nodes represent the type of a parameterized domain and serve
+// essentially the same purpose of VarietyType nodes.  Again, FunctorType's do
+// not represent real types (they are incomplete until provided with a
+// compatible set of actual arguments), and are owned by their associated decl.
+class FunctorType : public ParameterizedType {
+
+public:
+    FunctorType(AbstractDomainType **formalArguments,
+                FunctorDecl *functor, unsigned arity);
+
+    ~FunctorType();
+
+    FunctorDecl *getFunctorDecl() const { return functor; }
+
+    static bool classof(const FunctorType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_FunctorType;
+    }
+
+private:
+    FunctorDecl *functor;
+};
 
 //===----------------------------------------------------------------------===//
 // DomainType
 //
 // Base class for all domain types.  Certain domains are characterized only by a
-// known signature (formal parameters of signatures and domains), and this base
-// provides this perspective.
-class DomainType : public ModelType, public llvm::FoldingSetNode {
+// known signature (formal parameters of signatures and domains, for example),
+// others are concrete types with an associated declaration node.  The former
+// are called "abstract domains", the latter "concrete".
+class DomainType : public ModelType {
+
 public:
-    // Returns the declaration node defining this type, or NULL if this is an
-    // abstract domain.
-    Domoid *getDeclaration() const;
+    virtual ~DomainType() { }
+
+    // Returns the declaration node defining this type. This method is valid for
+    // all domain types.
+    ModelDecl *getDeclaration() const;
+
+    // Similar to getDeclaration(), but returns non-NULL iff the underlying
+    // definition is a domoid.
+    Domoid *getDomoid() const;
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is a domain.
@@ -191,9 +249,6 @@ public:
     // definition is a functor.
     FunctorDecl *getFunctor() const;
 
-    // Returns the signature describing the shape of this domain.
-    SignatureType *getSignature() const;
-
     // Returns true if this domain is an abstract domain -- that is, the only
     // information known regarding this domain is the signature which it
     // satisfies.
@@ -202,50 +257,166 @@ public:
     // The inverse of isAbstract().
     bool isConcrete() const { return !isAbstract(); }
 
-    // Returns true if this domain implements the given signature type.
-    bool has(SignatureType *type);
-
-    // Required by the FoldingSet implementation.
-    void Profile(llvm::FoldingSetNodeID &id) {
-        Profile(id, &arguments[0], arity);
-    }
-
-    static void
-    Profile(llvm::FoldingSetNodeID &id, ModelType **args, unsigned numArgs);
+    ConcreteDomainType *getConcreteType();
 
     // Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_DomainType;
+        return node->denotesDomainType();
+    }
+
+protected:
+    DomainType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl);
+    DomainType(AstKind kind, IdentifierInfo *idInfo, SignatureType *sig);
+
+    union {
+        Ast           *astNode;
+        ModelDecl     *modelDecl;
+        SignatureType *signatureType;
+    };
+};
+
+//===----------------------------------------------------------------------===//
+// ConcreteDomainType
+//
+// These types are always owned by the declaration nodes which define them.
+class ConcreteDomainType : public DomainType, public llvm::FoldingSetNode {
+
+public:
+    // Returns the number of arguments used to define this type.  When the
+    // supporting declaration is a domain, the arity is zero.  When the
+    // supporting declaration is a functor, this method returns the number of
+    // actual parameters.
+    unsigned getArity() const;
+
+    // Returns the i'th actual parameter.  This function asserts if its argument
+    // is out of range,
+    DomainType *getActualParameter(unsigned n) const;
+
+    // Returns true if this domain type is a functor instance.
+    bool isParameterized() const { return arguments != 0; }
+
+    typedef DomainType **arg_iterator;
+    arg_iterator beginArguments() const { return arguments; }
+    arg_iterator endArguments() const { return &arguments[getArity()]; }
+
+    void Profile(llvm::FoldingSetNodeID &id) {
+        Profile(id, &arguments[0], getArity());
+    }
+
+    // Called by FunctorDecl when memoizing.
+    static void
+    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
+
+    // Support isa and dyn_cast.
+    static bool classof(const ConcreteDomainType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ConcreteDomainType;
     }
 
 private:
     friend class DomainDecl;
     friend class FunctorDecl;
 
-    // Creates a non-parameterized domain type representing the given domain
-    // declaration.
-    DomainType(DomainDecl *decl);
+    // Creates a domain type representing the given domain declaration.
+    ConcreteDomainType(DomainDecl *decl);
 
-    // Create a concrete domain type parameterized over the given arguments.
-    DomainType(FunctorDecl *decl, ModelType **args, unsigned numArgs);
+    // Creates a domain type representing an instance of the given functor
+    // declaration.
+    ConcreteDomainType(FunctorDecl *decl, DomainType **args, unsigned numArgs);
+
+    // If the supporting domain is a functor, then this array contains the
+    // actual arguments defining this instance.
+    DomainType **arguments;
+};
+
+//===----------------------------------------------------------------------===//
+// AbstractDomainType
+class AbstractDomainType : public DomainType {
+
+public:
+    // Creates an abstract domain type which satisfies the given signature.
+    AbstractDomainType(IdentifierInfo *name, SignatureType *signature)
+        : DomainType(AST_AbstractDomainType, name, signature),
+          idInfo(name) { };
+
+    // Returns the signature type describing this abstract domain.
+    SignatureType *getSignature() const { return signatureType; }
+
+    // Support isa and dyn_cast.
+    static bool classof(const AbstractDomainType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AbstractDomainType;
+    }
+
+private:
+    IdentifierInfo *idInfo;
 };
 
 //===----------------------------------------------------------------------===//
 // PercentType
-class PercentType : public ModelType {
+class PercentType : public DomainType {
 
 public:
-    PercentType(ModelDecl *decl) : ModelType(AST_PercentType, decl) { }
-
-    IdentifierInfo *getIdInfo() const;
-
-    bool has(SignatureType *type);
+    PercentType(IdentifierInfo *idInfo, ModelDecl *decl)
+        : DomainType(AST_PercentType, idInfo, decl) { }
 
     static bool classof(const PercentType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_PercentType;
     }
+};
+
+// Inline functions mapping DomainType nodes to its base classes.
+inline ConcreteDomainType *DomainType::getConcreteType()
+{
+    return llvm::dyn_cast<ConcreteDomainType>(this);
+}
+
+
+//===----------------------------------------------------------------------===//
+// FunctionType
+class FunctionType : public Type {
+
+public:
+    FunctionType(IdentifierInfo **formals,
+                 DomainType     **argTypes,
+                 unsigned         numArgs,
+                 DomainType      *returnType);
+
+    // Returns the number of arguments accepted by this type.
+    unsigned getArity() const { return numArgs; }
+
+    // Returns the result type of this function.
+    DomainType *getReturnType() const { return returnType; }
+
+    // Returns the type of the i'th parameter.
+    DomainType *getArgType(unsigned i) const {
+        assert(i < getArity() && "Index out of range!");
+        return argumentTypes[i];
+    }
+
+    // Returns the i'th selector for this type.
+    IdentifierInfo *getSelector(unsigned i) const {
+        assert(i < getArity() && "Index out of range!");
+        return selectors[i];
+    }
+
+    // Returns true if the selectors of the given type match exactly those of
+    // this type.  The arity of both function types must match for this function
+    // to return true.
+    bool selectorsMatch(const FunctionType *ftype) const;
+
+    // Returns true if this type is equal to ftype.  Equality in this case is
+    // determined by the arity, argument types and return types (the argument
+    // selectors are not considered in this case).
+    bool equals(const FunctionType *ftype) const;
+
+private:
+    IdentifierInfo **selectors;
+    DomainType     **argumentTypes;
+    DomainType      *returnType;
+    unsigned         numArgs;
 };
 
 } // End comma namespace

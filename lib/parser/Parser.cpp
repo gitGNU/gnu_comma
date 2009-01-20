@@ -32,11 +32,15 @@
 
 using namespace comma;
 
-Parser::Parser(TextProvider &tp, Bridge &bridge, Diagnostic &diag)
-    : tp(tp),
+Parser::Parser(TextProvider   &txtProvider,
+               IdentifierPool &idPool,
+               Bridge         &bridge,
+               Diagnostic     &diag)
+    : txtProvider(txtProvider),
+      idPool(idPool),
       action(bridge),
       diagnostic(diag),
-      lexer(tp, diag),
+      lexer(txtProvider, diag),
       seenError(false)
 {
     // Populate our small look-ahead buffer.
@@ -183,28 +187,38 @@ Location Parser::currentLocation()
 
 unsigned Parser::currentLine()
 {
-    return tp.getLine(currentLocation());
+    return txtProvider.getLine(currentLocation());
 }
 
 unsigned Parser::currentColumn()
 {
-    return tp.getColumn(currentLocation());
+    return txtProvider.getColumn(currentLocation());
 }
 
 IdentifierInfo *Parser::getIdentifierInfo(const Lexer::Token &tkn)
 {
-    const char *rep = tkn.getRep();
-    unsigned length = tkn.getLength();
-    IdentifierInfo *info = &IdentifierPool::getIdInfo(rep, length);
+    const char     *rep    = tkn.getRep();
+    unsigned        length = tkn.getLength();
+    IdentifierInfo *info   = &idPool.getIdentifierInfo(rep, length);
     return info;
+}
+
+bool Parser::unitExprFollows()
+{
+    return currentTokenIs(Lexer::TKN_LPAREN) && nextTokenIs(Lexer::TKN_RPAREN);
+}
+
+bool Parser::argumentSelectorFollows()
+{
+    return currentTokenIs(Lexer::TKN_IDENTIFIER)
+        && nextTokenIs(Lexer::TKN_RDARROW);
 }
 
 IdentifierInfo *Parser::parseIdentifierInfo()
 {
     IdentifierInfo *info;
 
-    switch (currentTokenCode())
-    {
+    switch (currentTokenCode()) {
     case Lexer::TKN_IDENTIFIER:
         info = getIdentifierInfo(currentToken());
         ignoreToken();
@@ -223,12 +237,26 @@ IdentifierInfo *Parser::parseIdentifierInfo()
     return info;
 }
 
+IdentifierInfo *Parser::parseFunctionIdentifierInfo()
+{
+    IdentifierInfo *info;
+
+    if (Lexer::isFunctionGlyph(currentToken())) {
+        const char *rep = Lexer::tokenString(currentToken());
+        info = &idPool.getIdentifierInfo(rep);
+        ignoreToken();
+    }
+    else
+        info = parseIdentifierInfo();
+    return info;
+}
+
 // Parses an end tag.  If expectedTag is non-null, parse "end <tag>;", otherwise
 // parse "end;".
 bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 {
-    bool status = true;
-    if (status = requireToken(Lexer::TKN_END)) {
+    bool status = requireToken(Lexer::TKN_END);
+    if (status) {
         if (expectedTag) {
             if (currentTokenIs(Lexer::TKN_SEMI)) {
                 report(diag::EXPECTED_END_TAG) << expectedTag->getString();
@@ -251,26 +279,31 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 
 // Parses a formal parameter of a model: "id : type".  Passes the parsed type
 // off to the type checker.
-void Parser::parseModelParameter()
+Node Parser::parseModelParameter()
 {
     IdentifierInfo *formal;
-    Location loc = currentLocation();
+    Location        loc;
+    Node            type;
+
+    loc = currentLocation();
 
     if ( !(formal = parseIdentifierInfo())) {
-        seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
-        return;
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
+        return Node::getInvalidNode();
     }
 
     if (!requireToken(Lexer::TKN_COLON)) {
-        seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
-        return;
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
+        return Node::getInvalidNode();
     }
 
-    Node type = parseModelInstantiation();
+    type = parseModelInstantiation();
     if (type.isValid())
-        action.acceptModelParameter(formal, type, loc);
-    else
-        seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+        return action.acceptModelParameter(formal, type, loc);
+    else {
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
+        return Node::getInvalidNode();
+    }
 }
 
 // Assumes the current token is a left paren begining a model parameter list.
@@ -287,9 +320,21 @@ void Parser::parseModelParameterization()
         return;
     }
 
+    NodeVector parameters;
+    LocationVector locations;
     do {
-        parseModelParameter();
-    } while (reduceToken(Lexer::TKN_COMMA));
+        Location loc = currentLocation();
+        Node node = parseModelParameter();
+        if (node.isValid()) {
+            parameters.push_back(node);
+            locations.push_back(loc);
+        }
+    } while (reduceToken(Lexer::TKN_SEMI));
+
+    // FIXME: We should not continue if the parameterization is invalid in any
+    // way.
+    action.acceptModelParameterList(&parameters[0],
+                                    &locations[0], parameters.size());
 
     requireToken(Lexer::TKN_RPAREN);
 }
@@ -298,12 +343,19 @@ void Parser::parseModelParameterization()
 // `:' as in "domain D : ...".
 void Parser::parseModelSupersignatures()
 {
-    action.beginModelSupersignatures();
+    NodeVector supers;
     do {
         Location loc = currentLocation();
         Node super   = parseModelInstantiation();
-        if (super.isValid())
-            action.acceptModelSupersignature(super, loc);
+        if (super.isValid()) {
+            Node result = action.acceptModelSupersignature(super, loc);
+
+            // If the supersignature is not valid, do not accumulate.
+            if (result.isValid())
+                supers.push_back(result);
+            else
+                action.deleteNode(result);
+        }
         else {
             // We could not complete the current super signature.  Seek the next
             // super-signature, the begining of the models body, or an end tag.
@@ -312,21 +364,51 @@ void Parser::parseModelSupersignatures()
                        Lexer::TKN_ADD,   Lexer::TKN_END);
         }
     } while (reduceToken(Lexer::TKN_COMMA));
-    action.endModelSupersignatures();
+    action.acceptModelSupersignatureList(&supers[0], supers.size());
+}
+
+void Parser::parseSignatureComponents()
+{
+    std::vector<Node> components;
+
+    // Currently, we only support function components.
+    while (currentTokenIs(Lexer::TKN_FUNCTION)) {
+        Location        location;
+        IdentifierInfo *name;
+        Node            type;
+
+        location = currentLocation();
+        ignoreToken();
+        name = parseFunctionIdentifierInfo();
+
+        if (!name) seekTokens(Lexer::TKN_FUNCTION,
+                              Lexer::TKN_END, Lexer::TKN_ADD);
+
+        type = parseFunctionProto();
+        if (type.isInvalid())
+            seekTokens(Lexer::TKN_FUNCTION,
+                       Lexer::TKN_END, Lexer::TKN_ADD);
+
+        if (requireToken(Lexer::TKN_SEMI)) {
+            Node component =
+                action.acceptSignatureComponent(name, type, location);
+            if (component.isValid())
+                components.push_back(component);
+        }
+    }
+    action.acceptSignatureComponentList(&components[0], components.size());
 }
 
 void Parser::parseModel()
 {
-    IdentifierInfo *info;
-    Location loc;
-    Bridge::DefinitionKind kind;
+    IdentifierInfo  *info;
+    Location         loc;
+    bool parsingDomain;
 
     assert(currentTokenIs(Lexer::TKN_SIGNATURE) ||
            currentTokenIs(Lexer::TKN_DOMAIN));
 
-    // Remember what basic class of defintion we are processing.
-    kind = currentTokenIs(Lexer::TKN_SIGNATURE) ? Bridge::Signature
-        : Bridge::Domain;
+    parsingDomain = currentTokenIs(Lexer::TKN_DOMAIN) ? true : false;
     loc = currentLocation();
     ignoreToken();
 
@@ -335,32 +417,27 @@ void Parser::parseModel()
     info = parseIdentifierInfo();
     if (!info) return;
 
-    if (currentTokenIs(Lexer::TKN_LPAREN) && nextTokenIs(Lexer::TKN_RPAREN)) {
-        // Empty parameter lists are not allowed. Let the type checker treat the
-        // model as non-parameterized.
-        report(diag::ILLEGAL_EMPTY_PARAMS);
-        ignoreToken();
-        ignoreToken();
-        action.beginModelDefinition(kind, info, loc);
-    }
-    else if (currentTokenIs(Lexer::TKN_LPAREN)) {
-        // We have a parameterized model.  Refine our definition kind and
-        // process the parameters.
-        kind = (kind == Bridge::Signature) ? Bridge::Variety : Bridge::Functor;
-        action.beginModelDefinition(kind, info, loc);
+    if (parsingDomain)
+        action.beginDomainDefinition(info, loc);
+    else
+        action.beginSignatureDefinition(info, loc);
+
+    if (currentTokenIs(Lexer::TKN_LPAREN))
         parseModelParameterization();
-    }
-    else {
-        // A non-parameterized model.
-        action.beginModelDefinition(kind, info, loc);
-    }
+    else
+        action.acceptModelParameterList(0, 0, 0);
 
     // Parse the supersignatures, if any,
-    if (reduceToken(Lexer::TKN_COLON))
-        parseModelSupersignatures();
+    if (reduceToken(Lexer::TKN_COLON)) {
+        if (!currentTokenIs(Lexer::TKN_WITH))
+            parseModelSupersignatures();
+        if (reduceToken(Lexer::TKN_WITH))
+            parseSignatureComponents();
+    }
 
-    // Consume and verify the end tag.
-    parseEndTag(info);
+    // Consume and verify the end tag.  On failure seek the next top level form.
+    if (!parseEndTag(info))
+        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
 
     action.endModelDefinition();
 }
@@ -368,8 +445,8 @@ void Parser::parseModel()
 Node Parser::parseModelInstantiation()
 {
     IdentifierInfo *info;
-    Node type;
-    Location loc = currentLocation();
+    Node            type;
+    Location        loc = currentLocation();
 
     if (reduceToken(Lexer::TKN_PERCENT))
         return action.acceptPercent(loc);
@@ -386,24 +463,50 @@ Node Parser::parseModelInstantiation()
             if (type.isValid()) report(loc, diag::ILLEGAL_EMPTY_PARAMS);
         }
         else {
-            NodeVector arguments;
+            NodeVector     arguments;
+            LocationVector argumentLocs;
+            IdInfoVector   selectors;
+            LocationVector selectorLocs;
             bool allOK = true;
 
             do {
+                Location loc = currentLocation();
+
+                if (argumentSelectorFollows()) {
+                    selectors.push_back(parseIdentifierInfo());
+                    selectorLocs.push_back(loc);
+                    ignoreToken(); // Ignore the trailing '=>'.
+                    loc = currentLocation();
+                }
+                else if (!selectors.empty()) {
+                    // We have already parsed a selector.
+                    report(loc, diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
+                    allOK = false;
+                }
+
                 Node argument = parseModelInstantiation();
-                if (argument.isValid())
+                if (argument.isValid()) {
                     arguments.push_back(argument);
+                    argumentLocs.push_back(loc);
+                }
                 else
                     allOK = false;
+
             } while (reduceToken(Lexer::TKN_COMMA));
             requireToken(Lexer::TKN_RPAREN);
 
             // Do not attempt to form the application unless all of the
-            // arguments checked are valid.
+            // arguments are valid.
             if (allOK) {
-                Node *args = &arguments[0];
-                unsigned arity = arguments.size();
-                type = action.acceptTypeApplication(info, args, arity, loc);
+                Node            *args       = &arguments[0];
+                Location        *argLocs    = &argumentLocs[0];
+                IdentifierInfo **selections = &selectors[0];
+                Location        *selectLocs = &selectorLocs[0];
+                unsigned         arity      = arguments.size();
+                unsigned         numSelects = selectors.size();
+                type = action.acceptTypeApplication(
+                    info, args, argLocs, arity,
+                    selections, selectLocs, numSelects, loc);
             }
             else {
                 // Cleanup whatever nodes we did manage to collect.
@@ -420,6 +523,97 @@ Node Parser::parseModelInstantiation()
     return type;
 }
 
+bool Parser::parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser)
+{
+    IdentifierInfo *formal;
+    Location        formalLocation;
+    Node            type;
+    Location        typeLocation;
+
+    formalLocation = currentLocation();
+    formal = parseIdentifierInfo();
+    if (!formal) return false;
+
+    if (!requireToken(Lexer::TKN_COLON)) return false;
+
+    typeLocation = currentLocation();
+    type = (this->*parser)();
+    if (type.isInvalid()) return false;
+
+    paramInfo.formal         = formal;
+    paramInfo.formalLocation = formalLocation;
+    paramInfo.type           = type;
+    paramInfo.typeLocation   = typeLocation;
+    return true;
+}
+
+Node Parser::parseFunctionProto()
+{
+    IdInfoVector   formalIdentifiers;
+    LocationVector formalLocations;
+    NodeVector     parameterTypes;
+    LocationVector typeLocations;
+    Node           returnType;
+    Location       returnLocation;
+    Location       functionLocation;
+    bool           allOK = true;
+
+    if (unitExprFollows()) {
+        // Simply consume the pair of parens.
+        ignoreToken();
+        ignoreToken();
+    }
+    else {
+        if (requireToken(Lexer::TKN_LPAREN)) {
+            // We know a parameter must follow since we did not see a unit
+            // expression.
+            do {
+                ParameterInfo paramInfo;
+                parseNodeFn   parser = &Parser::parseModelInstantiation;
+                if (parseFormalParameter(paramInfo, parser)) {
+                    formalIdentifiers.push_back(paramInfo.formal);
+                    formalLocations.push_back(paramInfo.formalLocation);
+                    parameterTypes.push_back(paramInfo.type);
+                    typeLocations.push_back(paramInfo.typeLocation);
+                }
+                else allOK = false;
+            } while (reduceToken(Lexer::TKN_SEMI));
+
+            // Stop parsing the prototype if we are missing a paren.
+            if (!requireToken(Lexer::TKN_RPAREN)) {
+                deleteNodes(parameterTypes);
+                return Node::getInvalidNode();
+            }
+        }
+        else
+            return Node::getInvalidNode();
+    }
+
+    // Stop parsing if we are missing a return.
+    if (!requireToken(Lexer::TKN_RETURN)) {
+        deleteNodes(parameterTypes);
+        return Node::getInvalidNode();
+    }
+
+    returnLocation = currentLocation();
+    returnType     = parseModelInstantiation();
+    if (returnType.isValid() && allOK) {
+        IdentifierInfo **formals    = &formalIdentifiers[0];
+        Location        *formalLocs = &formalLocations[0];
+        Node            *types      = &parameterTypes[0];
+        Location        *typeLocs   = &typeLocations[0];
+        unsigned         arity      = formalIdentifiers.size();
+
+        return action.acceptFunctionType(formals, formalLocs,
+                                         types, typeLocs, arity,
+                                         returnType, returnLocation);
+    }
+
+    // The parse failed.  Cleanup and return.
+    deleteNodes(parameterTypes);
+    action.deleteNode(returnType);
+    return Node::getInvalidNode();
+}
 
 bool Parser::parseTopLevelDeclaration()
 {

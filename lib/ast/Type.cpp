@@ -6,187 +6,271 @@
 //
 //===----------------------------------------------------------------------===//
 
-// FIXME:  Provide access to the global IdentifierPool.  Remove once this
-// resource has a better interface.
-#include "comma/basic/IdentifierPool.h"
-
 #include "comma/ast/Type.h"
 #include "comma/ast/Decl.h"
-#include "llvm/ADT/DepthFirstIterator.h"
-#include <cstring>
+#include <algorithm>
 
 using namespace comma;
 
 //===----------------------------------------------------------------------===//
-// ModelType methods.
-
-ModelType::ModelType(AstKind kind, ModelDecl *decl,
-                     ModelType **args, unsigned numArgs)
-    : Type(kind), declaration(decl), arity(numArgs)
-{
-    assert(this->denotesModelType());
-    arguments = new ModelType*[numArgs];
-    memcpy(arguments, args, sizeof(DomainType*) * numArgs);
-}
-
-IdentifierInfo *ModelType::getIdInfo() const
-{
-    return getDeclaration()->getIdInfo();
-}
-
-//===----------------------------------------------------------------------===//
-// SignatureType methods.
+// SignatureType
 
 SignatureType::SignatureType(SignatureDecl *decl)
-    : ModelType(AST_SignatureType, decl)
+    : ModelType(AST_SignatureType, decl->getIdInfo()), sigoid(decl)
 {
-    populateSignatureTable();
+    deletable = false;
 }
 
 SignatureType::SignatureType(VarietyDecl *decl,
-                             ModelType **args, unsigned numArgs)
-  : ModelType(AST_SignatureType, decl, args, numArgs)
+                             DomainType **args, unsigned numArgs)
+    : ModelType(AST_SignatureType, decl->getIdInfo()), sigoid(decl)
 {
-    populateSignatureTable();
-}
-
-// Inserts a signature into the signature table.  Checks that the provided type
-// does not already exist in the table.
-void SignatureType::insertSupersignature(SignatureType *sig)
-{
-    sig_iterator begin = beginDirectSupers();
-    sig_iterator end = endDirectSupers();
-    if (std::find(begin, end, sig) == end)
-        directSupers.push_back(sig);
-}
-
-void SignatureType::addSupersignature(SignatureType *sig)
-{
-    AstRewriter rewriter;
-
-    if (VarietyDecl *sig = llvm::dyn_cast<VarietyDecl>(getDeclaration())) {
-        // We are a parametrized type.  Install rewrite rules which map formal
-        // parameters to our actual arguments.
-        for (unsigned i = 0; i < sig->getArity(); ++i) {
-            DomainType *formal = sig->getFormalDomain(i);
-            ModelType *actual = this->getArgument(i);
-            rewriter.addRewrite(formal, actual);
-        }
-    }
-
-    // FIXME: If the rewritten node is a duplicate the pointer is leaked.
-    SignatureType *super = rewriter.rewrite(sig);
-    insertSupersignature(super);
-}
-
-void SignatureType::populateSignatureTable()
-{
-    Sigoid *decl = getDeclaration();
-    SignatureDecl::sig_iterator iter = decl->beginDirectSupers();
-    SignatureDecl::sig_iterator endIter = decl->endDirectSupers();
-    for ( ; iter != endIter; ++iter)
-        addSupersignature(*iter);
+    deletable = false;
+    arguments = new DomainType*[numArgs];
+    std::copy(args, args + numArgs, arguments);
 }
 
 Sigoid *SignatureType::getDeclaration() const
 {
-    return static_cast<Sigoid*>(declaration);
+    return sigoid;
 }
 
 SignatureDecl *SignatureType::getSignature() const
 {
-    return llvm::dyn_cast<SignatureDecl>(declaration);
+    return llvm::dyn_cast<SignatureDecl>(sigoid);
 }
 
 VarietyDecl *SignatureType::getVariety() const
 {
-    return llvm::dyn_cast<VarietyDecl>(declaration);
+    return llvm::dyn_cast<VarietyDecl>(sigoid);
 }
 
-bool SignatureType::has(SignatureType *sig)
+unsigned SignatureType::getArity() const
 {
-    if (sig == this) return true;
+    VarietyDecl *variety = getVariety();
+    if (variety)
+        return variety->getArity();
+    return 0;
+}
 
-    llvm::df_iterator<SignatureType*> iter = llvm::df_begin(this);
-    for ( ; iter != llvm::df_end(this); ++iter)
-        if (*iter == sig) return true;
-
-    return false;
+DomainType *SignatureType::getActualParameter(unsigned n) const
+{
+    assert(isParameterized() &&
+           "Cannot fetch parameter from non-parameterized type!");
+    assert(n < getArity() && "Parameter index out of range!");
+    return arguments[n];
 }
 
 void SignatureType::Profile(llvm::FoldingSetNodeID &id,
-                            ModelType **args, unsigned numArgs)
+                            DomainType **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);
 }
 
 //===----------------------------------------------------------------------===//
-// DomainType methods.
+// ParameterizedType
 
-DomainType::DomainType(DomainDecl *decl)
-    : ModelType(AST_DomainType, decl) { }
-
-DomainType::DomainType(FunctorDecl *decl,
-                       ModelType **args, unsigned numArgs)
-    : ModelType(AST_DomainType, decl, args, numArgs) { }
-
-Domoid *DomainType::getDeclaration() const
+ParameterizedType::ParameterizedType(AstKind              kind,
+                                     IdentifierInfo      *idInfo,
+                                     AbstractDomainType **formalArgs,
+                                     unsigned             arity)
+    : ModelType(kind, idInfo),
+      numFormals(arity)
 {
-    return static_cast<Domoid*>(declaration);
+    assert(kind == AST_VarietyType || kind == AST_FunctorType);
+    formals = new AbstractDomainType*[arity];
+    std::copy(formalArgs, formalArgs + arity, formals);
+}
+
+AbstractDomainType *ParameterizedType::getFormalDomain(unsigned i) const
+{
+    assert(i < getArity() && "Formal domain index out of bounds!");
+    return formals[i];
+}
+
+SignatureType *ParameterizedType::getFormalType(unsigned i) const
+{
+    return getFormalDomain(i)->getSignature();
+}
+
+IdentifierInfo *ParameterizedType::getFormalIdInfo(unsigned i) const
+{
+    return getFormalDomain(i)->getIdInfo();
+}
+
+int ParameterizedType::getSelectorIndex(IdentifierInfo *selector) const
+{
+    for (unsigned i = 0; i < getArity(); ++i) {
+        if (getFormalIdInfo(i) == selector)
+            return i;
+    }
+    return -1;
+}
+
+//===----------------------------------------------------------------------===//
+// VarietyType
+
+VarietyType::VarietyType(AbstractDomainType **formalArguments,
+                         VarietyDecl *variety, unsigned arity)
+    : ParameterizedType(AST_VarietyType,
+                        variety->getIdInfo(), formalArguments, arity),
+      variety(variety)
+{
+    // We are owned by the corresponding variety and so we cannot be deleted
+    // independently.
+    deletable = false;
+}
+
+VarietyType::~VarietyType()
+{
+    delete[] formals;
+}
+
+//===----------------------------------------------------------------------===//
+// FunctorType
+
+FunctorType::FunctorType(AbstractDomainType **formalArguments,
+                         FunctorDecl *functor, unsigned arity)
+    : ParameterizedType(AST_FunctorType,
+                        functor->getIdInfo(), formalArguments, arity),
+      functor(functor)
+{
+    // We are owned by the corresponding functor and so we cannot be deleted
+    // independently.
+    deletable = false;
+}
+
+FunctorType::~FunctorType()
+{
+    delete[] formals;
+}
+
+//===----------------------------------------------------------------------===//
+// DomainType
+
+DomainType::DomainType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl)
+    : ModelType(kind, idInfo), modelDecl(decl)
+{
+    assert(this->denotesDomainType());
+}
+
+DomainType::DomainType(AstKind kind, IdentifierInfo *idInfo, SignatureType *sig)
+    : ModelType(kind, idInfo), signatureType(sig)
+{
+    assert(this->denotesDomainType());
+}
+
+bool DomainType::isAbstract() const
+{
+    return astNode->getKind() == AST_SignatureType;
+}
+
+ModelDecl *DomainType::getDeclaration() const
+{
+    if (isAbstract() && getKind() != AST_PercentType)
+        return signatureType->getDeclaration();
+    else
+        return modelDecl;
+}
+
+Domoid *DomainType::getDomoid() const
+{
+    return llvm::dyn_cast<Domoid>(modelDecl);
 }
 
 DomainDecl *DomainType::getDomain() const
 {
-    return llvm::dyn_cast<DomainDecl>(declaration);
+    return llvm::dyn_cast<DomainDecl>(modelDecl);
 }
 
 FunctorDecl *DomainType::getFunctor() const
 {
-    return llvm::dyn_cast<FunctorDecl>(declaration);
+    return llvm::dyn_cast<FunctorDecl>(modelDecl);
 }
 
-SignatureType *DomainType::getSignature() const
+//===----------------------------------------------------------------------===//
+// ConcreteDomainType.
+
+ConcreteDomainType::ConcreteDomainType(DomainDecl *decl)
+    : DomainType(AST_ConcreteDomainType, decl->getIdInfo(), decl),
+      arguments(0)
 {
-    return getDeclaration()->getPrincipleSignature();
+    deletable = false;
 }
 
-bool DomainType::has(SignatureType *type)
+ConcreteDomainType::ConcreteDomainType(FunctorDecl *decl,
+                                       DomainType **args,
+                                       unsigned     numArgs)
+    : DomainType(AST_ConcreteDomainType, decl->getIdInfo(), decl)
 {
-    return getSignature()->has(type);
+    deletable = false;
+    arguments = new DomainType*[numArgs];
+    std::copy(args, args + numArgs, arguments);
 }
 
-void DomainType::Profile(llvm::FoldingSetNodeID &id,
-                         ModelType **args, unsigned numArgs)
+unsigned ConcreteDomainType::getArity() const
+{
+    FunctorDecl *functor = getFunctor();
+    if (functor) return functor->getArity();
+    return 0;
+}
+
+DomainType *ConcreteDomainType::getActualParameter(unsigned i) const
+{
+    assert(i < getArity() && "Index out of range!");
+    return arguments[i];
+}
+
+void ConcreteDomainType::Profile(llvm::FoldingSetNodeID &id,
+                                 DomainType **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);
 }
 
 //===----------------------------------------------------------------------===//
-// DomainType.
+// FunctionType.
 
-IdentifierInfo *PercentType::getIdInfo() const
+FunctionType::FunctionType(IdentifierInfo **formals,
+                           DomainType     **argTypes,
+                           unsigned         numArgs,
+                           DomainType      *returnType)
+    : Type(AST_FunctionType),
+      returnType(returnType),
+      numArgs(numArgs)
 {
-    return &IdentifierPool::getIdInfo("%");
+    selectors = new IdentifierInfo*[numArgs];
+    argumentTypes = new DomainType*[numArgs];
+    std::copy(formals, formals + numArgs, selectors);
+    std::copy(argTypes, argTypes + numArgs, argumentTypes);
 }
 
-bool PercentType::has(SignatureType *type)
+bool FunctionType::selectorsMatch(const FunctionType *ftype) const
 {
-     ModelDecl *decl = getDeclaration();
+    unsigned arity = getArity();
+    if (ftype->getArity() == arity) {
+        for (unsigned i = 0; i < arity; ++i)
+            if (getSelector(i) != ftype->getSelector(i))
+                return false;
+        return true;
+    }
+    return false;
+}
 
-    if (SignatureDecl *sig = llvm::dyn_cast<SignatureDecl>(decl))
-        return sig->getCorrespondingType()->has(type);
-    else if (Domoid *dom = llvm::dyn_cast<Domoid>(decl))
-        return dom->getPrincipleSignature()->has(type);
-    else if (VarietyDecl *variety = llvm::dyn_cast<VarietyDecl>(decl)) {
-        // For a variety V(X0 : T0, ..., Xn : Tn), check against the signature
-        // V(X0, ..., Xn).
-        SignatureType *sig = variety->getCorrespondingType(arguments, arity);
-        return sig->has(type);
-    }
-    else {
-        assert(false && "Unknown type declaration!");
+bool FunctionType::equals(const FunctionType *ftype) const
+{
+    unsigned arity = getArity();
+
+    if (arity != ftype->getArity())
         return false;
-    }
+
+    if (getReturnType() != ftype->getReturnType())
+        return false;
+
+    for (unsigned i = 0; i < arity; ++i)
+        if (getArgType(i) != ftype->getArgType(i))
+            return false;
+
+    return true;
 }

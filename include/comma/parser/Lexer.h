@@ -19,7 +19,7 @@ namespace comma {
 class Lexer {
 
 public:
-    Lexer(TextProvider &tp, Diagnostic &diag);
+    Lexer(TextProvider &txtProvider, Diagnostic &diag);
 
     // Aside from UNUSED_ID, the only codes which should be used by clients of
     // this class are those prefixed by TKN.  All other codes are considered
@@ -60,7 +60,13 @@ public:
         TKN_DCOLON,
         TKN_DOT,
         TKN_EQUAL,
+        TKN_MINUS,
+        TKN_NEQUAL,
+        TKN_PLUS,
+        TKN_RDARROW,
         TKN_SEMI,
+        TKN_STAR,
+        TKN_TILDE,
         TKN_ASSIGN,
         TKN_LBRACE,
         TKN_RBRACE,
@@ -150,6 +156,22 @@ public:
         return isGlyph(tkn.getCode());
     }
 
+    // Returns true if the given token is a glyph and it can name a function
+    // (e.g. '+', '*', etc).
+    static bool isFunctionGlyph(const Lexer::Token &tkn) {
+        switch (tkn.getCode()) {
+        case TKN_EQUAL:
+        case TKN_MINUS:
+        case TKN_NEQUAL:
+        case TKN_STAR:
+        case TKN_PLUS:
+        case TKN_TILDE:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // Returns true if the given code has a known string representation.
     static bool hasString(Lexer::Code code) {
         return (FIRST_STATIC_CODE <= code && code <= LAST_STATIC_CODE);
@@ -223,7 +245,7 @@ private:
                              const TextIterator &end);
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
-        SourceLocation sloc = tp.getSourceLocation(loc);
+        SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 
@@ -232,12 +254,12 @@ private:
     }
 
     DiagnosticStream &report(diag::Kind kind) {
-        SourceLocation sloc = tp.getSourceLocation(currentLocation());
+        SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
         return diagnostic.report(sloc, kind);
     }
 
     // This is the stream we read from.
-    TextProvider &tp;
+    TextProvider &txtProvider;
 
     // Output stream to send messages.
     Diagnostic &diagnostic;

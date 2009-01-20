@@ -21,6 +21,8 @@ public:
     Node() : payload(1) { }
     Node(void *ptr) : payload(reinterpret_cast<uintptr_t>(ptr)) { }
 
+    static Node getInvalidNode() { return Node(); }
+
     // Returns true if this node is invalid.
     bool isInvalid() const { return payload & 1u; }
 
@@ -36,7 +38,6 @@ private:
     uintptr_t payload;
 };
 
-
 class Bridge {
 
 public:
@@ -46,51 +47,82 @@ public:
     // cache it, for instance.
     virtual void deleteNode(Node node) = 0;
 
-    // Enumerations which indicate what kind of model this bridge is operating
-    // over.
-    enum DefinitionKind {
-        Signature,
-        Variety,
-        Domain,
-        Functor
-    };
+    // Processing of models begin with a call to beginSignatureDefinition or
+    // beginDomainDefinition.  Precessing is completed with a call to
+    // endModelDefinition().
+    virtual void beginSignatureDefinition(IdentifierInfo *name,
+                                          Location loc) = 0;
 
-    // Processing of models begin with a call to beginModelDefinition, and
-    // are completed with a call to endModelDefinition.
-    virtual void
-    beginModelDefinition(DefinitionKind kind,
-                         IdentifierInfo *id, Location location) = 0;
+    virtual void beginDomainDefinition(IdentifierInfo *name, Location loc) = 0;
 
     virtual void endModelDefinition() = 0;
 
     // Called immediately after a model definition has been registered.  This
     // call defines a formal parameter of the model (which must be either a
-    // functor or variety). The order of the calls determines the shape of the
-    // models formal parameter list.
-    virtual void acceptModelParameter(IdentifierInfo *formal,
+    // functor or variety). The parser collects the results of this call and
+    // then supplies them back to the bridge in a call to
+    // acceptFormalParameterList.
+    virtual Node acceptModelParameter(IdentifierInfo *formal,
                                       Node typeNode, Location loc) = 0;
 
-    // Once the formal parameters have been accepted, this function is called to
-    // begin processing of a models supersignature list.
-    virtual void beginModelSupersignatures() = 0;
+    // This call completes the definition of a models formal parameters.  This
+    // function is called for every definition.  If the definition was without
+    // formal parameters, then the supplied lists in this call are empty (arity
+    // is zero).
+    virtual void acceptModelParameterList(Node *params,
+                                          Location *locs, unsigned arity) = 0;
 
-    // For each supersignature, this function is called to notify the type
-    // checker of the existance of a supersignature.
-    virtual void acceptModelSupersignature(Node typeNode,
-                                           const Location loc) = 0;
+    // Once the formal parameters have been accepted, this function is called
+    // for each direct super signature parsed.  The result node of this function
+    // are collected by the parser and supplied to the bridge in a final call to
+    // acceptModelSupersignatureList once all direct supersignatures have been
+    // processed.
+    virtual Node acceptModelSupersignature(Node typeNode, Location loc) = 0;
 
-    // Called immediately after all supersignatures have been processed.
-    virtual void endModelSupersignatures() = 0;
+    // Provides the final list of direct supersignatures as returned by calss to
+    // acceptModelSupersignature.  If the model does not contain any
+    // supersignatures, this function is still invoked by the parser with
+    // numSigs set to 0.
+    virtual void acceptModelSupersignatureList(Node *sigs,
+                                               unsigned numSigs) = 0;
+
+    virtual Node acceptSignatureComponent(IdentifierInfo *name,
+                                          Node typeNode, Location loc) = 0;
+
+    virtual void acceptSignatureComponentList(Node *components,
+                                              unsigned numComponents) = 0;
+
 
     virtual Node acceptPercent(Location loc) = 0;
 
     virtual Node acceptTypeIdentifier(IdentifierInfo *info, Location loc) = 0;
 
-    virtual Node acceptTypeApplication(IdentifierInfo *connective,
-                                       Node *argumentNodes, unsigned numArgs,
-                                       Location loc) = 0;
+    virtual Node acceptTypeApplication(IdentifierInfo  *connective,
+                                       Node            *argumentNodes,
+                                       Location        *argumentLocs,
+                                       unsigned         numArgs,
+                                       IdentifierInfo **selectors,
+                                       Location        *selectorLocs,
+                                       unsigned         numSelectors,
+                                       Location         loc) = 0;
+
+    // Functions are built up thru a sequence of calls.  First is to establish
+    // the type of the function via a call to acceptFunctionType.  This function
+    // takes a set of Nodes representing the argument types which the function
+    // accepts, and a Node representing the return type.
+    //
+    // The raw function type node is then elaborated with a set of formal parameters
+
+
+    virtual Node acceptFunctionType(IdentifierInfo **formals,
+                                    Location        *formalLocations,
+                                    Node            *types,
+                                    Location        *typeLocations,
+                                    unsigned         arity,
+                                    Node             returnType,
+                                    Location         returnLocation) = 0;
 };
 
-};
+} // End comma namespace.
 
 #endif

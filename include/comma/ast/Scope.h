@@ -10,6 +10,7 @@
 #define COMMA_AST_SCOPE_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include <vector>
 
 namespace comma {
@@ -36,17 +37,12 @@ public:
     // this scope.
     Scope *popScope();
 
-    // Adds the given type into the type namespace.  If a type with the same
-    // name already exists in this scope, this method will assert.
-    void addModel(ModelDecl *decl);
+    void addType(ModelType *type);
 
-    // Adds the given type indo the type namespace, registered under the given
-    // IdentifierInfo.
-    void addModel(IdentifierInfo *info, ModelDecl *decl);
-
-    // Looks up the given model.  If traverse is true, the lookup includes all
-    // parent scopes, otherwise the lookup is constrained to this scope.
-    ModelDecl *lookupModel(const IdentifierInfo *info, bool traverse = true) const;
+    // Looks up a type with the given name.  If traverse is true, the lookup
+    // includes all parent scopes, otherwise the lookup is constrained to this
+    // scope.
+    ModelType *lookupType(const IdentifierInfo *info, bool traverse = true) const;
 
 private:
     // Internal constructor for creating scopes of arbitrary kinds.
@@ -56,25 +52,23 @@ private:
     Scope *parentScope;
     Scope *childScope;
 
-    // The set of declaration nodes which this scope provides.
-    std::vector<Decl *> declarations;
+    // The set of identifiers which this scope provides bindings for.
+    typedef llvm::SmallPtrSet<IdentifierInfo*, 16> IdInfoSet;
+    IdInfoSet identifiers;
 
-    // Installed in the metadata slot of Identifier_Info's.  This structure
+    // Installed in the metadata slot of IdentifierInfo's.  This structure
     // stores the nodes which correspond to the various namespaces.
     struct DeclInfo {
-        DeclInfo(Scope *scope) : scope(scope) { }
+        DeclInfo(Scope *scope) : scope(scope), type(0) { }
 
         // Tag indicating which scope this entry belongs to.
         Scope *scope;
-
-        // Only one type with a given name can exist in a scope at once.
-        TypeDecl *type;
+        ModelType *type;
     };
 
     typedef std::vector<DeclInfo> DeclStack;
 
-    void modifyDeclStack(IdentifierInfo *idInfo, ModelDecl *decl);
-
+    DeclInfo *lookupDeclInfo(IdentifierInfo *idInfo);
     void ensureDisjointDeclarations() const;
 };
 

@@ -12,10 +12,10 @@
 
 using namespace comma;
 
-Lexer::Lexer(TextProvider &tp, Diagnostic &diag)
-    : tp(tp),
+Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
+    : txtProvider(txtProvider),
       diagnostic(diag),
-      currentIter(tp.begin()),
+      currentIter(txtProvider.begin()),
       errorDetected(false)
 { }
 
@@ -51,7 +51,13 @@ const char *Lexer::tokenStrings[LAST_STATIC_CODE - FIRST_STATIC_CODE + 1] = {
     "::",                       // TKN_DCOLON
     ".",                        // TKN_DOT
     "=",                        // TKN_EQUAL
+    "-",                        // TKN_MINUS
+    "~=",                       // TKN_NEQUAL
+    "+",                        // TKN_PLUS
+    "=>",                       // TKN_RDARROW
     ";",                        // TKN_SEMI
+    "*",                        // TKN_STAR
+    "~",                        // TKN_TILDE
     ":=",                       // TKN_ASSIGN
     "{",                        // TKN_LBRACE
     "}",                        // TKN_RBRACE
@@ -115,7 +121,7 @@ bool Lexer::isInitialIdentifierChar(unsigned c)
 
 bool Lexer::isInnerIdentifierChar(unsigned c)
 {
-    return isInitialIdentifierChar(c) || isDecimalDigit(c);
+    return isInitialIdentifierChar(c) || isDecimalDigit(c) || c == '?';
 }
 
 bool Lexer::isWhitespace(unsigned c)
@@ -125,7 +131,7 @@ bool Lexer::isWhitespace(unsigned c)
 
 Location Lexer::currentLocation() const
 {
-    return tp.getLocation(currentIter);
+    return txtProvider.getLocation(currentIter);
 }
 
 // Something of a fundamental function, since all characters are gathered from
@@ -208,9 +214,9 @@ bool Lexer::eatWhitespace()
 void Lexer::emitToken(Code code,
                       const TextIterator &start, const TextIterator &end)
 {
-    Location loc = tp.getLocation(start);
+    Location    loc    = txtProvider.getLocation(start);
     const char *string = &start;
-    unsigned length = &end - &start;
+    unsigned    length = &end - &start;
     *targetToken = Token(code, loc, string, length);
 }
 
@@ -319,7 +325,7 @@ bool Lexer::scanWord()
         if (code == UNUSED_ID)
             emitIdentifierToken(start, currentIter);
         else
-            emitToken(code, tp.getLocation(start));
+            emitToken(code, txtProvider.getLocation(start));
         return true;
     }
     return false;
@@ -370,7 +376,16 @@ bool Lexer::scanGlyph()
         break;
 
     case '=':
-        code = TKN_EQUAL;
+        switch (peekStream()) {
+        default:
+            code = TKN_EQUAL;
+            break;
+
+        case '>':
+            ignoreStream();
+            code = TKN_RDARROW;
+            break;
+        }
         break;
 
     case '[':
@@ -387,6 +402,30 @@ bool Lexer::scanGlyph()
 
     case '}':
         code = TKN_RBRACE;
+        break;
+
+    case '+':
+        code = TKN_PLUS;
+        break;
+
+    case '-':
+        code = TKN_MINUS;
+        break;
+
+    case '*':
+        code = TKN_STAR;
+        break;
+
+    case '~':
+        switch (peekStream()) {
+        case '=':
+            ignoreStream();
+            code = TKN_NEQUAL;
+            break;
+
+        default:
+            code = TKN_TILDE;
+        }
         break;
     }
 
