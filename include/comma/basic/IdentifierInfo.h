@@ -14,35 +14,44 @@
 
 namespace comma {
 
-// All identifiers are interned (uniqued) when initially lexed, and are
-// associated with an IdentiferInfo object.  The IdentifierInfo objects
-// themselves provide fast access to:
-//
-//   - The string representation of the identifier.
-
-//   - Arbitrary metadata associated with a given identifier: This is used
-//     primarily during semantic analysis to implement fast symbol table
-//     lookups.
+/// \class IdentifierInfo
+/// \brief Associates information with unique strings in the system.
+///
+/// The IdentifierInfo class is quite fundamental.  These objects provide access
+/// to unique (memoized) strings, and to associate arbitrary metadata with each
+/// distinct string.  The metadata facility is used to provide O(1) lookup of
+/// information knowing only the name of the object of interest.  For example,
+/// this facility is used during semantic analysis to implement an efficient
+/// symbol table.
+///
+/// IdentifierInfo's are always allocated with respect to a particular
+/// IdentifierPool.  One never constructs an IdentifierInfo explicitly by hand.
+/// Allocations are performed by calling one of the
+/// IdentifierPool::getIdentifierInfo methods.
+///
+/// \see IdentifierPool
 class IdentifierInfo {
-public:
-    IdentifierInfo() : metadata(0) { }
 
-    // Returns a unique null terminated string associated with this
-    // identifier.
+public:
+    /// Obtains the unique null terminated string associated with this
+    /// identifier.
     const char *getString() const {
         return llvm::StringMapEntry<IdentifierInfo>::
             GetStringMapEntryFromValue(*this).getKeyData();
     }
 
-    // Returns the metadata cast to the supplied type.
+    /// Returns the metadata associated with this identifier cast to the
+    /// supplied type.
     template<typename T>
     T* getMetadata() const { return static_cast<T*>(metadata); }
 
-    // Associates this Identifier_Info objcect with the supplied metadata.  The
-    // ownership of this pointer remains with the caller.
+    /// Associates this IdentifierInfo object with the supplied metadata.  The
+    /// ownership of this pointer remains with the caller.
+    ///
+    /// \param mdata  The metadata to associate with this identifier.
     void setMetadata(void *mdata) { metadata = mdata; }
 
-    // Returns true if the metadata has been set to a non-null pointer.
+    /// Returns true if the metadata has been set to a non-null pointer.
     bool hasMetadata() const { return metadata != 0; }
 
 private:
