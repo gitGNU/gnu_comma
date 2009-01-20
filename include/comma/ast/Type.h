@@ -14,7 +14,6 @@
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Casting.h"
-#include <vector>
 
 namespace comma {
 

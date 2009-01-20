@@ -84,7 +84,7 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
     ConcreteDomainType *source = llvm::dyn_cast<ConcreteDomainType>(dom);
 
     if (source && source->isParameterized()) {
-        std::vector<DomainType*> args;
+        llvm::SmallVector<DomainType*, 4> args;
 
         ConcreteDomainType::arg_iterator iter;
         ConcreteDomainType::arg_iterator endIter = source->endArguments();
@@ -106,8 +106,8 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
 
 FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 {
-    std::vector<IdentifierInfo*> formals;
-    std::vector<DomainType*> args;
+    llvm::SmallVector<IdentifierInfo*, 4> formals;
+    llvm::SmallVector<DomainType*, 4> args;
     DomainType *source;
     DomainType *target;
     unsigned    arity;
