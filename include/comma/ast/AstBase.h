@@ -62,7 +62,7 @@ class VarietyType;
 class Ast {
 
 public:
-    /// \brief Codes which identify unique members of the AST hierarchy.
+    /// \brief Codes which identify concrete members of the AST hierarchy.
     ///
     /// Each concrete sub-class has an code which labels its identity.  These
     /// codes are used, in the main, to implement the LLVM mechanisms for type
