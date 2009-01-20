@@ -30,12 +30,14 @@ prj_objects = $(addprefix $(prj_objdir)/,$(prj_cxx_objects))
 #
 prj_depends = $(patsubst %.o,%.d,$(prj_objects))
 
-$(prj_objdir)/%.o: $(prj_srcdir)/%.cpp
-	$(verb) echo "compiling $(notdir $<)"; \
-	$(CXX) -MM $(cpp_flags) -o $*.d $<;    \
-	$(CXX) $(cpp_flags) $(cxx_flags) -c -Wall $< -o $@
-
 -include $(prj_depends)
+
+$(prj_objdir)/%.o: $(prj_srcdir)/%.cpp
+	$(verb) echo "compiling $(notdir $<)";                    \
+	$(CXX) -MM $(cpp_flags) -o $*.d.tmp $<;                   \
+	$(SED) -e 's|.*:|$(prj_objdir)/$*.o:|' < $*.d.tmp > $*.d; \
+	$(RM)  -f $*.d.tmp;                                       \
+	$(CXX) $(cpp_flags) $(cxx_flags) -c -Wall $< -o $@
 
 #
 # Extend the clean target to handle the generated object and dependency files.
