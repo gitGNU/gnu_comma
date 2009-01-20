@@ -14,7 +14,7 @@ LEVEL = ..
 #
 # List all of the sub-directories that we will compile.
 #
-DIRS=commaspec
+DIRS=commaspec doxygen
 
 include $(LEVEL)/Makefile.common
 include $(makefiles)/dirrules.mk

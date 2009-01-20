@@ -101,8 +101,13 @@ AR     := @AR@
 ECHO   := @@ECHO@
 SED    := @SED@
 
+#
+# Non-standard tools on which we rely: The LLVM configurations tool, xsltproc
+# for xml translation (docbook), and doxygen.
+#
 LLVM_CONFIG := @LLVM_CONFIG@
 XSLTPROC := @XSLTPROC@
+DOXYGEN := @DOXYGEN@
 
 #
 # Enable the verbose build switch if enabled.
@@ -110,6 +115,22 @@ XSLTPROC := @XSLTPROC@
 ifneq ($(verbose_build), 1)
    verb := @
 endif
+
+#
+# Are we building the Doxygen reference material?
+#
+enable_doxygen = @ENABLE_DOXYGEN@
+
+#
+# This is the configuration file needed for Doxygen.  Note that this is a '.in'
+# file processed by configure and the translation emitted into objroot.
+#
+doxygen_cfg = $(comma_objroot)/doc/doxygen/doxygen.cfg
+
+#
+# This is the directory where Doxygen will send its output.
+#
+doxygen_dir = $(comma_objroot)/doc/doxygen
 
 #
 # Our default rule is always all.

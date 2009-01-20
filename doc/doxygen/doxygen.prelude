@@ -1,0 +1,13 @@
+//===-- doc/doxygen/doxygen.prelude --------------------------- -*- C++ -*-===//
+//
+// This file is distributed under the MIT license.  See LICENSE.txt for details.
+//
+// Copyright (C) 2008, Stephen Wilson
+//
+//===----------------------------------------------------------------------===//
+
+/// @mainpage Comma
+///
+/// @section main_intro Introduction
+/// This documentation is intended to serve as a thorough reference to
+/// the internal structure and API's of the Comma system.

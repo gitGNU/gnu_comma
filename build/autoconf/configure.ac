@@ -43,6 +43,24 @@ case "$enableval" in
    *)   AC_MSG_ERROR([Invalid setting for --enable-verbosity. Use "yes" or "no"]) ;;
 esac
 
+dnl Enable Doxygen.
+AC_ARG_ENABLE([doxygen],
+              AS_HELP_STRING([--enable-doxygen],
+                             [Build Doxygen documentation (default is "no")]),,
+              [enableval=no])
+
+case "$enableval" in
+   yes) AC_PATH_PROG([DOXYGEN], [doxygen], [])
+        if test -z "$DOXYGEN"; then
+           AC_MSG_ERROR([[Could not detect doxygen. Disabling..]])
+           AC_SUBST(ENABLE_DOXYGEN,[0])
+        else
+           AC_SUBST(ENABLE_DOXYGEN,[1])
+        fi; ;;
+   no)  AC_SUBST(ENABLE_DOXYGEN,[0]) ;;
+   *)   AC_MSG_ERROR([Invalid setting for --enable-doxygen. Use "yes" or "no"]) ;;
+esac;
+
 dnl ****************************************************************************
 dnl * Determine the build, host, and target systems.
 dnl ****************************************************************************
@@ -91,6 +109,12 @@ AC_CONFIG_FILES(tools/Makefile)
 AC_CONFIG_FILES(tools/driver/Makefile)
 AC_CONFIG_FILES(doc/Makefile)
 AC_CONFIG_FILES(doc/commaspec/Makefile)
+AC_CONFIG_FILES(doc/doxygen/Makefile)
+
+dnl If we are building the doxygen reference, output the config file.
+if test "$ENABLE_DOXYGEN" -eq 1 ; then
+  AC_CONFIG_FILES(doc/doxygen/doxygen.cfg)
+fi;
 
 dnl This must be last.
 AC_OUTPUT

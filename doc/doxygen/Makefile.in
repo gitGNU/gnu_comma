@@ -1,0 +1,42 @@
+##-- doc/doxygen/Makefile ------------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
+#
+# Copyright (C) 2008, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Relative path to the top of the source tree.
+#
+LEVEL=../..
+
+include $(LEVEL)/Makefile.common
+
+#
+#  Build the documentation only if we have been configured to do so.
+#
+ifeq ($(enable_doxygen), 1)
+
+all: doxygen
+
+.PHONY: doxygen
+
+#
+# Rules for building the Doxygen reference material.
+#
+doxygen:
+	$(verb) $(DOXYGEN) $(doxygen_cfg)
+
+endif # enable_doxygen
+
+#
+#  Extend the clean rule.
+#
+.PHONY: clean-doxygen
+
+clean: clean-doxygen
+
+clean-doxygen:
+	$(verb) rm -rf $(doxygen_dir)/html
+
