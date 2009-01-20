@@ -464,10 +464,8 @@ FunctionDecl *findComponent(const AstRewriter &rewrites,
 
 void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
 {
-    // FIXME:  We should be iterating over the set of direct signatures, not the
-    // full signature set.
-    Sigoid::sig_iterator superIter    = sig->beginSupers();
-    Sigoid::sig_iterator endSuperIter = sig->endSupers();
+    Sigoid::sig_iterator superIter    = sig->beginDirectSupers();
+    Sigoid::sig_iterator endSuperIter = sig->endDirectSupers();
     for ( ; superIter != endSuperIter; ++superIter) {
         SignatureType *super   = *superIter;
         Sigoid        *sigdecl = super->getDeclaration();
