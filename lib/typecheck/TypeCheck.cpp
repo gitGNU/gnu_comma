@@ -443,6 +443,10 @@ DomainType *TypeCheck::ensureDomainType(Node     node,
 
 namespace {
 
+// This function is a helper for ensureNecessaryRedeclarations.  It searches all
+// components of the given sigoid for a declaration (direct or otherwise) which
+// matches the type of fdecl in the context of the given rewrites.  If a
+// matching declaration is found the matching node is returned, else NULL.
 FunctionDecl *findComponent(const AstRewriter &rewrites,
                             Sigoid            *sig,
                             FunctionDecl      *fdecl)
@@ -460,7 +464,7 @@ FunctionDecl *findComponent(const AstRewriter &rewrites,
     return 0;
 }
 
-}
+} // End anonymous namespace.
 
 void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
 {
