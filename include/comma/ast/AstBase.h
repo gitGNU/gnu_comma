@@ -53,10 +53,10 @@ class VarietyType;
 /// \class Ast
 /// \brief The root of the AST hierarchy.
 ///
-///  The Ast class is a common root of all AST nodes in the system, but it is
+///  The Ast class is the common root of all AST nodes in the system, but it is
 ///  perhaps better to think of the immediate sub-classes of Ast as being the
-///  real roots of set of hierarchies.  The main components, currently, are
-///  rooted by the Type and Decl nodes.  The former begins a hierarchy of types,
+///  roots of forest of hierarchies.  The main components, currently, are rooted
+///  by the Type and Decl nodes.  The former begins a hierarchy of types,
 ///  whereas the latter correspond to declarations and definitions.
 ///
 class Ast {
