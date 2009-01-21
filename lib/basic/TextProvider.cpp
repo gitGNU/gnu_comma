@@ -8,6 +8,7 @@
 
 #include "comma/basic/TextProvider.h"
 #include <ostream>
+#include <cstdlib>
 #include <cstring>
 #include <cassert>
 
@@ -15,8 +16,12 @@ using namespace comma;
 
 TextProvider::TextProvider(const llvm::sys::Path &path)
 {
-    // FIXME:  We should be checking for failure here.
     memBuffer = llvm::MemoryBuffer::getFile(path.c_str());
+
+    // Perhaps it would be better to simply return an empty TextProvider in this
+    // case.
+    if (!memBuffer) abort();
+
     buffer = memBuffer->getBufferStart();
     identity = path.getLast();
     initializeLinevec();
@@ -73,17 +78,14 @@ TextIterator TextProvider::end() const
     return TextIterator(memBuffer->getBufferEnd());
 }
 
-void TextProvider::extract(const TextIterator &s,
-                           const TextIterator &e, std::string &str) const
-{
-    unsigned length = e.cursor - s.cursor;
-    str.insert(0, s.cursor, length);
-}
-
-std::string TextProvider::extract(unsigned s, unsigned e) const
+std::string TextProvider::extract(Location start, Location end) const
 {
     std::string str;
-    str.insert(0, &buffer[s], e - s);
+    unsigned x = start.getOffset();
+    unsigned y = end.getOffset();
+    assert(x <= y && "Inconsistent Location range!");
+    assert(y < indexOf(memBuffer->getBufferEnd()) && "Locations out of range!");
+    str.insert(0, &buffer[x], y - x + 1);
     return str;
 }
 
@@ -189,16 +191,6 @@ unsigned TextProvider::getColumn(Location loc) const
 {
     unsigned start = lines[getLine(loc) - 1];
     return loc - start;
-}
-
-std::ostream& comma::printLocation(std::ostream &s,
-                                   Location loc, TextProvider &tp)
-{
-    unsigned line = tp.getLine(loc);
-    unsigned column = tp.getColumn(loc);
-
-    s << line << ':' << column << ':';
-    return s;
 }
 
 std::pair<unsigned, unsigned> TextProvider::getLineOf(Location loc) const
