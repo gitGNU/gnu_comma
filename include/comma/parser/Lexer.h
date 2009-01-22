@@ -91,6 +91,11 @@ public:
     // Returns true if the lexer has seen an error while scanning its input.
     bool seenError() const { return errorDetected; }
 
+    /// Calling this function prematurely aborts scanning.  All further calls to
+    /// Lexer::scan will result in a TKN_EOT token thereby ending the lexical
+    /// analysis.
+    void abortScanning() { scanningAborted = true; }
+
     // Returns true if the given token is a glyph and it can name a function
     // (e.g. '+', '*', etc).
     static bool isFunctionGlyph(const Lexer::Token &tkn) {
@@ -197,6 +202,9 @@ private:
 
     // Flag indicating if a lexical error has been detected.
     bool errorDetected;
+
+    // True is lexing has been cancelled with a call to abortScanning().
+    bool scanningAborted;
 
     // The token parameter supplied to scan() is maintained here.  This is
     // the destination of the lexing methods.

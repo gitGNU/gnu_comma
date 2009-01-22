@@ -16,7 +16,8 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
     : txtProvider(txtProvider),
       diagnostic(diag),
       currentIter(txtProvider.begin()),
-      errorDetected(false)
+      errorDetected(false),
+      scanningAborted(false)
 { }
 
 const char *Lexer::Token::getString() const
@@ -521,7 +522,7 @@ void Lexer::scan(Token &tkn)
         eatWhitespace();
         while (eatComment()) eatWhitespace();
 
-        if (peekStream() == 0) {
+        if (peekStream() == 0 || scanningAborted) {
             emitToken(TKN_EOT, Location());
             return;
         }
@@ -538,3 +539,4 @@ void Lexer::scan(Token &tkn)
         continue;
     }
 }
+
