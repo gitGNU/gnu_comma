@@ -27,6 +27,30 @@ Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
     return 0;
 }
 
+Decl *DeclarativeRegion::findDirectDecl(IdentifierInfo *name, Type *type)
+{
+    DeclRange range = findDecls(name);
+    for (DeclIter iter = range.first; iter != range.second; ++iter) {
+        Decl *decl     = iter->second;
+        Type *declType = decl->getType();
+        if (decl->isDeclarativeRegion(this) && declType->equals(type))
+            return decl;
+    }
+    return 0;
+}
+
+bool DeclarativeRegion::removeDecl(Decl *decl)
+{
+    IdentifierInfo *name = decl->getIdInfo();
+    DeclRange      range = findDecls(name);
+    for (DeclIter iter = range.first; iter != range.second; ++iter)
+        if (iter->second == decl) {
+            declarations.erase(iter);
+            return true;
+        }
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ModelDecl
 ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
@@ -83,53 +107,6 @@ void Sigoid::addSupersignature(SignatureType *supersignature)
         }
         supersignatures.insert(supersignature);
     }
-}
-
-void Sigoid::addComponent(FunctionDecl *fdecl)
-{
-    IdentifierInfo *name = fdecl->getIdInfo();
-    components.insert(ComponentTable::value_type(name, fdecl));
-}
-
-FunctionDecl *Sigoid::findComponent(IdentifierInfo *name,
-                                    FunctionType *ftype)
-{
-    if (FunctionDecl *fdecl = findDirectComponent(name, ftype))
-        return fdecl;
-
-    ComponentRange range = findComponents(name);
-    for (ComponentIter iter = range.first; iter != range.second; ++iter) {
-        FunctionDecl *fdecl = iter->second;
-        FunctionType *candidateType = fdecl->getType();
-        if (candidateType->equals(ftype))
-            return fdecl;
-    }
-    return 0;
-}
-
-FunctionDecl *Sigoid::findDirectComponent(IdentifierInfo *name,
-                                          FunctionType *ftype)
-{
-    ComponentRange range = findComponents(name);
-    for (ComponentIter iter = range.first; iter != range.second; ++iter) {
-        FunctionDecl *fdecl = iter->second;
-        FunctionType *candidateType = fdecl->getType();
-        if (fdecl->isDeclarativeRegion(this) && candidateType->equals(ftype))
-            return fdecl;
-    }
-    return 0;
-}
-
-bool Sigoid::removeComponent(FunctionDecl *fdecl)
-{
-    IdentifierInfo *name = fdecl->getIdInfo();
-    ComponentRange range = findComponents(name);
-    for (ComponentIter iter = range.first; iter != range.second; ++iter)
-        if (iter->second == fdecl) {
-            components.erase(iter);
-            return true;
-        }
-    return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -271,11 +248,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 
 FunctionDecl::FunctionDecl(IdentifierInfo    *name,
                            FunctionType      *type,
-                           DeclarativeRegion *context,
                            Location           loc)
     : Decl(AST_FunctionDecl, name),
       ftype(type),
-      context(context),
-      location(loc)
-{
-}
+      location(loc) { }

@@ -380,11 +380,11 @@ void Parser::parseModelSupersignatures()
     action.acceptModelSupersignatureList(&supers[0], supers.size());
 }
 
-void Parser::parseSignatureComponents()
+void Parser::parseSignatureDecls()
 {
-    std::vector<Node> components;
+    std::vector<Node> decls;
 
-    // Currently, we only support function components.
+    // Currently, we only support function decls.
     while (currentTokenIs(Lexer::TKN_FUNCTION)) {
         Location        location;
         IdentifierInfo *name;
@@ -403,13 +403,13 @@ void Parser::parseSignatureComponents()
                        Lexer::TKN_END, Lexer::TKN_ADD);
 
         if (requireToken(Lexer::TKN_SEMI)) {
-            Node component =
-                action.acceptSignatureComponent(name, type, location);
-            if (component.isValid())
-                components.push_back(component);
+            Node decl =
+                action.acceptSignatureDecl(name, type, location);
+            if (decl.isValid())
+                decls.push_back(decl);
         }
     }
-    action.acceptSignatureComponentList(&components[0], components.size());
+    action.acceptSignatureDecls(&decls[0], decls.size());
 }
 
 void Parser::parseAddComponents()
@@ -453,7 +453,7 @@ void Parser::parseModel()
         if (!currentTokenIs(Lexer::TKN_WITH))
             parseModelSupersignatures();
         if (reduceToken(Lexer::TKN_WITH))
-            parseSignatureComponents();
+            parseSignatureDecls();
     }
 
     if (parsingDomain && reduceToken(Lexer::TKN_ADD))

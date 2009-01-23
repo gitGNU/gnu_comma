@@ -368,9 +368,9 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
 }
 
 // FIXME:  This function should go away in favour of addDeclaration.
-Node TypeCheck::acceptSignatureComponent(IdentifierInfo *name,
-                                         Node            typeNode,
-                                         Location        loc)
+Node TypeCheck::acceptSignatureDecl(IdentifierInfo *name,
+                                    Node            typeNode,
+                                    Location        loc)
 {
     Sigoid       *sig   = getCurrentSignature();
     FunctionType *ftype = lift<FunctionType>(typeNode);
@@ -378,20 +378,21 @@ Node TypeCheck::acceptSignatureComponent(IdentifierInfo *name,
     assert(ftype && "Only function decls currently supported!");
 
     // Ensure that this is not a redeclaration.
-    FunctionDecl *extantDecl = sig->findDirectComponent(name, ftype);
+    Decl *extantDecl = sig->findDirectDecl(name, ftype);
     if (extantDecl) {
         SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
         report(loc, diag::FUNCTION_REDECLARATION) << name->getString() << sloc;
         return Node::getInvalidNode();
     }
 
-    FunctionDecl  *fdecl = new FunctionDecl(name, ftype, sig, loc);
-    sig->addComponent(fdecl);
+    FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc);
+    sig->addDecl(fdecl);
+    fdecl->setDeclarativeRegion(sig);
     return Node(fdecl);
 }
 
-void TypeCheck::acceptSignatureComponentList(Node    *components,
-                                             unsigned numComponents)
+void TypeCheck::acceptSignatureDecls(Node    *decls,
+                                     unsigned numDecls)
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument selector sets.
@@ -445,22 +446,24 @@ DomainType *TypeCheck::ensureDomainType(Node     node,
 namespace {
 
 // This function is a helper for ensureNecessaryRedeclarations.  It searches all
-// components of the given sigoid for a declaration (direct or otherwise) which
-// matches the type of fdecl in the context of the given rewrites.  If a
-// matching declaration is found the matching node is returned, else NULL.
-FunctionDecl *findComponent(const AstRewriter &rewrites,
-                            Sigoid            *sig,
-                            FunctionDecl      *fdecl)
+// declarations present in the given sigoid for a direct or indirect decl for a
+// match with respect to the given rewrites.  If a matching declaration is found
+// the matching node is returned, else NULL.
+FunctionDecl *findDecl(const AstRewriter &rewrites,
+                       Sigoid            *sig,
+                       FunctionDecl      *decl)
 {
-    IdentifierInfo *name       = fdecl->getIdInfo();
-    FunctionType   *targetType = fdecl->getType();
+    IdentifierInfo *name       = decl->getIdInfo();
+    FunctionType   *targetType = decl->getType();
 
-    Sigoid::ComponentRange range = sig->findComponents(name);
-    Sigoid::ComponentIter   iter = range.first;
-    for ( ; iter != range.second; ++iter) {
-        FunctionType *sourceType = iter->second->getType();
-        if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
-            return iter->second;
+    Sigoid::DeclRange range = sig->findDecls(name);
+
+    for (Sigoid::DeclIter iter = range.first; iter != range.second; ++iter) {
+        if (FunctionDecl *source = dyn_cast<FunctionDecl>(iter->second)) {
+            FunctionType *sourceType = source->getType();
+            if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
+                return source;
+        }
     }
     return 0;
 }
@@ -491,40 +494,48 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         rewrites[sigdecl->getPercent()] = sig->getPercent();
         rewrites.installRewrites(super);
 
-        Sigoid::ComponentIter iter    = sigdecl->beginComponents();
-        Sigoid::ComponentIter endIter = sigdecl->endComponents();
+        Sigoid::DeclIter iter    = sigdecl->beginDecls();
+        Sigoid::DeclIter endIter = sigdecl->endDecls();
         for ( ; iter != endIter; ++iter) {
-            IdentifierInfo *name      = iter->first;
-            FunctionDecl   *fdecl     = iter->second;
-            FunctionType   *ftype     = fdecl->getType();
-            FunctionDecl   *component = findComponent(rewrites, sig, fdecl);
+            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
+                IdentifierInfo *name  = fdecl->getIdInfo();
+                FunctionType   *ftype = fdecl->getType();
+                FunctionDecl   *decl  = findDecl(rewrites, sig, fdecl);
 
-            if (component) {
-                FunctionType *componentType = component->getType();
+                // If a matching declaration was not found, apply the rewrites
+                // and construct a new indirect declaration node for this
+                // signature.
+                if (!decl) {
+                    FunctionType *rewriteType = rewrites.rewrite(ftype);
+                    FunctionDecl *rewriteDecl =
+                        new FunctionDecl(name, rewriteType, 0);
+                    rewriteDecl->setBaseDeclaration(fdecl);
+                    rewriteDecl->setDeclarativeRegion(sig);
+                    sig->addDecl(rewriteDecl);
+                } else if (decl->getBaseDeclaration()) {
+                    // A declaration was found which has a base declaration
+                    // (meaning that it was not directly declared in this
+                    // signature, but inherited from a super).  Since there is
+                    // no overridding declaration in this case ensure that the
+                    // selectors match.
+                    FunctionType *declType = decl->getType();
 
-                // If the component is a direct declaration, then the component
-                // overrides the decl originating from the super signature.
-                // Otherwise, the selectors must match.
-                if (component->getBaseDeclaration() &&
-                    !componentType->selectorsMatch(ftype)) {
-                    Location        sigLoc = sig->getLocation();
-                    FunctionDecl *baseDecl = component->getBaseDeclaration();
-                    SourceLocation sloc1 =
-                        getSourceLocation(baseDecl->getLocation());
-                    SourceLocation sloc2 =
-                        getSourceLocation(fdecl->getLocation());
-                    report(sigLoc, diag::MISSING_REDECLARATION)
-                        << component->getString() << sloc1 << sloc2;
-                    badDecls.insert(component);
+                    if (!declType->selectorsMatch(ftype)) {
+                        Location        sigLoc = sig->getLocation();
+                        FunctionDecl *baseDecl = decl->getBaseDeclaration();
+                        SourceLocation sloc1 =
+                            getSourceLocation(baseDecl->getLocation());
+                        SourceLocation sloc2 =
+                            getSourceLocation(fdecl->getLocation());
+                        report(sigLoc, diag::MISSING_REDECLARATION)
+                            << decl->getString() << sloc1 << sloc2;
+                        badDecls.insert(decl);
+                    }
                 }
-            }
-            else {
-                // Apply the rewrites and construct a new declaration node.
-                FunctionType *rewriteType = rewrites.rewrite(ftype);
-                FunctionDecl *rewriteDecl =
-                    new FunctionDecl(name, rewriteType, sig, 0);
-                rewriteDecl->setBaseDeclaration(fdecl);
-                sig->addComponent(rewriteDecl);
+                // FIXME: The final case corresponds to a matching declaration
+                // in a super signature which was redeclared.  Perhaps we should
+                // explicity link the overriding declaration with those decls
+                // which it overrides.
             }
         }
 
@@ -534,7 +545,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
              iter != badDecls.end();
              ++iter) {
             FunctionDecl *badDecl = *iter;
-            sig->removeComponent(badDecl);
+            sig->removeDecl(badDecl);
             delete badDecl;
         }
     }
@@ -556,8 +567,9 @@ void TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                                       << sloc;
             return;
         }
-        FunctionDecl *fdecl = new FunctionDecl(name, ftype, region, loc);
+        FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc);
         region->addDecl(fdecl);
+        fdecl->setDeclarativeRegion(region);
     }
     else {
         assert(false && "Declaration type not yet supported!");

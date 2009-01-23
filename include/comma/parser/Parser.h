@@ -37,7 +37,7 @@ public:
     void parseModelParameterization();
     void parseModelSupersignatures();
 
-    void parseSignatureComponents();
+    void parseSignatureDecls();
 
     Node parseModelInstantiation();
 

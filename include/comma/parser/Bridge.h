@@ -83,14 +83,14 @@ public:
     // acceptModelSupersignature.  If the model does not contain any
     // supersignatures, this function is still invoked by the parser with
     // numSigs set to 0.
-    virtual void acceptModelSupersignatureList(Node *sigs,
+    virtual void acceptModelSupersignatureList(Node    *sigs,
                                                unsigned numSigs) = 0;
 
-    virtual Node acceptSignatureComponent(IdentifierInfo *name,
-                                          Node typeNode, Location loc) = 0;
+    virtual Node acceptSignatureDecl(IdentifierInfo *name,
+                                     Node            typeNode,
+                                     Location        loc) = 0;
 
-    virtual void acceptSignatureComponentList(Node *components,
-                                              unsigned numComponents) = 0;
+    virtual void acceptSignatureDecls(Node *decl, unsigned numDecls) = 0;
 
 
     // Called at the begining of an add expression.  The bridge accepts

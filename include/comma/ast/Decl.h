@@ -43,6 +43,18 @@ public:
 
     virtual Type *getType() const = 0;
 
+    // Sets the declarative region for this decl.  This function can only be
+    // called once to initialize the decl.
+    void setDeclarativeRegion(DeclarativeRegion *region) {
+        assert(context == 0 && "Cannot reset a decl's declarative region!");
+        context = region;
+    }
+
+    // Returns true if this decl was declared in the given region.
+    bool isDeclarativeRegion(DeclarativeRegion *region) {
+        return region == context;
+    }
+
     // Support isa and dyn_cast.
     static bool classof(const Decl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -50,11 +62,15 @@ public:
     }
 
 protected:
-    Decl(AstKind kind, IdentifierInfo *info = 0) : Ast(kind), idInfo(info) {
+    Decl(AstKind kind, IdentifierInfo *info = 0)
+        : Ast(kind),
+          idInfo(info),
+          context(0) {
         assert(this->denotesDecl());
     }
 
-    IdentifierInfo *idInfo;
+    IdentifierInfo    *idInfo;
+    DeclarativeRegion *context;
 };
 
 //===----------------------------------------------------------------------===//
@@ -68,6 +84,8 @@ protected:
     DeclarativeRegion(DeclarativeRegion *parent)
         : parent(parent) { }
 
+    // FIXME: This datastructure is only temporary.  A better structure is
+    // needed.
     typedef std::multimap<IdentifierInfo*, Decl*> DeclarationTable;
     DeclarationTable declarations;
 
@@ -94,6 +112,12 @@ public:
     }
 
     Decl *findDecl(IdentifierInfo *name, Type *type);
+
+    Decl *findDirectDecl(IdentifierInfo *name, Type *type);
+
+    // Removes the given decl.  Returns true if the decl existed and was
+    // removed, false otherwise.
+    bool removeDecl(Decl *decl);
 
     static bool classof(const Ast *node) {
         switch (node->getKind()) {
@@ -215,34 +239,6 @@ public:
 
     sig_iterator beginSupers() const { return supersignatures.begin(); }
     sig_iterator endSupers()   const { return supersignatures.end(); }
-
-protected:
-    typedef std::multimap<IdentifierInfo*, FunctionDecl*> ComponentTable;
-    ComponentTable components;
-
-public:
-    typedef ComponentTable::iterator ComponentIter;
-    ComponentIter beginComponents() { return components.begin(); }
-    ComponentIter endComponents()   { return components.end(); }
-
-    // Adds a declaration to the set of components for this sigoid.
-    void addComponent(FunctionDecl *fdecl);
-
-    FunctionDecl *findComponent(IdentifierInfo *name,
-                                FunctionType *ftype);
-
-    FunctionDecl *findDirectComponent(IdentifierInfo *name,
-                                      FunctionType *ftype);
-
-
-    typedef std::pair<ComponentIter, ComponentIter> ComponentRange;
-    ComponentRange findComponents(IdentifierInfo *name) {
-        return components.equal_range(name);
-    }
-
-    // Removes the given component from this sigoid.  Returns true if the given
-    // function decl existed and was successfully removed.
-    bool removeComponent(FunctionDecl *fdecl);
 
     static bool classof(const Sigoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -483,14 +479,7 @@ class FunctionDecl : public Decl {
 public:
     FunctionDecl(IdentifierInfo    *name,
                  FunctionType      *type,
-                 DeclarativeRegion *context,
                  Location           loc);
-
-    // Returns true if this function was defined in the context of the given
-    // type.
-    bool isDeclarativeRegion(const DeclarativeRegion *region) const {
-        return region == context;
-    }
 
     // Accessors and forwarding functions to the underlying FuntionType node.
     FunctionType *getType() const { return ftype; }
@@ -527,7 +516,6 @@ public:
 
 private:
     FunctionType      *ftype;
-    DeclarativeRegion *context;
     Location           location;
 
     FunctionDecl *baseDeclaration;
