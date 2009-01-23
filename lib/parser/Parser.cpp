@@ -382,9 +382,8 @@ void Parser::parseModelSupersignatures()
 
 void Parser::parseSignatureDecls()
 {
-    std::vector<Node> decls;
-
-    // Currently, we only support function decls.
+    action.beginWithExpression();
+    // Currently, only function decls are supported.
     while (currentTokenIs(Lexer::TKN_FUNCTION)) {
         Location        location;
         IdentifierInfo *name;
@@ -402,14 +401,10 @@ void Parser::parseSignatureDecls()
             seekTokens(Lexer::TKN_FUNCTION,
                        Lexer::TKN_END, Lexer::TKN_ADD);
 
-        if (requireToken(Lexer::TKN_SEMI)) {
-            Node decl =
-                action.acceptSignatureDecl(name, type, location);
-            if (decl.isValid())
-                decls.push_back(decl);
-        }
+        if (requireToken(Lexer::TKN_SEMI))
+            action.acceptDeclaration(name, type, location);
     }
-    action.acceptSignatureDecls(&decls[0], decls.size());
+    action.endWithExpression();
 }
 
 void Parser::parseAddComponents()

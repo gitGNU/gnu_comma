@@ -86,12 +86,9 @@ public:
     virtual void acceptModelSupersignatureList(Node    *sigs,
                                                unsigned numSigs) = 0;
 
-    virtual Node acceptSignatureDecl(IdentifierInfo *name,
-                                     Node            typeNode,
-                                     Location        loc) = 0;
+    virtual void beginWithExpression() = 0;
 
-    virtual void acceptSignatureDecls(Node *decl, unsigned numDecls) = 0;
-
+    virtual void endWithExpression() = 0;
 
     // Called at the begining of an add expression.  The bridge accepts
     // components of an add expression after this call until endAddExpression is

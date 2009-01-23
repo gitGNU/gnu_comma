@@ -55,6 +55,10 @@ public:
         return region == context;
     }
 
+    /// Returns this cast to a DeclarativeRegion, or NULL if this model does not
+    /// support declarations.
+    DeclarativeRegion *asDeclarativeRegion();
+
     // Support isa and dyn_cast.
     static bool classof(const Decl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -167,12 +171,6 @@ public:
     }
 
     DomainType *getPercent() const { return percent; }
-
-    /// Returns this cast to a DeclarativeRegion, or NULL if this model does not
-    /// support declarations.
-    DeclarativeRegion *asDeclarativeRegion() {
-        return llvm::dyn_cast<DeclarativeRegion>(this);
-    }
 
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
@@ -372,7 +370,7 @@ protected:
 //===----------------------------------------------------------------------===//
 // DomainDecl
 //
-class DomainDecl : public Domoid {
+class DomainDecl : public Domoid, public DeclarativeRegion {
 
 public:
     DomainDecl(IdentifierInfo *percentId,
@@ -407,7 +405,7 @@ private:
 // FunctorDecl
 //
 // Representation of parameterized domains.
-class FunctorDecl : public Domoid {
+class FunctorDecl : public Domoid, public DeclarativeRegion {
 
 public:
     FunctorDecl(IdentifierInfo *percentId,

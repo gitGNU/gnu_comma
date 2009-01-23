@@ -367,32 +367,23 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
     return Node::getInvalidNode();
 }
 
-// FIXME:  This function should go away in favour of addDeclaration.
-Node TypeCheck::acceptSignatureDecl(IdentifierInfo *name,
-                                    Node            typeNode,
-                                    Location        loc)
+void TypeCheck::beginWithExpression()
 {
-    Sigoid       *sig   = getCurrentSignature();
-    FunctionType *ftype = lift<FunctionType>(typeNode);
+    // If the current model is a signature, we set the current declarative
+    // region to the signature itself.  If we are processing a domain, set the
+    // declarative region to the principle signature of the domain.
+    ModelDecl *currentModel = getCurrentModel();
 
-    assert(ftype && "Only function decls currently supported!");
-
-    // Ensure that this is not a redeclaration.
-    Decl *extantDecl = sig->findDirectDecl(name, ftype);
-    if (extantDecl) {
-        SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
-        report(loc, diag::FUNCTION_REDECLARATION) << name->getString() << sloc;
-        return Node::getInvalidNode();
+    if (Domoid *domain = dyn_cast<Domoid>(currentModel))
+        declarativeRegion = domain->getPrincipleSignature();
+    else {
+        Sigoid *signature = dyn_cast<Sigoid>(currentModel);
+        declarativeRegion = signature;
+        assert(signature && "current model is neither a domain or signature!");
     }
-
-    FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc);
-    sig->addDecl(fdecl);
-    fdecl->setDeclarativeRegion(sig);
-    return Node(fdecl);
 }
 
-void TypeCheck::acceptSignatureDecls(Node    *decls,
-                                     unsigned numDecls)
+void TypeCheck::endWithExpression()
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument selector sets.

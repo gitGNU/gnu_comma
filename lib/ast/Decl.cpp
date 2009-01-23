@@ -13,6 +13,25 @@
 using namespace comma;
 
 //===----------------------------------------------------------------------===//
+// Decl
+
+DeclarativeRegion *Decl::asDeclarativeRegion()
+{
+    switch (getKind()) {
+    default:
+        return 0;
+    case AST_SignatureDecl:
+        return static_cast<SignatureDecl*>(this);
+    case AST_VarietyDecl:
+        return static_cast<VarietyDecl*>(this);
+    case AST_DomainDecl:
+        return static_cast<DomainDecl*>(this);
+    case AST_FunctorDecl:
+        return static_cast<FunctorDecl*>(this);
+    }
+}
+
+//===----------------------------------------------------------------------===//
 // DeclarativeRegion
 
 Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)

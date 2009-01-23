@@ -51,11 +51,8 @@ public:
     // calls to acceptModelSupersignature are provided to the type checker.
     void acceptModelSupersignatureList(Node *sigs, unsigned numSigs);
 
-    Node acceptSignatureDecl(IdentifierInfo *name,
-                             Node typeNode, Location loc);
-
-    void acceptSignatureDecls(Node    *components,
-                              unsigned numComponents);
+    void beginWithExpression();
+    void endWithExpression();
 
     void acceptDeclaration(IdentifierInfo *name,
                            Node            type,
