@@ -43,16 +43,11 @@ public:
     // acceptModelParameter are provided to the type checker.
     void acceptModelParameterList(Node *params, Location *locs, unsigned arity);
 
-    // For each supersignature, this function is called to notify the type
-    // checker of the existance of a supersignature.
-    Node acceptModelSupersignature(Node typeNode, Location loc);
-
-    // Once the list of supersignatures have been parsed, all nodes returned by
-    // calls to acceptModelSupersignature are provided to the type checker.
-    void acceptModelSupersignatureList(Node *sigs, unsigned numSigs);
-
     void beginWithExpression();
     void endWithExpression();
+
+    // Called for each supersignature in a with expression.
+    Node acceptWithSupersignature(Node typeNode, Location loc);
 
     void acceptDeclaration(IdentifierInfo *name,
                            Node            type,

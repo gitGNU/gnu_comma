@@ -35,7 +35,10 @@ public:
     void parseModel();
     Node parseModelParameter();
     void parseModelParameterization();
-    void parseModelSupersignatures();
+
+    void parseWithExpression();
+    void parseWithSupersignatures();
+    void parseWithDeclarations();
 
     void parseSignatureDecls();
 

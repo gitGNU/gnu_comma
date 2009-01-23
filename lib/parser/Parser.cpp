@@ -352,37 +352,43 @@ void Parser::parseModelParameterization()
     requireToken(Lexer::TKN_RPAREN);
 }
 
-// Parses a models super-signature list.  Called imediately after consuming a
-// `:' as in "domain D : ...".
-void Parser::parseModelSupersignatures()
+void Parser::parseWithExpression()
 {
-    NodeVector supers;
-    do {
+    assert(currentTokenIs(Lexer::TKN_WITH));
+    ignoreToken();
+
+    action.beginWithExpression();
+
+    // Scan the set of supersignatures.  Currently this is simply a sequence of
+    // signature types.  For example:
+    parseWithSupersignatures();
+    parseWithDeclarations();
+
+    action.endWithExpression();
+}
+
+// Parses a sequence of super-signatures in a 'with' expression.
+void Parser::parseWithSupersignatures()
+{
+    while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         Location loc = currentLocation();
         Node super   = parseModelInstantiation();
         if (super.isValid()) {
-            Node result = action.acceptModelSupersignature(super, loc);
-
-            // If the supersignature is not valid, do not accumulate.
-            if (result.isValid())
-                supers.push_back(result);
-            else
-                action.deleteNode(result);
+            requireToken(Lexer::TKN_SEMI);
+            Node result = action.acceptWithSupersignature(super, loc);
         }
         else {
-            // We could not complete the current super signature.  Seek the next
-            // super-signature, the begining of the models body, or an end tag.
-            // Each of these tokens are valid grammatically.
-            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_WITH,
-                       Lexer::TKN_ADD,   Lexer::TKN_END);
+            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
+                       Lexer::TKN_ADD,  Lexer::TKN_END);
+            // If we skipped to a semicolon, reduce it an attempt to continue
+            // any remaining super signature expressions.
+            reduceToken(Lexer::TKN_SEMI);
         }
-    } while (reduceToken(Lexer::TKN_COMMA));
-    action.acceptModelSupersignatureList(&supers[0], supers.size());
+    }
 }
 
-void Parser::parseSignatureDecls()
+void Parser::parseWithDeclarations()
 {
-    action.beginWithExpression();
     // Currently, only function decls are supported.
     while (currentTokenIs(Lexer::TKN_FUNCTION)) {
         Location        location;
@@ -404,7 +410,6 @@ void Parser::parseSignatureDecls()
         if (requireToken(Lexer::TKN_SEMI))
             action.acceptDeclaration(name, type, location);
     }
-    action.endWithExpression();
 }
 
 void Parser::parseAddComponents()
@@ -443,13 +448,8 @@ void Parser::parseModel()
     else
         action.acceptModelParameterList(0, 0, 0);
 
-    // Parse the supersignatures, if any,
-    if (reduceToken(Lexer::TKN_COLON)) {
-        if (!currentTokenIs(Lexer::TKN_WITH))
-            parseModelSupersignatures();
-        if (reduceToken(Lexer::TKN_WITH))
-            parseSignatureDecls();
-    }
+    if (currentTokenIs(Lexer::TKN_WITH))
+        parseWithExpression();
 
     if (parsingDomain && reduceToken(Lexer::TKN_ADD))
         parseAddComponents();

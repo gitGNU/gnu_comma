@@ -72,23 +72,11 @@ public:
     virtual void acceptModelParameterList(Node *params,
                                           Location *locs, unsigned arity) = 0;
 
-    // Once the formal parameters have been accepted, this function is called
-    // for each direct super signature parsed.  The result node of this function
-    // are collected by the parser and supplied to the bridge in a final call to
-    // acceptModelSupersignatureList once all direct supersignatures have been
-    // processed.
-    virtual Node acceptModelSupersignature(Node typeNode, Location loc) = 0;
-
-    // Provides the final list of direct supersignatures as returned by calss to
-    // acceptModelSupersignature.  If the model does not contain any
-    // supersignatures, this function is still invoked by the parser with
-    // numSigs set to 0.
-    virtual void acceptModelSupersignatureList(Node    *sigs,
-                                               unsigned numSigs) = 0;
-
     virtual void beginWithExpression() = 0;
-
     virtual void endWithExpression() = 0;
+
+    // Called for each super signature of a with expression.
+    virtual Node acceptWithSupersignature(Node typeNode, Location loc) = 0;
 
     // Called at the begining of an add expression.  The bridge accepts
     // components of an add expression after this call until endAddExpression is

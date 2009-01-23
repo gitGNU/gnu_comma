@@ -151,8 +151,8 @@ void TypeCheck::acceptModelParameterList(Node     *params,
     currentModelInfo->decl = modelDecl;
 }
 
-Node TypeCheck::acceptModelSupersignature(Node     typeNode,
-                                          Location loc)
+Node TypeCheck::acceptWithSupersignature(Node     typeNode,
+                                         Location loc)
 {
     ModelType     *type = lift<ModelType>(typeNode);
     SignatureType *superSig;
@@ -174,12 +174,6 @@ Node TypeCheck::acceptModelSupersignature(Node     typeNode,
     currentSig->addSupersignature(superSig);
 
     return typeNode;
-}
-
-void TypeCheck::acceptModelSupersignatureList(Node    *sigs,
-                                              unsigned numSigs)
-{
-    // Nothing to do in this case.
 }
 
 Node TypeCheck::acceptPercent(Location loc)

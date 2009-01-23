@@ -97,6 +97,13 @@ public:
     DeclarativeRegion *getParent() { return parent; }
     const DeclarativeRegion *getParent() const { return parent; }
 
+    // Sets the parent of this region.  This function can only be called if the
+    // parent of this region has not yet been set.
+    void setParent(DeclarativeRegion *parentRegion) {
+        assert(!parent && "Cannot reset the parent of a DeclarativeRegion!");
+        parent = parentRegion;
+    }
+
     void addDecl(Decl *decl) {
         IdentifierInfo *name = decl->getIdInfo();
         declarations.insert(DeclarationTable::value_type(name, decl));
