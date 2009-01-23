@@ -92,9 +92,9 @@ bool percentHas(ModelDecl *source, SignatureType *target)
         return hasExactSignature(sigoid, target);
     }
 
-    // We do not have a signature, so we must ahve a domain.  Since the
-    // principle signature is always anonymous perform an exact match against
-    // the super signatures.
+    // We do not have a signature, so we must have a domain.  Since we are
+    // asking if % has the given domain, we are working with the 'internal view'
+    // of the domain and the super signature set does not require a rewrite.
     Domoid *domoid = dyn_cast<Domoid>(source);
     SignatureDecl *principleSig = domoid->getPrincipleSignature();
     return hasExactSignature(principleSig, target);

@@ -82,11 +82,11 @@ protected:
 class DeclarativeRegion {
 
 protected:
-    DeclarativeRegion()
-        : parent(0) { }
+    DeclarativeRegion(Ast::AstKind kind)
+        : declKind(kind), parent(0) { }
 
-    DeclarativeRegion(DeclarativeRegion *parent)
-        : parent(parent) { }
+    DeclarativeRegion(Ast::AstKind kind, DeclarativeRegion *parent)
+        : declKind(kind), parent(parent) { }
 
     // FIXME: This datastructure is only temporary.  A better structure is
     // needed.
@@ -130,6 +130,10 @@ public:
     // removed, false otherwise.
     bool removeDecl(Decl *decl);
 
+    // Converts this DeclarativeRegion into a Decl node.
+    Decl *asDecl();
+    const Decl *asDecl() const;
+
     static bool classof(const Ast *node) {
         switch (node->getKind()) {
         default:
@@ -148,6 +152,7 @@ public:
     static bool classof(const FunctorDecl   *node) { return true; }
 
 private:
+    Ast::AstKind       declKind;
     DeclarativeRegion *parent;
 };
 
@@ -211,13 +216,19 @@ class Sigoid : public ModelDecl, public DeclarativeRegion {
 
 public:
     Sigoid(AstKind kind, IdentifierInfo *percentId)
-        : ModelDecl(kind, percentId) { }
+        : ModelDecl(kind, percentId),
+          DeclarativeRegion(kind) { }
+
+    // This constructor is used to create an anonymous signature which inherits
+    // its percent node from a domain.  Used when creating principle signatures.
+    Sigoid(AstKind Kind, DomainType *percent);
 
     Sigoid(AstKind         kind,
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc)
-        : ModelDecl(kind, percentId, idInfo, loc) { }
+        : ModelDecl(kind, percentId, idInfo, loc),
+          DeclarativeRegion(kind) { }
 
     virtual ~Sigoid() { }
 
@@ -261,9 +272,20 @@ class SignatureDecl : public Sigoid {
 public:
     // Creates an anonymous signature.
     SignatureDecl(IdentifierInfo *percentId);
+
+    // Creates a named signature.
     SignatureDecl(IdentifierInfo *percentId,
                   IdentifierInfo *name,
                   const Location &loc);
+
+    // Creates a 'principle signature' for the given domain.
+    SignatureDecl(DomainDecl *domain);
+
+    // Creates a 'principle signature' for the given functor.
+    SignatureDecl(FunctorDecl *functor);
+
+    // Returns true if this signature is the principle signature of some domain.
+    bool isPrincipleSignature() const;
 
     SignatureType *getCorrespondingType() { return canonicalType; }
     SignatureType *getType() const { return canonicalType; }
@@ -351,13 +373,10 @@ public:
     // Returns non-null if this domoid is a FunctorDecl.
     FunctorDecl *getFunctor();
 
-    // Each Domoid has an associated signature declaration, known as its
-    // "principle signature".  These signatures are unnamed (anonymous) and
-    // provide the public view of the domain (its exports and the super
-    // signatures it implements).
-    SignatureDecl *getPrincipleSignature() const {
-        return principleSignature;
-    }
+    // Returns the principle signature declaration if this domoid admits one,
+    // NULL otherwise.  The only domain decl which does not have a principle
+    // signature is an AbstractDomainDecl.
+    virtual SignatureDecl *getPrincipleSignature() { return 0; }
 
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -370,8 +389,6 @@ protected:
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc);
-
-    SignatureDecl *principleSignature;
 };
 
 //===----------------------------------------------------------------------===//
@@ -387,7 +404,7 @@ public:
     DomainType *getCorrespondingType() { return canonicalType; }
     DomainType *getType() const { return canonicalType; }
 
-    SignatureDecl *getPrincipleSignature() const { return principleSignature; }
+    SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
@@ -395,13 +412,6 @@ public:
         AstKind kind = node->getKind();
         return kind == AST_DomainDecl || kind == AST_FunctorDecl;
     }
-
-protected:
-    // For use by subclasses.
-    DomainDecl(AstKind         kind,
-               IdentifierInfo *percentId,
-               IdentifierInfo *info,
-               Location        loc);
 
 private:
     DomainType    *canonicalType;
@@ -426,7 +436,7 @@ public:
     // this function always returns the same type.
     DomainType *getCorrespondingType(DomainType **args, unsigned numArgs);
 
-    VarietyDecl *getPrincipleSignature() const { return principleSignature; }
+    SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
     // Returns the type of this functor.
     FunctorType *getFunctorType() const { return functor; }
@@ -448,8 +458,8 @@ public:
 private:
     mutable llvm::FoldingSet<DomainType> types;
 
-    FunctorType *functor;
-    VarietyDecl *principleSignature;
+    FunctorType   *functor;
+    SignatureDecl *principleSignature;
 };
 
 //===----------------------------------------------------------------------===//

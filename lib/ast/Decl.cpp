@@ -11,6 +11,8 @@
 #include <algorithm>
 
 using namespace comma;
+using llvm::dyn_cast;
+using llvm::isa;
 
 //===----------------------------------------------------------------------===//
 // Decl
@@ -70,6 +72,29 @@ bool DeclarativeRegion::removeDecl(Decl *decl)
     return false;
 }
 
+const Decl *DeclarativeRegion::asDecl() const
+{
+    switch (declKind) {
+    default:
+        assert(false && "Unknown declaration type!");
+        return 0;
+    case Ast::AST_SignatureDecl:
+        return static_cast<const SignatureDecl*>(this);
+    case Ast::AST_VarietyDecl:
+        return static_cast<const VarietyDecl*>(this);
+    case Ast::AST_DomainDecl:
+        return static_cast<const DomainDecl*>(this);
+    case Ast::AST_FunctorDecl:
+        return static_cast<const FunctorDecl*>(this);
+    }
+}
+
+Decl *DeclarativeRegion::asDecl()
+{
+    return const_cast<Decl*>(
+        const_cast<const DeclarativeRegion *>(this)->asDecl());
+}
+
 //===----------------------------------------------------------------------===//
 // ModelDecl
 ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
@@ -95,6 +120,13 @@ ModelDecl::ModelDecl(AstKind         kind,
 
 //===----------------------------------------------------------------------===//
 // Sigoid
+
+Sigoid::Sigoid(AstKind kind, DomainType *percent)
+    : ModelDecl(kind, percent->getIdInfo()),
+      DeclarativeRegion(kind)
+{
+    assert(percent->denotesPercent());
+}
 
 void Sigoid::addSupersignature(SignatureType *supersignature)
 {
@@ -142,6 +174,34 @@ SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
     : Sigoid(AST_SignatureDecl, percentId, info, loc)
 {
     canonicalType = new SignatureType(this);
+}
+
+SignatureDecl::SignatureDecl(DomainDecl *domain)
+    : Sigoid(AST_SignatureDecl, domain->getPercent())
+{
+    canonicalType = new SignatureType(this);
+    // Make the given domain this signatures declarative parent.
+    setParent(domain);
+}
+
+SignatureDecl::SignatureDecl(FunctorDecl *functor)
+    : Sigoid(AST_SignatureDecl, functor->getPercent())
+{
+    canonicalType = new SignatureType(this);
+    // Make the given functor this signatures declarative parent.
+    setParent(functor);
+}
+
+bool SignatureDecl::isPrincipleSignature() const
+{
+    const DeclarativeRegion *region = getParent();
+    // FIXME:  Once signatures are always declared in their proper context
+    // we should always have a parent region.
+    if (region) {
+        const Decl *decl = region->asDecl();
+        return isa<DomainDecl>(decl) || isa<FunctorDecl>(decl);
+    }
+    return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -195,28 +255,18 @@ Domoid::Domoid(AstKind         kind,
                IdentifierInfo *percentId,
                IdentifierInfo *idInfo,
                Location        loc)
-    : ModelDecl(kind, percentId, idInfo, loc)
-{
-    principleSignature = new SignatureDecl(percentId);
-}
+    : ModelDecl(kind, percentId, idInfo, loc) { }
 
 //===----------------------------------------------------------------------===//
 // DomainDecl
 DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        IdentifierInfo *name,
                        const Location &loc)
-    : Domoid(AST_DomainDecl, percentId, name, loc)
+    : Domoid(AST_DomainDecl, percentId, name, loc),
+      DeclarativeRegion(AST_DomainDecl)
 {
-    canonicalType = new DomainType(this);
-}
-
-DomainDecl::DomainDecl(AstKind         kind,
-                       IdentifierInfo *percentId,
-                       IdentifierInfo *info,
-                       Location        loc)
-    : Domoid(kind, percentId, info, loc)
-{
-    canonicalType = new DomainType(this);
+    canonicalType      = new DomainType(this);
+    principleSignature = new SignatureDecl(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -227,11 +277,13 @@ FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
                          Location        loc,
                          DomainType    **formals,
                          unsigned        arity)
-    : Domoid(AST_FunctorDecl, percentId, name, loc)
+    : Domoid(AST_FunctorDecl, percentId, name, loc),
+      DeclarativeRegion(AST_FunctorDecl)
 {
     // NOTE: FunctorDecl passes ownership of the formal domain nodes to the
     // VarietyDecl created below.
     functor = new FunctorType(formals, this, arity);
+    principleSignature = new SignatureDecl(this);
 }
 
 DomainType *
