@@ -14,17 +14,22 @@ using namespace comma;
 DiagnosticStream::DiagnosticStream(std::ostream &stream)
     : stream(stream), position(0) { }
 
-DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &loc,
+void DiagnosticStream::emitSourceLocation(const SourceLocation &sloc)
+{
+    if (!sloc.getIdentity().empty())
+        message << sloc.getIdentity() << ":";
+    message << sloc.getLine() << ":" << sloc.getColumn();
+}
+
+DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
                                                const char *format)
 {
     assert(position == 0 && "Diagnostic reinitialized before completion!");
 
     message.str("");
     this->format = format;
-    if (!loc.getIdentity().empty())
-        message << loc.getIdentity() << ":";
-    message << loc.getLine() << ":" << loc.getColumn() << ": ";
-
+    emitSourceLocation(sloc);
+    message << ": ";
     emitFormatComponent();
     return *this;
 }
@@ -75,6 +80,13 @@ DiagnosticStream &DiagnosticStream::operator<<(int n)
 DiagnosticStream &DiagnosticStream::operator<<(char c)
 {
     message << c;
+    emitFormatComponent();
+    return *this;
+}
+
+DiagnosticStream &DiagnosticStream::operator<<(const SourceLocation &sloc)
+{
+    emitSourceLocation(sloc);
     emitFormatComponent();
     return *this;
 }

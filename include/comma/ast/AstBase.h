@@ -23,12 +23,12 @@ namespace comma {
 //
 // Forward declarations for all Ast nodes.
 //
-class AbstractDomainType;
+class AbstractDomainDecl;
 class Ast;
 class AstRewriter;
 class CompilationUnit;
-class ConcreteDomainType;
 class Decl;
+class DeclarativeRegion;
 class DomainDecl;
 class DomainType;
 class Domoid;
@@ -39,14 +39,12 @@ class FunctorType;
 class ModelDecl;
 class ModelType;
 class NamedDecl;
-class PercentType;
 class ParameterizedModel;
 class ParameterizedType;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
 class Type;
-class TypeDecl;
 class VarietyDecl;
 class VarietyType;
 
@@ -80,6 +78,7 @@ public:
         //
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
+        AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
         AST_FunctionDecl,       ///< FunctionDecl
@@ -91,9 +90,6 @@ public:
         AST_VarietyType,        ///< VarietyType
         AST_FunctorType,        ///< FunctorType
         AST_DomainType,         ///< DomainType
-        AST_ConcreteDomainType, ///< ConcreteDomainType
-        AST_AbstractDomainType, ///< AbstractDomainType
-        AST_PercentType,        ///< PercentType
         AST_FunctionType,       ///< FunctionType
 
         //
@@ -101,9 +97,6 @@ public:
         //
         FIRST_Decl      = AST_SignatureDecl,
         LAST_Decl       = AST_FunctionDecl,
-
-        FIRST_TypeDecl  = AST_SignatureDecl,
-        LAST_TypeDecl   = AST_FunctorDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,
@@ -149,13 +142,6 @@ public:
                 this->getKind() <= LAST_Decl);
     }
 
-    /// \brief Returns true if this node denotes a declaration which also
-    /// describes a type (i.e. SignatureDecl, DomainDecl, etc).
-    bool denotesTypeDecl() const {
-        return (FIRST_TypeDecl <= this->getKind() &&
-                this->getKind() <= LAST_TypeDecl);
-    }
-
     /// \brief Returns true if this node denotes a Model.
     bool denotesModelDecl() const {
         return (FIRST_ModelDecl <= this->getKind() &&
@@ -168,16 +154,9 @@ public:
                 this->getKind() <= LAST_Type);
     }
 
-    /// \brief Returns true if this node denotes a domain type.
-    bool denotesDomainType() const {
-        return (kind == AST_ConcreteDomainType ||
-                kind == AST_AbstractDomainType ||
-                kind == AST_PercentType);
-    }
-
     /// \brief Returns true if this node denotes a model type.
     bool denotesModelType() const {
-        return (denotesDomainType()       ||
+        return (kind == AST_DomainType    ||
                 kind == AST_SignatureType ||
                 kind == AST_VarietyType   ||
                 kind == AST_FunctorType);

@@ -59,9 +59,8 @@ public:
 
         unsigned getLength() const { return length; }
 
-        // This method provides a string representation of the token. If the
-        // token does not have a string representation, NULL is returned.
-        const char *getString() const;
+        // This method provides a string representation of the token.
+        std::string getString() const;
 
     private:
         Lexer::Code code   : 8;
@@ -116,9 +115,8 @@ public:
     // if no such representation is available.
     static const char *tokenString(Code code);
 
-    // Returns the string representation of the given token, or NULL if no such
-    // representation is available.
-    static const char *tokenString(const Token &tkn);
+    // Returns the string representation of the given token.
+    static std::string tokenString(const Token &tkn);
 
 private:
     bool eatWhitespace();

@@ -41,6 +41,8 @@ public:
     // models are the "principle signatures" of a domain.
     bool isAnonymous() const { return idInfo == 0; }
 
+    virtual Type *getType() const = 0;
+
     // Support isa and dyn_cast.
     static bool classof(const Decl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -56,25 +58,62 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// TypeDecl
-//
-// The root of the comma type hierarchy,
-class TypeDecl : public Decl {
-
-public:
-    virtual ~TypeDecl() { }
-
-    // Support isa and dyn_cast.
-    static bool classof(const TypeDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesTypeDecl();
-    }
+// DeclarativeRegion
+class DeclarativeRegion {
 
 protected:
-    TypeDecl(AstKind kind, IdentifierInfo *info = 0)
-        : Decl(kind, info) {
-        assert(this->denotesTypeDecl());
+    DeclarativeRegion()
+        : parent(0) { }
+
+    DeclarativeRegion(DeclarativeRegion *parent)
+        : parent(parent) { }
+
+    typedef std::multimap<IdentifierInfo*, Decl*> DeclarationTable;
+    DeclarationTable declarations;
+
+public:
+    DeclarativeRegion *getParent() { return parent; }
+    const DeclarativeRegion *getParent() const { return parent; }
+
+    void addDecl(Decl *decl) {
+        IdentifierInfo *name = decl->getIdInfo();
+        declarations.insert(DeclarationTable::value_type(name, decl));
     }
+
+    typedef DeclarationTable::iterator DeclIter;
+    DeclIter beginDecls() { return declarations.begin(); }
+    DeclIter endDecls()   { return declarations.end(); }
+
+    typedef DeclarationTable::const_iterator ConstDeclIter;
+    ConstDeclIter beginDecls() const { return declarations.begin(); }
+    ConstDeclIter endDecls()   const { return declarations.end(); }
+
+    typedef std::pair<DeclIter, DeclIter> DeclRange;
+    DeclRange findDecls(IdentifierInfo *name) {
+        return declarations.equal_range(name);
+    }
+
+    Decl *findDecl(IdentifierInfo *name, Type *type);
+
+    static bool classof(const Ast *node) {
+        switch (node->getKind()) {
+        default:
+            return false;
+        case Ast::AST_DomainDecl:
+        case Ast::AST_SignatureDecl:
+        case Ast::AST_VarietyDecl:
+        case Ast::AST_FunctorDecl:
+            return true;
+        }
+    }
+
+    static bool classof(const DomainDecl    *node) { return true; }
+    static bool classof(const SignatureDecl *node) { return true; }
+    static bool classof(const VarietyDecl   *node) { return true; }
+    static bool classof(const FunctorDecl   *node) { return true; }
+
+private:
+    DeclarativeRegion *parent;
 };
 
 //===----------------------------------------------------------------------===//
@@ -88,7 +127,7 @@ protected:
 // additional parameter is necessary since the Ast classes cannot create
 // IdentifierInfo's on their own -- we do not have access to a global
 // IdentifierPool with which to create them.
-class ModelDecl : public TypeDecl {
+class ModelDecl : public Decl {
 
 public:
     virtual ~ModelDecl() { }
@@ -96,15 +135,20 @@ public:
     // Access the location info of this node.
     Location getLocation() const { return location; }
 
+    virtual ModelType *getType() const = 0;
+
     // Returns true if this model is parameterized.
     bool isParameterized() const {
         return kind == AST_VarietyDecl || kind == AST_FunctorDecl;
     }
 
-    PercentType *getPercent() const { return percent; }
+    DomainType *getPercent() const { return percent; }
 
-    // Returns the type of this model.
-    virtual ModelType *getType() const = 0;
+    /// Returns this cast to a DeclarativeRegion, or NULL if this model does not
+    /// support declarations.
+    DeclarativeRegion *asDeclarativeRegion() {
+        return llvm::dyn_cast<DeclarativeRegion>(this);
+    }
 
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
@@ -126,7 +170,7 @@ protected:
     Location location;
 
     // Percent node for this decl.
-    PercentType *percent;
+    DomainType *percent;
 };
 
 //===----------------------------------------------------------------------===//
@@ -134,7 +178,7 @@ protected:
 //
 // This is the common base class for "signature like" objects: i.e. signatures
 // and varieties.
-class Sigoid : public ModelDecl {
+class Sigoid : public ModelDecl, public DeclarativeRegion {
 
 public:
     Sigoid(AstKind kind, IdentifierInfo *percentId)
@@ -243,17 +287,17 @@ class VarietyDecl : public Sigoid {
 
 public:
     // Creates an anonymous variety.
-    VarietyDecl(IdentifierInfo      *percentId,
-                AbstractDomainType **formals,
-                unsigned             arity);
+    VarietyDecl(IdentifierInfo *percentId,
+                DomainType    **formals,
+                unsigned        arity);
 
     // Creates a VarietyDecl with the given name, location of definition, and
     // list of AbstractDomainTypes which serve as the formal parameters.
-    VarietyDecl(IdentifierInfo      *percentId,
-                IdentifierInfo      *name,
-                Location             loc,
-                AbstractDomainType **formals,
-                unsigned             arity);
+    VarietyDecl(IdentifierInfo *percentId,
+                IdentifierInfo *name,
+                Location        loc,
+                DomainType    **formals,
+                unsigned        arity);
 
     // Returns the type node corresponding to this variety applied over the
     // given arguments.
@@ -269,7 +313,7 @@ public:
 
     // Returns the an abstract domain node representing the i'th formal
     // parameter.
-    AbstractDomainType *getFormalDomain(unsigned i) const {
+    DomainType *getFormalDomain(unsigned i) const {
         return getVarietyType()->getFormalDomain(i);
     }
 
@@ -303,7 +347,7 @@ public:
     // Returns non-null if this domoid is a DomainDecl.
     DomainDecl *getDomain();
 
-    // Returns non-null if this domoid is a functorDecl.
+    // Returns non-null if this domoid is a FunctorDecl.
     FunctorDecl *getFunctor();
 
     // Each Domoid has an associated signature declaration, known as its
@@ -339,8 +383,8 @@ public:
                IdentifierInfo *name,
                const Location &loc);
 
-    ConcreteDomainType *getCorrespondingType() { return canonicalType; }
-    ConcreteDomainType *getType() const { return canonicalType; }
+    DomainType *getCorrespondingType() { return canonicalType; }
+    DomainType *getType() const { return canonicalType; }
 
     SignatureDecl *getPrincipleSignature() const { return principleSignature; }
 
@@ -359,7 +403,7 @@ protected:
                Location        loc);
 
 private:
-    ConcreteDomainType *canonicalType;
+    DomainType    *canonicalType;
     SignatureDecl *principleSignature;
 };
 
@@ -370,17 +414,16 @@ private:
 class FunctorDecl : public Domoid {
 
 public:
-    FunctorDecl(IdentifierInfo      *percentId,
-                IdentifierInfo      *name,
-                Location             loc,
-                AbstractDomainType **formals,
-                unsigned             arity);
+    FunctorDecl(IdentifierInfo *percentId,
+                IdentifierInfo *name,
+                Location        loc,
+                DomainType    **formals,
+                unsigned        arity);
 
     // Returns the type node corresponding to this functor applied over the
     // given arguments.  Such types are memorized.  For a given set of arguments
     // this function always returns the same type.
-    ConcreteDomainType *getCorrespondingType(DomainType **args,
-                                             unsigned numArgs);
+    DomainType *getCorrespondingType(DomainType **args, unsigned numArgs);
 
     VarietyDecl *getPrincipleSignature() const { return principleSignature; }
 
@@ -391,7 +434,7 @@ public:
     // Returns the number of arguments this functor accepts.
     unsigned getArity() const { return getFunctorType()->getArity(); }
 
-    AbstractDomainType *getFormalDomain(unsigned i) const {
+    DomainType *getFormalDomain(unsigned i) const {
         return getFunctorType()->getFormalDomain(i);
     }
 
@@ -402,10 +445,33 @@ public:
     }
 
 private:
-    mutable llvm::FoldingSet<ConcreteDomainType> types;
+    mutable llvm::FoldingSet<DomainType> types;
 
     FunctorType *functor;
     VarietyDecl *principleSignature;
+};
+
+//===----------------------------------------------------------------------===//
+// AbstractDomainDecl
+class AbstractDomainDecl : public Domoid
+{
+public:
+    AbstractDomainDecl(IdentifierInfo *name,
+                       SignatureType  *type,
+                       Location        loc);
+
+    DomainType *getType() const { return abstractType; }
+
+    SignatureType *getSignatureType() const { return signature; }
+
+    static bool classof(const AbstractDomainDecl *node) { return true; }
+    static bool classof(const Ast* node) {
+        return node->getKind() == AST_AbstractDomainDecl;
+    }
+
+private:
+    DomainType    *abstractType;
+    SignatureType *signature;
 };
 
 //===----------------------------------------------------------------------===//
@@ -415,19 +481,19 @@ private:
 class FunctionDecl : public Decl {
 
 public:
-    FunctionDecl(IdentifierInfo   *name,
-                 FunctionType     *type,
-                 ModelType        *context,
-                 Location          loc);
+    FunctionDecl(IdentifierInfo    *name,
+                 FunctionType      *type,
+                 DeclarativeRegion *context,
+                 Location           loc);
 
-    // Returns true if this function declaration was defined in the context of
-    // the given type.
-    bool isTypeContext(const ModelType *type) const {
-        return type == context;
+    // Returns true if this function was defined in the context of the given
+    // type.
+    bool isDeclarativeRegion(const DeclarativeRegion *region) const {
+        return region == context;
     }
 
     // Accessors and forwarding functions to the underlying FuntionType node.
-    FunctionType *getFunctionType() const { return ftype; }
+    FunctionType *getType() const { return ftype; }
 
     unsigned getArity() const { return ftype->getArity(); }
 
@@ -443,6 +509,16 @@ public:
         return ftype->getReturnType();
     }
 
+    Location getLocation() const { return location; }
+
+    void setBaseDeclaration(FunctionDecl *fdecl) {
+        assert(baseDeclaration == 0 && "Cannot reset base declaration!");
+        baseDeclaration = fdecl;
+    }
+
+    FunctionDecl *getBaseDeclaration() { return baseDeclaration; }
+    const FunctionDecl *getBaseDeclaration() const { return baseDeclaration; }
+
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -450,9 +526,11 @@ public:
     }
 
 private:
-    FunctionType *ftype;
-    ModelType    *context;
-    Location      location;
+    FunctionType      *ftype;
+    DeclarativeRegion *context;
+    Location           location;
+
+    FunctionDecl *baseDeclaration;
 };
 
 //===----------------------------------------------------------------------===//

@@ -30,41 +30,21 @@ bool hasExactSignature(Sigoid *source, SignatureType *target)
     return false;
 }
 
-} // End anonymous namespace.
-
-bool TypeCheck::has(ConcreteDomainType *source, SignatureType *target)
-{
-    Domoid *domoid = source->getDomoid();
-    SignatureDecl *principleSignature = domoid->getPrincipleSignature();
-
-    SignatureDecl::sig_iterator iter = principleSignature->beginSupers();
-    SignatureDecl::sig_iterator endIter = principleSignature->endSupers();
-    AstRewriter rewrites;
-
-    rewrites.installRewrites(source);
-    for ( ; iter != endIter; ++iter) {
-        SignatureType *candidate = *iter;
-        if (compareTypesUsingRewrites(rewrites, candidate, target))
-            return true;
-    }
-    return false;
-}
-
-bool TypeCheck::has(AbstractDomainType *source, SignatureType *target)
+bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
 {
     AstRewriter    rewrites;
-    SignatureType *signature = source->getSignature();
+    SignatureType *signature = source->getSignatureType();
     Sigoid        *sigoid    = signature->getDeclaration();
 
     if (signature == target) return true;
 
-    // Set up our rewrite context.  Rewrites from the source simply install a
-    // mapping from the % of the underlying signature declaration to the
-    // abstract domain.  Rewrites involving the signature map the formal
-    // parameters of the declaration (if any) to the actual parameters of the
-    // type.  This rewrite provides a public view of the signature corresponding
-    // to the given abstract domain.
-    rewrites.installRewrites(source);
+    // Set up our rewrite context.  First install a mapping from the % of the
+    // underlying signature declaration to that of the abstract domain.
+    // Rewrites involving the signature map the formal parameters of the
+    // declaration (if any) to the actual parameters of the type.  This rewrite
+    // provides a public view of the signature corresponding to the given
+    // abstract domain.
+    rewrites.addRewrite(sigoid->getPercent(), source->getType());
     rewrites.installRewrites(signature);
 
     Sigoid::sig_iterator iter    = sigoid->beginSupers();
@@ -77,11 +57,9 @@ bool TypeCheck::has(AbstractDomainType *source, SignatureType *target)
     return false;
 }
 
-bool TypeCheck::has(PercentType *source, SignatureType *target)
+bool percentHas(ModelDecl *source, SignatureType *target)
 {
-    ModelDecl *model = source->getDeclaration();
-
-    if (Sigoid *sigoid = dyn_cast<Sigoid>(model)) {
+    if (Sigoid *sigoid = dyn_cast<Sigoid>(source)) {
         // This % node corresponds to a signature declaration.  If the
         // declaration is not parameterized, check if the target matches the
         // source declaration.  That is to say, in the context of some signature
@@ -114,20 +92,35 @@ bool TypeCheck::has(PercentType *source, SignatureType *target)
         return hasExactSignature(sigoid, target);
     }
 
-    // This percent corresponds to a domain.  Since the principle signature is
-    // always anonymous, an exact match against the super signatures suffices.
-    Domoid *domoid = source->getDomoid();
+    // We do not have a signature, so we must ahve a domain.  Since the
+    // principle signature is always anonymous perform an exact match against
+    // the super signatures.
+    Domoid *domoid = dyn_cast<Domoid>(source);
     SignatureDecl *principleSig = domoid->getPrincipleSignature();
     return hasExactSignature(principleSig, target);
 }
 
+} // End anonymous namespace.
+
 bool TypeCheck::has(DomainType *source, SignatureType *target)
 {
-    if (ConcreteDomainType *domain = dyn_cast<ConcreteDomainType>(source))
-        return has(domain, target);
+    if (AbstractDomainDecl *domain = source->getAbstractDecl())
+        return abstractDomainHas(domain, target);
+    else if (source->denotesPercent())
+        return percentHas(source->getDeclaration(), target);
 
-    if (AbstractDomainType *domain = dyn_cast<AbstractDomainType>(source))
-        return has(domain, target);
+    Domoid *domoid = source->getDomoidDecl();
+    SignatureDecl *principleSignature = domoid->getPrincipleSignature();
 
-    return has(dyn_cast<PercentType>(source), target);
+    SignatureDecl::sig_iterator iter = principleSignature->beginSupers();
+    SignatureDecl::sig_iterator endIter = principleSignature->endSupers();
+    AstRewriter rewrites;
+
+    rewrites.installRewrites(source);
+    for ( ; iter != endIter; ++iter) {
+        SignatureType *candidate = *iter;
+        if (compareTypesUsingRewrites(rewrites, candidate, target))
+            return true;
+    }
+    return false;
 }

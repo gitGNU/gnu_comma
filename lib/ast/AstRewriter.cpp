@@ -24,23 +24,21 @@ DomainType *AstRewriter::getRewrite(DomainType *source) const
     return iter->second;
 }
 
-
 void AstRewriter::installRewrites(DomainType *context)
 {
-    if (isa<PercentType>(context)) return;
+    if (context->denotesPercent()) return;
 
     ModelDecl *model = context->getDeclaration();
+
     addRewrite(model->getPercent(), context);
 
-    if (ConcreteDomainType *domain = dyn_cast<ConcreteDomainType>(context)) {
-        if (domain->isParameterized()) {
-            FunctorDecl *functor = domain->getFunctor();
-            unsigned arity = functor->getArity();
-            for (unsigned i = 0; i < arity; ++i) {
-                AbstractDomainType *formal = functor->getFormalDomain(i);
-                DomainType *actual = domain->getActualParameter(i);
-                rewrites[formal] = actual;
-            }
+    if (context->isParameterized()) {
+        FunctorDecl *functor = context->getFunctorDecl();
+        unsigned arity = functor->getArity();
+        for (unsigned i = 0; i < arity; ++i) {
+            DomainType *formal = functor->getFormalDomain(i);
+            DomainType *actual = context->getActualParameter(i);
+            rewrites[formal] = actual;
         }
     }
 }
@@ -52,7 +50,7 @@ void AstRewriter::installRewrites(SignatureType *context)
     if (variety) {
         unsigned arity = variety->getArity();
         for (unsigned i = 0; i < arity; ++i) {
-            AbstractDomainType *formal = variety->getFormalDomain(i);
+            DomainType *formal = variety->getFormalDomain(i);
             DomainType *actual = context->getActualParameter(i);
             addRewrite(formal, actual);
         }
@@ -81,14 +79,12 @@ SignatureType *AstRewriter::rewrite(SignatureType *sig) const
 
 DomainType *AstRewriter::rewrite(DomainType *dom) const
 {
-    ConcreteDomainType *source = llvm::dyn_cast<ConcreteDomainType>(dom);
-
-    if (source && source->isParameterized()) {
+    if (dom->isParameterized()) {
         llvm::SmallVector<DomainType*, 4> args;
 
-        ConcreteDomainType::arg_iterator iter;
-        ConcreteDomainType::arg_iterator endIter = source->endArguments();
-        for (iter = source->beginArguments(); iter != endIter; ++iter) {
+        DomainType::arg_iterator iter;
+        DomainType::arg_iterator endIter = dom->endArguments();
+        for (iter = dom->beginArguments(); iter != endIter; ++iter) {
             // If the argument is a member of the rewrite set, then we must
             // create a new
             if (DomainType *target = getRewrite(*iter))
@@ -97,7 +93,7 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
                 args.push_back(*iter);
         }
         // Obtain a memoized instance of this type.
-        FunctorDecl *decl = source->getFunctor();
+        FunctorDecl *decl = dom->getFunctorDecl();
         return decl->getCorrespondingType(&args[0], args.size());
 
     }

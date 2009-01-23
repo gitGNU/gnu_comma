@@ -57,6 +57,10 @@ public:
     void acceptSignatureComponentList(Node    *components,
                                       unsigned numComponents);
 
+    void acceptDeclaration(IdentifierInfo *name,
+                           Node            type,
+                           Location        loc);
+
     Node acceptPercent(Location loc);
 
     Node acceptTypeIdentifier(IdentifierInfo *info, Location loc);
@@ -110,6 +114,12 @@ private:
     }
 
     Sigoid *getCurrentSignature() const;
+
+    DeclarativeRegion *declarativeRegion;
+
+    DeclarativeRegion *currentDeclarativeRegion() {
+        return declarativeRegion;
+    }
 
     // The top level scope is a compilation unit scope and never changes during
     // analysis.  The current scope is some inner scope of the top scope and
@@ -166,13 +176,13 @@ private:
                                               unsigned numActuals);
 
     bool has(DomainType *source, SignatureType *target);
-    bool has(ConcreteDomainType *source, SignatureType *target);
-    bool has(AbstractDomainType *source, SignatureType *target);
-    bool has(PercentType *source, SignatureType *target);
+
+    SourceLocation getSourceLocation(Location loc) const {
+        return resource.getTextProvider().getSourceLocation(loc);
+    }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) const {
-        SourceLocation sloc = resource.getTextProvider().getSourceLocation(loc);
-        return diagnostic.report(sloc, kind);
+        return diagnostic.report(getSourceLocation(loc), kind);
     }
 };
 

@@ -33,7 +33,7 @@ class DiagnosticStream {
 public:
     DiagnosticStream(std::ostream &stream);
 
-    DiagnosticStream &initialize(const SourceLocation &loc, const char *format);
+    DiagnosticStream &initialize(const SourceLocation &sloc, const char *format);
 
     DiagnosticStream &operator<<(const std::string &string);
 
@@ -43,8 +43,12 @@ public:
 
     DiagnosticStream &operator<<(char c);
 
+    DiagnosticStream &operator<<(const SourceLocation &sloc);
+
 private:
     void emitFormatComponent();
+
+    void emitSourceLocation(const SourceLocation &sloc);
 
     std::ostream &stream;
     unsigned position;

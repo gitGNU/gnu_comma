@@ -93,6 +93,25 @@ public:
                                               unsigned numComponents) = 0;
 
 
+    // Called at the begining of an add expression.  The bridge accepts
+    // components of an add expression after this call until endAddExpression is
+    // called.
+    virtual void beginAddExpression() { }
+
+    // Completes an add expression.
+    virtual void endAddExpression() { }
+
+    virtual Node beginFunctionDefinition(IdentifierInfo *name,
+                                         Node            type,
+                                         Location        loc)
+        { return Node(0); }
+
+    virtual void acceptFunctionDefinition(Node function, Node body) { }
+
+    virtual void acceptDeclaration(IdentifierInfo *name,
+                                   Node            type,
+                                   Location        loc) { }
+
     virtual Node acceptPercent(Location loc) = 0;
 
     virtual Node acceptTypeIdentifier(IdentifierInfo *info, Location loc) = 0;

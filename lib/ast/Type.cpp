@@ -11,19 +11,20 @@
 #include <algorithm>
 
 using namespace comma;
+using llvm::dyn_cast;
 
 //===----------------------------------------------------------------------===//
 // SignatureType
 
 SignatureType::SignatureType(SignatureDecl *decl)
-    : ModelType(AST_SignatureType, decl->getIdInfo()), sigoid(decl)
+    : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
 {
     deletable = false;
 }
 
 SignatureType::SignatureType(VarietyDecl *decl,
                              DomainType **args, unsigned numArgs)
-    : ModelType(AST_SignatureType, decl->getIdInfo()), sigoid(decl)
+    : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
 {
     deletable = false;
     arguments = new DomainType*[numArgs];
@@ -32,17 +33,17 @@ SignatureType::SignatureType(VarietyDecl *decl,
 
 Sigoid *SignatureType::getDeclaration() const
 {
-    return sigoid;
+    return dyn_cast<Sigoid>(declaration);
 }
 
 SignatureDecl *SignatureType::getSignature() const
 {
-    return llvm::dyn_cast<SignatureDecl>(sigoid);
+    return dyn_cast<SignatureDecl>(declaration);
 }
 
 VarietyDecl *SignatureType::getVariety() const
 {
-    return llvm::dyn_cast<VarietyDecl>(sigoid);
+    return dyn_cast<VarietyDecl>(declaration);
 }
 
 unsigned SignatureType::getArity() const
@@ -71,19 +72,20 @@ void SignatureType::Profile(llvm::FoldingSetNodeID &id,
 //===----------------------------------------------------------------------===//
 // ParameterizedType
 
-ParameterizedType::ParameterizedType(AstKind              kind,
-                                     IdentifierInfo      *idInfo,
-                                     AbstractDomainType **formalArgs,
-                                     unsigned             arity)
-    : ModelType(kind, idInfo),
+ParameterizedType::ParameterizedType(AstKind         kind,
+                                     IdentifierInfo *idInfo,
+                                     ModelDecl      *decl,
+                                     DomainType    **formalArgs,
+                                     unsigned        arity)
+    : ModelType(kind, idInfo, decl),
       numFormals(arity)
 {
     assert(kind == AST_VarietyType || kind == AST_FunctorType);
-    formals = new AbstractDomainType*[arity];
+    formals = new DomainType*[arity];
     std::copy(formalArgs, formalArgs + arity, formals);
 }
 
-AbstractDomainType *ParameterizedType::getFormalDomain(unsigned i) const
+DomainType *ParameterizedType::getFormalDomain(unsigned i) const
 {
     assert(i < getArity() && "Formal domain index out of bounds!");
     return formals[i];
@@ -91,7 +93,8 @@ AbstractDomainType *ParameterizedType::getFormalDomain(unsigned i) const
 
 SignatureType *ParameterizedType::getFormalType(unsigned i) const
 {
-    return getFormalDomain(i)->getSignature();
+    AbstractDomainDecl *decl = getFormalDomain(i)->getAbstractDecl();
+    return decl->getSignatureType();
 }
 
 IdentifierInfo *ParameterizedType::getFormalIdInfo(unsigned i) const
@@ -111,11 +114,13 @@ int ParameterizedType::getSelectorIndex(IdentifierInfo *selector) const
 //===----------------------------------------------------------------------===//
 // VarietyType
 
-VarietyType::VarietyType(AbstractDomainType **formalArguments,
-                         VarietyDecl *variety, unsigned arity)
+VarietyType::VarietyType(DomainType **formalArguments,
+                         VarietyDecl *variety,
+                         unsigned     arity)
     : ParameterizedType(AST_VarietyType,
-                        variety->getIdInfo(), formalArguments, arity),
-      variety(variety)
+                        variety->getIdInfo(),
+                        variety,
+                        formalArguments, arity)
 {
     // We are owned by the corresponding variety and so we cannot be deleted
     // independently.
@@ -127,14 +132,21 @@ VarietyType::~VarietyType()
     delete[] formals;
 }
 
+VarietyDecl *VarietyType::getDeclaration() const
+{
+    return dyn_cast<VarietyDecl>(declaration);
+}
+
 //===----------------------------------------------------------------------===//
 // FunctorType
 
-FunctorType::FunctorType(AbstractDomainType **formalArguments,
-                         FunctorDecl *functor, unsigned arity)
+FunctorType::FunctorType(DomainType **formalArguments,
+                         FunctorDecl *functor,
+                         unsigned     arity)
     : ParameterizedType(AST_FunctorType,
-                        functor->getIdInfo(), formalArguments, arity),
-      functor(functor)
+                        functor->getIdInfo(),
+                        functor,
+                        formalArguments, arity)
 {
     // We are owned by the corresponding functor and so we cannot be deleted
     // independently.
@@ -146,84 +158,90 @@ FunctorType::~FunctorType()
     delete[] formals;
 }
 
+FunctorDecl *FunctorType::getDeclaration() const
+{
+    return dyn_cast<FunctorDecl>(declaration);
+}
+
 //===----------------------------------------------------------------------===//
 // DomainType
 
-DomainType::DomainType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl)
-    : ModelType(kind, idInfo), modelDecl(decl)
-{
-    assert(this->denotesDomainType());
-}
-
-DomainType::DomainType(AstKind kind, IdentifierInfo *idInfo, SignatureType *sig)
-    : ModelType(kind, idInfo), signatureType(sig)
-{
-    assert(this->denotesDomainType());
-}
-
-bool DomainType::isAbstract() const
-{
-    return astNode->getKind() == AST_SignatureType;
-}
-
-ModelDecl *DomainType::getDeclaration() const
-{
-    if (isAbstract() && getKind() != AST_PercentType)
-        return signatureType->getDeclaration();
-    else
-        return modelDecl;
-}
-
-Domoid *DomainType::getDomoid() const
-{
-    return llvm::dyn_cast<Domoid>(modelDecl);
-}
-
-DomainDecl *DomainType::getDomain() const
-{
-    return llvm::dyn_cast<DomainDecl>(modelDecl);
-}
-
-FunctorDecl *DomainType::getFunctor() const
-{
-    return llvm::dyn_cast<FunctorDecl>(modelDecl);
-}
-
-//===----------------------------------------------------------------------===//
-// ConcreteDomainType.
-
-ConcreteDomainType::ConcreteDomainType(DomainDecl *decl)
-    : DomainType(AST_ConcreteDomainType, decl->getIdInfo(), decl),
+DomainType::DomainType(DomainDecl *decl)
+    : ModelType(AST_DomainType, decl->getIdInfo(), decl),
       arguments(0)
 {
     deletable = false;
 }
 
-ConcreteDomainType::ConcreteDomainType(FunctorDecl *decl,
-                                       DomainType **args,
-                                       unsigned     numArgs)
-    : DomainType(AST_ConcreteDomainType, decl->getIdInfo(), decl)
+DomainType::DomainType(FunctorDecl *decl,
+                       DomainType **args,
+                       unsigned     numArgs)
+    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
 {
     deletable = false;
     arguments = new DomainType*[numArgs];
     std::copy(args, args + numArgs, arguments);
 }
 
-unsigned ConcreteDomainType::getArity() const
+DomainType::DomainType(AbstractDomainDecl *decl)
+    : ModelType(AST_DomainType, decl->getIdInfo(), decl),
+      arguments(0)
 {
-    FunctorDecl *functor = getFunctor();
+    deletable = false;
+}
+
+DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
+    : ModelType(AST_DomainType, percentId, model),
+      arguments(0)
+{
+    deletable = false;
+}
+
+DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
+{
+    return new DomainType(percentId, decl);
+}
+
+bool DomainType::denotesPercent() const
+{
+    return this == declaration->getPercent();
+}
+
+Domoid *DomainType::getDomoidDecl() const
+{
+    return dyn_cast<Domoid>(declaration);
+}
+
+DomainDecl *DomainType::getDomainDecl() const
+{
+    return dyn_cast<DomainDecl>(declaration);
+}
+
+FunctorDecl *DomainType::getFunctorDecl() const
+{
+    return dyn_cast<FunctorDecl>(declaration);
+}
+
+AbstractDomainDecl *DomainType::getAbstractDecl() const
+{
+    return dyn_cast<AbstractDomainDecl>(declaration);
+}
+
+unsigned DomainType::getArity() const
+{
+    FunctorDecl *functor = getFunctorDecl();
     if (functor) return functor->getArity();
     return 0;
 }
 
-DomainType *ConcreteDomainType::getActualParameter(unsigned i) const
+DomainType *DomainType::getActualParameter(unsigned i) const
 {
     assert(i < getArity() && "Index out of range!");
     return arguments[i];
 }
 
-void ConcreteDomainType::Profile(llvm::FoldingSetNodeID &id,
-                                 DomainType **args, unsigned numArgs)
+void DomainType::Profile(llvm::FoldingSetNodeID &id,
+                         DomainType **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);

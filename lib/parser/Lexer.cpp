@@ -20,7 +20,7 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
       scanningAborted(false)
 { }
 
-const char *Lexer::Token::getString() const
+std::string Lexer::Token::getString() const
 {
     return Lexer::tokenString(*this);
 }
@@ -44,24 +44,20 @@ const char *Lexer::tokenString(const Code code)
     return result;
 }
 
-const char *Lexer::tokenString(const Token &token)
+std::string Lexer::tokenString(const Token &token)
 {
-    const char *result;
     Code code = token.getCode();
 
     switch (code) {
     default:
-        result = tokenString(code);
+        return std::string(tokenString(code));
         break;
 
     case TKN_IDENTIFIER:
     case TKN_INTEGER:
     case TKN_STRING:
-        result = token.getRep();
-        break;
+        return std::string(token.getRep(), token.getLength());
     }
-
-    return result;
 }
 
 bool Lexer::isDecimalDigit(unsigned c)

@@ -45,21 +45,16 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
     // comparison to succeed since all non-parameterized types are represented
     // by a unique node.
     if (typeX->getDeclaration() == typeY->getDeclaration()) {
-        ConcreteDomainType *domX = typeX->getConcreteType();
-        ConcreteDomainType *domY = typeY->getConcreteType();
 
-        if (!(domX && domY))
-            return false;
-
-        if (!(domX->isParameterized() && domY->isParameterized()))
+        if (!(typeX->isParameterized() && typeY->isParameterized()))
             return false;
 
         // We know the arity of both types are the same since they are supported
         // by identical declarations.
-        unsigned arity = domX->getArity();
+        unsigned arity = typeX->getArity();
         for (unsigned i = 0; i < arity; ++i) {
-            DomainType *argX = domX->getActualParameter(i);
-            DomainType *argY = domY->getActualParameter(i);
+            DomainType *argX = typeX->getActualParameter(i);
+            DomainType *argY = typeY->getActualParameter(i);
             if (!compareTypesUsingRewrites(rewrites, argX, argY))
                 return false;
         }

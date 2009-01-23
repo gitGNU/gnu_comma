@@ -74,13 +74,15 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
     if (SignatureType *sig = dyn_cast<SignatureType>(type)) {
         // If the current scope contains a type declaration of the same name, it
         // must be a formal parameter (since parameters are the first items
-        // brought into scope).
+        // brought into scope, and we explicitly request that parent scopes are
+        // not traversed).
         if (lookupType(formal, false)) {
             report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal->getString();
             return Node::getInvalidNode();
         }
-        AbstractDomainType *dom = new AbstractDomainType(formal, sig);
-        addType(dom);
+        AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
+        DomainType *type = dom->getType();
+        addType(type);
         return Node(dom);
     }
     else {
@@ -95,13 +97,13 @@ void TypeCheck::acceptModelParameterList(Node     *params,
                                          Location *paramLocs,
                                          unsigned  arity)
 {
-    llvm::SmallVector<AbstractDomainType*, 4> domains;
+    llvm::SmallVector<DomainType*, 4> domains;
 
     // Convert each node to an AbstractDomainType.
     for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainType *domain = lift<AbstractDomainType>(params[i]);
+        AbstractDomainDecl *domain = lift<AbstractDomainDecl>(params[i]);
         assert(domain && "Bad Node kind!");
-        domains.push_back(domain);
+        domains.push_back(domain->getType());
     }
 
     // Create the appropriate type of model.
@@ -127,7 +129,7 @@ void TypeCheck::acceptModelParameterList(Node     *params,
         }
     }
     else {
-        AbstractDomainType **formals = &domains[0];
+        DomainType **formals = &domains[0];
         switch (currentModelInfo->kind) {
 
         case Ast::AST_SignatureDecl:
@@ -144,15 +146,17 @@ void TypeCheck::acceptModelParameterList(Node     *params,
             assert(false && "Corruption of currentModelInfo->kind!");
         }
     }
+
+    declarativeRegion = modelDecl->asDeclarativeRegion();
     currentModelInfo->decl = modelDecl;
 }
 
 Node TypeCheck::acceptModelSupersignature(Node     typeNode,
                                           Location loc)
 {
-    ModelType *type = lift<ModelType>(typeNode);
+    ModelType     *type = lift<ModelType>(typeNode);
     SignatureType *superSig;
-    Sigoid *currentSig;
+    Sigoid        *currentSig;
 
     assert(type && "Bad node kind!");
 
@@ -218,7 +222,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       unsigned         numSelectors,
                                       Location         loc)
 {
-    assert(numSelectors <= numArgs && "More selectors that arguments!");
+    assert(numSelectors <= numArgs && "More selectors than arguments!");
 
     ModelType  *type = lookupType(connective);
     const char *name = connective->getString();
@@ -261,8 +265,8 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         }
 
         // The corresponding index of the selector must be greater than the
-        // number of positional parameters (otherwise it would `overlap' a
-        // positional parameter).
+        // number of supplied positional parameters (otherwise it would
+        // `overlap' a positional parameter).
         if ((unsigned)selectorIdx < numPositional) {
             report(selectorLoc, diag::SELECTED_PARAM_PROVIDED_POSITIONALLY)
                 << selector->getString();
@@ -309,13 +313,13 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     // Obtain a memoized type node for this particular argument set.
     Node node;
     if (VarietyType *variety = dyn_cast<VarietyType>(candidate)) {
-        VarietyDecl *decl = variety->getVarietyDecl();
+        VarietyDecl *decl = variety->getDeclaration();
         node = Node(decl->getCorrespondingType(&arguments[0], numArgs));
     }
     else {
         FunctorType *functor = dyn_cast<FunctorType>(candidate);
         assert(functor && "Corrupt hierarchy?");
-        FunctorDecl *decl = functor->getFunctorDecl();
+        FunctorDecl *decl = functor->getDeclaration();
         node = Node(decl->getCorrespondingType(&arguments[0], numArgs));
     }
     return node;
@@ -363,6 +367,7 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
     return Node::getInvalidNode();
 }
 
+// FIXME:  This function should go away in favour of addDeclaration.
 Node TypeCheck::acceptSignatureComponent(IdentifierInfo *name,
                                          Node            typeNode,
                                          Location        loc)
@@ -375,12 +380,12 @@ Node TypeCheck::acceptSignatureComponent(IdentifierInfo *name,
     // Ensure that this is not a redeclaration.
     FunctionDecl *extantDecl = sig->findDirectComponent(name, ftype);
     if (extantDecl) {
-        report(loc, diag::FUNCTION_REDECLARATION) << name->getString();
+        SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
+        report(loc, diag::FUNCTION_REDECLARATION) << name->getString() << sloc;
         return Node::getInvalidNode();
     }
 
-    PercentType *percent = sig->getPercent();
-    FunctionDecl  *fdecl = new FunctionDecl(name, ftype, percent, loc);
+    FunctionDecl  *fdecl = new FunctionDecl(name, ftype, sig, loc);
     sig->addComponent(fdecl);
     return Node(fdecl);
 }
@@ -406,7 +411,7 @@ SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
     // For each actual argument, establish a map from the formal parameter to
     // the actual.
     for (unsigned i = 0; i < numActuals; ++i) {
-        AbstractDomainType *formal = type->getFormalDomain(i);
+        DomainType *formal = type->getFormalDomain(i);
         DomainType *actual = actuals[i];
         rewriter.addRewrite(formal, actual);
     }
@@ -448,12 +453,12 @@ FunctionDecl *findComponent(const AstRewriter &rewrites,
                             FunctionDecl      *fdecl)
 {
     IdentifierInfo *name       = fdecl->getIdInfo();
-    FunctionType   *targetType = fdecl->getFunctionType();
+    FunctionType   *targetType = fdecl->getType();
 
     Sigoid::ComponentRange range = sig->findComponents(name);
     Sigoid::ComponentIter   iter = range.first;
     for ( ; iter != range.second; ++iter) {
-        FunctionType *sourceType = iter->second->getFunctionType();
+        FunctionType *sourceType = iter->second->getType();
         if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
             return iter->second;
     }
@@ -491,20 +496,25 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         for ( ; iter != endIter; ++iter) {
             IdentifierInfo *name      = iter->first;
             FunctionDecl   *fdecl     = iter->second;
-            FunctionType   *ftype     = fdecl->getFunctionType();
+            FunctionType   *ftype     = fdecl->getType();
             FunctionDecl   *component = findComponent(rewrites, sig, fdecl);
 
             if (component) {
-                FunctionType *componentType = component->getFunctionType();
+                FunctionType *componentType = component->getType();
 
                 // If the component is a direct declaration, then the component
                 // overrides the decl originating from the super signature.
                 // Otherwise, the selectors must match.
-                if (!component->isTypeContext(sig->getPercent()) &&
+                if (component->getBaseDeclaration() &&
                     !componentType->selectorsMatch(ftype)) {
-                    Location loc = component->getLocation();
-                    report(loc, diag::MISSING_REDECLARATION)
-                        << component->getString();
+                    Location        sigLoc = sig->getLocation();
+                    FunctionDecl *baseDecl = component->getBaseDeclaration();
+                    SourceLocation sloc1 =
+                        getSourceLocation(baseDecl->getLocation());
+                    SourceLocation sloc2 =
+                        getSourceLocation(fdecl->getLocation());
+                    report(sigLoc, diag::MISSING_REDECLARATION)
+                        << component->getString() << sloc1 << sloc2;
                     badDecls.insert(component);
                 }
             }
@@ -512,7 +522,8 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                 // Apply the rewrites and construct a new declaration node.
                 FunctionType *rewriteType = rewrites.rewrite(ftype);
                 FunctionDecl *rewriteDecl =
-                    new FunctionDecl(name, rewriteType, super, 0);
+                    new FunctionDecl(name, rewriteType, sig, 0);
+                rewriteDecl->setBaseDeclaration(fdecl);
                 sig->addComponent(rewriteDecl);
             }
         }
@@ -526,5 +537,29 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
             sig->removeComponent(badDecl);
             delete badDecl;
         }
+    }
+}
+
+void TypeCheck::acceptDeclaration(IdentifierInfo *name,
+                                  Node            typeNode,
+                                  Location        loc)
+{
+    DeclarativeRegion *region = currentDeclarativeRegion();
+    Type *type = lift<Type>(typeNode);
+
+    assert(type && "Bad node kind!");
+
+    if (FunctionType *ftype = dyn_cast<FunctionType>(type)) {
+        if (Decl *extantDecl = region->findDecl(name, type)) {
+            SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
+            report(loc, diag::FUNCTION_REDECLARATION) << name->getString()
+                                                      << sloc;
+            return;
+        }
+        FunctionDecl *fdecl = new FunctionDecl(name, ftype, region, loc);
+        region->addDecl(fdecl);
+    }
+    else {
+        assert(false && "Declaration type not yet supported!");
     }
 }

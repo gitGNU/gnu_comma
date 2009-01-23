@@ -14,6 +14,7 @@
 #include "comma/basic/IdentifierPool.h"
 #include "llvm/ADT/SmallVector.h"
 #include <iosfwd>
+#include <stack>
 
 namespace comma {
 
@@ -58,9 +59,16 @@ public:
     // successful false is returned and paramInfo is not modified.
     bool parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser);
 
+    void parseFunction(bool allowBody = true);
+    Node parseFunctionProto();
     Node parseFunctionParameter();
     Node parseFunctionParmeterList();
-    Node parseFunctionProto();
+    Node parseFunctionBody(IdentifierInfo *endTag);
+
+    void parseAddComponents();
+
+    Node parseBeginExpr(IdentifierInfo *endTag);
+    Node parseImplicitDeclareExpr(IdentifierInfo *endTag);
 
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
@@ -123,8 +131,6 @@ private:
                               Lexer::Code code3 = Lexer::UNUSED_ID,
                               Lexer::Code code4 = Lexer::UNUSED_ID);
 
-    bool seekEndLabel(const char *label);
-
     DiagnosticStream &report(Location loc, diag::Kind kind) {
         SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
@@ -141,6 +147,10 @@ private:
 
     IdentifierInfo *parseIdentifierInfo();
     IdentifierInfo *parseFunctionIdentifierInfo();
+
+    bool seekEndTag(IdentifierInfo *tag);
+
+    bool seekAndConsumeEndTag(IdentifierInfo *tag);
 
     // Parses an end keyword.  If expected_tag is non-NULL, ensures an end tag
     // matches.  Consumes the terminating semicolon.  Returns true if the parse

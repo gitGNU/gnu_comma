@@ -52,9 +52,10 @@ DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
            "Wrong number of arguments for type `%0'.")
 DIAGNOSTIC(FUNCTION_REDECLARATION, ERROR,
-           "Redeclaration of function `%0'.")
+           "Redeclaration of function `%0' originally defined at `%1'.")
 DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
-           "`%0' is ambiguous.  Redeclaration required.")
+           "Multiply inherited declaration `%0' (from `%1' and `%2') is ambiguous. "
+           "Redeclaration required.")
 DIAGNOSTIC(TYPE_HAS_NO_SUCH_SELECTOR, ERROR,
            "There is no argument selector named `%0' defined for type `%0'.")
 DIAGNOSTIC(DUPLICATE_SELECTOR, ERROR,

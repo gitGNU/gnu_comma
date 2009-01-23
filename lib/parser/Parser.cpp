@@ -162,22 +162,36 @@ bool Parser::seekAndConsumeTokens(Lexer::Code code0,
     return status;
 }
 
-// This function scans the input tokens looking for the sequence `end <label>;'.
-// If an `end' token is found, the scanning is continued in a greedy fashion and
-// consumes as many matches as it encounters.  If no such sequence is found,
-// this function exhausts the token stream.
-bool Parser::seekEndLabel(const char *label)
+// This function drives the stream of input tokens looking for an end statement.
+// If the end statement is followed by a matching tag, true is returned.
+// Otherwise the search continues until a matching end is found or the end of
+// the token stream is encountered.  In the latter case, false is returned.
+bool Parser::seekEndTag(IdentifierInfo *tag)
 {
-    while (seekAndConsumeToken(Lexer::TKN_END))
+    while (seekToken(Lexer::TKN_END))
     {
-        IdentifierInfo *info = parseIdentifierInfo();
+        IdentifierInfo *info = 0;
 
-        if (info && strcmp(info->getString(), label) == 0) {
-            reduceToken(Lexer::TKN_SEMI);
-            return true;
+        if (nextTokenIs(Lexer::TKN_IDENTIFIER)) {
+            info = getIdentifierInfo(nextToken());
         }
+
+        if (info == tag)
+            return true;
     }
     return false;
+}
+
+bool Parser::seekAndConsumeEndTag(IdentifierInfo *tag)
+{
+    bool status = seekEndTag(tag);
+
+    if (status) {
+        ignoreToken();                // Ignore 'end'.
+        ignoreToken();                // Ignore the tag.
+        reduceToken(Lexer::TKN_SEMI); // Eat trailing semicolon.
+    }
+    return status;
 }
 
 Location Parser::currentLocation()
@@ -231,7 +245,6 @@ IdentifierInfo *Parser::parseIdentifierInfo()
 
     default:
         report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
-        ignoreToken();
         info = 0;
     }
     return info;
@@ -242,7 +255,7 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
     IdentifierInfo *info;
 
     if (Lexer::isFunctionGlyph(currentToken())) {
-        const char *rep = Lexer::tokenString(currentToken());
+        const char *rep = Lexer::tokenString(currentTokenCode());
         info = &idPool.getIdentifierInfo(rep);
         ignoreToken();
     }
@@ -399,6 +412,14 @@ void Parser::parseSignatureComponents()
     action.acceptSignatureComponentList(&components[0], components.size());
 }
 
+void Parser::parseAddComponents()
+{
+    action.beginAddExpression();
+    while (currentTokenIs(Lexer::TKN_FUNCTION))
+        parseFunction();
+    action.endAddExpression();
+}
+
 void Parser::parseModel()
 {
     IdentifierInfo  *info;
@@ -434,6 +455,9 @@ void Parser::parseModel()
         if (reduceToken(Lexer::TKN_WITH))
             parseSignatureComponents();
     }
+
+    if (parsingDomain && reduceToken(Lexer::TKN_ADD))
+        parseAddComponents();
 
     // Consume and verify the end tag.  On failure seek the next top level form.
     if (!parseEndTag(info))
@@ -579,19 +603,27 @@ Node Parser::parseFunctionProto()
                 else allOK = false;
             } while (reduceToken(Lexer::TKN_SEMI));
 
-            // Stop parsing the prototype if we are missing a paren.
+            // If we are missing the closing paren, skip all garbage until we
+            // find a 'return', then continue scanning until a terminating
+            // semicolon or 'is' token is encountered.
             if (!requireToken(Lexer::TKN_RPAREN)) {
                 deleteNodes(parameterTypes);
+                seekAndConsumeToken(Lexer::TKN_RETURN);
+                seekTokens(Lexer::TKN_IS, Lexer::TKN_SEMI);
                 return Node::getInvalidNode();
             }
         }
-        else
+        else {
+            seekAndConsumeToken(Lexer::TKN_RETURN);
+            seekTokens(Lexer::TKN_IS, Lexer::TKN_SEMI);
             return Node::getInvalidNode();
+        }
     }
 
-    // Stop parsing if we are missing a return.
+    // If we are missing a return, seek a terminating semicolon or 'is' keyword.
     if (!requireToken(Lexer::TKN_RETURN)) {
         deleteNodes(parameterTypes);
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
         return Node::getInvalidNode();
     }
 
@@ -611,8 +643,68 @@ Node Parser::parseFunctionProto()
 
     // The parse failed.  Cleanup and return.
     deleteNodes(parameterTypes);
-    action.deleteNode(returnType);
+    seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
     return Node::getInvalidNode();
+}
+
+void Parser::parseFunction(bool allowBody)
+{
+    Location        location;
+    IdentifierInfo *name;
+    Node            type;
+    Node       component;
+
+    assert(currentTokenIs(Lexer::TKN_FUNCTION));
+    location = currentLocation();
+    ignoreToken();
+
+    // The following parse can fail.  Attempt to parse the prototype regardless
+    // so as to move the stream into a position where recovery is possible.
+    name = parseFunctionIdentifierInfo();
+    type = parseFunctionProto();
+
+    if (!name || type.isInvalid()) {
+        // parseFunctionProto attempts to accurately complete the parse, meaning
+        // that we should find either EOT, a semicolon, or 'is' token.
+        if (currentTokenIs(Lexer::TKN_IS))
+            seekAndConsumeEndTag(name);
+        return;
+    }
+
+    if (reduceToken(Lexer::TKN_IS)) {
+        if (!allowBody) {
+            seekAndConsumeEndTag(name);
+            report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
+            action.deleteNode(type);
+            return;
+        }
+
+        Node function = action.beginFunctionDefinition(name, type, location);
+        Node body = parseFunctionBody(name);
+        action.acceptFunctionDefinition(function, body);
+    }
+    else if (reduceToken(Lexer::TKN_SEMI))
+        action.acceptDeclaration(name, type, location);
+    else {
+        report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
+        action.deleteNode(type);
+
+        // If another declaration is not immediately available, assume that the
+        // current token is a misspelling or missing 'is' token seek the closing
+        // end tag.
+        if (!currentTokenIs(Lexer::TKN_FUNCTION))
+            seekAndConsumeEndTag(name);
+    }
+}
+
+// This parser is called just after the 'is' token begining a function
+// definition.
+Node Parser::parseFunctionBody(IdentifierInfo *name)
+{
+    if (currentTokenIs(Lexer::TKN_BEGIN))
+        return parseBeginExpr(name);
+    else
+        return parseImplicitDeclareExpr(name);
 }
 
 bool Parser::parseTopLevelDeclaration()

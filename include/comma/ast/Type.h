@@ -30,6 +30,8 @@ public:
         return node->denotesType();
     }
 
+    virtual bool equals(const Type *type) { return type == this; }
+
 protected:
     Type(AstKind kind) : Ast(kind) {
         assert(this->denotesType());
@@ -58,12 +60,18 @@ public:
         return node->denotesModelType();
     }
 
+    ModelDecl *getDeclaration() const { return declaration; }
+
 protected:
-    ModelType(AstKind kind, IdentifierInfo *idInfo)
+    // FIXME:  We can get rid of the IdInfo and just refer to the decl.
+    ModelType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl)
         : Type(kind),
-          idInfo(idInfo) { assert(this->denotesModelType()); }
+          idInfo(idInfo),
+          declaration(decl)
+        { assert(this->denotesModelType()); }
 
     IdentifierInfo *idInfo;
+    ModelDecl *declaration;
 };
 
 //===----------------------------------------------------------------------===//
@@ -114,9 +122,6 @@ private:
 
     SignatureType(VarietyDecl *decl, DomainType **args, unsigned numArgs);
 
-    // The underlying signature decl.
-    Sigoid *sigoid;
-
     // If the supporting declaration is a variety, then this array contains the
     // actual arguments defining this instance.
     DomainType **arguments;
@@ -134,8 +139,8 @@ public:
 
     unsigned getArity() const { return numFormals; }
 
-    // Returns the abstract domain representing the formal parameter.
-    AbstractDomainType *getFormalDomain(unsigned i) const;
+    // Returns the domain type representing the formal parameter.
+    DomainType *getFormalDomain(unsigned i) const;
 
     // Returns the SignatureType which the formal parameter satisfies (or which
     // an actual parameter must satisfy).
@@ -155,12 +160,13 @@ public:
     }
 
 protected:
-    ParameterizedType(AstKind              kind,
-                      IdentifierInfo      *idInfo,
-                      AbstractDomainType **formalArguments,
-                      unsigned             arity);
+    ParameterizedType(AstKind         kind,
+                      IdentifierInfo *idInfo,
+                      ModelDecl      *decl,
+                      DomainType    **formalArguments,
+                      unsigned        arity);
 
-    AbstractDomainType **formals;
+    DomainType **formals;
     unsigned numFormals;
 };
 
@@ -176,12 +182,9 @@ protected:
 class VarietyType : public ParameterizedType {
 
 public:
-    VarietyType(AbstractDomainType **formalArguments,
-                VarietyDecl *variety, unsigned arity);
-
     ~VarietyType();
 
-    VarietyDecl *getVarietyDecl() const { return variety; }
+    VarietyDecl *getDeclaration() const;
 
     static bool classof(const VarietyType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -191,7 +194,9 @@ public:
 private:
     friend class VarietyDecl;
 
-    VarietyDecl *variety;
+    VarietyType(DomainType **formalArguments,
+                VarietyDecl *variety,
+                unsigned     arity);
 };
 
 //===----------------------------------------------------------------------===//
@@ -204,12 +209,9 @@ private:
 class FunctorType : public ParameterizedType {
 
 public:
-    FunctorType(AbstractDomainType **formalArguments,
-                FunctorDecl *functor, unsigned arity);
-
     ~FunctorType();
 
-    FunctorDecl *getFunctorDecl() const { return functor; }
+    FunctorDecl *getDeclaration() const;
 
     static bool classof(const FunctorType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -217,71 +219,35 @@ public:
     }
 
 private:
-    FunctorDecl *functor;
+    friend class FunctorDecl;
+
+    FunctorType(DomainType **formalArguments,
+                FunctorDecl *functor,
+                unsigned     arity);
 };
 
 //===----------------------------------------------------------------------===//
 // DomainType
-//
-// Base class for all domain types.  Certain domains are characterized only by a
-// known signature (formal parameters of signatures and domains, for example),
-// others are concrete types with an associated declaration node.  The former
-// are called "abstract domains", the latter "concrete".
-class DomainType : public ModelType {
+class DomainType : public ModelType, public llvm::FoldingSetNode {
 
 public:
-    virtual ~DomainType() { }
+    // Creates a domain type representing the given domain declaration.
+    DomainType(DomainDecl *decl);
 
-    // Returns the declaration node defining this type. This method is valid for
-    // all domain types.
-    ModelDecl *getDeclaration() const;
+    // Creates a domain type representing an instance of the given functor
+    // declaration.
+    DomainType(FunctorDecl *decl, DomainType **args, unsigned numArgs);
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a domoid.
-    Domoid *getDomoid() const;
+    // Creates a domain type representing the given abstract domain.
+    DomainType(AbstractDomainDecl *decl);
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a domain.
-    DomainDecl *getDomain() const;
+    // Creates a domain type representing the % node of the given model.
+    static DomainType *getPercent(IdentifierInfo *percentInfo,
+                                  ModelDecl      *model);
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a functor.
-    FunctorDecl *getFunctor() const;
+    // Returns true if this node is a percent node.
+    bool denotesPercent() const;
 
-    // Returns true if this domain is an abstract domain -- that is, the only
-    // information known regarding this domain is the signature which it
-    // satisfies.
-    bool isAbstract() const;
-
-    // The inverse of isAbstract().
-    bool isConcrete() const { return !isAbstract(); }
-
-    ConcreteDomainType *getConcreteType();
-
-    // Support isa and dyn_cast.
-    static bool classof(const DomainType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesDomainType();
-    }
-
-protected:
-    DomainType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl);
-    DomainType(AstKind kind, IdentifierInfo *idInfo, SignatureType *sig);
-
-    union {
-        Ast           *astNode;
-        ModelDecl     *modelDecl;
-        SignatureType *signatureType;
-    };
-};
-
-//===----------------------------------------------------------------------===//
-// ConcreteDomainType
-//
-// These types are always owned by the declaration nodes which define them.
-class ConcreteDomainType : public DomainType, public llvm::FoldingSetNode {
-
-public:
     // Returns the number of arguments used to define this type.  When the
     // supporting declaration is a domain, the arity is zero.  When the
     // supporting declaration is a functor, this method returns the number of
@@ -292,12 +258,31 @@ public:
     // is out of range,
     DomainType *getActualParameter(unsigned n) const;
 
-    // Returns true if this domain type is a functor instance.
+    // Returns true if this domain type is an instance of some functor.
     bool isParameterized() const { return arguments != 0; }
 
     typedef DomainType **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
+
+    // Similar to getDeclaration(), but returns non-NULL iff the underlying
+    // definition is a domoid.
+    Domoid *getDomoidDecl() const;
+
+    // Similar to getDeclaration(), but returns non-NULL iff the underlying
+    // definition is a domain.
+    DomainDecl *getDomainDecl() const;
+
+    // Similar to getDeclaration(), but returns non-NULL iff the underlying
+    // definition is a functor.
+    FunctorDecl *getFunctorDecl() const;
+
+    // Similar to getDeclaration(), but returns non-NULL iff the underlying
+    // definition is an abstract domain.
+    AbstractDomainDecl *getAbstractDecl() const;
+
+    // Returns true if the underlying declaration is an AbstractDomainDecl.
+    bool isAbstract() const;
 
     void Profile(llvm::FoldingSetNodeID &id) {
         Profile(id, &arguments[0], getArity());
@@ -308,70 +293,19 @@ public:
     Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
 
     // Support isa and dyn_cast.
-    static bool classof(const ConcreteDomainType *node) { return true; }
+    static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_ConcreteDomainType;
+        return node->getKind() == AST_DomainType;
     }
 
 private:
-    friend class DomainDecl;
-    friend class FunctorDecl;
-
-    // Creates a domain type representing the given domain declaration.
-    ConcreteDomainType(DomainDecl *decl);
-
-    // Creates a domain type representing an instance of the given functor
-    // declaration.
-    ConcreteDomainType(FunctorDecl *decl, DomainType **args, unsigned numArgs);
+    // This constructor is called by getPercent() to create a percent node.
+    DomainType(IdentifierInfo *percentId, ModelDecl *model);
 
     // If the supporting domain is a functor, then this array contains the
     // actual arguments defining this instance.
     DomainType **arguments;
 };
-
-//===----------------------------------------------------------------------===//
-// AbstractDomainType
-class AbstractDomainType : public DomainType {
-
-public:
-    // Creates an abstract domain type which satisfies the given signature.
-    AbstractDomainType(IdentifierInfo *name, SignatureType *signature)
-        : DomainType(AST_AbstractDomainType, name, signature),
-          idInfo(name) { };
-
-    // Returns the signature type describing this abstract domain.
-    SignatureType *getSignature() const { return signatureType; }
-
-    // Support isa and dyn_cast.
-    static bool classof(const AbstractDomainType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_AbstractDomainType;
-    }
-
-private:
-    IdentifierInfo *idInfo;
-};
-
-//===----------------------------------------------------------------------===//
-// PercentType
-class PercentType : public DomainType {
-
-public:
-    PercentType(IdentifierInfo *idInfo, ModelDecl *decl)
-        : DomainType(AST_PercentType, idInfo, decl) { }
-
-    static bool classof(const PercentType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_PercentType;
-    }
-};
-
-// Inline functions mapping DomainType nodes to its base classes.
-inline ConcreteDomainType *DomainType::getConcreteType()
-{
-    return llvm::dyn_cast<ConcreteDomainType>(this);
-}
-
 
 //===----------------------------------------------------------------------===//
 // FunctionType

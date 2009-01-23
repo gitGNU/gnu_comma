@@ -13,26 +13,41 @@
 using namespace comma;
 
 //===----------------------------------------------------------------------===//
+// DeclarativeRegion
+
+Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
+{
+    DeclRange range = findDecls(name);
+    for (DeclIter iter = range.first; iter != range.second; ++iter) {
+        Decl *decl = iter->second;
+        Type *candidateType = decl->getType();
+        if (candidateType->equals(type))
+            return decl;
+    }
+    return 0;
+}
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
-    : TypeDecl(kind),
+    : Decl(kind),
       location()
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
-    percent = new PercentType(percentId, this);
+    percent = DomainType::getPercent(percentId, this);
 }
 
 ModelDecl::ModelDecl(AstKind         kind,
                      IdentifierInfo *percentId,
                      IdentifierInfo *info,
                      const Location &loc)
-    : TypeDecl(kind, info),
+    : Decl(kind, info),
       location(loc)
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
-    percent = new PercentType(percentId, this);
+    percent = DomainType::getPercent(percentId, this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -85,7 +100,7 @@ FunctionDecl *Sigoid::findComponent(IdentifierInfo *name,
     ComponentRange range = findComponents(name);
     for (ComponentIter iter = range.first; iter != range.second; ++iter) {
         FunctionDecl *fdecl = iter->second;
-        FunctionType *candidateType = fdecl->getFunctionType();
+        FunctionType *candidateType = fdecl->getType();
         if (candidateType->equals(ftype))
             return fdecl;
     }
@@ -96,11 +111,10 @@ FunctionDecl *Sigoid::findDirectComponent(IdentifierInfo *name,
                                           FunctionType *ftype)
 {
     ComponentRange range = findComponents(name);
-    PercentType *percent = this->getPercent();
     for (ComponentIter iter = range.first; iter != range.second; ++iter) {
         FunctionDecl *fdecl = iter->second;
-        FunctionType *candidateType = fdecl->getFunctionType();
-        if (fdecl->isTypeContext(percent) && candidateType->equals(ftype))
+        FunctionType *candidateType = fdecl->getType();
+        if (fdecl->isDeclarativeRegion(this) && candidateType->equals(ftype))
             return fdecl;
     }
     return 0;
@@ -137,19 +151,19 @@ SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
 //===----------------------------------------------------------------------===//
 // VarietyDecl
 
-VarietyDecl::VarietyDecl(IdentifierInfo      *percentId,
-                         AbstractDomainType **formals,
-                         unsigned             arity)
+VarietyDecl::VarietyDecl(IdentifierInfo  *percentId,
+                         DomainType     **formals,
+                         unsigned         arity)
     : Sigoid(AST_VarietyDecl, percentId)
 {
     varietyType = new VarietyType(formals, this, arity);
 }
 
-VarietyDecl::VarietyDecl(IdentifierInfo      *percentId,
-                         IdentifierInfo      *name,
-                         Location             loc,
-                         AbstractDomainType **formals,
-                         unsigned             arity)
+VarietyDecl::VarietyDecl(IdentifierInfo *percentId,
+                         IdentifierInfo *name,
+                         Location        loc,
+                         DomainType    **formals,
+                         unsigned        arity)
     : Sigoid(AST_VarietyDecl, percentId, name, loc)
 {
     varietyType = new VarietyType(formals, this, arity);
@@ -197,7 +211,7 @@ DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        const Location &loc)
     : Domoid(AST_DomainDecl, percentId, name, loc)
 {
-    canonicalType = new ConcreteDomainType(this);
+    canonicalType = new DomainType(this);
 }
 
 DomainDecl::DomainDecl(AstKind         kind,
@@ -206,17 +220,17 @@ DomainDecl::DomainDecl(AstKind         kind,
                        Location        loc)
     : Domoid(kind, percentId, info, loc)
 {
-    canonicalType = new ConcreteDomainType(this);
+    canonicalType = new DomainType(this);
 }
 
 //===----------------------------------------------------------------------===//
 // FunctorDecl
 
-FunctorDecl::FunctorDecl(IdentifierInfo      *percentId,
-                         IdentifierInfo      *name,
-                         Location             loc,
-                         AbstractDomainType **formals,
-                         unsigned             arity)
+FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
+                         IdentifierInfo *name,
+                         Location        loc,
+                         DomainType    **formals,
+                         unsigned        arity)
     : Domoid(AST_FunctorDecl, percentId, name, loc)
 {
     // NOTE: FunctorDecl passes ownership of the formal domain nodes to the
@@ -224,29 +238,41 @@ FunctorDecl::FunctorDecl(IdentifierInfo      *percentId,
     functor = new FunctorType(formals, this, arity);
 }
 
-ConcreteDomainType *
+DomainType *
 FunctorDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
-    ConcreteDomainType *type;
+    DomainType *type;
 
-    ConcreteDomainType::Profile(id, args, numArgs);
+    DomainType::Profile(id, args, numArgs);
     type = types.FindNodeOrInsertPos(id, insertPos);
     if (type) return type;
 
-    type = new ConcreteDomainType(this, args, numArgs);
+    type = new DomainType(this, args, numArgs);
     types.InsertNode(type, insertPos);
     return type;
 }
 
 //===----------------------------------------------------------------------===//
+// AbstractDomainDecl
+AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
+                                       SignatureType  *type,
+                                       Location        loc)
+    : Domoid(AST_AbstractDomainDecl,
+             type->getDeclaration()->getPercent()->getIdInfo(), name, loc),
+      signature(type)
+{
+    abstractType = new DomainType(this);
+}
+
+//===----------------------------------------------------------------------===//
 // FunctionDecl
 
-FunctionDecl::FunctionDecl(IdentifierInfo *name,
-                           FunctionType   *type,
-                           ModelType      *context,
-                           Location        loc)
+FunctionDecl::FunctionDecl(IdentifierInfo    *name,
+                           FunctionType      *type,
+                           DeclarativeRegion *context,
+                           Location           loc)
     : Decl(AST_FunctionDecl, name),
       ftype(type),
       context(context),
