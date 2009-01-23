@@ -51,7 +51,7 @@ public:
     }
 
     // Returns true if this decl was declared in the given region.
-    bool isDeclarativeRegion(DeclarativeRegion *region) {
+    bool isDeclaredIn(DeclarativeRegion *region) {
         return region == context;
     }
 

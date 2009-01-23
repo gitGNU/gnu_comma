@@ -52,7 +52,7 @@ Decl *DeclarativeRegion::findDirectDecl(IdentifierInfo *name, Type *type)
     for (DeclIter iter = range.first; iter != range.second; ++iter) {
         Decl *decl     = iter->second;
         Type *declType = decl->getType();
-        if (decl->isDeclarativeRegion(this) && declType->equals(type))
+        if (decl->isDeclaredIn(this) && declType->equals(type))
             return decl;
     }
     return 0;
