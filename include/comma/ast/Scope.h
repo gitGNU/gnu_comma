@@ -37,12 +37,12 @@ public:
     // this scope.
     Scope *popScope();
 
-    void addType(ModelType *type);
+    void addModel(ModelDecl *model);
 
-    // Looks up a type with the given name.  If traverse is true, the lookup
+    // Looks up a model with the given name.  If traverse is true, the lookup
     // includes all parent scopes, otherwise the lookup is constrained to this
     // scope.
-    ModelType *lookupType(const IdentifierInfo *info, bool traverse = true) const;
+    ModelDecl *lookupModel(const IdentifierInfo *info, bool traverse = true) const;
 
 private:
     // Internal constructor for creating scopes of arbitrary kinds.
@@ -59,11 +59,13 @@ private:
     // Installed in the metadata slot of IdentifierInfo's.  This structure
     // stores the nodes which correspond to the various namespaces.
     struct DeclInfo {
-        DeclInfo(Scope *scope) : scope(scope), type(0) { }
+        DeclInfo(Scope *scope) : scope(scope), model(0) { }
 
         // Tag indicating which scope this entry belongs to.
         Scope *scope;
-        ModelType *type;
+
+        // Model declaration associated with this entry.
+        ModelDecl *model;
     };
 
     typedef std::vector<DeclInfo> DeclStack;

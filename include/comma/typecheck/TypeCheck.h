@@ -147,12 +147,12 @@ private:
     // Lookup operations.
     //===------------------------------------------------------------------===//
 
-    void addType(ModelType *type) {
-        currentScope->addType(type);
+    void addModel(ModelDecl *type) {
+        currentScope->addModel(type);
     }
 
-    ModelType *lookupType(IdentifierInfo *info, bool traverse = true) {
-        return currentScope->lookupType(info, traverse);
+    ModelDecl *lookupModel(IdentifierInfo *info, bool traverse = true) {
+        return currentScope->lookupModel(info, traverse);
     }
 
     //===------------------------------------------------------------------===//

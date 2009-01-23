@@ -55,7 +55,7 @@ void TypeCheck::endModelDefinition()
 {
     ModelDecl *result = getCurrentModel();
     popModelScope();
-    addType(result->getType());
+    addModel(result);
 }
 
 Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
@@ -76,13 +76,12 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
         // must be a formal parameter (since parameters are the first items
         // brought into scope, and we explicitly request that parent scopes are
         // not traversed).
-        if (lookupType(formal, false)) {
+        if (lookupModel(formal, false)) {
             report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal->getString();
             return Node::getInvalidNode();
         }
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
-        DomainType *type = dom->getType();
-        addType(type);
+        addModel(dom);
         return Node(dom);
     }
     else {
@@ -191,15 +190,17 @@ Node TypeCheck::acceptPercent(Location loc)
 Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
                                      Location        loc)
 {
-    ModelType  *type = lookupType(id);
-    const char *name = id->getString();
+    ModelDecl  *model = lookupModel(id);
+    const char *name  = id->getString();
 
-    if (type == 0) {
+    if (model == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
         return Node::getInvalidNode();
     }
-    else if (isa<SignatureType>(type) || isa<DomainType>(type))
-        return Node(type);
+    else if (isa<SignatureDecl>(model)
+             || isa<DomainDecl>(model)
+             || isa<AbstractDomainDecl>(model))
+        return Node(model->getType());
     else {
         // Otherwise, we have a variety or functor decl.
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
@@ -218,15 +219,16 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 {
     assert(numSelectors <= numArgs && "More selectors than arguments!");
 
-    ModelType  *type = lookupType(connective);
-    const char *name = connective->getString();
+    ModelDecl  *model = lookupModel(connective);
+    const char *name  = connective->getString();
 
-    if (type == 0) {
+    if (model == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
         return Node();
     }
 
-    ParameterizedType *candidate = dyn_cast<ParameterizedType>(type);
+    ParameterizedType *candidate =
+        dyn_cast<ParameterizedType>(model->getType());
 
     if (!candidate) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
@@ -306,15 +308,12 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     // Obtain a memoized type node for this particular argument set.
     Node node;
-    if (VarietyType *variety = dyn_cast<VarietyType>(candidate)) {
-        VarietyDecl *decl = variety->getDeclaration();
-        node = Node(decl->getCorrespondingType(&arguments[0], numArgs));
+    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
+        node = Node(variety->getCorrespondingType(&arguments[0], numArgs));
     }
     else {
-        FunctorType *functor = dyn_cast<FunctorType>(candidate);
-        assert(functor && "Corrupt hierarchy?");
-        FunctorDecl *decl = functor->getDeclaration();
-        node = Node(decl->getCorrespondingType(&arguments[0], numArgs));
+        FunctorDecl *functor = dyn_cast<FunctorDecl>(model);
+        node = Node(functor->getCorrespondingType(&arguments[0], numArgs));
     }
     return node;
 }

@@ -52,16 +52,17 @@ Scope::DeclInfo *Scope::lookupDeclInfo(IdentifierInfo *idInfo)
     return &declStack->back();
 }
 
-void Scope::addType(ModelType *type)
+void Scope::addModel(ModelDecl *model)
 {
-    IdentifierInfo *idInfo = type->getIdInfo();
-    DeclInfo *declInfo = lookupDeclInfo(type->getIdInfo());
+    assert(!model->isAnonymous() && "Cannot add anonymous models into scope!");
 
-    declInfo->type = type;
+    IdentifierInfo *idInfo = model->getIdInfo();
+    DeclInfo *declInfo = lookupDeclInfo(idInfo);
+    declInfo->model = model;
     identifiers.insert(idInfo);
 }
 
-ModelType *Scope::lookupType(const IdentifierInfo *info, bool traverse) const
+ModelDecl *Scope::lookupModel(const IdentifierInfo *info, bool traverse) const
 {
     if (info->hasMetadata()) {
         DeclStack *stack = info->getMetadata<DeclStack>();
@@ -70,17 +71,17 @@ ModelType *Scope::lookupType(const IdentifierInfo *info, bool traverse) const
         if (declInfo->scope != this && !traverse)
             return 0;
 
-        if (declInfo->type)
-            return declInfo->type;
+        if (declInfo->model)
+            return declInfo->model;
 
         if (traverse) {
             // Ascend the chain of parents, returning the first declaration
             // found.
-            DeclStack::iterator iter = stack->end();
-            DeclStack::iterator endIter = stack->begin();
-            for (--iter; iter != endIter; --iter) {
-                if (iter->type != 0)
-                    return iter->type;
+            DeclStack::reverse_iterator iter    = stack->rbegin();
+            DeclStack::reverse_iterator endIter = stack->rend();
+            for ( ; iter != endIter; ++iter) {
+                if (iter->model != 0)
+                    return iter->model;
             }
         }
         return 0;
