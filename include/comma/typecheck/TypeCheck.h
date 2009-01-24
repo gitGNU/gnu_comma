@@ -49,6 +49,9 @@ public:
     // Called for each supersignature in a with expression.
     Node acceptWithSupersignature(Node typeNode, Location loc);
 
+    void beginAddExpression();
+    void endAddExpression();
+
     void acceptDeclaration(IdentifierInfo *name,
                            Node            type,
                            Location        loc);
@@ -107,6 +110,8 @@ private:
 
     Sigoid *getCurrentSignature() const;
 
+    Domoid *getCurrentDomain() const;
+
     DeclarativeRegion *declarativeRegion;
 
     DeclarativeRegion *currentDeclarativeRegion() {
@@ -125,6 +130,10 @@ private:
 
     Scope::ScopeKind currentScopeKind() const {
         return currentScope->getKind();
+    }
+
+    void pushScope() {
+        currentScope = currentScope->pushScope();
     }
 
     void pushModelScope() {

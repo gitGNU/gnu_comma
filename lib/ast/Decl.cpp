@@ -30,6 +30,8 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
         return static_cast<DomainDecl*>(this);
     case AST_FunctorDecl:
         return static_cast<FunctorDecl*>(this);
+    case AST_AddDecl:
+        return static_cast<AddDecl*>(this);
     }
 }
 
@@ -40,23 +42,27 @@ Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
 {
     DeclRange range = findDecls(name);
     for (DeclIter iter = range.first; iter != range.second; ++iter) {
-        Decl *decl = iter->second;
-        Type *candidateType = decl->getType();
-        if (candidateType->equals(type))
-            return decl;
+        if (ModelDecl *model = dyn_cast<ModelDecl>(iter->second)) {
+            Type *candidateType = model->getType();
+            if (candidateType->equals(type))
+                return model;
+            continue;
+        }
+        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
+            Type *candidateType = fdecl->getType();
+            if (candidateType->equals(type))
+                return fdecl;
+            continue;
+        }
     }
     return 0;
 }
 
 Decl *DeclarativeRegion::findDirectDecl(IdentifierInfo *name, Type *type)
 {
-    DeclRange range = findDecls(name);
-    for (DeclIter iter = range.first; iter != range.second; ++iter) {
-        Decl *decl     = iter->second;
-        Type *declType = decl->getType();
-        if (decl->isDeclaredIn(this) && declType->equals(type))
-            return decl;
-    }
+    Decl *candidate = findDecl(name, type);
+    if (candidate && candidate->isDeclaredIn(this))
+        return candidate;
     return 0;
 }
 
@@ -258,6 +264,38 @@ Domoid::Domoid(AstKind         kind,
     : ModelDecl(kind, percentId, idInfo, loc) { }
 
 //===----------------------------------------------------------------------===//
+// AddDecl
+
+// An AddDecl's declarative region is a sub-region of its parent domain decl.
+AddDecl::AddDecl(DomainDecl *domain)
+    : Decl(AST_AddDecl),
+      DeclarativeRegion(AST_AddDecl, domain) { }
+
+AddDecl::AddDecl(FunctorDecl *functor)
+    : Decl(AST_AddDecl),
+      DeclarativeRegion(AST_AddDecl, functor) { }
+
+bool AddDecl::implementsDomain() const
+{
+    return isa<DomainDecl>(getParent()->asDecl());
+}
+
+bool AddDecl::implementsFunctor() const
+{
+    return isa<FunctorDecl>(getParent()->asDecl());
+}
+
+DomainDecl *AddDecl::getImplementedDomain()
+{
+    return dyn_cast<DomainDecl>(getParent()->asDecl());
+}
+
+FunctorDecl *AddDecl::getImplementedFunctor()
+{
+    return dyn_cast<FunctorDecl>(getParent()->asDecl());
+}
+
+//===----------------------------------------------------------------------===//
 // DomainDecl
 DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        IdentifierInfo *name,
@@ -267,6 +305,7 @@ DomainDecl::DomainDecl(IdentifierInfo *percentId,
 {
     canonicalType      = new DomainType(this);
     principleSignature = new SignatureDecl(this);
+    implementation     = new AddDecl(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -280,10 +319,9 @@ FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
     : Domoid(AST_FunctorDecl, percentId, name, loc),
       DeclarativeRegion(AST_FunctorDecl)
 {
-    // NOTE: FunctorDecl passes ownership of the formal domain nodes to the
-    // VarietyDecl created below.
-    functor = new FunctorType(formals, this, arity);
+    functor            = new FunctorType(formals, this, arity);
     principleSignature = new SignatureDecl(this);
+    implementation     = new AddDecl(this);
 }
 
 DomainType *

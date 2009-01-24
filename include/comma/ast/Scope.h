@@ -19,6 +19,7 @@ class Scope {
 
 public:
     enum ScopeKind {
+        BASIC_SCOPE,            // multipurpose scope.
         CUNIT_SCOPE,            // compilation unit scope.
         MODEL_SCOPE,            // signature/domain etc, scope.
         FUNCTION_SCOPE          // function scope.
@@ -31,7 +32,7 @@ public:
     ScopeKind getKind() const { return kind; }
 
     // Returns a scope of the given kind which is a child of this one.
-    Scope *pushScope(ScopeKind kind);
+    Scope *pushScope(ScopeKind kind = BASIC_SCOPE);
 
     // Returns the parent scope and unlinks all declarations associated with
     // this scope.

@@ -41,13 +41,6 @@ public:
     // models are the "principle signatures" of a domain.
     bool isAnonymous() const { return idInfo == 0; }
 
-    virtual const Type *getType() const = 0;
-
-    Type *getType() {
-        return const_cast<Type*>(
-            const_cast<const Decl*>(this)->getType());
-    }
-
     // Sets the declarative region for this decl.  This function can only be
     // called once to initialize the decl.
     void setDeclarativeRegion(DeclarativeRegion *region) {
@@ -389,6 +382,16 @@ public:
     // signature is an AbstractDomainDecl.
     virtual SignatureDecl *getPrincipleSignature() { return 0; }
 
+    // Returns the AddDecl which provides the implementation for this domoid, or
+    // NULL if no implementation is available.  The only domain decl which does
+    // not provide an implementation is an AbstractDomainDecl.
+    virtual const AddDecl *getImplementation() const { return 0; }
+
+    AddDecl *getImplementation() {
+        return const_cast<AddDecl*>(
+            const_cast<const Domoid*>(this)->getImplementation());
+    }
+
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
@@ -400,6 +403,41 @@ protected:
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc);
+};
+
+//===----------------------------------------------------------------------===//
+// AddDecl
+//
+// This class represents an add expression.  It provides a declarative region
+// for the body of a domain and contains all function and values which the
+// domain defines.
+class AddDecl : public Decl, public DeclarativeRegion {
+
+public:
+    // Creates an AddDecl to represent the body of the given domain.
+    AddDecl(DomainDecl *domain);
+
+    // Creates an AddDecl to represent the body of the given functor.
+    AddDecl(FunctorDecl *functor);
+
+    // Returns true if this Add implements a DomainDecl.
+    bool implementsDomain() const;
+
+    // Returns true if this Add implements a FunctorDecl.
+    bool implementsFunctor() const;
+
+    // If implementsDomain returns true, this function provides the domain
+    // declaration which this add implements, otherwise NULL is returned.
+    DomainDecl *getImplementedDomain();
+
+    // If implementsFunctor returns true, this function provides the functor
+    // declaration which this add implements, otherwise NULL is returned.
+    FunctorDecl *getImplementedFunctor();
+
+    static bool classof(AddDecl *node) { return true; }
+    static bool classof(Ast *node) {
+        return node->getKind() == AST_AddDecl;
+    }
 };
 
 //===----------------------------------------------------------------------===//
@@ -419,6 +457,9 @@ public:
 
     SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
+    // Returns the AddDecl which implements this domain.
+    const AddDecl *getImplementation() const { return implementation; }
+
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -429,6 +470,7 @@ public:
 private:
     DomainType    *canonicalType;
     SignatureDecl *principleSignature;
+    AddDecl       *implementation;
 };
 
 //===----------------------------------------------------------------------===//
@@ -450,6 +492,9 @@ public:
     DomainType *getCorrespondingType(DomainType **args, unsigned numArgs);
 
     SignatureDecl *getPrincipleSignature() { return principleSignature; }
+
+    // Returns the AddDecl which implements this functor.
+    const AddDecl *getImplementation() const { return implementation; }
 
     // Returns the type of this functor.
     const FunctorType *getType() const { return functor; }
@@ -473,6 +518,7 @@ private:
 
     FunctorType   *functor;
     SignatureDecl *principleSignature;
+    AddDecl       *implementation;
 };
 
 //===----------------------------------------------------------------------===//

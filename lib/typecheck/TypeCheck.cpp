@@ -414,6 +414,10 @@ Sigoid *TypeCheck::getCurrentSignature() const {
     return result;
 }
 
+Domoid *TypeCheck::getCurrentDomain() const {
+    return dyn_cast<Domoid>(getCurrentModel());
+}
+
 DomainType *TypeCheck::ensureDomainType(Node     node,
                                         Location loc) const
 {
@@ -558,4 +562,26 @@ void TypeCheck::acceptDeclaration(IdentifierInfo *name,
     else {
         assert(false && "Declaration type not yet supported!");
     }
+}
+
+void TypeCheck::beginAddExpression()
+{
+    Domoid *domoid = getCurrentDomain();
+    assert(domoid && "Processing `add' expression outside domain context!");
+
+    // Switch to the declarative region which this domains AddDecl provides.
+    declarativeRegion = domoid->getImplementation();
+    assert(declarativeRegion && "Domain missing Add declaration node!");
+
+    // Enter a new scope for the add expression.
+    pushScope();
+}
+
+void TypeCheck::endAddExpression()
+{
+    // Leave the scope corresponding to the add expression and switch back to
+    // the declarative region of the defining domain.
+    declarativeRegion = declarativeRegion->getParent();
+    assert(declarativeRegion == getCurrentModel()->asDeclarativeRegion());
+    popScope();
 }

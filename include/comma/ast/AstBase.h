@@ -24,6 +24,7 @@ namespace comma {
 // Forward declarations for all Ast nodes.
 //
 class AbstractDomainDecl;
+class AddDecl;
 class Ast;
 class AstRewriter;
 class CompilationUnit;
@@ -82,6 +83,7 @@ public:
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
+        AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ValueDecl,          ///< ValueDecl
 
