@@ -41,7 +41,12 @@ public:
     // models are the "principle signatures" of a domain.
     bool isAnonymous() const { return idInfo == 0; }
 
-    virtual Type *getType() const = 0;
+    virtual const Type *getType() const = 0;
+
+    Type *getType() {
+        return const_cast<Type*>(
+            const_cast<const Decl*>(this)->getType());
+    }
 
     // Sets the declarative region for this decl.  This function can only be
     // called once to initialize the decl.
@@ -175,7 +180,12 @@ public:
     // Access the location info of this node.
     Location getLocation() const { return location; }
 
-    virtual ModelType *getType() const = 0;
+    virtual const ModelType *getType() const = 0;
+
+    ModelType *getType() {
+        return const_cast<ModelType*>(
+            const_cast<const ModelDecl*>(this)->getType());
+    }
 
     // Returns true if this model is parameterized.
     bool isParameterized() const {
@@ -288,7 +298,9 @@ public:
     bool isPrincipleSignature() const;
 
     SignatureType *getCorrespondingType() { return canonicalType; }
-    SignatureType *getType() const { return canonicalType; }
+
+    const SignatureType *getType() const { return canonicalType; }
+    SignatureType *getType() { return canonicalType; }
 
     // Support for isa and dyn_cast.
     static bool classof(const SignatureDecl *node) { return true; }
@@ -327,17 +339,16 @@ public:
     SignatureType *getCorrespondingType(DomainType **args, unsigned numArgs);
     SignatureType *getCorrespondingType();
 
-    // Returns the type of this variety.
-    VarietyType *getVarietyType() const { return varietyType; }
-    VarietyType *getType() const { return varietyType; }
+    const VarietyType *getType() const { return varietyType; }
+    VarietyType *getType() { return varietyType; }
 
     // Returns the number of arguments accepted by this variety.
-    unsigned getArity() const { return getVarietyType()->getArity(); }
+    unsigned getArity() const { return getType()->getArity(); }
 
     // Returns the an abstract domain node representing the i'th formal
     // parameter.
     DomainType *getFormalDomain(unsigned i) const {
-        return getVarietyType()->getFormalDomain(i);
+        return getType()->getFormalDomain(i);
     }
 
     typedef llvm::FoldingSet<SignatureType>::iterator type_iterator;
@@ -402,7 +413,9 @@ public:
                const Location &loc);
 
     DomainType *getCorrespondingType() { return canonicalType; }
-    DomainType *getType() const { return canonicalType; }
+
+    const DomainType *getType() const { return canonicalType; }
+    DomainType *getType() { return canonicalType; }
 
     SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
@@ -439,14 +452,14 @@ public:
     SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
     // Returns the type of this functor.
-    FunctorType *getFunctorType() const { return functor; }
-    FunctorType *getType() const { return functor; }
+    const FunctorType *getType() const { return functor; }
+    FunctorType *getType() { return functor; }
 
     // Returns the number of arguments this functor accepts.
-    unsigned getArity() const { return getFunctorType()->getArity(); }
+    unsigned getArity() const { return getType()->getArity(); }
 
     DomainType *getFormalDomain(unsigned i) const {
-        return getFunctorType()->getFormalDomain(i);
+        return getType()->getFormalDomain(i);
     }
 
     // Support for isa and dyn_cast.
@@ -471,7 +484,8 @@ public:
                        SignatureType  *type,
                        Location        loc);
 
-    DomainType *getType() const { return abstractType; }
+    const DomainType *getType() const { return abstractType; }
+    DomainType *getType() { return abstractType; }
 
     SignatureType *getSignatureType() const { return signature; }
 
@@ -497,7 +511,8 @@ public:
                  Location           loc);
 
     // Accessors and forwarding functions to the underlying FuntionType node.
-    FunctionType *getType() const { return ftype; }
+    const FunctionType *getType() const { return ftype; }
+    FunctionType *getType() { return ftype; }
 
     unsigned getArity() const { return ftype->getArity(); }
 
@@ -530,10 +545,32 @@ public:
     }
 
 private:
-    FunctionType      *ftype;
-    Location           location;
-
+    FunctionType *ftype;
+    Location      location;
     FunctionDecl *baseDeclaration;
+};
+
+//===----------------------------------------------------------------------===//
+// ValueDecl
+//
+// This class is intentionally generic.  It will become a virtual base for a
+// more extensive hierarcy of value declarations later on.
+class ValueDecl : public Decl
+{
+public:
+    ValueDecl(IdentifierInfo *name, Type *type)
+        : Decl(AST_ValueDecl, name),
+          type(type) { }
+
+    const Type *getType() const { return type; }
+
+    static bool classof(ValueDecl *node) { return true; }
+    static bool classof(Ast *node) {
+        return node->getKind() == AST_ValueDecl;
+    }
+
+private:
+    Type *type;
 };
 
 //===----------------------------------------------------------------------===//

@@ -98,7 +98,7 @@ void TypeCheck::acceptModelParameterList(Node     *params,
 {
     llvm::SmallVector<DomainType*, 4> domains;
 
-    // Convert each node to an AbstractDomainType.
+    // Convert each node to an AbstractDomainDecl.
     for (unsigned i = 0; i < arity; ++i) {
         AbstractDomainDecl *domain = lift<AbstractDomainDecl>(params[i]);
         assert(domain && "Bad Node kind!");

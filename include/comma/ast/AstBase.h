@@ -45,6 +45,7 @@ class Sigoid;
 class SignatureDecl;
 class SignatureType;
 class Type;
+class ValueDecl;
 class VarietyDecl;
 class VarietyType;
 
@@ -82,6 +83,7 @@ public:
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
         AST_FunctionDecl,       ///< FunctionDecl
+        AST_ValueDecl,          ///< ValueDecl
 
         //
         // Type nodes.
@@ -91,6 +93,7 @@ public:
         AST_FunctorType,        ///< FunctorType
         AST_DomainType,         ///< DomainType
         AST_FunctionType,       ///< FunctionType
+
 
         //
         // Delimitiers providing classification of the above codes.
