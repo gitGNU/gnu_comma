@@ -81,6 +81,7 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
             return Node::getInvalidNode();
         }
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
+        declarativeRegion->addDecl(dom);
         addModel(dom);
         return Node(dom);
     }
