@@ -549,12 +549,13 @@ private:
 // FunctionDecl
 //
 // Representation of function declarations.
-class FunctionDecl : public Decl {
+class FunctionDecl : public Decl, public DeclarativeRegion {
 
 public:
     FunctionDecl(IdentifierInfo    *name,
                  FunctionType      *type,
-                 Location           loc);
+                 Location           loc,
+                 DeclarativeRegion *parent);
 
     // Accessors and forwarding functions to the underlying FuntionType node.
     const FunctionType *getType() const { return ftype; }
@@ -576,6 +577,11 @@ public:
 
     Location getLocation() const { return location; }
 
+    typedef ValueDecl **ParamDeclIterator;
+
+    ParamDeclIterator beginParams() { return paramDecls; }
+    ParamDeclIterator endParams()   { return paramDecls + getArity(); }
+
     void setBaseDeclaration(FunctionDecl *fdecl) {
         assert(baseDeclaration == 0 && "Cannot reset base declaration!");
         baseDeclaration = fdecl;
@@ -594,6 +600,7 @@ private:
     FunctionType *ftype;
     Location      location;
     FunctionDecl *baseDeclaration;
+    ValueDecl   **paramDecls;
 };
 
 //===----------------------------------------------------------------------===//

@@ -93,9 +93,11 @@ public:
 
     virtual void acceptFunctionDefinition(Node function, Node body) { }
 
-    virtual void acceptDeclaration(IdentifierInfo *name,
+    virtual Node acceptDeclaration(IdentifierInfo *name,
                                    Node            type,
-                                   Location        loc) { }
+                                   Location        loc) {
+        return Node(0);
+    }
 
     virtual Node acceptPercent(Location loc) = 0;
 

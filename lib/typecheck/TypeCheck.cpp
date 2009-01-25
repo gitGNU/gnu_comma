@@ -54,7 +54,7 @@ void TypeCheck::beginDomainDefinition(IdentifierInfo *name,
 void TypeCheck::endModelDefinition()
 {
     ModelDecl *result = getCurrentModel();
-    popModelScope();
+    popScope();
     addModel(result);
 }
 
@@ -497,7 +497,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                 if (!decl) {
                     FunctionType *rewriteType = rewrites.rewrite(ftype);
                     FunctionDecl *rewriteDecl =
-                        new FunctionDecl(name, rewriteType, 0);
+                        new FunctionDecl(name, rewriteType, 0, sig);
                     rewriteDecl->setBaseDeclaration(fdecl);
                     rewriteDecl->setDeclarativeRegion(sig);
                     sig->addDecl(rewriteDecl);
@@ -540,7 +540,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
     }
 }
 
-void TypeCheck::acceptDeclaration(IdentifierInfo *name,
+Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Node            typeNode,
                                   Location        loc)
 {
@@ -554,14 +554,16 @@ void TypeCheck::acceptDeclaration(IdentifierInfo *name,
             SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
             report(loc, diag::FUNCTION_REDECLARATION) << name->getString()
                                                       << sloc;
-            return;
+            return Node::getInvalidNode();
         }
-        FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc);
+        FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc, region);
         region->addDecl(fdecl);
         fdecl->setDeclarativeRegion(region);
+        return Node(fdecl);
     }
     else {
         assert(false && "Declaration type not yet supported!");
+        return Node::getInvalidNode();
     }
 }
 
@@ -584,5 +586,38 @@ void TypeCheck::endAddExpression()
     // the declarative region of the defining domain.
     declarativeRegion = declarativeRegion->getParent();
     assert(declarativeRegion == getCurrentModel()->asDeclarativeRegion());
+    popScope();
+}
+
+Node TypeCheck::beginFunctionDefinition(IdentifierInfo *name,
+                                        Node            type,
+                                        Location        loc)
+{
+    // Ensure that the proposed definition does not conflict and build a
+    // declaration.
+    Node node = acceptDeclaration(name, type, loc);
+
+    if (node.isInvalid())
+        return Node::getInvalidNode();
+
+    FunctionDecl *fdecl = lift<FunctionDecl>(node);
+
+    // Switch the current declarative region to that of the function and push a
+    // new scope to receive the function-local environment.
+    declarativeRegion = fdecl;
+    pushFunctionScope();
+
+    // Populate the new scope with the functions formal parameters.
+    FunctionDecl::ParamDeclIterator paramIter    = fdecl->beginParams();
+    FunctionDecl::ParamDeclIterator endParamIter = fdecl->endParams();
+    for ( ; paramIter != endParamIter; ++paramIter)
+        addValue(*paramIter);
+
+    return Node(fdecl);
+}
+
+void TypeCheck::acceptFunctionDefinition(Node fdeclNode, Node bodyNode)
+{
+    declarativeRegion = declarativeRegion->getParent();
     popScope();
 }

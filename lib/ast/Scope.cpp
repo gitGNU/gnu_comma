@@ -62,6 +62,14 @@ void Scope::addModel(ModelDecl *model)
     identifiers.insert(idInfo);
 }
 
+void Scope::addValue(ValueDecl *value)
+{
+    IdentifierInfo *idInfo = value->getIdInfo();
+    DeclInfo *declInfo = lookupDeclInfo(idInfo);
+    declInfo->value = value;
+    identifiers.insert(idInfo);
+}
+
 ModelDecl *Scope::lookupModel(const IdentifierInfo *info, bool traverse) const
 {
     if (info->hasMetadata()) {

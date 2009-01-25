@@ -32,6 +32,8 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
         return static_cast<FunctorDecl*>(this);
     case AST_AddDecl:
         return static_cast<AddDecl*>(this);
+    case AST_FunctionDecl:
+        return static_cast<FunctionDecl*>(this);
     }
 }
 
@@ -92,6 +94,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const DomainDecl*>(this);
     case Ast::AST_FunctorDecl:
         return static_cast<const FunctorDecl*>(this);
+    case Ast::AST_FunctionDecl:
+        return static_cast<const FunctionDecl*>(this);
     }
 }
 
@@ -357,7 +361,22 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 
 FunctionDecl::FunctionDecl(IdentifierInfo    *name,
                            FunctionType      *type,
-                           Location           loc)
+                           Location           loc,
+                           DeclarativeRegion *parent)
     : Decl(AST_FunctionDecl, name),
+      DeclarativeRegion(AST_FunctionDecl, parent),
       ftype(type),
-      location(loc) { }
+      location(loc)
+{
+    // Create declarations for this functions formal parameters and retain them
+    // in the declarative region.
+    unsigned arity = ftype->getArity();
+    paramDecls = new ValueDecl*[arity];
+    for (unsigned i = 0; i < arity; ++i) {
+        IdentifierInfo *name = ftype->getSelector(i);
+        DomainType     *type = ftype->getArgType(i);
+        ValueDecl    *formal = new ValueDecl(name, type);
+        addDecl(formal);
+        paramDecls[i] = formal;
+    }
+}

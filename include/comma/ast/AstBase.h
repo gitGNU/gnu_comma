@@ -96,12 +96,11 @@ public:
         AST_DomainType,         ///< DomainType
         AST_FunctionType,       ///< FunctionType
 
-
         //
         // Delimitiers providing classification of the above codes.
         //
         FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_FunctionDecl,
+        LAST_Decl       = AST_ValueDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,

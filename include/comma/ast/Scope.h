@@ -40,6 +40,8 @@ public:
 
     void addModel(ModelDecl *model);
 
+    void addValue(ValueDecl *value);
+
     // Looks up a model with the given name.  If traverse is true, the lookup
     // includes all parent scopes, otherwise the lookup is constrained to this
     // scope.
@@ -67,6 +69,8 @@ private:
 
         // Model declaration associated with this entry.
         ModelDecl *model;
+
+        ValueDecl *value;
     };
 
     typedef std::vector<DeclInfo> DeclStack;

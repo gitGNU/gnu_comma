@@ -52,7 +52,7 @@ public:
     void beginAddExpression();
     void endAddExpression();
 
-    void acceptDeclaration(IdentifierInfo *name,
+    Node acceptDeclaration(IdentifierInfo *name,
                            Node            type,
                            Location        loc);
 
@@ -76,6 +76,12 @@ public:
                             unsigned         arity,
                             Node             returnType,
                             Location         returnLocation);
+
+    Node beginFunctionDefinition(IdentifierInfo *name,
+                                 Node            type,
+                                 Location        loc);
+
+    void acceptFunctionDefinition(Node fdeclNode, Node bodyNode);
 
     // Delete the underlying Ast node.
     void deleteNode(Node node);
@@ -140,8 +146,8 @@ private:
         currentScope = currentScope->pushScope(Scope::MODEL_SCOPE);
     }
 
-    void popModelScope() {
-        popScope();
+    void pushFunctionScope() {
+        currentScope = currentScope->pushScope(Scope::FUNCTION_SCOPE);
     }
 
     void popScope() {
@@ -158,6 +164,10 @@ private:
 
     void addModel(ModelDecl *type) {
         currentScope->addModel(type);
+    }
+
+    void addValue(ValueDecl *value) {
+        currentScope->addValue(value);
     }
 
     ModelDecl *lookupModel(IdentifierInfo *info, bool traverse = true) {
