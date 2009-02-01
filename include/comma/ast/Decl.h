@@ -467,33 +467,30 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// FunctionDecl
+// SubroutineDecl
 //
-// Representation of function declarations.
-class FunctionDecl : public Decl, public DeclarativeRegion {
+// Base class for representing procedures and functions.
+class SubroutineDecl : public Decl, public DeclarativeRegion {
+
+protected:
+    SubroutineDecl(AstKind            kind,
+                   IdentifierInfo    *name,
+                   SubroutineType    *type,
+                   Location           loc,
+                   DeclarativeRegion *parent);
 
 public:
-    FunctionDecl(IdentifierInfo    *name,
-                 FunctionType      *type,
-                 Location           loc,
-                 DeclarativeRegion *parent);
+    const SubroutineType *getType() const { return routineType; }
+    SubroutineType *getType() { return routineType; }
 
-    // Accessors and forwarding functions to the underlying FuntionType node.
-    const FunctionType *getType() const { return ftype; }
-    FunctionType *getType() { return ftype; }
-
-    unsigned getArity() const { return ftype->getArity(); }
+    unsigned getArity() const { return routineType->getArity(); }
 
     IdentifierInfo *getSelector(unsigned i) const {
-        return ftype->getSelector(i);
+        return routineType->getSelector(i);
     }
 
     DomainType *getArgType(unsigned i) const {
-        return ftype->getArgType(i);
-    }
-
-    DomainType *getReturnType() const {
-        return ftype->getReturnType();
+        return routineType->getArgType(i);
     }
 
     Location getLocation() const { return location; }
@@ -503,13 +500,13 @@ public:
     ParamDeclIterator beginParams() { return paramDecls; }
     ParamDeclIterator endParams()   { return paramDecls + getArity(); }
 
-    void setBaseDeclaration(FunctionDecl *fdecl) {
+    void setBaseDeclaration(SubroutineDecl *routineDecl) {
         assert(baseDeclaration == 0 && "Cannot reset base declaration!");
-        baseDeclaration = fdecl;
+        baseDeclaration = routineDecl;
     }
 
-    FunctionDecl *getBaseDeclaration() { return baseDeclaration; }
-    const FunctionDecl *getBaseDeclaration() const { return baseDeclaration; }
+    SubroutineDecl *getBaseDeclaration() { return baseDeclaration; }
+    const SubroutineDecl *getBaseDeclaration() const { return baseDeclaration; }
 
     bool hasBody() const { return body != 0; }
 
@@ -520,17 +517,88 @@ public:
     const BlockStmt *getBody() const { return body; }
 
     // Support for isa and dyn_cast.
+    static bool classof(const SubroutineDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesSubroutineDecl();
+    }
+
+protected:
+    SubroutineType *routineType;
+    Location        location;
+    SubroutineDecl *baseDeclaration;
+    ValueDecl     **paramDecls;
+    BlockStmt      *body;
+};
+
+//===----------------------------------------------------------------------===//
+// FunctionDecl
+//
+// Representation of function declarations.
+class FunctionDecl : public SubroutineDecl {
+
+public:
+    FunctionDecl(IdentifierInfo    *name,
+                 FunctionType      *type,
+                 Location           loc,
+                 DeclarativeRegion *parent)
+        : SubroutineDecl(AST_FunctionDecl, name, type, loc, parent) { }
+
+    const FunctionType *getType() const {
+        return const_cast<const FunctionType*>(
+            const_cast<FunctionDecl*>(this)->getType());
+    }
+
+    FunctionType *getType() {
+        return llvm::cast<FunctionType>(routineType);
+    }
+
+    FunctionDecl *getBaseDeclaration() {
+        return llvm::cast_or_null<FunctionDecl>(baseDeclaration);
+    }
+
+    const FunctionDecl *getBaseDeclaration() const {
+        return const_cast<const FunctionDecl*>(
+            const_cast<FunctionDecl*>(this)->getBaseDeclaration());
+    }
+
+    DomainType *getReturnType() const {
+        return getType()->getReturnType();
+    }
+
+    // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_FunctionDecl;
     }
+};
 
-private:
-    FunctionType *ftype;
-    Location      location;
-    FunctionDecl *baseDeclaration;
-    ValueDecl   **paramDecls;
-    BlockStmt    *body;
+//===----------------------------------------------------------------------===//
+// ProcedureDecl
+//
+// Representation of procedure declarations.
+class ProcedureDecl : public SubroutineDecl {
+
+public:
+    ProcedureDecl(IdentifierInfo    *name,
+                  ProcedureType     *type,
+                  Location           loc,
+                  DeclarativeRegion *parent)
+        : SubroutineDecl(AST_ProcedureDecl, name, type, loc, parent) { }
+
+    const ProcedureType *getType() const {
+        return const_cast<const ProcedureType*>(
+            const_cast<ProcedureDecl*>(this)->getType());
+    }
+
+    ProcedureType *getType() {
+        return llvm::cast<ProcedureType>(routineType);
+    }
+
+    // Support for isa and dyn_cast.
+    static bool classof(const ProcedureDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ProcedureDecl;
+    }
 };
 
 //===----------------------------------------------------------------------===//

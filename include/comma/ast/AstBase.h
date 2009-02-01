@@ -44,6 +44,8 @@ class ModelType;
 class NamedDecl;
 class ParameterizedModel;
 class ParameterizedType;
+class ProcedureDecl;
+class ProcedureType;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
@@ -88,6 +90,7 @@ public:
         AST_FunctorDecl,        ///< FunctorDecl
         AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
+        AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ValueDecl,          ///< ValueDecl
 
         //
@@ -98,6 +101,7 @@ public:
         AST_FunctorType,        ///< FunctorType
         AST_DomainType,         ///< DomainType
         AST_FunctionType,       ///< FunctionType
+        AST_ProcedureType,      ///< ProcedureType
 
         //
         // Stmt nodes.
@@ -114,7 +118,7 @@ public:
         LAST_ModelDecl  = AST_FunctorDecl,
 
         FIRST_Type      = AST_SignatureType,
-        LAST_Type       = AST_FunctionType,
+        LAST_Type       = AST_ProcedureType,
 
         FIRST_Stmt      = AST_BlockStmt,
         LAST_Stmt       = AST_BlockStmt
@@ -175,6 +179,20 @@ public:
                 kind == AST_SignatureType ||
                 kind == AST_VarietyType   ||
                 kind == AST_FunctorType);
+    }
+
+    /// \brief Returns true if this node denotes a subroutine decl (i.e. either
+    /// a procedure or function decl).
+    bool denotesSubroutineDecl() const {
+        return (kind == AST_FunctionDecl ||
+                kind == AST_ProcedureDecl);
+    }
+
+    /// \brief Returns ture is this node denotes a subroutine type (i.e. either
+    /// a procedure of function type).
+    bool denotesSubroutineType() const {
+        return (kind == AST_FunctionType ||
+                kind == AST_ProcedureType);
     }
 
     /// \brief Returns true if this node denotes a Stmt.

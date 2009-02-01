@@ -289,24 +289,27 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 }
 
 //===----------------------------------------------------------------------===//
-// FunctionDecl
+// SubroutineDecl
 
-FunctionDecl::FunctionDecl(IdentifierInfo    *name,
-                           FunctionType      *type,
-                           Location           loc,
-                           DeclarativeRegion *parent)
-    : Decl(AST_FunctionDecl, name),
-      DeclarativeRegion(AST_FunctionDecl, parent),
-      ftype(type),
+SubroutineDecl::SubroutineDecl(AstKind            kind,
+                               IdentifierInfo    *name,
+                               SubroutineType    *type,
+                               Location           loc,
+                               DeclarativeRegion *parent)
+    : Decl(kind, name),
+      DeclarativeRegion(kind, parent),
+      routineType(type),
       location(loc)
 {
-    // Create declarations for this functions formal parameters and retain them
-    // in the declarative region.
-    unsigned arity = ftype->getArity();
+    assert(this->denotesSubroutineDecl());
+
+    // Create declarations for this subroutines formal parameters and retain
+    // them in the declarative region.
+    unsigned arity = routineType->getArity();
     paramDecls = new ValueDecl*[arity];
     for (unsigned i = 0; i < arity; ++i) {
-        IdentifierInfo *name = ftype->getSelector(i);
-        DomainType     *type = ftype->getArgType(i);
+        IdentifierInfo *name = routineType->getSelector(i);
+        DomainType     *type = routineType->getArgType(i);
         ValueDecl    *formal = new ValueDecl(name, type);
         addDecl(formal);
         paramDecls[i] = formal;

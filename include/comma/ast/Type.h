@@ -308,20 +308,18 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// FunctionType
-class FunctionType : public Type {
+// SubroutineType
+class SubroutineType : public Type {
+
+protected:
+    SubroutineType(AstKind          kind,
+                   IdentifierInfo **formals,
+                   DomainType     **argTypes,
+                   unsigned         numArgs);
 
 public:
-    FunctionType(IdentifierInfo **formals,
-                 DomainType     **argTypes,
-                 unsigned         numArgs,
-                 DomainType      *returnType);
-
     // Returns the number of arguments accepted by this type.
     unsigned getArity() const { return numArgs; }
-
-    // Returns the result type of this function.
-    DomainType *getReturnType() const { return returnType; }
 
     // Returns the type of the i'th parameter.
     DomainType *getArgType(unsigned i) const {
@@ -336,20 +334,51 @@ public:
     }
 
     // Returns true if the selectors of the given type match exactly those of
-    // this type.  The arity of both function types must match for this function
-    // to return true.
-    bool selectorsMatch(const FunctionType *ftype) const;
+    // this type.  The arity of both subroutine types must match for this
+    // function to return true.
+    bool selectorsMatch(const SubroutineType *routineType) const;
 
-    // Returns true if this type is equal to ftype.  Equality in this case is
-    // determined by the arity, argument types and return types (the argument
-    // selectors are not considered in this case).
-    bool equals(const FunctionType *ftype) const;
+    // Returns true if this type is equal to the given subroutine type.  Both
+    // this type and the target must both be function or procedure types, the
+    // arity, argument, and (in the case of functions) the return types must
+    // match.  Actual argument selectors are not considered when testing for
+    // equality.
+    bool equals(const SubroutineType *routineType) const;
 
 private:
     IdentifierInfo **selectors;
     DomainType     **argumentTypes;
-    DomainType      *returnType;
     unsigned         numArgs;
+};
+
+//===----------------------------------------------------------------------===//
+// FunctionType
+class FunctionType : public SubroutineType {
+
+public:
+    FunctionType(IdentifierInfo **formals,
+                 DomainType     **argTypes,
+                 unsigned         numArgs,
+                 DomainType      *returnType)
+        : SubroutineType(AST_FunctionType, formals, argTypes, numArgs),
+          returnType(returnType) { }
+
+    // Returns the result type of this function.
+    DomainType *getReturnType() const { return returnType; }
+
+private:
+    DomainType *returnType;
+};
+
+//===----------------------------------------------------------------------===//
+// ProcedureType
+class ProcedureType : public SubroutineType {
+
+public:
+    ProcedureType(IdentifierInfo **formals,
+                  DomainType     **argTypes,
+                  unsigned         numArgs)
+        : SubroutineType(AST_ProcedureType, formals, argTypes, numArgs) { }
 };
 
 } // End comma namespace

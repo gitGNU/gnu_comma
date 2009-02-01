@@ -11,7 +11,9 @@
 #include <algorithm>
 
 using namespace comma;
+using llvm::cast;
 using llvm::dyn_cast;
+using llvm::isa;
 
 //===----------------------------------------------------------------------===//
 // SignatureType
@@ -248,47 +250,56 @@ void DomainType::Profile(llvm::FoldingSetNodeID &id,
 }
 
 //===----------------------------------------------------------------------===//
-// FunctionType.
+// SubroutineType.
 
-FunctionType::FunctionType(IdentifierInfo **formals,
-                           DomainType     **argTypes,
-                           unsigned         numArgs,
-                           DomainType      *returnType)
-    : Type(AST_FunctionType),
-      returnType(returnType),
+SubroutineType::SubroutineType(AstKind          kind,
+                               IdentifierInfo **formals,
+                               DomainType     **argTypes,
+                               unsigned         numArgs)
+    : Type(kind),
       numArgs(numArgs)
 {
+    assert(this->denotesSubroutineType());
     selectors = new IdentifierInfo*[numArgs];
     argumentTypes = new DomainType*[numArgs];
     std::copy(formals, formals + numArgs, selectors);
     std::copy(argTypes, argTypes + numArgs, argumentTypes);
 }
 
-bool FunctionType::selectorsMatch(const FunctionType *ftype) const
+bool SubroutineType::selectorsMatch(const SubroutineType *routineType) const
 {
     unsigned arity = getArity();
-    if (ftype->getArity() == arity) {
+    if (routineType->getArity() == arity) {
         for (unsigned i = 0; i < arity; ++i)
-            if (getSelector(i) != ftype->getSelector(i))
+            if (getSelector(i) != routineType->getSelector(i))
                 return false;
         return true;
     }
     return false;
 }
 
-bool FunctionType::equals(const FunctionType *ftype) const
+bool SubroutineType::equals(const SubroutineType *routineType) const
 {
     unsigned arity = getArity();
 
-    if (arity != ftype->getArity())
-        return false;
-
-    if (getReturnType() != ftype->getReturnType())
+    if (arity != routineType->getArity())
         return false;
 
     for (unsigned i = 0; i < arity; ++i)
-        if (getArgType(i) != ftype->getArgType(i))
+        if (getArgType(i) != routineType->getArgType(i))
             return false;
 
-    return true;
+    if (const FunctionType *thisType = dyn_cast<FunctionType>(this)) {
+        const FunctionType *otherType = dyn_cast<FunctionType>(routineType);
+
+        if (!otherType)
+            return false;
+
+        if (thisType->getReturnType() != otherType->getReturnType())
+            return false;
+    }
+
+    // This must be a function type.  The types are therefore equal if the
+    // target is also a procedure.
+    return isa<ProcedureType>(routineType);
 }
