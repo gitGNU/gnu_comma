@@ -76,85 +76,6 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// DeclarativeRegion
-class DeclarativeRegion {
-
-protected:
-    DeclarativeRegion(Ast::AstKind kind)
-        : declKind(kind), parent(0) { }
-
-    DeclarativeRegion(Ast::AstKind kind, DeclarativeRegion *parent)
-        : declKind(kind), parent(parent) { }
-
-    // FIXME: This datastructure is only temporary.  A better structure is
-    // needed.
-    typedef std::multimap<IdentifierInfo*, Decl*> DeclarationTable;
-    DeclarationTable declarations;
-
-public:
-    DeclarativeRegion *getParent() { return parent; }
-    const DeclarativeRegion *getParent() const { return parent; }
-
-    // Sets the parent of this region.  This function can only be called if the
-    // parent of this region has not yet been set.
-    void setParent(DeclarativeRegion *parentRegion) {
-        assert(!parent && "Cannot reset the parent of a DeclarativeRegion!");
-        parent = parentRegion;
-    }
-
-    void addDecl(Decl *decl) {
-        IdentifierInfo *name = decl->getIdInfo();
-        declarations.insert(DeclarationTable::value_type(name, decl));
-    }
-
-    typedef DeclarationTable::iterator DeclIter;
-    DeclIter beginDecls() { return declarations.begin(); }
-    DeclIter endDecls()   { return declarations.end(); }
-
-    typedef DeclarationTable::const_iterator ConstDeclIter;
-    ConstDeclIter beginDecls() const { return declarations.begin(); }
-    ConstDeclIter endDecls()   const { return declarations.end(); }
-
-    typedef std::pair<DeclIter, DeclIter> DeclRange;
-    DeclRange findDecls(IdentifierInfo *name) {
-        return declarations.equal_range(name);
-    }
-
-    Decl *findDecl(IdentifierInfo *name, Type *type);
-
-    Decl *findDirectDecl(IdentifierInfo *name, Type *type);
-
-    // Removes the given decl.  Returns true if the decl existed and was
-    // removed, false otherwise.
-    bool removeDecl(Decl *decl);
-
-    // Converts this DeclarativeRegion into a Decl node.
-    Decl *asDecl();
-    const Decl *asDecl() const;
-
-    static bool classof(const Ast *node) {
-        switch (node->getKind()) {
-        default:
-            return false;
-        case Ast::AST_DomainDecl:
-        case Ast::AST_SignatureDecl:
-        case Ast::AST_VarietyDecl:
-        case Ast::AST_FunctorDecl:
-            return true;
-        }
-    }
-
-    static bool classof(const DomainDecl    *node) { return true; }
-    static bool classof(const SignatureDecl *node) { return true; }
-    static bool classof(const VarietyDecl   *node) { return true; }
-    static bool classof(const FunctorDecl   *node) { return true; }
-
-private:
-    Ast::AstKind       declKind;
-    DeclarativeRegion *parent;
-};
-
-//===----------------------------------------------------------------------===//
 // ModelDecl
 //
 // Models represent those attributes and characteristics which both signatures
@@ -590,6 +511,14 @@ public:
     FunctionDecl *getBaseDeclaration() { return baseDeclaration; }
     const FunctionDecl *getBaseDeclaration() const { return baseDeclaration; }
 
+    bool hasBody() const { return body != 0; }
+
+    void setBody(BlockStmt *block) { body = block; }
+
+    BlockStmt *getBody() { return body; }
+
+    const BlockStmt *getBody() const { return body; }
+
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -601,6 +530,7 @@ private:
     Location      location;
     FunctionDecl *baseDeclaration;
     ValueDecl   **paramDecls;
+    BlockStmt    *body;
 };
 
 //===----------------------------------------------------------------------===//

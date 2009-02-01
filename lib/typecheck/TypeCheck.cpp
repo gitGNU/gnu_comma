@@ -92,7 +92,6 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
     }
 }
 
-// We use this method
 void TypeCheck::acceptModelParameterList(Node     *params,
                                          Location *paramLocs,
                                          unsigned  arity)
@@ -616,7 +615,7 @@ Node TypeCheck::beginFunctionDefinition(IdentifierInfo *name,
     return Node(fdecl);
 }
 
-void TypeCheck::acceptFunctionDefinition(Node fdeclNode, Node bodyNode)
+void TypeCheck::endFunctionDefinition()
 {
     declarativeRegion = declarativeRegion->getParent();
     popScope();

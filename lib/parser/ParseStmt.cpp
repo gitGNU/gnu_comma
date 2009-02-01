@@ -1,4 +1,4 @@
-//===-- parser/parser.cpp ------------------------------------- -*- C++ -*-===//
+//===-- parser/ParseStmt.cpp ---------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
@@ -11,3 +11,8 @@
 
 using namespace comma;
 
+Node Parser::parseStatement()
+{
+    assert(false && "Statement parsing not yet implemented!");
+    return Node::getInvalidNode();
+}

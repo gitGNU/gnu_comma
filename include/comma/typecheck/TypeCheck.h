@@ -81,7 +81,7 @@ public:
                                  Node            type,
                                  Location        loc);
 
-    void acceptFunctionDefinition(Node fdeclNode, Node bodyNode);
+    void endFunctionDefinition();
 
     // Delete the underlying Ast node.
     void deleteNode(Node node);

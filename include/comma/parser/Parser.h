@@ -62,16 +62,18 @@ public:
     // successful false is returned and paramInfo is not modified.
     bool parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser);
 
-    void parseFunction(bool allowBody = true);
+    Node parseFunctionDeclaration(bool allowBody = true);
     Node parseFunctionProto();
     Node parseFunctionParameter();
     Node parseFunctionParmeterList();
-    Node parseFunctionBody(IdentifierInfo *endTag);
+    void parseFunctionBody(IdentifierInfo *endTag);
+
+    Node parseValueDeclaration(bool allowInitializer = true);
 
     void parseAddComponents();
 
-    Node parseBeginExpr(IdentifierInfo *endTag);
-    Node parseImplicitDeclareExpr(IdentifierInfo *endTag);
+    Node parseDeclaration();
+    Node parseStatement();
 
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
@@ -133,6 +135,10 @@ private:
                               Lexer::Code code2 = Lexer::UNUSED_ID,
                               Lexer::Code code3 = Lexer::UNUSED_ID,
                               Lexer::Code code4 = Lexer::UNUSED_ID);
+
+    std::string currentTokenString() {
+        return currentToken().getString();
+    }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
         SourceLocation sloc = txtProvider.getSourceLocation(loc);

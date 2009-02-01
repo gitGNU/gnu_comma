@@ -16,6 +16,7 @@
 
 #include "comma/basic/Location.h"
 #include "comma/basic/IdentifierInfo.h"
+#include <map>
 #include <iosfwd>
 
 namespace comma {
@@ -27,6 +28,7 @@ class AbstractDomainDecl;
 class AddDecl;
 class Ast;
 class AstRewriter;
+class BlockStmt;
 class CompilationUnit;
 class Decl;
 class DeclarativeRegion;
@@ -45,6 +47,7 @@ class ParameterizedType;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
+class Stmt;
 class Type;
 class ValueDecl;
 class VarietyDecl;
@@ -97,6 +100,11 @@ public:
         AST_FunctionType,       ///< FunctionType
 
         //
+        // Stmt nodes.
+        //
+        AST_BlockStmt,          ///< BlockStmt
+
+        //
         // Delimitiers providing classification of the above codes.
         //
         FIRST_Decl      = AST_SignatureDecl,
@@ -106,7 +114,10 @@ public:
         LAST_ModelDecl  = AST_FunctorDecl,
 
         FIRST_Type      = AST_SignatureType,
-        LAST_Type       = AST_FunctionType
+        LAST_Type       = AST_FunctionType,
+
+        FIRST_Stmt      = AST_BlockStmt,
+        LAST_Stmt       = AST_BlockStmt
     };
 
     virtual ~Ast() { }
@@ -166,6 +177,12 @@ public:
                 kind == AST_FunctorType);
     }
 
+    /// \brief Returns true if this node denotes a Stmt.
+    bool denotesStmt() const {
+        return (FIRST_Stmt <= this->getKind() &&
+                this->getKind() <= LAST_Stmt);
+    }
+
     /// \brief Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }
 
@@ -183,6 +200,86 @@ protected:
     bool     validFlag : 1;     ///< True if this node is valid.
     bool     deletable : 1;     ///< True if we may call delete on this node.
     unsigned bits      : 23;    ///< Unused bits.
+};
+
+//===----------------------------------------------------------------------===//
+// DeclarativeRegion
+class DeclarativeRegion {
+
+protected:
+    DeclarativeRegion(Ast::AstKind kind)
+        : declKind(kind), parent(0) { }
+
+    DeclarativeRegion(Ast::AstKind kind, DeclarativeRegion *parent)
+        : declKind(kind), parent(parent) { }
+
+    // FIXME: This datastructure is only temporary.  A better structure is
+    // needed.
+    typedef std::multimap<IdentifierInfo*, Decl*> DeclarationTable;
+    DeclarationTable declarations;
+
+public:
+    DeclarativeRegion *getParent() { return parent; }
+    const DeclarativeRegion *getParent() const { return parent; }
+
+    // Sets the parent of this region.  This function can only be called if the
+    // parent of this region has not yet been set.
+    void setParent(DeclarativeRegion *parentRegion) {
+        assert(!parent && "Cannot reset the parent of a DeclarativeRegion!");
+        parent = parentRegion;
+    }
+
+    // Adds the given decl to this region.  If a decl with the same name already
+    // exists in this region that previous decl is unconditionally overwritten.
+    // It is the responsibility of the caller to ensure that this operation is
+    // semantically valid.
+    void addDecl(Decl *decl);
+
+    typedef DeclarationTable::iterator DeclIter;
+    DeclIter beginDecls() { return declarations.begin(); }
+    DeclIter endDecls()   { return declarations.end(); }
+
+    typedef DeclarationTable::const_iterator ConstDeclIter;
+    ConstDeclIter beginDecls() const { return declarations.begin(); }
+    ConstDeclIter endDecls()   const { return declarations.end(); }
+
+    typedef std::pair<DeclIter, DeclIter> DeclRange;
+    DeclRange findDecls(IdentifierInfo *name) {
+        return declarations.equal_range(name);
+    }
+
+    Decl *findDecl(IdentifierInfo *name, Type *type);
+
+    Decl *findDirectDecl(IdentifierInfo *name, Type *type);
+
+    // Removes the given decl.  Returns true if the decl existed and was
+    // removed, false otherwise.
+    bool removeDecl(Decl *decl);
+
+    // Converts this DeclarativeRegion into a Decl node.
+    Decl *asDecl();
+    const Decl *asDecl() const;
+
+    static bool classof(const Ast *node) {
+        switch (node->getKind()) {
+        default:
+            return false;
+        case Ast::AST_DomainDecl:
+        case Ast::AST_SignatureDecl:
+        case Ast::AST_VarietyDecl:
+        case Ast::AST_FunctorDecl:
+            return true;
+        }
+    }
+
+    static bool classof(const DomainDecl    *node) { return true; }
+    static bool classof(const SignatureDecl *node) { return true; }
+    static bool classof(const VarietyDecl   *node) { return true; }
+    static bool classof(const FunctorDecl   *node) { return true; }
+
+private:
+    Ast::AstKind       declKind;
+    DeclarativeRegion *parent;
 };
 
 } // End comma namespace.

@@ -416,7 +416,7 @@ void Parser::parseAddComponents()
 {
     action.beginAddExpression();
     while (currentTokenIs(Lexer::TKN_FUNCTION))
-        parseFunction();
+        parseFunctionDeclaration();
     action.endAddExpression();
 }
 
@@ -642,7 +642,7 @@ Node Parser::parseFunctionProto()
     return Node::getInvalidNode();
 }
 
-void Parser::parseFunction(bool allowBody)
+Node Parser::parseFunctionDeclaration(bool allowBody)
 {
     Location        location;
     IdentifierInfo *name;
@@ -663,7 +663,7 @@ void Parser::parseFunction(bool allowBody)
         // that we should find either EOT, a semicolon, or 'is' token.
         if (currentTokenIs(Lexer::TKN_IS))
             seekAndConsumeEndTag(name);
-        return;
+        return Node::getInvalidNode();
     }
 
     if (reduceToken(Lexer::TKN_IS)) {
@@ -671,15 +671,16 @@ void Parser::parseFunction(bool allowBody)
             seekAndConsumeEndTag(name);
             report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
             action.deleteNode(type);
-            return;
+            return Node::getInvalidNode();
         }
 
         Node function = action.beginFunctionDefinition(name, type, location);
-        Node body = parseFunctionBody(name);
-        action.acceptFunctionDefinition(function, body);
+        parseFunctionBody(name);
+        action.endFunctionDefinition();
+        return function;
     }
     else if (reduceToken(Lexer::TKN_SEMI))
-        action.acceptDeclaration(name, type, location);
+        return action.acceptDeclaration(name, type, location);
     else {
         report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
         action.deleteNode(type);
@@ -689,17 +690,76 @@ void Parser::parseFunction(bool allowBody)
         // end tag.
         if (!currentTokenIs(Lexer::TKN_FUNCTION))
             seekAndConsumeEndTag(name);
+        return Node::getInvalidNode();
     }
 }
 
 // This parser is called just after the 'is' token begining a function
 // definition.
-Node Parser::parseFunctionBody(IdentifierInfo *name)
+void Parser::parseFunctionBody(IdentifierInfo *name)
 {
-    if (currentTokenIs(Lexer::TKN_BEGIN))
-        return parseBeginExpr(name);
-    else
-        return parseImplicitDeclareExpr(name);
+    while (currentTokenIs(Lexer::TKN_IDENTIFIER) ||
+           currentTokenIs(Lexer::TKN_FUNCTION))
+        parseDeclaration();
+
+    requireToken(Lexer::TKN_BEGIN);
+
+    while (!(currentTokenIs(Lexer::TKN_END) ||
+             currentTokenIs(Lexer::TKN_EOT)))
+        parseStatement();
+
+    parseEndTag(name);
+}
+
+Node Parser::parseDeclaration()
+{
+    switch (currentTokenCode()) {
+    default:
+        report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+        return Node::getInvalidNode();
+
+    case Lexer::TKN_IDENTIFIER:
+        return parseValueDeclaration();
+
+    case Lexer::TKN_FUNCTION:
+        return parseFunctionDeclaration();
+    }
+}
+
+Node Parser::parseValueDeclaration(bool allowInitializer)
+{
+    Location        loc;
+    IdentifierInfo *id;
+    Node            type;
+
+    loc = currentLocation();
+    id = parseIdentifierInfo();
+
+    if (!(id && requireToken(Lexer::TKN_COLON))) {
+        seekAndConsumeToken(Lexer::TKN_SEMI);
+        return Node::getInvalidNode();
+    }
+
+    type = parseModelInstantiation();
+
+    if (type.isValid())
+        switch (currentTokenCode()) {
+        default:
+            report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+            return Node::getInvalidNode();
+
+        case Lexer::TKN_SEMI:
+            ignoreToken();
+            return action.acceptDeclaration(id, type, loc);
+
+        case Lexer::TKN_ASSIGN:
+            assert(false && "Value initializers not yet implemented.");
+            return Node::getInvalidNode();
+        }
+    else {
+        seekAndConsumeToken(Lexer::TKN_SEMI);
+        return Node::getInvalidNode();
+    }
 }
 
 bool Parser::parseTopLevelDeclaration()

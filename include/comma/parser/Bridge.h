@@ -91,7 +91,7 @@ public:
                                          Location        loc)
         { return Node(0); }
 
-    virtual void acceptFunctionDefinition(Node function, Node body) { }
+    virtual void endFunctionDefinition() { }
 
     virtual Node acceptDeclaration(IdentifierInfo *name,
                                    Node            type,
