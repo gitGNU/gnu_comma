@@ -104,10 +104,10 @@ IdentifierInfo *ParameterizedType::getFormalIdInfo(unsigned i) const
     return getFormalDomain(i)->getIdInfo();
 }
 
-int ParameterizedType::getSelectorIndex(IdentifierInfo *selector) const
+int ParameterizedType::getKeywordIndex(IdentifierInfo *keyword) const
 {
     for (unsigned i = 0; i < getArity(); ++i) {
-        if (getFormalIdInfo(i) == selector)
+        if (getFormalIdInfo(i) == keyword)
             return i;
     }
     return -1;
@@ -260,18 +260,18 @@ SubroutineType::SubroutineType(AstKind          kind,
       numArgs(numArgs)
 {
     assert(this->denotesSubroutineType());
-    selectors = new IdentifierInfo*[numArgs];
+    keywords = new IdentifierInfo*[numArgs];
     argumentTypes = new DomainType*[numArgs];
-    std::copy(formals, formals + numArgs, selectors);
+    std::copy(formals, formals + numArgs, keywords);
     std::copy(argTypes, argTypes + numArgs, argumentTypes);
 }
 
-bool SubroutineType::selectorsMatch(const SubroutineType *routineType) const
+bool SubroutineType::keywordsMatch(const SubroutineType *routineType) const
 {
     unsigned arity = getArity();
     if (routineType->getArity() == arity) {
         for (unsigned i = 0; i < arity; ++i)
-            if (getSelector(i) != routineType->getSelector(i))
+            if (getKeyword(i) != routineType->getKeyword(i))
                 return false;
         return true;
     }

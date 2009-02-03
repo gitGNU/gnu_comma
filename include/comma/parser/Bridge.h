@@ -86,9 +86,9 @@ public:
                                        Node            *argumentNodes,
                                        Location        *argumentLocs,
                                        unsigned         numArgs,
-                                       IdentifierInfo **selectors,
-                                       Location        *selectorLocs,
-                                       unsigned         numSelectors,
+                                       IdentifierInfo **keys,
+                                       Location        *keyLocs,
+                                       unsigned         numKeys,
                                        Location         loc) = 0;
 
     // Functions are built up thru a sequence of calls.  First is to establish

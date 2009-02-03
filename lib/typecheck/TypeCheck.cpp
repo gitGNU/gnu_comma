@@ -202,12 +202,12 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       Node            *argumentNodes,
                                       Location        *argumentLocs,
                                       unsigned         numArgs,
-                                      IdentifierInfo **selectors,
-                                      Location        *selectorLocs,
-                                      unsigned         numSelectors,
+                                      IdentifierInfo **keywords,
+                                      Location        *keywordLocs,
+                                      unsigned         numKeywords,
                                       Location         loc)
 {
-    assert(numSelectors <= numArgs && "More selectors than arguments!");
+    assert(numKeywords <= numArgs && "More keywords than arguments!");
 
     ModelDecl  *model = lookupModel(connective);
     const char *name  = connective->getString();
@@ -230,41 +230,41 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         return Node::getInvalidNode();
     }
 
-    unsigned numPositional = numArgs - numSelectors;
+    unsigned numPositional = numArgs - numKeywords;
     llvm::SmallVector<DomainType*, 4> arguments(numArgs);
 
     // First, populate the argument vector with any positional parameters.
     for (unsigned i = 0; i < numPositional; ++i)
         arguments[i] = lift<DomainType>(argumentNodes[i]);
 
-    // Process any selectors provided.
-    for (unsigned i = 0; i < numSelectors; ++i) {
-        IdentifierInfo *selector    = selectors[i];
-        Location        selectorLoc = selectorLocs[i];
-        int             selectorIdx = candidate->getSelectorIndex(selector);
+    // Process any keywords provided.
+    for (unsigned i = 0; i < numKeywords; ++i) {
+        IdentifierInfo *keyword    = keywords[i];
+        Location        keywordLoc = keywordLocs[i];
+        int             keywordIdx = candidate->getKeywordIndex(keyword);
 
-        // Ensure the given selector exists.
-        if (selectorIdx < 0) {
-            report(selectorLoc, diag::TYPE_HAS_NO_SUCH_SELECTOR)
-                << selector->getString() << candidate->getString();
+        // Ensure the given keyword exists.
+        if (keywordIdx < 0) {
+            report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
+                << keyword->getString() << candidate->getString();
                 return Node::getInvalidNode();
         }
 
-        // The corresponding index of the selector must be greater than the
+        // The corresponding index of the keyword must be greater than the
         // number of supplied positional parameters (otherwise it would
         // `overlap' a positional parameter).
-        if ((unsigned)selectorIdx < numPositional) {
-            report(selectorLoc, diag::SELECTED_PARAM_PROVIDED_POSITIONALLY)
-                << selector->getString();
+        if ((unsigned)keywordIdx < numPositional) {
+            report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY)
+                << keyword->getString();
             return Node::getInvalidNode();
         }
 
-        // Ensure that this selector is not a duplicate of any preceeding
-        // selector.
+        // Ensure that this keyword is not a duplicate of any preceeding
+        // keyword.
         for (unsigned j = 0; j < i; ++j) {
-            if (selectors[j] == selector) {
-                report(selectorLoc, diag::DUPLICATE_SELECTOR)
-                    << selector->getString();
+            if (keywords[j] == keyword) {
+                report(keywordLoc, diag::DUPLICATE_KEYWORD)
+                    << keyword->getString();
                 return Node::getInvalidNode();
             }
         }
@@ -273,7 +273,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // proper position.
         DomainType *argument =
             lift<DomainType>(argumentNodes[i + numPositional]);
-        arguments[selectorIdx] = argument;
+        arguments[keywordIdx] = argument;
     }
 
     // Check each argument type.
@@ -369,7 +369,7 @@ void TypeCheck::beginWithExpression()
 void TypeCheck::endWithExpression()
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
-    // ambiguity that can arise is wrt conflicting argument selector sets.
+    // ambiguity that can arise is wrt conflicting argument keyword sets.
     ensureNecessaryRedeclarations(getCurrentSignature());
 }
 
@@ -455,7 +455,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
     // it on good faith that all upcoming declarations will not conflict.
     //
     // When a conflict occurs (that is, when two declarations exists with the
-    // same name and type but have disjoint selector sets) we remember which
+    // same name and type but have disjoint keyword sets) we remember which
     // (non-direct) declarations in sig need an explicit redeclaration using the
     // following SmallPtrSet.  Once all the declarations are processed, we
     // iterate over the set and remove any declarations found to be in conflict.
@@ -495,10 +495,10 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                     // (meaning that it was not directly declared in this
                     // signature, but inherited from a super).  Since there is
                     // no overridding declaration in this case ensure that the
-                    // selectors match.
+                    // keywords match.
                     FunctionType *declType = decl->getType();
 
-                    if (!declType->selectorsMatch(ftype)) {
+                    if (!declType->keywordsMatch(ftype)) {
                         Location        sigLoc = sig->getLocation();
                         FunctionDecl *baseDecl = decl->getBaseDeclaration();
                         SourceLocation sloc1 =

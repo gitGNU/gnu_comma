@@ -508,8 +508,8 @@ public:
 
     unsigned getArity() const { return routineType->getArity(); }
 
-    IdentifierInfo *getSelector(unsigned i) const {
-        return routineType->getSelector(i);
+    IdentifierInfo *getKeyword(unsigned i) const {
+        return routineType->getKeyword(i);
     }
 
     DomainType *getArgType(unsigned i) const {

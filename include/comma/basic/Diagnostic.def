@@ -34,7 +34,7 @@ DIAGNOSTIC(EXPECTED_END_TAG, ERROR,
 DIAGNOSTIC(ILLEGAL_EMPTY_PARAMS, ERROR,
            "Illegal empty parameter list.")
 DIAGNOSTIC(POSITIONAL_FOLLOWING_SELECTED_PARAMETER, ERROR,
-           "Positional arguments may not follow selected arguments.")
+           "Positional arguments may not follow keyword selections.")
 DIAGNOSTIC(MISSING_RETURN_AFTER_FUNCTION, ERROR,
            "Missing `return' after function declaration.")
 
@@ -58,9 +58,9 @@ DIAGNOSTIC(FUNCTION_REDECLARATION, ERROR,
 DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
            "Multiply inherited declaration `%0' (from `%1' and `%2') is ambiguous. "
            "Redeclaration required.")
-DIAGNOSTIC(TYPE_HAS_NO_SUCH_SELECTOR, ERROR,
-           "There is no argument selector named `%0' defined for type `%0'.")
-DIAGNOSTIC(DUPLICATE_SELECTOR, ERROR,
-           "Duplicate argument selector `%0'.")
-DIAGNOSTIC(SELECTED_PARAM_PROVIDED_POSITIONALLY, ERROR,
-           "Argument selector `%0' already provided by a positional parameter.")
+DIAGNOSTIC(TYPE_HAS_NO_SUCH_KEYWORD, ERROR,
+           "There is no argument keyword named `%0' defined for type `%0'.")
+DIAGNOSTIC(DUPLICATE_KEYWORD, ERROR,
+           "Duplicate argument keyword `%0'.")
+DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
+           "Argument `%0' already provided by a positional parameter.")

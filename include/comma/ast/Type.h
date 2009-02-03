@@ -149,9 +149,9 @@ public:
     // Returns the IdentifierInfo which labels this formal parameter.
     IdentifierInfo *getFormalIdInfo(unsigned i) const;
 
-    // Returns the index of the parameter corresponding to the named selector,
-    // or -1 if no such selector exists.
-    int getSelectorIndex(IdentifierInfo *selector) const;
+    // Returns the index of the parameter corresponding to the given keyword,
+    // or -1 if no such keyword exists.
+    int getKeywordIndex(IdentifierInfo *keyword) const;
 
     static bool classof(const ParameterizedType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -327,26 +327,26 @@ public:
         return argumentTypes[i];
     }
 
-    // Returns the i'th selector for this type.
-    IdentifierInfo *getSelector(unsigned i) const {
+    // Returns the i'th keyword for this type.
+    IdentifierInfo *getKeyword(unsigned i) const {
         assert(i < getArity() && "Index out of range!");
-        return selectors[i];
+        return keywords[i];
     }
 
-    // Returns true if the selectors of the given type match exactly those of
+    // Returns true if the keywords of the given type match exactly those of
     // this type.  The arity of both subroutine types must match for this
     // function to return true.
-    bool selectorsMatch(const SubroutineType *routineType) const;
+    bool keywordsMatch(const SubroutineType *routineType) const;
 
     // Returns true if this type is equal to the given subroutine type.  Both
     // this type and the target must both be function or procedure types, the
     // arity, argument, and (in the case of functions) the return types must
-    // match.  Actual argument selectors are not considered when testing for
+    // match.  Actual argument keywords are not considered when testing for
     // equality.
     bool equals(const SubroutineType *routineType) const;
 
 private:
-    IdentifierInfo **selectors;
+    IdentifierInfo **keywords;
     DomainType     **argumentTypes;
     unsigned         numArgs;
 };

@@ -64,9 +64,9 @@ public:
                                Node            *arguments,
                                Location        *argumentLocs,
                                unsigned         numArgs,
-                               IdentifierInfo **selectors,
-                               Location        *selectorLocs,
-                               unsigned         numSelectors,
+                               IdentifierInfo **keys,
+                               Location        *keyLocs,
+                               unsigned         numKeys,
                                Location         loc);
 
     Node acceptFunctionType(IdentifierInfo **formals,

@@ -188,9 +188,9 @@ private:
     // tokens.
     bool unitExprFollows();
 
-    // Returns true if an argument selection expression follows:  That is, if
+    // Returns true if a keyword selection expression follows:  That is, if
     // the token stream admits an IdentifierInfo followed by a '=>' token.
-    bool argumentSelectorFollows();
+    bool keywordSelectionFollows();
 
     // Convenience function for deleting a collection of Node's.
     template <class T> void deleteNodes(T &nodes) {

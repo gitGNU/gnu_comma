@@ -364,7 +364,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     if (numParams > 0) {
         parameters = new ParamValueDecl*[numParams];
         for (unsigned i = 0; i < numParams; ++i) {
-            IdentifierInfo *formal = type->getSelector(i);
+            IdentifierInfo *formal = type->getKeyword(i);
             DomainType *formalType = type->getArgType(i);
             ParamValueDecl  *param;
 

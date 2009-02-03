@@ -248,7 +248,7 @@ bool Parser::unitExprFollows()
     return currentTokenIs(Lexer::TKN_LPAREN) && nextTokenIs(Lexer::TKN_RPAREN);
 }
 
-bool Parser::argumentSelectorFollows()
+bool Parser::keywordSelectionFollows()
 {
     return currentTokenIs(Lexer::TKN_IDENTIFIER)
         && nextTokenIs(Lexer::TKN_RDARROW);
@@ -509,21 +509,21 @@ Node Parser::parseModelInstantiation()
         else {
             NodeVector     arguments;
             LocationVector argumentLocs;
-            IdInfoVector   selectors;
-            LocationVector selectorLocs;
+            IdInfoVector   keywords;
+            LocationVector keywordLocs;
             bool allOK = true;
 
             do {
                 Location loc = currentLocation();
 
-                if (argumentSelectorFollows()) {
-                    selectors.push_back(parseIdentifierInfo());
-                    selectorLocs.push_back(loc);
+                if (keywordSelectionFollows()) {
+                    keywords.push_back(parseIdentifierInfo());
+                    keywordLocs.push_back(loc);
                     ignoreToken(); // Ignore the trailing '=>'.
                     loc = currentLocation();
                 }
-                else if (!selectors.empty()) {
-                    // We have already parsed a selector.
+                else if (!keywords.empty()) {
+                    // We have already parsed a keyword.
                     report(loc, diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
                     allOK = false;
                 }
@@ -542,15 +542,15 @@ Node Parser::parseModelInstantiation()
             // Do not attempt to form the application unless all of the
             // arguments are valid.
             if (allOK) {
-                Node            *args       = &arguments[0];
-                Location        *argLocs    = &argumentLocs[0];
-                IdentifierInfo **selections = &selectors[0];
-                Location        *selectLocs = &selectorLocs[0];
-                unsigned         arity      = arguments.size();
-                unsigned         numSelects = selectors.size();
+                Node            *args    = &arguments[0];
+                Location        *argLocs = &argumentLocs[0];
+                IdentifierInfo **keys    = &keywords[0];
+                Location        *keyLocs = &keywordLocs[0];
+                unsigned         arity   = arguments.size();
+                unsigned         numKeys = keywords.size();
                 type = action.acceptTypeApplication(
                     info, args, argLocs, arity,
-                    selections, selectLocs, numSelects, loc);
+                    keys, keyLocs, numKeys, loc);
             }
             else {
                 // Cleanup whatever nodes we did manage to collect.

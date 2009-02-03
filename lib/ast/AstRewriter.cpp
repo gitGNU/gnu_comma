@@ -116,7 +116,7 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
             args.push_back(target);
         else
             args.push_back(source);
-        formals.push_back(ftype->getSelector(i));
+        formals.push_back(ftype->getKeyword(i));
     }
     source = ftype->getReturnType();
     target = getRewrite(source);
