@@ -257,7 +257,9 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
         break;
 
     case 9:
-        if (strncmp(str, "signature", length) == 0)
+        if (strncmp(str, "procedure", length) == 0)
+            code = TKN_PROCEDURE;
+        else if (strncmp(str, "signature", length) == 0)
             code = TKN_SIGNATURE;
         break;
     }
