@@ -681,33 +681,6 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 }
 
 
-Node TypeCheck::beginFunctionDefinition(IdentifierInfo *name,
-                                        Node            type,
-                                        Location        loc)
-{
-    // Ensure that the proposed definition does not conflict and build a
-    // declaration.
-    Node node = acceptDeclaration(name, type, loc);
-
-    if (node.isInvalid())
-        return Node::getInvalidNode();
-
-    FunctionDecl *fdecl = lift<FunctionDecl>(node);
-
-    // Switch the current declarative region to that of the function and push a
-    // new scope to receive the function-local environment.
-    declarativeRegion = fdecl;
-    pushFunctionScope();
-
-    // Populate the new scope with the functions formal parameters.
-    FunctionDecl::ParamDeclIterator paramIter    = fdecl->beginParams();
-    FunctionDecl::ParamDeclIterator endParamIter = fdecl->endParams();
-    for ( ; paramIter != endParamIter; ++paramIter)
-        addValue(*paramIter);
-
-    return Node(fdecl);
-}
-
 void TypeCheck::endFunctionDefinition()
 {
     declarativeRegion = declarativeRegion->getParent();

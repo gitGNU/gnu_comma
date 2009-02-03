@@ -65,11 +65,6 @@ public:
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;
 
-    virtual Node beginFunctionDefinition(IdentifierInfo *name,
-                                         Node            type,
-                                         Location        loc)
-        { return Node(0); }
-
     virtual void endFunctionDefinition() { }
 
     virtual Node acceptDeclaration(IdentifierInfo *name,

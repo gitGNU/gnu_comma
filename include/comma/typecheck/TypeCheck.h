@@ -86,10 +86,6 @@ public:
     Node acceptSubroutineDeclaration(Descriptor &desc,
                                      bool        definitionFollows);
 
-    Node beginFunctionDefinition(IdentifierInfo *name,
-                                 Node            type,
-                                 Location        loc);
-
     void endFunctionDefinition();
 
     // Delete the underlying Ast node.
