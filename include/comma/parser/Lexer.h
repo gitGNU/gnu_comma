@@ -30,11 +30,11 @@ public:
     enum Code {
         UNUSED_ID,
 
-#define KEYWORD(NAME, STRING) TKN_ ## NAME,
-#define GLYPH(NAME, STRING)   TKN_ ## NAME,
-#define TOKEN(NAME)           TKN_ ## NAME,
+#define RESERVED(NAME, STRING) TKN_ ## NAME,
+#define GLYPH(NAME, STRING)    TKN_ ## NAME,
+#define TOKEN(NAME)            TKN_ ## NAME,
 #include "comma/parser/Tokens.def"
-#undef KEYWORD
+#undef RESERVED
 #undef GLYPH
 #undef TOKEN
 
@@ -164,8 +164,8 @@ private:
     void emitToken(Code code,
                    const TextIterator &start, const TextIterator &end);
 
-    // Used to emit keywords and glyphs which do not require a string
-    // representation.
+    // Used to emit reserved identifiers and glyphs which do not require a
+    // string representation.
     void emitToken(Code code, Location loc);
 
     void emitStringToken(const TextIterator &start, const TextIterator &end);

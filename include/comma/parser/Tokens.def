@@ -10,7 +10,7 @@
 // is designed to be #include'ed with one (or all) of the following macros
 // defined:
 //
-//   KEYWORD(name, string) :  Defines a language keyword token with the
+//   RESERVED(name, string) :  Defines a token reserved by the language with the
 //   specified string as representation.
 //
 //   GLYPH(name, string) : Defines a glyph (seperator, delimiter, operator)
@@ -25,8 +25,8 @@
 // have provided a default expansion for.  We clean up all default definitions
 // at the end of this file.
 
-#ifndef KEYWORD
- #define KEYWORD(X, Y)
+#ifndef RESERVED
+ #define RESERVED(X, Y)
  #define TOKENS_DEF_KWD_DEFINED
 #endif
 #ifndef GLYPH
@@ -38,24 +38,24 @@
   #define TOKENS_DEF_TKN_DEFINED
 #endif
 
-KEYWORD(ADD,       "add")
-KEYWORD(BEGIN,     "begin")
-KEYWORD(DOMAIN,    "domain")
-KEYWORD(ELSE,      "else")
-KEYWORD(ELSIF,     "elsif")
-KEYWORD(END,       "end")
-KEYWORD(FOR,       "for")
-KEYWORD(FUNCTION,  "function")
-KEYWORD(IF,        "if")
-KEYWORD(IS,        "is")
-KEYWORD(MODULE,    "module")
-KEYWORD(PROCEDURE, "procedure")
-KEYWORD(REPEAT,    "repeat")
-KEYWORD(RETURN,    "return")
-KEYWORD(SIGNATURE, "signature")
-KEYWORD(THEN,      "then")
-KEYWORD(WHILE,     "while")
-KEYWORD(WITH,      "with")
+RESERVED(ADD,       "add")
+RESERVED(BEGIN,     "begin")
+RESERVED(DOMAIN,    "domain")
+RESERVED(ELSE,      "else")
+RESERVED(ELSIF,     "elsif")
+RESERVED(END,       "end")
+RESERVED(FOR,       "for")
+RESERVED(FUNCTION,  "function")
+RESERVED(IF,        "if")
+RESERVED(IS,        "is")
+RESERVED(MODULE,    "module")
+RESERVED(PROCEDURE, "procedure")
+RESERVED(REPEAT,    "repeat")
+RESERVED(RETURN,    "return")
+RESERVED(SIGNATURE, "signature")
+RESERVED(THEN,      "then")
+RESERVED(WHILE,     "while")
+RESERVED(WITH,      "with")
 
 GLYPH(COMMA,   ",")
 GLYPH(COLON,   ":")
@@ -111,7 +111,7 @@ TOKEN(CHARACTER)
 
 // Clean up default macro definitions.
 #ifdef TOKENS_DEF_KWD_DEFINED
-  #undef KEYWORD
+  #undef RESERVED
   #undef TOKENS_DEF_KWD_DEFINED
 #endif
 #ifdef TOKENS_DEF_GLYPH_DEFINED

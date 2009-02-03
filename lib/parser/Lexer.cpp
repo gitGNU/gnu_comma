@@ -34,10 +34,10 @@ const char *Lexer::tokenString(const Code code)
         result = 0;
         break;
 
-#define KEYWORD(NAME, STRING) case TKN_ ## NAME: result = STRING; break;
-#define GLYPH(NAME, STRING)   case TKN_ ## NAME: result = STRING; break;
+#define RESERVED(NAME, STRING) case TKN_ ## NAME: result = STRING; break;
+#define GLYPH(NAME, STRING)    case TKN_ ## NAME: result = STRING; break;
 #include "comma/parser/Tokens.def"
-#undef KEYWORD
+#undef RESERVED
 #undef GLYPH
     }
 
