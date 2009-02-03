@@ -37,6 +37,9 @@ public:
         return idInfo ? idInfo->getString() : 0;
     }
 
+    // Returns the location associated with this decl.
+    Location getLocation() const { return location; }
+
     // Returns true if this decl is anonymous.  Currently, the only anonymous
     // models are the "principle signatures" of a domain.
     bool isAnonymous() const { return idInfo == 0; }
@@ -47,6 +50,11 @@ public:
         assert(context == 0 && "Cannot reset a decl's declarative region!");
         context = region;
     }
+
+    // Returns the declarative region for this decl.  Sometimes decls are
+    // created before their associated regions exist, so this method may return
+    // null.
+    DeclarativeRegion *getDeclarativeRegion() { return context; }
 
     // Returns true if this decl was declared in the given region.
     bool isDeclaredIn(DeclarativeRegion *region) {
@@ -64,14 +72,16 @@ public:
     }
 
 protected:
-    Decl(AstKind kind, IdentifierInfo *info = 0)
+    Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = 0)
         : Ast(kind),
           idInfo(info),
+          location(loc),
           context(0) {
         assert(this->denotesDecl());
     }
 
     IdentifierInfo    *idInfo;
+    Location           location;
     DeclarativeRegion *context;
 };
 
@@ -122,10 +132,7 @@ protected:
     ModelDecl(AstKind         kind,
               IdentifierInfo *percentId,
               IdentifierInfo *name,
-              const Location &loc);
-
-    // Location information provided by the constructor.
-    Location location;
+              Location        loc);
 
     // Percent node for this decl.
     DomainType *percent;
@@ -139,6 +146,7 @@ protected:
 class Sigoid : public ModelDecl, public DeclarativeRegion {
 
 public:
+    // Constructs an anonymous signature.
     Sigoid(AstKind kind, IdentifierInfo *percentId)
         : ModelDecl(kind, percentId),
           DeclarativeRegion(kind) { }
@@ -147,6 +155,7 @@ public:
     // its percent node from a domain.  Used when creating principle signatures.
     Sigoid(AstKind Kind, DomainType *percent);
 
+    // Creates a named signature.
     Sigoid(AstKind         kind,
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
@@ -473,10 +482,24 @@ private:
 class SubroutineDecl : public Decl, public DeclarativeRegion {
 
 protected:
+    // When this constructor is invoked, a new type is generated to represent
+    // the subroutine.  In addition, the parameter decls are updated so that
+    // their associated declarative regions point to the newly constructed decl.
     SubroutineDecl(AstKind            kind,
                    IdentifierInfo    *name,
-                   SubroutineType    *type,
                    Location           loc,
+                   ParamValueDecl   **params,
+                   unsigned           numParams,
+                   DomainType        *returnType,
+                   DeclarativeRegion *parent);
+
+    // This constructor is provided when we need to construct a decl given a
+    // type.  In this case, a set of ParamValueDecls are implicitly constructed
+    // according to the type provided.
+    SubroutineDecl(AstKind            kind,
+                   IdentifierInfo    *name,
+                   Location           loc,
+                   SubroutineType    *type,
                    DeclarativeRegion *parent);
 
 public:
@@ -493,18 +516,12 @@ public:
         return routineType->getArgType(i);
     }
 
-    Location getLocation() const { return location; }
+    typedef ParamValueDecl **ParamDeclIterator;
 
-    typedef ValueDecl **ParamDeclIterator;
+    ParamDeclIterator beginParams() { return parameters; }
+    ParamDeclIterator endParams()   { return parameters + getArity(); }
 
-    ParamDeclIterator beginParams() { return paramDecls; }
-    ParamDeclIterator endParams()   { return paramDecls + getArity(); }
-
-    void setBaseDeclaration(SubroutineDecl *routineDecl) {
-        assert(baseDeclaration == 0 && "Cannot reset base declaration!");
-        baseDeclaration = routineDecl;
-    }
-
+    void setBaseDeclaration(SubroutineDecl *routineDecl);
     SubroutineDecl *getBaseDeclaration() { return baseDeclaration; }
     const SubroutineDecl *getBaseDeclaration() const { return baseDeclaration; }
 
@@ -523,11 +540,10 @@ public:
     }
 
 protected:
-    SubroutineType *routineType;
-    Location        location;
-    SubroutineDecl *baseDeclaration;
-    ValueDecl     **paramDecls;
-    BlockStmt      *body;
+    SubroutineType  *routineType;
+    SubroutineDecl  *baseDeclaration;
+    ParamValueDecl **parameters;
+    BlockStmt       *body;
 };
 
 //===----------------------------------------------------------------------===//
@@ -538,10 +554,24 @@ class FunctionDecl : public SubroutineDecl {
 
 public:
     FunctionDecl(IdentifierInfo    *name,
-                 FunctionType      *type,
                  Location           loc,
+                 ParamValueDecl   **params,
+                 unsigned           numParams,
+                 DomainType        *returnType,
                  DeclarativeRegion *parent)
-        : SubroutineDecl(AST_FunctionDecl, name, type, loc, parent) { }
+        : SubroutineDecl(AST_FunctionDecl,
+                         name, loc,
+                         params, numParams,
+                         returnType,
+                         parent) { }
+
+    FunctionDecl(IdentifierInfo    *name,
+                 Location           loc,
+                 FunctionType      *type,
+                 DeclarativeRegion *parent)
+        : SubroutineDecl(AST_FunctionDecl,
+                         name, loc,
+                         type, parent) { }
 
     const FunctionType *getType() const {
         return const_cast<const FunctionType*>(
@@ -580,10 +610,15 @@ class ProcedureDecl : public SubroutineDecl {
 
 public:
     ProcedureDecl(IdentifierInfo    *name,
-                  ProcedureType     *type,
                   Location           loc,
+                  ParamValueDecl   **params,
+                  unsigned           numParams,
                   DeclarativeRegion *parent)
-        : SubroutineDecl(AST_ProcedureDecl, name, type, loc, parent) { }
+        : SubroutineDecl(AST_ProcedureDecl,
+                         name, loc,
+                         params, numParams,
+                         0,     // Null return type for procedures.
+                         parent) { }
 
     const ProcedureType *getType() const {
         return const_cast<const ProcedureType*>(
@@ -605,23 +640,44 @@ public:
 // ValueDecl
 //
 // This class is intentionally generic.  It will become a virtual base for a
-// more extensive hierarcy of value declarations later on.
-class ValueDecl : public Decl
-{
-public:
-    ValueDecl(IdentifierInfo *name, Type *type)
-        : Decl(AST_ValueDecl, name),
+// more extensive hierarchy of value declarations later on.
+class ValueDecl : public Decl {
+
+protected:
+    ValueDecl(AstKind kind, IdentifierInfo *name, Location loc, Type *type)
+        : Decl(kind, name, loc),
           type(type) { }
 
+public:
     const Type *getType() const { return type; }
 
-    static bool classof(ValueDecl *node) { return true; }
-    static bool classof(Ast *node) {
-        return node->getKind() == AST_ValueDecl;
+    static bool classof(const ValueDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ParamValueDecl;
     }
 
-private:
+protected:
     Type *type;
+};
+
+//===----------------------------------------------------------------------===//
+// ParamValueDecl
+//
+// Declaration nodes which represent the formal parameters of a function or
+// procedure.  These nodes are owned by the function declaration to which they
+// are attached.
+class ParamValueDecl : public ValueDecl {
+
+public:
+    ParamValueDecl(IdentifierInfo *name, Location loc, DomainType *type)
+        : ValueDecl(AST_ParamValueDecl, name, loc, type) { }
+
+    DomainType *getType() { return llvm::cast<DomainType>(type); }
+
+    static bool classof(const ParamValueDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ParamValueDecl;
+    }
 };
 
 //===----------------------------------------------------------------------===//

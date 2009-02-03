@@ -37,17 +37,10 @@ void TypeCheck::deleteNode(Node node)
     if (ast && ast->isDeletable()) delete ast;
 }
 
-void TypeCheck::beginSignatureDefinition(IdentifierInfo *name,
-                                         Location        loc)
+void TypeCheck::beginModelDeclaration(Descriptor &desc)
 {
-    currentModelInfo = new ModelInfo(Ast::AST_SignatureDecl, name, loc);
-    pushModelScope();
-}
-
-void TypeCheck::beginDomainDefinition(IdentifierInfo *name,
-                                      Location        loc)
-{
-    currentModelInfo = new ModelInfo(Ast::AST_DomainDecl, name, loc);
+    assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
+           "Beginning a mode with is neither a signature or domain?");
     pushModelScope();
 }
 
@@ -92,34 +85,32 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
     }
 }
 
-void TypeCheck::acceptModelParameterList(Node     *params,
-                                         Location *paramLocs,
-                                         unsigned  arity)
+void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 {
     llvm::SmallVector<DomainType*, 4> domains;
 
-    // Convert each node to an AbstractDomainDecl.
-    for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainDecl *domain = lift<AbstractDomainDecl>(params[i]);
+    // Convert each parameter node into an AbstractDomainDecl.
+    for (Descriptor::paramIterator iter = desc.beginParams();
+         iter != desc.endParams(); ++iter) {
+        AbstractDomainDecl *domain = lift<AbstractDomainDecl>(*iter);
         assert(domain && "Bad Node kind!");
         domains.push_back(domain->getType());
     }
 
     // Create the appropriate type of model.
-    assert(currentModelInfo->decl == 0);
     ModelDecl      *modelDecl;
     IdentifierPool &idPool  = resource.getIdentifierPool();
     IdentifierInfo *percent = &idPool.getIdentifierInfo("%");
-    IdentifierInfo *name    = currentModelInfo->name;
-    Location        loc     = currentModelInfo->location;
+    IdentifierInfo *name    = desc.getIdInfo();
+    Location        loc     = desc.getLocation();
     if (domains.empty()) {
-        switch (currentModelInfo->kind) {
+        switch (desc.getKind()) {
 
-        case Ast::AST_SignatureDecl:
+        case Descriptor::DESC_Signature:
             modelDecl = new SignatureDecl(percent, name, loc);
             break;
 
-        case Ast::AST_DomainDecl:
+        case Descriptor::DESC_Domain:
             modelDecl = new DomainDecl(percent, name, loc);
             break;
 
@@ -129,15 +120,14 @@ void TypeCheck::acceptModelParameterList(Node     *params,
     }
     else {
         DomainType **formals = &domains[0];
-        switch (currentModelInfo->kind) {
+        unsigned     arity   = domains.size();
+        switch (desc.getKind()) {
 
-        case Ast::AST_SignatureDecl:
-            currentModelInfo->kind = Ast::AST_VarietyDecl;
+        case Descriptor::DESC_Signature:
             modelDecl = new VarietyDecl(percent, name, loc, formals, arity);
             break;
 
-        case Ast::AST_DomainDecl:
-            currentModelInfo->kind = Ast::AST_FunctorDecl;
+        case Descriptor::DESC_Domain:
             modelDecl = new FunctorDecl(percent, name, loc, formals, arity);
             break;
 
@@ -146,8 +136,8 @@ void TypeCheck::acceptModelParameterList(Node     *params,
         }
     }
 
+    currentModel      = modelDecl;
     declarativeRegion = modelDecl->asDeclarativeRegion();
-    currentModelInfo->decl = modelDecl;
 }
 
 Node TypeCheck::acceptWithSupersignature(Node     typeNode,
@@ -496,7 +486,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                 if (!decl) {
                     FunctionType *rewriteType = rewrites.rewrite(ftype);
                     FunctionDecl *rewriteDecl =
-                        new FunctionDecl(name, rewriteType, 0, sig);
+                        new FunctionDecl(name, 0, rewriteType, sig);
                     rewriteDecl->setBaseDeclaration(fdecl);
                     rewriteDecl->setDeclarativeRegion(sig);
                     sig->addDecl(rewriteDecl);
@@ -555,7 +545,7 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                                       << sloc;
             return Node::getInvalidNode();
         }
-        FunctionDecl *fdecl = new FunctionDecl(name, ftype, loc, region);
+        FunctionDecl *fdecl = new FunctionDecl(name, loc, ftype, region);
         region->addDecl(fdecl);
         fdecl->setDeclarativeRegion(region);
         return Node(fdecl);
@@ -587,6 +577,109 @@ void TypeCheck::endAddExpression()
     assert(declarativeRegion == getCurrentModel()->asDeclarativeRegion());
     popScope();
 }
+
+// There is nothing for us to do at the start of a subroutine declaration.
+// Creation of the declaration itself is deferred until
+// acceptSubroutineDeclaration is called.
+void TypeCheck::beginSubroutineDeclaration(Descriptor &desc)
+{
+    assert((desc.isFunctionDescriptor() || desc.isProcedureDescriptor()) &&
+           "Beginning a subroutine which is neither a function or procedure?");
+}
+
+Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
+                                          Location          loc,
+                                          Node              typeNode)
+{
+    // FIXME: The location provided here is the location of the formal, not the
+    // location of the type.  The type node here should be a DeclRef or similar
+    // which encapsulates the needed location information.
+    DomainType *dom = ensureDomainType(typeNode, loc);
+
+    if (!dom) return Node::getInvalidNode();
+
+    // Create a declaration node for this parameter.
+    ParamValueDecl *paramDecl = new ParamValueDecl(formal, loc, dom);
+
+    return Node(paramDecl);
+}
+
+Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
+                                            bool        definitionFollows)
+{
+    assert((desc.isFunctionDescriptor() || desc.isProcedureDescriptor()) &&
+           "Descriptor does not denote a subroutine!");
+
+    // If we uncover a problem with the subroutines parameters, the following
+    // flag is set to false.  Note that we do not create a declaration for the
+    // subroutine unless it checks out 100%.
+    bool paramsOK = true;
+
+    // Every parameter of this descriptor should be a ParamValueDecl.  As we
+    // validate the type of each node, test that no duplicate formal parameters
+    // are accumulated.  Any duplicates found are discarded.
+    typedef llvm::SmallVector<ParamValueDecl*, 6> paramVec;
+    paramVec parameters;
+    if (desc.hasParams()) {
+        for (Descriptor::paramIterator iter = desc.beginParams();
+             iter != desc.endParams(); ++iter) {
+
+            ParamValueDecl *param = lift<ParamValueDecl>(*iter);
+            assert(param && "Function descriptor with invalid parameter decl!");
+
+            for (paramVec::iterator cursor = parameters.begin();
+                 cursor != parameters.end(); ++cursor) {
+                if (param->getIdInfo() == (*cursor)->getIdInfo()) {
+                    report(param->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
+                        << param->getString();
+                    paramsOK = false;
+                }
+            }
+            // Add the parameter to the set if checking is proceeding smoothly.
+            parameters.push_back(param);
+        }
+    }
+
+    SubroutineDecl *routineDecl = 0;
+    DeclarativeRegion   *region = currentDeclarativeRegion();
+    IdentifierInfo        *name = desc.getIdInfo();
+    Location           location = desc.getLocation();
+
+    if (desc.isFunctionDescriptor()) {
+        // If this descriptor is a function, then we must have a return type
+        // that resolves to a domain.
+        DomainType *returnType = ensureDomainType(desc.getReturnType(), 0);
+        if (returnType && paramsOK)
+            routineDecl = new FunctionDecl(name,
+                                           location,
+                                           &parameters[0],
+                                           parameters.size(),
+                                           returnType,
+                                           region);
+    }
+    else if (paramsOK)
+        routineDecl = new ProcedureDecl(name,
+                                        location,
+                                        &parameters[0],
+                                        parameters.size(),
+                                        region);
+
+    if (!routineDecl) return Node::getInvalidNode();
+
+    // Check that this declaration does not conflict with any other.
+    if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
+        SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
+        report(location, diag::FUNCTION_REDECLARATION)
+            << routineDecl->getString()
+            << sloc;
+        return Node::getInvalidNode();
+    }
+
+    // Add the declaration into the current declarative region.
+    region->addDecl(routineDecl);
+    return Node(routineDecl);
+}
+
 
 Node TypeCheck::beginFunctionDefinition(IdentifierInfo *name,
                                         Node            type,

@@ -30,18 +30,18 @@ public:
 
     ~TypeCheck();
 
-    void beginSignatureDefinition(IdentifierInfo *name, Location location);
-    void beginDomainDefinition(IdentifierInfo *name, Location location);
+    void beginModelDeclaration(Descriptor &desc);
     void endModelDefinition();
 
-    // Called immediately after a model definition has been registered.  This
-    // call defines a formal parameter of the model (which must be either a
-    // functor or variety).
+    // Called immediately after a model declaration has been registered.  This
+    // call defines a formal parameter of a model.  The parser collects the
+    // results of this call into a Descriptor object and supplies them back to
+    // the bridge in a call to acceptModelDeclaration.
     Node acceptModelParameter(IdentifierInfo *formal, Node type, Location loc);
 
-    // Once parameter parsing is complete, all nodes returned by calls to
-    // acceptModelParameter are provided to the type checker.
-    void acceptModelParameterList(Node *params, Location *locs, unsigned arity);
+    // This call completes the declaration of a model (name and
+    // parameterization).
+    void acceptModelDeclaration(Descriptor &desc);
 
     void beginWithExpression();
     void endWithExpression();
@@ -77,6 +77,15 @@ public:
                             Node             returnType,
                             Location         returnLocation);
 
+    void beginSubroutineDeclaration(Descriptor &desc);
+
+    Node acceptSubroutineParameter(IdentifierInfo   *formal,
+                                   Location          loc,
+                                   Node              typeNode);
+
+    Node acceptSubroutineDeclaration(Descriptor &desc,
+                                     bool        definitionFollows);
+
     Node beginFunctionDefinition(IdentifierInfo *name,
                                  Node            type,
                                  Location        loc);
@@ -98,20 +107,10 @@ private:
         return llvm::dyn_cast_or_null<T>(Node::lift<Ast>(node));
     }
 
-    struct ModelInfo {
-        Ast::AstKind    kind;
-        IdentifierInfo *name;
-        Location        location;
-        ModelDecl      *decl;
-
-        ModelInfo(Ast::AstKind kind, IdentifierInfo *name, Location loc)
-            : kind(kind), name(name), location(loc), decl(0) { }
-    };
-
-    ModelInfo *currentModelInfo;
+    ModelDecl *currentModel;
 
     ModelDecl *getCurrentModel() const {
-        return currentModelInfo->decl;
+        return currentModel;
     }
 
     Sigoid *getCurrentSignature() const;

@@ -10,33 +10,9 @@
 #define COMMA_PARSER_BRIDGE_HDR_GUARD
 
 #include "comma/basic/IdentifierInfo.h"
-#include "llvm/Support/DataTypes.h"
+#include "comma/parser/Descriptors.h"
 
 namespace comma {
-
-class Node {
-
-public:
-    // Constructs an invalid node.
-    Node() : payload(1) { }
-    Node(void *ptr) : payload(reinterpret_cast<uintptr_t>(ptr)) { }
-
-    static Node getInvalidNode() { return Node(); }
-
-    // Returns true if this node is invalid.
-    bool isInvalid() const { return payload & 1u; }
-
-    // Returns true if this Node is valid.
-    bool isValid() const { return !isInvalid(); }
-
-    // Returns the pointer associated with this node cast to the supplied type.
-    template <class T> static T *lift(Node &node) {
-        return reinterpret_cast<T*>(node.payload & ~((uintptr_t)1));
-    }
-
-private:
-    uintptr_t payload;
-};
 
 class Bridge {
 
@@ -47,30 +23,24 @@ public:
     // cache it, for instance.
     virtual void deleteNode(Node node) = 0;
 
-    // Processing of models begin with a call to beginSignatureDefinition or
-    // beginDomainDefinition.  Precessing is completed with a call to
-    // endModelDefinition().
-    virtual void beginSignatureDefinition(IdentifierInfo *name,
-                                          Location loc) = 0;
-
-    virtual void beginDomainDefinition(IdentifierInfo *name, Location loc) = 0;
+    // Starts the processing of a model.  The supplied Descriptor contains the
+    // name and location of the declaration, as is either of kind
+    // desc::Signature or desc::Domain.
+    virtual void beginModelDeclaration(Descriptor &desc) = 0;
 
     virtual void endModelDefinition() = 0;
 
-    // Called immediately after a model definition has been registered.  This
-    // call defines a formal parameter of the model (which must be either a
-    // functor or variety). The parser collects the results of this call and
-    // then supplies them back to the bridge in a call to
-    // acceptFormalParameterList.
+    // Called immediately after a model declaration has been registered.  This
+    // call defines a formal parameter of a model.  The parser collects the
+    // results of this call into a Descriptor object and supplies them back to
+    // the bridge in a call to acceptModelDeclaration.
     virtual Node acceptModelParameter(IdentifierInfo *formal,
-                                      Node typeNode, Location loc) = 0;
+                                      Node            typeNode,
+                                      Location        loc) = 0;
 
-    // This call completes the definition of a models formal parameters.  This
-    // function is called for every definition.  If the definition was without
-    // formal parameters, then the supplied lists in this call are empty (arity
-    // is zero).
-    virtual void acceptModelParameterList(Node *params,
-                                          Location *locs, unsigned arity) = 0;
+    // This call completes the declaration of a model (name and
+    // parameterization).
+    virtual void acceptModelDeclaration(Descriptor &desc) = 0;
 
     virtual void beginWithExpression() = 0;
     virtual void endWithExpression() = 0;
@@ -85,6 +55,15 @@ public:
 
     // Completes an add expression.
     virtual void endAddExpression() { }
+
+    virtual void beginSubroutineDeclaration(Descriptor &desc) = 0;
+
+    virtual Node acceptSubroutineParameter(IdentifierInfo *formal,
+                                           Location        loc,
+                                           Node            typeNode) = 0;
+
+    virtual Node acceptSubroutineDeclaration(Descriptor &desc,
+                                             bool definitionFollows) = 0;
 
     virtual Node beginFunctionDefinition(IdentifierInfo *name,
                                          Node            type,

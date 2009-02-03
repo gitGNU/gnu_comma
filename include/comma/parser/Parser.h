@@ -32,9 +32,11 @@ public:
     // Generic pointer to a parse method returning a Node.
     typedef Node (Parser::*parseNodeFn)();
 
+    void parseModelDeclaration(Descriptor &desc);
     void parseModel();
+
     Node parseModelParameter();
-    void parseModelParameterization();
+    void parseModelParameterization(Descriptor &desc);
 
     void parseWithExpression();
     void parseWithSupersignatures();
@@ -62,11 +64,25 @@ public:
     // successful false is returned and paramInfo is not modified.
     bool parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser);
 
+    // Parses a list of formal parameters.  An opening `(' is expected on the
+    // stream when this function is called.  The supplied vector is populated
+    // with ParameterInfo structures corresponding to each parameter sucessfully
+    // parsed.  True is returned if no errors were encountered and false
+    // otherwise.  In the case of a parsing error, this function attempts to
+    // position itself with the closing paren consumed, and with `return', `is',
+    // `;' or EOT as the current token.
+    bool parseFormalParameterList(std::vector<ParameterInfo> &params);
+
+    bool parseSubroutineParameter(Descriptor &desc);
+    void parseSubroutineParameters(Descriptor &desc);
     Node parseFunctionDeclaration(bool allowBody = true);
     Node parseFunctionProto();
-    Node parseFunctionParameter();
-    Node parseFunctionParmeterList();
-    void parseFunctionBody(IdentifierInfo *endTag);
+
+    Node parseProcedureDeclaration(bool allowBody = true);
+    Node parseProcedureProto();
+
+    Node parseSubroutineParmeterList();
+    void parseSubroutineBody(IdentifierInfo *endTag);
 
     Node parseValueDeclaration(bool allowInitializer = true);
 
@@ -120,6 +136,8 @@ private:
     bool expectToken(Lexer::Code code);
     bool reduceToken(Lexer::Code code);
     bool requireToken(Lexer::Code code);
+
+    bool seekCloseParen();
 
     bool seekToken(Lexer::Code code);
     bool seekAndConsumeToken(Lexer::Code code);

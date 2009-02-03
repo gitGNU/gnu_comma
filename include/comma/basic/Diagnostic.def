@@ -35,6 +35,8 @@ DIAGNOSTIC(ILLEGAL_EMPTY_PARAMS, ERROR,
            "Illegal empty parameter list.")
 DIAGNOSTIC(POSITIONAL_FOLLOWING_SELECTED_PARAMETER, ERROR,
            "Positional arguments may not follow selected arguments.")
+DIAGNOSTIC(MISSING_RETURN_AFTER_FUNCTION, ERROR,
+           "Missing `return' after function declaration.")
 
 //
 // Semantic Diagnostics.

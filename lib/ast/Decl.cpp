@@ -40,8 +40,7 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
 //===----------------------------------------------------------------------===//
 // ModelDecl
 ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
-    : Decl(kind),
-      location()
+    : Decl(kind)
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
@@ -51,9 +50,8 @@ ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
 ModelDecl::ModelDecl(AstKind         kind,
                      IdentifierInfo *percentId,
                      IdentifierInfo *info,
-                     const Location &loc)
-    : Decl(kind, info),
-      location(loc)
+                     Location        loc)
+    : Decl(kind, info, loc)
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
@@ -293,25 +291,97 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 
 SubroutineDecl::SubroutineDecl(AstKind            kind,
                                IdentifierInfo    *name,
-                               SubroutineType    *type,
                                Location           loc,
+                               ParamValueDecl   **params,
+                               unsigned           numParams,
+                               DomainType        *returnType,
                                DeclarativeRegion *parent)
-    : Decl(kind, name),
+    : Decl(kind, name, loc),
       DeclarativeRegion(kind, parent),
-      routineType(type),
-      location(loc)
+      routineType(0),
+      baseDeclaration(0),
+      parameters(0),
+      body(0)
 {
     assert(this->denotesSubroutineDecl());
 
-    // Create declarations for this subroutines formal parameters and retain
-    // them in the declarative region.
-    unsigned arity = routineType->getArity();
-    paramDecls = new ValueDecl*[arity];
-    for (unsigned i = 0; i < arity; ++i) {
-        IdentifierInfo *name = routineType->getSelector(i);
-        DomainType     *type = routineType->getArgType(i);
-        ValueDecl    *formal = new ValueDecl(name, type);
-        addDecl(formal);
-        paramDecls[i] = formal;
+    // Create our own copy of the parameter set.
+    if (numParams > 0) {
+        parameters = new ParamValueDecl*[numParams];
+        std::copy(params, params + numParams, parameters);
     }
+
+    // We must construct a subroutine type for this decl.  Begin by extracting
+    // the domain types and associated indentifier infos from each of the
+    // parameters.
+    llvm::SmallVector<DomainType*, 6>     paramTypes(numParams);
+    llvm::SmallVector<IdentifierInfo*, 6> paramIds(numParams);
+    for (unsigned i = 0; i < numParams; ++i) {
+        ParamValueDecl *param = parameters[i];
+        paramTypes[i] = param->getType();
+        paramIds[i]   = param->getIdInfo();
+
+        // Since the parameters of a subroutine are created before the
+        // subroutine itself, the associated declarative region of each
+        // parameter should be null.  Assert this invarient and update each
+        // param to point to the new context.
+        assert(!param->getDeclarativeRegion() &&
+               "Parameter associated with invalid region!");
+        param->setDeclarativeRegion(this);
+    }
+
+    // Construct the type of this subroutine.
+    if (kind == AST_FunctionDecl)
+        routineType = new FunctionType(&paramIds[0],
+                                       &paramTypes[0],
+                                       numParams,
+                                       returnType);
+    else {
+        assert(!returnType && "Procedures cannot have return types!");
+        routineType = new ProcedureType(&paramIds[0],
+                                        &paramTypes[0],
+                                        numParams);
+    }
+}
+
+SubroutineDecl::SubroutineDecl(AstKind            kind,
+                               IdentifierInfo    *name,
+                               Location           loc,
+                               SubroutineType    *type,
+                               DeclarativeRegion *parent)
+    : Decl(kind, name, loc),
+      DeclarativeRegion(kind, parent),
+      routineType(type),
+      baseDeclaration(0),
+      parameters(0),
+      body(0)
+{
+    assert(this->denotesSubroutineDecl());
+
+    // In this constructor, we need to create a set of ParamValueDecl nodes
+    // which correspond to the supplied type.
+    unsigned numParams = type->getArity();
+    if (numParams > 0) {
+        parameters = new ParamValueDecl*[numParams];
+        for (unsigned i = 0; i < numParams; ++i) {
+            IdentifierInfo *formal = type->getSelector(i);
+            DomainType *formalType = type->getArgType(i);
+            ParamValueDecl  *param;
+
+            // Note that as these param decls are implicitly generated we supply
+            // an invalid location for each node.
+            param = new ParamValueDecl(formal, 0, formalType);
+            param->setDeclarativeRegion(this);
+            parameters[i] = param;
+        }
+    }
+}
+
+void SubroutineDecl::setBaseDeclaration(SubroutineDecl *routineDecl)
+{
+    assert(baseDeclaration == 0 && "Cannot reset base declaration!");
+    assert(((isa<FunctionDecl>(this) && isa<FunctionDecl>(routineDecl)) ||
+            (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
+           "Base declarations must be of the same kind as the parent!");
+    baseDeclaration = routineDecl;
 }

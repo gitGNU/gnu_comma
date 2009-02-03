@@ -44,6 +44,7 @@ class ModelType;
 class NamedDecl;
 class ParameterizedModel;
 class ParameterizedType;
+class ParamValueDecl;
 class ProcedureDecl;
 class ProcedureType;
 class Sigoid;
@@ -91,7 +92,7 @@ public:
         AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
-        AST_ValueDecl,          ///< ValueDecl
+        AST_ParamValueDecl,     ///< ParamValueDecl
 
         //
         // Type nodes.
@@ -112,7 +113,7 @@ public:
         // Delimitiers providing classification of the above codes.
         //
         FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_ValueDecl,
+        LAST_Decl       = AST_ParamValueDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,
