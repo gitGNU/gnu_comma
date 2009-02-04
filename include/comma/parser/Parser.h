@@ -76,12 +76,7 @@ public:
     bool parseSubroutineParameter(Descriptor &desc);
     void parseSubroutineParameters(Descriptor &desc);
     Node parseFunctionDeclaration(bool allowBody = true);
-    Node parseFunctionProto();
-
     Node parseProcedureDeclaration(bool allowBody = true);
-    Node parseProcedureProto();
-
-    Node parseSubroutineParmeterList();
     void parseSubroutineBody(IdentifierInfo *endTag);
 
     Node parseValueDeclaration(bool allowInitializer = true);
@@ -174,6 +169,8 @@ private:
 
     IdentifierInfo *parseIdentifierInfo();
     IdentifierInfo *parseFunctionIdentifierInfo();
+
+    Node parseSubroutineDeclaration(Descriptor &desc, bool allowBody = true);
 
     bool seekEndTag(IdentifierInfo *tag);
 

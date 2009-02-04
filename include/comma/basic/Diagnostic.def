@@ -37,6 +37,8 @@ DIAGNOSTIC(POSITIONAL_FOLLOWING_SELECTED_PARAMETER, ERROR,
            "Positional arguments may not follow keyword selections.")
 DIAGNOSTIC(MISSING_RETURN_AFTER_FUNCTION, ERROR,
            "Missing `return' after function declaration.")
+DIAGNOSTIC(RETURN_AFTER_PROCEDURE, ERROR,
+           "Procedures cannot have return types.")
 
 //
 // Semantic Diagnostics.

@@ -408,12 +408,23 @@ void Parser::parseWithSupersignatures()
 
 void Parser::parseWithDeclarations()
 {
-    // Currently, only function decls are supported.
-    while (currentTokenIs(Lexer::TKN_FUNCTION)) {
-        Node decl = parseFunctionDeclaration();
+    Node decl;
+
+    for (;;) {
+        switch (currentTokenCode()) {
+        default: return;
+
+        case Lexer::TKN_FUNCTION:
+            decl = parseFunctionDeclaration();
+            break;
+
+        case Lexer::TKN_PROCEDURE:
+            decl = parseProcedureDeclaration();
+            break;
+        }
 
         if (decl.isInvalid())
-            seekTokens(Lexer::TKN_FUNCTION,
+            seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
                        Lexer::TKN_END, Lexer::TKN_ADD);
 
         requireToken(Lexer::TKN_SEMI);
@@ -423,8 +434,20 @@ void Parser::parseWithDeclarations()
 void Parser::parseAddComponents()
 {
     action.beginAddExpression();
-    while (currentTokenIs(Lexer::TKN_FUNCTION))
-        parseFunctionDeclaration();
+
+    for (;;) {
+        switch (currentTokenCode()) {
+        default: return;
+
+        case Lexer::TKN_FUNCTION:
+            parseFunctionDeclaration();
+            break;
+
+        case Lexer::TKN_PROCEDURE:
+            parseProcedureDeclaration();
+            break;
+        }
+    }
     action.endAddExpression();
 }
 
@@ -639,66 +662,6 @@ bool Parser::parseFormalParameterList(std::vector<ParameterInfo> &params)
     }
 }
 
-Node Parser::parseFunctionProto()
-{
-    std::vector<ParameterInfo> paramInfos;
-
-    if (unitExprFollows()) {
-        // Simply consume the pair of parens.
-        ignoreToken();
-        ignoreToken();
-    }
-    else if (currentTokenIs(Lexer::TKN_LPAREN)) {
-        // Abort processing if the parsing of the formal parameters does not
-        // proceed smoothly.
-        if (!parseFormalParameterList(paramInfos))
-            return Node::getInvalidNode();
-    }
-    else {
-        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() <<  "(";
-        return Node::getInvalidNode();
-    }
-
-    if (!requireToken(Lexer::TKN_RETURN))
-        return Node::getInvalidNode();
-
-    Location returnLocation = currentLocation();
-    Node returnType         = parseModelInstantiation();
-
-   if (returnType.isValid()) {
-       // FIXME: This is totally bogus.  There are two options: Either have the
-       // bridge accept the formal parameters 'on the fly' as we do for models
-       // with Bridge::acceptModelParameter, or we should be building these
-       // vectors in parseFormalParameterList.  The former option sounds a bit
-       // better.
-       IdInfoVector   formalIdentifiers;
-       LocationVector formalLocations;
-       NodeVector     parameterTypes;
-       LocationVector typeLocations;
-
-       std::vector<ParameterInfo>::iterator iter;
-       std::vector<ParameterInfo>::iterator endIter = paramInfos.end();
-       for (iter = paramInfos.begin(); iter != endIter; ++iter) {
-           formalIdentifiers.push_back(iter->formal);
-           formalLocations.push_back(iter->formalLocation);
-           parameterTypes.push_back(iter->type);
-           typeLocations.push_back(iter->typeLocation);
-       }
-
-       IdentifierInfo **formals    = &formalIdentifiers[0];
-       Location        *formalLocs = &formalLocations[0];
-       Node            *types      = &parameterTypes[0];
-       Location        *typeLocs   = &typeLocations[0];
-       unsigned         arity      = paramInfos.size();
-
-       return action.acceptFunctionType(formals, formalLocs,
-                                        types, typeLocs, arity,
-                                        returnType, returnLocation);
-   }
-   else
-       return Node::getInvalidNode();
-}
-
 bool Parser::parseSubroutineParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
@@ -726,6 +689,18 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
 void Parser::parseSubroutineParameters(Descriptor &desc)
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
+
+    // Check that we do not have an empty parameter list.
+    if (unitExprFollows()) {
+        report(diag::ILLEGAL_EMPTY_PARAMS);
+
+        // Consume the opening and closing parens.
+        ignoreToken();
+        ignoreToken();
+        return;
+    }
+
+    // Consume the opening paren.
     ignoreToken();
 
     for (;;) {
@@ -765,14 +740,25 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
 Node Parser::parseFunctionDeclaration(bool allowBody)
 {
     Descriptor desc(Descriptor::DESC_Function);
-    Location    location;
-    IdentifierInfo *name;
 
     assert(currentTokenIs(Lexer::TKN_FUNCTION));
     ignoreToken();
+    return parseSubroutineDeclaration(desc, allowBody);
+}
 
-    location = currentLocation();
-    name     = parseFunctionIdentifierInfo();
+Node Parser::parseProcedureDeclaration(bool allowBody)
+{
+    Descriptor desc(Descriptor::DESC_Procedure);
+
+    assert(currentTokenIs(Lexer::TKN_PROCEDURE));
+    ignoreToken();
+    return parseSubroutineDeclaration(desc, allowBody);
+}
+
+Node Parser::parseSubroutineDeclaration(Descriptor &desc, bool allowBody)
+{
+    Location    location = currentLocation();
+    IdentifierInfo *name = parseFunctionIdentifierInfo();
 
     if (!name) return Node::getInvalidNode();
 
@@ -781,14 +767,24 @@ Node Parser::parseFunctionDeclaration(bool allowBody)
 
     if (currentTokenIs(Lexer::TKN_LPAREN)) parseSubroutineParameters(desc);
 
-    if (reduceToken(Lexer::TKN_RETURN)) {
-        Node returnType = parseModelInstantiation();
-        if (returnType.isInvalid()) return Node::getInvalidNode();
-        desc.setReturnType(returnType);
+    if (desc.isFunctionDescriptor()) {
+        if (reduceToken(Lexer::TKN_RETURN)) {
+            Node returnType = parseModelInstantiation();
+            if (returnType.isInvalid()) return Node::getInvalidNode();
+            desc.setReturnType(returnType);
+        }
+        else {
+            report(diag::MISSING_RETURN_AFTER_FUNCTION);
+            return Node::getInvalidNode();
+        }
     }
     else {
-        report(diag::MISSING_RETURN_AFTER_FUNCTION);
-        return Node::getInvalidNode();
+        // We are parsing a procedure.  Check for "return" and post a
+        // descriptive message.
+        if (currentTokenIs(Lexer::TKN_RETURN)) {
+            report(diag::RETURN_AFTER_PROCEDURE);
+            return Node::getInvalidNode();
+        }
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
@@ -824,6 +820,9 @@ Node Parser::parseDeclaration()
 
     case Lexer::TKN_FUNCTION:
         return parseFunctionDeclaration();
+
+    case Lexer::TKN_PROCEDURE:
+        return parseProcedureDeclaration();
     }
 }
 
