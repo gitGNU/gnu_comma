@@ -620,6 +620,14 @@ public:
                          0,     // Null return type for procedures.
                          parent) { }
 
+    ProcedureDecl(IdentifierInfo    *name,
+                  Location           loc,
+                  ProcedureType     *type,
+                  DeclarativeRegion *parent)
+        : SubroutineDecl(AST_ProcedureDecl,
+                         name, loc,
+                         type, parent) { }
+
     const ProcedureType *getType() const {
         return const_cast<const ProcedureType*>(
             const_cast<ProcedureDecl*>(this)->getType());

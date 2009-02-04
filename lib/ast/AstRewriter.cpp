@@ -14,6 +14,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 DomainType *AstRewriter::getRewrite(DomainType *source) const
@@ -100,29 +101,59 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
     return dom;
 }
 
-FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
+SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
 {
-    llvm::SmallVector<IdentifierInfo*, 4> formals;
-    llvm::SmallVector<DomainType*, 4> args;
+    if (ProcedureType *ptype = dyn_cast<ProcedureType>(srType))
+        return rewrite(ptype);
+
+    return rewrite(cast<FunctionType>(srType));
+}
+
+// Rewrites "count" parameter types of the given subroutine, placing the results
+// of the rewrite in "params".
+void AstRewriter::rewriteParameters(SubroutineType *srType,
+                                    unsigned        count,
+                                    DomainType    **params) const
+{
     DomainType *source;
     DomainType *target;
-    unsigned    arity;
 
-    arity = ftype->getArity();
-    for (unsigned i = 0; i < arity; ++i) {
-        source = ftype->getArgType(i);
+    for (unsigned i = 0; i < count; ++i) {
+        source = srType->getArgType(i);
         target = getRewrite(source);
         if (target)
-            args.push_back(target);
+            params[i] = target;
         else
-            args.push_back(source);
-        formals.push_back(ftype->getKeyword(i));
+            params[i] = source;
     }
-    source = ftype->getReturnType();
-    target = getRewrite(source);
+}
+
+FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
+{
+    unsigned         arity = ftype->getArity();
+    DomainType      *params[arity];
+    IdentifierInfo **keywords;
+    DomainType      *source;
+    DomainType      *target;
+
+    rewriteParameters(ftype, arity, params);
+    keywords = ftype->getKeywordArray();
+    source   = ftype->getReturnType();
+    target   = getRewrite(source);
     if (target)
-        return new FunctionType(&formals[0], &args[0], args.size(), target);
+        return new FunctionType(keywords, params, arity, target);
     else
-        return new FunctionType(&formals[0], &args[0], args.size(), source);
+        return new FunctionType(keywords, params, arity, source);
+}
+
+ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
+{
+    unsigned         arity = ptype->getArity();
+    DomainType      *params[arity];
+    IdentifierInfo **keywords;
+
+    rewriteParameters(ptype, arity, params);
+    keywords = ptype->getKeywordArray();
+    return new ProcedureType(keywords, &params[0], arity);
 }
 

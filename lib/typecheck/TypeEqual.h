@@ -31,8 +31,18 @@ bool compareTypesUsingRewrites(const AstRewriter &rewrites,
                                DomainType        *typeY);
 
 bool compareTypesUsingRewrites(const AstRewriter &rewrites,
+                               SubroutineType    *typeX,
+                               SubroutineType    *typeY);
+
+bool compareTypesUsingRewrites(const AstRewriter &rewrites,
                                FunctionType      *typeX,
                                FunctionType      *typeY);
+
+bool compareTypesUsingRewrites(const AstRewriter &rewrites,
+                               ProcedureType     *typeX,
+                               ProcedureType     *typeY);
+
+
 
 } // End comma namespace.
 

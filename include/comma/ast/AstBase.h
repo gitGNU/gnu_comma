@@ -51,6 +51,8 @@ class Sigoid;
 class SignatureDecl;
 class SignatureType;
 class Stmt;
+class SubroutineDecl;
+class SubroutineType;
 class Type;
 class ValueDecl;
 class VarietyDecl;

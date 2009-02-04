@@ -266,6 +266,13 @@ SubroutineType::SubroutineType(AstKind          kind,
     std::copy(argTypes, argTypes + numArgs, argumentTypes);
 }
 
+IdentifierInfo **SubroutineType::getKeywordArray() const
+{
+    if (getArity() == 0) return 0;
+
+    return &keywords[0];
+}
+
 bool SubroutineType::keywordsMatch(const SubroutineType *routineType) const
 {
     unsigned arity = getArity();

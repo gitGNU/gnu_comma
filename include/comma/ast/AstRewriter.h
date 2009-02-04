@@ -76,17 +76,29 @@ public:
     // Rewrites the given domain type according to the installed rules.
     DomainType *rewrite(DomainType *dom) const;
 
-    // Rewrites the given function type according to the installed rules.
+    // Rewrites the given subroutine type according to the installed rules.
     //
     // FIXME: Currently, a freshly `newed' node is unconditionally created, even
     // in the case where no rewrites were applicable.  This behaviour will
     // change once the allocation requirements of function type nodes are nailed
     // down.
+    SubroutineType *rewrite(SubroutineType *srType) const;
+
+    // Rewrites the given function type according to the installed rules.
     FunctionType *rewrite(FunctionType *ftype) const;
+
+    // Rewrites the given procedure type according to the installed rules.
+    ProcedureType *rewrite(ProcedureType *ftype) const;
 
 private:
     typedef std::map<DomainType*, DomainType*> RewriteMap;
     RewriteMap rewrites;
+
+    // Rewrites "count" parameter types of the given subroutine, placing the
+    // results of the rewrite in "params".
+    void rewriteParameters(SubroutineType *srType,
+                           unsigned        count,
+                           DomainType    **params) const;
 };
 
 } // End comma namespace

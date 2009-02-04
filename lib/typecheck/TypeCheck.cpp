@@ -12,6 +12,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 TypeCheck::TypeCheck(Diagnostic      &diag,
@@ -408,6 +409,21 @@ Domoid *TypeCheck::getCurrentDomain() const {
     return dyn_cast<Domoid>(getCurrentModel());
 }
 
+
+// Creates a procedure or function decl depending on the kind of the
+// supplied type.
+SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
+                                              Location           loc,
+                                              SubroutineType    *type,
+                                              DeclarativeRegion *region)
+{
+    if (FunctionType *ftype = dyn_cast<FunctionType>(type))
+        return new FunctionDecl(name, loc, ftype, region);
+
+    ProcedureType *ptype = cast<ProcedureType>(type);
+    return new ProcedureDecl(name, loc, ptype, region);
+}
+
 DomainType *TypeCheck::ensureDomainType(Node     node,
                                         Location loc) const
 {
@@ -427,18 +443,18 @@ namespace {
 // declarations present in the given sigoid for a direct or indirect decl for a
 // match with respect to the given rewrites.  If a matching declaration is found
 // the matching node is returned, else NULL.
-FunctionDecl *findDecl(const AstRewriter &rewrites,
-                       Sigoid            *sig,
-                       FunctionDecl      *decl)
+SubroutineDecl *findDecl(const AstRewriter &rewrites,
+                         Sigoid            *sig,
+                         SubroutineDecl    *decl)
 {
     IdentifierInfo *name       = decl->getIdInfo();
-    FunctionType   *targetType = decl->getType();
+    SubroutineType *targetType = decl->getType();
 
     Sigoid::DeclRange range = sig->findDecls(name);
 
     for (Sigoid::DeclIter iter = range.first; iter != range.second; ++iter) {
-        if (FunctionDecl *source = dyn_cast<FunctionDecl>(iter->second)) {
-            FunctionType *sourceType = source->getType();
+        if (SubroutineDecl *source = dyn_cast<SubroutineDecl>(iter->second)) {
+            SubroutineType *sourceType = source->getType();
             if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
                 return source;
         }
@@ -459,7 +475,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
     // (non-direct) declarations in sig need an explicit redeclaration using the
     // following SmallPtrSet.  Once all the declarations are processed, we
     // iterate over the set and remove any declarations found to be in conflict.
-    typedef llvm::SmallPtrSet<FunctionDecl*, 4> BadDeclSet;
+    typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
     BadDeclSet badDecls;
 
     Sigoid::sig_iterator superIter    = sig->beginDirectSupers();
@@ -475,19 +491,20 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         Sigoid::DeclIter iter    = sigdecl->beginDecls();
         Sigoid::DeclIter endIter = sigdecl->endDecls();
         for ( ; iter != endIter; ++iter) {
-            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
-                IdentifierInfo *name  = fdecl->getIdInfo();
-                FunctionType   *ftype = fdecl->getType();
-                FunctionDecl   *decl  = findDecl(rewrites, sig, fdecl);
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(iter->second)) {
+                IdentifierInfo *name   = srDecl->getIdInfo();
+                SubroutineType *srType = srDecl->getType();
+                SubroutineDecl *decl   = findDecl(rewrites, sig, srDecl);
 
                 // If a matching declaration was not found, apply the rewrites
                 // and construct a new indirect declaration node for this
                 // signature.
                 if (!decl) {
-                    FunctionType *rewriteType = rewrites.rewrite(ftype);
-                    FunctionDecl *rewriteDecl =
-                        new FunctionDecl(name, 0, rewriteType, sig);
-                    rewriteDecl->setBaseDeclaration(fdecl);
+                    SubroutineType *rewriteType = rewrites.rewrite(srType);
+                    SubroutineDecl *rewriteDecl;
+
+                    rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, sig);
+                    rewriteDecl->setBaseDeclaration(srDecl);
                     rewriteDecl->setDeclarativeRegion(sig);
                     sig->addDecl(rewriteDecl);
                 } else if (decl->getBaseDeclaration()) {
@@ -496,15 +513,15 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                     // signature, but inherited from a super).  Since there is
                     // no overridding declaration in this case ensure that the
                     // keywords match.
-                    FunctionType *declType = decl->getType();
+                    SubroutineType *declType = decl->getType();
 
-                    if (!declType->keywordsMatch(ftype)) {
-                        Location        sigLoc = sig->getLocation();
-                        FunctionDecl *baseDecl = decl->getBaseDeclaration();
-                        SourceLocation sloc1 =
+                    if (!declType->keywordsMatch(srType)) {
+                        Location          sigLoc = sig->getLocation();
+                        SubroutineDecl *baseDecl = decl->getBaseDeclaration();
+                        SourceLocation     sloc1 =
                             getSourceLocation(baseDecl->getLocation());
-                        SourceLocation sloc2 =
-                            getSourceLocation(fdecl->getLocation());
+                        SourceLocation     sloc2 =
+                            getSourceLocation(srDecl->getLocation());
                         report(sigLoc, diag::MISSING_REDECLARATION)
                             << decl->getString() << sloc1 << sloc2;
                         badDecls.insert(decl);
@@ -522,7 +539,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         for (BadDeclSet::iterator iter = badDecls.begin();
              iter != badDecls.end();
              ++iter) {
-            FunctionDecl *badDecl = *iter;
+            SubroutineDecl *badDecl = *iter;
             sig->removeDecl(badDecl);
             delete badDecl;
         }

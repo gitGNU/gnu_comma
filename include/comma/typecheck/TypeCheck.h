@@ -173,6 +173,13 @@ private:
     // Utility functions.
     //===------------------------------------------------------------------===//
 
+    // Creates a procedure or function decl depending on the kind of the
+    // supplied type.
+    static SubroutineDecl *makeSubroutineDecl(IdentifierInfo    *name,
+                                              Location           loc,
+                                              SubroutineType    *type,
+                                              DeclarativeRegion *region);
+
     void ensureNecessaryRedeclarations(Sigoid *sig);
 
     DomainType *ensureDomainType(Node typeNode, Location loc) const;

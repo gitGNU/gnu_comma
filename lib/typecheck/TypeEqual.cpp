@@ -10,6 +10,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
@@ -64,6 +65,24 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
 }
 
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
+                                      SubroutineType    *typeX,
+                                      SubroutineType    *typeY)
+{
+    if (FunctionType *ftypeX = dyn_cast<FunctionType>(typeX)) {
+        FunctionType *ftypeY = dyn_cast<FunctionType>(typeY);
+        if (ftypeY)
+            return compareTypesUsingRewrites(rewrites, ftypeX, ftypeY);
+        return false;
+    }
+
+    ProcedureType *ptypeX = cast<ProcedureType>(typeX);
+    ProcedureType *ptypeY = dyn_cast<ProcedureType>(typeY);
+    if (ptypeY)
+        return compareTypesUsingRewrites(rewrites, ptypeX, ptypeY);
+    return false;
+}
+
+bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
                                       FunctionType      *typeX,
                                       FunctionType      *typeY)
 {
@@ -75,6 +94,25 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
     if (!compareTypesUsingRewrites(rewrites,
                                    typeX->getReturnType(),
                                    typeY->getReturnType()))
+        return false;
+
+    for (unsigned i = 0; i < arity; ++i) {
+        DomainType *argX = typeX->getArgType(i);
+        DomainType *argY = typeY->getArgType(i);
+        if (!compareTypesUsingRewrites(rewrites, argX, argY))
+            return false;
+    }
+
+    return true;
+}
+
+bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
+                                      ProcedureType     *typeX,
+                                      ProcedureType     *typeY)
+{
+    unsigned arity = typeX->getArity();
+
+    if (arity != typeY->getArity())
         return false;
 
     for (unsigned i = 0; i < arity; ++i) {

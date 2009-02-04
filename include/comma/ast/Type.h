@@ -333,6 +333,12 @@ public:
         return keywords[i];
     }
 
+    // Returns an array of IdentifierInfo's corresponding to the keyword set for
+    // this type, or 0 if there are no parameters.  This function is intended to
+    // be used to simplify construction of new SubroutineType nodes, not as
+    // general purpose accessor.
+    IdentifierInfo **getKeywordArray() const;
+
     // Returns true if the keywords of the given type match exactly those of
     // this type.  The arity of both subroutine types must match for this
     // function to return true.
@@ -344,6 +350,12 @@ public:
     // match.  Actual argument keywords are not considered when testing for
     // equality.
     bool equals(const SubroutineType *routineType) const;
+
+    // Support isa and dyn_cast.
+    static bool classof(const SubroutineType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesSubroutineType();
+    }
 
 private:
     IdentifierInfo **keywords;
@@ -366,6 +378,12 @@ public:
     // Returns the result type of this function.
     DomainType *getReturnType() const { return returnType; }
 
+    // Support isa and dyn_cast.
+    static bool classof(const FunctionType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_FunctionType;
+    }
+
 private:
     DomainType *returnType;
 };
@@ -379,6 +397,12 @@ public:
                   DomainType     **argTypes,
                   unsigned         numArgs)
         : SubroutineType(AST_ProcedureType, formals, argTypes, numArgs) { }
+
+    // Support isa and dyn_cast.
+    static bool classof(const ProcedureType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ProcedureType;
+    }
 };
 
 } // End comma namespace
