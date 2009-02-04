@@ -9,6 +9,7 @@
 #ifndef COMMA_PARSER_BRIDGE_HDR_GUARD
 #define COMMA_PARSER_BRIDGE_HDR_GUARD
 
+#include "comma/basic/ParameterModes.h"
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/parser/Descriptors.h"
 
@@ -60,7 +61,8 @@ public:
 
     virtual Node acceptSubroutineParameter(IdentifierInfo *formal,
                                            Location        loc,
-                                           Node            typeNode) = 0;
+                                           Node            typeNode,
+                                           ParameterMode   mode) = 0;
 
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;

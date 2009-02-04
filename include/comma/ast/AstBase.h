@@ -216,11 +216,10 @@ protected:
           validFlag(true),
           deletable(true) { }
 
-
     AstKind  kind      : 8;     ///< The kind of this node.
     bool     validFlag : 1;     ///< True if this node is valid.
     bool     deletable : 1;     ///< True if we may call delete on this node.
-    unsigned bits      : 23;    ///< Unused bits.
+    unsigned bits      : 23;    ///< Unused bits available to sub-classes.
 };
 
 //===----------------------------------------------------------------------===//

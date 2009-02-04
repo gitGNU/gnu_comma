@@ -213,11 +213,15 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_IS;
         else if (strncmp(str, "if", length) == 0)
             code = TKN_IS;
+        else if (strncmp(str, "in", length) == 0)
+            code = TKN_IN;
         break;
 
     case 3:
         if (strncmp(str, "end", length) == 0)
             code = TKN_END;
+        else if (strncmp(str, "out", length) == 0)
+            code = TKN_OUT;
         else if (strncmp(str, "add", length) == 0)
             code = TKN_ADD;
         break;

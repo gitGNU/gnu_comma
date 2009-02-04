@@ -261,9 +261,56 @@ SubroutineType::SubroutineType(AstKind          kind,
 {
     assert(this->denotesSubroutineType());
     keywords = new IdentifierInfo*[numArgs];
-    argumentTypes = new DomainType*[numArgs];
+    parameterInfo = new ParamInfo[numArgs];
     std::copy(formals, formals + numArgs, keywords);
-    std::copy(argTypes, argTypes + numArgs, argumentTypes);
+
+    for (unsigned i = 0; i < numArgs; ++i)
+        parameterInfo[i].setPointer(argTypes[i]);
+}
+
+SubroutineType::SubroutineType(AstKind          kind,
+                               IdentifierInfo **formals,
+                               DomainType     **argTypes,
+                               ParameterMode   *modes,
+                               unsigned         numArgs)
+    : Type(kind),
+      numArgs(numArgs)
+{
+    assert(this->denotesSubroutineType());
+    keywords = new IdentifierInfo*[numArgs];
+    parameterInfo = new ParamInfo[numArgs];
+    std::copy(formals, formals + numArgs, keywords);
+
+    for (unsigned i = 0; i < numArgs; ++i) {
+        parameterInfo[i].setPointer(argTypes[i]);
+        setParameterMode(modes[i], i);
+    }
+}
+
+DomainType *SubroutineType::getArgType(unsigned i) const
+{
+    assert(i < getArity() && "Index out of range!");
+    return parameterInfo[i].getPointer();
+}
+
+ParameterMode SubroutineType::getParameterMode(unsigned i) const
+{
+    assert(i < getArity() && "Index out of range!");
+    ParameterMode mode = static_cast<ParameterMode>(parameterInfo[i].getInt());
+    if (mode == MODE_DEFAULT)
+        return MODE_IN;
+    else
+        return mode;
+}
+
+void SubroutineType::setParameterMode(ParameterMode mode, unsigned i)
+{
+    assert(i < getArity() && "Index out of range!");
+
+    if ((mode == MODE_OUT || mode == MODE_IN_OUT) && isa<FunctionType>(this))
+        assert(false && "Only procedures can have `out' parameter modes!");
+
+    parameterInfo[i].setInt(mode);
 }
 
 IdentifierInfo **SubroutineType::getKeywordArray() const

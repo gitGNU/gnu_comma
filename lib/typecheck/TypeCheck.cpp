@@ -606,7 +606,8 @@ void TypeCheck::beginSubroutineDeclaration(Descriptor &desc)
 
 Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
                                           Location          loc,
-                                          Node              typeNode)
+                                          Node              typeNode,
+                                          ParameterMode     mode)
 {
     // FIXME: The location provided here is the location of the formal, not the
     // location of the type.  The type node here should be a DeclRef or similar
@@ -616,7 +617,7 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
     if (!dom) return Node::getInvalidNode();
 
     // Create a declaration node for this parameter.
-    ParamValueDecl *paramDecl = new ParamValueDecl(formal, loc, dom);
+    ParamValueDecl *paramDecl = new ParamValueDecl(formal, loc, dom, mode);
 
     return Node(paramDecl);
 }
@@ -652,8 +653,18 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
                     paramsOK = false;
                 }
             }
+
+            // If this is a function descriptor, check that the parameter mode
+            // is not of an "out" variety.
+            if (desc.isFunctionDescriptor()
+                && (param->getParameterMode() == MODE_OUT ||
+                    param->getParameterMode() == MODE_IN_OUT)) {
+                report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
+                paramsOK = false;
+            }
+
             // Add the parameter to the set if checking is proceeding smoothly.
-            parameters.push_back(param);
+            if (paramsOK) parameters.push_back(param);
         }
     }
 

@@ -39,6 +39,8 @@ DIAGNOSTIC(MISSING_RETURN_AFTER_FUNCTION, ERROR,
            "Missing `return' after function declaration.")
 DIAGNOSTIC(RETURN_AFTER_PROCEDURE, ERROR,
            "Procedures cannot have return types.")
+DIAGNOSTIC(OUT_IN_PARAMETER_MODE, ERROR,
+           "Use `in out' instead of `out in' in parameter mode specifications.")
 
 //
 // Semantic Diagnostics.
@@ -66,3 +68,5 @@ DIAGNOSTIC(DUPLICATE_KEYWORD, ERROR,
            "Duplicate argument keyword `%0'.")
 DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
            "Argument `%0' already provided by a positional parameter.")
+DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
+           "Function parameters cannot have an `out' mode.")

@@ -662,10 +662,37 @@ bool Parser::parseFormalParameterList(std::vector<ParameterInfo> &params)
     }
 }
 
+// Parses an "in", "out" or "in out" parameter mode specification.  If no such
+// specification is available on the stream MODE_DEFAULT is returned.  A common
+// mistake is to find "out int" instead of "in out".  In this case, we simply
+// issue a diagnostic and return MODE_IN_OUT.
+ParameterMode Parser::parseParameterMode()
+{
+   ParameterMode mode = MODE_DEFAULT;
+
+    if (reduceToken(Lexer::TKN_IN)) {
+        if (reduceToken(Lexer::TKN_OUT))
+            mode = MODE_IN_OUT;
+        else
+            mode = MODE_IN;
+    }
+    else if (reduceToken(Lexer::TKN_OUT)) {
+        if (currentTokenIs(Lexer::TKN_IN)) {
+            report(diag::OUT_IN_PARAMETER_MODE);
+            ignoreToken();
+            mode = MODE_IN_OUT;
+        }
+        else
+            mode = MODE_OUT;
+    }
+    return mode;
+}
+
 bool Parser::parseSubroutineParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
     Location        location;
+    ParameterMode   mode;
     Node            type;
     Node            param;
 
@@ -676,10 +703,11 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
 
     if (!requireToken(Lexer::TKN_COLON)) return false;
 
+    mode = parseParameterMode();
     type = parseModelInstantiation();
     if (type.isInvalid()) return false;
 
-    param = action.acceptSubroutineParameter(formal, location, type);
+    param = action.acceptSubroutineParameter(formal, location, type, mode);
     if (param.isInvalid()) return false;
 
     desc.addParam(param);

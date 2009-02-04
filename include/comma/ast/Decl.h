@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Type.h"
+#include "comma/basic/ParameterModes.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -677,10 +678,32 @@ protected:
 class ParamValueDecl : public ValueDecl {
 
 public:
-    ParamValueDecl(IdentifierInfo *name, Location loc, DomainType *type)
-        : ValueDecl(AST_ParamValueDecl, name, loc, type) { }
+    ParamValueDecl(IdentifierInfo *name,
+                   Location        loc,
+                   DomainType     *type,
+                   ParameterMode   mode = MODE_DEFAULT)
+        : ValueDecl(AST_ParamValueDecl, name, loc, type) {
+        // Store the mode for this decl in the bit field provided by our
+        // base Ast instance.
+        //
+        // FIXME: This is bad practice, really.  But the bits are available so
+        // we use them.  Eventually, a better interface/convention should be
+        // established to help protect against the bit field being trashed, or
+        // this data should be moved into the class itself.
+        bits = mode;
+    }
 
     DomainType *getType() { return llvm::cast<DomainType>(type); }
+
+    /// Returns true if the parameter mode was explicitly specified for this
+    /// parameter.  This predicate is used to distinguish between the default
+    /// parameter mode of "in" and the case where "in" was explicitly given.
+    bool parameterModeSpecified() const;
+
+    /// Returns the parameter mode associated with this decl.  This function
+    /// never returns MODE_DEFAULT, only MODE_IN.  To check if the mode was
+    /// implicitly defined as "in" use parameterModeSpecified.
+    ParameterMode getParameterMode() const;
 
     static bool classof(const ParamValueDecl *node) { return true; }
     static bool classof(const Ast *node) {

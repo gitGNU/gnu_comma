@@ -11,8 +11,10 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstRewriter.h"
+#include "comma/basic/ParameterModes.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/Support/Casting.h"
 
 namespace comma {
@@ -312,9 +314,18 @@ private:
 class SubroutineType : public Type {
 
 protected:
+    // This constructor produces a subroutine type where the parameter modes are
+    // set to MODE_DEFAULT.
     SubroutineType(AstKind          kind,
                    IdentifierInfo **formals,
                    DomainType     **argTypes,
+                   unsigned         numArgs);
+
+    // Constructor where each parameter mode can be specified.
+    SubroutineType(AstKind          kind,
+                   IdentifierInfo **formals,
+                   DomainType     **argTypes,
+                   ParameterMode   *modes,
                    unsigned         numArgs);
 
 public:
@@ -322,16 +333,20 @@ public:
     unsigned getArity() const { return numArgs; }
 
     // Returns the type of the i'th parameter.
-    DomainType *getArgType(unsigned i) const {
-        assert(i < getArity() && "Index out of range!");
-        return argumentTypes[i];
-    }
+    DomainType *getArgType(unsigned i) const;
 
     // Returns the i'th keyword for this type.
     IdentifierInfo *getKeyword(unsigned i) const {
         assert(i < getArity() && "Index out of range!");
         return keywords[i];
     }
+
+    // Returns the i'th parameter mode for this type.
+    ParameterMode getParameterMode(unsigned i) const;
+
+    // Sets the i'th parameter mode.  This method will assert if this subroutine
+    // denotes a function type and the mode is `out' or `in out'.
+    void setParameterMode(ParameterMode mode, unsigned i);
 
     // Returns an array of IdentifierInfo's corresponding to the keyword set for
     // this type, or 0 if there are no parameters.  This function is intended to
@@ -358,8 +373,12 @@ public:
     }
 
 private:
+    // We munge the supplied parameter type pointers and store the mode
+    // associations in the lower two bits.
+    typedef llvm::PointerIntPair<DomainType*, 2> ParamInfo;
+
     IdentifierInfo **keywords;
-    DomainType     **argumentTypes;
+    ParamInfo       *parameterInfo;
     unsigned         numArgs;
 };
 

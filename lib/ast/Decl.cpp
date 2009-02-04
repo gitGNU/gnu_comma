@@ -342,6 +342,10 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
                                         &paramTypes[0],
                                         numParams);
     }
+
+    // Set the parameter modes for the type.
+    for (unsigned i = 0; i < numParams; ++i)
+        routineType->setParameterMode(params[i]->getParameterMode(), i);
 }
 
 SubroutineDecl::SubroutineDecl(AstKind            kind,
@@ -366,11 +370,12 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
         for (unsigned i = 0; i < numParams; ++i) {
             IdentifierInfo *formal = type->getKeyword(i);
             DomainType *formalType = type->getArgType(i);
+            ParameterMode     mode = type->getParameterMode(i);
             ParamValueDecl  *param;
 
             // Note that as these param decls are implicitly generated we supply
             // an invalid location for each node.
-            param = new ParamValueDecl(formal, 0, formalType);
+            param = new ParamValueDecl(formal, 0, formalType, mode);
             param->setDeclarativeRegion(this);
             parameters[i] = param;
         }
@@ -384,4 +389,22 @@ void SubroutineDecl::setBaseDeclaration(SubroutineDecl *routineDecl)
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
            "Base declarations must be of the same kind as the parent!");
     baseDeclaration = routineDecl;
+}
+
+//===----------------------------------------------------------------------===//
+// ParamValueDecl
+
+bool ParamValueDecl::parameterModeSpecified() const
+{
+    ParameterMode mode = static_cast<ParameterMode>(bits);
+    return mode == MODE_DEFAULT;
+}
+
+ParameterMode ParamValueDecl::getParameterMode() const
+{
+    ParameterMode mode = static_cast<ParameterMode>(bits);
+    if (mode == MODE_DEFAULT)
+        return MODE_IN;
+    else
+        return mode;
 }

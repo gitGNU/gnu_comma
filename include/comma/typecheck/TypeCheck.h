@@ -81,7 +81,8 @@ public:
 
     Node acceptSubroutineParameter(IdentifierInfo   *formal,
                                    Location          loc,
-                                   Node              typeNode);
+                                   Node              typeNode,
+                                   ParameterMode     mode);
 
     Node acceptSubroutineDeclaration(Descriptor &desc,
                                      bool        definitionFollows);

@@ -9,9 +9,10 @@
 #ifndef COMMA_PARSER_PARSER_HDR_GUARD
 #define COMMA_PARSER_PARSER_HDR_GUARD
 
+#include "comma/basic/IdentifierPool.h"
+#include "comma/basic/ParameterModes.h"
 #include "comma/parser/Lexer.h"
 #include "comma/parser/Bridge.h"
-#include "comma/basic/IdentifierPool.h"
 #include "llvm/ADT/SmallVector.h"
 #include <iosfwd>
 #include <stack>
@@ -170,6 +171,7 @@ private:
     IdentifierInfo *parseIdentifierInfo();
     IdentifierInfo *parseFunctionIdentifierInfo();
 
+    ParameterMode parseParameterMode();
     Node parseSubroutineDeclaration(Descriptor &desc, bool allowBody = true);
 
     bool seekEndTag(IdentifierInfo *tag);
