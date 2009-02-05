@@ -57,8 +57,8 @@ DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
            "The type `%0' is not visible.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
            "Wrong number of arguments for type `%0'.")
-DIAGNOSTIC(FUNCTION_REDECLARATION, ERROR,
-           "Redeclaration of function `%0' originally defined at `%1'.")
+DIAGNOSTIC(SUBROUTINE_REDECLARATION, ERROR,
+           "Redeclaration of subroutine `%0' originally defined at `%1'.")
 DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
            "Multiply inherited declaration `%0' (from `%1' and `%2') is ambiguous. "
            "Redeclaration required.")

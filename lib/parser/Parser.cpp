@@ -425,7 +425,7 @@ void Parser::parseWithDeclarations()
 
         if (decl.isInvalid())
             seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
-                       Lexer::TKN_END, Lexer::TKN_ADD);
+                       Lexer::TKN_SEMI, Lexer::TKN_END, Lexer::TKN_ADD);
 
         requireToken(Lexer::TKN_SEMI);
     }

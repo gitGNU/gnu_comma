@@ -33,10 +33,10 @@ Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
                 return model;
             continue;
         }
-        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
-            Type *candidateType = fdecl->getType();
+        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(iter->second)) {
+            SubroutineType *candidateType = srDecl->getType();
             if (candidateType->equals(type))
-                return fdecl;
+                return srDecl;
             continue;
         }
     }

@@ -247,12 +247,12 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
     case 6:
         if (strncmp(str, "domain", length) == 0)
             code = TKN_DOMAIN;
-        else if (strncmp(str, "module", length) == 0)
-            code = TKN_MODULE;
-        else if (strncmp(str, "repeat", length) == 0)
-            code = TKN_REPEAT;
         else if (strncmp(str, "return", length) == 0)
             code = TKN_RETURN;
+        else if (strncmp(str, "import", length) == 0)
+            code = TKN_IMPORT;
+        else if (strncmp(str, "repeat", length) == 0)
+            code = TKN_REPEAT;
         break;
 
     case 8:

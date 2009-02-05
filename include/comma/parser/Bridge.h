@@ -71,9 +71,7 @@ public:
 
     virtual Node acceptDeclaration(IdentifierInfo *name,
                                    Node            type,
-                                   Location        loc) {
-        return Node(0);
-    }
+                                   Location        loc) = 0;
 
     virtual Node acceptPercent(Location loc) = 0;
 

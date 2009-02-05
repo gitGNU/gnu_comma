@@ -332,9 +332,12 @@ bool SubroutineType::keywordsMatch(const SubroutineType *routineType) const
     return false;
 }
 
-bool SubroutineType::equals(const SubroutineType *routineType) const
+bool SubroutineType::equals(const Type *type) const
 {
+    const SubroutineType *routineType = dyn_cast<SubroutineType>(type);
     unsigned arity = getArity();
+
+    if (!routineType) return false;
 
     if (arity != routineType->getArity())
         return false;
@@ -349,8 +352,10 @@ bool SubroutineType::equals(const SubroutineType *routineType) const
         if (!otherType)
             return false;
 
-        if (thisType->getReturnType() != otherType->getReturnType())
-            return false;
+        if (thisType->getReturnType()->equals(otherType->getReturnType()))
+            return true;
+
+        return false;
     }
 
     // This must be a function type.  The types are therefore equal if the

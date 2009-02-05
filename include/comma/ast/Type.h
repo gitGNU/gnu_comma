@@ -32,7 +32,7 @@ public:
         return node->denotesType();
     }
 
-    virtual bool equals(const Type *type) { return type == this; }
+    virtual bool equals(const Type *type) const { return type == this; }
 
 protected:
     Type(AstKind kind) : Ast(kind) {
@@ -364,7 +364,7 @@ public:
     // arity, argument, and (in the case of functions) the return types must
     // match.  Actual argument keywords are not considered when testing for
     // equality.
-    bool equals(const SubroutineType *routineType) const;
+    bool equals(const Type *type) const;
 
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }

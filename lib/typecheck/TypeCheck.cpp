@@ -550,27 +550,11 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Node            typeNode,
                                   Location        loc)
 {
-    DeclarativeRegion *region = currentDeclarativeRegion();
     Type *type = lift<Type>(typeNode);
 
     assert(type && "Bad node kind!");
-
-    if (FunctionType *ftype = dyn_cast<FunctionType>(type)) {
-        if (Decl *extantDecl = region->findDecl(name, type)) {
-            SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
-            report(loc, diag::FUNCTION_REDECLARATION) << name->getString()
-                                                      << sloc;
-            return Node::getInvalidNode();
-        }
-        FunctionDecl *fdecl = new FunctionDecl(name, loc, ftype, region);
-        region->addDecl(fdecl);
-        fdecl->setDeclarativeRegion(region);
-        return Node(fdecl);
-    }
-    else {
-        assert(false && "Declaration type not yet supported!");
-        return Node::getInvalidNode();
-    }
+    assert(false && "Declaration type not yet supported!");
+    return Node::getInvalidNode();
 }
 
 void TypeCheck::beginAddExpression()
@@ -697,7 +681,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     // Check that this declaration does not conflict with any other.
     if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
         SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
-        report(location, diag::FUNCTION_REDECLARATION)
+        report(location, diag::SUBROUTINE_REDECLARATION)
             << routineDecl->getString()
             << sloc;
         return Node::getInvalidNode();
