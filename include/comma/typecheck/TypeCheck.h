@@ -89,6 +89,8 @@ public:
 
     void endFunctionDefinition();
 
+    void acceptImportStatement(Node importedType, Location loc);
+
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 

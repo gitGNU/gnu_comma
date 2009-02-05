@@ -70,3 +70,5 @@ DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
            "Argument `%0' already provided by a positional parameter.")
 DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
+DIAGNOSTIC(IMPORT_FROM_NON_DOMAIN, ERROR,
+           "`%0' does not denote a domain, and so cannot be imported.")

@@ -60,6 +60,8 @@ public:
     Node parseDeclaration();
     Node parseStatement();
 
+    void parseImportStatement();
+
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
     bool parseTopLevelDeclaration();

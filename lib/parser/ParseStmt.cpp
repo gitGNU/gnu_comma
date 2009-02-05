@@ -16,3 +16,18 @@ Node Parser::parseStatement()
     assert(false && "Statement parsing not yet implemented!");
     return Node::getInvalidNode();
 }
+
+
+void Parser::parseImportStatement()
+{
+    Location location = currentLocation();
+    Node importedType;
+
+    assert(currentTokenIs(Lexer::TKN_IMPORT));
+    ignoreToken();
+
+    importedType = parseModelInstantiation();
+
+    if (importedType.isValid())
+        client.acceptImportStatement(importedType, location);
+}

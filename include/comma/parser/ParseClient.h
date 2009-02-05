@@ -101,6 +101,10 @@ public:
                                     unsigned         arity,
                                     Node             returnType,
                                     Location         returnLocation) = 0;
+
+    // Submits an import from the given type node, and the location of the
+    // import reserved word.
+    virtual void acceptImportStatement(Node importedType, Location loc) = 0;
 };
 
 } // End comma namespace.

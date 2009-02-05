@@ -447,7 +447,12 @@ void Parser::parseAddComponents()
         case Lexer::TKN_PROCEDURE:
             parseProcedureDeclaration();
             break;
+
+        case Lexer::TKN_IMPORT:
+            parseImportStatement();
+            break;
         }
+        requireToken(Lexer::TKN_SEMI);
     }
     client.endAddExpression();
 }
