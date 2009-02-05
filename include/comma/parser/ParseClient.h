@@ -1,4 +1,4 @@
-//===-- parser/Bridge.h --------------------------------------- -*- C++ -*-===//
+//===-- parser/ParseClient.h ---------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef COMMA_PARSER_BRIDGE_HDR_GUARD
-#define COMMA_PARSER_BRIDGE_HDR_GUARD
+#ifndef COMMA_PARSECLIENT_HDR_GUARD
+#define COMMA_PARSECLIENT_HDR_GUARD
 
 #include "comma/basic/ParameterModes.h"
 #include "comma/basic/IdentifierInfo.h"
@@ -15,7 +15,7 @@
 
 namespace comma {
 
-class Bridge {
+class ParseClient {
 
 public:
     // The parser does not know about the underlying node representation.  It
@@ -34,7 +34,7 @@ public:
     // Called immediately after a model declaration has been registered.  This
     // call defines a formal parameter of a model.  The parser collects the
     // results of this call into a Descriptor object and supplies them back to
-    // the bridge in a call to acceptModelDeclaration.
+    // the client in a call to acceptModelDeclaration.
     virtual Node acceptModelParameter(IdentifierInfo *formal,
                                       Node            typeNode,
                                       Location        loc) = 0;
@@ -49,7 +49,7 @@ public:
     // Called for each super signature of a with expression.
     virtual Node acceptWithSupersignature(Node typeNode, Location loc) = 0;
 
-    // Called at the begining of an add expression.  The bridge accepts
+    // Called at the begining of an add expression.  The client accepts
     // components of an add expression after this call until endAddExpression is
     // called.
     virtual void beginAddExpression() { }

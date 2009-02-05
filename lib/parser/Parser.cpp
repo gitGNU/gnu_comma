@@ -18,9 +18,10 @@
 // the next token to be parsed.  Thus, a parse method which consumes exactly one
 // token moves the token stream by exactly one token.
 //
-// As the parser proceeds, callbacks provided by the type checker are invoked.
-// The parser does not build the AST explicitly -- rather, it formulates calls
-// to the type checker, which in turn constructs a semanticly valid AST.
+// As the parser proceeds, callbacks provided by the ParseClient are invoked.
+// The parser does not build an AST explicitly -- rather, it formulates calls
+// to the client, which in turn could construct an AST, or perform some other
+// action.
 //
 //===----------------------------------------------------------------------===//
 
@@ -34,11 +35,11 @@ using namespace comma;
 
 Parser::Parser(TextProvider   &txtProvider,
                IdentifierPool &idPool,
-               Bridge         &bridge,
+               ParseClient    &client,
                Diagnostic     &diag)
     : txtProvider(txtProvider),
       idPool(idPool),
-      action(bridge),
+      client(client),
       diagnostic(diag),
       lexer(txtProvider, diag),
       seenError(false)
@@ -338,7 +339,7 @@ Node Parser::parseModelParameter()
 
     type = parseModelInstantiation();
     if (type.isValid())
-        return action.acceptModelParameter(formal, type, loc);
+        return client.acceptModelParameter(formal, type, loc);
     else {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
         return Node::getInvalidNode();
@@ -376,14 +377,14 @@ void Parser::parseWithExpression()
     assert(currentTokenIs(Lexer::TKN_WITH));
     ignoreToken();
 
-    action.beginWithExpression();
+    client.beginWithExpression();
 
     // Scan the set of supersignatures.  Currently this is simply a sequence of
     // signature types.  For example:
     parseWithSupersignatures();
     parseWithDeclarations();
 
-    action.endWithExpression();
+    client.endWithExpression();
 }
 
 // Parses a sequence of super-signatures in a 'with' expression.
@@ -394,7 +395,7 @@ void Parser::parseWithSupersignatures()
         Node super   = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
-            Node result = action.acceptWithSupersignature(super, loc);
+            Node result = client.acceptWithSupersignature(super, loc);
         }
         else {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
@@ -433,7 +434,7 @@ void Parser::parseWithDeclarations()
 
 void Parser::parseAddComponents()
 {
-    action.beginAddExpression();
+    client.beginAddExpression();
 
     for (;;) {
         switch (currentTokenCode()) {
@@ -448,7 +449,7 @@ void Parser::parseAddComponents()
             break;
         }
     }
-    action.endAddExpression();
+    client.endAddExpression();
 }
 
 void Parser::parseModelDeclaration(Descriptor &desc)
@@ -482,12 +483,12 @@ void Parser::parseModelDeclaration(Descriptor &desc)
     if (!name) return;
 
     desc.setIdentifier(name, location);
-    action.beginModelDeclaration(desc);
+    client.beginModelDeclaration(desc);
 
     if (currentTokenIs(Lexer::TKN_LPAREN))
         parseModelParameterization(desc);
 
-    action.acceptModelDeclaration(desc);
+    client.acceptModelDeclaration(desc);
 }
 
 void Parser::parseModel()
@@ -506,7 +507,7 @@ void Parser::parseModel()
     if (!parseEndTag(desc.getIdInfo()))
         seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
 
-    action.endModelDefinition();
+    client.endModelDefinition();
 }
 
 Node Parser::parseModelInstantiation()
@@ -516,7 +517,7 @@ Node Parser::parseModelInstantiation()
     Location        loc = currentLocation();
 
     if (reduceToken(Lexer::TKN_PERCENT))
-        return action.acceptPercent(loc);
+        return client.acceptPercent(loc);
 
     info = parseIdentifierInfo();
     if (!info) return type;
@@ -526,7 +527,7 @@ Node Parser::parseModelInstantiation()
             // Empty parameter lists for types are not allowed.  If the type
             // checker accepts the non-parameterized form, then continue --
             // otherwise we complain ourselves.
-            type = action.acceptTypeIdentifier(info, loc);
+            type = client.acceptTypeIdentifier(info, loc);
             if (type.isValid()) report(loc, diag::ILLEGAL_EMPTY_PARAMS);
         }
         else {
@@ -571,7 +572,7 @@ Node Parser::parseModelInstantiation()
                 Location        *keyLocs = &keywordLocs[0];
                 unsigned         arity   = arguments.size();
                 unsigned         numKeys = keywords.size();
-                type = action.acceptTypeApplication(
+                type = client.acceptTypeApplication(
                     info, args, argLocs, arity,
                     keys, keyLocs, numKeys, loc);
             }
@@ -580,12 +581,12 @@ Node Parser::parseModelInstantiation()
                 NodeVector::iterator iter;
                 NodeVector::iterator endIter = arguments.end();
                 for (iter = arguments.begin(); iter != endIter; ++iter)
-                    action.deleteNode(*iter);
+                    client.deleteNode(*iter);
             }
         }
     }
     else
-        type = action.acceptTypeIdentifier(info, loc);
+        type = client.acceptTypeIdentifier(info, loc);
 
     return type;
 }
@@ -707,7 +708,7 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     type = parseModelInstantiation();
     if (type.isInvalid()) return false;
 
-    param = action.acceptSubroutineParameter(formal, location, type, mode);
+    param = client.acceptSubroutineParameter(formal, location, type, mode);
     if (param.isInvalid()) return false;
 
     desc.addParam(param);
@@ -791,7 +792,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc, bool allowBody)
     if (!name) return Node::getInvalidNode();
 
     desc.setIdentifier(name, location);
-    action.beginSubroutineDeclaration(desc);
+    client.beginSubroutineDeclaration(desc);
 
     if (currentTokenIs(Lexer::TKN_LPAREN)) parseSubroutineParameters(desc);
 
@@ -816,7 +817,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc, bool allowBody)
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
-    return Node(action.acceptSubroutineDeclaration(desc, bodyFollows));
+    return Node(client.acceptSubroutineDeclaration(desc, bodyFollows));
 }
 
 // This parser is called just after the 'is' token begining a function or
@@ -878,7 +879,7 @@ Node Parser::parseValueDeclaration(bool allowInitializer)
 
         case Lexer::TKN_SEMI:
             ignoreToken();
-            return action.acceptDeclaration(id, type, loc);
+            return client.acceptDeclaration(id, type, loc);
 
         case Lexer::TKN_ASSIGN:
             assert(false && "Value initializers not yet implemented.");

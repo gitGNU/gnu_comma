@@ -12,7 +12,7 @@
 #include "comma/basic/IdentifierPool.h"
 #include "comma/basic/ParameterModes.h"
 #include "comma/parser/Lexer.h"
-#include "comma/parser/Bridge.h"
+#include "comma/parser/ParseClient.h"
 #include "llvm/ADT/SmallVector.h"
 #include <iosfwd>
 #include <stack>
@@ -24,7 +24,7 @@ class Parser {
 public:
     Parser(TextProvider   &txtProvider,
            IdentifierPool &idPool,
-           Bridge         &bridge,
+           ParseClient    &client,
            Diagnostic     &diag);
 
     // Generic pointer to a parse method.
@@ -94,7 +94,7 @@ public:
 private:
     TextProvider   &txtProvider;
     IdentifierPool &idPool;
-    Bridge         &action;
+    ParseClient    &client;
     Diagnostic     &diagnostic;
 
     Lexer lexer;
@@ -196,7 +196,7 @@ private:
         typename T::iterator iter;
         typename T::iterator endIter = nodes.end();
         for (iter = nodes.begin(); iter != endIter; ++iter)
-            action.deleteNode(*iter);
+            client.deleteNode(*iter);
     }
 
 };

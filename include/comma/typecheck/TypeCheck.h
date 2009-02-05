@@ -11,7 +11,7 @@
 
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
-#include "comma/parser/Bridge.h"
+#include "comma/parser/ParseClient.h"
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Cunit.h"
 #include "comma/ast/Scope.h"
@@ -21,7 +21,7 @@
 
 namespace comma {
 
-class TypeCheck : public Bridge {
+class TypeCheck : public ParseClient {
 
 public:
     TypeCheck(Diagnostic      &diag,
@@ -36,7 +36,7 @@ public:
     // Called immediately after a model declaration has been registered.  This
     // call defines a formal parameter of a model.  The parser collects the
     // results of this call into a Descriptor object and supplies them back to
-    // the bridge in a call to acceptModelDeclaration.
+    // the client in a call to acceptModelDeclaration.
     Node acceptModelParameter(IdentifierInfo *formal, Node type, Location loc);
 
     // This call completes the declaration of a model (name and
