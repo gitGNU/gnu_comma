@@ -47,33 +47,6 @@ public:
 
     Node parseModelInstantiation();
 
-    // The following structure is used to collect the components of a parameter
-    // of the form "X : T", where X is an IdentifierInfo representing the
-    // parameter name, and T is a Node representing the associcate type.  In
-    // addition, the locations of the parameter and type are provided.
-    struct ParameterInfo {
-        IdentifierInfo *formal;
-        Node            type;
-        Location        formalLocation;
-        Location        typeLocation;
-    };
-
-    // Parses a formal parameter of the form "X : T", filling in paramInfo with
-    // the results of the parse.  The supplied parse method is invoked to
-    // consume the rhs of the ":" -- namely, the type expression.  This function
-    // returns true if the parse was successful.  If the parse was not
-    // successful false is returned and paramInfo is not modified.
-    bool parseFormalParameter(ParameterInfo &paramInfo, parseNodeFn parser);
-
-    // Parses a list of formal parameters.  An opening `(' is expected on the
-    // stream when this function is called.  The supplied vector is populated
-    // with ParameterInfo structures corresponding to each parameter sucessfully
-    // parsed.  True is returned if no errors were encountered and false
-    // otherwise.  In the case of a parsing error, this function attempts to
-    // position itself with the closing paren consumed, and with `return', `is',
-    // `;' or EOT as the current token.
-    bool parseFormalParameterList(std::vector<ParameterInfo> &params);
-
     bool parseSubroutineParameter(Descriptor &desc);
     void parseSubroutineParameters(Descriptor &desc);
     Node parseFunctionDeclaration(bool allowBody = true);
