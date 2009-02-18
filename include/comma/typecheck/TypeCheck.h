@@ -171,7 +171,7 @@ private:
                                               SubroutineType    *type,
                                               DeclarativeRegion *region);
 
-    void ensureNecessaryRedeclarations(Sigoid *sig);
+    void ensureNecessaryRedeclarations(ModelDecl *model);
 
     DomainType *ensureDomainType(Node typeNode, Location loc) const;
 

@@ -41,8 +41,9 @@ public:
     // Returns the location associated with this decl.
     Location getLocation() const { return location; }
 
-    // Returns true if this decl is anonymous.  Currently, the only anonymous
-    // models are the "principle signatures" of a domain.
+    // Returns true if this decl is anonymous.
+    //
+    // FIXME:  This method can me removed once named decls are introduced.
     bool isAnonymous() const { return idInfo == 0; }
 
     // Sets the declarative region for this decl.  This function can only be
@@ -97,7 +98,7 @@ protected:
 // additional parameter is necessary since the Ast classes cannot create
 // IdentifierInfo's on their own -- we do not have access to a global
 // IdentifierPool with which to create them.
-class ModelDecl : public Decl {
+class ModelDecl : public Decl, public DeclarativeRegion {
 
 public:
     virtual ~ModelDecl() { }
@@ -119,6 +120,15 @@ public:
 
     DomainType *getPercent() const { return percent; }
 
+    // Accessors to the SignatureSet.
+    SignatureSet& getSignatureSet() { return sigset; }
+    const SignatureSet &getSignatureSet() const { return sigset; }
+
+    // Adds a direct signature to the underlying signature set.
+    bool addDirectSignature(SignatureType *signature) {
+        return sigset.addDirectSignature(signature);
+    }
+
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -137,6 +147,9 @@ protected:
 
     // Percent node for this decl.
     DomainType *percent;
+
+    // The set of signatures which this model satisfies.
+    SignatureSet sigset;
 };
 
 //===----------------------------------------------------------------------===//
@@ -144,29 +157,19 @@ protected:
 //
 // This is the common base class for "signature like" objects: i.e. signatures
 // and varieties.
-class Sigoid : public ModelDecl, public DeclarativeRegion {
-
-    SignatureSet sigset;
+class Sigoid : public ModelDecl {
 
 public:
     // Constructs an anonymous signature.
     Sigoid(AstKind kind, IdentifierInfo *percentId)
-        : ModelDecl(kind, percentId),
-          DeclarativeRegion(kind),
-          sigset(this) { }
-
-    // This constructor is used to create an anonymous signature which inherits
-    // its percent node from a domain.  Used when creating principle signatures.
-    Sigoid(AstKind Kind, DomainType *percent);
+        : ModelDecl(kind, percentId) { }
 
     // Creates a named signature.
     Sigoid(AstKind         kind,
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc)
-        : ModelDecl(kind, percentId, idInfo, loc),
-          DeclarativeRegion(kind),
-          sigset(this) { }
+        : ModelDecl(kind, percentId, idInfo, loc) { }
 
     virtual ~Sigoid() { }
 
@@ -177,15 +180,6 @@ public:
     // If this is a VarietyDecl, returns this cast to the refined type,
     // otherwise returns NULL.
     VarietyDecl *getVariety();
-
-    // Accessors to the SignatureSet.
-    SignatureSet& getSignatureSet() { return sigset; }
-    const SignatureSet &getSignatureSet() const { return sigset; }
-
-    // Adds a direct signature to the underlying signature set.
-    bool addDirectSignature(SignatureType *signature) {
-        return sigset.addDirectSignature(signature);
-    }
 
     static bool classof(const Sigoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -201,22 +195,10 @@ public:
 class SignatureDecl : public Sigoid {
 
 public:
-    // Creates an anonymous signature.
-    SignatureDecl(IdentifierInfo *percentId);
-
     // Creates a named signature.
     SignatureDecl(IdentifierInfo *percentId,
                   IdentifierInfo *name,
                   const Location &loc);
-
-    // Creates a 'principle signature' for the given domain.
-    SignatureDecl(DomainDecl *domain);
-
-    // Creates a 'principle signature' for the given functor.
-    SignatureDecl(FunctorDecl *functor);
-
-    // Returns true if this signature is the principle signature of some domain.
-    bool isPrincipleSignature() const;
 
     SignatureType *getCorrespondingType() { return canonicalType; }
 
@@ -242,11 +224,6 @@ private:
 class VarietyDecl : public Sigoid {
 
 public:
-    // Creates an anonymous variety.
-    VarietyDecl(IdentifierInfo *percentId,
-                DomainType    **formals,
-                unsigned        arity);
-
     // Creates a VarietyDecl with the given name, location of definition, and
     // list of AbstractDomainTypes which serve as the formal parameters.
     VarietyDecl(IdentifierInfo *percentId,
@@ -304,11 +281,6 @@ public:
 
     // Returns non-null if this domoid is a FunctorDecl.
     FunctorDecl *getFunctor();
-
-    // Returns the principle signature declaration if this domoid admits one,
-    // NULL otherwise.  The only domain decl which does not have a principle
-    // signature is an AbstractDomainDecl.
-    virtual SignatureDecl *getPrincipleSignature() { return 0; }
 
     // Returns the AddDecl which provides the implementation for this domoid, or
     // NULL if no implementation is available.  The only domain decl which does
@@ -373,7 +345,7 @@ public:
 //===----------------------------------------------------------------------===//
 // DomainDecl
 //
-class DomainDecl : public Domoid, public DeclarativeRegion {
+class DomainDecl : public Domoid {
 
 public:
     DomainDecl(IdentifierInfo *percentId,
@@ -385,8 +357,6 @@ public:
     const DomainType *getType() const { return canonicalType; }
     DomainType *getType() { return canonicalType; }
 
-    SignatureDecl *getPrincipleSignature() { return principleSignature; }
-
     // Returns the AddDecl which implements this domain.
     const AddDecl *getImplementation() const { return implementation; }
 
@@ -397,16 +367,15 @@ public:
     }
 
 private:
-    DomainType    *canonicalType;
-    SignatureDecl *principleSignature;
-    AddDecl       *implementation;
+    DomainType *canonicalType;
+    AddDecl    *implementation;
 };
 
 //===----------------------------------------------------------------------===//
 // FunctorDecl
 //
 // Representation of parameterized domains.
-class FunctorDecl : public Domoid, public DeclarativeRegion {
+class FunctorDecl : public Domoid {
 
 public:
     FunctorDecl(IdentifierInfo *percentId,
@@ -419,8 +388,6 @@ public:
     // given arguments.  Such types are memorized.  For a given set of arguments
     // this function always returns the same type.
     DomainType *getCorrespondingType(DomainType **args, unsigned numArgs);
-
-    SignatureDecl *getPrincipleSignature() { return principleSignature; }
 
     // Returns the AddDecl which implements this functor.
     const AddDecl *getImplementation() const { return implementation; }
@@ -445,15 +412,14 @@ public:
 private:
     mutable llvm::FoldingSet<DomainType> types;
 
-    FunctorType   *functor;
-    SignatureDecl *principleSignature;
-    AddDecl       *implementation;
+    FunctorType *functor;
+    AddDecl     *implementation;
 };
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
-class AbstractDomainDecl : public Domoid, public DeclarativeRegion
-{
+class AbstractDomainDecl : public Domoid {
+
 public:
     AbstractDomainDecl(IdentifierInfo *name,
                        SignatureType  *type,

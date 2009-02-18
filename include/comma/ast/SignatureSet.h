@@ -78,23 +78,26 @@ public:
         return numSignatures() - numDirectSignatures();
     }
 
+    // Returns the model which owns this set.
+    const ModelDecl *getAssociatedModel() const { return associatedModel; }
+    ModelDecl *getAssociatedModel() { return associatedModel; }
+
     typedef SignatureTable::iterator iterator;
     typedef SignatureTable::const_iterator const_iterator;
 
+    // Iterators over the direct signatures in this set.
     iterator beginDirect() { return directSignatures.begin(); }
     iterator endDirect()   { return directSignatures.end(); }
 
     const_iterator beginDirect() const { return directSignatures.begin(); }
     const_iterator endDirect()   const { return directSignatures.end(); }
 
+    // Iterators over all of the signatures in this set.
     iterator begin() { return allSignatures.begin(); }
     iterator end()   { return allSignatures.end(); }
 
     const_iterator begin() const { return allSignatures.begin(); }
     const_iterator end()   const { return allSignatures.end(); }
-
-    const ModelDecl *getAssociatedModel() const { return associatedModel; }
-    ModelDecl *getAssociatedModel() { return associatedModel; }
 };
 
 } // End comma namespace

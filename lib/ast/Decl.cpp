@@ -43,7 +43,9 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
 //===----------------------------------------------------------------------===//
 // ModelDecl
 ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
-    : Decl(kind)
+    : Decl(kind),
+      DeclarativeRegion(kind),
+      sigset(this)
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
@@ -54,7 +56,9 @@ ModelDecl::ModelDecl(AstKind         kind,
                      IdentifierInfo *percentId,
                      IdentifierInfo *info,
                      Location        loc)
-    : Decl(kind, info, loc)
+    : Decl(kind, info, loc),
+      DeclarativeRegion(kind),
+      sigset(this)
 {
     assert(std::strcmp(percentId->getString(), "%") == 0 &&
            "Percent IdInfo not == \"%\"!");
@@ -62,25 +66,7 @@ ModelDecl::ModelDecl(AstKind         kind,
 }
 
 //===----------------------------------------------------------------------===//
-// Sigoid
-
-Sigoid::Sigoid(AstKind kind, DomainType *percent)
-    : ModelDecl(kind, percent->getIdInfo()),
-      DeclarativeRegion(kind),
-      sigset(this)
-{
-    assert(percent->denotesPercent());
-}
-
-
-//===----------------------------------------------------------------------===//
 // SignatureDecl
-SignatureDecl::SignatureDecl(IdentifierInfo *percentId)
-    : Sigoid(AST_SignatureDecl, percentId)
-{
-    canonicalType = new SignatureType(this);
-}
-
 SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
                              IdentifierInfo *info,
                              const Location &loc)
@@ -89,44 +75,8 @@ SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
     canonicalType = new SignatureType(this);
 }
 
-SignatureDecl::SignatureDecl(DomainDecl *domain)
-    : Sigoid(AST_SignatureDecl, domain->getPercent())
-{
-    canonicalType = new SignatureType(this);
-    // Make the given domain this signatures declarative parent.
-    setParent(domain);
-}
-
-SignatureDecl::SignatureDecl(FunctorDecl *functor)
-    : Sigoid(AST_SignatureDecl, functor->getPercent())
-{
-    canonicalType = new SignatureType(this);
-    // Make the given functor this signatures declarative parent.
-    setParent(functor);
-}
-
-bool SignatureDecl::isPrincipleSignature() const
-{
-    const DeclarativeRegion *region = getParent();
-    // FIXME:  Once signatures are always declared in their proper context
-    // we should always have a parent region.
-    if (region) {
-        const Decl *decl = region->asDecl();
-        return isa<DomainDecl>(decl) || isa<FunctorDecl>(decl);
-    }
-    return false;
-}
-
 //===----------------------------------------------------------------------===//
 // VarietyDecl
-
-VarietyDecl::VarietyDecl(IdentifierInfo  *percentId,
-                         DomainType     **formals,
-                         unsigned         arity)
-    : Sigoid(AST_VarietyDecl, percentId)
-{
-    varietyType = new VarietyType(formals, this, arity);
-}
 
 VarietyDecl::VarietyDecl(IdentifierInfo *percentId,
                          IdentifierInfo *name,
@@ -207,12 +157,10 @@ FunctorDecl *AddDecl::getImplementedFunctor()
 DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        IdentifierInfo *name,
                        const Location &loc)
-    : Domoid(AST_DomainDecl, percentId, name, loc),
-      DeclarativeRegion(AST_DomainDecl)
+    : Domoid(AST_DomainDecl, percentId, name, loc)
 {
-    canonicalType      = new DomainType(this);
-    principleSignature = new SignatureDecl(this);
-    implementation     = new AddDecl(this);
+    canonicalType  = new DomainType(this);
+    implementation = new AddDecl(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -223,12 +171,10 @@ FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
                          Location        loc,
                          DomainType    **formals,
                          unsigned        arity)
-    : Domoid(AST_FunctorDecl, percentId, name, loc),
-      DeclarativeRegion(AST_FunctorDecl)
+    : Domoid(AST_FunctorDecl, percentId, name, loc)
 {
-    functor            = new FunctorType(formals, this, arity);
-    principleSignature = new SignatureDecl(this);
-    implementation     = new AddDecl(this);
+    functor        = new FunctorType(formals, this, arity);
+    implementation = new AddDecl(this);
 }
 
 DomainType *
@@ -254,7 +200,6 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
                                        Location        loc)
     : Domoid(AST_AbstractDomainDecl,
              type->getDeclaration()->getPercent()->getIdInfo(), name, loc),
-      DeclarativeRegion(AST_AbstractDomainDecl),
       signature(type)
 {
     abstractType = new DomainType(this);

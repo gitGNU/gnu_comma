@@ -14,16 +14,10 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 namespace {
-
-// This function is used to determine if the Sigoid `source' has a super
-// signature exactly equal to target.
-bool hasExactSignature(Sigoid *source, SignatureType *target)
-{
-    return source->getSignatureSet().contains(target);
-}
 
 bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
 {
@@ -85,15 +79,15 @@ bool percentHas(ModelDecl *source, SignatureType *target)
         // Otherwise, an exact match on the target is sought against the set of
         // super signatures.  No rewrites are needed since this test is wrt the
         // internal view of the signature.
-        return hasExactSignature(sigoid, target);
+        return sigoid->getSignatureSet().contains(target);
     }
 
     // We do not have a signature, so we must have a domain.  Since we are
-    // asking if % has the given domain, we are working with the 'internal view'
-    // of the domain and the super signature set does not require a rewrite.
-    Domoid *domoid = dyn_cast<Domoid>(source);
-    SignatureDecl *principleSig = domoid->getPrincipleSignature();
-    return hasExactSignature(principleSig, target);
+    // asking if % has the given signature, we are working with the 'internal
+    // view' of the domain and the super signature set does not require a
+    // rewrite.
+    Domoid *domoid = cast<Domoid>(source);
+    return domoid->getSignatureSet().contains(target);
 }
 
 } // End anonymous namespace.
@@ -105,10 +99,8 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
     else if (source->denotesPercent())
         return percentHas(source->getDeclaration(), target);
 
-    Domoid        *domoid    = source->getDomoidDecl();
-    SignatureDecl *principle = domoid->getPrincipleSignature();
-
-    SignatureSet          &sigset  = principle->getSignatureSet();
+    Domoid                *domoid  = source->getDomoidDecl();
+    SignatureSet          &sigset  = domoid->getSignatureSet();
     SignatureSet::iterator iter    = sigset.begin();
     SignatureSet::iterator endIter = sigset.end();
 

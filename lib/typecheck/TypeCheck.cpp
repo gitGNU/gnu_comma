@@ -139,7 +139,6 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
 {
     ModelType     *type = lift<ModelType>(typeNode);
     SignatureType *superSig;
-    Sigoid        *currentSig;
 
     assert(type && "Bad node kind!");
 
@@ -153,8 +152,7 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
     }
 
     // Register the signature.
-    currentSig = getCurrentSignature();
-    currentSig->addDirectSignature(superSig);
+    getCurrentModel()->addDirectSignature(superSig);
 
     return typeNode;
 }
@@ -346,20 +344,15 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
 
 void TypeCheck::beginWithExpression()
 {
-    // If the current model is a signature, we set the current declarative
-    // region to the signature itself.  If we are processing a domain, set the
-    // declarative region to the principle signature of the domain.
-    declarativeRegion = getCurrentSignature();
+    // Nothing to do.  The declarative region of the current model is the
+    // destination of all declarations in a with expression.
 }
 
 void TypeCheck::endWithExpression()
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument keyword sets.
-    ensureNecessaryRedeclarations(getCurrentSignature());
-
-    // Set the declarative region back to the current model.
-    declarativeRegion = getCurrentModel()->asDeclarativeRegion();
+    ensureNecessaryRedeclarations(getCurrentModel());
 }
 
 // The following function resolves the argument type of a functor or variety
@@ -385,12 +378,7 @@ SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
 }
 
 Sigoid *TypeCheck::getCurrentSignature() const {
-    Sigoid *result = dyn_cast<Sigoid>(getCurrentModel());
-    if (result == 0) {
-        Domoid *dom = dyn_cast<Domoid>(getCurrentModel());
-        result = dom->getPrincipleSignature();
-    }
-    return result;
+    return dyn_cast<Sigoid>(getCurrentModel());
 }
 
 Domoid *TypeCheck::getCurrentDomain() const {
@@ -427,17 +415,15 @@ DomainType *TypeCheck::ensureDomainType(Node     node,
 namespace {
 
 // This function is a helper for ensureNecessaryRedeclarations.  It searches all
-// declarations present in the given sigoid for a direct or indirect decl for a
-// match with respect to the given rewrites.  If a matching declaration is found
-// the matching node is returned, else NULL.
+// declarations present in the given declarative region for a match with respect
+// to the given rewrites.  Returns a matching delcaration node or null.
 SubroutineDecl *findDecl(const AstRewriter &rewrites,
-                         Sigoid            *sig,
+                         DeclarativeRegion *region,
                          SubroutineDecl    *decl)
 {
-    IdentifierInfo *name       = decl->getIdInfo();
-    SubroutineType *targetType = decl->getType();
-
-    Sigoid::DeclRange range = sig->findDecls(name);
+    IdentifierInfo   *name       = decl->getIdInfo();
+    SubroutineType   *targetType = decl->getType();
+    Sigoid::DeclRange range      = region->findDecls(name);
 
     for (Sigoid::DeclIter iter = range.first; iter != range.second; ++iter) {
         if (SubroutineDecl *source = dyn_cast<SubroutineDecl>(iter->second)) {
@@ -451,21 +437,21 @@ SubroutineDecl *findDecl(const AstRewriter &rewrites,
 
 } // End anonymous namespace.
 
-void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
+void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 {
-    // We scan the set of declarations for each direct super signature of sig.
-    // When a declaration is found which is not already declared in sig, we add
-    // it on good faith that all upcoming declarations will not conflict.
+    // We scan the set of declarations for each direct signature of the given
+    // model.  When a declaration is found which has not already been declared
+    // we add it on good faith that all upcoming declarations will not conflict.
     //
     // When a conflict occurs (that is, when two declarations exists with the
     // same name and type but have disjoint keyword sets) we remember which
-    // (non-direct) declarations in sig need an explicit redeclaration using the
-    // following SmallPtrSet.  Once all the declarations are processed, we
-    // iterate over the set and remove any declarations found to be in conflict.
+    // (non-direct) declarations in the model need an explicit redeclaration
+    // using the badDecls set.  Once all the declarations are processed, we
+    // remove those declarations found to be in conflict.
     typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
     BadDeclSet badDecls;
 
-    SignatureSet          &sigset       = sig->getSignatureSet();
+    SignatureSet          &sigset       = model->getSignatureSet();
     SignatureSet::iterator superIter    = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
@@ -473,7 +459,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
         Sigoid        *sigdecl = super->getDeclaration();
         AstRewriter    rewrites;
 
-        rewrites[sigdecl->getPercent()] = sig->getPercent();
+        rewrites[sigdecl->getPercent()] = model->getPercent();
         rewrites.installRewrites(super);
 
         Sigoid::DeclIter iter    = sigdecl->beginDecls();
@@ -482,7 +468,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
             if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(iter->second)) {
                 IdentifierInfo *name   = srDecl->getIdInfo();
                 SubroutineType *srType = srDecl->getType();
-                SubroutineDecl *decl   = findDecl(rewrites, sig, srDecl);
+                SubroutineDecl *decl   = findDecl(rewrites, model, srDecl);
 
                 // If a matching declaration was not found, apply the rewrites
                 // and construct a new indirect declaration node for this
@@ -491,10 +477,10 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                     SubroutineType *rewriteType = rewrites.rewrite(srType);
                     SubroutineDecl *rewriteDecl;
 
-                    rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, sig);
+                    rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, model);
                     rewriteDecl->setBaseDeclaration(srDecl);
-                    rewriteDecl->setDeclarativeRegion(sig);
-                    sig->addDecl(rewriteDecl);
+                    rewriteDecl->setDeclarativeRegion(model);
+                    model->addDecl(rewriteDecl);
                 } else if (decl->getBaseDeclaration()) {
                     // A declaration was found which has a base declaration
                     // (meaning that it was not directly declared in this
@@ -504,13 +490,13 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
                     SubroutineType *declType = decl->getType();
 
                     if (!declType->keywordsMatch(srType)) {
-                        Location          sigLoc = sig->getLocation();
+                        Location        modelLoc = model->getLocation();
                         SubroutineDecl *baseDecl = decl->getBaseDeclaration();
                         SourceLocation     sloc1 =
                             getSourceLocation(baseDecl->getLocation());
                         SourceLocation     sloc2 =
                             getSourceLocation(srDecl->getLocation());
-                        report(sigLoc, diag::MISSING_REDECLARATION)
+                        report(modelLoc, diag::MISSING_REDECLARATION)
                             << decl->getString() << sloc1 << sloc2;
                         badDecls.insert(decl);
                     }
@@ -528,7 +514,7 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
              iter != badDecls.end();
              ++iter) {
             SubroutineDecl *badDecl = *iter;
-            sig->removeDecl(badDecl);
+            model->removeDecl(badDecl);
             delete badDecl;
         }
     }
