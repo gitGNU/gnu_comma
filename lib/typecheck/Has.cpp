@@ -22,12 +22,7 @@ namespace {
 // signature exactly equal to target.
 bool hasExactSignature(Sigoid *source, SignatureType *target)
 {
-    Sigoid::sig_iterator iter    = source->beginSupers();
-    Sigoid::sig_iterator endIter = source->endSupers();
-
-    for ( ; iter != endIter; ++iter)
-        if (*iter == target) return true;
-    return false;
+    return source->getSignatureSet().contains(target);
 }
 
 bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
@@ -47,8 +42,9 @@ bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
     rewrites.addRewrite(sigoid->getPercent(), source->getType());
     rewrites.installRewrites(signature);
 
-    Sigoid::sig_iterator iter    = sigoid->beginSupers();
-    Sigoid::sig_iterator endIter = sigoid->endSupers();
+    SignatureSet          &sigset  = sigoid->getSignatureSet();
+    SignatureSet::iterator iter    = sigset.begin();
+    SignatureSet::iterator endIter = sigset.end();
     for ( ; iter != endIter; ++iter) {
         SignatureType *candidate = *iter;
         if (compareTypesUsingRewrites(rewrites, candidate, target))
@@ -109,14 +105,16 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
     else if (source->denotesPercent())
         return percentHas(source->getDeclaration(), target);
 
-    Domoid *domoid = source->getDomoidDecl();
-    SignatureDecl *principleSignature = domoid->getPrincipleSignature();
+    Domoid        *domoid    = source->getDomoidDecl();
+    SignatureDecl *principle = domoid->getPrincipleSignature();
 
-    SignatureDecl::sig_iterator iter = principleSignature->beginSupers();
-    SignatureDecl::sig_iterator endIter = principleSignature->endSupers();
+    SignatureSet          &sigset  = principle->getSignatureSet();
+    SignatureSet::iterator iter    = sigset.begin();
+    SignatureSet::iterator endIter = sigset.end();
+
     AstRewriter rewrites;
-
     rewrites.installRewrites(source);
+
     for ( ; iter != endIter; ++iter) {
         SignatureType *candidate = *iter;
         if (compareTypesUsingRewrites(rewrites, candidate, target))

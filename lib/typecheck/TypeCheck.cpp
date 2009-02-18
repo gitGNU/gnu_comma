@@ -154,7 +154,7 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
 
     // Register the signature.
     currentSig = getCurrentSignature();
-    currentSig->addSupersignature(superSig);
+    currentSig->addDirectSignature(superSig);
 
     return typeNode;
 }
@@ -465,8 +465,9 @@ void TypeCheck::ensureNecessaryRedeclarations(Sigoid *sig)
     typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
     BadDeclSet badDecls;
 
-    Sigoid::sig_iterator superIter    = sig->beginDirectSupers();
-    Sigoid::sig_iterator endSuperIter = sig->endDirectSupers();
+    SignatureSet          &sigset       = sig->getSignatureSet();
+    SignatureSet::iterator superIter    = sigset.beginDirect();
+    SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
         SignatureType *super   = *superIter;
         Sigoid        *sigdecl = super->getDeclaration();

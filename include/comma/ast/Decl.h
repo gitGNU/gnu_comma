@@ -10,11 +10,11 @@
 #define COMMA_AST_DECL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/SignatureSet.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/ParameterModes.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <map>
 
 namespace comma {
@@ -146,11 +146,14 @@ protected:
 // and varieties.
 class Sigoid : public ModelDecl, public DeclarativeRegion {
 
+    SignatureSet sigset;
+
 public:
     // Constructs an anonymous signature.
     Sigoid(AstKind kind, IdentifierInfo *percentId)
         : ModelDecl(kind, percentId),
-          DeclarativeRegion(kind) { }
+          DeclarativeRegion(kind),
+          sigset(this) { }
 
     // This constructor is used to create an anonymous signature which inherits
     // its percent node from a domain.  Used when creating principle signatures.
@@ -162,7 +165,8 @@ public:
            IdentifierInfo *idInfo,
            Location        loc)
         : ModelDecl(kind, percentId, idInfo, loc),
-          DeclarativeRegion(kind) { }
+          DeclarativeRegion(kind),
+          sigset(this) { }
 
     virtual ~Sigoid() { }
 
@@ -174,21 +178,14 @@ public:
     // otherwise returns NULL.
     VarietyDecl *getVariety();
 
-protected:
-    typedef llvm::SmallPtrSet<SignatureType*, 8> SignatureTable;
-    SignatureTable directSupers;
-    SignatureTable supersignatures;
+    // Accessors to the SignatureSet.
+    SignatureSet& getSignatureSet() { return sigset; }
+    const SignatureSet &getSignatureSet() const { return sigset; }
 
-public:
-    // Adds a direct super signature.
-    void addSupersignature(SignatureType *supersignature);
-
-    typedef SignatureTable::const_iterator sig_iterator;
-    sig_iterator beginDirectSupers() const { return directSupers.begin(); }
-    sig_iterator endDirectSupers()   const { return directSupers.end(); }
-
-    sig_iterator beginSupers() const { return supersignatures.begin(); }
-    sig_iterator endSupers()   const { return supersignatures.end(); }
+    // Adds a direct signature to the underlying signature set.
+    bool addDirectSignature(SignatureType *signature) {
+        return sigset.addDirectSignature(signature);
+    }
 
     static bool classof(const Sigoid *node) { return true; }
     static bool classof(const Ast *node) {

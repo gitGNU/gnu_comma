@@ -66,42 +66,12 @@ ModelDecl::ModelDecl(AstKind         kind,
 
 Sigoid::Sigoid(AstKind kind, DomainType *percent)
     : ModelDecl(kind, percent->getIdInfo()),
-      DeclarativeRegion(kind)
+      DeclarativeRegion(kind),
+      sigset(this)
 {
     assert(percent->denotesPercent());
 }
 
-void Sigoid::addSupersignature(SignatureType *supersignature)
-{
-    if (directSupers.insert(supersignature)) {
-        Sigoid *superDecl = supersignature->getDeclaration();
-        AstRewriter rewriter;
-
-        // Rewrite the percent node of the super signature to that of this
-        // signature.
-        rewriter.addRewrite(superDecl->getPercent(), getPercent());
-
-        // If the supplied super signature is parameterized, install rewrites
-        // mapping the formal parameters of the signature to the actual
-        // parameters of the type.
-        if (VarietyDecl *variety = superDecl->getVariety()) {
-            unsigned arity = variety->getArity();
-            for (unsigned i = 0; i < arity; ++i) {
-                DomainType *formal = variety->getFormalDomain(i);
-                DomainType *actual = supersignature->getActualParameter(i);
-                rewriter.addRewrite(formal, actual);
-            }
-        }
-
-        sig_iterator iter = superDecl->beginSupers();
-        sig_iterator endIter = superDecl->endSupers();
-        for ( ; iter != endIter; ++iter) {
-            SignatureType *rewrite = rewriter.rewrite(*iter);
-            supersignatures.insert(rewrite);
-        }
-        supersignatures.insert(supersignature);
-    }
-}
 
 //===----------------------------------------------------------------------===//
 // SignatureDecl
