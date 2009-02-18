@@ -15,7 +15,6 @@
 #include "comma/basic/ParameterModes.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/FoldingSet.h"
-#include <map>
 
 namespace comma {
 
