@@ -28,7 +28,7 @@ TypeCheck::~TypeCheck() { }
 
 void TypeCheck::deleteNode(Node node)
 {
-    Ast *ast = Node::lift<Ast>(node);
+    Ast *ast = lift_node<Ast>(node);
     if (ast && ast->isDeletable()) delete ast;
 }
 
@@ -50,10 +50,9 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
                                      Node            typeNode,
                                      Location        loc)
 {
-    ModelType *type = lift<ModelType>(typeNode);
+    ModelType *type = cast_node<ModelType>(typeNode);
 
     assert(scope.getKind() == MODEL_SCOPE);
-    assert(type && "Bad node kind!");
 
     // Check that the parameter type denotes a signature.  For each parameter,
     // we create an AbstractDomainType to represent the formal, and add that
@@ -86,8 +85,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     // Convert each parameter node into an AbstractDomainDecl.
     for (Descriptor::paramIterator iter = desc.beginParams();
          iter != desc.endParams(); ++iter) {
-        AbstractDomainDecl *domain = lift<AbstractDomainDecl>(*iter);
-        assert(domain && "Bad Node kind!");
+        AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
         domains.push_back(domain->getType());
     }
 
@@ -137,10 +135,8 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 Node TypeCheck::acceptWithSupersignature(Node     typeNode,
                                          Location loc)
 {
-    ModelType     *type = lift<ModelType>(typeNode);
+    ModelType     *type = cast_node<ModelType>(typeNode);
     SignatureType *superSig;
-
-    assert(type && "Bad node kind!");
 
     // Simply check that the node denotes a signature.
     superSig = dyn_cast<SignatureType>(type);
@@ -227,7 +223,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     // First, populate the argument vector with any positional parameters.
     for (unsigned i = 0; i < numPositional; ++i)
-        arguments[i] = lift<DomainType>(argumentNodes[i]);
+        arguments[i] = lift_node<DomainType>(argumentNodes[i]);
 
     // Process any keywords provided.
     for (unsigned i = 0; i < numKeywords; ++i) {
@@ -264,7 +260,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // Lift the argument node and add it to the set of arguments in its
         // proper position.
         DomainType *argument =
-            lift<DomainType>(argumentNodes[i + numPositional]);
+            lift_node<DomainType>(argumentNodes[i + numPositional]);
         arguments[keywordIdx] = argument;
     }
 
@@ -276,7 +272,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                 resolveArgumentType(candidate, &arguments[0], i);
 
         if (!argument) {
-                ModelType *model = lift<ModelType>(argumentNodes[i]);
+                ModelType *model = lift_node<ModelType>(argumentNodes[i]);
                 report(argLoc, diag::NOT_A_DOMAIN) << model->getString();
                 return Node::getInvalidNode();
         }
@@ -402,10 +398,9 @@ SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
 DomainType *TypeCheck::ensureDomainType(Node     node,
                                         Location loc) const
 {
-    DomainType *dom = lift<DomainType>(node);
+    DomainType *dom = lift_node<DomainType>(node);
     if (!dom) {
-        ModelType *model = lift<ModelType>(node);
-        assert(model && "Bad node kind!");
+        ModelType *model = cast_node<ModelType>(node);
         report(loc, diag::NOT_A_DOMAIN) << model->getString();
         return 0;
     }
@@ -524,8 +519,7 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Node            typeNode,
                                   Location        loc)
 {
-    Type *type = lift<Type>(typeNode);
-    assert(type && "Bad node kind!");
+    Type *type = cast_node<Type>(typeNode);
 
     if (DomainType *domain = ensureDomainType(type, loc)) {
         ObjectDecl *decl = new ObjectDecl(name, domain, loc);
@@ -634,8 +628,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         for (Descriptor::paramIterator iter = desc.beginParams();
              iter != desc.endParams(); ++iter) {
 
-            ParamValueDecl *param = lift<ParamValueDecl>(*iter);
-            assert(param && "Function descriptor with invalid parameter decl!");
+            ParamValueDecl *param = cast_node<ParamValueDecl>(*iter);
 
             for (paramVec::iterator cursor = parameters.begin();
                  cursor != parameters.end(); ++cursor) {
@@ -703,8 +696,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
-    SubroutineDecl *srDecl = lift<SubroutineDecl>(declarationNode);
-    assert(srDecl && "Bad node kind!");
+    SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
 
     // Enter a scope for the subroutine definition and populate with the formal
     // parmeter bindings.  Set the current declarative region to be that of the

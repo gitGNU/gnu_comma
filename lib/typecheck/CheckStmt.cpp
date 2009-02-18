@@ -19,10 +19,8 @@ using llvm::isa;
 // FIXME:  Imports are not statements, they are "clauses".
 void TypeCheck::acceptImportStatement(Node importedNode, Location loc)
 {
-    ModelType *model = lift<ModelType>(importedNode);
+    ModelType *model = cast_node<ModelType>(importedNode);
     DomainType *domain;
-
-    assert(model && "Bad node kind!");
 
     domain = dyn_cast<DomainType>(model);
     if (!domain) {

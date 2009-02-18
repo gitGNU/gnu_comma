@@ -121,10 +121,10 @@ private:
     AstResource     &resource;
     CompilationUnit *compUnit;
 
-    // Lifts a Node to the corresponding Ast type.  If the node is not of the
+    // Converts a Node to the corresponding Ast type.  If the node is not of the
     // supplied type, this function returns 0.
     template <class T>
-    static T *lift(Node &node) {
+    static T *lift_node(Node &node) {
         return llvm::dyn_cast_or_null<T>(Node::lift<Ast>(node));
     }
 

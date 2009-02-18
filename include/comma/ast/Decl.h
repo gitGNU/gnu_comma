@@ -102,9 +102,6 @@ class ModelDecl : public Decl, public DeclarativeRegion {
 public:
     virtual ~ModelDecl() { }
 
-    // Access the location info of this node.
-    Location getLocation() const { return location; }
-
     virtual const ModelType *getType() const = 0;
 
     ModelType *getType() {
