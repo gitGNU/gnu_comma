@@ -79,6 +79,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const FunctorDecl*>(this);
     case Ast::AST_FunctionDecl:
         return static_cast<const FunctionDecl*>(this);
+    case Ast::AST_AbstractDomainDecl:
+        return static_cast<const AbstractDomainDecl*>(this);
     }
 }
 

@@ -39,7 +39,7 @@ protected:
     StmtSequence(AstKind kind) : Stmt(kind) { }
 
 public:
-    void addStmt(Stmt *stmt) { stmtSequence.push_back(stmt); }
+    void addStmt(Stmt *stmt) { statements.push_back(stmt); }
 
     typedef llvm::SmallVector<Stmt*, 16>::iterator StmtIter;
     StmtIter beginStatements() { return statements.begin(); }
@@ -64,9 +64,16 @@ private:
 class BlockStmt : public StmtSequence, public DeclarativeRegion {
 
 public:
-    BlockStmt() : StmtSequence(AST_BlockStmt), label(0) { }
+    BlockStmt(DeclarativeRegion *parent)
+        : StmtSequence(AST_BlockStmt),
+          DeclarativeRegion(AST_BlockStmt, parent),
+          label(0) { }
 
-    BlockStmt(IdentifierInfo *label) : StmtSequence(AST_BlockStmt), label(label) { }
+    BlockStmt(DeclarativeRegion *parent,
+              IdentifierInfo    *label)
+        : StmtSequence(AST_BlockStmt),
+          DeclarativeRegion(AST_BlockStmt, parent),
+          label(label) { }
 
     IdentifierInfo *getLabel() { return label; }
 
@@ -77,6 +84,43 @@ public:
 
 private:
     IdentifierInfo *label;
+};
+
+//===----------------------------------------------------------------------===//
+// ProcedureStmt
+//
+// Representation of a procedure call statement.
+class ProcedureCallStmt : public Stmt {
+
+public:
+    ProcedureCallStmt(ProcedureDecl *connective,
+                      Expr         **arguments,
+                      unsigned       numArgs,
+                      Location       loc);
+
+    ~ProcedureCallStmt();
+
+    ProcedureDecl *getConnective() const { return connective; }
+
+    unsigned getNumArgs() const { return numArgs; }
+
+    Expr *getArg(unsigned i) {
+        assert(i < numArgs && "Index out of range!");
+        return arguments[i];
+    }
+
+    Location getLocation() const { return location; }
+
+    static bool classof(const ProcedureCallStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ProcedureCallStmt;
+    }
+
+private:
+    ProcedureDecl *connective;
+    Expr         **arguments;
+    unsigned       numArgs;
+    Location       location;
 };
 
 } // End comma namespace.

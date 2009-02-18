@@ -91,6 +91,13 @@ DiagnosticStream &DiagnosticStream::operator<<(const SourceLocation &sloc)
     return *this;
 }
 
+DiagnosticStream &DiagnosticStream::operator<<(const IdentifierInfo *idInfo)
+{
+    message << idInfo->getString();
+    emitFormatComponent();
+    return *this;
+}
+
 DiagnosticStream &Diagnostic::report(const SourceLocation &loc, diag::Kind kind)
 {
     return diagstream.initialize(loc, messages[kind]);

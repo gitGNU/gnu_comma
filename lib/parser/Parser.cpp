@@ -180,12 +180,15 @@ bool Parser::seekCloseParen()
 
         case Lexer::TKN_RPAREN:
             depth--;
+            ignoreToken();
             if (depth == 0) return true;
             break;
 
         case Lexer::TKN_EOT:
             return false;
         }
+
+        ignoreToken();
     }
 }
 
@@ -291,8 +294,8 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
     return info;
 }
 
-// Parses an end tag.  If expectedTag is non-null, parse "end <tag>;", otherwise
-// parse "end;".
+// Parses an end tag.  If expectedTag is non-null, parse "end <tag>", otherwise
+// parse "end".
 bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 {
     bool status = requireToken(Lexer::TKN_END);
@@ -312,7 +315,6 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
                 }
             }
         }
-        status = requireToken(Lexer::TKN_SEMI);
     }
     return status;
 }
@@ -434,18 +436,34 @@ void Parser::parseWithDeclarations()
 
 void Parser::parseAddComponents()
 {
+    Descriptor desc;
+    Node       component;
     client.beginAddExpression();
 
     for (;;) {
         switch (currentTokenCode()) {
-        default: return;
+        default:
+            client.endAddExpression();
+            return;
 
         case Lexer::TKN_FUNCTION:
-            parseFunctionDeclaration();
+            component = parseFunctionDeclaration(desc);
+            if (reduceToken(Lexer::TKN_IS)) {
+                endTagStack.push(EndTagEntry(NAMED_TAG,
+                                             desc.getLocation(),
+                                             desc.getIdInfo()));
+                parseSubroutineBody(component);
+            }
             break;
 
         case Lexer::TKN_PROCEDURE:
-            parseProcedureDeclaration();
+            component = parseProcedureDeclaration(desc);
+            if (reduceToken(Lexer::TKN_IS)) {
+                endTagStack.push(EndTagEntry(NAMED_TAG,
+                                             desc.getLocation(),
+                                             desc.getIdInfo()));
+                parseSubroutineBody(component);
+            }
             break;
 
         case Lexer::TKN_IMPORT:
@@ -454,7 +472,6 @@ void Parser::parseAddComponents()
         }
         requireToken(Lexer::TKN_SEMI);
     }
-    client.endAddExpression();
 }
 
 void Parser::parseModelDeclaration(Descriptor &desc)
@@ -512,6 +529,7 @@ void Parser::parseModel()
     if (!parseEndTag(desc.getIdInfo()))
         seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
 
+    requireToken(Lexer::TKN_SEMI);
     client.endModelDefinition();
 }
 
@@ -699,25 +717,37 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
     }
 }
 
-Node Parser::parseFunctionDeclaration(bool allowBody)
+Node Parser::parseFunctionDeclaration()
 {
-    Descriptor desc(Descriptor::DESC_Function);
+    Descriptor desc;
+    return parseFunctionDeclaration(desc);
+}
 
+Node Parser::parseFunctionDeclaration(Descriptor &desc)
+{
     assert(currentTokenIs(Lexer::TKN_FUNCTION));
+
+    desc.initialize(Descriptor::DESC_Function);
     ignoreToken();
-    return parseSubroutineDeclaration(desc, allowBody);
+    return parseSubroutineDeclaration(desc);
 }
 
-Node Parser::parseProcedureDeclaration(bool allowBody)
+Node Parser::parseProcedureDeclaration()
 {
-    Descriptor desc(Descriptor::DESC_Procedure);
-
-    assert(currentTokenIs(Lexer::TKN_PROCEDURE));
-    ignoreToken();
-    return parseSubroutineDeclaration(desc, allowBody);
+    Descriptor desc;
+    return parseProcedureDeclaration(desc);
 }
 
-Node Parser::parseSubroutineDeclaration(Descriptor &desc, bool allowBody)
+Node Parser::parseProcedureDeclaration(Descriptor &desc)
+{
+    assert(currentTokenIs(Lexer::TKN_PROCEDURE));
+
+    desc.initialize(Descriptor::DESC_Procedure);
+    ignoreToken();
+    return parseSubroutineDeclaration(desc);
+}
+
+Node Parser::parseSubroutineDeclaration(Descriptor &desc)
 {
     Location    location = currentLocation();
     IdentifierInfo *name = parseFunctionIdentifierInfo();
@@ -750,13 +780,14 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc, bool allowBody)
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
+
     return Node(client.acceptSubroutineDeclaration(desc, bodyFollows));
 }
 
-// This parser is called just after the 'is' token begining a function or
-// procedure definition.
-void Parser::parseSubroutineBody(IdentifierInfo *name)
+void Parser::parseSubroutineBody(Node declarationNode)
 {
+    client.beginSubroutineDefinition(declarationNode);
+
     while (currentTokenIs(Lexer::TKN_IDENTIFIER) ||
            currentTokenIs(Lexer::TKN_FUNCTION))
         parseDeclaration();
@@ -764,10 +795,17 @@ void Parser::parseSubroutineBody(IdentifierInfo *name)
     requireToken(Lexer::TKN_BEGIN);
 
     while (!(currentTokenIs(Lexer::TKN_END) ||
-             currentTokenIs(Lexer::TKN_EOT)))
+             currentTokenIs(Lexer::TKN_EOT))) {
         parseStatement();
+        requireToken(Lexer::TKN_SEMI);
+    }
 
-    parseEndTag(name);
+    EndTagEntry tagEntry = endTagStack.top();
+    assert(tagEntry.kind == NAMED_TAG && "Inconsistent end tag stack!");
+
+    endTagStack.pop();
+    parseEndTag(tagEntry.tag);
+    client.endSubroutineDefinition();
 }
 
 Node Parser::parseDeclaration()
@@ -778,7 +816,7 @@ Node Parser::parseDeclaration()
         return Node::getInvalidNode();
 
     case Lexer::TKN_IDENTIFIER:
-        return parseValueDeclaration();
+        return parseObjectDeclaration();
 
     case Lexer::TKN_FUNCTION:
         return parseFunctionDeclaration();
@@ -788,14 +826,17 @@ Node Parser::parseDeclaration()
     }
 }
 
-Node Parser::parseValueDeclaration(bool allowInitializer)
+Node Parser::parseObjectDeclaration()
 {
-    Location        loc;
     IdentifierInfo *id;
     Node            type;
+    Location        loc;
+    Node            init;
+
+    assert(currentTokenIs(Lexer::TKN_IDENTIFIER));
 
     loc = currentLocation();
-    id = parseIdentifierInfo();
+    id  = parseIdentifierInfo();
 
     if (!(id && requireToken(Lexer::TKN_COLON))) {
         seekAndConsumeToken(Lexer::TKN_SEMI);
@@ -815,7 +856,16 @@ Node Parser::parseValueDeclaration(bool allowInitializer)
             return client.acceptDeclaration(id, type, loc);
 
         case Lexer::TKN_ASSIGN:
-            assert(false && "Value initializers not yet implemented.");
+            ignoreToken();
+            init = parseExpr();
+            if (init.isValid()) {
+                Node result = client.acceptDeclaration(id, type, loc);
+                client.acceptDeclarationInitializer(result, init);
+                requireToken(Lexer::TKN_SEMI);
+                return result;
+            }
+            else
+                seekAndConsumeToken(Lexer::TKN_SEMI);
             return Node::getInvalidNode();
         }
     else {

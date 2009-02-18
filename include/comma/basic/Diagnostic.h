@@ -9,6 +9,7 @@
 #ifndef COMMA_BASIC_DIAGNOSTIC_HDR_GUARD
 #define COMMA_BASIC_DIAGNOSTIC_HDR_GUARD
 
+#include "comma/basic/IdentifierInfo.h"
 #include "comma/basic/Location.h"
 #include <iostream>
 #include <sstream>
@@ -44,6 +45,8 @@ public:
     DiagnosticStream &operator<<(char c);
 
     DiagnosticStream &operator<<(const SourceLocation &sloc);
+
+    DiagnosticStream &operator<<(const IdentifierInfo *idInfo);
 
 private:
     void emitFormatComponent();

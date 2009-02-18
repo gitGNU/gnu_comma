@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -291,6 +291,15 @@ DomainType *SubroutineType::getArgType(unsigned i) const
 {
     assert(i < getArity() && "Index out of range!");
     return parameterInfo[i].getPointer();
+}
+
+int SubroutineType::getKeywordIndex(IdentifierInfo *key) const
+{
+    for (unsigned i = 0; i < getArity(); ++i) {
+        if (getKeyword(i) == key)
+            return i;
+    }
+    return -1;
 }
 
 ParameterMode SubroutineType::getParameterMode(unsigned i) const

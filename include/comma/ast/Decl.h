@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -326,7 +326,9 @@ public:
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
-        return kind == AST_DomainDecl || kind == AST_FunctorDecl;
+        return (kind == AST_DomainDecl  ||
+                kind == AST_FunctorDecl ||
+                kind == AST_AbstractDomainDecl);
     }
 
 protected:
@@ -394,8 +396,7 @@ public:
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        AstKind kind = node->getKind();
-        return kind == AST_DomainDecl || kind == AST_FunctorDecl;
+        return node->getKind() == AST_DomainDecl;
     }
 
 private:
@@ -454,7 +455,7 @@ private:
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
-class AbstractDomainDecl : public Domoid
+class AbstractDomainDecl : public Domoid, public DeclarativeRegion
 {
 public:
     AbstractDomainDecl(IdentifierInfo *name,
@@ -511,6 +512,10 @@ public:
 
     IdentifierInfo *getKeyword(unsigned i) const {
         return routineType->getKeyword(i);
+    }
+
+    int getKeywordIndex(IdentifierInfo *key) const {
+        return routineType->getKeywordIndex(key);
     }
 
     DomainType *getArgType(unsigned i) const {
@@ -653,16 +658,19 @@ public:
 class ValueDecl : public Decl {
 
 protected:
-    ValueDecl(AstKind kind, IdentifierInfo *name, Location loc, Type *type)
+    ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
         : Decl(kind, name, loc),
-          type(type) { }
+          type(type) {
+        assert(this->denotesValueDecl());
+    }
 
 public:
     const Type *getType() const { return type; }
+    Type       *getType()       { return type; }
 
     static bool classof(const ValueDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_ParamValueDecl;
+        return node->denotesValueDecl();
     }
 
 protected:
@@ -679,10 +687,10 @@ class ParamValueDecl : public ValueDecl {
 
 public:
     ParamValueDecl(IdentifierInfo *name,
-                   Location        loc,
                    DomainType     *type,
-                   ParameterMode   mode = MODE_DEFAULT)
-        : ValueDecl(AST_ParamValueDecl, name, loc, type) {
+                   ParameterMode   mode,
+                   Location        loc)
+        : ValueDecl(AST_ParamValueDecl, name, type, loc) {
         // Store the mode for this decl in the bit field provided by our
         // base Ast instance.
         //
@@ -709,6 +717,44 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ParamValueDecl;
     }
+};
+
+//===----------------------------------------------------------------------===//
+// ObjectDecl
+//
+// Object declarations denote objects of a given type.  They may optionally be
+// associated with an initial value given by an expression.
+class ObjectDecl : public ValueDecl {
+
+public:
+    ObjectDecl(IdentifierInfo *name,
+               DomainType *type,
+               Location loc,
+               Expr *init = 0)
+        : ValueDecl(AST_ObjectDecl, name, type, loc),
+          initialization(init) { }
+
+    // Returns true if this object declaration is associated with an
+    // initialization expression.
+    bool hasInitializer() const { return initialization != 0; }
+
+    // Returns the initialization expression associated with this object decl,
+    // or NULL if there is no such association.
+    Expr *getInitializer() const { return initialization; }
+
+    // Sets the initialization expression for this declaration.  Owership of the
+    // expression is passed to the declaration.
+    void setInitializer(Expr *init) { initialization = init; }
+
+    // Support isa and dyn_cast.
+    static bool classof(const ObjectDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ObjectDecl;
+    }
+
+private:
+    Expr *initialization;
+
 };
 
 //===----------------------------------------------------------------------===//

@@ -9,13 +9,13 @@
 #ifndef COMMA_TYPECHECK_TYPECHECK_HDR_GUARD
 #define COMMA_TYPECHECK_TYPECHECK_HDR_GUARD
 
+#include "comma/ast/AstBase.h"
+#include "comma/ast/Cunit.h"
+#include "comma/ast/AstResource.h"
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
 #include "comma/parser/ParseClient.h"
-#include "comma/ast/AstBase.h"
-#include "comma/ast/Cunit.h"
-#include "comma/ast/Scope.h"
-#include "comma/ast/AstResource.h"
+#include "comma/typecheck/Scope.h"
 #include "llvm/Support/Casting.h"
 #include <iosfwd>
 
@@ -56,6 +56,8 @@ public:
                            Node            type,
                            Location        loc);
 
+    void acceptDeclarationInitializer(Node declNode, Node initializer);
+
     Node acceptPercent(Location loc);
 
     Node acceptTypeIdentifier(IdentifierInfo *info, Location loc);
@@ -87,16 +89,36 @@ public:
     Node acceptSubroutineDeclaration(Descriptor &desc,
                                      bool        definitionFollows);
 
-    void endFunctionDefinition();
+    // Begin a subroutine definition, using a valid node returned from
+    // acceptSubroutineDeclaration to establish context.
+    void beginSubroutineDefinition(Node declarationNode);
+    void endSubroutineDefinition();
 
     void acceptImportStatement(Node importedType, Location loc);
+
+    Node acceptKeywordSelector(IdentifierInfo *key,
+                               Location        loc,
+                               Node            exprNode,
+                               bool            forSubroutine);
+
+    Node acceptDirectName(IdentifierInfo *name, Location loc);
+
+    Node acceptFunctionCall(IdentifierInfo  *name,
+                            Location         loc,
+                            Node            *args,
+                            unsigned         numArgs);
+
+    Node acceptProcedureCall(IdentifierInfo  *name,
+                             Location         loc,
+                             Node            *args,
+                             unsigned         numArgs);
 
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 
 private:
-    Diagnostic &diagnostic;
-    AstResource &resource;
+    Diagnostic      &diagnostic;
+    AstResource     &resource;
     CompilationUnit *compUnit;
 
     // Lifts a Node to the corresponding Ast type.  If the node is not of the
@@ -104,6 +126,13 @@ private:
     template <class T>
     static T *lift(Node &node) {
         return llvm::dyn_cast_or_null<T>(Node::lift<Ast>(node));
+    }
+
+    // Casts the given Node to the corresponding type and asserts that the
+    // conversion was successful.
+    template <class T>
+    static T *cast_node(Node &node) {
+        return llvm::cast<T>(Node::lift<Ast>(node));
     }
 
     ModelDecl *currentModel;
@@ -125,52 +154,11 @@ private:
     // The top level scope is a compilation unit scope and never changes during
     // analysis.  The current scope is some inner scope of the top scope and
     // reflects the current state of the analysis.
-    Scope *topScope;
-    Scope *currentScope;
+    Scope scope;
 
     unsigned errorCount;
 
     CompilationUnit *currentCompUnit() const { return compUnit; }
-
-    Scope::ScopeKind currentScopeKind() const {
-        return currentScope->getKind();
-    }
-
-    void pushScope() {
-        currentScope = currentScope->pushScope();
-    }
-
-    void pushModelScope() {
-        currentScope = currentScope->pushScope(Scope::MODEL_SCOPE);
-    }
-
-    void pushFunctionScope() {
-        currentScope = currentScope->pushScope(Scope::FUNCTION_SCOPE);
-    }
-
-    void popScope() {
-        // FIXME: There should be a "scope cache" in place so that malloc
-        // traffic is kept to a reasonable minimum.
-        Scope *parent = currentScope->popScope();
-        delete currentScope;
-        currentScope = parent;
-    }
-
-    //===------------------------------------------------------------------===//
-    // Lookup operations.
-    //===------------------------------------------------------------------===//
-
-    void addModel(ModelDecl *type) {
-        currentScope->addModel(type);
-    }
-
-    void addValue(ValueDecl *value) {
-        currentScope->addValue(value);
-    }
-
-    ModelDecl *lookupModel(IdentifierInfo *info, bool traverse = true) {
-        return currentScope->lookupModel(info, traverse);
-    }
 
     //===------------------------------------------------------------------===//
     // Utility functions.
@@ -190,6 +178,30 @@ private:
     static SignatureType *resolveArgumentType(ParameterizedType *target,
                                               DomainType **actuals,
                                               unsigned numActuals);
+
+    bool resolveDirectDecl(Decl           *candidate,
+                           IdentifierInfo *name,
+                           Location        loc,
+                           Node           &node);
+
+    bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
+
+    Node checkSubroutineCall(SubroutineDecl *decl,
+                             Location        loc,
+                             Expr          **args,
+                             unsigned        numArgs);
+
+
+    Node acceptSubroutineCall(IdentifierInfo *name,
+                              Location        loc,
+                              Node           *args,
+                              unsigned        numArgs,
+                              bool            checkFunction);
+
+    static void lookupSubroutineDecls(Homonym *homonym,
+                                      unsigned arity,
+                                      llvm::SmallVector<SubroutineDecl*, 8> &routines,
+                                      bool lookupFunctions);
 
     bool has(DomainType *source, SignatureType *target);
 

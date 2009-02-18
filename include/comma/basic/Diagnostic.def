@@ -64,6 +64,8 @@ DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
            "Redeclaration required.")
 DIAGNOSTIC(TYPE_HAS_NO_SUCH_KEYWORD, ERROR,
            "There is no argument keyword named `%0' defined for type `%0'.")
+DIAGNOSTIC(SUBROUTINE_HAS_NO_SUCH_KEYWORD, ERROR,
+           "There is no argument keyword named `%0' defined for subroutine `%0'.")
 DIAGNOSTIC(DUPLICATE_KEYWORD, ERROR,
            "Duplicate argument keyword `%0'.")
 DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
@@ -72,3 +74,16 @@ DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
 DIAGNOSTIC(IMPORT_FROM_NON_DOMAIN, ERROR,
            "`%0' does not denote a domain, and so cannot be imported.")
+DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
+           "The name `%0' is not visible.")
+DIAGNOSTIC(PROCEDURE_IN_EXPRESSION, ERROR,
+           "Procedures cannot be used in an expression context.")
+DIAGNOSTIC(WRONG_NUM_ARGS_FOR_SUBROUTINE, ERROR,
+           "Wrong number of arguments for subroutine `%0'.")
+DIAGNOSTIC(INCOMPATABLE_TYPES, ERROR,
+           "Incompatable type.")
+DIAGNOSTIC(AMBIGUOUS_EXPRESSION, ERROR,
+           "Ambiguous expression.")
+DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
+           "Multiple imports cause declaration hiding.")
+

@@ -32,19 +32,25 @@ class BlockStmt;
 class CompilationUnit;
 class Decl;
 class DeclarativeRegion;
+class DeclRefExpr;
 class DomainDecl;
 class DomainType;
 class Domoid;
+class Expr;
+class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
 class FunctorDecl;
 class FunctorType;
+class KeywordSelector;
 class ModelDecl;
 class ModelType;
 class NamedDecl;
+class ObjectDecl;
 class ParameterizedModel;
 class ParameterizedType;
 class ParamValueDecl;
+class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
 class Sigoid;
@@ -84,7 +90,13 @@ public:
     enum AstKind {
 
         //
-        // Decl nodes.
+        // Decl nodes.  There are currently three sub-categories.
+        //
+        //    - Model decls which denotes signatures and domains.
+        //
+        //    - Subroutine decls denoting functions and procedures.
+        //
+        //    - Value decls denoting elements of a domain.
         //
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
@@ -95,6 +107,7 @@ public:
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
+        AST_ObjectDecl,         ///< ObjectDecl
 
         //
         // Type nodes.
@@ -107,24 +120,41 @@ public:
         AST_ProcedureType,      ///< ProcedureType
 
         //
+        // Expr nodes.
+        //
+        AST_DeclRefExpr,        ///< DeclRefExpr
+        AST_KeywordSelector,    ///< KeywordSelector
+        AST_FunctionCallExpr,   ///< FunctionCallExpr
+
+        //
         // Stmt nodes.
         //
         AST_BlockStmt,          ///< BlockStmt
+        AST_ProcedureCallStmt,  ///< ProcedureCallStmt
 
         //
         // Delimitiers providing classification of the above codes.
         //
         FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_ParamValueDecl,
+        LAST_Decl       = AST_ObjectDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,
 
+        FIRST_ValueDecl = AST_ParamValueDecl,
+        LAST_ValueDecl  = AST_ObjectDecl,
+
         FIRST_Type      = AST_SignatureType,
         LAST_Type       = AST_ProcedureType,
 
+        FIRST_ModelType = AST_SignatureType,
+        LAST_ModelType  = AST_DomainType,
+
+        FIRST_Expr      = AST_DeclRefExpr,
+        LAST_Expr       = AST_FunctionCallExpr,
+
         FIRST_Stmt      = AST_BlockStmt,
-        LAST_Stmt       = AST_BlockStmt
+        LAST_Stmt       = AST_ProcedureCallStmt
     };
 
     virtual ~Ast() { }
@@ -160,28 +190,12 @@ public:
 
     /// \brief Returns true if this node denotes a declaration.
     bool denotesDecl() const {
-        return (FIRST_Decl <= this->getKind() &&
-                this->getKind() <= LAST_Decl);
+        return (FIRST_Decl <= kind && kind <= LAST_Decl);
     }
 
     /// \brief Returns true if this node denotes a Model.
     bool denotesModelDecl() const {
-        return (FIRST_ModelDecl <= this->getKind() &&
-                this->getKind() <= LAST_ModelDecl);
-    }
-
-    /// \brief Returns true if this node denotes a Type.
-    bool denotesType() const {
-        return (FIRST_Type <= this->getKind() &&
-                this->getKind() <= LAST_Type);
-    }
-
-    /// \brief Returns true if this node denotes a model type.
-    bool denotesModelType() const {
-        return (kind == AST_DomainType    ||
-                kind == AST_SignatureType ||
-                kind == AST_VarietyType   ||
-                kind == AST_FunctorType);
+        return (FIRST_ModelDecl <= kind && kind <= LAST_ModelDecl);
     }
 
     /// \brief Returns true if this node denotes a subroutine decl (i.e. either
@@ -191,17 +205,36 @@ public:
                 kind == AST_ProcedureDecl);
     }
 
-    /// \brief Returns ture is this node denotes a subroutine type (i.e. either
+    /// \brief Returns true if this node denotes a Value.
+    bool denotesValueDecl() const {
+        return (FIRST_ValueDecl <= kind && kind <= LAST_ValueDecl);
+    }
+
+    /// \brief Returns true if this node denotes a Type.
+    bool denotesType() const {
+        return (FIRST_Type <= kind && kind <= LAST_Type);
+    }
+
+    /// \brief Returns true if this node denotes a model type.
+    bool denotesModelType() const {
+        return (FIRST_ModelType <= kind && kind <= LAST_ModelType);
+    }
+
+    /// \brief Returns true if this node denotes a subroutine type (i.e. either
     /// a procedure of function type).
     bool denotesSubroutineType() const {
         return (kind == AST_FunctionType ||
                 kind == AST_ProcedureType);
     }
 
+    /// \brief Returns true if this node denotes a expression.
+    bool denotesExpr() const {
+        return (FIRST_Expr <= kind && kind <= LAST_Expr);
+    }
+
     /// \brief Returns true if this node denotes a Stmt.
     bool denotesStmt() const {
-        return (FIRST_Stmt <= this->getKind() &&
-                this->getKind() <= LAST_Stmt);
+        return (FIRST_Stmt <= kind && kind <= LAST_Stmt);
     }
 
     /// \brief Support isa and dyn_cast.
@@ -296,7 +329,7 @@ public:
     static bool classof(const SignatureDecl *node) { return true; }
     static bool classof(const VarietyDecl   *node) { return true; }
     static bool classof(const FunctorDecl   *node) { return true; }
-
+    static bool classof(const AbstractDomainDecl *node) { return true; }
 private:
     Ast::AstKind       declKind;
     DeclarativeRegion *parent;

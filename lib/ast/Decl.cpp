@@ -12,6 +12,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
@@ -34,6 +35,8 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
         return static_cast<AddDecl*>(this);
     case AST_FunctionDecl:
         return static_cast<FunctionDecl*>(this);
+    case AST_ProcedureDecl:
+        return static_cast<ProcedureDecl*>(this);
     }
 }
 
@@ -281,9 +284,50 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
                                        Location        loc)
     : Domoid(AST_AbstractDomainDecl,
              type->getDeclaration()->getPercent()->getIdInfo(), name, loc),
+      DeclarativeRegion(AST_AbstractDomainDecl),
       signature(type)
 {
     abstractType = new DomainType(this);
+
+    AstRewriter rewriter;
+    Sigoid     *sigoid = type->getDeclaration();
+
+    // Establish a mapping from the % node of the signature to the abstract
+    // domain type.
+    rewriter.addRewrite(sigoid->getPercent(), abstractType);
+
+    // Establish mappings from the formal parameters of the signature to the
+    // actual parameters of the type (this is a no-op if the signature is not
+    // parametrized).
+    rewriter.installRewrites(type);
+
+    for (Sigoid::DeclIter iter = sigoid->beginDecls();
+         iter != sigoid->endDecls(); ++iter) {
+        Decl *decl    = iter->second;
+        Decl *newDecl = 0;
+
+        switch (decl->getKind()) {
+
+        default:
+            assert(false && "Bad type of declaration in signature!");
+            break;
+
+        case AST_FunctionDecl: {
+            FunctionDecl *fdecl = cast<FunctionDecl>(decl);
+            FunctionType *ftype = rewriter.rewrite(fdecl->getType());
+            newDecl = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
+            break;
+        }
+
+        case AST_ProcedureDecl : {
+            ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
+            ProcedureType *ptype = rewriter.rewrite(pdecl->getType());
+            newDecl = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
+            break;
+        }
+        }
+        this->addDecl(newDecl);
+    }
 }
 
 //===----------------------------------------------------------------------===//
@@ -375,7 +419,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
 
             // Note that as these param decls are implicitly generated we supply
             // an invalid location for each node.
-            param = new ParamValueDecl(formal, 0, formalType, mode);
+            param = new ParamValueDecl(formal, formalType, mode, 0);
             param->setDeclarativeRegion(this);
             parameters[i] = param;
         }

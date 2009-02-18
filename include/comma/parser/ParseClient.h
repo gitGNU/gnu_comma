@@ -52,10 +52,10 @@ public:
     // Called at the begining of an add expression.  The client accepts
     // components of an add expression after this call until endAddExpression is
     // called.
-    virtual void beginAddExpression() { }
+    virtual void beginAddExpression() = 0;
 
     // Completes an add expression.
-    virtual void endAddExpression() { }
+    virtual void endAddExpression() = 0;
 
     virtual void beginSubroutineDeclaration(Descriptor &desc) = 0;
 
@@ -67,11 +67,18 @@ public:
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;
 
-    virtual void endFunctionDefinition() { }
+
+    /// Begin a subroutine definition, where \p declarationNode is a valid node
+    /// returned from ParseClient::acceptSubroutineDeclaration.
+    virtual void beginSubroutineDefinition(Node declarationNode) = 0;
+    virtual void endSubroutineDefinition() = 0;
 
     virtual Node acceptDeclaration(IdentifierInfo *name,
                                    Node            type,
                                    Location        loc) = 0;
+
+    virtual void acceptDeclarationInitializer(Node declNode,
+                                              Node initializer) = 0;
 
     virtual Node acceptPercent(Location loc) = 0;
 
@@ -86,14 +93,6 @@ public:
                                        unsigned         numKeys,
                                        Location         loc) = 0;
 
-    // Functions are built up thru a sequence of calls.  First is to establish
-    // the type of the function via a call to acceptFunctionType.  This function
-    // takes a set of Nodes representing the argument types which the function
-    // accepts, and a Node representing the return type.
-    //
-    // The raw function type node is then elaborated with a set of formal parameters
-
-
     virtual Node acceptFunctionType(IdentifierInfo **formals,
                                     Location        *formalLocations,
                                     Node            *types,
@@ -105,6 +104,24 @@ public:
     // Submits an import from the given type node, and the location of the
     // import reserved word.
     virtual void acceptImportStatement(Node importedType, Location loc) = 0;
+
+    virtual Node acceptKeywordSelector(IdentifierInfo *key,
+                                       Location        loc,
+                                       Node            exprNode,
+                                       bool            forSubroutine) = 0;
+
+    virtual Node acceptDirectName(IdentifierInfo *name, Location loc) = 0;
+
+    virtual Node acceptFunctionCall(IdentifierInfo  *name,
+                                    Location         loc,
+                                    Node            *args,
+                                    unsigned         numArgs) = 0;
+
+    virtual Node acceptProcedureCall(IdentifierInfo  *name,
+                                     Location         loc,
+                                     Node            *args,
+                                     unsigned         numArgs) = 0;
+
 };
 
 } // End comma namespace.

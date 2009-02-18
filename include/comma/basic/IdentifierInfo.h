@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,6 +33,8 @@ namespace comma {
 class IdentifierInfo {
 
 public:
+    IdentifierInfo() : metadata(0) { }
+
     /// Obtains the unique null terminated string associated with this
     /// identifier.
     const char *getString() const {

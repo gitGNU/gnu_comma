@@ -49,18 +49,31 @@ public:
 
     bool parseSubroutineParameter(Descriptor &desc);
     void parseSubroutineParameters(Descriptor &desc);
-    Node parseFunctionDeclaration(bool allowBody = true);
-    Node parseProcedureDeclaration(bool allowBody = true);
-    void parseSubroutineBody(IdentifierInfo *endTag);
 
-    Node parseValueDeclaration(bool allowInitializer = true);
+    Node parseFunctionDeclaration();
+    Node parseProcedureDeclaration();
+    Node parseFunctionDeclaration(Descriptor &desc);
+    Node parseProcedureDeclaration(Descriptor &desc);
+
+    /// This parser is called just after the 'is' token beginning a function or
+    /// procedure definition.  The argument \p declarationNode is a valid Node
+    /// returned from a call to Parser::parseSubroutineDeclaration.  The
+    /// endTagStack must hold the expected end tag name.
+    void parseSubroutineBody(Node declarationNode);
+
+    Node parseObjectDeclaration();
 
     void parseAddComponents();
 
     Node parseDeclaration();
     Node parseStatement();
 
+    Node parseSubroutineKeywordSelection();
     void parseImportStatement();
+    Node parseProcedureCallStatement();
+
+    Node parseExpr();
+    Node parsePrimaryExpr();
 
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
@@ -71,12 +84,42 @@ private:
     IdentifierPool &idPool;
     ParseClient    &client;
     Diagnostic     &diagnostic;
+    Lexer           lexer;
 
-    Lexer lexer;
-
+    // A small buffer of two tokens is maintained to provide one token of
+    // lookahead.  The current token is at index 0, and the next token is at
+    // index 1.  When we consume a token, we set token[0] = token[1], and set
+    // token[1] to the next token emmited by the lexer.
     Lexer::Token token[2];
 
+    // Set to true when the parser encounters an error.
     bool seenError;
+
+    // The kind of end tag which is expected.  This enumeration will be
+    // expanded.
+    enum EndTagKind {
+        NAMED_TAG               ///< end tag followed by a name.
+    };
+
+    // As the parser encounters constructs which must be matched by an end tag
+    // an EndTagEntry is pushed onto the EndTagStack.
+    struct EndTagEntry {
+
+        EndTagEntry(EndTagKind kind, Location loc, IdentifierInfo *tag = 0)
+            : kind(kind), location(loc), tag(tag) { }
+
+        // The kind of end tag expected.
+        EndTagKind kind;
+
+        // Location of the construct introducing this scope.  Used for reporting
+        // nesting errors or tag missmatches.
+        Location location;
+
+        // The expected tag or NULL if no tag is required.
+        IdentifierInfo *tag;
+    };
+
+    std::stack<EndTagEntry> endTagStack;
 
     // We may wish to refine this typedef into a few classes which provide
     // different sizes which better accomidate adverage demands.
@@ -147,7 +190,8 @@ private:
     IdentifierInfo *parseFunctionIdentifierInfo();
 
     ParameterMode parseParameterMode();
-    Node parseSubroutineDeclaration(Descriptor &desc, bool allowBody = true);
+
+    Node parseSubroutineDeclaration(Descriptor &desc);
 
     bool seekEndTag(IdentifierInfo *tag);
 

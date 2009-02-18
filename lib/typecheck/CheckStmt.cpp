@@ -16,7 +16,7 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-
+// FIXME:  Imports are not statements, they are "clauses".
 void TypeCheck::acceptImportStatement(Node importedNode, Location loc)
 {
     ModelType *model = lift<ModelType>(importedNode);
@@ -29,5 +29,15 @@ void TypeCheck::acceptImportStatement(Node importedNode, Location loc)
         report(loc, diag::IMPORT_FROM_NON_DOMAIN) << model->getString();
         return;
     }
+
+    scope.addImport(domain);
 }
 
+
+Node TypeCheck::acceptProcedureCall(IdentifierInfo  *name,
+                                    Location         loc,
+                                    Node            *args,
+                                    unsigned         numArgs)
+{
+    return acceptSubroutineCall(name, loc, args, numArgs, false);
+}

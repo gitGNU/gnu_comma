@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -340,6 +340,8 @@ public:
         assert(i < getArity() && "Index out of range!");
         return keywords[i];
     }
+
+    int getKeywordIndex(IdentifierInfo *key) const;
 
     // Returns the i'th parameter mode for this type.
     ParameterMode getParameterMode(unsigned i) const;

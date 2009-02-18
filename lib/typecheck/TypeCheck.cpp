@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/typecheck/TypeCheck.h"
+#include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
 #include "TypeEqual.h"
 
@@ -21,16 +22,9 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
     : diagnostic(diag),
       resource(resource),
       compUnit(cunit),
-      errorCount(0)
-{
-    topScope = new Scope();
-    currentScope = topScope;
-}
+      errorCount(0) { }
 
-TypeCheck::~TypeCheck()
-{
-    delete topScope;
-}
+TypeCheck::~TypeCheck() { }
 
 void TypeCheck::deleteNode(Node node)
 {
@@ -42,14 +36,14 @@ void TypeCheck::beginModelDeclaration(Descriptor &desc)
 {
     assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
            "Beginning a mode with is neither a signature or domain?");
-    pushModelScope();
+    scope.push(MODEL_SCOPE);
 }
 
 void TypeCheck::endModelDefinition()
 {
     ModelDecl *result = getCurrentModel();
-    popScope();
-    addModel(result);
+    scope.pop();
+    scope.addDirectModel(result);
 }
 
 Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
@@ -58,7 +52,7 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
 {
     ModelType *type = lift<ModelType>(typeNode);
 
-    assert(currentScopeKind() == Scope::MODEL_SCOPE);
+    assert(scope.getKind() == MODEL_SCOPE);
     assert(type && "Bad node kind!");
 
     // Check that the parameter type denotes a signature.  For each parameter,
@@ -70,13 +64,12 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
         // must be a formal parameter (since parameters are the first items
         // brought into scope, and we explicitly request that parent scopes are
         // not traversed).
-        if (lookupModel(formal, false)) {
+        if (scope.lookupDirectModel(formal, false)) {
             report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal->getString();
             return Node::getInvalidNode();
         }
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
-        declarativeRegion->addDecl(dom);
-        addModel(dom);
+        scope.addDirectModel(dom);
         return Node(dom);
     }
     else {
@@ -181,7 +174,7 @@ Node TypeCheck::acceptPercent(Location loc)
 Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
                                      Location        loc)
 {
-    ModelDecl  *model = lookupModel(id);
+    ModelDecl  *model = scope.lookupDirectModel(id);
     const char *name  = id->getString();
 
     if (model == 0) {
@@ -210,7 +203,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 {
     assert(numKeywords <= numArgs && "More keywords than arguments!");
 
-    ModelDecl  *model = lookupModel(connective);
+    ModelDecl  *model = scope.lookupDirectModel(connective);
     const char *name  = connective->getString();
 
     if (model == 0) {
@@ -356,15 +349,7 @@ void TypeCheck::beginWithExpression()
     // If the current model is a signature, we set the current declarative
     // region to the signature itself.  If we are processing a domain, set the
     // declarative region to the principle signature of the domain.
-    ModelDecl *currentModel = getCurrentModel();
-
-    if (Domoid *domain = dyn_cast<Domoid>(currentModel))
-        declarativeRegion = domain->getPrincipleSignature();
-    else {
-        Sigoid *signature = dyn_cast<Sigoid>(currentModel);
-        declarativeRegion = signature;
-        assert(signature && "current model is neither a domain or signature!");
-    }
+    declarativeRegion = getCurrentSignature();
 }
 
 void TypeCheck::endWithExpression()
@@ -372,6 +357,9 @@ void TypeCheck::endWithExpression()
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument keyword sets.
     ensureNecessaryRedeclarations(getCurrentSignature());
+
+    // Set the declarative region back to the current model.
+    declarativeRegion = getCurrentModel()->asDeclarativeRegion();
 }
 
 // The following function resolves the argument type of a functor or variety
@@ -408,7 +396,6 @@ Sigoid *TypeCheck::getCurrentSignature() const {
 Domoid *TypeCheck::getCurrentDomain() const {
     return dyn_cast<Domoid>(getCurrentModel());
 }
-
 
 // Creates a procedure or function decl depending on the kind of the
 // supplied type.
@@ -551,10 +538,44 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Location        loc)
 {
     Type *type = lift<Type>(typeNode);
-
     assert(type && "Bad node kind!");
-    assert(false && "Declaration type not yet supported!");
+
+    if (DomainType *domain = ensureDomainType(type, loc)) {
+        ObjectDecl *decl = new ObjectDecl(name, domain, loc);
+
+        // FIXME: Adding the decl now will expose the binding in any
+        // initialization expression.  Perhaps we should combine this function
+        // and acceprDeclarationInitializer.
+        scope.addDirectValue(decl);
+        return Node(decl);
+    }
     return Node::getInvalidNode();
+}
+
+void TypeCheck::acceptDeclarationInitializer(Node declNode, Node initializer)
+{
+    ObjectDecl *decl       = cast_node<ObjectDecl>(declNode);
+    Expr       *expr       = cast_node<Expr>(initializer);
+    Type       *targetType = decl->getType();
+
+    // If the initializer expression has a unique type, ensure type equality wrt
+    // to the declaration.
+    if (expr->hasType()) {
+        Type *exprType = expr->getType();
+
+        if (targetType->equals(exprType))
+            decl->setInitializer(expr);
+        else
+            report(expr->getLocation(), diag::INCOMPATABLE_TYPES);
+        return;
+    }
+    else {
+        // The only type of expression which might not resolve to a unique type
+        // is a function call expression.
+        FunctionCallExpr *callExpr = cast<FunctionCallExpr>(expr);
+        if (resolveFunctionCall(callExpr, targetType))
+            decl->setInitializer(expr);
+    }
 }
 
 void TypeCheck::beginAddExpression()
@@ -567,7 +588,7 @@ void TypeCheck::beginAddExpression()
     assert(declarativeRegion && "Domain missing Add declaration node!");
 
     // Enter a new scope for the add expression.
-    pushScope();
+    scope.push();
 }
 
 void TypeCheck::endAddExpression()
@@ -576,7 +597,7 @@ void TypeCheck::endAddExpression()
     // the declarative region of the defining domain.
     declarativeRegion = declarativeRegion->getParent();
     assert(declarativeRegion == getCurrentModel()->asDeclarativeRegion());
-    popScope();
+    scope.pop();
 }
 
 // There is nothing for us to do at the start of a subroutine declaration.
@@ -594,14 +615,14 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
                                           ParameterMode     mode)
 {
     // FIXME: The location provided here is the location of the formal, not the
-    // location of the type.  The type node here should be a DeclRef or similar
+    // location of the type.  The type node here should be a ModelRef or similar
     // which encapsulates the needed location information.
     DomainType *dom = ensureDomainType(typeNode, loc);
 
     if (!dom) return Node::getInvalidNode();
 
     // Create a declaration node for this parameter.
-    ParamValueDecl *paramDecl = new ParamValueDecl(formal, loc, dom, mode);
+    ParamValueDecl *paramDecl = new ParamValueDecl(formal, dom, mode, loc);
 
     return Node(paramDecl);
 }
@@ -687,14 +708,47 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         return Node::getInvalidNode();
     }
 
-    // Add the declaration into the current declarative region.
+    // Add the subroutine declaration into the current declarative region.
     region->addDecl(routineDecl);
+    scope.addDirectSubroutine(routineDecl);
     return Node(routineDecl);
 }
 
+void TypeCheck::beginSubroutineDefinition(Node declarationNode)
+{
+    SubroutineDecl *srDecl = lift<SubroutineDecl>(declarationNode);
+    assert(srDecl && "Bad node kind!");
 
-void TypeCheck::endFunctionDefinition()
+    // Enter a scope for the subroutine definition and populate with the formal
+    // parmeter bindings.  Set the current declarative region to be that of the
+    // subroutine.
+    scope.push(FUNCTION_SCOPE);
+    declarativeRegion = srDecl->asDeclarativeRegion();
+
+    typedef SubroutineDecl::ParamDeclIterator ParamIter;
+    for (ParamIter iter = srDecl->beginParams();
+         iter != srDecl->endParams(); ++iter) {
+        ParamValueDecl *param = *iter;
+        scope.addDirectValue(param);
+    }
+}
+
+void TypeCheck::endSubroutineDefinition()
 {
     declarativeRegion = declarativeRegion->getParent();
-    popScope();
+    scope.pop();
+}
+
+Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
+                                      Location        loc,
+                                      Node            exprNode,
+                                      bool            forSubroutine)
+{
+    if (!forSubroutine) {
+        assert(false && "cannot accept keyword selectors for types yet!");
+        return Node::getInvalidNode();
+    }
+
+    Expr *expr = cast_node<Expr>(exprNode);
+    return new KeywordSelector(key, loc, expr);
 }
