@@ -291,9 +291,10 @@ public:
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
-        return (kind == AST_DomainDecl  ||
-                kind == AST_FunctorDecl ||
-                kind == AST_AbstractDomainDecl);
+        return (kind == AST_DomainDecl         ||
+                kind == AST_FunctorDecl        ||
+                kind == AST_AbstractDomainDecl ||
+                kind == AST_DomainInstanceDecl);
     }
 
 protected:
@@ -348,10 +349,10 @@ public:
                IdentifierInfo *name,
                const Location &loc);
 
-    DomainType *getCorrespondingType() { return canonicalType; }
+    DomainInstanceDecl *getInstance(Location loc) { return instance; }
 
-    const DomainType *getType() const { return canonicalType; }
-    DomainType *getType() { return canonicalType; }
+    const DomainType *getType() const;
+    DomainType *getType();
 
     // Returns the AddDecl which implements this domain.
     const AddDecl *getImplementation() const { return implementation; }
@@ -363,53 +364,8 @@ public:
     }
 
 private:
-    DomainType *canonicalType;
-    AddDecl    *implementation;
-};
-
-//===----------------------------------------------------------------------===//
-// FunctorDecl
-//
-// Representation of parameterized domains.
-class FunctorDecl : public Domoid {
-
-public:
-    FunctorDecl(IdentifierInfo *percentId,
-                IdentifierInfo *name,
-                Location        loc,
-                DomainType    **formals,
-                unsigned        arity);
-
-    // Returns the type node corresponding to this functor applied over the
-    // given arguments.  Such types are memorized.  For a given set of arguments
-    // this function always returns the same type.
-    DomainType *getCorrespondingType(DomainType **args, unsigned numArgs);
-
-    // Returns the AddDecl which implements this functor.
-    const AddDecl *getImplementation() const { return implementation; }
-
-    // Returns the type of this functor.
-    const FunctorType *getType() const { return functor; }
-    FunctorType *getType() { return functor; }
-
-    // Returns the number of arguments this functor accepts.
-    unsigned getArity() const { return getType()->getArity(); }
-
-    DomainType *getFormalDomain(unsigned i) const {
-        return getType()->getFormalDomain(i);
-    }
-
-    // Support for isa and dyn_cast.
-    static bool classof(const FunctorDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_FunctorDecl;
-    }
-
-private:
-    mutable llvm::FoldingSet<DomainType> types;
-
-    FunctorType *functor;
-    AddDecl     *implementation;
+    DomainInstanceDecl *instance;
+    AddDecl            *implementation;
 };
 
 //===----------------------------------------------------------------------===//
@@ -434,6 +390,117 @@ public:
 private:
     DomainType    *abstractType;
     SignatureType *signature;
+};
+
+//===----------------------------------------------------------------------===//
+// DomainInstanceDecl
+class DomainInstanceDecl : public Domoid, public llvm::FoldingSetNode {
+
+public:
+    DomainInstanceDecl(DomainDecl *domain, Location loc);
+
+    DomainInstanceDecl(FunctorDecl *functor,
+                       DomainType **args,
+                       unsigned     numArgs,
+                       Location     loc);
+
+    const DomainType *getType() const { return correspondingType; }
+    DomainType *getType() { return correspondingType; }
+
+    Domoid *getDefiningDecl()  { return definition; }
+
+    DomainDecl  *getDefiningDomain();
+    FunctorDecl *getDefiningFunctor();
+
+    // Returns the arity of the underlying declaration.
+    unsigned getArity() const;
+
+    // Returns the i'th actual parameter.  This function asserts if its argument
+    // is out of range,
+    DomainType *getActualParameter(unsigned n) const {
+        assert(n < getArity() && "Index out of range!");
+        return arguments[n];
+    }
+
+    // Returns true if this domain type is an instance of some functor.
+    bool isParameterized() const { return getArity() != 0; }
+
+    typedef DomainType **arg_iterator;
+    arg_iterator beginArguments() const { return arguments; }
+    arg_iterator endArguments() const { return &arguments[getArity()]; }
+
+    void Profile(llvm::FoldingSetNodeID &id) {
+        Profile(id, &arguments[0], getArity());
+    }
+
+    // Called by FunctorDecl when memoizing.
+    static void
+    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
+
+    static bool classof(const DomainInstanceDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_DomainInstanceDecl;
+    }
+
+private:
+    Domoid      *definition;
+    DomainType **arguments;
+    DomainType  *correspondingType;
+
+    // The following call-backs are invoked when the declarative region of the
+    // defining declaration changes.
+    void notifyAddDecl(Decl *decl);
+    void notifyRemoveDecl(Decl *decl);
+};
+
+//===----------------------------------------------------------------------===//
+// FunctorDecl
+//
+// Representation of parameterized domains.
+class FunctorDecl : public Domoid {
+
+public:
+    FunctorDecl(IdentifierInfo *percentId,
+                IdentifierInfo *name,
+                Location        loc,
+                DomainType    **formals,
+                unsigned        arity);
+
+    // Returns an instance declaration corresponding to this functor applied
+    // over the given set of arguments.  Such instance declarations are
+    // memoized, and for a given set of arguments this method always returns the
+    // same declaration node.  As a consequence, the location associated with
+    // any given DomainInstanceDecl corresponds to the first location the
+    // instance was processed.
+    DomainInstanceDecl *getInstance(DomainType **args,
+                                    unsigned     numArgs,
+                                    Location     loc = 0);
+
+    // Returns the AddDecl which implements this functor.
+    const AddDecl *getImplementation() const { return implementation; }
+
+    // Returns the type of this functor.
+    const FunctorType *getType() const { return functor; }
+    FunctorType *getType() { return functor; }
+
+    // Returns the number of arguments this functor accepts.
+    unsigned getArity() const { return getType()->getArity(); }
+
+    DomainType *getFormalDomain(unsigned i) const {
+        return getType()->getFormalDomain(i);
+    }
+
+    // Support for isa and dyn_cast.
+    static bool classof(const FunctorDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_FunctorDecl;
+    }
+
+private:
+    mutable llvm::FoldingSet<DomainInstanceDecl> instances;
+
+    FunctorType *functor;
+    AddDecl     *implementation;
 };
 
 //===----------------------------------------------------------------------===//
@@ -737,6 +804,24 @@ inline DomainDecl *Domoid::getDomain()
 inline FunctorDecl *Domoid::getFunctor()
 {
     return llvm::dyn_cast<FunctorDecl>(this);
+}
+
+inline const DomainType *DomainDecl::getType() const {
+    return instance->getType();
+}
+
+inline DomainType *DomainDecl::getType() {
+    return instance->getType();
+}
+
+inline DomainDecl *DomainInstanceDecl::getDefiningDomain()
+{
+    return llvm::dyn_cast<DomainDecl>(definition);
+}
+
+inline FunctorDecl *DomainInstanceDecl::getDefiningFunctor()
+{
+    return llvm::dyn_cast<FunctorDecl>(definition);
 }
 
 } // End comma namespace

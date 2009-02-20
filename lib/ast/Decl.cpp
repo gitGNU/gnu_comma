@@ -159,39 +159,10 @@ DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        const Location &loc)
     : Domoid(AST_DomainDecl, percentId, name, loc)
 {
-    canonicalType  = new DomainType(this);
+    instance = new DomainInstanceDecl(this, loc);
     implementation = new AddDecl(this);
 }
 
-//===----------------------------------------------------------------------===//
-// FunctorDecl
-
-FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
-                         IdentifierInfo *name,
-                         Location        loc,
-                         DomainType    **formals,
-                         unsigned        arity)
-    : Domoid(AST_FunctorDecl, percentId, name, loc)
-{
-    functor        = new FunctorType(formals, this, arity);
-    implementation = new AddDecl(this);
-}
-
-DomainType *
-FunctorDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
-{
-    llvm::FoldingSetNodeID id;
-    void *insertPos = 0;
-    DomainType *type;
-
-    DomainType::Profile(id, args, numArgs);
-    type = types.FindNodeOrInsertPos(id, insertPos);
-    if (type) return type;
-
-    type = new DomainType(this, args, numArgs);
-    types.InsertNode(type, insertPos);
-    return type;
-}
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
@@ -216,33 +187,103 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
     // parametrized).
     rewriter.installRewrites(type);
 
-    for (Sigoid::DeclIter iter = sigoid->beginDecls();
-         iter != sigoid->endDecls(); ++iter) {
-        Decl *decl    = iter->second;
-        Decl *newDecl = 0;
+    addDeclarationsUsingRewrites(rewriter, sigoid);
+}
 
-        switch (decl->getKind()) {
+//===----------------------------------------------------------------------===//
+// DomainInstanceDecl
+DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
+    : Domoid(AST_DomainInstanceDecl,
+             domain->getPercent()->getIdInfo(),
+             domain->getIdInfo(),
+             loc),
+      definition(domain)
+{
+    domain->addObserver(this);
 
-        default:
-            assert(false && "Bad type of declaration in signature!");
-            break;
+    AstRewriter rewriter;
+    correspondingType = new DomainType(this);
 
-        case AST_FunctionDecl: {
-            FunctionDecl *fdecl = cast<FunctionDecl>(decl);
-            FunctionType *ftype = rewriter.rewrite(fdecl->getType());
-            newDecl = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
-            break;
-        }
+    rewriter.installRewrites(correspondingType);
+    addDeclarationsUsingRewrites(rewriter, domain);
+}
 
-        case AST_ProcedureDecl : {
-            ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
-            ProcedureType *ptype = rewriter.rewrite(pdecl->getType());
-            newDecl = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
-            break;
-        }
-        }
-        this->addDecl(newDecl);
-    }
+DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
+                                       DomainType **args,
+                                       unsigned     numArgs,
+                                       Location     loc)
+    : Domoid(AST_DomainInstanceDecl,
+             functor->getPercent()->getIdInfo(),
+             functor->getIdInfo(),
+             loc),
+      definition(functor)
+{
+    arguments = new DomainType*[numArgs];
+    std::copy(args, args + numArgs, arguments);
+
+    functor->addObserver(this);
+
+    AstRewriter rewriter;
+    correspondingType = new DomainType(this);
+
+    rewriter.installRewrites(correspondingType);
+    addDeclarationsUsingRewrites(rewriter, functor);
+}
+
+unsigned DomainInstanceDecl::getArity() const
+{
+    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(definition))
+        return functor->getArity();
+    else
+        return 0;
+}
+
+void DomainInstanceDecl::notifyAddDecl(Decl *decl)
+{
+    AstRewriter rewriter;
+    rewriter.installRewrites(correspondingType);
+    addDeclarationUsingRewrites(rewriter, decl);
+}
+
+void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
+{
+    // FIXME:  Implement.
+}
+
+void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
+                                 DomainType **args, unsigned numArgs)
+{
+    for (unsigned i = 0; i < numArgs; ++i)
+        id.AddPointer(args[i]);
+}
+
+//===----------------------------------------------------------------------===//
+// FunctorDecl
+FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
+                         IdentifierInfo *name,
+                         Location        loc,
+                         DomainType    **formals,
+                         unsigned        arity)
+    : Domoid(AST_FunctorDecl, percentId, name, loc)
+{
+    functor        = new FunctorType(formals, this, arity);
+    implementation = new AddDecl(this);
+}
+
+DomainInstanceDecl *
+FunctorDecl::getInstance(DomainType **args, unsigned numArgs, Location loc)
+{
+    llvm::FoldingSetNodeID id;
+    void *insertPos = 0;
+    DomainInstanceDecl *instance;
+
+    DomainInstanceDecl::Profile(id, args, numArgs);
+    instance = instances.FindNodeOrInsertPos(id, insertPos);
+    if (instance) return instance;
+
+    instance = new DomainInstanceDecl(this, args, numArgs, loc);
+    instances.InsertNode(instance, insertPos);
+    return instance;
 }
 
 //===----------------------------------------------------------------------===//

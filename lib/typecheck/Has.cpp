@@ -99,7 +99,11 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
     else if (source->denotesPercent())
         return percentHas(source->getDeclaration(), target);
 
-    Domoid                *domoid  = source->getDomoidDecl();
+    Domoid *domoid  = source->getDomoidDecl();
+
+    if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(domoid))
+        domoid = instance->getDefiningDecl();
+
     SignatureSet          &sigset  = domoid->getSignatureSet();
     SignatureSet::iterator iter    = sigset.begin();
     SignatureSet::iterator endIter = sigset.end();

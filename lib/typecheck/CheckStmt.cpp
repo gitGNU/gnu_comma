@@ -19,7 +19,7 @@ using llvm::isa;
 // FIXME:  Imports are not statements, they are "clauses".
 void TypeCheck::acceptImportStatement(Node importedNode, Location loc)
 {
-    ModelType *model = cast_node<ModelType>(importedNode);
+    ModelType  *model = cast_node<ModelType>(importedNode);
     DomainType *domain;
 
     domain = dyn_cast<DomainType>(model);

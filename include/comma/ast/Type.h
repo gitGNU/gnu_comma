@@ -236,9 +236,8 @@ public:
     // Creates a domain type representing the given domain declaration.
     DomainType(DomainDecl *decl);
 
-    // Creates a domain type representing an instance of the given functor
-    // declaration.
-    DomainType(FunctorDecl *decl, DomainType **args, unsigned numArgs);
+    // Creates a domain type representing the given domain instance.
+    DomainType(DomainInstanceDecl *decl);
 
     // Creates a domain type representing the given abstract domain.
     DomainType(AbstractDomainDecl *decl);
@@ -250,23 +249,6 @@ public:
     // Returns true if this node is a percent node.
     bool denotesPercent() const;
 
-    // Returns the number of arguments used to define this type.  When the
-    // supporting declaration is a domain, the arity is zero.  When the
-    // supporting declaration is a functor, this method returns the number of
-    // actual parameters.
-    unsigned getArity() const;
-
-    // Returns the i'th actual parameter.  This function asserts if its argument
-    // is out of range,
-    DomainType *getActualParameter(unsigned n) const;
-
-    // Returns true if this domain type is an instance of some functor.
-    bool isParameterized() const { return arguments != 0; }
-
-    typedef DomainType **arg_iterator;
-    arg_iterator beginArguments() const { return arguments; }
-    arg_iterator endArguments() const { return &arguments[getArity()]; }
-
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is a domoid.
     Domoid *getDomoidDecl() const;
@@ -276,8 +258,8 @@ public:
     DomainDecl *getDomainDecl() const;
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a functor.
-    FunctorDecl *getFunctorDecl() const;
+    // definition is a domain instance declaration.
+    DomainInstanceDecl *getInstanceDecl() const;
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is an abstract domain.
@@ -285,14 +267,6 @@ public:
 
     // Returns true if the underlying declaration is an AbstractDomainDecl.
     bool isAbstract() const;
-
-    void Profile(llvm::FoldingSetNodeID &id) {
-        Profile(id, &arguments[0], getArity());
-    }
-
-    // Called by FunctorDecl when memoizing.
-    static void
-    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
 
     // Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
@@ -303,10 +277,6 @@ public:
 private:
     // This constructor is called by getPercent() to create a percent node.
     DomainType(IdentifierInfo *percentId, ModelDecl *model);
-
-    // If the supporting domain is a functor, then this array contains the
-    // actual arguments defining this instance.
-    DomainType **arguments;
 };
 
 //===----------------------------------------------------------------------===//

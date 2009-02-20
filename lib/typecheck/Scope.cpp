@@ -77,22 +77,22 @@ bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
 
 void ScopeEntry::addImportDecl(DomainType *type)
 {
-    importDecls.push_back(type);
-
+    typedef Domoid::DeclIter DeclIter;
     Domoid *domoid = type->getDomoidDecl();
 
-    if (AbstractDomainDecl *absdom = dyn_cast<AbstractDomainDecl>(domoid)) {
-        typedef DeclarativeRegion::DeclIter DeclIter;
-        DeclIter endIter = absdom->endDecls();
-        for (DeclIter iter = absdom->beginDecls(); iter != endIter; ++iter) {
-            IdentifierInfo *idinfo  = iter->first;
-            Decl           *decl    = iter->second;
-            Homonym        *homonym = getOrCreateHomonym(idinfo);
-            homonym->addImportDecl(decl);
-        }
+    assert((isa<AbstractDomainDecl>(domoid) || isa<DomainInstanceDecl>(domoid))
+           && "Cannot import from the given domain!");
+
+    DeclIter iter;
+    DeclIter endIter = domoid->endDecls();
+    for (iter = domoid->beginDecls(); iter != endIter; ++iter) {
+        IdentifierInfo *idinfo  = iter->first;
+        Decl           *decl    = iter->second;
+        Homonym        *homonym = getOrCreateHomonym(idinfo);
+        homonym->addImportDecl(decl);
     }
-    else
-        assert(false && "Imports from non-abstract domains not yet supported!");
+
+    importDecls.push_back(type);
 }
 
 // Traverse the set IdentifierInfo's owned by this entry and reduce the

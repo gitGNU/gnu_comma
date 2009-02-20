@@ -169,32 +169,25 @@ FunctorDecl *FunctorType::getDeclaration() const
 // DomainType
 
 DomainType::DomainType(DomainDecl *decl)
-    : ModelType(AST_DomainType, decl->getIdInfo(), decl),
-      arguments(0)
-{
-    deletable = false;
-}
-
-DomainType::DomainType(FunctorDecl *decl,
-                       DomainType **args,
-                       unsigned     numArgs)
     : ModelType(AST_DomainType, decl->getIdInfo(), decl)
 {
     deletable = false;
-    arguments = new DomainType*[numArgs];
-    std::copy(args, args + numArgs, arguments);
+}
+
+DomainType::DomainType(DomainInstanceDecl *decl)
+    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
+{
+    deletable = false;
 }
 
 DomainType::DomainType(AbstractDomainDecl *decl)
-    : ModelType(AST_DomainType, decl->getIdInfo(), decl),
-      arguments(0)
+    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
 {
     deletable = false;
 }
 
 DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
-    : ModelType(AST_DomainType, percentId, model),
-      arguments(0)
+    : ModelType(AST_DomainType, percentId, model)
 {
     deletable = false;
 }
@@ -219,34 +212,14 @@ DomainDecl *DomainType::getDomainDecl() const
     return dyn_cast<DomainDecl>(declaration);
 }
 
-FunctorDecl *DomainType::getFunctorDecl() const
+DomainInstanceDecl *DomainType::getInstanceDecl() const
 {
-    return dyn_cast<FunctorDecl>(declaration);
+    return dyn_cast<DomainInstanceDecl>(declaration);
 }
 
 AbstractDomainDecl *DomainType::getAbstractDecl() const
 {
     return dyn_cast<AbstractDomainDecl>(declaration);
-}
-
-unsigned DomainType::getArity() const
-{
-    FunctorDecl *functor = getFunctorDecl();
-    if (functor) return functor->getArity();
-    return 0;
-}
-
-DomainType *DomainType::getActualParameter(unsigned i) const
-{
-    assert(i < getArity() && "Index out of range!");
-    return arguments[i];
-}
-
-void DomainType::Profile(llvm::FoldingSetNodeID &id,
-                         DomainType **args, unsigned numArgs)
-{
-    for (unsigned i = 0; i < numArgs; ++i)
-        id.AddPointer(args[i]);
 }
 
 //===----------------------------------------------------------------------===//

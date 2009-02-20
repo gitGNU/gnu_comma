@@ -290,8 +290,10 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         node = Node(variety->getCorrespondingType(&arguments[0], numArgs));
     }
     else {
-        FunctorDecl *functor = dyn_cast<FunctorDecl>(model);
-        node = Node(functor->getCorrespondingType(&arguments[0], numArgs));
+        FunctorDecl *functor = cast<FunctorDecl>(model);
+        DomainInstanceDecl *instance =
+            functor->getInstance(&arguments[0], numArgs);
+        node = Node(instance->getType());
     }
     return node;
 }

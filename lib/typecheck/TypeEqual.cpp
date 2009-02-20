@@ -45,17 +45,19 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
     // Otherwise, typeX and typeY must be instances of the same functor for the
     // comparison to succeed since all non-parameterized types are represented
     // by a unique node.
-    if (typeX->getDeclaration() == typeY->getDeclaration()) {
+    DomainInstanceDecl *instanceX = typeX->getInstanceDecl();
+    DomainInstanceDecl *instanceY = typeY->getInstanceDecl();
+    if (instanceX && instanceY) {
 
-        if (!(typeX->isParameterized() && typeY->isParameterized()))
+        if (instanceX->getDefiningDecl() != instanceY->getDefiningDecl())
             return false;
 
         // We know the arity of both types are the same since they are supported
         // by identical declarations.
-        unsigned arity = typeX->getArity();
+        unsigned arity = instanceX->getArity();
         for (unsigned i = 0; i < arity; ++i) {
-            DomainType *argX = typeX->getActualParameter(i);
-            DomainType *argY = typeY->getActualParameter(i);
+            DomainType *argX = instanceX->getActualParameter(i);
+            DomainType *argY = instanceY->getActualParameter(i);
             if (!compareTypesUsingRewrites(rewrites, argX, argY))
                 return false;
         }

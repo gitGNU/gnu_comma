@@ -33,13 +33,14 @@ void AstRewriter::installRewrites(DomainType *context)
 
     addRewrite(model->getPercent(), context);
 
-    if (context->isParameterized()) {
-        FunctorDecl *functor = context->getFunctorDecl();
-        unsigned arity = functor->getArity();
-        for (unsigned i = 0; i < arity; ++i) {
-            DomainType *formal = functor->getFormalDomain(i);
-            DomainType *actual = context->getActualParameter(i);
-            rewrites[formal] = actual;
+    if (DomainInstanceDecl *instance = context->getInstanceDecl()) {
+        if (FunctorDecl *functor = instance->getDefiningFunctor()) {
+            unsigned arity = instance->getArity();
+            for (unsigned i = 0; i < arity; ++i) {
+                DomainType *formal = functor->getFormalDomain(i);
+                DomainType *actual = instance->getActualParameter(i);
+                rewrites[formal] = actual;
+            }
         }
     }
 }
@@ -80,23 +81,25 @@ SignatureType *AstRewriter::rewrite(SignatureType *sig) const
 
 DomainType *AstRewriter::rewrite(DomainType *dom) const
 {
-    if (dom->isParameterized()) {
-        llvm::SmallVector<DomainType*, 4> args;
+    if (DomainInstanceDecl *instance = dom->getInstanceDecl()) {
+        if (FunctorDecl *functor = instance->getDefiningFunctor()) {
+            typedef DomainInstanceDecl::arg_iterator iterator;
+            llvm::SmallVector<DomainType*, 4> args;
 
-        DomainType::arg_iterator iter;
-        DomainType::arg_iterator endIter = dom->endArguments();
-        for (iter = dom->beginArguments(); iter != endIter; ++iter) {
-            // If the argument is a member of the rewrite set, then we must
-            // create a new
-            if (DomainType *target = getRewrite(*iter))
-                args.push_back(target);
-            else
-                args.push_back(*iter);
+            iterator iter;
+            iterator endIter = instance->endArguments();
+            for (iter = instance->beginArguments(); iter != endIter; ++iter) {
+                // If the argument is a member of the rewrite set, then we must
+                // create a new
+                if (DomainType *target = getRewrite(*iter))
+                    args.push_back(target);
+                else
+                    args.push_back(*iter);
+            }
+            // Obtain a memoized instance and return the associated type.
+            instance = functor->getInstance(&args[0], args.size());
+            return instance->getType();
         }
-        // Obtain a memoized instance of this type.
-        FunctorDecl *decl = dom->getFunctorDecl();
-        return decl->getCorrespondingType(&args[0], args.size());
-
     }
     return dom;
 }

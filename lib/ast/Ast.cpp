@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/Ast.h"
+#include "comma/ast/AstRewriter.h"
 #include "llvm/Support/Casting.h"
 #include <cstring>
 #include <cassert>
@@ -14,6 +15,8 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::cast;
+using llvm::isa;
 
 //===----------------------------------------------------------------------===//
 // DeclarativeRegion
@@ -21,6 +24,47 @@ using llvm::dyn_cast;
 void DeclarativeRegion::addDecl(Decl *decl) {
     IdentifierInfo *name = decl->getIdInfo();
     declarations.insert(DeclarationTable::value_type(name, decl));
+    notifyObserversOfAddition(decl);
+}
+
+void DeclarativeRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
+                                                    Decl *decl)
+{
+    Decl *newDecl = 0;
+
+    switch (decl->getKind()) {
+
+    default:
+        assert(false && "Bad type of declaration!");
+        break;
+
+    case Ast::AST_FunctionDecl: {
+        FunctionDecl *fdecl = cast<FunctionDecl>(decl);
+        FunctionType *ftype = rewrites.rewrite(fdecl->getType());
+        newDecl = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
+        break;
+    }
+
+    case Ast::AST_ProcedureDecl : {
+        ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
+        ProcedureType *ptype = rewrites.rewrite(pdecl->getType());
+        newDecl = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
+        break;
+    }
+    }
+    if (newDecl)
+        this->addDecl(newDecl);
+}
+
+void
+DeclarativeRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+                                                const DeclarativeRegion *region)
+{
+    ConstDeclIter iter;
+    ConstDeclIter endIter = region->endDecls();
+
+    for (iter = region->beginDecls(); iter != endIter; ++iter)
+        addDeclarationUsingRewrites(rewrites, iter->second);
 }
 
 Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
@@ -57,6 +101,7 @@ bool DeclarativeRegion::removeDecl(Decl *decl)
     DeclRange      range = findDecls(name);
     for (DeclIter iter = range.first; iter != range.second; ++iter)
         if (iter->second == decl) {
+            notifyObserversOfRemoval(decl);
             declarations.erase(iter);
             return true;
         }
@@ -81,6 +126,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const FunctionDecl*>(this);
     case Ast::AST_AbstractDomainDecl:
         return static_cast<const AbstractDomainDecl*>(this);
+    case Ast::AST_DomainInstanceDecl:
+        return static_cast<const DomainInstanceDecl*>(this);
     }
 }
 
@@ -90,3 +137,22 @@ Decl *DeclarativeRegion::asDecl()
         const_cast<const DeclarativeRegion *>(this)->asDecl());
 }
 
+// Default implementation -- do nothing.
+void DeclarativeRegion::notifyAddDecl(Decl *decl) { }
+
+// Default implementation -- do nothing.
+void DeclarativeRegion::notifyRemoveDecl(Decl *decl) { }
+
+void DeclarativeRegion::notifyObserversOfAddition(Decl *decl)
+{
+    for (ObserverList::iterator iter = observers.begin();
+         iter != observers.end(); ++iter)
+        (*iter)->notifyAddDecl(decl);
+}
+
+void DeclarativeRegion::notifyObserversOfRemoval(Decl *decl)
+{
+    for (ObserverList::iterator iter = observers.begin();
+         iter != observers.end(); ++iter)
+        (*iter)->notifyRemoveDecl(decl);
+}

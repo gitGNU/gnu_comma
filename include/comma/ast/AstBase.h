@@ -17,6 +17,7 @@
 #include "comma/basic/Location.h"
 #include "comma/basic/IdentifierInfo.h"
 #include <map>
+#include <list>
 #include <iosfwd>
 
 namespace comma {
@@ -34,6 +35,7 @@ class Decl;
 class DeclarativeRegion;
 class DeclRefExpr;
 class DomainDecl;
+class DomainInstanceDecl;
 class DomainType;
 class Domoid;
 class Expr;
@@ -101,6 +103,7 @@ public:
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
+        AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
         AST_AddDecl,            ///< AddDecl
@@ -288,6 +291,17 @@ public:
     // semantically valid.
     void addDecl(Decl *decl);
 
+
+    // Adds the given declaration to the region using the supplied rewrite
+    // rules.
+    void addDeclarationUsingRewrites(const AstRewriter &rewrites,
+                                     Decl *decl);
+
+    // Adds the declarations from the given region to this one using the
+    // supplied rewrite rules.
+    void addDeclarationsUsingRewrites(const AstRewriter       &rewrites,
+                                      const DeclarativeRegion *region);
+
     typedef DeclarationTable::iterator DeclIter;
     DeclIter beginDecls() { return declarations.begin(); }
     DeclIter endDecls()   { return declarations.end(); }
@@ -313,6 +327,8 @@ public:
     Decl *asDecl();
     const Decl *asDecl() const;
 
+    void addObserver(DeclarativeRegion *region) { observers.push_front(region); }
+
     static bool classof(const Ast *node) {
         switch (node->getKind()) {
         default:
@@ -321,6 +337,8 @@ public:
         case Ast::AST_SignatureDecl:
         case Ast::AST_VarietyDecl:
         case Ast::AST_FunctorDecl:
+        case Ast::AST_DomainInstanceDecl:
+        case Ast::AST_AbstractDomainDecl:
             return true;
         }
     }
@@ -329,10 +347,22 @@ public:
     static bool classof(const SignatureDecl *node) { return true; }
     static bool classof(const VarietyDecl   *node) { return true; }
     static bool classof(const FunctorDecl   *node) { return true; }
+    static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
+
+protected:
+    virtual void notifyAddDecl(Decl *decl);
+    virtual void notifyRemoveDecl(Decl *decl);
+
 private:
     Ast::AstKind       declKind;
     DeclarativeRegion *parent;
+
+    typedef std::list<DeclarativeRegion*> ObserverList;
+    ObserverList observers;
+
+    void notifyObserversOfAddition(Decl *decl);
+    void notifyObserversOfRemoval(Decl *decl);
 };
 
 } // End comma namespace.

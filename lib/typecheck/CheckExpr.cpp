@@ -73,7 +73,6 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
         Node node;
         if (resolveDirectDecl(homonym->asDeclaration(), name, loc, node))
             return node;
-        scope.dump();
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return Node::getInvalidNode();
     }
@@ -316,6 +315,9 @@ void TypeCheck::lookupSubroutineDecls(
 
     assert (arity != 0 &&
             "This method should not be used to look up nullary subroutines!");
+
+    if (homonym->isEmpty())
+        return;
 
     if (homonym->isSingleton()) {
         if (lookupFunctions)
