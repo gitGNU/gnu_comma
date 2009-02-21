@@ -168,17 +168,19 @@ Node TypeCheck::acceptPercent(Location loc)
 Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
                                      Location        loc)
 {
-    ModelDecl  *model = scope.lookupDirectModel(id);
-    const char *name  = id->getString();
+    TypeDecl   *type = scope.lookupDirectType(id);
+    const char *name = id->getString();
 
-    if (model == 0) {
+    if (type == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
         return Node::getInvalidNode();
     }
-    else if (isa<SignatureDecl>(model)
-             || isa<DomainDecl>(model)
-             || isa<AbstractDomainDecl>(model))
-        return Node(model->getType());
+    else if (isa<SignatureDecl>(type)
+             || isa<DomainDecl>(type)
+             || isa<AbstractDomainDecl>(type)
+             || isa<CarrierDecl>(type)) {
+        return Node(type->getType());
+    }
     else {
         // Otherwise, we have a variety or functor decl.
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;

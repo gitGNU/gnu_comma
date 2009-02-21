@@ -93,6 +93,13 @@ protected:
 class TypeDecl : public Decl {
 
 public:
+    virtual const Type *getType() const = 0;
+
+    Type *getType() {
+        return const_cast<Type*>(
+            const_cast<const TypeDecl*>(this)->getType());
+    }
+
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesTypeDecl();

@@ -16,6 +16,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -178,22 +179,22 @@ bool Scope::addImport(DomainType *type)
     return false;
 }
 
-ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
-                                    bool traverse) const
+TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
+                                  bool traverse) const
 {
     if (name->hasMetadata()) {
         if (traverse) {
             Homonym *homonym = name->getMetadata<Homonym>();
 
             if (homonym->isDirectSingleton())
-                return dyn_cast<ModelDecl>(homonym->asDeclaration());
+                return dyn_cast<TypeDecl>(homonym->asDeclaration());
 
             if (homonym->isLoaded()) {
                 for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
                      iter != homonym->endDirectDecls(); ++iter) {
                     Decl *candidate = *iter;
-                    if (isa<ModelDecl>(candidate))
-                        return cast<ModelDecl>(candidate);
+                    if (isa<TypeDecl>(candidate))
+                        return cast<TypeDecl>(candidate);
                 }
             }
         }
@@ -207,12 +208,18 @@ ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
             ScopeEntry::DirectIterator endIter = entry->endDirectDecls();
             for ( ; iter != endIter; ++iter) {
                 Decl *candidate = *iter;
-                if (candidate->getIdInfo() == name && isa<ModelDecl>(candidate))
-                    return cast<ModelDecl>(candidate);
+                if (candidate->getIdInfo() == name && isa<TypeDecl>(candidate))
+                    return cast<TypeDecl>(candidate);
             }
         }
     }
     return 0;
+}
+
+ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
+                                    bool traverse) const
+{
+    return dyn_cast_or_null<ModelDecl>(lookupDirectType(name, traverse));
 }
 
 ValueDecl *Scope::lookupDirectValue(const IdentifierInfo *info) const
