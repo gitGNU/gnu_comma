@@ -87,6 +87,25 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// TypeDecl
+//
+// Declarations which correspond to types.
+class TypeDecl : public Decl {
+
+public:
+    static bool classof(const TypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesTypeDecl();
+    }
+
+protected:
+    TypeDecl(AstKind kind, IdentifierInfo *info, Location loc)
+        : Decl(kind, info, loc) {
+        assert(this->denotesTypeDecl());
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 //
 // Models represent those attributes and characteristics which both signatures
@@ -97,7 +116,7 @@ protected:
 // additional parameter is necessary since the Ast classes cannot create
 // IdentifierInfo's on their own -- we do not have access to a global
 // IdentifierPool with which to create them.
-class ModelDecl : public Decl, public DeclarativeRegion {
+class ModelDecl : public TypeDecl, public DeclarativeRegion {
 
 public:
     virtual ~ModelDecl() { }
@@ -144,7 +163,7 @@ protected:
     ModelDecl(AstKind         kind,
               IdentifierInfo *name,
               Location        loc)
-        : Decl(kind, name, loc),
+        : TypeDecl(kind, name, loc),
           DeclarativeRegion(kind),
           sigset(this) { }
 
@@ -543,11 +562,11 @@ private:
 // CarrierDecl
 //
 // Declaration of a domains carrier type.
-class CarrierDecl : public Decl {
+class CarrierDecl : public TypeDecl {
 
 public:
     CarrierDecl(IdentifierInfo *name, DomainType *type, Location loc)
-        : Decl(AST_CarrierDecl, name, loc),
+        : TypeDecl(AST_CarrierDecl, name, loc),
           type(type) { }
 
     const DomainType *getType() const { return type; }

@@ -64,6 +64,7 @@ class Stmt;
 class SubroutineDecl;
 class SubroutineType;
 class Type;
+class TypeDecl;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
@@ -97,9 +98,11 @@ public:
     enum AstKind {
 
         //
-        // Decl nodes.  There are currently three sub-categories.
+        // Decl nodes.  There are currently four sub-categories.
         //
         //    - Model decls which denotes signatures and domains.
+        //
+        //    - Type declarations (models, carriers, etc).
         //
         //    - Subroutine decls denoting functions and procedures.
         //
@@ -111,8 +114,8 @@ public:
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
-        AST_AddDecl,            ///< AddDecl
         AST_CarrierDecl,        ///< CarrierDecl
+        AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
@@ -151,6 +154,9 @@ public:
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,
+
+        FIRST_TypeDecl  = AST_SignatureDecl,
+        LAST_TypeDecl   = AST_CarrierDecl,
 
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl  = AST_ObjectDecl,
@@ -207,6 +213,11 @@ public:
     /// \brief Returns true if this node denotes a Model.
     bool denotesModelDecl() const {
         return (FIRST_ModelDecl <= kind && kind <= LAST_ModelDecl);
+    }
+
+    /// \brief Returns true if this node denotes a type declaration.
+    bool denotesTypeDecl() const {
+        return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
     }
 
     /// \brief Returns true if this node denotes a subroutine decl (i.e. either
