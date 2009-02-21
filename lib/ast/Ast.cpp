@@ -26,6 +26,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "VarietyDecl",
     "FunctorDecl",
     "AddDecl",
+    "CarrierDecl",
     "FunctionDecl",
     "ProcedureDecl",
     "ParamValueDecl",

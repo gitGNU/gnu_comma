@@ -523,6 +523,29 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// CarrierDecl
+//
+// Declaration of a domains carrier type.
+class CarrierDecl : public Decl {
+
+public:
+    CarrierDecl(IdentifierInfo *name, DomainType *type, Location loc)
+        : Decl(AST_CarrierDecl, name, loc),
+          type(type) { }
+
+    const DomainType *getType() const { return type; }
+    DomainType *getType() { return type; }
+
+    static bool classof(const CarrierDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_CarrierDecl;
+    }
+
+private:
+    DomainType *type;
+};
+
+//===----------------------------------------------------------------------===//
 // SubroutineDecl
 //
 // Base class for representing procedures and functions.

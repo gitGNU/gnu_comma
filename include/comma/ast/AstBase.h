@@ -30,6 +30,7 @@ class AddDecl;
 class Ast;
 class AstRewriter;
 class BlockStmt;
+class CarrierDecl;
 class CompilationUnit;
 class Decl;
 class DeclarativeRegion;
@@ -110,6 +111,7 @@ public:
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
         AST_AddDecl,            ///< AddDecl
+        AST_CarrierDecl,        ///< CarrierDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
