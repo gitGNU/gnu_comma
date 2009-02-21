@@ -114,6 +114,15 @@ public:
         return kind == AST_VarietyDecl || kind == AST_FunctorDecl;
     }
 
+    // Returns the DomainType representing the percent node associated with this
+    // decl.
+    //
+    // For signatures, domains and functors, the DomainType representing % is a
+    // unique node owned by the underlying model declaration.  For abstract
+    // domains and domain instances, the % node returned is that of the defining
+    // declaration (a signature for abstract domains, a domain or functor for
+    // instances).  In the latter case, getPercent is simply a forwarding
+    // function.
     virtual DomainType *getPercent() const = 0;
 
     // Accessors to the SignatureSet.

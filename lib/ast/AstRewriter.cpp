@@ -31,8 +31,9 @@ void AstRewriter::installRewrites(DomainType *context)
 
     ModelDecl *model = context->getDeclaration();
 
+    addRewrite(model->getPercent(), context);
+
     if (DomainInstanceDecl *instance = context->getInstanceDecl()) {
-        addRewrite(instance->getDefiningDecl()->getPercent(), context);
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
@@ -42,8 +43,6 @@ void AstRewriter::installRewrites(DomainType *context)
             }
         }
     }
-    else
-        addRewrite(model->getPercent(), context);
 }
 
 void AstRewriter::installRewrites(SignatureType *context)
