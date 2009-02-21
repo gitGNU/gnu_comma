@@ -39,6 +39,7 @@
 #endif
 
 RESERVED(ADD,       "add")
+RESERVED(CARRIER,   "carrier")
 RESERVED(BEGIN,     "begin")
 RESERVED(DOMAIN,    "domain")
 RESERVED(ELSE,      "else")

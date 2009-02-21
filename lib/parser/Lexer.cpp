@@ -255,6 +255,11 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_REPEAT;
         break;
 
+    case 7:
+        if (strncmp(str, "carrier", length) == 0)
+            code = TKN_CARRIER;
+        break;
+
     case 8:
         if (strncmp(str, "function", length) == 0)
             code = TKN_FUNCTION;
