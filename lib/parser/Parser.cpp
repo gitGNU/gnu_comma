@@ -434,6 +434,41 @@ void Parser::parseWithDeclarations()
     }
 }
 
+void Parser::parseCarrier()
+{
+    IdentifierInfo *name;
+    Location        loc;
+    Node            type;
+
+    assert(currentTokenIs(Lexer::TKN_CARRIER));
+    ignoreToken();
+
+    loc  = currentLocation();
+    name = parseIdentifierInfo();
+
+    if (!name) {
+        seekToken(Lexer::TKN_SEMI);
+        return;
+    }
+
+    if (!requireToken(Lexer::TKN_IS)) {
+        seekToken(Lexer::TKN_SEMI);
+        return;
+    }
+
+    type = parseModelInstantiation();
+
+    if (type.isInvalid()) {
+        seekToken(Lexer::TKN_SEMI);
+        return;
+    }
+
+    client.acceptCarrier(name, type, loc);
+}
+
+
+
+
 void Parser::parseAddComponents()
 {
     Descriptor desc;
@@ -469,7 +504,12 @@ void Parser::parseAddComponents()
         case Lexer::TKN_IMPORT:
             parseImportStatement();
             break;
+
+        case Lexer::TKN_CARRIER:
+            parseCarrier();
+            break;
         }
+
         requireToken(Lexer::TKN_SEMI);
     }
 }

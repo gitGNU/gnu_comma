@@ -86,4 +86,5 @@ DIAGNOSTIC(AMBIGUOUS_EXPRESSION, ERROR,
            "Ambiguous expression.")
 DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
            "Multiple imports cause declaration hiding.")
-
+DIAGNOSTIC(MULTIPLE_CARRIER_DECLARATIONS, ERROR,
+           "Multiple carrier declarations.")

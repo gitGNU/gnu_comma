@@ -63,6 +63,7 @@ public:
 
     Node parseObjectDeclaration();
 
+    void parseCarrier();
     void parseAddComponents();
 
     Node parseDeclaration();

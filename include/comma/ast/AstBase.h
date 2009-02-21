@@ -16,6 +16,7 @@
 
 #include "comma/basic/Location.h"
 #include "comma/basic/IdentifierInfo.h"
+#include "llvm/Support/Casting.h"
 #include <map>
 #include <list>
 #include <iosfwd>
@@ -306,7 +307,6 @@ public:
     // semantically valid.
     void addDecl(Decl *decl);
 
-
     // Adds the given declaration to the region using the supplied rewrite
     // rules.
     void addDeclarationUsingRewrites(const AstRewriter &rewrites,
@@ -354,6 +354,7 @@ public:
         case Ast::AST_FunctorDecl:
         case Ast::AST_DomainInstanceDecl:
         case Ast::AST_AbstractDomainDecl:
+        case Ast::AST_AddDecl:
             return true;
         }
     }
@@ -362,6 +363,7 @@ public:
     static bool classof(const SignatureDecl *node) { return true; }
     static bool classof(const VarietyDecl   *node) { return true; }
     static bool classof(const FunctorDecl   *node) { return true; }
+    static bool classof(const AddDecl       *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
 
@@ -381,5 +383,86 @@ private:
 };
 
 } // End comma namespace.
+
+namespace llvm {
+
+// Specialize isa_impl_wrap to test if a DeclarativeRegion is a specific Decl.
+template<class To>
+struct isa_impl_wrap<To,
+                     const comma::DeclarativeRegion, const comma::DeclarativeRegion> {
+    static bool doit(const comma::DeclarativeRegion &val) {
+        return To::classof(val.asDecl());
+    }
+};
+
+template<class To>
+struct isa_impl_wrap<To, comma::DeclarativeRegion, comma::DeclarativeRegion>
+  : public isa_impl_wrap<To,
+                         const comma::DeclarativeRegion,
+                         const comma::DeclarativeRegion> { };
+
+// Decl to DeclarativeRegion conversions.
+template<class From>
+struct cast_convert_val<comma::DeclarativeRegion, From, From> {
+    static comma::DeclarativeRegion &doit(const From &val) {
+        return *val.asDeclarativeRegion();
+    }
+};
+
+template<class From>
+struct cast_convert_val<comma::DeclarativeRegion, From*, From*> {
+    static comma::DeclarativeRegion *doit(const From *val) {
+        return val->asDeclarativeRegion();
+    }
+};
+
+template<class From>
+struct cast_convert_val<const comma::DeclarativeRegion, From, From> {
+    static const comma::DeclarativeRegion &doit(const From &val) {
+        return *val.asDeclarativeRegion();
+    }
+};
+
+template<class From>
+struct cast_convert_val<const comma::DeclarativeRegion, From*, From*> {
+    static const comma::DeclarativeRegion *doit(const From *val) {
+        return val->asDeclarativeRegion();
+    }
+};
+
+// DeclarativeRegion to Decl conversions.
+template<class To>
+struct cast_convert_val<To,
+                        const comma::DeclarativeRegion,
+                        const comma::DeclarativeRegion> {
+    static To &doit(const comma::DeclarativeRegion &val) {
+        return *reinterpret_cast<To*>(
+            const_cast<comma::Decl*>(val.asDecl()));
+    }
+};
+
+template<class To>
+struct cast_convert_val<To, comma::DeclarativeRegion, comma::DeclarativeRegion>
+    : public cast_convert_val<To,
+                              const comma::DeclarativeRegion,
+                              const comma::DeclarativeRegion> { };
+
+template<class To>
+struct cast_convert_val<To,
+                        const comma::DeclarativeRegion*,
+                        const comma::DeclarativeRegion*> {
+    static To *doit(const comma::DeclarativeRegion *val) {
+        return reinterpret_cast<To*>(
+            const_cast<comma::Decl*>(val->asDecl()));
+    }
+};
+
+template<class To>
+struct cast_convert_val<To, comma::DeclarativeRegion*, comma::DeclarativeRegion*>
+    : public cast_convert_val<To,
+                              const comma::DeclarativeRegion*,
+                              const comma::DeclarativeRegion*> { };
+
+} // End llvm namespace.
 
 #endif

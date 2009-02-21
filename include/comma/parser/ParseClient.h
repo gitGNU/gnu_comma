@@ -49,6 +49,11 @@ public:
     // Called for each super signature of a with expression.
     virtual Node acceptWithSupersignature(Node typeNode, Location loc) = 0;
 
+    // Invoked when the parser consumes a carrier declaration.
+    virtual void acceptCarrier(IdentifierInfo *name,
+                               Node            typeNode,
+                               Location        loc) = 0;
+
     // Called at the begining of an add expression.  The client accepts
     // components of an add expression after this call until endAddExpression is
     // called.

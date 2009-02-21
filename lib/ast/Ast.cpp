@@ -165,6 +165,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const AbstractDomainDecl*>(this);
     case Ast::AST_DomainInstanceDecl:
         return static_cast<const DomainInstanceDecl*>(this);
+    case Ast::AST_AddDecl:
+        return static_cast<const AddDecl*>(this);
     }
 }
 

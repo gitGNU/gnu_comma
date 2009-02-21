@@ -583,6 +583,23 @@ void TypeCheck::endAddExpression()
     scope.pop();
 }
 
+void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
+{
+    // We should always be in an add declaration.
+    AddDecl *add = cast<AddDecl>(declarativeRegion);
+
+    if (add->hasCarrier()) {
+        report(loc, diag::MULTIPLE_CARRIER_DECLARATIONS);
+        return;
+    }
+
+    if (DomainType *type = ensureDomainType(typeNode, loc)) {
+        CarrierDecl *carrier = new CarrierDecl(name, type, loc);
+        add->setCarrier(carrier);
+        scope.addDirectDecl(carrier);
+    }
+}
+
 // There is nothing for us to do at the start of a subroutine declaration.
 // Creation of the declaration itself is deferred until
 // acceptSubroutineDeclaration is called.

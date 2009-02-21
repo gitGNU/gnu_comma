@@ -49,6 +49,8 @@ public:
     // Called for each supersignature in a with expression.
     Node acceptWithSupersignature(Node typeNode, Location loc);
 
+    void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
+
     void beginAddExpression();
     void endAddExpression();
 

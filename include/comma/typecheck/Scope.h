@@ -129,6 +129,10 @@ public:
     // Moves the scope up one level and unlinks all declarations.
     void pop();
 
+    void addDirectDecl(Decl *decl) {
+        entries.front()->addDirectDecl(decl);
+    }
+
     void addDirectModel(ModelDecl *model) {
         entries.front()->addDirectDecl(model);
     }

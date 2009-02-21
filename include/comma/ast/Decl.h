@@ -351,8 +351,8 @@ public:
     CarrierDecl *getCarrier() { return carrier; }
     const CarrierDecl *getCarrier() const { return carrier; }
 
-    static bool classof(AddDecl *node) { return true; }
-    static bool classof(Ast *node) {
+    static bool classof(const AddDecl *node) { return true; }
+    static bool classof(const Ast *node) {
         return node->getKind() == AST_AddDecl;
     }
 
