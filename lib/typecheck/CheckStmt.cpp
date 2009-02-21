@@ -29,6 +29,7 @@ void TypeCheck::acceptImportStatement(Node importedNode, Location loc)
     }
 
     scope.addImport(domain);
+    scope.dump();
 }
 
 

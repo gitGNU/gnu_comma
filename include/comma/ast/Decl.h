@@ -565,6 +565,8 @@ public:
 
     const BlockStmt *getBody() const { return body; }
 
+    void dump();
+
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -736,8 +738,12 @@ public:
 
     /// Returns the parameter mode associated with this decl.  This function
     /// never returns MODE_DEFAULT, only MODE_IN.  To check if the mode was
-    /// implicitly defined as "in" use parameterModeSpecified.
+    /// implicitly defined as "in" use parameterModeSpecified, or call
+    /// getExplicitParameterMode.
     ParameterMode getParameterMode() const;
+
+    /// \brief Returns the parameter mdoe associated with this decl.
+    ParameterMode getExplicitParameterMode() const;
 
     static bool classof(const ParamValueDecl *node) { return true; }
     static bool classof(const Ast *node) {

@@ -89,6 +89,9 @@ public:
     /// codes should not be used directly and are subject to change.  Instead,
     /// use the provided predicate methods such as Ast::denotesDecl,
     /// Ast::denotesType, etc.
+    ///
+    /// NOTE: When adding/removing a member of this enumeration, be sure to
+    /// update Ast::kindStrings as well.
     enum AstKind {
 
         //
@@ -138,6 +141,8 @@ public:
         //
         // Delimitiers providing classification of the above codes.
         //
+        LAST_AstKind,
+
         FIRST_Decl      = AST_SignatureDecl,
         LAST_Decl       = AST_ObjectDecl,
 
@@ -240,6 +245,12 @@ public:
         return (FIRST_Stmt <= kind && kind <= LAST_Stmt);
     }
 
+    /// \breif Returns a string matching the kind of this node.
+    const char *getKindString() const { return kindStrings[kind]; }
+
+    /// \brief Prints a representation of this ast node to stderr.
+    virtual void dump();
+
     /// \brief Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }
 
@@ -256,6 +267,8 @@ protected:
     bool     validFlag : 1;     ///< True if this node is valid.
     bool     deletable : 1;     ///< True if we may call delete on this node.
     unsigned bits      : 23;    ///< Unused bits available to sub-classes.
+
+    static const char *kindStrings[LAST_AstKind];
 };
 
 //===----------------------------------------------------------------------===//

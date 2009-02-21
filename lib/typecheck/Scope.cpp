@@ -266,23 +266,33 @@ void Scope::dump() const
         }
 
         if (entry->numDirectDecls()) {
-            unsigned i = 0;
-            std::cerr << "  Direct Decls: ";
+            std::cerr << "  Direct Decls:\n";
             for (ScopeEntry::DirectIterator lexIter = entry->beginDirectDecls();
                  lexIter != entry->endDirectDecls(); ++lexIter) {
-                if (++i % 5 == 0) std::cerr << "\n                ";
-                std::cerr << (*lexIter)->getString() << ' ';
+                Decl *decl = *lexIter;
+                std::cerr << "   " << decl->getString() << " : ";
+                decl->dump();
+                std::cerr << '\n';
             }
             std::cerr << '\n';
         }
 
         if (entry->numImportDecls()) {
-            unsigned i = 0;
-            std::cerr << "  Imports: ";
+            std::cerr << "  Imports:\n";
             for (ScopeEntry::ImportIterator importIter = entry->beginImportDecls();
                  importIter != entry->endImportDecls(); ++importIter) {
-                if (++i % 5 == 0) std::cerr << "\n            ";
-                std::cerr << (*importIter)->getString() << ' ';
+                DomainType *type = *importIter;
+                std::cerr << "   " << type->getString() << " : ";
+                type->dump();
+                std::cerr << '\n';
+
+                Domoid *domoid = type->getDomoidDecl();
+                for (Domoid::DeclIter iter = domoid->beginDecls();
+                     iter != domoid->endDecls(); ++iter) {
+                    std::cerr << "      ";
+                    iter->second->dump();
+                    std::cerr << '\n';
+                }
             }
             std::cerr << '\n';
         }

@@ -9,6 +9,7 @@
 #include "comma/ast/Type.h"
 #include "comma/ast/Decl.h"
 #include <algorithm>
+#include <iostream>
 
 using namespace comma;
 using llvm::cast;
@@ -222,6 +223,20 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
     return dyn_cast<AbstractDomainDecl>(declaration);
 }
 
+void DomainType::dump()
+{
+    std::cerr << '<' << getKindString()
+              << ' ' << std::hex << uintptr_t(this) << ' ';
+
+    if (denotesPercent())
+        std::cerr << "% ";
+    else
+        std::cerr << getString() << ' ';
+
+    getDeclaration()->dump();
+    std::cerr << '>';
+}
+
 //===----------------------------------------------------------------------===//
 // SubroutineType.
 
@@ -277,12 +292,16 @@ int SubroutineType::getKeywordIndex(IdentifierInfo *key) const
 
 ParameterMode SubroutineType::getParameterMode(unsigned i) const
 {
-    assert(i < getArity() && "Index out of range!");
-    ParameterMode mode = static_cast<ParameterMode>(parameterInfo[i].getInt());
+    ParameterMode mode = getExplicitParameterMode(i);
     if (mode == MODE_DEFAULT)
         return MODE_IN;
     else
         return mode;
+}
+
+ParameterMode SubroutineType::getExplicitParameterMode(unsigned i) const
+{
+    return static_cast<ParameterMode>(parameterInfo[i].getInt());
 }
 
 void SubroutineType::setParameterMode(ParameterMode mode, unsigned i)
@@ -343,4 +362,43 @@ bool SubroutineType::equals(const Type *type) const
     // This must be a function type.  The types are therefore equal if the
     // target is also a procedure.
     return isa<ProcedureType>(routineType);
+}
+
+void SubroutineType::dump()
+{
+    std::cerr << '<' <<  getKindString() << ' '
+              << std::hex << uintptr_t(this) << ' ';
+
+    if (numArgs > 0) {
+        std::cerr << "(";
+
+        for (unsigned i = 0; i < numArgs; ++i) {
+            std::cerr << getKeyword(i)->getString()
+                      << " : ";
+            switch (getExplicitParameterMode(i)) {
+            case MODE_IN:
+                std::cerr << "in ";
+                break;
+            case MODE_IN_OUT:
+                std::cerr << "in out ";
+                break;
+            case MODE_OUT:
+                std::cerr << "out ";
+                break;
+            case MODE_DEFAULT:
+                break;
+            }
+            getArgType(i)->dump();
+
+            if (i != numArgs - 1) std::cerr << "; ";
+        }
+
+        std::cerr << ") ";
+    }
+
+    if (FunctionType *ftype = dyn_cast<FunctionType>(this)) {
+        std::cerr << "return ";
+        ftype->getReturnType()->dump();
+    }
+    std::cerr << '>';
 }

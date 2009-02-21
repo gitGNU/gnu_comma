@@ -18,6 +18,42 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+const char *Ast::kindStrings[LAST_AstKind] = {
+    "SignatureDecl",
+    "DomainDecl",
+    "AbstractDomainDecl",
+    "DomainInstanceDecl",
+    "VarietyDecl",
+    "FunctorDecl",
+    "AddDecl",
+    "FunctionDecl",
+    "ProcedureDecl",
+    "ParamValueDecl",
+    "ObjectDecl",
+
+    "SignatureType",
+    "VarietyType",
+    "FunctorType",
+    "DomainType",
+    "FunctionType",
+    "ProcedureType",
+
+    "DeclRefExpr",
+    "KeywordSelector",
+    "FunctionCallExpr",
+
+    "BlockStmt",
+    "ProcedureCallStmt"
+};
+
+void Ast::dump()
+{
+    std::cerr << '<'
+              << getKindString()
+              << ' ' << std::hex << uintptr_t(this)
+              << ">";
+}
+
 //===----------------------------------------------------------------------===//
 // DeclarativeRegion
 

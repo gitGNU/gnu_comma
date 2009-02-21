@@ -268,6 +268,9 @@ public:
     // Returns true if the underlying declaration is an AbstractDomainDecl.
     bool isAbstract() const;
 
+    // Prints this node to stderr.
+    void dump();
+
     // Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -313,8 +316,13 @@ public:
 
     int getKeywordIndex(IdentifierInfo *key) const;
 
-    // Returns the i'th parameter mode for this type.
+    // Returns the i'th parameter mode for this type.  Parameters with
+    // MODE_DEFAULT are automatically converted to MODE_IN (if this conversion
+    // is undesierable use getExplicitParameterMode instead).
     ParameterMode getParameterMode(unsigned i) const;
+
+    // Returns the i'th parameter mode for this type.
+    ParameterMode getExplicitParameterMode(unsigned i) const;
 
     // Sets the i'th parameter mode.  This method will assert if this subroutine
     // denotes a function type and the mode is `out' or `in out'.
@@ -337,6 +345,9 @@ public:
     // match.  Actual argument keywords are not considered when testing for
     // equality.
     bool equals(const Type *type) const;
+
+    // Dumps this subroutine to stderr.
+    void dump();
 
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }

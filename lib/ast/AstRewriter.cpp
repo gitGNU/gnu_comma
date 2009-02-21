@@ -31,9 +31,8 @@ void AstRewriter::installRewrites(DomainType *context)
 
     ModelDecl *model = context->getDeclaration();
 
-    addRewrite(model->getPercent(), context);
-
     if (DomainInstanceDecl *instance = context->getInstanceDecl()) {
+        addRewrite(instance->getDefiningDecl()->getPercent(), context);
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
@@ -43,6 +42,8 @@ void AstRewriter::installRewrites(DomainType *context)
             }
         }
     }
+    else
+        addRewrite(model->getPercent(), context);
 }
 
 void AstRewriter::installRewrites(SignatureType *context)
@@ -154,9 +155,17 @@ ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
     unsigned         arity = ptype->getArity();
     DomainType      *params[arity];
     IdentifierInfo **keywords;
+    ProcedureType   *result;
 
     rewriteParameters(ptype, arity, params);
     keywords = ptype->getKeywordArray();
-    return new ProcedureType(keywords, &params[0], arity);
+    result   = new ProcedureType(keywords, &params[0], arity);
+
+    for (unsigned i = 0; i < arity; ++i) {
+        ParameterMode mode = ptype->getExplicitParameterMode(i);
+        result->setParameterMode(mode, i);
+    }
+
+    return result;
 }
 

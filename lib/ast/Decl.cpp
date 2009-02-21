@@ -9,6 +9,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/AstRewriter.h"
 #include <algorithm>
+#include <iostream>
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -344,8 +345,10 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     }
 
     // Set the parameter modes for the type.
-    for (unsigned i = 0; i < numParams; ++i)
-        routineType->setParameterMode(params[i]->getParameterMode(), i);
+    for (unsigned i = 0; i < numParams; ++i) {
+        ParameterMode mode = params[i]->getExplicitParameterMode();
+        routineType->setParameterMode(mode, i);
+    }
 }
 
 SubroutineDecl::SubroutineDecl(AstKind            kind,
@@ -391,18 +394,31 @@ void SubroutineDecl::setBaseDeclaration(SubroutineDecl *routineDecl)
     baseDeclaration = routineDecl;
 }
 
+void SubroutineDecl::dump()
+{
+    std::cerr << '<' << getKindString()
+              << ' ' << uintptr_t(this)
+              << ' ' << getString() << ' ';
+    getType()->dump();
+    std::cerr << '>';
+}
+
 //===----------------------------------------------------------------------===//
 // ParamValueDecl
 
+ParameterMode ParamValueDecl::getExplicitParameterMode() const
+{
+    return static_cast<ParameterMode>(bits);
+}
+
 bool ParamValueDecl::parameterModeSpecified() const
 {
-    ParameterMode mode = static_cast<ParameterMode>(bits);
-    return mode == MODE_DEFAULT;
+    return getExplicitParameterMode() == MODE_DEFAULT;
 }
 
 ParameterMode ParamValueDecl::getParameterMode() const
 {
-    ParameterMode mode = static_cast<ParameterMode>(bits);
+    ParameterMode mode = getExplicitParameterMode();
     if (mode == MODE_DEFAULT)
         return MODE_IN;
     else
