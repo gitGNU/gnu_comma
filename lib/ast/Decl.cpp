@@ -101,11 +101,13 @@ Domoid::Domoid(AstKind         kind,
 // An AddDecl's declarative region is a sub-region of its parent domain decl.
 AddDecl::AddDecl(DomainDecl *domain)
     : Decl(AST_AddDecl),
-      DeclarativeRegion(AST_AddDecl, domain) { }
+      DeclarativeRegion(AST_AddDecl, domain),
+      carrier(0) { }
 
 AddDecl::AddDecl(FunctorDecl *functor)
     : Decl(AST_AddDecl),
-      DeclarativeRegion(AST_AddDecl, functor) { }
+      DeclarativeRegion(AST_AddDecl, functor),
+      carrier(0) { }
 
 bool AddDecl::implementsDomain() const
 {

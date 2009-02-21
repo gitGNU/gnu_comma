@@ -338,10 +338,27 @@ public:
     // declaration which this add implements, otherwise NULL is returned.
     FunctorDecl *getImplementedFunctor();
 
+    // Returns true if a carrier has been associated with this declaration.
+    bool hasCarrier() const { return carrier != 0; }
+
+    // Sets the carrier for this declaration.
+    void setCarrier(CarrierDecl *carrier) {
+        this->carrier = carrier;
+    }
+
+    // Returns the carrier declaration, or NULL if a carrier has not yet been
+    // defined.
+    CarrierDecl *getCarrier() { return carrier; }
+    const CarrierDecl *getCarrier() const { return carrier; }
+
     static bool classof(AddDecl *node) { return true; }
     static bool classof(Ast *node) {
         return node->getKind() == AST_AddDecl;
     }
+
+private:
+    // Non-null if a carrier has been associated with this declaration.
+    CarrierDecl *carrier;
 };
 
 //===----------------------------------------------------------------------===//
