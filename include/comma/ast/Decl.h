@@ -114,7 +114,7 @@ public:
         return kind == AST_VarietyDecl || kind == AST_FunctorDecl;
     }
 
-    DomainType *getPercent() const { return percent; }
+    virtual DomainType *getPercent() const = 0;
 
     // Accessors to the SignatureSet.
     SignatureSet& getSignatureSet() { return sigset; }
@@ -132,17 +132,12 @@ public:
     }
 
 protected:
-    // Creates an anonymous Model.  Note that anonymous models do not have valid
-    // location information as they never correspond to a source level construct.
-    ModelDecl(AstKind kind, IdentifierInfo *percentId);
-
     ModelDecl(AstKind         kind,
-              IdentifierInfo *percentId,
               IdentifierInfo *name,
-              Location        loc);
-
-    // Percent node for this decl.
-    DomainType *percent;
+              Location        loc)
+        : Decl(kind, name, loc),
+          DeclarativeRegion(kind),
+          sigset(this) { }
 
     // The set of signatures which this model satisfies.
     SignatureSet sigset;
@@ -156,16 +151,13 @@ protected:
 class Sigoid : public ModelDecl {
 
 public:
-    // Constructs an anonymous signature.
-    Sigoid(AstKind kind, IdentifierInfo *percentId)
-        : ModelDecl(kind, percentId) { }
-
     // Creates a named signature.
     Sigoid(AstKind         kind,
            IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc)
-        : ModelDecl(kind, percentId, idInfo, loc) { }
+        : ModelDecl(kind, idInfo, loc),
+          percent(DomainType::getPercent(percentId, this)) { }
 
     virtual ~Sigoid() { }
 
@@ -177,11 +169,16 @@ public:
     // otherwise returns NULL.
     VarietyDecl *getVariety();
 
+    DomainType *getPercent() const { return percent; }
+
     static bool classof(const Sigoid *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
         return kind == AST_SignatureDecl || kind == AST_VarietyDecl;
     }
+
+private:
+    DomainType *percent;
 };
 
 //===----------------------------------------------------------------------===//
@@ -299,7 +296,6 @@ public:
 
 protected:
     Domoid(AstKind         kind,
-           IdentifierInfo *percentId,
            IdentifierInfo *idInfo,
            Location        loc);
 };
@@ -357,6 +353,8 @@ public:
     // Returns the AddDecl which implements this domain.
     const AddDecl *getImplementation() const { return implementation; }
 
+    DomainType *getPercent() const { return percent; }
+
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -366,6 +364,7 @@ public:
 private:
     DomainInstanceDecl *instance;
     AddDecl            *implementation;
+    DomainType         *percent;
 };
 
 //===----------------------------------------------------------------------===//
@@ -381,6 +380,10 @@ public:
     DomainType *getType() { return abstractType; }
 
     SignatureType *getSignatureType() const { return signature; }
+
+    DomainType *getPercent() const {
+        return signature->getDeclaration()->getPercent();
+    }
 
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const Ast* node) {
@@ -407,10 +410,14 @@ public:
     const DomainType *getType() const { return correspondingType; }
     DomainType *getType() { return correspondingType; }
 
-    Domoid *getDefiningDecl()  { return definition; }
+    Domoid *getDefiningDecl() const { return definition; }
 
-    DomainDecl  *getDefiningDomain();
-    FunctorDecl *getDefiningFunctor();
+    DomainDecl  *getDefiningDomain() const;
+    FunctorDecl *getDefiningFunctor() const;
+
+    DomainType *getPercent() const {
+        return getDefiningDecl()->getPercent();
+    }
 
     // Returns the arity of the underlying declaration.
     unsigned getArity() const;
@@ -490,6 +497,8 @@ public:
         return getType()->getFormalDomain(i);
     }
 
+    DomainType *getPercent() const { return percent; }
+
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -501,6 +510,7 @@ private:
 
     FunctorType *functor;
     AddDecl     *implementation;
+    DomainType  *percent;
 };
 
 //===----------------------------------------------------------------------===//
@@ -820,12 +830,12 @@ inline DomainType *DomainDecl::getType() {
     return instance->getType();
 }
 
-inline DomainDecl *DomainInstanceDecl::getDefiningDomain()
+inline DomainDecl *DomainInstanceDecl::getDefiningDomain() const
 {
     return llvm::dyn_cast<DomainDecl>(definition);
 }
 
-inline FunctorDecl *DomainInstanceDecl::getDefiningFunctor()
+inline FunctorDecl *DomainInstanceDecl::getDefiningFunctor() const
 {
     return llvm::dyn_cast<FunctorDecl>(definition);
 }

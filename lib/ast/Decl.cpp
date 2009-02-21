@@ -42,31 +42,6 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
 }
 
 //===----------------------------------------------------------------------===//
-// ModelDecl
-ModelDecl::ModelDecl(AstKind kind, IdentifierInfo *percentId)
-    : Decl(kind),
-      DeclarativeRegion(kind),
-      sigset(this)
-{
-    assert(std::strcmp(percentId->getString(), "%") == 0 &&
-           "Percent IdInfo not == \"%\"!");
-    percent = DomainType::getPercent(percentId, this);
-}
-
-ModelDecl::ModelDecl(AstKind         kind,
-                     IdentifierInfo *percentId,
-                     IdentifierInfo *info,
-                     Location        loc)
-    : Decl(kind, info, loc),
-      DeclarativeRegion(kind),
-      sigset(this)
-{
-    assert(std::strcmp(percentId->getString(), "%") == 0 &&
-           "Percent IdInfo not == \"%\"!");
-    percent = DomainType::getPercent(percentId, this);
-}
-
-//===----------------------------------------------------------------------===//
 // SignatureDecl
 SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
                              IdentifierInfo *info,
@@ -116,10 +91,9 @@ SignatureType *VarietyDecl::getCorrespondingType()
 // Domoid
 
 Domoid::Domoid(AstKind         kind,
-               IdentifierInfo *percentId,
                IdentifierInfo *idInfo,
                Location        loc)
-    : ModelDecl(kind, percentId, idInfo, loc) { }
+    : ModelDecl(kind, idInfo, loc) { }
 
 //===----------------------------------------------------------------------===//
 // AddDecl
@@ -158,10 +132,11 @@ FunctorDecl *AddDecl::getImplementedFunctor()
 DomainDecl::DomainDecl(IdentifierInfo *percentId,
                        IdentifierInfo *name,
                        const Location &loc)
-    : Domoid(AST_DomainDecl, percentId, name, loc)
+    : Domoid(AST_DomainDecl, name, loc)
 {
-    instance = new DomainInstanceDecl(this, loc);
+    instance       = new DomainInstanceDecl(this, loc);
     implementation = new AddDecl(this);
+    percent        = DomainType::getPercent(percentId, this);
 }
 
 
@@ -170,8 +145,7 @@ DomainDecl::DomainDecl(IdentifierInfo *percentId,
 AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
                                        SignatureType  *type,
                                        Location        loc)
-    : Domoid(AST_AbstractDomainDecl,
-             type->getDeclaration()->getPercent()->getIdInfo(), name, loc),
+    : Domoid(AST_AbstractDomainDecl, name, loc),
       signature(type)
 {
     abstractType = new DomainType(this);
@@ -195,7 +169,6 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 // DomainInstanceDecl
 DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
     : Domoid(AST_DomainInstanceDecl,
-             domain->getPercent()->getIdInfo(),
              domain->getIdInfo(),
              loc),
       definition(domain)
@@ -214,7 +187,6 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
                                        unsigned     numArgs,
                                        Location     loc)
     : Domoid(AST_DomainInstanceDecl,
-             functor->getPercent()->getIdInfo(),
              functor->getIdInfo(),
              loc),
       definition(functor)
@@ -265,10 +237,11 @@ FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
                          Location        loc,
                          DomainType    **formals,
                          unsigned        arity)
-    : Domoid(AST_FunctorDecl, percentId, name, loc)
+    : Domoid(AST_FunctorDecl, name, loc)
 {
     functor        = new FunctorType(formals, this, arity);
     implementation = new AddDecl(this);
+    percent        = DomainType::getPercent(percentId, this);
 }
 
 DomainInstanceDecl *
