@@ -17,7 +17,7 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-DomainType *AstRewriter::getRewrite(DomainType *source) const
+Type *AstRewriter::getRewrite(Type *source) const
 {
     RewriteMap::const_iterator iter = rewrites.find(source);
     if (iter == rewrites.end())
@@ -38,7 +38,7 @@ void AstRewriter::installRewrites(DomainType *context)
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
                 DomainType *formal = functor->getFormalDomain(i);
-                DomainType *actual = instance->getActualParameter(i);
+                Type       *actual = instance->getActualParameter(i);
                 rewrites[formal] = actual;
             }
         }
@@ -53,7 +53,7 @@ void AstRewriter::installRewrites(SignatureType *context)
         unsigned arity = variety->getArity();
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *formal = variety->getFormalDomain(i);
-            DomainType *actual = context->getActualParameter(i);
+            Type       *actual = context->getActualParameter(i);
             addRewrite(formal, actual);
         }
     }
@@ -62,11 +62,11 @@ void AstRewriter::installRewrites(SignatureType *context)
 SignatureType *AstRewriter::rewrite(SignatureType *sig) const
 {
     if (sig->isParameterized()) {
-        llvm::SmallVector<DomainType*, 4> args;
+        llvm::SmallVector<Type*, 4> args;
         SignatureType::arg_iterator iter;
         SignatureType::arg_iterator endIter = sig->endArguments();
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
-            if (DomainType *dom = getRewrite(*iter))
+            if (Type *dom = getRewrite(*iter))
                 args.push_back(dom);
             else
                 args.push_back(*iter);
@@ -84,14 +84,14 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
     if (DomainInstanceDecl *instance = dom->getInstanceDecl()) {
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             typedef DomainInstanceDecl::arg_iterator iterator;
-            llvm::SmallVector<DomainType*, 4> args;
+            llvm::SmallVector<Type*, 4> args;
 
             iterator iter;
             iterator endIter = instance->endArguments();
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
                 // If the argument is a member of the rewrite set, then we must
                 // create a new
-                if (DomainType *target = getRewrite(*iter))
+                if (Type *target = getRewrite(*iter))
                     args.push_back(target);
                 else
                     args.push_back(*iter);
@@ -116,10 +116,10 @@ SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
 // of the rewrite in "params".
 void AstRewriter::rewriteParameters(SubroutineType *srType,
                                     unsigned        count,
-                                    DomainType    **params) const
+                                    Type          **params) const
 {
-    DomainType *source;
-    DomainType *target;
+    Type *source;
+    Type *target;
 
     for (unsigned i = 0; i < count; ++i) {
         source = srType->getArgType(i);
@@ -134,10 +134,10 @@ void AstRewriter::rewriteParameters(SubroutineType *srType,
 FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 {
     unsigned         arity = ftype->getArity();
-    DomainType      *params[arity];
+    Type            *params[arity];
     IdentifierInfo **keywords;
-    DomainType      *source;
-    DomainType      *target;
+    Type            *source;
+    Type            *target;
 
     rewriteParameters(ftype, arity, params);
     keywords = ftype->getKeywordArray();
@@ -152,7 +152,7 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
 {
     unsigned         arity = ptype->getArity();
-    DomainType      *params[arity];
+    Type            *params[arity];
     IdentifierInfo **keywords;
     ProcedureType   *result;
 

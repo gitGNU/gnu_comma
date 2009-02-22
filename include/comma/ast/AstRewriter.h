@@ -33,18 +33,18 @@ public:
     // the rule to the given source -- it is the responsibility of the
     // programmer to ensure that established rules are not mistakenly
     // overwritten.
-    void addRewrite(DomainType *source, DomainType *target) {
+    void addRewrite(Type *source, Type *target) {
         rewrites[source] = target;
     }
 
     // Maps source to a target if a rewrite rule exists, otherwise returns
     // source.
-    DomainType *getRewrite(DomainType *source) const;
+    Type *getRewrite(Type *source) const;
 
     // Returns a reference to a target entry in the rewriter corresponding to
     // source.  This returned value is an lvalue and can be used as a shorthand
     // for addRewrite.
-    DomainType *&operator [](DomainType *source) {
+    Type *&operator [](Type *source) {
         return rewrites[source];
     }
 
@@ -63,7 +63,7 @@ public:
 
     // Returns true if the given type is rewritten to a distinct node using the
     // established rules.
-    bool isRewriteSource(DomainType *source) const {
+    bool isRewriteSource(Type *source) const {
         return getRewrite(source) != source;
     }
 
@@ -91,14 +91,14 @@ public:
     ProcedureType *rewrite(ProcedureType *ftype) const;
 
 private:
-    typedef std::map<DomainType*, DomainType*> RewriteMap;
+    typedef std::map<Type*, Type*> RewriteMap;
     RewriteMap rewrites;
 
     // Rewrites "count" parameter types of the given subroutine, placing the
     // results of the rewrite in "params".
     void rewriteParameters(SubroutineType *srType,
                            unsigned        count,
-                           DomainType    **params) const;
+                           Type          **params) const;
 };
 
 } // End comma namespace

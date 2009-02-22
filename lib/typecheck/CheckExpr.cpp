@@ -248,7 +248,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
             for (ConnectiveIter iter = argCall->beginConnectives();
                  iter != argCall->endConnectives(); ++iter) {
                 FunctionDecl *connective = *iter;
-                DomainType   *returnType = connective->getReturnType();
+                Type         *returnType = connective->getReturnType();
                 if (targetType->equals(returnType)) {
                     applicableArgument = true;
                     break;
@@ -436,9 +436,9 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
 
     // Check each argument types wrt this decl.
     for (unsigned i = 0; i < numArgs; ++i) {
-        DomainType *targetType = decl->getArgType(i);
-        Expr       *arg        = sortedArgs[i];
-        Type       *argType;
+        Type *targetType = decl->getArgType(i);
+        Expr *arg        = sortedArgs[i];
+        Type *argType;
 
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
@@ -482,7 +482,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 
     for ( ; iter != endIter; ++iter) {
         FunctionDecl *candidate  = *iter;
-        DomainType   *returnType = candidate->getReturnType();
+        Type         *returnType = candidate->getReturnType();
         if (targetType->equals(returnType)) {
             if (fdecl) {
                 report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);

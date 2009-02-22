@@ -23,6 +23,10 @@ namespace comma {
 // compareTypesUsingRewrites: the following functions determine equality between
 // two types using the supplied rewrite rules as a context for evaluation.
 bool compareTypesUsingRewrites(const AstRewriter &rewrites,
+                               Type              *typeX,
+                               Type              *typeY);
+
+bool compareTypesUsingRewrites(const AstRewriter &rewrites,
                                SignatureType     *typeX,
                                SignatureType     *typeY);
 

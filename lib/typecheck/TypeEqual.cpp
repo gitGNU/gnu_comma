@@ -14,6 +14,53 @@ using llvm::cast;
 using llvm::isa;
 
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
+                                      Type              *typeX,
+                                      Type              *typeY)
+{
+    Ast::AstKind kind = typeX->getKind();
+
+    if (kind != typeY->getKind()) return false;
+
+    switch (kind) {
+
+    default:
+        assert(false && "Cannot handle node kind!");
+        break;
+
+    case Ast::AST_SignatureType:
+        if (SignatureType *sigY = dyn_cast<SignatureType>(typeY)) {
+            SignatureType *sigX = cast<SignatureType>(typeX);
+            return compareTypesUsingRewrites(rewrites, sigX, sigY);
+        }
+        break;
+
+    case Ast::AST_DomainType:
+        if (DomainType *domY = dyn_cast<DomainType>(typeY)) {
+            DomainType *domX = cast<DomainType>(typeX);
+            return compareTypesUsingRewrites(rewrites, domX, domY);
+        }
+        break;
+
+    case Ast::AST_FunctionType:
+        if (FunctionType *funY = dyn_cast<FunctionType>(typeY)) {
+            FunctionType *funX = cast<FunctionType>(typeX);
+            return compareTypesUsingRewrites(rewrites, funX, funY);
+        }
+        break;
+
+    case Ast::AST_ProcedureType:
+        if (ProcedureType *procY = dyn_cast<ProcedureType>(typeY)) {
+            ProcedureType *procX = cast<ProcedureType>(typeX);
+            return compareTypesUsingRewrites(rewrites, procX, procY);
+        }
+        break;
+    }
+
+    return false;
+}
+
+
+bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
                                       SignatureType     *typeX,
                                       SignatureType     *typeY)
 {
@@ -21,8 +68,8 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
         if (typeX->isParameterized()) {
             unsigned arity = typeX->getArity();
             for (unsigned i = 0; i < arity; ++i) {
-                DomainType *argX = typeX->getActualParameter(i);
-                DomainType *argY = typeY->getActualParameter(i);
+                Type *argX = typeX->getActualParameter(i);
+                Type *argY = typeY->getActualParameter(i);
                 if (!compareTypesUsingRewrites(rewrites, argX, argY))
                     return false;
             }
@@ -36,17 +83,19 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
                                       DomainType        *typeX,
                                       DomainType        *typeY)
 {
-    typeX = rewrites.getRewrite(typeX);
-    typeY = rewrites.getRewrite(typeY);
+    Type *rewriteX = rewrites.getRewrite(typeX);
+    Type *rewriteY = rewrites.getRewrite(typeY);
 
-    if (typeX == typeY)
+    if (rewriteX == rewriteY)
         return true;
 
     // Otherwise, typeX and typeY must be instances of the same functor for the
     // comparison to succeed since all non-parameterized types are represented
     // by a unique node.
-    DomainInstanceDecl *instanceX = typeX->getInstanceDecl();
-    DomainInstanceDecl *instanceY = typeY->getInstanceDecl();
+    DomainType *domX = cast<DomainType>(rewriteX);
+    DomainType *domY = cast<DomainType>(rewriteY);
+    DomainInstanceDecl *instanceX = domX->getInstanceDecl();
+    DomainInstanceDecl *instanceY = domY->getInstanceDecl();
     if (instanceX && instanceY) {
 
         if (instanceX->getDefiningDecl() != instanceY->getDefiningDecl())
@@ -56,8 +105,8 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
         // by identical declarations.
         unsigned arity = instanceX->getArity();
         for (unsigned i = 0; i < arity; ++i) {
-            DomainType *argX = instanceX->getActualParameter(i);
-            DomainType *argY = instanceY->getActualParameter(i);
+            Type *argX = instanceX->getActualParameter(i);
+            Type *argY = instanceY->getActualParameter(i);
             if (!compareTypesUsingRewrites(rewrites, argX, argY))
                 return false;
         }
@@ -99,8 +148,8 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
         return false;
 
     for (unsigned i = 0; i < arity; ++i) {
-        DomainType *argX = typeX->getArgType(i);
-        DomainType *argY = typeY->getArgType(i);
+        Type *argX = typeX->getArgType(i);
+        Type *argY = typeY->getArgType(i);
         if (!compareTypesUsingRewrites(rewrites, argX, argY))
             return false;
     }
@@ -118,8 +167,8 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
         return false;
 
     for (unsigned i = 0; i < arity; ++i) {
-        DomainType *argX = typeX->getArgType(i);
-        DomainType *argY = typeY->getArgType(i);
+        Type *argX = typeX->getArgType(i);
+        Type *argY = typeY->getArgType(i);
         if (!compareTypesUsingRewrites(rewrites, argX, argY))
             return false;
     }

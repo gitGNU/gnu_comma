@@ -175,11 +175,11 @@ private:
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
 
-    DomainType *ensureDomainType(Node typeNode, Location loc) const;
+    Type *ensureDomainType(Node typeNode, Location loc) const;
 
     static SignatureType *resolveArgumentType(ParameterizedType *target,
-                                              DomainType **actuals,
-                                              unsigned numActuals);
+                                              Type             **actuals,
+                                              unsigned           numActuals);
 
     bool resolveDirectDecl(Decl           *candidate,
                            IdentifierInfo *name,

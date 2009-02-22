@@ -32,6 +32,14 @@ void TypeCheck::deleteNode(Node node)
     if (ast && ast->isDeletable()) delete ast;
 }
 
+Sigoid *TypeCheck::getCurrentSignature() const {
+    return dyn_cast<Sigoid>(getCurrentModel());
+}
+
+Domoid *TypeCheck::getCurrentDomain() const {
+    return dyn_cast<Domoid>(getCurrentModel());
+}
+
 void TypeCheck::beginModelDeclaration(Descriptor &desc)
 {
     assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
@@ -135,14 +143,13 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 Node TypeCheck::acceptWithSupersignature(Node     typeNode,
                                          Location loc)
 {
-    ModelType     *type = cast_node<ModelType>(typeNode);
+    Type          *type = cast_node<Type>(typeNode);
     SignatureType *superSig;
 
     // Simply check that the node denotes a signature.
     superSig = dyn_cast<SignatureType>(type);
     if (!superSig) {
-        const char *name = type->getString();
-        report(loc, diag::NOT_A_SIGNATURE) << name;
+        report(loc, diag::NOT_A_SIGNATURE);
         delete type;
         return Node::getInvalidNode();
     }
@@ -175,16 +182,18 @@ Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
         return Node::getInvalidNode();
     }
-    else if (isa<SignatureDecl>(type)
-             || isa<DomainDecl>(type)
-             || isa<AbstractDomainDecl>(type)
-             || isa<CarrierDecl>(type)) {
-        return Node(type->getType());
-    }
-    else {
-        // Otherwise, we have a variety or functor decl.
+
+    switch (type->getKind()) {
+
+    default:
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
         return Node::getInvalidNode();
+
+    case Ast::AST_SignatureDecl:
+    case Ast::AST_DomainDecl:
+    case Ast::AST_AbstractDomainDecl:
+    case Ast::AST_CarrierDecl:
+        return Node(type->getType());
     }
 }
 
@@ -221,11 +230,11 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
 
     unsigned numPositional = numArgs - numKeywords;
-    llvm::SmallVector<DomainType*, 4> arguments(numArgs);
+    llvm::SmallVector<Type*, 4> arguments(numArgs);
 
     // First, populate the argument vector with any positional parameters.
     for (unsigned i = 0; i < numPositional; ++i)
-        arguments[i] = lift_node<DomainType>(argumentNodes[i]);
+        arguments[i] = cast_node<Type>(argumentNodes[i]);
 
     // Process any keywords provided.
     for (unsigned i = 0; i < numKeywords; ++i) {
@@ -261,29 +270,46 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
         // Lift the argument node and add it to the set of arguments in its
         // proper position.
-        DomainType *argument =
-            lift_node<DomainType>(argumentNodes[i + numPositional]);
+        Type *argument =
+            cast_node<Type>(argumentNodes[i + numPositional]);
         arguments[keywordIdx] = argument;
     }
 
     // Check each argument type.
     for (unsigned i = 0; i < numArgs; ++i) {
-        DomainType  *argument = arguments[i];
+        Type        *argument = arguments[i];
         Location       argLoc = argumentLocs[i];
         SignatureType *target =
                 resolveArgumentType(candidate, &arguments[0], i);
 
-        if (!argument) {
-                ModelType *model = lift_node<ModelType>(argumentNodes[i]);
-                report(argLoc, diag::NOT_A_DOMAIN) << model->getString();
+        if (DomainType *domain = dyn_cast<DomainType>(argument)) {
+            if (!has(domain, target)) {
+                report(argLoc, diag::DOES_NOT_SATISFY)
+                    << domain->getString()  << target->getString();
                 return Node::getInvalidNode();
+            }
+            continue;
         }
 
-        if (!has(argument, target)) {
-            report(argLoc, diag::DOES_NOT_SATISFY)
-                << argument->getString() << target->getString();
-            return Node::getInvalidNode();
+        if (CarrierType *carrier = dyn_cast<CarrierType>(argument)) {
+            DomainType *rep =
+                dyn_cast<DomainType>(carrier->getRepresentationType());
+            if (!rep) {
+                report(argLoc, diag::NOT_A_DOMAIN);
+                return Node::getInvalidNode();
+            }
+            if (!has(rep, target)) {
+                report(argLoc, diag::DOES_NOT_SATISFY)
+                    << carrier->getString() << target->getString();
+                return Node::getInvalidNode();
+            }
+            continue;
         }
+
+        // Otherwise, the argument does not denote a domain, and so cannot
+        // satisfy the signature constraint.
+        report(argLoc, diag::NOT_A_DOMAIN);
+        return Node::getInvalidNode();
     }
 
     // Obtain a memoized type node for this particular argument set.
@@ -308,8 +334,8 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
                                    Node             returnType,
                                    Location         returnLocation)
 {
-    llvm::SmallVector<DomainType*, 4> argumentTypes;
-    DomainType *targetType;
+    llvm::SmallVector<Type*, 4> argumentTypes;
+    Type *targetType;
     bool allOK = true;
 
     for (unsigned i = 0; i < arity; ++i) {
@@ -326,7 +352,7 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
             }
 
         // Ensure each parameter denotes a domain type.
-        DomainType *argumentType = ensureDomainType(types[i], typeLocations[i]);
+        Type *argumentType = ensureDomainType(types[i], typeLocations[i]);
         if (argumentType && allOK)
             argumentTypes.push_back(argumentType);
     }
@@ -360,7 +386,7 @@ void TypeCheck::endWithExpression()
 // the form (X : T, Y : U(X)), this function resolves the type of U(X) given an
 // actual parameter for X.
 SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
-                                              DomainType       **actuals,
+                                              Type             **actuals,
                                               unsigned           numActuals)
 {
     AstRewriter rewriter;
@@ -368,21 +394,13 @@ SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
     // For each actual argument, establish a map from the formal parameter to
     // the actual.
     for (unsigned i = 0; i < numActuals; ++i) {
-        DomainType *formal = type->getFormalDomain(i);
-        DomainType *actual = actuals[i];
+        Type *formal = type->getFormalDomain(i);
+        Type *actual = actuals[i];
         rewriter.addRewrite(formal, actual);
     }
 
     SignatureType *target = type->getFormalType(numActuals);
     return rewriter.rewrite(target);
-}
-
-Sigoid *TypeCheck::getCurrentSignature() const {
-    return dyn_cast<Sigoid>(getCurrentModel());
-}
-
-Domoid *TypeCheck::getCurrentDomain() const {
-    return dyn_cast<Domoid>(getCurrentModel());
 }
 
 // Creates a procedure or function decl depending on the kind of the
@@ -399,16 +417,16 @@ SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
     return new ProcedureDecl(name, loc, ptype, region);
 }
 
-DomainType *TypeCheck::ensureDomainType(Node     node,
-                                        Location loc) const
+Type *TypeCheck::ensureDomainType(Node     node,
+                                  Location loc) const
 {
-    DomainType *dom = lift_node<DomainType>(node);
-    if (!dom) {
-        ModelType *model = cast_node<ModelType>(node);
-        report(loc, diag::NOT_A_DOMAIN) << model->getString();
-        return 0;
-    }
-    return dom;
+    if (DomainType *dom = lift_node<DomainType>(node))
+        return dom;
+    else if (CarrierType *carrier = lift_node<CarrierType>(node))
+        return carrier;
+
+    report(loc, diag::NOT_A_DOMAIN);
+    return 0;
 }
 
 namespace {
@@ -525,7 +543,7 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
 {
     Type *type = cast_node<Type>(typeNode);
 
-    if (DomainType *domain = ensureDomainType(type, loc)) {
+    if (Type *domain = ensureDomainType(type, loc)) {
         ObjectDecl *decl = new ObjectDecl(name, domain, loc);
 
         // FIXME: Adding the decl now will expose the binding in any
@@ -595,7 +613,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
         return;
     }
 
-    if (DomainType *type = ensureDomainType(typeNode, loc)) {
+    if (Type *type = ensureDomainType(typeNode, loc)) {
         CarrierDecl *carrier = new CarrierDecl(name, type, loc);
         add->setCarrier(carrier);
         scope.addDirectDecl(carrier);
@@ -619,7 +637,7 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
     // FIXME: The location provided here is the location of the formal, not the
     // location of the type.  The type node here should be a ModelRef or similar
     // which encapsulates the needed location information.
-    DomainType *dom = ensureDomainType(typeNode, loc);
+    Type *dom = ensureDomainType(typeNode, loc);
 
     if (!dom) return Node::getInvalidNode();
 
@@ -682,7 +700,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     if (desc.isFunctionDescriptor()) {
         // If this descriptor is a function, then we must have a return type
         // that resolves to a domain.
-        DomainType *returnType = ensureDomainType(desc.getReturnType(), 0);
+        Type *returnType = ensureDomainType(desc.getReturnType(), 0);
         if (returnType && paramsOK)
             routineDecl = new FunctionDecl(name,
                                            location,

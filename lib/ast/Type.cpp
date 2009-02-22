@@ -17,6 +17,37 @@ using llvm::dyn_cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
+// CarrierType
+
+Type *CarrierType::getRepresentationType()
+{
+    return declaration->getRepresentationType();
+}
+
+const Type *CarrierType::getRepresentationType() const
+{
+    return declaration->getRepresentationType();
+}
+
+IdentifierInfo *CarrierType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
+
+const char *CarrierType::getString() const
+{
+    return declaration->getString();
+}
+
+bool CarrierType::equals(const Type *type) const
+{
+    if (const DomainType *domain = dyn_cast<DomainType>(type))
+        return domain->equals(getRepresentationType());
+
+    return this == type;
+}
+
+//===----------------------------------------------------------------------===//
 // SignatureType
 
 SignatureType::SignatureType(SignatureDecl *decl)
@@ -26,11 +57,11 @@ SignatureType::SignatureType(SignatureDecl *decl)
 }
 
 SignatureType::SignatureType(VarietyDecl *decl,
-                             DomainType **args, unsigned numArgs)
+                             Type **args, unsigned numArgs)
     : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
 {
     deletable = false;
-    arguments = new DomainType*[numArgs];
+    arguments = new Type*[numArgs];
     std::copy(args, args + numArgs, arguments);
 }
 
@@ -57,7 +88,7 @@ unsigned SignatureType::getArity() const
     return 0;
 }
 
-DomainType *SignatureType::getActualParameter(unsigned n) const
+Type *SignatureType::getActualParameter(unsigned n) const
 {
     assert(isParameterized() &&
            "Cannot fetch parameter from non-parameterized type!");
@@ -66,7 +97,7 @@ DomainType *SignatureType::getActualParameter(unsigned n) const
 }
 
 void SignatureType::Profile(llvm::FoldingSetNodeID &id,
-                            DomainType **args, unsigned numArgs)
+                            Type **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);
@@ -223,6 +254,18 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
     return dyn_cast<AbstractDomainDecl>(declaration);
 }
 
+bool DomainType::equals(const Type *type) const
+{
+    if (this == type) return true;
+
+    // Otherwise, the candidate type must be a carrier with a representation
+    // equal to this domain.
+    if (const CarrierType *carrier = dyn_cast<CarrierType>(type))
+        return this == carrier->getRepresentationType();
+
+    return false;
+}
+
 void DomainType::dump()
 {
     std::cerr << '<' << getKindString()
@@ -242,7 +285,7 @@ void DomainType::dump()
 
 SubroutineType::SubroutineType(AstKind          kind,
                                IdentifierInfo **formals,
-                               DomainType     **argTypes,
+                               Type           **argTypes,
                                unsigned         numArgs)
     : Type(kind),
       numArgs(numArgs)
@@ -258,7 +301,7 @@ SubroutineType::SubroutineType(AstKind          kind,
 
 SubroutineType::SubroutineType(AstKind          kind,
                                IdentifierInfo **formals,
-                               DomainType     **argTypes,
+                               Type           **argTypes,
                                ParameterMode   *modes,
                                unsigned         numArgs)
     : Type(kind),
@@ -275,7 +318,7 @@ SubroutineType::SubroutineType(AstKind          kind,
     }
 }
 
-DomainType *SubroutineType::getArgType(unsigned i) const
+Type *SubroutineType::getArgType(unsigned i) const
 {
     assert(i < getArity() && "Index out of range!");
     return parameterInfo[i].getPointer();

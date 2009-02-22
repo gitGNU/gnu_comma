@@ -32,6 +32,7 @@ class Ast;
 class AstRewriter;
 class BlockStmt;
 class CarrierDecl;
+class CarrierType;
 class CompilationUnit;
 class Decl;
 class DeclarativeRegion;
@@ -128,6 +129,7 @@ public:
         AST_VarietyType,        ///< VarietyType
         AST_FunctorType,        ///< FunctorType
         AST_DomainType,         ///< DomainType
+        AST_CarrierType,        ///< CarrierType
         AST_FunctionType,       ///< FunctionType
         AST_ProcedureType,      ///< ProcedureType
 

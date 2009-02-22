@@ -48,9 +48,9 @@ DIAGNOSTIC(OUT_IN_PARAMETER_MODE, ERROR,
 DIAGNOSTIC(DUPLICATE_FORMAL_PARAM, ERROR,
            "Duplicate formal parameter `%0'.")
 DIAGNOSTIC(NOT_A_SIGNATURE, ERROR,
-           "`%0' does not denote a signature.")
+           "Expression does not denote a signature.")
 DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
-           "`%0' does not denote a domain.")
+           "Expression does not denote a domain.")
 DIAGNOSTIC(DOES_NOT_SATISFY, ERROR,
            "`%0' does not satisfy `%0'.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
@@ -73,7 +73,7 @@ DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
 DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
 DIAGNOSTIC(IMPORT_FROM_NON_DOMAIN, ERROR,
-           "`%0' does not denote a domain, and so cannot be imported.")
+           "Expression does not denote a domain, and so cannot be imported.")
 DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
            "The name `%0' is not visible.")
 DIAGNOSTIC(PROCEDURE_IN_EXPRESSION, ERROR,

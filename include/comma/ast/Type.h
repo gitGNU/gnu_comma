@@ -41,6 +41,41 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// CarrierType
+//
+// The type of carrier declarations.  In the future this node could be combined
+// into a general "type alias" node or similar.
+class CarrierType : public Type {
+
+public:
+    CarrierType(CarrierDecl *carrier)
+        : Type(AST_CarrierType),
+          declaration(carrier) { }
+
+    // Return the underlying carrier declaration.
+    CarrierDecl *getCarrierDecl() { return declaration; }
+    const CarrierDecl *getCarrierDecl() const { return declaration; }
+
+    // Return the representation type which this carrier aliases.
+    Type *getRepresentationType();
+    const Type *getRepresentationType() const;
+
+    IdentifierInfo *getIdInfo() const;
+    const char *getString() const;
+
+    bool equals(const Type *type) const;
+
+    static bool classof(const CarrierType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_CarrierType;
+    }
+
+private:
+    CarrierDecl *declaration;
+};
+
+
+//===----------------------------------------------------------------------===//
 // ModelType
 
 class ModelType : public Type {
@@ -97,9 +132,9 @@ public:
 
     // Returns the i'th actual parameter.  This function asserts if its argument
     // is out of range.
-    DomainType *getActualParameter(unsigned n) const;
+    Type *getActualParameter(unsigned n) const;
 
-    typedef DomainType **arg_iterator;
+    typedef Type **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
@@ -109,7 +144,7 @@ public:
 
     // Called by VarietyDecl when memoizing.
     static void
-    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
+    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
 
     static bool classof(const SignatureType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -122,11 +157,11 @@ private:
 
     SignatureType(SignatureDecl *decl);
 
-    SignatureType(VarietyDecl *decl, DomainType **args, unsigned numArgs);
+    SignatureType(VarietyDecl *decl, Type **args, unsigned numArgs);
 
     // If the supporting declaration is a variety, then this array contains the
     // actual arguments defining this instance.
-    DomainType **arguments;
+    Type **arguments;
 };
 
 //===----------------------------------------------------------------------===//
@@ -268,6 +303,9 @@ public:
     // Returns true if the underlying declaration is an AbstractDomainDecl.
     bool isAbstract() const;
 
+    // Returns true if this type and the given type are equal.
+    bool equals(const Type *type) const;
+
     // Prints this node to stderr.
     void dump();
 
@@ -291,13 +329,13 @@ protected:
     // set to MODE_DEFAULT.
     SubroutineType(AstKind          kind,
                    IdentifierInfo **formals,
-                   DomainType     **argTypes,
+                   Type           **argTypes,
                    unsigned         numArgs);
 
     // Constructor where each parameter mode can be specified.
     SubroutineType(AstKind          kind,
                    IdentifierInfo **formals,
-                   DomainType     **argTypes,
+                   Type           **argTypes,
                    ParameterMode   *modes,
                    unsigned         numArgs);
 
@@ -306,7 +344,7 @@ public:
     unsigned getArity() const { return numArgs; }
 
     // Returns the type of the i'th parameter.
-    DomainType *getArgType(unsigned i) const;
+    Type *getArgType(unsigned i) const;
 
     // Returns the i'th keyword for this type.
     IdentifierInfo *getKeyword(unsigned i) const {
@@ -358,7 +396,7 @@ public:
 private:
     // We munge the supplied parameter type pointers and store the mode
     // associations in the lower two bits.
-    typedef llvm::PointerIntPair<DomainType*, 2> ParamInfo;
+    typedef llvm::PointerIntPair<Type*, 2> ParamInfo;
 
     IdentifierInfo **keywords;
     ParamInfo       *parameterInfo;
@@ -371,14 +409,14 @@ class FunctionType : public SubroutineType {
 
 public:
     FunctionType(IdentifierInfo **formals,
-                 DomainType     **argTypes,
+                 Type           **argTypes,
                  unsigned         numArgs,
-                 DomainType      *returnType)
+                 Type            *returnType)
         : SubroutineType(AST_FunctionType, formals, argTypes, numArgs),
           returnType(returnType) { }
 
     // Returns the result type of this function.
-    DomainType *getReturnType() const { return returnType; }
+    Type *getReturnType() const { return returnType; }
 
     // Support isa and dyn_cast.
     static bool classof(const FunctionType *node) { return true; }
@@ -387,7 +425,7 @@ public:
     }
 
 private:
-    DomainType *returnType;
+    Type *returnType;
 };
 
 //===----------------------------------------------------------------------===//
@@ -396,7 +434,7 @@ class ProcedureType : public SubroutineType {
 
 public:
     ProcedureType(IdentifierInfo **formals,
-                  DomainType     **argTypes,
+                  Type           **argTypes,
                   unsigned         numArgs)
         : SubroutineType(AST_ProcedureType, formals, argTypes, numArgs) { }
 

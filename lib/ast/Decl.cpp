@@ -65,7 +65,7 @@ VarietyDecl::VarietyDecl(IdentifierInfo *percentId,
 }
 
 SignatureType *
-VarietyDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
+VarietyDecl::getCorrespondingType(Type **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
@@ -83,7 +83,7 @@ VarietyDecl::getCorrespondingType(DomainType **args, unsigned numArgs)
 SignatureType *VarietyDecl::getCorrespondingType()
 {
     VarietyType *thisType = getType();
-    DomainType **formals = reinterpret_cast<DomainType**>(thisType->formals);
+    Type       **formals = reinterpret_cast<Type**>(thisType->formals);
     return getCorrespondingType(formals, getArity());
 }
 
@@ -185,7 +185,7 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
 }
 
 DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
-                                       DomainType **args,
+                                       Type       **args,
                                        unsigned     numArgs,
                                        Location     loc)
     : Domoid(AST_DomainInstanceDecl,
@@ -193,7 +193,7 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
              loc),
       definition(functor)
 {
-    arguments = new DomainType*[numArgs];
+    arguments = new Type*[numArgs];
     std::copy(args, args + numArgs, arguments);
 
     functor->addObserver(this);
@@ -226,7 +226,7 @@ void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
 }
 
 void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
-                                 DomainType **args, unsigned numArgs)
+                                 Type **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);
@@ -247,7 +247,7 @@ FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
 }
 
 DomainInstanceDecl *
-FunctorDecl::getInstance(DomainType **args, unsigned numArgs, Location loc)
+FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
@@ -270,7 +270,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
                                Location           loc,
                                ParamValueDecl   **params,
                                unsigned           numParams,
-                               DomainType        *returnType,
+                               Type              *returnType,
                                DeclarativeRegion *parent)
     : Decl(kind, name, loc),
       DeclarativeRegion(kind, parent),
@@ -290,7 +290,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     // We must construct a subroutine type for this decl.  Begin by extracting
     // the domain types and associated indentifier infos from each of the
     // parameters.
-    llvm::SmallVector<DomainType*, 6>     paramTypes(numParams);
+    llvm::SmallVector<Type*, 6>           paramTypes(numParams);
     llvm::SmallVector<IdentifierInfo*, 6> paramIds(numParams);
     for (unsigned i = 0; i < numParams; ++i) {
         ParamValueDecl *param = parameters[i];
@@ -347,7 +347,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
         parameters = new ParamValueDecl*[numParams];
         for (unsigned i = 0; i < numParams; ++i) {
             IdentifierInfo *formal = type->getKeyword(i);
-            DomainType *formalType = type->getArgType(i);
+            Type       *formalType = type->getArgType(i);
             ParameterMode     mode = type->getParameterMode(i);
             ParamValueDecl  *param;
 

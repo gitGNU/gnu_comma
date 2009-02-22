@@ -1,3 +1,4 @@
+
 //===-- ast/Decl.h -------------------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
@@ -262,7 +263,7 @@ public:
 
     // Returns the type node corresponding to this variety applied over the
     // given arguments.
-    SignatureType *getCorrespondingType(DomainType **args, unsigned numArgs);
+    SignatureType *getCorrespondingType(Type **args, unsigned numArgs);
     SignatureType *getCorrespondingType();
 
     const VarietyType *getType() const { return varietyType; }
@@ -455,7 +456,7 @@ public:
     DomainInstanceDecl(DomainDecl *domain, Location loc);
 
     DomainInstanceDecl(FunctorDecl *functor,
-                       DomainType **args,
+                       Type       **args,
                        unsigned     numArgs,
                        Location     loc);
 
@@ -476,7 +477,7 @@ public:
 
     // Returns the i'th actual parameter.  This function asserts if its argument
     // is out of range,
-    DomainType *getActualParameter(unsigned n) const {
+    Type *getActualParameter(unsigned n) const {
         assert(n < getArity() && "Index out of range!");
         return arguments[n];
     }
@@ -484,7 +485,7 @@ public:
     // Returns true if this domain type is an instance of some functor.
     bool isParameterized() const { return getArity() != 0; }
 
-    typedef DomainType **arg_iterator;
+    typedef Type **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
@@ -494,7 +495,7 @@ public:
 
     // Called by FunctorDecl when memoizing.
     static void
-    Profile(llvm::FoldingSetNodeID &id, DomainType **args, unsigned numArgs);
+    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
 
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -502,9 +503,9 @@ public:
     }
 
 private:
-    Domoid      *definition;
-    DomainType **arguments;
-    DomainType  *correspondingType;
+    Domoid     *definition;
+    Type      **arguments;
+    DomainType *correspondingType;
 
     // The following call-backs are invoked when the declarative region of the
     // defining declaration changes.
@@ -531,9 +532,9 @@ public:
     // same declaration node.  As a consequence, the location associated with
     // any given DomainInstanceDecl corresponds to the first location the
     // instance was processed.
-    DomainInstanceDecl *getInstance(DomainType **args,
-                                    unsigned     numArgs,
-                                    Location     loc = 0);
+    DomainInstanceDecl *getInstance(Type   **args,
+                                    unsigned numArgs,
+                                    Location loc = 0);
 
     // Returns the AddDecl which implements this functor.
     const AddDecl *getImplementation() const { return implementation; }
@@ -572,12 +573,16 @@ private:
 class CarrierDecl : public TypeDecl {
 
 public:
-    CarrierDecl(IdentifierInfo *name, DomainType *type, Location loc)
+    CarrierDecl(IdentifierInfo *name, Type *type, Location loc)
         : TypeDecl(AST_CarrierDecl, name, loc),
-          type(type) { }
+          carrierType(new CarrierType(this)),
+          representation(type) { }
 
-    const DomainType *getType() const { return type; }
-    DomainType *getType() { return type; }
+    const CarrierType *getType() const { return carrierType; }
+    CarrierType *getType() { return carrierType; }
+
+    const Type *getRepresentationType() const { return representation; }
+    Type *getRepresentationType() { return representation; }
 
     static bool classof(const CarrierDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -585,7 +590,8 @@ public:
     }
 
 private:
-    DomainType *type;
+    CarrierType *carrierType;
+    Type        *representation;
 };
 
 //===----------------------------------------------------------------------===//
@@ -603,7 +609,7 @@ protected:
                    Location           loc,
                    ParamValueDecl   **params,
                    unsigned           numParams,
-                   DomainType        *returnType,
+                   Type              *returnType,
                    DeclarativeRegion *parent);
 
     // This constructor is provided when we need to construct a decl given a
@@ -629,7 +635,7 @@ public:
         return routineType->getKeywordIndex(key);
     }
 
-    DomainType *getArgType(unsigned i) const {
+    Type *getArgType(unsigned i) const {
         return routineType->getArgType(i);
     }
 
@@ -676,7 +682,7 @@ public:
                  Location           loc,
                  ParamValueDecl   **params,
                  unsigned           numParams,
-                 DomainType        *returnType,
+                 Type              *returnType,
                  DeclarativeRegion *parent)
         : SubroutineDecl(AST_FunctionDecl,
                          name, loc,
@@ -710,7 +716,7 @@ public:
             const_cast<FunctionDecl*>(this)->getBaseDeclaration());
     }
 
-    DomainType *getReturnType() const {
+    Type *getReturnType() const {
         return getType()->getReturnType();
     }
 
@@ -800,7 +806,7 @@ class ParamValueDecl : public ValueDecl {
 
 public:
     ParamValueDecl(IdentifierInfo *name,
-                   DomainType     *type,
+                   Type           *type,
                    ParameterMode   mode,
                    Location        loc)
         : ValueDecl(AST_ParamValueDecl, name, type, loc) {
@@ -813,8 +819,6 @@ public:
         // this data should be moved into the class itself.
         bits = mode;
     }
-
-    DomainType *getType() { return llvm::cast<DomainType>(type); }
 
     /// Returns true if the parameter mode was explicitly specified for this
     /// parameter.  This predicate is used to distinguish between the default
@@ -845,9 +849,9 @@ class ObjectDecl : public ValueDecl {
 
 public:
     ObjectDecl(IdentifierInfo *name,
-               DomainType *type,
-               Location loc,
-               Expr *init = 0)
+               Type           *type,
+               Location        loc,
+               Expr           *init = 0)
         : ValueDecl(AST_ObjectDecl, name, type, loc),
           initialization(init) { }
 
@@ -871,7 +875,6 @@ public:
 
 private:
     Expr *initialization;
-
 };
 
 //===----------------------------------------------------------------------===//
