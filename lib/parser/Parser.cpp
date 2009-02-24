@@ -502,7 +502,7 @@ void Parser::parseAddComponents()
             break;
 
         case Lexer::TKN_IMPORT:
-            parseImportStatement();
+            parseImportDeclaration();
             break;
 
         case Lexer::TKN_CARRIER:
@@ -828,14 +828,14 @@ void Parser::parseSubroutineBody(Node declarationNode)
 {
     client.beginSubroutineDefinition(declarationNode);
 
-    while (currentTokenIs(Lexer::TKN_IDENTIFIER) ||
-           currentTokenIs(Lexer::TKN_FUNCTION))
+    while (!currentTokenIs(Lexer::TKN_BEGIN) &&
+           !currentTokenIs(Lexer::TKN_EOT))
         parseDeclaration();
 
     requireToken(Lexer::TKN_BEGIN);
 
-    while (!(currentTokenIs(Lexer::TKN_END) ||
-             currentTokenIs(Lexer::TKN_EOT))) {
+    while (!currentTokenIs(Lexer::TKN_END) &&
+           !currentTokenIs(Lexer::TKN_EOT)) {
         parseStatement();
         requireToken(Lexer::TKN_SEMI);
     }
@@ -853,6 +853,7 @@ Node Parser::parseDeclaration()
     switch (currentTokenCode()) {
     default:
         report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+        seekAndConsumeToken(Lexer::TKN_SEMI);
         return Node::getInvalidNode();
 
     case Lexer::TKN_IDENTIFIER:
@@ -863,6 +864,9 @@ Node Parser::parseDeclaration()
 
     case Lexer::TKN_PROCEDURE:
         return parseProcedureDeclaration();
+
+    case Lexer::TKN_IMPORT:
+        return parseImportDeclaration();
     }
 }
 
@@ -912,6 +916,24 @@ Node Parser::parseObjectDeclaration()
         seekAndConsumeToken(Lexer::TKN_SEMI);
         return Node::getInvalidNode();
     }
+}
+
+Node Parser::parseImportDeclaration()
+{
+    Location location = currentLocation();
+    Node importedType;
+
+    assert(currentTokenIs(Lexer::TKN_IMPORT));
+    ignoreToken();
+
+    importedType = parseModelInstantiation();
+
+    requireToken(Lexer::TKN_SEMI);
+
+    if (importedType.isValid())
+        return client.acceptImportDeclaration(importedType, location);
+    else
+        return Node::getInvalidNode();
 }
 
 bool Parser::parseTopLevelDeclaration()

@@ -123,14 +123,14 @@ public:
     // Several predicates to test what kind of Homonym this is.
     bool isDirectSingleton() const { return rep.getInt() == HOMONYM_DIRECT; }
 
-    bool isImportedSingleton() const { return rep.getInt() == HOMONYM_IMPORT; }
+    bool isImportSingleton() const { return rep.getInt() == HOMONYM_IMPORT; }
 
     bool isLoaded() const { return rep.getInt() == HOMONYM_LOADED; }
 
     bool isEmpty() const { return rep.getInt() == HOMONYM_EMPTY; }
 
     bool isSingleton() const {
-        return isDirectSingleton() || isImportedSingleton();
+        return isDirectSingleton() || isImportSingleton();
     }
 
     // Convert this Homonym to the corresponding declaration node.  This homonym

@@ -108,7 +108,7 @@ public:
 
     // Submits an import from the given type node, and the location of the
     // import reserved word.
-    virtual void acceptImportStatement(Node importedType, Location loc) = 0;
+    virtual Node acceptImportDeclaration(Node importedType, Location loc) = 0;
 
     virtual Node acceptKeywordSelector(IdentifierInfo *key,
                                        Location        loc,

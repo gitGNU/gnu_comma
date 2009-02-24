@@ -54,7 +54,7 @@ void ScopeEntry::removeDirectDecl(Decl *decl)
     Homonym        *homonym = info->getMetadata<Homonym>();
     assert(homonym && "No identifier metadata!");
 
-    if (homonym->isSingleton()) {
+    if (homonym->isDirectSingleton() && (homonym->asDeclaration() == decl)) {
         homonym->clear();
         return;
     }
@@ -67,6 +67,27 @@ void ScopeEntry::removeDirectDecl(Decl *decl)
         }
     assert(false && "Decl not associated with corresponding identifier!");
 }
+
+void ScopeEntry::removeImportDecl(Decl *decl)
+{
+    IdentifierInfo *info    = decl->getIdInfo();
+    Homonym        *homonym = info->getMetadata<Homonym>();
+    assert(homonym && "No identifier metadata!");
+
+    if (homonym->isImportSingleton() && (homonym->asDeclaration() == decl)) {
+        homonym->clear();
+        return;
+    }
+
+    for (Homonym::ImportIterator iter = homonym->beginImportDecls();
+         iter != homonym->endImportDecls(); ++iter)
+        if (decl == *iter) {
+            homonym->eraseImportDecl(iter);
+            return;
+        }
+    assert(false && "Decl not associated with corresponding indentifier!");
+}
+
 
 bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
 {
@@ -100,9 +121,21 @@ void ScopeEntry::addImportDecl(DomainType *type)
 // associated decl stacks.
 void ScopeEntry::clear()
 {
-    DirectIterator endIter = endDirectDecls();
-    for (DirectIterator iter = beginDirectDecls(); iter != endIter; ++iter)
-        removeDirectDecl(*iter);
+    DirectIterator endDeclIter = endDirectDecls();
+    for (DirectIterator declIter = beginDirectDecls();
+         declIter != endDeclIter; ++declIter)
+        removeDirectDecl(*declIter);
+
+    ImportIterator endImportIter = endImportDecls();
+    for (ImportIterator importIter = beginImportDecls();
+         importIter != endImportIter; ++importIter) {
+        typedef Domoid::DeclIter DeclIter;
+        Domoid *domoid = (*importIter)->getDomoidDecl();
+        DeclIter iter;
+        DeclIter endIter = domoid->endDecls();
+        for (iter = domoid->beginDecls(); iter != endIter; ++iter)
+            removeImportDecl(iter->second);
+    }
 
     kind = DEAD_SCOPE;
     directDecls.clear();

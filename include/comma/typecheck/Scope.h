@@ -56,6 +56,8 @@ public:
 
     void removeDirectDecl(Decl *decl);
 
+    void removeImportDecl(Decl *decl);
+
     // Returns the number of direct declarations managed by this entry.
     unsigned numDirectDecls() const { return directDecls.size(); }
 

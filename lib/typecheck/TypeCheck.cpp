@@ -581,6 +581,26 @@ void TypeCheck::acceptDeclarationInitializer(Node declNode, Node initializer)
     }
 }
 
+Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
+{
+    Type         *type = cast_node<Type>(importedNode);
+    DomainType   *domain;
+
+    if (CarrierType *carrier = dyn_cast<CarrierType>(type))
+        domain = dyn_cast<DomainType>(carrier->getRepresentationType());
+    else
+        domain = dyn_cast<DomainType>(type);
+
+    if (!domain) {
+        report(loc, diag::IMPORT_FROM_NON_DOMAIN);
+        return Node::getInvalidNode();
+    }
+
+    scope.addImport(domain);
+    return new ImportDecl(domain, loc);
+}
+
+
 void TypeCheck::beginAddExpression()
 {
     Domoid *domoid = getCurrentDomain();

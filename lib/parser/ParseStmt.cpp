@@ -17,23 +17,6 @@ Node Parser::parseStatement()
     return node;
 }
 
-// FIXME: Imports are not statements.  They are clauses.  In particular, they
-// cannot appear in a sequence of statements but only within declarative
-// regions.
-void Parser::parseImportStatement()
-{
-    Location location = currentLocation();
-    Node importedType;
-
-    assert(currentTokenIs(Lexer::TKN_IMPORT));
-    ignoreToken();
-
-    importedType = parseModelInstantiation();
-
-    if (importedType.isValid())
-        client.acceptImportStatement(importedType, location);
-}
-
 Node Parser::parseProcedureCallStatement()
 {
     Location        loc  = currentLocation();

@@ -96,7 +96,7 @@ public:
     void beginSubroutineDefinition(Node declarationNode);
     void endSubroutineDefinition();
 
-    void acceptImportStatement(Node importedType, Location loc);
+    Node acceptImportDeclaration(Node importedType, Location loc);
 
     Node acceptKeywordSelector(IdentifierInfo *key,
                                Location        loc,

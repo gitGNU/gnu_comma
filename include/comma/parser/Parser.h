@@ -62,6 +62,7 @@ public:
     void parseSubroutineBody(Node declarationNode);
 
     Node parseObjectDeclaration();
+    Node parseImportDeclaration();
 
     void parseCarrier();
     void parseAddComponents();
@@ -70,7 +71,6 @@ public:
     Node parseStatement();
 
     Node parseSubroutineKeywordSelection();
-    void parseImportStatement();
     Node parseProcedureCallStatement();
 
     Node parseExpr();

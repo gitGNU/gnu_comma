@@ -31,11 +31,13 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ProcedureDecl",
     "ParamValueDecl",
     "ObjectDecl",
+    "ImportDecl",
 
     "SignatureType",
     "VarietyType",
     "FunctorType",
     "DomainType",
+    "CarrierType",
     "FunctionType",
     "ProcedureType",
 

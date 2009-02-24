@@ -47,6 +47,7 @@ class FunctionDecl;
 class FunctionType;
 class FunctorDecl;
 class FunctorType;
+class ImportDecl;
 class KeywordSelector;
 class ModelDecl;
 class ModelType;
@@ -121,6 +122,7 @@ public:
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
         AST_ObjectDecl,         ///< ObjectDecl
+        AST_ImportDecl,         ///< ImportDecl
 
         //
         // Type nodes.
@@ -152,7 +154,7 @@ public:
         LAST_AstKind,
 
         FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_ObjectDecl,
+        LAST_Decl       = AST_ImportDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl  = AST_FunctorDecl,

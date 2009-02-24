@@ -1,4 +1,3 @@
-
 //===-- ast/Decl.h -------------------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
@@ -85,6 +84,29 @@ protected:
     IdentifierInfo    *idInfo;
     Location           location;
     DeclarativeRegion *context;
+};
+
+//===----------------------------------------------------------------------===//
+// ImportDecl
+//
+// Represents import declarations.
+class ImportDecl : public Decl {
+
+public:
+    ImportDecl(Type *target, Location loc)
+        : Decl(AST_ImportDecl, 0, loc),
+          targetType(target) { }
+
+    Type *getImportedType() { return targetType; }
+    const Type *getImportedType() const { return targetType; }
+
+    static bool classof(const ImportDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ImportDecl;
+    }
+
+private:
+    Type *targetType;
 };
 
 //===----------------------------------------------------------------------===//
