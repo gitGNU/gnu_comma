@@ -17,7 +17,8 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
       diagnostic(diag),
       currentIter(txtProvider.begin()),
       errorDetected(false),
-      scanningAborted(false)
+      scanningAborted(false),
+      index(0)
 { }
 
 std::string Lexer::Token::getString() const
@@ -521,10 +522,75 @@ bool Lexer::scanNumeric()
     return false;
 }
 
+void Lexer::beginExcursion()
+{
+    positionStack.push_back(index);
+}
+
+void Lexer::endExcursion()
+{
+    index = positionStack.back();
+    positionStack.pop_back();
+}
+
+void Lexer::forgetExcursion()
+{
+    unsigned saved_index = positionStack.back();
+    positionStack.pop_back();
+
+    if (positionStack.empty()) {
+        assert(saved_index == 0 && "index/position mismatch!");
+        tokens.clear();
+    }
+}
+
+void Lexer::peek(Token &tkn, unsigned n)
+{
+    unsigned numTokens = tokens.size();
+
+    if (index + n < numTokens) {
+        tkn = tokens[index + n];
+        return;
+    }
+
+    unsigned tokensNeeded = index + n - numTokens;
+    targetToken = &tkn;
+    for (unsigned i = 0; i <= tokensNeeded; ++i) {
+        scanToken();
+        if (targetToken->getCode() != TKN_EOT)
+            tokens.push_back(*targetToken);
+    }
+}
+
 void Lexer::scan(Token &tkn)
 {
+    unsigned numTokens = tokens.size();
+
+    // Check if we have a cached token to return.
+    if (index < numTokens) {
+        tkn = tokens[index++];
+        return;
+    }
+
+    // Clear the token buffer if it is not empty and we are not in an excursion.
+    if (numTokens && positionStack.empty()) {
+        tokens.clear();
+        index = 0;
+    }
+
     targetToken = &tkn;
 
+    scanToken();
+
+    // Save the token if we are in an excursion and it is not EOT.
+    if (!positionStack.empty() && targetToken->getCode() != TKN_EOT) {
+        index++;
+        tokens.push_back(*targetToken);
+    }
+}
+
+void Lexer::scanToken()
+{
     for (;;) {
         eatWhitespace();
         while (eatComment()) eatWhitespace();

@@ -87,11 +87,7 @@ private:
     Diagnostic     &diagnostic;
     Lexer           lexer;
 
-    // A small buffer of two tokens is maintained to provide one token of
-    // lookahead.  The current token is at index 0, and the next token is at
-    // index 1.  When we consume a token, we set token[0] = token[1], and set
-    // token[1] to the next token emmited by the lexer.
-    Lexer::Token token[2];
+    Lexer::Token token;
 
     // Set to true when the parser encounters an error.
     bool seenError;
@@ -140,8 +136,9 @@ private:
 
     Lexer::Token &nextToken();
     Lexer::Token &currentToken();
-    Lexer::Token &peekToken();
+    Lexer::Token  peekToken();
     void ignoreToken();
+    void setCurrentToken(Lexer::Token &tkn);
 
     Lexer::Code currentTokenCode();
     Lexer::Code peekTokenCode();
@@ -152,6 +149,9 @@ private:
     bool reduceToken(Lexer::Code code);
     bool requireToken(Lexer::Code code);
 
+    // Matches a right paren assuming that the opening paren has already been
+    // consumed, keeping track of nested pairs.  Consumes the closing
+    // paren. Note that this method does not save the state of the token stream.
     bool seekCloseParen();
 
     bool seekToken(Lexer::Code code);
@@ -210,6 +210,16 @@ private:
     // Returns true if a keyword selection expression follows:  That is, if
     // the token stream admits an IdentifierInfo followed by a '=>' token.
     bool keywordSelectionFollows();
+
+    // Returns true if a qualification follows on the token stream.
+    //
+    // More precisely, returns true if the current token is an identifier
+    // followed by:
+    //
+    //   - a double colon;
+    //
+    //   - a left paren with a matching close paren followed by a double colon.
+    bool qualificationFollows();
 
     // Convenience function for deleting a collection of Node's.
     template <class T> void deleteNodes(T &nodes) {

@@ -44,31 +44,35 @@ Parser::Parser(TextProvider   &txtProvider,
       lexer(txtProvider, diag),
       seenError(false)
 {
-    // Populate our small look-ahead buffer.
-    lexer.scan(token[0]);
-    lexer.scan(token[1]);
+    lexer.scan(token);
 }
 
 Lexer::Token &Parser::currentToken()
 {
-    return token[0];
+    return token;
 }
 
 Lexer::Token &Parser::nextToken()
 {
-    token[0] = token[1];
-    lexer.scan(token[1]);
-    return token[0];
+    lexer.scan(token);
+    return token;
 }
 
-Lexer::Token &Parser::peekToken()
+Lexer::Token Parser::peekToken()
 {
-    return token[1];
+    Lexer::Token tkn;
+    lexer.peek(tkn, 0);
+    return tkn;
 }
 
 void Parser::ignoreToken()
 {
     nextToken();
+}
+
+void Parser::setCurrentToken(Lexer::Token &tkn)
+{
+    token = tkn;
 }
 
 bool Parser::currentTokenIs(Lexer::Code code)
@@ -180,8 +184,10 @@ bool Parser::seekCloseParen()
 
         case Lexer::TKN_RPAREN:
             depth--;
-            ignoreToken();
-            if (depth == 0) return true;
+            if (depth == 0) {
+                ignoreToken();
+                return true;
+            }
             break;
 
         case Lexer::TKN_EOT:
@@ -256,6 +262,36 @@ bool Parser::keywordSelectionFollows()
 {
     return currentTokenIs(Lexer::TKN_IDENTIFIER)
         && nextTokenIs(Lexer::TKN_RDARROW);
+}
+
+bool Parser::qualificationFollows()
+{
+    bool status = false;
+
+    if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+        switch (peekTokenCode()) {
+
+        default:
+            break;
+
+        case Lexer::TKN_DCOLON:
+            status = true;
+            break;
+
+        case Lexer::TKN_LPAREN: {
+            Lexer::Token savedToken = currentToken();
+            lexer.beginExcursion();
+            ignoreToken();      // ignore the identifier.
+            ignoreToken();      // ignore the left paren.
+            if (seekCloseParen())
+                status = reduceToken(Lexer::TKN_DCOLON);
+            lexer.endExcursion();
+            setCurrentToken(savedToken);
+            break;
+        }
+        }
+    }
+    return status;
 }
 
 IdentifierInfo *Parser::parseIdentifierInfo()
@@ -465,9 +501,6 @@ void Parser::parseCarrier()
 
     client.acceptCarrier(name, type, loc);
 }
-
-
-
 
 void Parser::parseAddComponents()
 {
@@ -829,8 +862,10 @@ void Parser::parseSubroutineBody(Node declarationNode)
     client.beginSubroutineDefinition(declarationNode);
 
     while (!currentTokenIs(Lexer::TKN_BEGIN) &&
-           !currentTokenIs(Lexer::TKN_EOT))
+           !currentTokenIs(Lexer::TKN_EOT)) {
         parseDeclaration();
+        requireToken(Lexer::TKN_SEMI);
+    }
 
     requireToken(Lexer::TKN_BEGIN);
 
@@ -896,7 +931,6 @@ Node Parser::parseObjectDeclaration()
             return Node::getInvalidNode();
 
         case Lexer::TKN_SEMI:
-            ignoreToken();
             return client.acceptDeclaration(id, type, loc);
 
         case Lexer::TKN_ASSIGN:
@@ -909,11 +943,11 @@ Node Parser::parseObjectDeclaration()
                 return result;
             }
             else
-                seekAndConsumeToken(Lexer::TKN_SEMI);
+                seekToken(Lexer::TKN_SEMI);
             return Node::getInvalidNode();
         }
     else {
-        seekAndConsumeToken(Lexer::TKN_SEMI);
+        seekToken(Lexer::TKN_SEMI);
         return Node::getInvalidNode();
     }
 }
@@ -927,8 +961,6 @@ Node Parser::parseImportDeclaration()
     ignoreToken();
 
     importedType = parseModelInstantiation();
-
-    requireToken(Lexer::TKN_SEMI);
 
     if (importedType.isValid())
         return client.acceptImportDeclaration(importedType, location);

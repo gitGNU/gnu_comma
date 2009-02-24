@@ -87,6 +87,19 @@ public:
     // code to TKN_EOT.
     void scan(Lexer::Token &tkn);
 
+    void peek(Lexer::Token &tkn, unsigned n);
+
+    // Saves the current "position" of the lexer.  Further calls to Lexer::scan
+    // will remember the resulting tokens.  The token stream can be restored to
+    // the state before saveExcursion was called with a call to
+    // Lexer::endExcursion.   Alternatively, the excursion can be forgotten with
+    // a call to Lexer::forgetExcursion.
+    void beginExcursion();
+
+    void endExcursion();
+
+    void forgetExcursion();
+
     // Returns true if the lexer has seen an error while scanning its input.
     bool seenError() const { return errorDetected; }
 
@@ -119,6 +132,8 @@ public:
     static std::string tokenString(const Token &tkn);
 
 private:
+    void scanToken();
+
     bool eatWhitespace();
 
     bool eatComment();
@@ -207,6 +222,17 @@ private:
     // The token parameter supplied to scan() is maintained here.  This is
     // the destination of the lexing methods.
     Token *targetToken;
+
+    // A vector of tokens is used to implement lookahead.
+    std::vector<Token> tokens;
+
+    // A stack of positions into the token vector, used to implement
+    // savePosition and restorePosition.
+    std::vector<unsigned> positionStack;
+
+    // Index into our token vector.  This index is non-zero only when an
+    // excursion has ended with a call to endExcursion.
+    unsigned index;
 };
 
 } // End comma namespace
