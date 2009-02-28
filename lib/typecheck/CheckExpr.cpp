@@ -170,26 +170,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
                                     Location        loc)
 {
     Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-    DeclarativeRegion *region    = 0;
-    Type              *baseType;
-    Location           baseLoc;
-
-    assert(qualifier->numQualifiers() == 1 &&
-           "Nested (or empty) qualifiers not supported!");
-
-    Qualifier::QualPair pair = qualifier->getBaseQualifier();
-    baseType = pair.first;
-    baseLoc  = pair.second;
-
-    if (DomainType *domain = dyn_cast<DomainType>(baseType))
-        region = domain->getDomoidDecl();
-    else {
-        CarrierType *carrier = cast<CarrierType>(baseType);
-        baseType = carrier->getRepresentationType();
-        region   = cast<DomainType>(baseType)->getDomainDecl();
-    }
-
-    assert(region && "Qualifier not a domain?");
+    DeclarativeRegion *region    = qualifier->resolve();
 
     // Lookup the name in the resolved declarative region.
     typedef DeclarativeRegion::DeclRange DeclRange;

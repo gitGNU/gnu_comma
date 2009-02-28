@@ -15,6 +15,32 @@ using llvm::cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
+// Qualifier
+
+// Returns the base type of this qualifier as a declarative region.
+DeclarativeRegion  *Qualifier::resolve()
+{
+    // FIXME: Currently, we do not support nested qualifiers since domains
+    // do not yet export types.
+    assert(numQualifiers() == 1 && "Nested qualifiers not supported!");
+
+    DeclarativeRegion *region   = 0;
+    QualPair           pair     = getBaseQualifier();
+    Type              *baseType = pair.first;
+
+    if (DomainType *domain = dyn_cast<DomainType>(baseType))
+        region = domain->getDomoidDecl();
+    else {
+        CarrierType *carrier = cast<CarrierType>(baseType);
+        baseType = carrier->getRepresentationType();
+        region   = cast<DomainType>(baseType)->getDomainDecl();
+    }
+
+    assert(region && "Qualifier not a domain?");
+    return region;
+}
+
+//===----------------------------------------------------------------------===//
 // KeywordSelector
 
 KeywordSelector::KeywordSelector(IdentifierInfo *key, Location loc, Expr *expr)

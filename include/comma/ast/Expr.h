@@ -96,6 +96,9 @@ public:
 
     QualPair getBaseQualifier() const { return qualifiers.back(); }
 
+    // Returns the base type of this qualifier as a declarative region.
+    DeclarativeRegion *resolve();
+
 private:
     typedef llvm::SmallVector<QualPair, 2> QualVector;
     QualVector  qualifiers;
