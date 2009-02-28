@@ -35,7 +35,8 @@ FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective,
                                    Location      loc)
     : Expr(AST_FunctionCallExpr, connective->getReturnType(), loc),
       connective(connective),
-      numArgs(numArgs)
+      numArgs(numArgs),
+      qualifier(0)
 {
     arguments = new Expr*[numArgs];
     std::copy(args, args + numArgs, arguments);
@@ -45,6 +46,7 @@ FunctionCallExpr::~FunctionCallExpr()
 {
     delete[] arguments;
     if (isAmbiguous()) delete getOptions();
+    if (isQualified()) delete qualifier;
 }
 
 void FunctionCallExpr::addConnective(FunctionDecl *connective)

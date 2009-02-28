@@ -213,7 +213,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     if (model == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
-        return Node();
+        return Node::getInvalidNode();
     }
 
     ParameterizedType *candidate =
@@ -313,7 +313,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
 
     // Obtain a memoized type node for this particular argument set.
-    Node node;
+    Node node = Node::getInvalidNode();
     if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
         node = Node(variety->getCorrespondingType(&arguments[0], numArgs));
     }

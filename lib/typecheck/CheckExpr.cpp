@@ -17,6 +17,26 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+
+Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
+{
+    Type *domain = ensureDomainType(typeNode, loc);
+
+    if (domain)
+        return Node(new Qualifier(domain, loc));
+    else
+        return Node::getInvalidNode();
+}
+
+// FIXME: Implement.
+Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
+                                      Node     typeNode,
+                                      Location loc)
+{
+    assert(false && "Nested qualifiers not yet implemented!");
+    return Node::getInvalidNode();
+}
+
 // This function is a helper to acceptDirectName.  It checks that an arbitrary
 // decl denotes a direct name (a value decl or nullary function) and emits
 // diagnostics otherwise.  Returns true when the decl is accepted and populates
@@ -70,7 +90,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
 
     // Singleton case.
     if (homonym->isSingleton()) {
-        Node node;
+        Node node = Node::getInvalidNode();
         if (resolveDirectDecl(homonym->asDeclaration(), name, loc, node))
             return node;
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -86,7 +106,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
     // First examine the direct declarations for a value of the given name.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter) {
-        Node node;
+        Node node = Node::getInvalidNode();
         if (resolveDirectDecl(*iter, name, loc, node))
             return node;
     }
@@ -143,6 +163,69 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
         report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
         return Node::getInvalidNode();
     }
+}
+
+Node TypeCheck::acceptQualifiedName(Node            qualNode,
+                                    IdentifierInfo *name,
+                                    Location        loc)
+{
+    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+    DeclarativeRegion *region    = 0;
+    Type              *baseType;
+    Location           baseLoc;
+
+    assert(qualifier->numQualifiers() == 1 &&
+           "Nested (or empty) qualifiers not supported!");
+
+    Qualifier::QualPair pair = qualifier->getBaseQualifier();
+    baseType = pair.first;
+    baseLoc  = pair.second;
+
+    if (DomainType *domain = dyn_cast<DomainType>(baseType))
+        region = domain->getDomoidDecl();
+    else {
+        CarrierType *carrier = cast<CarrierType>(baseType);
+        baseType = carrier->getRepresentationType();
+        region   = cast<DomainType>(baseType)->getDomainDecl();
+    }
+
+    assert(region && "Qualifier not a domain?");
+
+    // Lookup the name in the resolved declarative region.
+    typedef DeclarativeRegion::DeclRange DeclRange;
+    typedef DeclarativeRegion::DeclIter  DeclIter;
+
+    DeclRange range = region->findDecls(name);
+
+    if (range.first == range.second) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return Node::getInvalidNode();
+    }
+
+    // Currently, the only component of a domain which we support are function
+    // decls.  Collect the nullary functions.
+    llvm::SmallVector<FunctionDecl*, 4> functionDecls;
+
+    for (DeclIter iter = range.first; iter != range.second; ++iter) {
+        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
+            if (fdecl->getArity() == 0)
+                functionDecls.push_back(fdecl);
+        }
+    }
+
+    // FIXME: Report that there are no nullary functions declared in this
+    // domain.
+    if (functionDecls.empty()) {
+        report(loc, diag::NAME_NOT_VISIBLE);
+        return Node::getInvalidNode();
+    }
+
+    // Form the function call node.
+    FunctionCallExpr *call = new FunctionCallExpr(functionDecls[0], 0, 0, loc);
+    for (unsigned i = 1; i < functionDecls.size(); ++i)
+        call->addConnective(functionDecls[i]);
+    call->setQualifier(qualifier);
+    return Node(call);
 }
 
 Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,

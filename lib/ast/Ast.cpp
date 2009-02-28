@@ -46,7 +46,9 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FunctionCallExpr",
 
     "BlockStmt",
-    "ProcedureCallStmt"
+    "ProcedureCallStmt",
+
+    "Qualifier"
 };
 
 void Ast::dump()

@@ -105,6 +105,10 @@ public:
 
     Node acceptDirectName(IdentifierInfo *name, Location loc);
 
+    Node acceptQualifiedName(Node            qualifier,
+                             IdentifierInfo *name,
+                             Location        loc);
+
     Node acceptFunctionCall(IdentifierInfo  *name,
                             Location         loc,
                             Node            *args,
@@ -114,6 +118,12 @@ public:
                              Location         loc,
                              Node            *args,
                              unsigned         numArgs);
+
+    Node acceptQualifier(Node qualifierType, Location loc);
+
+    Node acceptNestedQualifier(Node     qualifier,
+                               Node     qualifierType,
+                               Location loc);
 
     // Delete the underlying Ast node.
     void deleteNode(Node node);

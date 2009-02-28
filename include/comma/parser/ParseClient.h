@@ -117,6 +117,10 @@ public:
 
     virtual Node acceptDirectName(IdentifierInfo *name, Location loc) = 0;
 
+    virtual Node acceptQualifiedName(Node            qualNode,
+                                     IdentifierInfo *name,
+                                     Location        loc) = 0;
+
     virtual Node acceptFunctionCall(IdentifierInfo  *name,
                                     Location         loc,
                                     Node            *args,
@@ -126,6 +130,12 @@ public:
                                      Location         loc,
                                      Node            *args,
                                      unsigned         numArgs) = 0;
+
+    virtual Node acceptQualifier(Node qualifierType, Location loc) = 0;
+
+    virtual Node acceptNestedQualifier(Node     qualifier,
+                                       Node     qualifierType,
+                                       Location loc) = 0;
 
 };
 

@@ -361,7 +361,7 @@ Node Parser::parseModelParameter()
 {
     IdentifierInfo *formal;
     Location        loc;
-    Node            type;
+    Node            type = Node::getInvalidNode();
 
     loc = currentLocation();
 
@@ -447,7 +447,7 @@ void Parser::parseWithSupersignatures()
 
 void Parser::parseWithDeclarations()
 {
-    Node decl;
+    Node decl = Node::getInvalidNode();
 
     for (;;) {
         switch (currentTokenCode()) {
@@ -474,7 +474,7 @@ void Parser::parseCarrier()
 {
     IdentifierInfo *name;
     Location        loc;
-    Node            type;
+    Node            type = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_CARRIER));
     ignoreToken();
@@ -505,7 +505,7 @@ void Parser::parseCarrier()
 void Parser::parseAddComponents()
 {
     Descriptor desc;
-    Node       component;
+    Node       component = Node::getInvalidNode();
     client.beginAddExpression();
 
     for (;;) {
@@ -609,14 +609,14 @@ void Parser::parseModel()
 Node Parser::parseModelInstantiation()
 {
     IdentifierInfo *info;
-    Node            type;
-    Location        loc = currentLocation();
+    Node            type = Node::getInvalidNode();
+    Location        loc  = currentLocation();
 
     if (reduceToken(Lexer::TKN_PERCENT))
         return client.acceptPercent(loc);
 
     info = parseIdentifierInfo();
-    if (!info) return type;
+    if (!info) return Node::getInvalidNode();
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
         if (reduceToken(Lexer::TKN_RPAREN)) {
@@ -718,8 +718,8 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     IdentifierInfo *formal;
     Location        location;
     ParameterMode   mode;
-    Node            type;
-    Node            param;
+    Node            type  = Node::getInvalidNode();
+    Node            param = Node::getInvalidNode();
 
     location = currentLocation();
     formal   = parseIdentifierInfo();
@@ -908,9 +908,9 @@ Node Parser::parseDeclaration()
 Node Parser::parseObjectDeclaration()
 {
     IdentifierInfo *id;
-    Node            type;
     Location        loc;
-    Node            init;
+    Node            type = Node::getInvalidNode();
+    Node            init = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_IDENTIFIER));
 
@@ -939,7 +939,6 @@ Node Parser::parseObjectDeclaration()
             if (init.isValid()) {
                 Node result = client.acceptDeclaration(id, type, loc);
                 client.acceptDeclarationInitializer(result, init);
-                requireToken(Lexer::TKN_SEMI);
                 return result;
             }
             else
@@ -955,7 +954,7 @@ Node Parser::parseObjectDeclaration()
 Node Parser::parseImportDeclaration()
 {
     Location location = currentLocation();
-    Node importedType;
+    Node importedType = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_IMPORT));
     ignoreToken();

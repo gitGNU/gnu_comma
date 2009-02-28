@@ -59,6 +59,7 @@ class ParamValueDecl;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
+class Qualifier;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
@@ -147,6 +148,11 @@ public:
         //
         AST_BlockStmt,          ///< BlockStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
+
+        //
+        // Miscellaneous helper nodes.
+        //
+        AST_Qualifier,          ///< Qualifier
 
         //
         // Delimitiers providing classification of the above codes.

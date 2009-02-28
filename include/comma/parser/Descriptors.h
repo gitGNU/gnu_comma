@@ -15,18 +15,25 @@ namespace comma {
 
 class Node {
 
-public:
-    // Constructs an invalid node.
+    // Private default constructor to obtain an invalid node.
     Node() : payload(1) { }
+
+public:
     Node(void *ptr) : payload(reinterpret_cast<uintptr_t>(ptr)) { }
 
     static Node getInvalidNode() { return Node(); }
+    static Node getNullNode()    { return Node(0); }
 
     // Returns true if this node is invalid.
     bool isInvalid() const { return payload & 1u; }
 
     // Returns true if this Node is valid.
     bool isValid() const { return !isInvalid(); }
+
+    // Returns true if this Node is not associated with any data.
+    bool isNull() const {
+        return (payload & ~((uintptr_t)1)) == 0;
+    }
 
     // Returns the pointer associated with this node cast to the supplied type.
     template <class T> static T *lift(Node &node) {

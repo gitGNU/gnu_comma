@@ -20,9 +20,9 @@ Node Parser::parseExpr()
 Node Parser::parseSubroutineKeywordSelection()
 {
     assert(keywordSelectionFollows());
-    Location        loc = currentLocation();
-    IdentifierInfo *key = parseIdentifierInfo();
-    Node            expr;
+    Location        loc  = currentLocation();
+    IdentifierInfo *key  = parseIdentifierInfo();
+    Node            expr = Node::getInvalidNode();
 
     ignoreToken();              // consume the "=>".
     expr = parseExpr();
@@ -33,9 +33,53 @@ Node Parser::parseSubroutineKeywordSelection()
         return client.acceptKeywordSelector(key, loc, expr, true);
 }
 
+Node Parser::parseQualificationExpr()
+{
+    Node     qualifier     = Node::getInvalidNode();
+    Node     qualifierType = Node::getInvalidNode();
+    Location location;
+
+    location      = currentLocation();
+    qualifierType = parseModelInstantiation();
+
+    if (qualifierType.isInvalid()) {
+        do {
+            seekAndConsumeToken(Lexer::TKN_DCOLON);
+        } while (qualificationFollows());
+        return Node::getInvalidNode();
+    }
+
+    if (reduceToken(Lexer::TKN_DCOLON)) {
+
+        qualifier = client.acceptQualifier(qualifierType, location);
+
+        while (qualificationFollows()) {
+            location      = currentLocation();
+            qualifierType = parseModelInstantiation();
+
+            if (qualifierType.isInvalid()) {
+                do {
+                    seekAndConsumeToken(Lexer::TKN_DCOLON);
+                } while (qualificationFollows());
+                return Node::getInvalidNode();
+            }
+            else {
+                assert(currentTokenIs(Lexer::TKN_DCOLON));
+                ignoreToken();
+                qualifier = client.acceptNestedQualifier(qualifier,
+                                                         qualifierType,
+                                                         location);
+            }
+        }
+        return qualifier;
+    }
+    return Node::getInvalidNode();
+}
+
 Node Parser::parsePrimaryExpr()
 {
-    Location loc = currentLocation();
+    Node     qualifier = Node::getNullNode();
+    Location loc       = currentLocation();
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
         Node result = parseExpr();
@@ -43,6 +87,13 @@ Node Parser::parsePrimaryExpr()
             report(diag::UNEXPECTED_TOKEN_WANTED)
                 << currentTokenString() << ")";
         return result;
+    }
+
+    // FIXME:  Use result of qualification parsing.
+    if (qualificationFollows()) {
+       qualifier = parseQualificationExpr();
+       if (qualifier.isInvalid())
+           return Node::getInvalidNode();
     }
 
     // The only primary expressions we currently support are direct names.
@@ -53,19 +104,23 @@ Node Parser::parsePrimaryExpr()
         return Node::getInvalidNode();
     }
 
-    // If we have an empty set paramters, treat as a nullary name.
+    // If we have an empty set of parameters, treat as a nullary name.
     if (unitExprFollows()) {
         report(diag::ILLEGAL_EMPTY_PARAMS);
         ignoreToken();
         ignoreToken();
-        return client.acceptDirectName(directName, loc);
+
+        if (qualifier.isNull())
+            return client.acceptDirectName(directName, loc);
+        else
+            return client.acceptQualifiedName(qualifier, directName, loc);
     }
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
         NodeVector arguments;
         bool       seenSelector = false;
         do {
-            Node arg;
+            Node arg = Node::getInvalidNode();
             if (keywordSelectionFollows()) {
                 arg = parseSubroutineKeywordSelection();
                 seenSelector = true;
@@ -95,5 +150,9 @@ Node Parser::parsePrimaryExpr()
                                          &arguments[0],
                                          arguments.size());
     }
-    return client.acceptDirectName(directName, loc);
+
+    if (qualifier.isNull())
+        return client.acceptDirectName(directName, loc);
+    else
+        return client.acceptQualifiedName(qualifier, directName, loc);
 }

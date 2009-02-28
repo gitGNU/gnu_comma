@@ -75,6 +75,7 @@ public:
 
     Node parseExpr();
     Node parsePrimaryExpr();
+    Node parseQualificationExpr();
 
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.

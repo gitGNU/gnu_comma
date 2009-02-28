@@ -19,8 +19,15 @@ Node Parser::parseStatement()
 
 Node Parser::parseProcedureCallStatement()
 {
-    Location        loc  = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    Location        loc;
+    IdentifierInfo *name;
+
+    // FIXME:  Use result of qualification parsing.
+    if (qualificationFollows())
+        parseQualificationExpr();
+
+    loc  = currentLocation();
+    name = parseIdentifierInfo();
 
     if (!name) return Node::getInvalidNode();
 
@@ -37,7 +44,7 @@ Node Parser::parseProcedureCallStatement()
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
         do {
-            Node arg;
+            Node arg = Node::getInvalidNode();
             if (keywordSelectionFollows()) {
                 arg = parseSubroutineKeywordSelection();
                 seenSelector = true;

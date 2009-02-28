@@ -67,6 +67,55 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// Qualifier
+//
+// This little helper class used to represent qualifiers such as "D::" or
+// "D(T)::" where D is a domain, functor, or a domain alias (such as a carrier
+// type).  Note that this class is not a member of the Expr hierarchy, it is
+// simply a common component of Expr nodes.
+class Qualifier : public Ast {
+
+public:
+    Qualifier(Type *qualifier,  Location loc)
+        : Ast(AST_Qualifier) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    void addQualifier(Type *qualifier, Location loc) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    unsigned numQualifiers() const { return qualifiers.size(); }
+
+    typedef std::pair<Type*, Location> QualPair;
+
+    QualPair getQualifier(unsigned n) const {
+        assert(n < numQualifiers() && "Index out of range!");
+        return qualifiers[n];
+    }
+
+    QualPair getBaseQualifier() const { return qualifiers.back(); }
+
+private:
+    typedef llvm::SmallVector<QualPair, 2> QualVector;
+    QualVector  qualifiers;
+
+public:
+    typedef QualVector::iterator iterator;
+    iterator begin() { return qualifiers.begin(); }
+    iterator end()   { return qualifiers.end(); }
+
+    typedef QualVector::const_iterator const_iterator;
+    const_iterator begin() const { return qualifiers.begin(); }
+    const_iterator end()   const { return qualifiers.end(); }
+
+    static bool classof(const Qualifier *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_Qualifier;
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // DeclRefExpr
 //
 // Represents references to declarations in the source code.
@@ -148,6 +197,21 @@ public:
                      Location      loc);
 
     ~FunctionCallExpr();
+
+    // Sets the qualifier to this call node, describing the source context of
+    // its invocation.
+    void setQualifier(Qualifier *qualifier) { this->qualifier = qualifier; }
+
+    // Returns true if this function call is qualified.
+    bool isQualified() const { return qualifier != 0; }
+
+    // Returns the qualifier associated with this node, or NULL if no qualifier
+    // has been set.
+    Qualifier *getQualifier() { return qualifier; }
+
+    // Returns the qualifier associated with this node, or NULL if no qualifier
+    // has been set.
+    const Qualifier *getQualifier() const { return qualifier; }
 
     // Adds a connective to this call expression.  This always results in this
     // call becoming ambiguous.  To resolve an ambiguous call, or to simply
@@ -270,8 +334,9 @@ private:
         OptionVector *connectiveOptions;
     };
 
-    Expr   **arguments;
-    unsigned numArgs;
+    Expr     **arguments;
+    unsigned   numArgs;
+    Qualifier *qualifier;
 
     // Returns a clean pointer to the options vector.  Can only be called on an
     // ambiguous decl.
