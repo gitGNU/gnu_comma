@@ -26,7 +26,6 @@ Node TypeCheck::acceptProcedureCall(IdentifierInfo  *name,
     return acceptSubroutineCall(name, loc, args, numArgs, false);
 }
 
-
 Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
 {
     assert((checkingProcedure() || checkingFunction()) &&
@@ -53,4 +52,38 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
         report(loc, diag::NONEMPTY_RETURN_IN_PROCEDURE);
         return Node::getInvalidNode();
     }
+}
+
+Node TypeCheck::acceptAssignmentStmt(Location        loc,
+                                     IdentifierInfo *name,
+                                     Node            valueNode)
+{
+    Expr      *value      = cast_node<Expr>(valueNode);
+    Homonym   *homonym    = name->getMetadata<Homonym>();
+    ValueDecl *targetDecl = 0;
+
+    if (!homonym || homonym->empty()) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return Node::getInvalidNode();
+    }
+
+    // FIXME: For now, lookup a lexical names only.  Revisit the issue of
+    // assignment to an exported name later.
+    for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+         iter != homonym->endDirectDecls(); ++iter) {
+        if ((targetDecl = dyn_cast<ValueDecl>(*iter)))
+            break;
+    }
+
+    if (!targetDecl) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return Node::getInvalidNode();
+    }
+
+    if (ensureExprType(value, targetDecl->getType())) {
+        DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);
+        return Node(new AssignmentStmt(ref, value));
+    }
+
+    return Node::getInvalidNode();
 }

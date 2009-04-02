@@ -258,6 +258,12 @@ bool Parser::unitExprFollows()
     return currentTokenIs(Lexer::TKN_LPAREN) && nextTokenIs(Lexer::TKN_RPAREN);
 }
 
+bool Parser::assignmentFollows()
+{
+    return currentTokenIs(Lexer::TKN_IDENTIFIER) &&
+        nextTokenIs(Lexer::TKN_ASSIGN);
+}
+
 bool Parser::keywordSelectionFollows()
 {
     return currentTokenIs(Lexer::TKN_IDENTIFIER)

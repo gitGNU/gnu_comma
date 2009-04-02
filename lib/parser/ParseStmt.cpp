@@ -18,7 +18,10 @@ Node Parser::parseStatement()
     switch (currentTokenCode()) {
 
     default:
-        node = parseProcedureCallStatement();
+        if (assignmentFollows())
+            node = parseAssignmentStmt();
+        else
+            node = parseProcedureCallStatement();
         break;
 
     case Lexer::TKN_RETURN:
@@ -107,3 +110,19 @@ Node Parser::parseReturnStmt()
         return client.acceptReturnStmt(loc, expr);
     return expr;
 }
+
+Node Parser::parseAssignmentStmt()
+{
+    assert(assignmentFollows());
+
+    Location        location = currentLocation();
+    IdentifierInfo *target   = parseIdentifierInfo();
+    ignoreToken();              // Ignore the `:='.
+    Node value = parseExpr();
+
+    if (value.isValid())
+        return client.acceptAssignmentStmt(location, target, value);
+    return Node::getInvalidNode();
+}
+
+

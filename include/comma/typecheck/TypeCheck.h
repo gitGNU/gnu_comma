@@ -127,6 +127,10 @@ public:
 
     Node acceptReturnStmt(Location loc, Node retNode = 0);
 
+    Node acceptAssignmentStmt(Location        loc,
+                              IdentifierInfo *target,
+                              Node            value);
+
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 

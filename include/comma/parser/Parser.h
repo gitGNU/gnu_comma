@@ -72,6 +72,7 @@ public:
     Node parseDeclaration();
     Node parseStatement();
     Node parseReturnStmt();
+    Node parseAssignmentStmt();
 
     Node parseSubroutineKeywordSelection();
     Node parseProcedureCallStatement();
@@ -210,6 +211,9 @@ private:
     // Returns true if a matching pair of parens "()" is next on the stream of
     // tokens.
     bool unitExprFollows();
+
+    // Returns true if an assignment statement is next on the stream of tokens.
+    bool assignmentFollows();
 
     // Returns true if a keyword selection expression follows:  That is, if
     // the token stream admits an IdentifierInfo followed by a '=>' token.

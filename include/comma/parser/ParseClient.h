@@ -139,6 +139,9 @@ public:
 
     virtual Node acceptReturnStmt(Location loc, Node retNode = 0) = 0;
 
+    virtual Node acceptAssignmentStmt(Location        loc,
+                                      IdentifierInfo *target,
+                                      Node            value) = 0;
 };
 
 } // End comma namespace.
