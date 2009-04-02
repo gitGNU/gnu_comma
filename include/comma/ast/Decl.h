@@ -902,6 +902,45 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// EnumerationLiteral
+//
+// Instances of this class represent the elements of an EnumerationDecl.
+class EnumerationLiteral : public ValueDecl {
+
+public:
+    EnumerationLiteral(IdentifierInfo  *name,
+                       EnumerationDecl *decl,
+                       Location         loc);
+
+    static bool classof(const EnumerationLiteral *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumerationLiteral;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// EnumerationDecl
+class EnumerationDecl : public TypeDecl, public DeclarativeRegion {
+
+public:
+    EnumerationDecl(IdentifierInfo    *name,
+                    Location           loc,
+                    DeclarativeRegion *parent);
+
+    const EnumerationType *getType() const { return correspondingType; }
+
+    EnumerationType *getType() { return correspondingType; }
+
+    static bool classof(const EnumerationDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumerationDecl;
+    }
+
+private:
+    EnumerationType *correspondingType;
+};
+
+//===----------------------------------------------------------------------===//
 // Inline methods, now that the decl hierarchy is in place.
 
 inline SignatureDecl *Sigoid::getSignature()

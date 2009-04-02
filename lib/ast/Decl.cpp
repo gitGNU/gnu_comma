@@ -415,3 +415,25 @@ ParameterMode ParamValueDecl::getParameterMode() const
     else
         return mode;
 }
+
+//===----------------------------------------------------------------------===//
+// EnumerationLiteral
+EnumerationLiteral::EnumerationLiteral(IdentifierInfo  *name,
+                                       EnumerationDecl *decl,
+                                       Location         loc)
+    : ValueDecl(AST_EnumerationLiteral, name, decl->getType(), loc)
+{
+    setDeclarativeRegion(decl);
+    decl->addDecl(this);
+}
+
+//===----------------------------------------------------------------------===//
+// EnumerationDecl
+EnumerationDecl::EnumerationDecl(IdentifierInfo    *name,
+                                 Location           loc,
+                                 DeclarativeRegion *parent)
+    : TypeDecl(AST_EnumerationDecl, name, loc),
+      DeclarativeRegion(AST_EnumerationDecl)
+{
+    correspondingType = new EnumerationType(this);
+}

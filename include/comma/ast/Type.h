@@ -27,12 +27,12 @@ class Type : public Ast {
 public:
     virtual ~Type() { }
 
+    virtual bool equals(const Type *type) const { return type == this; }
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
     }
-
-    virtual bool equals(const Type *type) const { return type == this; }
 
 protected:
     Type(AstKind kind) : Ast(kind) {
@@ -443,6 +443,33 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ProcedureType;
     }
+};
+
+//===----------------------------------------------------------------------===//
+// EnumerationType
+//
+// The default implementation of type equality (pointer equality) is appropriate
+// for this type.
+//
+// Ownership of an enumeration type is always deligated to the corresponding
+// declaration.
+class EnumerationType : public Type
+{
+public:
+    EnumerationType(EnumerationDecl *decl)
+        : Type(AST_EnumerationType),
+          correspondingDecl(decl) { }
+
+    EnumerationDecl *getDeclaration() { return correspondingDecl; }
+    const EnumerationDecl *getDeclaration() const { return correspondingDecl; }
+
+    static bool classof(const EnumerationType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumerationType;
+    }
+
+private:
+    EnumerationDecl *correspondingDecl;
 };
 
 } // End comma namespace

@@ -42,6 +42,9 @@ class DomainDecl;
 class DomainInstanceDecl;
 class DomainType;
 class Domoid;
+class EnumerationDecl;
+class EnumerationLiteral;
+class EnumerationType;
 class Expr;
 class FunctionCallExpr;
 class FunctionDecl;
@@ -111,7 +114,7 @@ public:
         //
         //    - Subroutine decls denoting functions and procedures.
         //
-        //    - Value decls denoting elements of a domain.
+        //    - Value decls denoting elements of a domain or type.
         //
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
@@ -120,10 +123,12 @@ public:
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
         AST_CarrierDecl,        ///< CarrierDecl
+        AST_EnumerationDecl,    ///< EnumerationDecl
         AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
+        AST_EnumerationLiteral, ///< EnumerationLiteral
         AST_ObjectDecl,         ///< ObjectDecl
         AST_ImportDecl,         ///< ImportDecl
 
@@ -137,6 +142,7 @@ public:
         AST_CarrierType,        ///< CarrierType
         AST_FunctionType,       ///< FunctionType
         AST_ProcedureType,      ///< ProcedureType
+        AST_EnumerationType,    ///< EnumerationType
 
         //
         // Expr nodes.
@@ -170,13 +176,13 @@ public:
         LAST_ModelDecl  = AST_FunctorDecl,
 
         FIRST_TypeDecl  = AST_SignatureDecl,
-        LAST_TypeDecl   = AST_CarrierDecl,
+        LAST_TypeDecl   = AST_EnumerationDecl,
 
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl  = AST_ObjectDecl,
 
         FIRST_Type      = AST_SignatureType,
-        LAST_Type       = AST_ProcedureType,
+        LAST_Type       = AST_EnumerationType,
 
         FIRST_ModelType = AST_SignatureType,
         LAST_ModelType  = AST_DomainType,
@@ -355,6 +361,16 @@ public:
         return declarations.equal_range(name);
     }
 
+    typedef std::pair<ConstDeclIter, ConstDeclIter> ConstDeclRange;
+    ConstDeclRange findDecls(IdentifierInfo *name) const {
+        return declarations.equal_range(name);
+    }
+
+    // Returns true if this region contains a declaration with the given name.
+    bool containsDecl(IdentifierInfo *name) const {
+        return findDecls(name).first != endDecls();
+    }
+
     Decl *findDecl(IdentifierInfo *name, Type *type);
 
     Decl *findDirectDecl(IdentifierInfo *name, Type *type);
@@ -382,6 +398,7 @@ public:
         case Ast::AST_AddDecl:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
+        case Ast::AST_EnumerationDecl:
             return true;
         }
     }
@@ -391,8 +408,11 @@ public:
     static bool classof(const VarietyDecl   *node) { return true; }
     static bool classof(const FunctorDecl   *node) { return true; }
     static bool classof(const AddDecl       *node) { return true; }
+    static bool classof(const ProcedureDecl *node) { return true; }
+    static bool classof(const FunctionDecl  *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
+    static bool classof(const EnumerationDecl    *node) { return true; }
 
 protected:
     virtual void notifyAddDecl(Decl *decl);

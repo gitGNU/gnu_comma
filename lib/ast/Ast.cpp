@@ -26,10 +26,12 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "VarietyDecl",
     "FunctorDecl",
     "CarrierDecl",
+    "EnumerationDecl",
     "AddDecl",
     "FunctionDecl",
     "ProcedureDecl",
     "ParamValueDecl",
+    "EnumerationLiteral",
     "ObjectDecl",
     "ImportDecl",
 
@@ -40,6 +42,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "CarrierType",
     "FunctionType",
     "ProcedureType",
+    "EnumerationType",
 
     "DeclRefExpr",
     "KeywordSelector",
@@ -175,6 +178,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const DomainInstanceDecl*>(this);
     case Ast::AST_AddDecl:
         return static_cast<const AddDecl*>(this);
+    case Ast::AST_EnumerationDecl:
+        return static_cast<const EnumerationDecl*>(this);
     }
 }
 
