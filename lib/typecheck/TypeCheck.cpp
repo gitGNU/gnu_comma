@@ -573,24 +573,8 @@ void TypeCheck::acceptDeclarationInitializer(Node declNode, Node initializer)
     Expr       *expr       = cast_node<Expr>(initializer);
     Type       *targetType = decl->getType();
 
-    // If the initializer expression has a unique type, ensure type equality wrt
-    // to the declaration.
-    if (expr->hasType()) {
-        Type *exprType = expr->getType();
-
-        if (targetType->equals(exprType))
-            decl->setInitializer(expr);
-        else
-            report(expr->getLocation(), diag::INCOMPATABLE_TYPES);
-        return;
-    }
-    else {
-        // The only type of expression which might not resolve to a unique type
-        // is a function call expression.
-        FunctionCallExpr *callExpr = cast<FunctionCallExpr>(expr);
-        if (resolveFunctionCall(callExpr, targetType))
-            decl->setInitializer(expr);
-    }
+    if (ensureExprType(expr, targetType))
+        decl->setInitializer(expr);
 }
 
 Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
