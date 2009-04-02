@@ -191,10 +191,9 @@ private:
                                               Type             **actuals,
                                               unsigned           numActuals);
 
-    bool resolveDirectDecl(Decl           *candidate,
+    Node resolveDirectDecl(Decl           *candidate,
                            IdentifierInfo *name,
-                           Location        loc,
-                           Node           &node);
+                           Location        loc);
 
     bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
 

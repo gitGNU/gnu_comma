@@ -54,11 +54,6 @@ void ScopeEntry::removeDirectDecl(Decl *decl)
     Homonym        *homonym = info->getMetadata<Homonym>();
     assert(homonym && "No identifier metadata!");
 
-    if (homonym->isDirectSingleton() && (homonym->asDeclaration() == decl)) {
-        homonym->clear();
-        return;
-    }
-
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter)
         if (decl == *iter) {
@@ -73,11 +68,6 @@ void ScopeEntry::removeImportDecl(Decl *decl)
     IdentifierInfo *info    = decl->getIdInfo();
     Homonym        *homonym = info->getMetadata<Homonym>();
     assert(homonym && "No identifier metadata!");
-
-    if (homonym->isImportSingleton() && (homonym->asDeclaration() == decl)) {
-        homonym->clear();
-        return;
-    }
 
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter)
@@ -219,16 +209,11 @@ TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
         if (traverse) {
             Homonym *homonym = name->getMetadata<Homonym>();
 
-            if (homonym->isDirectSingleton())
-                return dyn_cast<TypeDecl>(homonym->asDeclaration());
-
-            if (homonym->isLoaded()) {
-                for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-                     iter != homonym->endDirectDecls(); ++iter) {
-                    Decl *candidate = *iter;
-                    if (isa<TypeDecl>(candidate))
-                        return cast<TypeDecl>(candidate);
-                }
+            for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+                 iter != homonym->endDirectDecls(); ++iter) {
+                Decl *candidate = *iter;
+                if (isa<TypeDecl>(candidate))
+                    return cast<TypeDecl>(candidate);
             }
         }
         else {
@@ -260,16 +245,11 @@ ValueDecl *Scope::lookupDirectValue(const IdentifierInfo *info) const
     if (info->hasMetadata()) {
         Homonym *homonym = info->getMetadata<Homonym>();
 
-        if (homonym->isDirectSingleton())
-            return dyn_cast<ValueDecl>(homonym->asDeclaration());
-
-        if (homonym->isLoaded()) {
-            for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-                 iter != homonym->endDirectDecls(); ++iter) {
-                Decl *candidate = *iter;
-                if (isa<ValueDecl>(candidate))
-                    return cast<ValueDecl>(candidate);
-            }
+        for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+             iter != homonym->endDirectDecls(); ++iter) {
+            Decl *candidate = *iter;
+            if (isa<ValueDecl>(candidate))
+                return cast<ValueDecl>(candidate);
         }
     }
     return 0;

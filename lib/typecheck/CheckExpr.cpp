@@ -38,43 +38,27 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
 }
 
 // This function is a helper to acceptDirectName.  It checks that an arbitrary
-// decl denotes a direct name (a value decl or nullary function) and emits
-// diagnostics otherwise.  Returns true when the decl is accepted and populates
-// the given node with an expression representing the name.  Otherwise false is
-// returned and node is not touched.
-bool TypeCheck::resolveDirectDecl(Decl           *candidate,
+// decl denotes a direct name (a value decl or nullary function).  Returns a
+// valid Node when the decl is accepted, otherwise an invalid Node is returned.
+Node TypeCheck::resolveDirectDecl(Decl           *candidate,
                                   IdentifierInfo *name,
-                                  Location        loc,
-                                  Node           &node)
+                                  Location        loc)
 {
     if (isa<ValueDecl>(candidate)) {
         ValueDecl  *decl = cast<ValueDecl>(candidate);
         DeclRefExpr *ref = new DeclRefExpr(decl, loc);
-        node = Node(ref);
-        return true;
+        return Node(ref);
     }
 
     if (isa<FunctionDecl>(candidate)) {
         FunctionDecl *decl = cast<FunctionDecl>(candidate);
-
-        if (decl->getArity() != 0) {
-            report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << name;
-            node = Node::getInvalidNode();
-        }
-        else {
+        if (decl->getArity() == 0) {
             FunctionCallExpr *call = new FunctionCallExpr(decl, 0, 0, loc);
-            node = Node(call);
+            return Node(call);
         }
-        return true;
     }
 
-    if (isa<ProcedureDecl>(candidate)) {
-        report(loc, diag::PROCEDURE_IN_EXPRESSION);
-        node = Node::getInvalidNode();
-        return true;
-    }
-
-    return false;
+    return Node::getInvalidNode();
 }
 
 // FIXME: This function is just an example of where name lookup is going.  The
@@ -83,37 +67,22 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
 {
     Homonym *homonym = name->getMetadata<Homonym>();
 
-    if (!homonym) {
+    if (!homonym || homonym->empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return Node::getInvalidNode();
     }
 
-    // Singleton case.
-    if (homonym->isSingleton()) {
-        Node node = Node::getInvalidNode();
-        if (resolveDirectDecl(homonym->asDeclaration(), name, loc, node))
-            return node;
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
-    }
-
-    if (homonym->isEmpty()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
-    }
-
-    // The homonym is loaded (multiple bindings are in effect for this name).
-    // First examine the direct declarations for a value of the given name.
+    // Examine the direct declarations for a value of the given name.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter) {
-        Node node = Node::getInvalidNode();
-        if (resolveDirectDecl(*iter, name, loc, node))
+        Node node = resolveDirectDecl(*iter, name, loc);
+        if (node.isValid())
             return node;
     }
 
     // Otherwise, scan the full set of imported declarations, and partition the
     // import decls into two sets:  one containing all value declarations, the
-    // other containing all nullary function declatations.
+    // other containing all nullary function declarations.
     llvm::SmallVector<FunctionDecl*, 4> functionDecls;
     llvm::SmallVector<ValueDecl*, 4>    valueDecls;
 
@@ -380,18 +349,8 @@ void TypeCheck::lookupSubroutineDecls(
     assert (arity != 0 &&
             "This method should not be used to look up nullary subroutines!");
 
-    if (homonym->isEmpty())
+    if (homonym->empty())
         return;
-
-    if (homonym->isSingleton()) {
-        if (lookupFunctions)
-            decl = dyn_cast<FunctionDecl>(homonym->asDeclaration());
-        else
-            decl = dyn_cast<ProcedureDecl>(homonym->asDeclaration());
-        if (decl && decl->getArity() == arity)
-            routineDecls.push_back(decl);
-        return;
-    }
 
     // Accumulate any direct declarations.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
