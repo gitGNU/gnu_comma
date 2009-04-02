@@ -670,13 +670,14 @@ public:
     SubroutineDecl *getBaseDeclaration() { return baseDeclaration; }
     const SubroutineDecl *getBaseDeclaration() const { return baseDeclaration; }
 
-    bool hasBody() const { return body != 0; }
-
+    bool hasBody() const;
     void setBody(BlockStmt *block) { body = block; }
 
-    BlockStmt *getBody() { return body; }
+    BlockStmt *getBody();
 
-    const BlockStmt *getBody() const { return body; }
+    const BlockStmt *getBody() const {
+        return const_cast<SubroutineDecl*>(this)->getBody();
+    }
 
     void dump();
 

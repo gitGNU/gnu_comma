@@ -366,7 +366,25 @@ void SubroutineDecl::setBaseDeclaration(SubroutineDecl *routineDecl)
     assert(((isa<FunctionDecl>(this) && isa<FunctionDecl>(routineDecl)) ||
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
            "Base declarations must be of the same kind as the parent!");
+    assert(routineDecl->baseDeclaration == 0 && "Mmultiple base declarations!");
     baseDeclaration = routineDecl;
+    routineDecl->baseDeclaration = this;
+}
+
+bool SubroutineDecl::hasBody() const
+{
+    return body || (baseDeclaration && baseDeclaration->body);
+}
+
+BlockStmt *SubroutineDecl::getBody()
+{
+    if (body)
+        return body;
+
+    if (baseDeclaration)
+        return baseDeclaration->body;
+
+    return 0;
 }
 
 void SubroutineDecl::dump()

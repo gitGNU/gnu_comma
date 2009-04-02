@@ -736,16 +736,23 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 
     // Check that this declaration does not conflict with any other.
     if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
-        SourceLocation sloc = getSourceLocation(extantDecl->getLocation());
-        report(location, diag::SUBROUTINE_REDECLARATION)
-            << routineDecl->getString()
-            << sloc;
-        return Node::getInvalidNode();
-    }
+        SubroutineDecl *sdecl = cast<SubroutineDecl>(extantDecl);
+        SourceLocation   sloc = getSourceLocation(extantDecl->getLocation());
 
-    // Add the subroutine declaration into the current declarative region.
-    region->addDecl(routineDecl);
-    scope.addDirectSubroutine(routineDecl);
+        if (!sdecl->hasBody() && definitionFollows)
+            sdecl->setBaseDeclaration(routineDecl);
+        else {
+            report(location, diag::SUBROUTINE_REDECLARATION)
+                << routineDecl->getString()
+                << sloc;
+            return Node::getInvalidNode();
+        }
+    }
+    else {
+        // Add the subroutine declaration into the current declarative region.
+        region->addDecl(routineDecl);
+        scope.addDirectSubroutine(routineDecl);
+    }
     return Node(routineDecl);
 }
 

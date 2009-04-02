@@ -504,8 +504,6 @@ void Parser::parseCarrier()
 
 void Parser::parseAddComponents()
 {
-    Descriptor desc;
-    Node       component = Node::getInvalidNode();
     client.beginAddExpression();
 
     for (;;) {
@@ -515,23 +513,11 @@ void Parser::parseAddComponents()
             return;
 
         case Lexer::TKN_FUNCTION:
-            component = parseFunctionDeclaration(desc);
-            if (reduceToken(Lexer::TKN_IS)) {
-                endTagStack.push(EndTagEntry(NAMED_TAG,
-                                             desc.getLocation(),
-                                             desc.getIdInfo()));
-                parseSubroutineBody(component);
-            }
+            parseFunctionDeclOrDefinition();
             break;
 
         case Lexer::TKN_PROCEDURE:
-            component = parseProcedureDeclaration(desc);
-            if (reduceToken(Lexer::TKN_IS)) {
-                endTagStack.push(EndTagEntry(NAMED_TAG,
-                                             desc.getLocation(),
-                                             desc.getIdInfo()));
-                parseSubroutineBody(component);
-            }
+            parseProcedureDeclOrDefinition();
             break;
 
         case Lexer::TKN_IMPORT:
@@ -830,7 +816,8 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     desc.setIdentifier(name, location);
     client.beginSubroutineDeclaration(desc);
 
-    if (currentTokenIs(Lexer::TKN_LPAREN)) parseSubroutineParameters(desc);
+    if (currentTokenIs(Lexer::TKN_LPAREN))
+        parseSubroutineParameters(desc);
 
     if (desc.isFunctionDescriptor()) {
         if (reduceToken(Lexer::TKN_RETURN)) {
@@ -880,6 +867,41 @@ void Parser::parseSubroutineBody(Node declarationNode)
     endTagStack.pop();
     parseEndTag(tagEntry.tag);
     client.endSubroutineDefinition();
+}
+
+void Parser::parseFunctionDeclOrDefinition()
+{
+    Descriptor desc;
+    Node       decl = parseFunctionDeclaration(desc);
+
+    // FIXME: We should attempt to find the end of the function decl/definition.
+    if (decl.isInvalid()) return;
+
+    if (reduceToken(Lexer::TKN_IS)) {
+        endTagStack.push(EndTagEntry(NAMED_TAG,
+                                     desc.getLocation(),
+                                     desc.getIdInfo()));
+        parseSubroutineBody(decl);
+    }
+    return;
+}
+
+void Parser::parseProcedureDeclOrDefinition()
+{
+    Descriptor desc;
+    Node       decl = parseProcedureDeclaration(desc);
+
+    // FIXME: We should attempt to find the end of the procedure
+    // decl/definition.
+    if (decl.isInvalid()) return;
+
+    if (reduceToken(Lexer::TKN_IS)) {
+        endTagStack.push(EndTagEntry(NAMED_TAG,
+                                     desc.getLocation(),
+                                     desc.getIdInfo()));
+        parseSubroutineBody(decl);
+    }
+    return;
 }
 
 Node Parser::parseDeclaration()

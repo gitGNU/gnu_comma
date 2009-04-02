@@ -54,6 +54,8 @@ public:
     Node parseProcedureDeclaration();
     Node parseFunctionDeclaration(Descriptor &desc);
     Node parseProcedureDeclaration(Descriptor &desc);
+    void parseFunctionDeclOrDefinition();
+    void parseProcedureDeclOrDefinition();
 
     /// This parser is called just after the 'is' token beginning a function or
     /// procedure definition.  The argument \p declarationNode is a valid Node
