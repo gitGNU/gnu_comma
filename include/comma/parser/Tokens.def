@@ -57,6 +57,7 @@ RESERVED(REPEAT,    "repeat")
 RESERVED(RETURN,    "return")
 RESERVED(SIGNATURE, "signature")
 RESERVED(THEN,      "then")
+RESERVED(TYPE,      "type")
 RESERVED(WHILE,     "while")
 RESERVED(WITH,      "with")
 
