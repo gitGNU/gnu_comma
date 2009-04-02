@@ -346,9 +346,6 @@ void TypeCheck::lookupSubroutineDecls(
     SubroutineType *type;       // Type of `decl'.
     SubroutineType *shadowType; // Type of previous direct lookups.
 
-    assert (arity != 0 &&
-            "This method should not be used to look up nullary subroutines!");
-
     if (homonym->empty())
         return;
 
@@ -373,8 +370,8 @@ void TypeCheck::lookupSubroutineDecls(
         }
     }
 
-    // Accumulate the any import declarations, ensuring that any directly
-    // visible declarations shadow those imports with matching types.  Imported
+    // Accumulate import declarations, ensuring that any directly visible
+    // declarations shadow those imports with matching types.  Imported
     // declarations do not shadow eachother.
     unsigned numDirectDecls = routineDecls.size();
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();

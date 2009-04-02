@@ -13,7 +13,18 @@ using namespace comma;
 
 Node Parser::parseStatement()
 {
-    Node node = parseProcedureCallStatement();
+    Node node = Node::getInvalidNode();
+
+    switch (currentTokenCode()) {
+
+    default:
+        node = parseProcedureCallStatement();
+        break;
+
+    case Lexer::TKN_RETURN:
+        node = parseReturnStmt();
+        break;
+    }
 
     if (node.isInvalid() || !requireToken(Lexer::TKN_SEMI))
         seekAndConsumeToken(Lexer::TKN_SEMI);
@@ -78,4 +89,21 @@ Node Parser::parseProcedureCallStatement()
                                       loc,
                                       &arguments[0],
                                       arguments.size());
+}
+
+Node Parser::parseReturnStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_RETURN));
+
+    Location loc = currentLocation();
+    ignoreToken();
+
+    if (currentTokenIs(Lexer::TKN_SEMI))
+        return client.acceptReturnStmt(loc);
+
+    Node expr = parseExpr();
+
+    if (expr.isValid())
+        return client.acceptReturnStmt(loc, expr);
+    return expr;
 }

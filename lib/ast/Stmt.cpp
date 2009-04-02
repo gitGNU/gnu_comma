@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 
 using namespace comma;
@@ -31,4 +32,11 @@ ProcedureCallStmt::ProcedureCallStmt(ProcedureDecl *connective,
 ProcedureCallStmt::~ProcedureCallStmt()
 {
     if (arguments) delete[] arguments;
+}
+
+//===----------------------------------------------------------------------===//
+// ReturnStmt
+ReturnStmt::~ReturnStmt()
+{
+    if (returnExpr) delete returnExpr;
 }

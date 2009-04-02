@@ -125,6 +125,8 @@ public:
                                Node     qualifierType,
                                Location loc);
 
+    Node acceptReturnStmt(Location loc, Node retNode = 0);
+
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 
@@ -157,9 +159,13 @@ private:
 
     Domoid *getCurrentDomain() const;
 
+    ProcedureDecl *getCurrentProcedure() const;
+
+    FunctionDecl *getCurrentFunction() const;
+
     DeclarativeRegion *declarativeRegion;
 
-    DeclarativeRegion *currentDeclarativeRegion() {
+    DeclarativeRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
     }
 
@@ -213,6 +219,12 @@ private:
                                       unsigned arity,
                                       llvm::SmallVector<SubroutineDecl*, 8> &routines,
                                       bool lookupFunctions);
+
+    // Returns true if we are currently checking a procedure.
+    bool checkingProcedure() const;
+
+    // Returns true if we are currently checking a function.
+    bool checkingFunction() const;
 
     bool has(DomainType *source, SignatureType *target);
 

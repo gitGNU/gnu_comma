@@ -137,6 +137,8 @@ public:
                                        Node     qualifierType,
                                        Location loc) = 0;
 
+    virtual Node acceptReturnStmt(Location loc, Node retNode = 0) = 0;
+
 };
 
 } // End comma namespace.

@@ -69,6 +69,7 @@ public:
 
     Node parseDeclaration();
     Node parseStatement();
+    Node parseReturnStmt();
 
     Node parseSubroutineKeywordSelection();
     Node parseProcedureCallStatement();

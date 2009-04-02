@@ -47,6 +47,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "BlockStmt",
     "ProcedureCallStmt",
+    "ReturnStmt",
 
     "Qualifier"
 };
@@ -165,6 +166,8 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const FunctorDecl*>(this);
     case Ast::AST_FunctionDecl:
         return static_cast<const FunctionDecl*>(this);
+    case Ast::AST_ProcedureDecl:
+        return static_cast<const ProcedureDecl*>(this);
     case Ast::AST_AbstractDomainDecl:
         return static_cast<const AbstractDomainDecl*>(this);
     case Ast::AST_DomainInstanceDecl:

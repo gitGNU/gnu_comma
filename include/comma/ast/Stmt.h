@@ -123,6 +123,33 @@ private:
     Location       location;
 };
 
+//===----------------------------------------------------------------------===//
+// ReturnStmt.
+class ReturnStmt : public Stmt {
+
+    Expr    *returnExpr;
+    Location location;
+
+public:
+    ReturnStmt(Location loc, Expr *expr = 0)
+        : Stmt(AST_ReturnStmt), returnExpr(expr), location(loc) { }
+
+    ~ReturnStmt();
+
+    bool hasReturnExpr() const { return returnExpr != 0; }
+
+    const Expr *getReturnExpr() const { return returnExpr; }
+    Expr *getReturnExpr() { return returnExpr; }
+
+
+    Location getLocation() const { return location; }
+
+    static bool classof(const ReturnStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ReturnStmt;
+    }
+};
+
 } // End comma namespace.
 
 #endif

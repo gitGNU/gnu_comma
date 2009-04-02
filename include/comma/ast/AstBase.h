@@ -60,6 +60,7 @@ class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
 class Qualifier;
+class ReturnStmt;
 class Sigoid;
 class SignatureDecl;
 class SignatureType;
@@ -148,6 +149,7 @@ public:
         //
         AST_BlockStmt,          ///< BlockStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
+        AST_ReturnStmt,         ///< ReturnStmt
 
         //
         // Miscellaneous helper nodes.
@@ -181,7 +183,7 @@ public:
         LAST_Expr       = AST_FunctionCallExpr,
 
         FIRST_Stmt      = AST_BlockStmt,
-        LAST_Stmt       = AST_ProcedureCallStmt
+        LAST_Stmt       = AST_ReturnStmt
     };
 
     virtual ~Ast() { }
@@ -376,6 +378,8 @@ public:
         case Ast::AST_DomainInstanceDecl:
         case Ast::AST_AbstractDomainDecl:
         case Ast::AST_AddDecl:
+        case Ast::AST_ProcedureDecl:
+        case Ast::AST_FunctionDecl:
             return true;
         }
     }

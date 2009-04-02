@@ -88,3 +88,7 @@ DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
            "Multiple imports cause declaration hiding.")
 DIAGNOSTIC(MULTIPLE_CARRIER_DECLARATIONS, ERROR,
            "Multiple carrier declarations.")
+DIAGNOSTIC(EMPTY_RETURN_IN_FUNCTION, ERROR,
+           "Missing value in return from function.")
+DIAGNOSTIC(NONEMPTY_RETURN_IN_PROCEDURE, ERROR,
+           "Cannot return a value from a procedure.")

@@ -32,12 +32,24 @@ void TypeCheck::deleteNode(Node node)
     if (ast && ast->isDeletable()) delete ast;
 }
 
-Sigoid *TypeCheck::getCurrentSignature() const {
+Sigoid *TypeCheck::getCurrentSignature() const
+{
     return dyn_cast<Sigoid>(getCurrentModel());
 }
 
-Domoid *TypeCheck::getCurrentDomain() const {
+Domoid *TypeCheck::getCurrentDomain() const
+{
     return dyn_cast<Domoid>(getCurrentModel());
+}
+
+ProcedureDecl *TypeCheck::getCurrentProcedure() const
+{
+    return dyn_cast<ProcedureDecl>(currentDeclarativeRegion());
+}
+
+FunctionDecl *TypeCheck::getCurrentFunction() const
+{
+    return dyn_cast<FunctionDecl>(currentDeclarativeRegion());
 }
 
 void TypeCheck::beginModelDeclaration(Descriptor &desc)
@@ -789,4 +801,14 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
 
     Expr *expr = cast_node<Expr>(exprNode);
     return new KeywordSelector(key, loc, expr);
+}
+
+bool TypeCheck::checkingProcedure() const
+{
+    return getCurrentProcedure() != 0;
+}
+
+bool TypeCheck::checkingFunction() const
+{
+    return getCurrentFunction() != 0;
 }
