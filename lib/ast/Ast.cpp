@@ -45,6 +45,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "KeywordSelector",
     "FunctionCallExpr",
 
+    "AssignmentStmt",
     "BlockStmt",
     "ProcedureCallStmt",
     "ReturnStmt",

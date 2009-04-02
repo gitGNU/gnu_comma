@@ -150,6 +150,29 @@ public:
     }
 };
 
+//===----------------------------------------------------------------------===//
+// AssignmentStmt
+class AssignmentStmt : public Stmt {
+
+    DeclRefExpr *target;
+    Expr        *value;
+
+public:
+    AssignmentStmt(DeclRefExpr *target, Expr *value)
+        : Stmt(AST_AssignmentStmt), target(target), value(value) { }
+
+    DeclRefExpr *getTarget() { return target; }
+    const DeclRefExpr *getTarget() const { return target; }
+
+    Expr *getAssignedExpr() { return value; }
+    const Expr *getAssignmentExpr() const { return value; }
+
+    static bool classof(const AssignmentStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AssignmentStmt;
+    }
+};
+
 } // End comma namespace.
 
 #endif

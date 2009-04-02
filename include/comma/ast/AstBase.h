@@ -28,6 +28,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class AssignmentStmt;
 class Ast;
 class AstRewriter;
 class BlockStmt;
@@ -147,6 +148,7 @@ public:
         //
         // Stmt nodes.
         //
+        AST_AssignmentStmt,     ///< AssignmentStmt
         AST_BlockStmt,          ///< BlockStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_ReturnStmt,         ///< ReturnStmt
@@ -182,7 +184,7 @@ public:
         FIRST_Expr      = AST_DeclRefExpr,
         LAST_Expr       = AST_FunctionCallExpr,
 
-        FIRST_Stmt      = AST_BlockStmt,
+        FIRST_Stmt      = AST_AssignmentStmt,
         LAST_Stmt       = AST_ReturnStmt
     };
 
