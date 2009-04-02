@@ -45,18 +45,9 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
             Expr         *retExpr    = cast_node<Expr>(retNode);
             Type         *targetType = fdecl->getReturnType();
 
-            if (retExpr->hasType()) {
-                if (targetType->equals(retExpr->getType()))
-                    return Node(new ReturnStmt(loc, retExpr));
-                report(loc, diag::INCOMPATABLE_TYPES);
-                return Node::getInvalidNode();
-            }
-
-            FunctionCallExpr *fcall = cast<FunctionCallExpr>(retExpr);
-            if (!resolveFunctionCall(fcall, targetType))
-                return Node::getInvalidNode();
-
-            return Node(new ReturnStmt(loc, retExpr));
+            if (ensureExprType(retExpr, targetType))
+                return Node(new ReturnStmt(loc, retExpr));
+            return Node::getInvalidNode();
         }
 
         report(loc, diag::NONEMPTY_RETURN_IN_PROCEDURE);

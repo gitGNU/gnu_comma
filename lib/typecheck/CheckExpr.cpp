@@ -335,7 +335,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
 // This function looks up the set of visible subroutines of a certain arity in
 // the given homonym and poulates the vector routineDecls with the results.  If
 // lookupFunctions is true, this method scans for functions, otherwise for
-// procedures.  Note that this function is not valid for lookups of arity 0.
+// procedures.
 void TypeCheck::lookupSubroutineDecls(
     Homonym *homonym,
     unsigned arity,
@@ -458,23 +458,12 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
     for (unsigned i = 0; i < numArgs; ++i) {
         Type *targetType = decl->getArgType(i);
         Expr *arg        = sortedArgs[i];
-        Type *argType;
 
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
 
-        if (arg->hasType()) {
-            argType = arg->getType();
-            if (!targetType->equals(argType)) {
-                report(arg->getLocation(), diag::INCOMPATABLE_TYPES);
-                return Node::getInvalidNode();
-            }
-        }
-        else {
-            FunctionCallExpr *callExpr = cast<FunctionCallExpr>(arg);
-            if (!resolveFunctionCall(callExpr, targetType))
-                return Node::getInvalidNode();
-        }
+        if (!ensureExprType(arg, targetType))
+            return Node::getInvalidNode();
     }
 
     if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
@@ -543,4 +532,20 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     }
     call->setConnective(fdecl);
     return status;
+}
+
+bool TypeCheck::ensureExprType(Expr *expr, Type *targetType)
+{
+    if (expr->hasType()) {
+        if (targetType->equals(expr->getType()))
+            return true;
+        report(expr->getLocation(), diag::INCOMPATABLE_TYPES);
+        return false;
+    }
+    else {
+        // Otherwise, the expression must be a function call overloaded on the
+        // return type.
+        FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
+        return resolveFunctionCall(fcall, targetType);
+    }
 }

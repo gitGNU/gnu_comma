@@ -226,6 +226,11 @@ private:
     // Returns true if we are currently checking a function.
     bool checkingFunction() const;
 
+    // Returns true if an expression satisfies the target type, performing any
+    // resolution of the expression as needed.  Otherwise false is returned an
+    // appropriate diagnostics are posted.
+    bool ensureExprType(Expr *expr, Type *targetType);
+
     bool has(DomainType *source, SignatureType *target);
 
     SourceLocation getSourceLocation(Location loc) const {
