@@ -872,7 +872,6 @@ void Parser::parseSubroutineBody(Node declarationNode)
     while (!currentTokenIs(Lexer::TKN_END) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
         parseStatement();
-        requireToken(Lexer::TKN_SEMI);
     }
 
     EndTagEntry tagEntry = endTagStack.top();

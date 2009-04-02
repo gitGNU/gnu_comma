@@ -14,6 +14,10 @@ using namespace comma;
 Node Parser::parseStatement()
 {
     Node node = parseProcedureCallStatement();
+
+    if (node.isInvalid() || !requireToken(Lexer::TKN_SEMI))
+        seekAndConsumeToken(Lexer::TKN_SEMI);
+
     return node;
 }
 
