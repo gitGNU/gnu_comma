@@ -9,6 +9,7 @@
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
+#include "llvm/ADT/DenseMap.h"
 #include "TypeEqual.h"
 
 using namespace comma;
@@ -480,6 +481,14 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
     BadDeclSet badDecls;
 
+    // An "indirect decl", in this context, is a subroutine decl which is
+    // inherited from a super signature.  We maintain a map from such indirect
+    // decls to the declaration node supplied by the signature.  This allows us
+    // to provide diagnostics which mention the location of conflicts.
+    typedef std::pair<SubroutineDecl*, SubroutineDecl*> IndirectPair;
+    typedef llvm::DenseMap<SubroutineDecl*, SubroutineDecl*> IndirectDeclMap;
+    IndirectDeclMap indirectDecls;
+
     SignatureSet          &sigset       = model->getSignatureSet();
     SignatureSet::iterator superIter    = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
@@ -507,20 +516,18 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
                     SubroutineDecl *rewriteDecl;
 
                     rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, model);
-                    rewriteDecl->setBaseDeclaration(srDecl);
                     rewriteDecl->setDeclarativeRegion(model);
                     model->addDecl(rewriteDecl);
-                } else if (decl->getBaseDeclaration()) {
-                    // A declaration was found which has a base declaration
-                    // (meaning that it was not directly declared in this
-                    // signature, but inherited from a super).  Since there is
-                    // no overridding declaration in this case ensure that the
+                    indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
+                } else if (indirectDecls.count(decl)) {
+                    // An indirect declaration was found.  Since there is no
+                    // overriding declaration in this case ensure that the
                     // keywords match.
                     SubroutineType *declType = decl->getType();
 
                     if (!declType->keywordsMatch(srType)) {
                         Location        modelLoc = model->getLocation();
-                        SubroutineDecl *baseDecl = decl->getBaseDeclaration();
+                        SubroutineDecl *baseDecl = indirectDecls.lookup(decl);
                         SourceLocation     sloc1 =
                             getSourceLocation(baseDecl->getLocation());
                         SourceLocation     sloc2 =
@@ -740,7 +747,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         SourceLocation   sloc = getSourceLocation(extantDecl->getLocation());
 
         if (!sdecl->hasBody() && definitionFollows)
-            sdecl->setBaseDeclaration(routineDecl);
+            sdecl->setDefiningDeclaration(routineDecl);
         else {
             report(location, diag::SUBROUTINE_REDECLARATION)
                 << routineDecl->getString()

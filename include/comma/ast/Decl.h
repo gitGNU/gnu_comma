@@ -666,9 +666,11 @@ public:
     ParamDeclIterator beginParams() { return parameters; }
     ParamDeclIterator endParams()   { return parameters + getArity(); }
 
-    void setBaseDeclaration(SubroutineDecl *routineDecl);
-    SubroutineDecl *getBaseDeclaration() { return baseDeclaration; }
-    const SubroutineDecl *getBaseDeclaration() const { return baseDeclaration; }
+    void setDefiningDeclaration(SubroutineDecl *routineDecl);
+    SubroutineDecl *getDefiningDeclaration() { return definingDeclaration; }
+    const SubroutineDecl *getDefiningDeclaration() const {
+        return definingDeclaration;
+    }
 
     bool hasBody() const;
     void setBody(BlockStmt *block) { body = block; }
@@ -689,7 +691,7 @@ public:
 
 protected:
     SubroutineType  *routineType;
-    SubroutineDecl  *baseDeclaration;
+    SubroutineDecl  *definingDeclaration;
     ParamValueDecl **parameters;
     BlockStmt       *body;
 };
@@ -730,13 +732,12 @@ public:
         return llvm::cast<FunctionType>(routineType);
     }
 
-    FunctionDecl *getBaseDeclaration() {
-        return llvm::cast_or_null<FunctionDecl>(baseDeclaration);
+    FunctionDecl *getDefiningDeclaration() {
+        return llvm::cast_or_null<FunctionDecl>(definingDeclaration);
     }
 
-    const FunctionDecl *getBaseDeclaration() const {
-        return const_cast<const FunctionDecl*>(
-            const_cast<FunctionDecl*>(this)->getBaseDeclaration());
+    const FunctionDecl *getDefiningDeclaration() const {
+        return const_cast<FunctionDecl*>(this)->getDefiningDeclaration();
     }
 
     Type *getReturnType() const {

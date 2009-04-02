@@ -275,7 +275,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     : Decl(kind, name, loc),
       DeclarativeRegion(kind, parent),
       routineType(0),
-      baseDeclaration(0),
+      definingDeclaration(0),
       parameters(0),
       body(0)
 {
@@ -334,7 +334,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     : Decl(kind, name, loc),
       DeclarativeRegion(kind, parent),
       routineType(type),
-      baseDeclaration(0),
+      definingDeclaration(0),
       parameters(0),
       body(0)
 {
@@ -360,20 +360,18 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     }
 }
 
-void SubroutineDecl::setBaseDeclaration(SubroutineDecl *routineDecl)
+void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
 {
-    assert(baseDeclaration == 0 && "Cannot reset base declaration!");
+    assert(definingDeclaration == 0 && "Cannot reset base declaration!");
     assert(((isa<FunctionDecl>(this) && isa<FunctionDecl>(routineDecl)) ||
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
-           "Base declarations must be of the same kind as the parent!");
-    assert(routineDecl->baseDeclaration == 0 && "Multiple base declarations!");
-    baseDeclaration = routineDecl;
-    routineDecl->baseDeclaration = this;
+           "Defining declarations must be of the same kind as the parent!");
+    definingDeclaration = routineDecl;
 }
 
 bool SubroutineDecl::hasBody() const
 {
-    return body || (baseDeclaration && baseDeclaration->body);
+    return body || (definingDeclaration && definingDeclaration->body);
 }
 
 BlockStmt *SubroutineDecl::getBody()
@@ -381,8 +379,8 @@ BlockStmt *SubroutineDecl::getBody()
     if (body)
         return body;
 
-    if (baseDeclaration)
-        return baseDeclaration->body;
+    if (definingDeclaration)
+        return definingDeclaration->body;
 
     return 0;
 }
