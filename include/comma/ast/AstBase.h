@@ -51,6 +51,7 @@ class FunctionDecl;
 class FunctionType;
 class FunctorDecl;
 class FunctorType;
+class IfStmt;
 class ImportDecl;
 class InjExpr;
 class KeywordSelector;
@@ -71,6 +72,7 @@ class Sigoid;
 class SignatureDecl;
 class SignatureType;
 class Stmt;
+class StmtSequence;
 class SubroutineDecl;
 class SubroutineType;
 class Type;
@@ -160,8 +162,10 @@ public:
         //
         AST_AssignmentStmt,     ///< AssignmentStmt
         AST_BlockStmt,          ///< BlockStmt
+        AST_IfStmt,             ///< IfStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_ReturnStmt,         ///< ReturnStmt
+        AST_StmtSequence,       ///< StmtSequence
 
         //
         // Miscellaneous helper nodes.
@@ -195,7 +199,7 @@ public:
         LAST_Expr       = AST_PrjExpr,
 
         FIRST_Stmt      = AST_AssignmentStmt,
-        LAST_Stmt       = AST_ReturnStmt
+        LAST_Stmt       = AST_StmtSequence
     };
 
     virtual ~Ast() { }

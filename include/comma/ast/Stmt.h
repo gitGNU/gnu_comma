@@ -21,6 +21,7 @@ class Stmt : public Ast {
 protected:
     Stmt(AstKind kind) : Ast(kind) { }
 
+public:
     static bool classof(const Stmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesStmt();
@@ -39,6 +40,8 @@ protected:
     StmtSequence(AstKind kind) : Stmt(kind) { }
 
 public:
+    StmtSequence() : Stmt(AST_StmtSequence) { }
+
     void addStmt(Stmt *stmt) { statements.push_back(stmt); }
 
     typedef llvm::SmallVector<Stmt*, 16>::iterator StmtIter;
@@ -50,11 +53,11 @@ public:
     ConstStmtIter endStatements()   const { return statements.end(); }
 
     static bool classof(const StmtSequence *node) { return true; }
-
-private:
-    IdentifierInfo *label;
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_StmtSequence ||
+            node->getKind() == AST_BlockStmt;
+    }
 };
-
 
 //===----------------------------------------------------------------------===//
 // BlockStmt
@@ -171,6 +174,116 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_AssignmentStmt;
     }
+};
+
+//===----------------------------------------------------------------------===//
+// IfStmt
+class IfStmt : public Stmt {
+
+public:
+    // IfStmt's are always constructed with a condition and a consequent.  If
+    // the statement contains "elsif" components, one must call addElsif for
+    // each component.  Similarly, one must call setAlternate to define the
+    // "else" component.
+    IfStmt(Location loc, Expr *condition, StmtSequence *consequent)
+        : Stmt(AST_IfStmt),
+          ifLocation(loc),
+          elseLocation(0),
+          condition(condition),
+          consequent(consequent),
+          alternate(0) { }
+
+    // Returns the predicate expression controlling this IfStmt.
+    Expr *getCondition() { return condition; }
+    const Expr *getCondition() const { return condition; }
+
+    // Returns the statement associated with the "then" branch of this IfStmt.
+    Stmt *getConsequent() { return consequent; }
+    const Stmt *getConsequent() const { return consequent; }
+
+    // Sets the statement associated with the "else" branch of this IfStmt.
+    void setAlternate(Location loc, StmtSequence *stmt) {
+        assert(alternate == 0 &&  "Cannot reset IfStmt alternate!");
+        elseLocation = loc;
+        alternate    = stmt;
+    }
+
+    // Returns true if this IfStmt has been supplied with an "else" clause.
+    bool hasAlternate() const { return alternate != 0; }
+
+    // Returns the statement associated with the "else" clause, or 0 if no such
+    // component exists.
+    StmtSequence *getAlternate() { return alternate; }
+    const StmtSequence *getAlternate() const { return alternate; }
+
+    // The following class is used to represent "elsif" components of a
+    // conditional.
+    class Elsif {
+
+    public:
+        Location getLocation() const { return location; }
+
+        Expr *getCondition() { return condition; }
+        const Expr *getCondition() const { return condition; }
+
+        StmtSequence *getConsequent() { return consequent; }
+        const StmtSequence *getConsequent() const { return consequent; }
+
+    private:
+        Elsif(Location loc, Expr *cond, StmtSequence *stmt)
+            : location(loc), condition(cond), consequent(stmt) { }
+
+        friend class IfStmt;
+
+        Location      location;
+        Expr         *condition;
+        StmtSequence *consequent;
+    };
+
+private:
+    // The type used to store Elsif components.
+    typedef llvm::SmallVector<Elsif, 2> ElsifVector;
+
+public:
+    typedef ElsifVector::iterator       iterator;
+    typedef ElsifVector::const_iterator const_iterator;
+
+    iterator beginElsif() { return elsifs.begin(); }
+    iterator endElsif()   { return elsifs.end(); }
+
+    const_iterator beginElsif() const { return elsifs.begin(); }
+    const_iterator endElsif()   const { return elsifs.end(); }
+
+    // Adds an "elsif" branch to this IfStmt.  The order in which this function
+    // is called determines the order of the elsif branches.
+    void addElsif(Location loc, Expr *condition, StmtSequence *consequent) {
+        elsifs.push_back(Elsif(loc, condition, consequent));
+    }
+
+    // Returns true if this if statement contains elsif clauses.
+    bool hasElsif() const { return !elsifs.empty(); }
+
+    // Returns the location of the "if" token.
+    Location getIfLocation() const { return ifLocation; }
+
+    // Returns the location of the "else" token if an alternate branch exists.
+    Location getElseLocation() const { return elseLocation; }
+
+    // Dump the if statement to stderr.
+    void dump();
+
+    static bool classof(const IfStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IfStmt;
+    }
+
+private:
+    Location      ifLocation;
+    Location      elseLocation;
+    Expr         *condition;
+    StmtSequence *consequent;
+    StmtSequence *alternate;
+    ElsifVector   elsifs;
 };
 
 } // End comma namespace.

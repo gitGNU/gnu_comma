@@ -45,13 +45,17 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumerationType",
 
     "DeclRefExpr",
-    "KeywordSelector",
     "FunctionCallExpr",
+    "InjExpr",
+    "KeywordSelector",
+    "PrjExpr",
 
     "AssignmentStmt",
     "BlockStmt",
+    "IfStmt",
     "ProcedureCallStmt",
     "ReturnStmt",
+    "StmtSequence",
 
     "Qualifier"
 };

@@ -230,6 +230,32 @@ bool Parser::seekAndConsumeEndTag(IdentifierInfo *tag)
     return status;
 }
 
+bool Parser::seekEndIf()
+{
+    unsigned depth = 1;
+
+    while (seekTokens(Lexer::TKN_IF, Lexer::TKN_END)) {
+        switch (currentTokenCode()) {
+
+        default:
+            return false;
+
+        case Lexer::TKN_IF:
+            depth++;
+            break;
+
+        case Lexer::TKN_END:
+            if (expectToken(Lexer::TKN_IF)) {
+                ignoreToken();
+                depth--;
+                if (depth == 0)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
 Location Parser::currentLocation()
 {
     return currentToken().getLocation();

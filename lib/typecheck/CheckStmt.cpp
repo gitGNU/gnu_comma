@@ -87,3 +87,57 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
 
     return Node::getInvalidNode();
 }
+
+Node TypeCheck::acceptIfStmt(Location loc,
+                             Node     conditionNode,
+                             Node    *consequentNodes,
+                             unsigned numConsequents)
+{
+    Expr *condition   = cast_node<Expr>(conditionNode);
+    Type *conditionTy = condition->getType();
+
+    if (conditionTy->equals(theBoolDecl->getType())) {
+        StmtSequence *consequents = new StmtSequence();
+        for (unsigned i = 0; i < numConsequents; ++i)
+            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+
+        return Node(new IfStmt(loc, condition, consequents));
+    }
+    return Node::getInvalidNode();
+}
+
+Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
+                               Node *alternateNodes, unsigned numAlternates)
+{
+    IfStmt       *cond       = cast_node<IfStmt>(ifNode);
+    StmtSequence *alternates = new StmtSequence();
+
+    assert(!cond->hasAlternate() && "Multiple else component in IfStmt!");
+
+    for (unsigned i = 0; i < numAlternates; ++i)
+        alternates->addStmt(cast_node<Stmt>(alternateNodes[i]));
+
+    cond->setAlternate(loc, alternates);
+    return ifNode;
+}
+
+Node TypeCheck::acceptElsifStmt(Location loc,
+                                Node     ifNode,
+                                Node     conditionNode,
+                                Node    *consequentNodes,
+                                unsigned numConsequents)
+{
+    IfStmt *cond        = cast_node<IfStmt>(ifNode);
+    Expr   *condition   = cast_node<Expr>(conditionNode);
+    Type   *conditionTy = condition->getType();
+
+    if (conditionTy->equals(theBoolDecl->getType())) {
+        StmtSequence *consequents = new StmtSequence();
+        for (unsigned i = 0; i < numConsequents; ++i)
+            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+        cond->addElsif(loc, condition, consequents);
+        return ifNode;
+    }
+    return Node::getInvalidNode();
+}
+

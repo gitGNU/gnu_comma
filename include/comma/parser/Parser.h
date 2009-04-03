@@ -71,6 +71,7 @@ public:
 
     Node parseDeclaration();
     Node parseStatement();
+    Node parseIfStmt();
     Node parseReturnStmt();
     Node parseAssignmentStmt();
 
@@ -163,6 +164,10 @@ private:
     // consumed, keeping track of nested pairs.  Consumes the closing
     // paren. Note that this method does not save the state of the token stream.
     bool seekCloseParen();
+
+    // Assuming an 'if' token has been consumed, moves the token stream past a
+    // matching 'end if' sequence (taking into account inner 'if' expressions.
+    bool seekEndIf();
 
     bool seekToken(Lexer::Code code);
     bool seekAndConsumeToken(Lexer::Code code);

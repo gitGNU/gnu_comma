@@ -62,6 +62,8 @@ void TypeCheck::populateInitialEnvironment()
     scope.addDirectDecl(trueLit);
     scope.addDirectDecl(falseLit);
     scope.addDirectDecl(equals);
+
+    theBoolDecl = boolEnum;
 }
 
 void TypeCheck::deleteNode(Node node)

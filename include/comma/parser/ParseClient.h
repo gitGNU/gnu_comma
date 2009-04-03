@@ -145,6 +145,18 @@ public:
                                        Node     qualifierType,
                                        Location loc) = 0;
 
+    virtual Node acceptIfStmt(Location loc, Node condition,
+                              Node *consequents, unsigned numConsequents) = 0;
+
+    virtual Node acceptElseStmt(Location loc, Node ifNode,
+                                Node *alternates, unsigned numAlternates) = 0;
+
+    virtual Node acceptElsifStmt(Location loc,
+                                 Node     ifNode,
+                                 Node     condition,
+                                 Node    *consequents,
+                                 unsigned numConsequents) = 0;
+
     virtual Node acceptReturnStmt(Location loc, Node retNode = 0) = 0;
 
     virtual Node acceptAssignmentStmt(Location        loc,

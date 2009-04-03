@@ -8,6 +8,7 @@
 
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
+#include <iostream>
 
 using namespace comma;
 
@@ -39,4 +40,35 @@ ProcedureCallStmt::~ProcedureCallStmt()
 ReturnStmt::~ReturnStmt()
 {
     if (returnExpr) delete returnExpr;
+}
+
+//===----------------------------------------------------------------------===//
+// IfStmt
+void IfStmt::dump()
+{
+    std::cerr << '<' << getKindString()
+              << ' ' << std::hex << uintptr_t(this) << ' ';
+
+    std::cerr << "condition: ";
+    condition->dump();
+
+    std::cerr << " consequent: ";
+    consequent->dump();
+
+    iterator endIter = endElsif();
+    for (iterator iter = beginElsif(); iter != endIter; ++iter) {
+        Elsif &elsif = *iter;
+        std::cerr << " <elsif condition: ";
+        elsif.getCondition()->dump();
+
+        std::cerr << " consequent: ";
+        elsif.getConsequent()->dump();
+        std::cerr << '>';
+    }
+
+    if (hasAlternate()) {
+        std::cerr << " else: ";
+        alternate->dump();
+        std::cerr << '>';
+    }
 }

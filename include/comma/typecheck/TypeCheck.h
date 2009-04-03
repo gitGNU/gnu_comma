@@ -133,6 +133,18 @@ public:
                                Node     qualifierType,
                                Location loc);
 
+    Node acceptIfStmt(Location loc, Node condition,
+                      Node *consequents, unsigned numConsequents);
+
+    Node acceptElseStmt(Location loc, Node ifNode,
+                        Node *alternates, unsigned numAlternates);
+
+    Node acceptElsifStmt(Location loc,
+                         Node     ifNode,
+                         Node     condition,
+                         Node    *consequents,
+                         unsigned numConsequents);
+
     Node acceptReturnStmt(Location loc, Node retNode = 0);
 
     Node acceptAssignmentStmt(Location        loc,
@@ -202,6 +214,11 @@ private:
     unsigned errorCount;
 
     CompilationUnit *currentCompUnit() const { return compUnit; }
+
+    //===------------------------------------------------------------------===//
+    // TEPORARY:  We need a class to hold instances of primitive types.  For
+    // now, we simply stash them here.
+    EnumerationDecl *theBoolDecl;
 
     //===------------------------------------------------------------------===//
     // Utility functions.

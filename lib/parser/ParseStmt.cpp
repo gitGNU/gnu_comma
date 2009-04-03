@@ -24,6 +24,10 @@ Node Parser::parseStatement()
             node = parseProcedureCallStatement();
         break;
 
+    case Lexer::TKN_IF:
+        node = parseIfStmt();
+        break;
+
     case Lexer::TKN_RETURN:
         node = parseReturnStmt();
         break;
@@ -125,4 +129,82 @@ Node Parser::parseAssignmentStmt()
     return Node::getInvalidNode();
 }
 
+Node Parser::parseIfStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_IF));
 
+    Location   loc = currentLocation();
+    Node       condition(0);
+    NodeVector stmts;
+    Node       result(0);
+
+    ignoreToken();              // Ignore the `if'.
+    condition = parseExpr();
+    if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
+        seekEndIf();
+        return Node::getInvalidNode();
+    }
+
+    do {
+        Node stmt = parseStatement();
+        if (stmt.isValid())
+            stmts.push_back(stmt);
+    } while (!currentTokenIs(Lexer::TKN_END)   &&
+             !currentTokenIs(Lexer::TKN_ELSE)  &&
+             !currentTokenIs(Lexer::TKN_ELSIF) &&
+             !currentTokenIs(Lexer::TKN_EOT));
+
+    result = client.acceptIfStmt(loc, condition, &stmts[0], stmts.size());
+    if (result.isInvalid()) {
+        seekEndIf();
+        return Node::getInvalidNode();
+    }
+
+    while (currentTokenIs(Lexer::TKN_ELSIF)) {
+        loc = currentLocation();
+        ignoreToken();          // Ignore the `elsif'.
+
+        condition = parseExpr();
+        if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
+            seekEndIf();
+            return Node::getInvalidNode();
+        }
+
+        stmts.clear();
+        do {
+            Node stmt = parseStatement();
+            if (stmt.isValid())
+                stmts.push_back(stmt);
+        } while (!currentTokenIs(Lexer::TKN_END) &&
+                 !currentTokenIs(Lexer::TKN_ELSE) &&
+                 !currentTokenIs(Lexer::TKN_ELSIF) &&
+                 !currentTokenIs(Lexer::TKN_EOT));
+
+        result = client.acceptElsifStmt(loc, result, condition,
+                                        &stmts[0], stmts.size());
+
+        if (result.isInvalid()) {
+            seekEndIf();
+            return Node::getInvalidNode();
+        }
+    }
+
+    if (currentTokenIs(Lexer::TKN_ELSE)) {
+        loc = currentLocation();
+        ignoreToken();          // Ignore the "else".
+        stmts.clear();
+        do {
+            Node stmt = parseStatement();
+            if (stmt.isValid())
+                stmts.push_back(stmt);
+        } while (!currentTokenIs(Lexer::TKN_END)  &&
+                 !currentTokenIs(Lexer::TKN_EOT));
+
+        result = client.acceptElseStmt(loc, result, &stmts[0], stmts.size());
+    }
+
+    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_IF))
+        return Node::getInvalidNode();
+
+    return Node(result);
+}
