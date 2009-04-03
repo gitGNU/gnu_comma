@@ -91,12 +91,18 @@ void DeclarativeRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
         break;
     }
 
-    case Ast::AST_ProcedureDecl : {
+    case Ast::AST_ProcedureDecl: {
         ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
         ProcedureType *ptype = rewrites.rewrite(pdecl->getType());
         newDecl = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
         break;
     }
+
+    case Ast::AST_EnumerationDecl:
+        // Nothing to do for an enumeration since there are never free variables
+        // in such a type.
+        newDecl = decl;
+        break;
     }
     if (newDecl)
         this->addDecl(newDecl);

@@ -80,6 +80,8 @@ public:
     Node parseExpr();
     Node parsePrimaryExpr();
     Node parseQualificationExpr();
+    Node parseInjExpr();
+    Node parsePrjExpr();
 
     Node parseType();
     void parseEnumerationList(Node enumeration);

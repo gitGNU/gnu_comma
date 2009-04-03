@@ -14,7 +14,17 @@ using namespace comma;
 
 Node Parser::parseExpr()
 {
-    return parsePrimaryExpr();
+    switch (currentTokenCode()) {
+
+    default:
+        return parsePrimaryExpr();
+
+    case Lexer::TKN_INJ:
+        return parseInjExpr();
+
+    case Lexer::TKN_PRJ:
+        return parsePrjExpr();
+    }
 }
 
 Node Parser::parseSubroutineKeywordSelection()
@@ -73,6 +83,34 @@ Node Parser::parseQualificationExpr()
         }
         return qualifier;
     }
+    return Node::getInvalidNode();
+}
+
+Node Parser::parseInjExpr()
+{
+    assert(currentTokenIs(Lexer::TKN_INJ));
+
+    Location loc = currentLocation();
+    ignoreToken();
+
+    Node expr = parseExpr();
+
+    if (expr.isValid())
+        return client.acceptInj(loc, expr);
+    return Node::getInvalidNode();
+}
+
+Node Parser::parsePrjExpr()
+{
+    assert(currentTokenIs(Lexer::TKN_PRJ));
+
+    Location loc = currentLocation();
+    ignoreToken();
+
+    Node expr = parseExpr();
+
+    if (expr.isValid())
+        return client.acceptPrj(loc, expr);
     return Node::getInvalidNode();
 }
 

@@ -80,8 +80,8 @@ DIAGNOSTIC(PROCEDURE_IN_EXPRESSION, ERROR,
            "Procedures cannot be used in an expression context.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_SUBROUTINE, ERROR,
            "Wrong number of arguments for subroutine `%0'.")
-DIAGNOSTIC(INCOMPATABLE_TYPES, ERROR,
-           "Incompatable type.")
+DIAGNOSTIC(INCOMPATIBLE_TYPES, ERROR,
+           "Incompatible type.")
 DIAGNOSTIC(AMBIGUOUS_EXPRESSION, ERROR,
            "Ambiguous expression.")
 DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
@@ -94,3 +94,9 @@ DIAGNOSTIC(NONEMPTY_RETURN_IN_PROCEDURE, ERROR,
            "Cannot return a value from a procedure.")
 DIAGNOSTIC(MULTIPLE_ENUMERATION_LITERALS, ERROR,
            "Multiple enumeration value `%0'.")
+DIAGNOSTIC(INVALID_INJ_CONTEXT, ERROR,
+           "`inj' expressions can only appear in a domain context.")
+DIAGNOSTIC(INVALID_PRJ_CONTEXT, ERROR,
+           "`prj' expressions can only appear in a domain context.")
+DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
+           "Missing carrier definition before call to `inj' or `prj'.")

@@ -52,6 +52,7 @@ class FunctionType;
 class FunctorDecl;
 class FunctorType;
 class ImportDecl;
+class InjExpr;
 class KeywordSelector;
 class ModelDecl;
 class ModelType;
@@ -60,6 +61,7 @@ class ObjectDecl;
 class ParameterizedModel;
 class ParameterizedType;
 class ParamValueDecl;
+class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
@@ -148,8 +150,10 @@ public:
         // Expr nodes.
         //
         AST_DeclRefExpr,        ///< DeclRefExpr
-        AST_KeywordSelector,    ///< KeywordSelector
         AST_FunctionCallExpr,   ///< FunctionCallExpr
+        AST_InjExpr,            ///< InjExpr
+        AST_KeywordSelector,    ///< KeywordSelector
+        AST_PrjExpr,            ///< PrjExpr
 
         //
         // Stmt nodes.
@@ -188,7 +192,7 @@ public:
         LAST_ModelType  = AST_DomainType,
 
         FIRST_Expr      = AST_DeclRefExpr,
-        LAST_Expr       = AST_FunctionCallExpr,
+        LAST_Expr       = AST_PrjExpr,
 
         FIRST_Stmt      = AST_AssignmentStmt,
         LAST_Stmt       = AST_ReturnStmt

@@ -131,6 +131,14 @@ public:
                                      Node            *args,
                                      unsigned         numArgs) = 0;
 
+    // Called for "inj" expressions.  loc is the location of the inj token and
+    // expr is its argument.
+    virtual Node acceptInj(Location loc, Node expr) = 0;
+
+    // Called for "prj" expressions.  loc is the location of the prj token and
+    // expr is its argument.
+    virtual Node acceptPrj(Location loc, Node expr) = 0;
+
     virtual Node acceptQualifier(Node qualifierType, Location loc) = 0;
 
     virtual Node acceptNestedQualifier(Node     qualifier,

@@ -448,9 +448,6 @@ public:
 //===----------------------------------------------------------------------===//
 // EnumerationType
 //
-// The default implementation of type equality (pointer equality) is appropriate
-// for this type.
-//
 // Ownership of an enumeration type is always deligated to the corresponding
 // declaration.
 class EnumerationType : public Type
@@ -462,6 +459,8 @@ public:
 
     EnumerationDecl *getDeclaration() { return correspondingDecl; }
     const EnumerationDecl *getDeclaration() const { return correspondingDecl; }
+
+    bool equals(const Type *type) const;
 
     static bool classof(const EnumerationType *node) { return true; }
     static bool classof(const Ast *node) {

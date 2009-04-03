@@ -119,6 +119,14 @@ public:
                              Node            *args,
                              unsigned         numArgs);
 
+    // Called for "inj" expressions.  loc is the location of the inj token and
+    // expr is its argument.
+    Node acceptInj(Location loc, Node expr);
+
+    // Called for "prj" expressions.  loc is the location of the prj token and
+    // expr is its argument.
+    Node acceptPrj(Location loc, Node expr);
+
     Node acceptQualifier(Node qualifierType, Location loc);
 
     Node acceptNestedQualifier(Node     qualifier,

@@ -544,7 +544,7 @@ bool TypeCheck::ensureExprType(Expr *expr, Type *targetType)
     if (expr->hasType()) {
         if (targetType->equals(expr->getType()))
             return true;
-        report(expr->getLocation(), diag::INCOMPATABLE_TYPES);
+        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
         return false;
     }
     else {
@@ -553,4 +553,60 @@ bool TypeCheck::ensureExprType(Expr *expr, Type *targetType)
         FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
         return resolveFunctionCall(fcall, targetType);
     }
+}
+
+Node TypeCheck::acceptInj(Location loc, Node exprNode)
+{
+    Expr   *expr   = cast_node<Expr>(exprNode);
+    Domoid *domoid = getCurrentDomain();
+
+    if (!domoid) {
+        report(loc, diag::INVALID_INJ_CONTEXT);
+        return Node::getInvalidNode();
+    }
+
+    // Check that the given expression is of the current domain type.
+    DomainType *domTy = domoid->getPercent();
+    Type      *exprTy = expr->getType();
+    if (!domTy->equals(exprTy)) {
+        report(loc, diag::INCOMPATIBLE_TYPES);
+        return Node::getInvalidNode();
+    }
+
+    // Check that the carrier type has been defined.
+    CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
+    if (!carrier) {
+        report(loc, diag::CARRIER_TYPE_UNDEFINED);
+        return Node::getInvalidNode();
+    }
+
+    return Node(new InjExpr(expr, carrier->getType(), loc));
+}
+
+Node TypeCheck::acceptPrj(Location loc, Node exprNode)
+{
+    Expr   *expr   = cast_node<Expr>(exprNode);
+    Domoid *domoid = getCurrentDomain();
+
+    if (!domoid) {
+        report(loc, diag::INVALID_PRJ_CONTEXT);
+        return Node::getInvalidNode();
+    }
+
+    // Check that the carrier type has been defined.
+    CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
+    if (!carrier) {
+        report(loc, diag::CARRIER_TYPE_UNDEFINED);
+        return Node::getInvalidNode();
+    }
+
+    // Check that the given expression is of the carrier type.
+    Type *carrierTy = carrier->getType();
+    Type *exprTy    = expr->getType();
+    if (!carrierTy->equals(exprTy)) {
+        report(loc, diag::INCOMPATIBLE_TYPES);
+        return Node::getInvalidNode();
+    }
+
+    return Node(new PrjExpr(expr, domoid->getPercent(), loc));
 }

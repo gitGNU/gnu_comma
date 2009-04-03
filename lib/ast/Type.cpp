@@ -41,10 +41,8 @@ const char *CarrierType::getString() const
 
 bool CarrierType::equals(const Type *type) const
 {
-    if (const DomainType *domain = dyn_cast<DomainType>(type))
-        return domain->equals(getRepresentationType());
-
-    return this == type;
+    if (this == type) return true;
+    return getRepresentationType()->equals(type);
 }
 
 //===----------------------------------------------------------------------===//
@@ -444,4 +442,15 @@ void SubroutineType::dump()
         ftype->getReturnType()->dump();
     }
     std::cerr << '>';
+}
+
+//===----------------------------------------------------------------------===//
+// EnumerationType
+
+bool EnumerationType::equals(const Type *type) const
+{
+    if (const CarrierType *carrier = dyn_cast<CarrierType>(type))
+        return this == carrier->getRepresentationType();
+
+    return this == type;
 }
