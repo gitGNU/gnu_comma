@@ -141,12 +141,12 @@ bool Parser::seekAndConsumeToken(Lexer::Code code)
     return status;
 }
 
-bool Parser::seekTokens(Lexer::Code code0,
-                        Lexer::Code code1, Lexer::Code code2,
-                        Lexer::Code code3, Lexer::Code code4)
+bool Parser::seekTokens(Lexer::Code code0, Lexer::Code code1,
+                        Lexer::Code code2, Lexer::Code code3,
+                        Lexer::Code code4, Lexer::Code code5)
 {
-    Lexer::Code codes[] = { code0, code1, code2, code3, code4 };
-    Lexer::Code *end    = &codes[5];
+    Lexer::Code codes[] = { code0, code1, code2, code3, code4, code5 };
+    Lexer::Code *end    = &codes[6];
 
     while (!currentTokenIs(Lexer::TKN_EOT))
     {
@@ -466,11 +466,16 @@ void Parser::parseWithDeclarations()
         case Lexer::TKN_PROCEDURE:
             decl = parseProcedureDeclaration();
             break;
+
+        case Lexer::TKN_TYPE:
+            decl = parseType();
+            break;
         }
 
         if (decl.isInvalid())
             seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
-                       Lexer::TKN_SEMI, Lexer::TKN_END, Lexer::TKN_ADD);
+                       Lexer::TKN_TYPE,     Lexer::TKN_SEMI,
+                       Lexer::TKN_END,      Lexer::TKN_ADD);
 
         requireToken(Lexer::TKN_SEMI);
     }
@@ -532,6 +537,10 @@ void Parser::parseAddComponents()
 
         case Lexer::TKN_CARRIER:
             parseCarrier();
+            break;
+
+        case Lexer::TKN_TYPE:
+            parseType();
             break;
         }
 
@@ -992,6 +1001,46 @@ Node Parser::parseImportDeclaration()
         return client.acceptImportDeclaration(importedType, location);
     else
         return Node::getInvalidNode();
+}
+
+Node Parser::parseType()
+{
+    assert(currentTokenIs(Lexer::TKN_TYPE));
+    ignoreToken();
+
+    Location        loc  = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+
+    if (!name || !requireToken(Lexer::TKN_IS))
+        return Node::getInvalidNode();
+
+    // For now, handle only enumeration types.
+    if (currentTokenIs(Lexer::TKN_LPAREN)) {
+        Node enumeration = client.acceptEnumerationType(name, loc);
+        parseEnumerationList(enumeration);
+        return enumeration;
+    }
+    return Node::getInvalidNode();
+}
+
+void Parser::parseEnumerationList(Node enumeration)
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    ignoreToken();
+
+    do {
+        Location        loc  = currentLocation();
+        IdentifierInfo *name = parseIdentifierInfo();
+
+        if (!name) {
+            seekCloseParen();
+            return;
+        }
+
+        client.acceptEnumerationLiteral(enumeration, name, loc);
+    } while (reduceToken(Lexer::TKN_COMMA));
+
+    requireToken(Lexer::TKN_RPAREN);
 }
 
 bool Parser::parseTopLevelDeclaration()

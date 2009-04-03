@@ -131,6 +131,19 @@ public:
                               IdentifierInfo *target,
                               Node            value);
 
+    // Called when an enumeration type is about to be parsed, supplying the name
+    // of the type and its location.  For each literal composing the
+    // enumeration, acceptEnumerationLiteral is called with the result of this
+    // function.
+    Node acceptEnumerationType(IdentifierInfo   *name,
+                                       Location loc);
+
+    // Called for each literal composing an enumeration type, where the first
+    // argument is a valid node as returned by acceptEnumerationType.
+    void acceptEnumerationLiteral(Node            enumeration,
+                                  IdentifierInfo *name,
+                                  Location        loc);
+
     // Delete the underlying Ast node.
     void deleteNode(Node node);
 
@@ -186,6 +199,10 @@ private:
     // Utility functions.
     //===------------------------------------------------------------------===//
 
+    // Called when then type checker is constructed.  Populates the top level
+    // scope with an initial environment.
+    void populateInitialEnvironment();
+
     // Creates a procedure or function decl depending on the kind of the
     // supplied type.
     static SubroutineDecl *makeSubroutineDecl(IdentifierInfo    *name,
@@ -196,6 +213,8 @@ private:
     void ensureNecessaryRedeclarations(ModelDecl *model);
 
     Type *ensureDomainType(Node typeNode, Location loc) const;
+
+    Type *ensureValueType(Node typeNode, Location loc) const;
 
     static SignatureType *resolveArgumentType(ParameterizedType *target,
                                               Type             **actuals,

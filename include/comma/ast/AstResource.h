@@ -38,6 +38,12 @@ public:
 
     IdentifierPool &getIdentifierPool() { return idPool; }
 
+    // Convenience function to extract an IdentifierInfo object from the
+    // associated IdentifierPool.
+    IdentifierInfo *getIdentifierInfo(const char *name) const {
+        return &idPool.getIdentifierInfo(name);
+    }
+
 private:
     TextProvider   &txtProvider;
     IdentifierPool &idPool;

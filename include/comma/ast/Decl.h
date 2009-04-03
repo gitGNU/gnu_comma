@@ -908,8 +908,8 @@ private:
 class EnumerationLiteral : public ValueDecl {
 
 public:
-    EnumerationLiteral(IdentifierInfo  *name,
-                       EnumerationDecl *decl,
+    EnumerationLiteral(EnumerationDecl *decl,
+                       IdentifierInfo  *name,
                        Location         loc);
 
     static bool classof(const EnumerationLiteral *node) { return true; }

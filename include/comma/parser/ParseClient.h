@@ -142,6 +142,19 @@ public:
     virtual Node acceptAssignmentStmt(Location        loc,
                                       IdentifierInfo *target,
                                       Node            value) = 0;
+
+    // Called when an enumeration type is about to be parsed, supplying the name
+    // of the type and its location.  For each literal composing the
+    // enumeration, acceptEnumerationLiteral is called with the result of this
+    // function.
+    virtual Node acceptEnumerationType(IdentifierInfo *name,
+                                       Location        loc) = 0;
+
+    // Called for each literal composing an enumeration type, where the first
+    // argument is a valid node as returned by acceptEnumerationType.
+    virtual void acceptEnumerationLiteral(Node            enumeration,
+                                          IdentifierInfo *name,
+                                          Location        loc) = 0;
 };
 
 } // End comma namespace.

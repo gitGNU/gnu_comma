@@ -81,6 +81,9 @@ public:
     Node parsePrimaryExpr();
     Node parseQualificationExpr();
 
+    Node parseType();
+    void parseEnumerationList(Node enumeration);
+
     // Parses a top level construct.  Returns false once all tokens have been
     // consumed.
     bool parseTopLevelDeclaration();
@@ -166,7 +169,9 @@ private:
                     Lexer::Code code1 = Lexer::UNUSED_ID,
                     Lexer::Code code2 = Lexer::UNUSED_ID,
                     Lexer::Code code3 = Lexer::UNUSED_ID,
-                    Lexer::Code code4 = Lexer::UNUSED_ID);
+                    Lexer::Code code4 = Lexer::UNUSED_ID,
+                    Lexer::Code code5 = Lexer::UNUSED_ID);
+
 
     bool seekAndConsumeTokens(Lexer::Code code0,
                               Lexer::Code code1 = Lexer::UNUSED_ID,

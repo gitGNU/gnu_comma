@@ -368,7 +368,8 @@ public:
 
     // Returns true if this region contains a declaration with the given name.
     bool containsDecl(IdentifierInfo *name) const {
-        return findDecls(name).first != endDecls();
+        ConstDeclRange range = findDecls(name);
+        return range.first != range.second;
     }
 
     Decl *findDecl(IdentifierInfo *name, Type *type);

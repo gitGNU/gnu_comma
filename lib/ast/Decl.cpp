@@ -418,8 +418,8 @@ ParameterMode ParamValueDecl::getParameterMode() const
 
 //===----------------------------------------------------------------------===//
 // EnumerationLiteral
-EnumerationLiteral::EnumerationLiteral(IdentifierInfo  *name,
-                                       EnumerationDecl *decl,
+EnumerationLiteral::EnumerationLiteral(EnumerationDecl *decl,
+                                       IdentifierInfo  *name,
                                        Location         loc)
     : ValueDecl(AST_EnumerationLiteral, name, decl->getType(), loc)
 {

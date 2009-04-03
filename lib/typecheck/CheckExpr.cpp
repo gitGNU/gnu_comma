@@ -204,6 +204,11 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
     llvm::SmallVector<SubroutineDecl*, 8> routineDecls;
     Homonym *homonym = name->getMetadata<Homonym>();
 
+    if (!homonym) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return Node::getInvalidNode();
+    }
+
     lookupSubroutineDecls(homonym, numArgs, routineDecls, checkFunction);
 
     if (routineDecls.empty()) {

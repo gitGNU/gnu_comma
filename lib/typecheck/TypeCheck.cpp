@@ -23,9 +23,46 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
     : diagnostic(diag),
       resource(resource),
       compUnit(cunit),
-      errorCount(0) { }
+      errorCount(0)
+{
+    populateInitialEnvironment();
+}
 
 TypeCheck::~TypeCheck() { }
+
+// Called when then type checker is constructed.  Populates the top level scope
+// with an initial environment.
+void TypeCheck::populateInitialEnvironment()
+{
+    // Construct the Bool type as an enumeration, equivalent to a top level
+    // declaration of the form "type Bool is (false, true);".  Note that false
+    // is specified first, giving it the numeric value 0 (and true 1).
+    IdentifierInfo *boolId  = resource.getIdentifierInfo("Bool");
+    IdentifierInfo *trueId  = resource.getIdentifierInfo("true");
+    IdentifierInfo *falseId = resource.getIdentifierInfo("false");
+
+    EnumerationDecl    *boolEnum = new EnumerationDecl(boolId, 0, 0);
+    EnumerationLiteral *falseLit = new EnumerationLiteral(boolEnum, falseId, 0);
+    EnumerationLiteral *trueLit  = new EnumerationLiteral(boolEnum, trueId, 0);
+
+    // Construct the Bool equality predicate.
+    //
+    // FIXME: This definition should be bound to "=", but we do not have infix
+    // operator parsing yet.
+    IdentifierInfo  *equalsId = resource.getIdentifierInfo("Equals");
+    EnumerationType *boolType = boolEnum->getType();
+    ParamValueDecl  *params[] = {
+        new ParamValueDecl(0, boolType, MODE_DEFAULT, 0),
+        new ParamValueDecl(0, boolType, MODE_DEFAULT, 0)
+    };
+    FunctionDecl *equals =
+        new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
+
+    scope.addDirectDecl(boolEnum);
+    scope.addDirectDecl(trueLit);
+    scope.addDirectDecl(falseLit);
+    scope.addDirectDecl(equals);
+}
 
 void TypeCheck::deleteNode(Node node)
 {
@@ -56,7 +93,7 @@ FunctionDecl *TypeCheck::getCurrentFunction() const
 void TypeCheck::beginModelDeclaration(Descriptor &desc)
 {
     assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
-           "Beginning a mode with is neither a signature or domain?");
+           "Beginning a model which is neither a signature or domain?");
     scope.push(MODEL_SCOPE);
 }
 
@@ -112,8 +149,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 
     // Create the appropriate type of model.
     ModelDecl      *modelDecl;
-    IdentifierPool &idPool  = resource.getIdentifierPool();
-    IdentifierInfo *percent = &idPool.getIdentifierInfo("%");
+    IdentifierInfo *percent = resource.getIdentifierInfo("%");
     IdentifierInfo *name    = desc.getIdInfo();
     Location        loc     = desc.getLocation();
     if (domains.empty()) {
@@ -199,14 +235,20 @@ Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
     switch (type->getKind()) {
 
     default:
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        assert(false && "Cannot handle type declaration.");
         return Node::getInvalidNode();
 
     case Ast::AST_SignatureDecl:
     case Ast::AST_DomainDecl:
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
+    case Ast::AST_EnumerationDecl:
         return Node(type->getType());
+
+    case Ast::AST_FunctorDecl:
+    case Ast::AST_VarietyDecl:
+        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        return Node::getInvalidNode();
     }
 }
 
@@ -364,14 +406,14 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
                     << formal->getString();
             }
 
-        // Ensure each parameter denotes a domain type.
-        Type *argumentType = ensureDomainType(types[i], typeLocations[i]);
+        // Ensure each parameter denotes a value type.
+        Type *argumentType = ensureValueType(types[i], typeLocations[i]);
         if (argumentType && allOK)
             argumentTypes.push_back(argumentType);
     }
 
-    // Ensure the return type denotes a domain type.
-    targetType = ensureDomainType(returnType, returnLocation);
+    // Ensure the return type denotes a value type.
+    targetType = ensureValueType(returnType, returnLocation);
 
     if (targetType && allOK) {
         FunctionType *ftype =
@@ -440,6 +482,15 @@ Type *TypeCheck::ensureDomainType(Node     node,
 
     report(loc, diag::NOT_A_DOMAIN);
     return 0;
+}
+
+Type *TypeCheck::ensureValueType(Node     node,
+                                 Location loc) const
+{
+    if (EnumerationType *etype = lift_node<EnumerationType>(node))
+        return etype;
+    else
+        return ensureDomainType(node, loc);
 }
 
 namespace {
@@ -562,7 +613,7 @@ Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
 {
     Type *type = cast_node<Type>(typeNode);
 
-    if (Type *domain = ensureDomainType(type, loc)) {
+    if (Type *domain = ensureValueType(type, loc)) {
         ObjectDecl *decl = new ObjectDecl(name, domain, loc);
 
         // FIXME: Adding the decl now will expose the binding in any
@@ -636,7 +687,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
         return;
     }
 
-    if (Type *type = ensureDomainType(typeNode, loc)) {
+    if (Type *type = ensureValueType(typeNode, loc)) {
         CarrierDecl *carrier = new CarrierDecl(name, type, loc);
         add->setCarrier(carrier);
         scope.addDirectDecl(carrier);
@@ -660,7 +711,7 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
     // FIXME: The location provided here is the location of the formal, not the
     // location of the type.  The type node here should be a ModelRef or similar
     // which encapsulates the needed location information.
-    Type *dom = ensureDomainType(typeNode, loc);
+    Type *dom = ensureValueType(typeNode, loc);
 
     if (!dom) return Node::getInvalidNode();
 
@@ -721,9 +772,8 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     Location           location = desc.getLocation();
 
     if (desc.isFunctionDescriptor()) {
-        // If this descriptor is a function, then we must have a return type
-        // that resolves to a domain.
-        Type *returnType = ensureDomainType(desc.getReturnType(), 0);
+        // If this descriptor is a function, then we must return a value type.
+        Type *returnType = ensureValueType(desc.getReturnType(), 0);
         if (returnType && paramsOK)
             routineDecl = new FunctionDecl(name,
                                            location,
@@ -799,6 +849,31 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
 
     Expr *expr = cast_node<Expr>(exprNode);
     return new KeywordSelector(key, loc, expr);
+}
+
+Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
+{
+    DeclarativeRegion *region      = currentDeclarativeRegion();
+    EnumerationDecl   *enumeration = new EnumerationDecl(name, loc, region);
+
+    region->addDecl(enumeration);
+    scope.addDirectDecl(enumeration);
+    return Node(enumeration);
+}
+
+void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
+                                         IdentifierInfo *name,
+                                         Location        loc)
+{
+    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+
+    if (enumeration->containsDecl(name)) {
+        report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
+        return;
+    }
+
+    EnumerationLiteral *lit = new EnumerationLiteral(enumeration, name, loc);
+    scope.addDirectDecl(lit);
 }
 
 bool TypeCheck::checkingProcedure() const

@@ -92,3 +92,5 @@ DIAGNOSTIC(EMPTY_RETURN_IN_FUNCTION, ERROR,
            "Missing value in return from function.")
 DIAGNOSTIC(NONEMPTY_RETURN_IN_PROCEDURE, ERROR,
            "Cannot return a value from a procedure.")
+DIAGNOSTIC(MULTIPLE_ENUMERATION_LITERALS, ERROR,
+           "Multiple enumeration value `%0'.")
