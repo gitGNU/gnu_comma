@@ -143,3 +143,31 @@ Node TypeCheck::acceptElsifStmt(Location loc,
     return Node::getInvalidNode();
 }
 
+// Called when a block statement is about to be parsed.
+Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
+{
+    // Create a new block node, establish a new declarative region and scope.
+    DeclarativeRegion *region = currentDeclarativeRegion();
+    BlockStmt         *block  = new BlockStmt(loc, region, label);
+
+    declarativeRegion = block;
+    scope.push();
+    return Node(block);
+}
+
+// This method is called for each statement associated with the block.
+void TypeCheck::acceptBlockStmt(Node blockNode, Node stmtNode)
+{
+    BlockStmt *block = cast_node<BlockStmt>(blockNode);
+    Stmt      *stmt  = cast_node<Stmt>(stmtNode);
+    block->addStmt(stmt);
+}
+
+// Once the last statement of a block has been parsed, this method is called
+// to inform the client that we are leaving the block context established by
+// the last call to beginBlockStmt.
+void TypeCheck::endBlockStmt(Node blockNode)
+{
+    declarativeRegion = currentDeclarativeRegion()->getParent();
+    scope.pop();
+}

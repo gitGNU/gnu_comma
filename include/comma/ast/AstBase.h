@@ -319,10 +319,10 @@ class DeclarativeRegion {
 
 protected:
     DeclarativeRegion(Ast::AstKind kind)
-        : declKind(kind), parent(0) { }
+        : regionKind(kind), parent(0) { }
 
     DeclarativeRegion(Ast::AstKind kind, DeclarativeRegion *parent)
-        : declKind(kind), parent(parent) { }
+        : regionKind(kind), parent(parent) { }
 
     // FIXME: This datastructure is only temporary.  A better structure is
     // needed.
@@ -388,9 +388,9 @@ public:
     // removed, false otherwise.
     bool removeDecl(Decl *decl);
 
-    // Converts this DeclarativeRegion into a Decl node.
-    Decl *asDecl();
-    const Decl *asDecl() const;
+    // Converts this DeclarativeRegion into a raw Ast node.
+    Ast *asAst();
+    const Ast *asAst() const;
 
     void addObserver(DeclarativeRegion *region) { observers.push_front(region); }
 
@@ -408,6 +408,7 @@ public:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
         case Ast::AST_EnumerationDecl:
+        case Ast::AST_BlockStmt:
             return true;
         }
     }
@@ -419,6 +420,7 @@ public:
     static bool classof(const AddDecl       *node) { return true; }
     static bool classof(const ProcedureDecl *node) { return true; }
     static bool classof(const FunctionDecl  *node) { return true; }
+    static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }
@@ -428,7 +430,7 @@ protected:
     virtual void notifyRemoveDecl(Decl *decl);
 
 private:
-    Ast::AstKind       declKind;
+    Ast::AstKind       regionKind;
     DeclarativeRegion *parent;
 
     typedef std::list<DeclarativeRegion*> ObserverList;
@@ -447,7 +449,7 @@ template<class To>
 struct isa_impl_wrap<To,
                      const comma::DeclarativeRegion, const comma::DeclarativeRegion> {
     static bool doit(const comma::DeclarativeRegion &val) {
-        return To::classof(val.asDecl());
+        return To::classof(val.asAst());
     }
 };
 
@@ -493,7 +495,7 @@ struct cast_convert_val<To,
                         const comma::DeclarativeRegion> {
     static To &doit(const comma::DeclarativeRegion &val) {
         return *reinterpret_cast<To*>(
-            const_cast<comma::Decl*>(val.asDecl()));
+            const_cast<comma::Ast*>(val.asAst()));
     }
 };
 
@@ -509,7 +511,7 @@ struct cast_convert_val<To,
                         const comma::DeclarativeRegion*> {
     static To *doit(const comma::DeclarativeRegion *val) {
         return reinterpret_cast<To*>(
-            const_cast<comma::Decl*>(val->asDecl()));
+            const_cast<comma::Ast*>(val->asAst()));
     }
 };
 

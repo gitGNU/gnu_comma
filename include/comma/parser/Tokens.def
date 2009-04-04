@@ -41,6 +41,7 @@
 RESERVED(ADD,       "add")
 RESERVED(CARRIER,   "carrier")
 RESERVED(BEGIN,     "begin")
+RESERVED(DECLARE,   "declare")
 RESERVED(DOMAIN,    "domain")
 RESERVED(ELSE,      "else")
 RESERVED(ELSIF,     "elsif")

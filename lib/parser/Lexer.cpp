@@ -265,6 +265,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
     case 7:
         if (strncmp(str, "carrier", length) == 0)
             code = TKN_CARRIER;
+        else if (strncmp(str, "declare", length) == 0)
+            code = TKN_DECLARE;
         break;
 
     case 8:

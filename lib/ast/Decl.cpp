@@ -111,22 +111,22 @@ AddDecl::AddDecl(FunctorDecl *functor)
 
 bool AddDecl::implementsDomain() const
 {
-    return isa<DomainDecl>(getParent()->asDecl());
+    return isa<DomainDecl>(getParent()->asAst());
 }
 
 bool AddDecl::implementsFunctor() const
 {
-    return isa<FunctorDecl>(getParent()->asDecl());
+    return isa<FunctorDecl>(getParent()->asAst());
 }
 
 DomainDecl *AddDecl::getImplementedDomain()
 {
-    return dyn_cast<DomainDecl>(getParent()->asDecl());
+    return dyn_cast<DomainDecl>(getParent()->asAst());
 }
 
 FunctorDecl *AddDecl::getImplementedFunctor()
 {
-    return dyn_cast<FunctorDecl>(getParent()->asDecl());
+    return dyn_cast<FunctorDecl>(getParent()->asAst());
 }
 
 //===----------------------------------------------------------------------===//

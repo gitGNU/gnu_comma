@@ -65,7 +65,7 @@ void Ast::dump()
     std::cerr << '<'
               << getKindString()
               << ' ' << std::hex << uintptr_t(this)
-              << ">";
+              << '>';
 }
 
 //===----------------------------------------------------------------------===//
@@ -164,11 +164,11 @@ bool DeclarativeRegion::removeDecl(Decl *decl)
     return false;
 }
 
-const Decl *DeclarativeRegion::asDecl() const
+const Ast *DeclarativeRegion::asAst() const
 {
-    switch (declKind) {
+    switch (regionKind) {
     default:
-        assert(false && "Unknown declaration type!");
+        assert(false && "Unknown delcarative region kind!");
         return 0;
     case Ast::AST_SignatureDecl:
         return static_cast<const SignatureDecl*>(this);
@@ -190,13 +190,15 @@ const Decl *DeclarativeRegion::asDecl() const
         return static_cast<const AddDecl*>(this);
     case Ast::AST_EnumerationDecl:
         return static_cast<const EnumerationDecl*>(this);
+    case Ast::AST_BlockStmt:
+        return static_cast<const BlockStmt*>(this);
     }
 }
 
-Decl *DeclarativeRegion::asDecl()
+Ast *DeclarativeRegion::asAst()
 {
-    return const_cast<Decl*>(
-        const_cast<const DeclarativeRegion *>(this)->asDecl());
+    return const_cast<Ast*>(
+        const_cast<const DeclarativeRegion *>(this)->asAst());
 }
 
 // Default implementation -- do nothing.

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -74,6 +74,7 @@ public:
     Node parseIfStmt();
     Node parseReturnStmt();
     Node parseAssignmentStmt();
+    Node parseBlockStmt();
 
     Node parseSubroutineKeywordSelection();
     Node parseProcedureCallStatement();
@@ -219,9 +220,9 @@ private:
 
     bool seekAndConsumeEndTag(IdentifierInfo *tag);
 
-    // Parses an end keyword.  If expected_tag is non-NULL, ensures an end tag
-    // matches.  Consumes the terminating semicolon.  Returns true if the parse
-    // was sucessful and false otherwise.
+    // Parses an end tag.  If expectedTag is non-null, parse "end <tag>", otherwise
+    // parse "end".  Returns true if tokens were consumed (which can happen when the
+    // parse fails due to a missing or unexpected end tag) and false otherwise.
     bool parseEndTag(IdentifierInfo *expectedTag = 0);
 
     // Returns true if a matching pair of parens "()" is next on the stream of
@@ -244,6 +245,17 @@ private:
     //
     //   - a left paren with a matching close paren followed by a double colon.
     bool qualificationFollows();
+
+    // Returns true is a block statement follows on the token stream.
+    //
+    // More recisely, returns true is the current token is
+    //
+    //   - an identifier followed by a colon.
+    //
+    //   - the reserved word `declare'.
+    //
+    //   - the reserved word `begin'.
+    bool blockStmtFollows();
 
     // Convenience function for deleting a collection of Node's.
     template <class T> void deleteNodes(T &nodes) {

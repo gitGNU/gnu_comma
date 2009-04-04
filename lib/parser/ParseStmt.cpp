@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,6 +20,8 @@ Node Parser::parseStatement()
     default:
         if (assignmentFollows())
             node = parseAssignmentStmt();
+        else if (blockStmtFollows())
+            node = parseBlockStmt();
         else
             node = parseProcedureCallStatement();
         break;
@@ -202,4 +204,46 @@ Node Parser::parseIfStmt()
         return Node::getInvalidNode();
 
     return Node(result);
+}
+
+Node Parser::parseBlockStmt()
+{
+    Node            block(0);
+    Location        loc   = currentLocation();
+    IdentifierInfo *label = 0;
+
+    assert(blockStmtFollows());
+
+    if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+        // Parse this blocks label.
+        label = parseIdentifierInfo();
+        ignoreToken();
+        block = client.beginBlockStmt(loc, label);
+    }
+    else
+        block = client.beginBlockStmt(loc);
+
+    if (reduceToken(Lexer::TKN_DECLARE)) {
+        while (!currentTokenIs(Lexer::TKN_BEGIN) &&
+               !currentTokenIs(Lexer::TKN_EOT)) {
+            parseDeclaration();
+            requireToken(Lexer::TKN_SEMI);
+        }
+    }
+
+    if (requireToken(Lexer::TKN_BEGIN)) {
+        while (!currentTokenIs(Lexer::TKN_END) &&
+               !currentTokenIs(Lexer::TKN_EOT)) {
+            Node stmt = parseStatement();
+            if (stmt.isValid())
+                client.acceptBlockStmt(block, stmt);
+        }
+        if (parseEndTag(label)) {
+            client.endBlockStmt(block);
+            return block;
+        }
+    }
+
+    seekAndConsumeEndTag(label);
+    return Node::getInvalidNode();
 }

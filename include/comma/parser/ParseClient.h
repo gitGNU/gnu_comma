@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -162,6 +162,17 @@ public:
     virtual Node acceptAssignmentStmt(Location        loc,
                                       IdentifierInfo *target,
                                       Node            value) = 0;
+
+    // Called when a block statement is about to be parsed.
+    virtual Node beginBlockStmt(Location loc, IdentifierInfo *label = 0) = 0;
+
+    // This method is called for each statement associated with the block.
+    virtual void acceptBlockStmt(Node block, Node stmt) = 0;
+
+    // Once the last statement of a block has been parsed, this method is called
+    // to inform the client that we are leaving the block context established by
+    // the last call to beginBlockStmt.
+    virtual void endBlockStmt(Node block) = 0;
 
     // Called when an enumeration type is about to be parsed, supplying the name
     // of the type and its location.  For each literal composing the

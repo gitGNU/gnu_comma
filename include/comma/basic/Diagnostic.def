@@ -31,6 +31,8 @@ DIAGNOSTIC(PREMATURE_EOS, ERROR,
            "Premature end of stream.")
 DIAGNOSTIC(EXPECTED_END_TAG, ERROR,
            "Expected end tag `%s'.")
+DIAGNOSTIC(UNEXPECTED_END_TAG, ERROR,
+           "Unexpected end tag `%s'.")
 DIAGNOSTIC(ILLEGAL_EMPTY_PARAMS, ERROR,
            "Illegal empty parameter list.")
 DIAGNOSTIC(POSITIONAL_FOLLOWING_SELECTED_PARAMETER, ERROR,

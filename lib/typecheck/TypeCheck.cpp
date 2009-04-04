@@ -106,12 +106,28 @@ FunctorDecl *TypeCheck::getCurrentFunctor() const
 
 ProcedureDecl *TypeCheck::getCurrentProcedure() const
 {
-    return dyn_cast<ProcedureDecl>(currentDeclarativeRegion());
+    DeclarativeRegion *region = currentDeclarativeRegion();
+    ProcedureDecl     *proc;
+
+    while (region) {
+        if ((proc = dyn_cast<ProcedureDecl>(region)))
+            return proc;
+        region = region->getParent();
+    }
+    return 0;
 }
 
 FunctionDecl *TypeCheck::getCurrentFunction() const
 {
-    return dyn_cast<FunctionDecl>(currentDeclarativeRegion());
+    DeclarativeRegion *region = currentDeclarativeRegion();
+    FunctionDecl      *func;
+
+    while (region) {
+        if ((func = dyn_cast<FunctionDecl>(region)))
+            return func;
+        region = region->getParent();
+    }
+    return 0;
 }
 
 // Returns the % node for the current model, or 0 if we are not currently

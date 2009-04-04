@@ -151,6 +151,17 @@ public:
                               IdentifierInfo *target,
                               Node            value);
 
+    // Called when a block statement is about to be parsed.
+    Node beginBlockStmt(Location loc, IdentifierInfo *label = 0);
+
+    // This method is called for each statement associated with the block.
+    void acceptBlockStmt(Node block, Node stmt);
+
+    // Once the last statement of a block has been parsed, this method is called
+    // to inform the client that we are leaving the block context established by
+    // the last call to beginBlockStmt.
+    void endBlockStmt(Node block);
+
     // Called when an enumeration type is about to be parsed, supplying the name
     // of the type and its location.  For each literal composing the
     // enumeration, acceptEnumerationLiteral is called with the result of this

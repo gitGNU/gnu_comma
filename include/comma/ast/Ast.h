@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -21,5 +21,6 @@
 #include "comma/ast/Cunit.h"
 #include "comma/ast/Type.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Stmt.h"
 
 #endif

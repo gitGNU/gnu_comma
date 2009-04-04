@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -67,18 +67,22 @@ public:
 class BlockStmt : public StmtSequence, public DeclarativeRegion {
 
 public:
-    BlockStmt(DeclarativeRegion *parent)
+    BlockStmt(Location           loc,
+              DeclarativeRegion *parent,
+              IdentifierInfo    *label = 0)
         : StmtSequence(AST_BlockStmt),
           DeclarativeRegion(AST_BlockStmt, parent),
-          label(0) { }
-
-    BlockStmt(DeclarativeRegion *parent,
-              IdentifierInfo    *label)
-        : StmtSequence(AST_BlockStmt),
-          DeclarativeRegion(AST_BlockStmt, parent),
+          location(loc),
           label(label) { }
 
+    // Returns true if this block has an associated label.
+    bool hasLabel() const { return label != 0; }
+
+    // Returns the label associated with this block, or 0 if there is no such
+    // label.
     IdentifierInfo *getLabel() { return label; }
+
+    Location getLocation() { return location; }
 
     static bool classof(const BlockStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -86,6 +90,7 @@ public:
     }
 
 private:
+    Location        location;
     IdentifierInfo *label;
 };
 

@@ -216,6 +216,8 @@ bool Parser::seekEndTag(IdentifierInfo *tag)
 
         if (info == tag)
             return true;
+        else
+            ignoreToken();
     }
     return false;
 }
@@ -326,6 +328,22 @@ bool Parser::qualificationFollows()
     return status;
 }
 
+bool Parser::blockStmtFollows()
+{
+    switch (currentTokenCode()) {
+
+    default:
+        return false;
+
+    case Lexer::TKN_IDENTIFIER:
+        return nextTokenIs(Lexer::TKN_COLON);
+
+    case Lexer::TKN_DECLARE:
+    case Lexer::TKN_BEGIN:
+        return true;
+    }
+}
+
 IdentifierInfo *Parser::parseIdentifierInfo()
 {
     IdentifierInfo *info;
@@ -363,28 +381,32 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
 }
 
 // Parses an end tag.  If expectedTag is non-null, parse "end <tag>", otherwise
-// parse "end".
+// parse "end".  Returns true if tokens were consumed (which can happen when the
+// parse fails due to a missing or unexpected end tag) and false otherwise.
 bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 {
-    bool status = requireToken(Lexer::TKN_END);
-    if (status) {
+    Location        tagLoc;
+    IdentifierInfo *tag;
+
+    if (requireToken(Lexer::TKN_END)) {
         if (expectedTag) {
-            if (currentTokenIs(Lexer::TKN_SEMI)) {
-                report(diag::EXPECTED_END_TAG) << expectedTag->getString();
-                status = false;
-            }
+            if (currentTokenIs(Lexer::TKN_SEMI))
+                report(diag::EXPECTED_END_TAG) << expectedTag;
             else {
-                Location tagLocation = currentLocation();
-                IdentifierInfo *tag  = parseIdentifierInfo();
-                if (tag && tag != expectedTag) {
-                    report(tagLocation, diag::EXPECTED_END_TAG)
-                        << expectedTag->getString();
-                    status = false;
-                }
+                tagLoc = currentLocation();
+                tag    = parseIdentifierInfo();
+                if (tag && tag != expectedTag)
+                    report(tagLoc, diag::EXPECTED_END_TAG) << expectedTag;
             }
         }
+        else if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+            tagLoc = currentLocation();
+            tag    = parseIdentifierInfo();
+            report(tagLoc, diag::UNEXPECTED_END_TAG) << tag;
+        }
+        return true;
     }
-    return status;
+    return false;
 }
 
 // Parses a formal parameter of a model: "id : type".  Passes the parsed type
