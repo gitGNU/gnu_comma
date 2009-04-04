@@ -236,7 +236,9 @@ private:
                                               DeclarativeRegion *region);
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
-    void ensureDistinctTypeDeclarations(ModelDecl *model);
+    bool ensureDistinctTypeDeclaration(DeclarativeRegion *region,
+                                       TypeDecl          *tyDecl);
+    void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc) const;
     DomainType *ensureDomainType(Type *type, Location loc) const;

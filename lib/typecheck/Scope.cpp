@@ -45,6 +45,19 @@ void ScopeEntry::addDirectDecl(Decl *decl)
         IdentifierInfo *idInfo  = decl->getIdInfo();
         Homonym        *homonym = getOrCreateHomonym(idInfo);
         homonym->addDirectDecl(decl);
+
+        // Add the literals of enumeration declarations.
+        if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
+            typedef DeclarativeRegion::DeclIter DeclIter;
+            DeclIter iter;
+            DeclIter endIter = edecl->endDecls();
+            for (iter = edecl->beginDecls(); iter != endIter; ++iter) {
+                idInfo  = iter->first;
+                decl    = iter->second;
+                homonym = getOrCreateHomonym(idInfo);
+                homonym->addDirectDecl(decl);
+            }
+        }
     }
 }
 
@@ -219,6 +232,8 @@ TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
     if (result) return result;
 
     Homonym *homonym = name->getMetadata<Homonym>();
+
+    if (!homonym) return 0;
 
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {

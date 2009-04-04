@@ -1050,8 +1050,14 @@ Node Parser::parseType()
     // For now, handle only enumeration types.
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
         Node enumeration = client.acceptEnumerationType(name, loc);
-        parseEnumerationList(enumeration);
-        return enumeration;
+        if (enumeration.isValid()) {
+            parseEnumerationList(enumeration);
+            return enumeration;
+        }
+        else {
+            ignoreToken();
+            seekCloseParen();
+        }
     }
     return Node::getInvalidNode();
 }

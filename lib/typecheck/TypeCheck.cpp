@@ -195,7 +195,8 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 Node TypeCheck::acceptWithSupersignature(Node     typeNode,
                                          Location loc)
 {
-    Type          *type = cast_node<Type>(typeNode);
+    ModelDecl     *model = getCurrentModel();
+    Type          *type  = cast_node<Type>(typeNode);
     SignatureType *superSig;
 
     // Check that the node denotes a signature.
@@ -207,7 +208,11 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
     }
 
     // Register the signature.
-    getCurrentModel()->addDirectSignature(superSig);
+    model->addDirectSignature(superSig);
+
+    // Check that this signature does not introduce any conflicting type names
+    // and bring all non-conflicting types into the current region.
+    aquireSignatureTypeDeclarations(model, superSig->getDeclaration());
 
     return typeNode;
 }
@@ -438,9 +443,6 @@ void TypeCheck::endWithExpression()
     // ambiguity that can arise is wrt conflicting argument keyword sets.
     ModelDecl *model = getCurrentModel();
     ensureNecessaryRedeclarations(model);
-
-    // Ensure all type declarations are distinct.
-    ensureDistinctTypeDeclarations(model);
 }
 
 // The following function resolves the argument type of a functor or variety
@@ -622,53 +624,53 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     }
 }
 
-void TypeCheck::ensureDistinctTypeDeclarations(ModelDecl *model)
+void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
+                                                Sigoid    *sigdecl)
 {
-    // Bring all type declarations provided by super signatures into the current
-    // model.
-    SignatureSet          &sigset       = model->getSignatureSet();
-    SignatureSet::iterator superIter    = sigset.beginDirect();
-    SignatureSet::iterator endSuperIter = sigset.endDirect();
+    // Bring all type declarations provided by the given super signatures into
+    // the current model.
+    Sigoid::DeclIter iter    = sigdecl->beginDecls();
+    Sigoid::DeclIter endIter = sigdecl->endDecls();
 
-    for ( ; superIter != endSuperIter; ++superIter) {
-        SignatureType *super     = *superIter;
-        Sigoid        *sigdecl   = super->getDeclaration();
-        Sigoid::DeclIter iter    = sigdecl->beginDecls();
-        Sigoid::DeclIter endIter = sigdecl->endDecls();
-
-        for ( ; iter != endIter; ++iter) {
-            if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(iter->second)) {
-                typedef DeclarativeRegion::DeclRange DeclRange;
-                typedef DeclarativeRegion::DeclIter  DeclIter;
-                IdentifierInfo *name  = tyDecl->getIdInfo();
-                DeclRange       range = model->findDecls(name);
-                bool            allOK = true;
-
-                if (range.first != range.second) {
-                    // Check for pre-existing type declaration.
-                    for (DeclIter dIter = range.first;
-                         dIter != range.second; ++dIter) {
-                        TypeDecl *conflict = dyn_cast<TypeDecl>(dIter->second);
-                        if (conflict) {
-                            SourceLocation tyLoc =
-                                getSourceLocation(tyDecl->getLocation());
-                            SourceLocation conflictLoc =
-                                getSourceLocation(conflict->getLocation());
-                            report(tyDecl->getLocation(),
-                                   diag::CONFLICTING_TYPE_DECLS)
-                                << name << tyLoc << conflictLoc;
-                            allOK = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (allOK)
-                    model->addDecl(tyDecl);
+    for ( ; iter != endIter; ++iter) {
+        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(iter->second)) {
+            if (ensureDistinctTypeDeclaration(model, tyDecl)) {
+                model->addDecl(tyDecl);
+                scope.addDirectDecl(tyDecl);
             }
         }
     }
 }
+
+bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
+                                              TypeDecl          *tyDecl)
+{
+    typedef DeclarativeRegion::DeclRange DeclRange;
+    typedef DeclarativeRegion::DeclIter  DeclIter;
+    IdentifierInfo *name  = tyDecl->getIdInfo();
+    DeclRange       range = region->findDecls(name);
+    bool            allOK = true;
+
+    if (range.first != range.second) {
+        for (DeclIter dIter = range.first;
+             dIter != range.second; ++dIter) {
+            TypeDecl *conflict = dyn_cast<TypeDecl>(dIter->second);
+            if (conflict) {
+                SourceLocation tyLoc =
+                    getSourceLocation(tyDecl->getLocation());
+                SourceLocation conflictLoc =
+                    getSourceLocation(conflict->getLocation());
+                report(tyDecl->getLocation(),
+                       diag::CONFLICTING_TYPE_DECLS)
+                    << name << tyLoc << conflictLoc;
+                allOK = false;
+                break;
+            }
+        }
+    }
+    return allOK;
+}
+
 
 Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Node            typeNode,
@@ -919,9 +921,13 @@ Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
     DeclarativeRegion *region      = currentDeclarativeRegion();
     EnumerationDecl   *enumeration = new EnumerationDecl(name, loc, region);
 
-    region->addDecl(enumeration);
-    scope.addDirectDecl(enumeration);
-    return Node(enumeration);
+    if (ensureDistinctTypeDeclaration(region, enumeration)) {
+        region->addDecl(enumeration);
+        scope.addDirectDecl(enumeration);
+        return Node(enumeration);
+    }
+    else
+        return Node::getInvalidNode();
 }
 
 void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
