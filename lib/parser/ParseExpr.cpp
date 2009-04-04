@@ -90,10 +90,8 @@ Node Parser::parseInjExpr()
 {
     assert(currentTokenIs(Lexer::TKN_INJ));
 
-    Location loc = currentLocation();
-    ignoreToken();
-
-    Node expr = parseExpr();
+    Location loc  = ignoreToken();
+    Node     expr = parseExpr();
 
     if (expr.isValid())
         return client.acceptInj(loc, expr);
@@ -104,10 +102,8 @@ Node Parser::parsePrjExpr()
 {
     assert(currentTokenIs(Lexer::TKN_PRJ));
 
-    Location loc = currentLocation();
-    ignoreToken();
-
-    Node expr = parseExpr();
+    Location loc  = ignoreToken();
+    Node     expr = parseExpr();
 
     if (expr.isValid())
         return client.acceptPrj(loc, expr);

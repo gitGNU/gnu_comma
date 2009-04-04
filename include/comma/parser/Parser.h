@@ -148,8 +148,12 @@ private:
     Lexer::Token &nextToken();
     Lexer::Token &currentToken();
     Lexer::Token  peekToken();
-    void ignoreToken();
     void setCurrentToken(Lexer::Token &tkn);
+
+    // Ignores the current token and returns the location of the token skipped.
+    // This method is used to support the idiom of skipping reserved words and
+    // saving the location of the construct.
+    Location ignoreToken();
 
     Lexer::Code currentTokenCode();
     Lexer::Code peekTokenCode();

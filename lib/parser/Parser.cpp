@@ -65,9 +65,11 @@ Lexer::Token Parser::peekToken()
     return tkn;
 }
 
-void Parser::ignoreToken()
+Location Parser::ignoreToken()
 {
+    Location loc = currentLocation();
     nextToken();
+    return loc;
 }
 
 void Parser::setCurrentToken(Lexer::Token &tkn)
@@ -514,9 +516,8 @@ void Parser::parseCarrier()
     Node            type = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_CARRIER));
-    ignoreToken();
 
-    loc  = currentLocation();
+    loc  = ignoreToken();
     name = parseIdentifierInfo();
 
     if (!name) {
@@ -666,8 +667,7 @@ Node Parser::parseModelInstantiation()
                 if (keywordSelectionFollows()) {
                     keywords.push_back(parseIdentifierInfo());
                     keywordLocs.push_back(loc);
-                    ignoreToken(); // Ignore the trailing '=>'.
-                    loc = currentLocation();
+                    loc = ignoreToken();
                 }
                 else if (!keywords.empty()) {
                     // We have already parsed a keyword.

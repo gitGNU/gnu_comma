@@ -102,8 +102,7 @@ Node Parser::parseReturnStmt()
 {
     assert(currentTokenIs(Lexer::TKN_RETURN));
 
-    Location loc = currentLocation();
-    ignoreToken();
+    Location loc = ignoreToken();
 
     if (currentTokenIs(Lexer::TKN_SEMI))
         return client.acceptReturnStmt(loc);
@@ -121,9 +120,10 @@ Node Parser::parseAssignmentStmt()
 
     Location        location = currentLocation();
     IdentifierInfo *target   = parseIdentifierInfo();
-    ignoreToken();              // Ignore the `:='.
-    Node value = parseExpr();
+    Node            value(0);
 
+    ignoreToken();              // Ignore the `:='.
+    value = parseExpr();
     if (value.isValid())
         return client.acceptAssignmentStmt(location, target, value);
     return Node::getInvalidNode();
@@ -133,13 +133,11 @@ Node Parser::parseIfStmt()
 {
     assert(currentTokenIs(Lexer::TKN_IF));
 
-    Location   loc = currentLocation();
-    Node       condition(0);
+    Location   loc       = ignoreToken();
+    Node       condition = parseExpr();
     NodeVector stmts;
     Node       result(0);
 
-    ignoreToken();              // Ignore the `if'.
-    condition = parseExpr();
     if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
         seekEndIf();
         return Node::getInvalidNode();
@@ -161,9 +159,7 @@ Node Parser::parseIfStmt()
     }
 
     while (currentTokenIs(Lexer::TKN_ELSIF)) {
-        loc = currentLocation();
-        ignoreToken();          // Ignore the `elsif'.
-
+        loc       = ignoreToken();
         condition = parseExpr();
         if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
             seekEndIf();
@@ -190,8 +186,7 @@ Node Parser::parseIfStmt()
     }
 
     if (currentTokenIs(Lexer::TKN_ELSE)) {
-        loc = currentLocation();
-        ignoreToken();          // Ignore the "else".
+        loc = ignoreToken();
         stmts.clear();
         do {
             Node stmt = parseStatement();
