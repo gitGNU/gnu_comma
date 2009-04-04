@@ -72,10 +72,16 @@ public:
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;
 
-
     /// Begin a subroutine definition, where \p declarationNode is a valid node
     /// returned from ParseClient::acceptSubroutineDeclaration.
     virtual void beginSubroutineDefinition(Node declarationNode) = 0;
+
+    /// Called for each valid statement constituting the body of the current
+    /// subroutine (as established by a call to beginSubroutineDefinition).
+    virtual void acceptSubroutineStmt(Node stmt) = 0;
+
+    /// Once the body of a subroutine has been parsed, this callback is invoked
+    /// to singnal the completion of the definition.
     virtual void endSubroutineDefinition() = 0;
 
     virtual Node acceptDeclaration(IdentifierInfo *name,

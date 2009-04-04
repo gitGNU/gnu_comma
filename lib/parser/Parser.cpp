@@ -923,7 +923,9 @@ void Parser::parseSubroutineBody(Node declarationNode)
 
     while (!currentTokenIs(Lexer::TKN_END) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
-        parseStatement();
+        Node stmt = parseStatement();
+        if (stmt.isValid())
+            client.acceptSubroutineStmt(stmt);
     }
 
     EndTagEntry tagEntry = endTagStack.top();

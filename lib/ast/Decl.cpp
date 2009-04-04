@@ -6,8 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "comma/ast/Decl.h"
 #include "comma/ast/AstRewriter.h"
+#include "comma/ast/Decl.h"
+#include "comma/ast/Stmt.h"
 #include <algorithm>
 #include <iostream>
 
@@ -391,6 +392,16 @@ void SubroutineDecl::dump()
               << ' ' << uintptr_t(this)
               << ' ' << getString() << ' ';
     getType()->dump();
+
+    if (hasBody()) {
+        BlockStmt::StmtIter iter    = body->beginStatements();
+        BlockStmt::StmtIter endIter = body->endStatements();
+        for ( ; iter != endIter; ++iter) {
+            std::cerr << ' ';
+            (*iter)->dump();
+        }
+    }
+
     std::cerr << '>';
 }
 

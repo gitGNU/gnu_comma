@@ -94,6 +94,9 @@ public:
     // Begin a subroutine definition, using a valid node returned from
     // acceptSubroutineDeclaration to establish context.
     void beginSubroutineDefinition(Node declarationNode);
+
+    void acceptSubroutineStmt(Node stmt);
+
     void endSubroutineDefinition();
 
     Node acceptImportDeclaration(Node importedType, Location loc);
@@ -242,6 +245,10 @@ private:
     // If we are processing a Functor, return the current model cast to a
     // FunctorDecl, else 0.
     FunctorDecl *getCurrentFunctor() const;
+
+    // If we are processing a subroutine, return the current SubroutineDecl,
+    // else 0.
+    SubroutineDecl *getCurrentSubroutine() const;
 
     // If we are processing a procedure, return the current ProcedureDecl, else
     // 0.

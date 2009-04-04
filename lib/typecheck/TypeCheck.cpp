@@ -9,6 +9,7 @@
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Stmt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "TypeEqual.h"
 
@@ -104,30 +105,27 @@ FunctorDecl *TypeCheck::getCurrentFunctor() const
     return dyn_cast<FunctorDecl>(getCurrentModel());
 }
 
-ProcedureDecl *TypeCheck::getCurrentProcedure() const
+SubroutineDecl *TypeCheck::getCurrentSubroutine() const
 {
     DeclarativeRegion *region = currentDeclarativeRegion();
-    ProcedureDecl     *proc;
+    SubroutineDecl    *routine;
 
     while (region) {
-        if ((proc = dyn_cast<ProcedureDecl>(region)))
-            return proc;
+        if ((routine = dyn_cast<SubroutineDecl>(region)))
+            return routine;
         region = region->getParent();
     }
     return 0;
 }
 
+ProcedureDecl *TypeCheck::getCurrentProcedure() const
+{
+    return dyn_cast_or_null<ProcedureDecl>(getCurrentSubroutine());
+}
+
 FunctionDecl *TypeCheck::getCurrentFunction() const
 {
-    DeclarativeRegion *region = currentDeclarativeRegion();
-    FunctionDecl      *func;
-
-    while (region) {
-        if ((func = dyn_cast<FunctionDecl>(region)))
-            return func;
-        region = region->getParent();
-    }
-    return 0;
+    return dyn_cast_or_null<FunctionDecl>(getCurrentSubroutine());
 }
 
 // Returns the % node for the current model, or 0 if we are not currently
@@ -983,23 +981,41 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
     SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
 
-    // Enter a scope for the subroutine definition and populate with the formal
-    // parmeter bindings.  Set the current declarative region to be that of the
-    // subroutine.
+    // Enter a scope for the subroutine definition and populate it with the
+    // formal parmeter bindings.
     scope.push(FUNCTION_SCOPE);
-    declarativeRegion = srDecl->asDeclarativeRegion();
-
     typedef SubroutineDecl::ParamDeclIterator ParamIter;
     for (ParamIter iter = srDecl->beginParams();
          iter != srDecl->endParams(); ++iter) {
         ParamValueDecl *param = *iter;
         scope.addDirectValue(param);
     }
+
+    // Allocate a BlockStmt for the subroutines body and make this block the
+    // current declarative region.
+    assert(!srDecl->hasBody() && "Current subroutine already has a body!");
+    BlockStmt *block = new BlockStmt(0, srDecl, srDecl->getIdInfo());
+    srDecl->setBody(block);
+    declarativeRegion = block;
+}
+
+void TypeCheck::acceptSubroutineStmt(Node stmt)
+{
+    SubroutineDecl *subroutine = getCurrentSubroutine();
+    assert(subroutine && "No currnet subroutine!");
+
+    BlockStmt *block = subroutine->getBody();
+    block->addStmt(cast_node<Stmt>(stmt));
 }
 
 void TypeCheck::endSubroutineDefinition()
 {
-    declarativeRegion = declarativeRegion->getParent();
+    assert(scope.getKind() == FUNCTION_SCOPE);
+
+    // We established two levels of declarative regions in
+    // beginSubroutineDefinition: one for the BlockStmt constituting the body
+    // and another corresponding the subroutine itself.  Remove them both.
+    declarativeRegion = declarativeRegion->getParent()->getParent();
     scope.pop();
 }
 
