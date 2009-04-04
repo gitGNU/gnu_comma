@@ -211,7 +211,7 @@ bool Parser::seekEndTag(IdentifierInfo *tag)
         IdentifierInfo *info = 0;
 
         if (nextTokenIs(Lexer::TKN_IDENTIFIER)) {
-            info = getIdentifierInfo(nextToken());
+            info = getIdentifierInfo(peekToken());
         }
 
         if (info == tag)
@@ -222,14 +222,12 @@ bool Parser::seekEndTag(IdentifierInfo *tag)
 
 bool Parser::seekAndConsumeEndTag(IdentifierInfo *tag)
 {
-    bool status = seekEndTag(tag);
-
-    if (status) {
+    if (seekEndTag(tag)) {
         ignoreToken();                // Ignore 'end'.
         ignoreToken();                // Ignore the tag.
-        reduceToken(Lexer::TKN_SEMI); // Eat trailing semicolon.
+        return true;
     }
-    return status;
+    return false;
 }
 
 bool Parser::seekEndIf()
@@ -863,7 +861,10 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     if (desc.isFunctionDescriptor()) {
         if (reduceToken(Lexer::TKN_RETURN)) {
             Node returnType = parseModelInstantiation();
-            if (returnType.isInvalid()) return Node::getInvalidNode();
+            if (returnType.isInvalid()) {
+                seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+                return Node::getInvalidNode();
+            }
             desc.setReturnType(returnType);
         }
         else {
@@ -876,6 +877,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
         // descriptive message.
         if (currentTokenIs(Lexer::TKN_RETURN)) {
             report(diag::RETURN_AFTER_PROCEDURE);
+            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
             return Node::getInvalidNode();
         }
     }
@@ -915,8 +917,13 @@ void Parser::parseFunctionDeclOrDefinition()
     Descriptor desc;
     Node       decl = parseFunctionDeclaration(desc);
 
-    // FIXME: We should attempt to find the end of the function decl/definition.
-    if (decl.isInvalid()) return;
+    if (decl.isInvalid()) {
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+        if (currentTokenIs(Lexer::TKN_IS)) {
+            seekAndConsumeEndTag(desc.getIdInfo());
+        }
+        return;
+    }
 
     if (reduceToken(Lexer::TKN_IS)) {
         endTagStack.push(EndTagEntry(NAMED_TAG,
