@@ -238,7 +238,8 @@ private:
     void ensureNecessaryRedeclarations(ModelDecl *model);
     void ensureDistinctTypeDeclarations(ModelDecl *model);
 
-    Type *ensureDomainType(Node typeNode, Location loc) const;
+    DomainType *ensureDomainType(Node typeNode, Location loc) const;
+    DomainType *ensureDomainType(Type *type, Location loc) const;
 
     Type *ensureValueType(Node typeNode, Location loc) const;
 

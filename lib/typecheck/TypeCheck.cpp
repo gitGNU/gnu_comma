@@ -479,14 +479,22 @@ SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
     return new ProcedureDecl(name, loc, ptype, region);
 }
 
-Type *TypeCheck::ensureDomainType(Node     node,
-                                  Location loc) const
+DomainType *TypeCheck::ensureDomainType(Node     node,
+                                        Location loc) const
 {
-    if (DomainType *dom = lift_node<DomainType>(node))
-        return dom;
-    else if (CarrierType *carrier = lift_node<CarrierType>(node))
-        return carrier;
+    if (Type *type = lift_node<Type>(node))
+        return ensureDomainType(type, loc);
+    report(loc, diag::NOT_A_DOMAIN);
+    return 0;
+}
 
+DomainType *TypeCheck::ensureDomainType(Type    *type,
+                                        Location loc) const
+{
+    if (DomainType *dom = dyn_cast<DomainType>(type))
+        return dom;
+    else if (CarrierType *carrier = dyn_cast<CarrierType>(type))
+        return ensureDomainType(carrier->getRepresentationType(), loc);
     report(loc, diag::NOT_A_DOMAIN);
     return 0;
 }
