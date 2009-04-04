@@ -91,7 +91,6 @@ void ScopeEntry::removeImportDecl(Decl *decl)
     assert(false && "Decl not associated with corresponding indentifier!");
 }
 
-
 bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
 {
     DirectIterator endIter = endDirectDecls();
@@ -130,10 +129,12 @@ void ScopeEntry::addImportDecl(DomainType *type)
     importDecls.push_back(type);
 }
 
-// Traverse the set IdentifierInfo's owned by this entry and reduce the
-// associated decl stacks.
+// Turns this into an uninitialized (dead) scope entry.  This method is
+// used so that entries can be cached and recognized as inactive objects.
 void ScopeEntry::clear()
 {
+    // Traverse the set of IdentifierInfo's owned by this entry and reduce the
+    // associated decl stacks.
     DirectIterator endDeclIter = endDirectDecls();
     for (DirectIterator declIter = beginDirectDecls();
          declIter != endDeclIter; ++declIter)

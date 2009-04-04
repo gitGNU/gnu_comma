@@ -287,7 +287,7 @@ public:
         return (FIRST_Stmt <= kind && kind <= LAST_Stmt);
     }
 
-    /// \breif Returns a string matching the kind of this node.
+    /// \brief Returns a string matching the kind of this node.
     const char *getKindString() const { return kindStrings[kind]; }
 
     /// \brief Prints a representation of this ast node to stderr.

@@ -59,7 +59,6 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
     return false;
 }
 
-
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
                                       SignatureType     *typeX,
                                       SignatureType     *typeY)

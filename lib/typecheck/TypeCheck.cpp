@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -365,12 +365,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     ParameterizedType *candidate =
         dyn_cast<ParameterizedType>(model->getType());
 
-    if (!candidate) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
-        return Node::getInvalidNode();
-    }
-
-    if (candidate->getArity() != numArgs) {
+    if (!candidate || candidate->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
         return Node::getInvalidNode();
     }
@@ -496,7 +491,7 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
         IdentifierInfo *formal    = formals[i];
         Location        formalLoc = formalLocations[i];
 
-        // Check the current formal against all preceeding parameters and report
+        // Check the current formal against all preceding parameters and report
         // any duplication.
         for (unsigned j = 0; j < i; ++j)
             if (formal == formals[j]) {
@@ -762,7 +757,6 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
     return allOK;
 }
 
-
 Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
                                   Node            typeNode,
                                   Location        loc)
@@ -809,7 +803,6 @@ Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
     scope.addImport(domain);
     return new ImportDecl(domain, loc);
 }
-
 
 void TypeCheck::beginAddExpression()
 {

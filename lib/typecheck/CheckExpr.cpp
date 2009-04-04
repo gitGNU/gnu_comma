@@ -186,7 +186,6 @@ Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,
     return acceptSubroutineCall(name, loc, argNodes, numArgs, true);
 }
 
-
 // Note that this function will evolve to take a Node in place of an identifier,
 // and will be renamed to acceptFunctionCall.
 Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
@@ -316,7 +315,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
     }
 
     // If we are dealing with functions, the resolution of the call will depend
-    // on the resolution of the return type.  If we are dealing with prcedures,
+    // on the resolution of the return type.  If we are dealing with procedures,
     // then the call is ambiguous.
     if (checkFunction) {
         llvm::SmallVector<FunctionDecl*, 4> connectives;
@@ -338,7 +337,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
 }
 
 // This function looks up the set of visible subroutines of a certain arity in
-// the given homonym and poulates the vector routineDecls with the results.  If
+// the given homonym and populates the vector routineDecls with the results.  If
 // lookupFunctions is true, this method scans for functions, otherwise for
 // procedures.
 void TypeCheck::lookupSubroutineDecls(
@@ -377,7 +376,7 @@ void TypeCheck::lookupSubroutineDecls(
 
     // Accumulate import declarations, ensuring that any directly visible
     // declarations shadow those imports with matching types.  Imported
-    // declarations do not shadow eachother.
+    // declarations do not shadow each other.
     unsigned numDirectDecls = routineDecls.size();
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
@@ -438,7 +437,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
                 return Node::getInvalidNode();
             }
 
-            // Ensure that this keyword is not a duplicate of any preceeding
+            // Ensure that this keyword is not a duplicate of any preceding
             // keyword.
             for (unsigned j = numPositional; j < i; ++j) {
                 KeywordSelector *prevSelector;

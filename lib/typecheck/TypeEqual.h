@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -20,8 +20,11 @@
 
 namespace comma {
 
-// compareTypesUsingRewrites: the following functions determine equality between
-// two types using the supplied rewrite rules as a context for evaluation.
+/// \defgroup TypeEquality Type equality predicates.
+///
+/// compareTypesUsingRewrites determines equality between two types using the
+/// supplied rewrite rules as a context for evaluation.
+/// @{
 bool compareTypesUsingRewrites(const AstRewriter &rewrites,
                                Type              *typeX,
                                Type              *typeY);
@@ -45,8 +48,7 @@ bool compareTypesUsingRewrites(const AstRewriter &rewrites,
 bool compareTypesUsingRewrites(const AstRewriter &rewrites,
                                ProcedureType     *typeX,
                                ProcedureType     *typeY);
-
-
+/// @}
 
 } // End comma namespace.
 

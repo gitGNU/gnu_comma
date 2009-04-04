@@ -290,6 +290,10 @@ private:
                            IdentifierInfo *name,
                            Location        loc);
 
+    // Resolves the given call expression (which should have multiple candidate
+    // connectives) to one which satisfies the given target type and returns
+    // true.  Otherwise, false is returned and the appropriated diagnostics are
+    // emitted.
     bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
 
     Node checkSubroutineCall(SubroutineDecl *decl,
