@@ -14,6 +14,7 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -83,6 +84,11 @@ Domoid *TypeCheck::getCurrentDomain() const
     return dyn_cast<Domoid>(getCurrentModel());
 }
 
+FunctorDecl *TypeCheck::getCurrentFunctor() const
+{
+    return dyn_cast<FunctorDecl>(getCurrentModel());
+}
+
 ProcedureDecl *TypeCheck::getCurrentProcedure() const
 {
     return dyn_cast<ProcedureDecl>(currentDeclarativeRegion());
@@ -91,6 +97,15 @@ ProcedureDecl *TypeCheck::getCurrentProcedure() const
 FunctionDecl *TypeCheck::getCurrentFunction() const
 {
     return dyn_cast<FunctionDecl>(currentDeclarativeRegion());
+}
+
+// Returns the % node for the current model, or 0 if we are not currently
+// processing a model.
+DomainType *TypeCheck::getCurrentPercent() const
+{
+    if (ModelDecl *model = getCurrentModel())
+        return model->getPercent();
+    return 0;
 }
 
 void TypeCheck::beginModelDeclaration(Descriptor &desc)
@@ -102,6 +117,7 @@ void TypeCheck::beginModelDeclaration(Descriptor &desc)
 
 void TypeCheck::endModelDefinition()
 {
+    assert(scope.getKind() == MODEL_SCOPE);
     ModelDecl *result = getCurrentModel();
     scope.pop();
     scope.addDirectModel(result);
@@ -190,6 +206,9 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 
     currentModel      = modelDecl;
     declarativeRegion = modelDecl->asDeclarativeRegion();
+
+    // Bring the model itself into scope.
+    scope.addDirectModel(modelDecl);
 }
 
 Node TypeCheck::acceptWithSupersignature(Node     typeNode,
@@ -229,6 +248,49 @@ Node TypeCheck::acceptPercent(Location loc)
     return Node(model->getPercent());
 }
 
+// Returns true if the given type decl is equivalent to % in the context of the
+// current domain.
+bool TypeCheck::denotesDomainPercent(const TypeDecl *tyDecl)
+{
+    if (checkingDomain()) {
+        DomainDecl *domain = dyn_cast<DomainDecl>(getCurrentDomain());
+        const DomainDecl *candidate = dyn_cast<DomainDecl>(tyDecl);
+        if (candidate && domain)
+            return domain == candidate;
+    }
+    return false;
+}
+
+// Returns true if we are currently checking a functor, and if the given functor
+// declaration together with the provided arguments would denote an instance
+// which is equivalent to % in the current context.  For example, given:
+//
+//   domain F (X : T) with
+//      procedure Foo (A : F(X));
+//      ...
+//
+// Then "F(X)" is equivalent to %.  More generally, a functor F applied to its
+// formal arguments in the body of F is equivalent to %.
+//
+// This function assumes that the number and types of the supplied arguments are
+// compatible with the given functor.
+bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
+                                      Type **args, unsigned numArgs)
+{
+    assert(functor->getArity() == numArgs);
+
+    if (checkingFunctor()) {
+        FunctorDecl *currentFunctor = getCurrentFunctor();
+        for (unsigned i = 0; i < numArgs; ++i) {
+            DomainType *formal = currentFunctor->getFormalDomain(i);
+            if (formal != args[i])
+                return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
                                      Location        loc)
 {
@@ -246,8 +308,14 @@ Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
         assert(false && "Cannot handle type declaration.");
         return Node::getInvalidNode();
 
-    case Ast::AST_SignatureDecl:
     case Ast::AST_DomainDecl:
+        if (denotesDomainPercent(type)) {
+            report(loc, diag::PERCENT_EQUIVALENT);
+            return getCurrentPercent();
+        }
+        return Node(type->getType());
+
+    case Ast::AST_SignatureDecl:
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
@@ -382,9 +450,17 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
-        DomainInstanceDecl *instance =
-            functor->getInstance(&arguments[0], numArgs);
-        node = Node(instance->getType());
+
+        // Cannonicalize type applications which are equivalent to `%'.
+        if (denotesFunctorPercent(functor, &arguments[0], numArgs)) {
+            report(loc, diag::PERCENT_EQUIVALENT);
+            node = Node(getCurrentPercent());
+        }
+        else {
+            DomainInstanceDecl *instance =
+                functor->getInstance(&arguments[0], numArgs);
+            node = Node(instance->getType());
+        }
     }
     return node;
 }
@@ -953,4 +1029,24 @@ bool TypeCheck::checkingProcedure() const
 bool TypeCheck::checkingFunction() const
 {
     return getCurrentFunction() != 0;
+}
+
+bool TypeCheck::checkingDomain() const
+{
+    return dyn_cast_or_null<DomainDecl>(getCurrentDomain()) != 0;
+}
+
+bool TypeCheck::checkingFunctor() const
+{
+    return getCurrentFunctor() != 0;
+}
+
+bool TypeCheck::checkingSignature() const
+{
+    return dyn_cast_or_null<SignatureDecl>(getCurrentSignature()) != 0;
+}
+
+bool TypeCheck::checkingVariety() const
+{
+    return dyn_cast_or_null<VarietyDecl>(getCurrentSignature()) != 0;
 }

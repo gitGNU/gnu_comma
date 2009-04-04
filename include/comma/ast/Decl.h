@@ -420,7 +420,7 @@ public:
                IdentifierInfo *name,
                const Location &loc);
 
-    DomainInstanceDecl *getInstance(Location loc) { return instance; }
+    DomainInstanceDecl *getInstance() { return instance; }
 
     const DomainType *getType() const;
     DomainType *getType();

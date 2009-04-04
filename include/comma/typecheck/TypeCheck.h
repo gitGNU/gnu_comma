@@ -196,9 +196,15 @@ private:
 
     Domoid *getCurrentDomain() const;
 
+    FunctorDecl *getCurrentFunctor() const;
+
     ProcedureDecl *getCurrentProcedure() const;
 
     FunctionDecl *getCurrentFunction() const;
+
+    // Returns the % node for the current model, or 0 if we are not currently
+    // processing a model.
+    DomainType *getCurrentPercent() const;
 
     DeclarativeRegion *declarativeRegion;
 
@@ -277,6 +283,39 @@ private:
 
     // Returns true if we are currently checking a function.
     bool checkingFunction() const;
+
+    // Returns true if we are currently checking a domain.
+    bool checkingDomain() const;
+
+    // Returns true if we are currently checking a functor.
+    bool checkingFunctor() const;
+
+    // Returns true if we are currently checking a signature.
+    bool checkingSignature() const;
+
+    // Returns true if we are currently checking a variety.
+    bool checkingVariety() const;
+
+    // Returns true if the given type decl is equivalent to % in the context of
+    // the current domain.
+    bool denotesDomainPercent(const TypeDecl *tyDecl);
+
+    // Returns true if we are currently checking a functor, and if the given
+    // functor declaration together with the provided arguments would denote an
+    // instance which is equivalent to % in the current context.  For example,
+    // given:
+    //
+    //   domain F (X : T) with
+    //      procedure Foo (A : F(X));
+    //      ...
+    //
+    // Then "F(X)" is equivalent to %.  More generally, a functor F applied to
+    // its formal arguments in the body of F is equivalent to %.
+    //
+    // This function assumes that the number and types of the supplied arguments
+    // are compatible with the given functor.
+    bool denotesFunctorPercent(const FunctorDecl *functor,
+                               Type **args, unsigned numArgs);
 
     // Returns true if an expression satisfies the target type, performing any
     // resolution of the expression as needed.  Otherwise false is returned an

@@ -102,3 +102,5 @@ DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
            "Missing carrier definition before call to `inj' or `prj'.")
 DIAGNOSTIC(CONFLICTING_TYPE_DECLS, ERROR,
            "Multiple declarations of type `%0' (inherited from `%1' and `%2').")
+DIAGNOSTIC(PERCENT_EQUIVALENT, NOTE,
+           "Type expression equivalent to `%%'.")
