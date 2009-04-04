@@ -74,14 +74,29 @@ void TypeCheck::deleteNode(Node node)
     if (ast && ast->isDeletable()) delete ast;
 }
 
-Sigoid *TypeCheck::getCurrentSignature() const
+Sigoid *TypeCheck::getCurrentSigoid() const
 {
     return dyn_cast<Sigoid>(getCurrentModel());
 }
 
-Domoid *TypeCheck::getCurrentDomain() const
+SignatureDecl *TypeCheck::getCurrentSignature() const
+{
+    return dyn_cast<SignatureDecl>(getCurrentModel());
+}
+
+VarietyDecl *TypeCheck::getCurrentVariety() const
+{
+    return dyn_cast<VarietyDecl>(getCurrentModel());
+}
+
+Domoid *TypeCheck::getCurrentDomoid() const
 {
     return dyn_cast<Domoid>(getCurrentModel());
+}
+
+DomainDecl *TypeCheck::getCurrentDomain() const
+{
+    return dyn_cast<DomainDecl>(getCurrentModel());
 }
 
 FunctorDecl *TypeCheck::getCurrentFunctor() const
@@ -253,7 +268,7 @@ Node TypeCheck::acceptPercent(Location loc)
 bool TypeCheck::denotesDomainPercent(const TypeDecl *tyDecl)
 {
     if (checkingDomain()) {
-        DomainDecl *domain = dyn_cast<DomainDecl>(getCurrentDomain());
+        DomainDecl *domain = getCurrentDomain();
         const DomainDecl *candidate = dyn_cast<DomainDecl>(tyDecl);
         if (candidate && domain)
             return domain == candidate;
@@ -798,7 +813,7 @@ Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
 
 void TypeCheck::beginAddExpression()
 {
-    Domoid *domoid = getCurrentDomain();
+    Domoid *domoid = getCurrentDomoid();
     assert(domoid && "Processing `add' expression outside domain context!");
 
     // Switch to the declarative region which this domains AddDecl provides.
@@ -1019,34 +1034,4 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
 
     EnumerationLiteral *lit = new EnumerationLiteral(enumeration, name, loc);
     scope.addDirectDecl(lit);
-}
-
-bool TypeCheck::checkingProcedure() const
-{
-    return getCurrentProcedure() != 0;
-}
-
-bool TypeCheck::checkingFunction() const
-{
-    return getCurrentFunction() != 0;
-}
-
-bool TypeCheck::checkingDomain() const
-{
-    return dyn_cast_or_null<DomainDecl>(getCurrentDomain()) != 0;
-}
-
-bool TypeCheck::checkingFunctor() const
-{
-    return getCurrentFunctor() != 0;
-}
-
-bool TypeCheck::checkingSignature() const
-{
-    return dyn_cast_or_null<SignatureDecl>(getCurrentSignature()) != 0;
-}
-
-bool TypeCheck::checkingVariety() const
-{
-    return dyn_cast_or_null<VarietyDecl>(getCurrentSignature()) != 0;
 }

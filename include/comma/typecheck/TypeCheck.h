@@ -168,9 +168,21 @@ public:
     void deleteNode(Node node);
 
 private:
-    Diagnostic      &diagnostic;
-    AstResource     &resource;
-    CompilationUnit *compUnit;
+    Diagnostic        &diagnostic;
+    AstResource       &resource;
+    CompilationUnit   *compUnit;
+    DeclarativeRegion *declarativeRegion;
+    ModelDecl         *currentModel;
+    Scope              scope;
+    unsigned           errorCount;
+
+    // FIXME: We need a class to hold instances of primitive types.  For now, we
+    // simply stash them inline.
+    EnumerationDecl *theBoolDecl;
+
+    //===------------------------------------------------------------------===//
+    // Utility functions.
+    //===------------------------------------------------------------------===//
 
     // Converts a Node to the corresponding Ast type.  If the node is not of the
     // supplied type, this function returns 0.
@@ -186,49 +198,68 @@ private:
         return llvm::cast<T>(Node::lift<Ast>(node));
     }
 
-    ModelDecl *currentModel;
+    DeclarativeRegion *currentDeclarativeRegion() const {
+        return declarativeRegion;
+    }
+
+    CompilationUnit *currentCompUnit() const { return compUnit; }
 
     ModelDecl *getCurrentModel() const {
         return currentModel;
     }
 
-    Sigoid *getCurrentSignature() const;
+    // If we are processing a Sigoid, return the current model cast to a
+    // Sigoid, else 0.
+    Sigoid *getCurrentSigoid() const;
 
-    Domoid *getCurrentDomain() const;
+    // If we are processing a Signature, return the current model cast to a
+    // SignatureDecl, else 0.
+    SignatureDecl *getCurrentSignature() const;
 
+    // If we are processing a Variety, return the current model cast to a
+    // VarietyDecl, else 0.
+    VarietyDecl *getCurrentVariety() const;
+
+    // If we are processing a Domoid, return the current model cast to a
+    // Domoid, else 0.
+    Domoid *getCurrentDomoid() const;
+
+    // If we are processing a Domain, return the current model cast to a
+    // DomainDecl, else 0.
+    DomainDecl *getCurrentDomain() const;
+
+    // If we are processing a Functor, return the current model cast to a
+    // FunctorDecl, else 0.
     FunctorDecl *getCurrentFunctor() const;
 
+    // If we are processing a procedure, return the current ProcedureDecl, else
+    // 0.
     ProcedureDecl *getCurrentProcedure() const;
 
+    // If we are processing a function, return the current FunctionDecl, else 0.
     FunctionDecl *getCurrentFunction() const;
 
     // Returns the % node for the current model, or 0 if we are not currently
     // processing a model.
     DomainType *getCurrentPercent() const;
 
-    DeclarativeRegion *declarativeRegion;
+    // Returns true if we are currently checking a domain.
+    bool checkingDomain() const { return getCurrentDomain() != 0; }
 
-    DeclarativeRegion *currentDeclarativeRegion() const {
-        return declarativeRegion;
-    }
+    // Returns true if we are currently checking a functor.
+    bool checkingFunctor() const { return getCurrentFunctor() != 0; }
 
-    // The top level scope is a compilation unit scope and never changes during
-    // analysis.  The current scope is some inner scope of the top scope and
-    // reflects the current state of the analysis.
-    Scope scope;
+    // Returns true if we are currently checking a signature.
+    bool checkingSignature() const { return getCurrentSignature() != 0; }
 
-    unsigned errorCount;
+    // Returns true if we are currently checking a variety.
+    bool checkingVariety() const { return getCurrentVariety() != 0; }
 
-    CompilationUnit *currentCompUnit() const { return compUnit; }
+    // Returns true if we are currently checking a procedure.
+    bool checkingProcedure() const { return getCurrentProcedure() != 0; }
 
-    //===------------------------------------------------------------------===//
-    // TEPORARY:  We need a class to hold instances of primitive types.  For
-    // now, we simply stash them here.
-    EnumerationDecl *theBoolDecl;
-
-    //===------------------------------------------------------------------===//
-    // Utility functions.
-    //===------------------------------------------------------------------===//
+    // Returns true if we are currently checking a function.
+    bool checkingFunction() const { return getCurrentFunction() != 0; }
 
     // Called when then type checker is constructed.  Populates the top level
     // scope with an initial environment.
@@ -277,24 +308,6 @@ private:
                                       unsigned arity,
                                       llvm::SmallVector<SubroutineDecl*, 8> &routines,
                                       bool lookupFunctions);
-
-    // Returns true if we are currently checking a procedure.
-    bool checkingProcedure() const;
-
-    // Returns true if we are currently checking a function.
-    bool checkingFunction() const;
-
-    // Returns true if we are currently checking a domain.
-    bool checkingDomain() const;
-
-    // Returns true if we are currently checking a functor.
-    bool checkingFunctor() const;
-
-    // Returns true if we are currently checking a signature.
-    bool checkingSignature() const;
-
-    // Returns true if we are currently checking a variety.
-    bool checkingVariety() const;
 
     // Returns true if the given type decl is equivalent to % in the context of
     // the current domain.

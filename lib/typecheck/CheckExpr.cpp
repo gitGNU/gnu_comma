@@ -558,7 +558,7 @@ bool TypeCheck::ensureExprType(Expr *expr, Type *targetType)
 Node TypeCheck::acceptInj(Location loc, Node exprNode)
 {
     Expr   *expr   = cast_node<Expr>(exprNode);
-    Domoid *domoid = getCurrentDomain();
+    Domoid *domoid = getCurrentDomoid();
 
     if (!domoid) {
         report(loc, diag::INVALID_INJ_CONTEXT);
@@ -586,7 +586,7 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
 Node TypeCheck::acceptPrj(Location loc, Node exprNode)
 {
     Expr   *expr   = cast_node<Expr>(exprNode);
-    Domoid *domoid = getCurrentDomain();
+    Domoid *domoid = getCurrentDomoid();
 
     if (!domoid) {
         report(loc, diag::INVALID_PRJ_CONTEXT);
