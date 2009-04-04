@@ -40,6 +40,7 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo *boolId  = resource.getIdentifierInfo("Bool");
     IdentifierInfo *trueId  = resource.getIdentifierInfo("true");
     IdentifierInfo *falseId = resource.getIdentifierInfo("false");
+    IdentifierInfo *paramId = resource.getIdentifierInfo("|X|");
 
     EnumerationDecl    *boolEnum = new EnumerationDecl(boolId, 0, 0);
     EnumerationLiteral *falseLit = new EnumerationLiteral(boolEnum, falseId, 0);
@@ -52,8 +53,8 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo  *equalsId = resource.getIdentifierInfo("Equals");
     EnumerationType *boolType = boolEnum->getType();
     ParamValueDecl  *params[] = {
-        new ParamValueDecl(0, boolType, MODE_DEFAULT, 0),
-        new ParamValueDecl(0, boolType, MODE_DEFAULT, 0)
+        new ParamValueDecl(paramId, boolType, MODE_DEFAULT, 0),
+        new ParamValueDecl(paramId, boolType, MODE_DEFAULT, 0)
     };
     FunctionDecl *equals =
         new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
@@ -197,7 +198,7 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
     Type          *type = cast_node<Type>(typeNode);
     SignatureType *superSig;
 
-    // Simply check that the node denotes a signature.
+    // Check that the node denotes a signature.
     superSig = dyn_cast<SignatureType>(type);
     if (!superSig) {
         report(loc, diag::NOT_A_SIGNATURE);
@@ -226,7 +227,7 @@ Node TypeCheck::acceptPercent(Location loc)
 Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
                                      Location        loc)
 {
-    TypeDecl   *type = scope.lookupDirectType(id);
+    TypeDecl   *type = scope.lookupType(id);
     const char *name = id->getString();
 
     if (type == 0) {
@@ -435,7 +436,11 @@ void TypeCheck::endWithExpression()
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument keyword sets.
-    ensureNecessaryRedeclarations(getCurrentModel());
+    ModelDecl *model = getCurrentModel();
+    ensureNecessaryRedeclarations(model);
+
+    // Ensure all type declarations are distinct.
+    ensureDistinctTypeDeclarations(model);
 }
 
 // The following function resolves the argument type of a functor or variety
@@ -605,6 +610,54 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
             SubroutineDecl *badDecl = *iter;
             model->removeDecl(badDecl);
             delete badDecl;
+        }
+    }
+}
+
+void TypeCheck::ensureDistinctTypeDeclarations(ModelDecl *model)
+{
+    // Bring all type declarations provided by super signatures into the current
+    // model.
+    SignatureSet          &sigset       = model->getSignatureSet();
+    SignatureSet::iterator superIter    = sigset.beginDirect();
+    SignatureSet::iterator endSuperIter = sigset.endDirect();
+
+    for ( ; superIter != endSuperIter; ++superIter) {
+        SignatureType *super     = *superIter;
+        Sigoid        *sigdecl   = super->getDeclaration();
+        Sigoid::DeclIter iter    = sigdecl->beginDecls();
+        Sigoid::DeclIter endIter = sigdecl->endDecls();
+
+        for ( ; iter != endIter; ++iter) {
+            if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(iter->second)) {
+                typedef DeclarativeRegion::DeclRange DeclRange;
+                typedef DeclarativeRegion::DeclIter  DeclIter;
+                IdentifierInfo *name  = tyDecl->getIdInfo();
+                DeclRange       range = model->findDecls(name);
+                bool            allOK = true;
+
+                if (range.first != range.second) {
+                    // Check for pre-existing type declaration.
+                    for (DeclIter dIter = range.first;
+                         dIter != range.second; ++dIter) {
+                        TypeDecl *conflict = dyn_cast<TypeDecl>(dIter->second);
+                        if (conflict) {
+                            SourceLocation tyLoc =
+                                getSourceLocation(tyDecl->getLocation());
+                            SourceLocation conflictLoc =
+                                getSourceLocation(conflict->getLocation());
+                            report(tyDecl->getLocation(),
+                                   diag::CONFLICTING_TYPE_DECLS)
+                                << name << tyLoc << conflictLoc;
+                            allOK = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (allOK)
+                    model->addDecl(tyDecl);
+            }
         }
     }
 }

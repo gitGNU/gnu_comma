@@ -236,6 +236,7 @@ private:
                                               DeclarativeRegion *region);
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
+    void ensureDistinctTypeDeclarations(ModelDecl *model);
 
     Type *ensureDomainType(Node typeNode, Location loc) const;
 

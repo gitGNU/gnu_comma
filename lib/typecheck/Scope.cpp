@@ -87,23 +87,33 @@ bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
     return false;
 }
 
+void ScopeEntry::importDeclarativeRegion(DeclarativeRegion *region)
+{
+    typedef DeclarativeRegion::DeclIter DeclIter;
+
+    DeclIter iter;
+    DeclIter endIter = region->endDecls();
+    for (iter = region->beginDecls(); iter != endIter; ++iter) {
+        IdentifierInfo *idinfo  = iter->first;
+        Decl           *decl    = iter->second;
+        Homonym        *homonym = getOrCreateHomonym(idinfo);
+        homonym->addImportDecl(decl);
+
+        // Import the contents of enumeration literals.
+        if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
+            importDeclarativeRegion(edecl);
+    }
+}
+
 void ScopeEntry::addImportDecl(DomainType *type)
 {
-    typedef Domoid::DeclIter DeclIter;
+    typedef DeclarativeRegion::DeclIter DeclIter;
     Domoid *domoid = type->getDomoidDecl();
 
     assert((isa<AbstractDomainDecl>(domoid) || isa<DomainInstanceDecl>(domoid))
            && "Cannot import from the given domain!");
 
-    DeclIter iter;
-    DeclIter endIter = domoid->endDecls();
-    for (iter = domoid->beginDecls(); iter != endIter; ++iter) {
-        IdentifierInfo *idinfo  = iter->first;
-        Decl           *decl    = iter->second;
-        Homonym        *homonym = getOrCreateHomonym(idinfo);
-        homonym->addImportDecl(decl);
-    }
-
+    importDeclarativeRegion(domoid);
     importDecls.push_back(type);
 }
 
@@ -200,6 +210,27 @@ bool Scope::addImport(DomainType *type)
     entries.front()->addImportDecl(type);
 
     return false;
+}
+
+TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
+{
+    TypeDecl *result = lookupDirectType(name);
+
+    if (result) return result;
+
+    Homonym *homonym = name->getMetadata<Homonym>();
+
+    for (Homonym::ImportIterator iter = homonym->beginImportDecls();
+         iter != homonym->endImportDecls(); ++iter) {
+        Decl *candidate = *iter;
+        if (isa<TypeDecl>(candidate)) {
+            if (!result)
+                result = cast<TypeDecl>(candidate);
+            else
+                return 0;
+        }
+    }
+    return result;
 }
 
 TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,

@@ -138,6 +138,8 @@ Node TypeCheck::acceptElsifStmt(Location loc,
         cond->addElsif(loc, condition, consequents);
         return ifNode;
     }
+
+    report(condition->getLocation(), diag::INCOMPATIBLE_TYPES);
     return Node::getInvalidNode();
 }
 

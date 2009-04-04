@@ -100,3 +100,5 @@ DIAGNOSTIC(INVALID_PRJ_CONTEXT, ERROR,
            "`prj' expressions can only appear in a domain context.")
 DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
            "Missing carrier definition before call to `inj' or `prj'.")
+DIAGNOSTIC(CONFLICTING_TYPE_DECLS, ERROR,
+           "Multiple declarations of type `%0' (inherited from `%1' and `%2').")

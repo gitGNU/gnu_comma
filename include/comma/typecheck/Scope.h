@@ -100,6 +100,8 @@ private:
     ImportVector importDecls;
 
     static Homonym *getOrCreateHomonym(IdentifierInfo *info);
+
+    void importDeclarativeRegion(DeclarativeRegion *region);
 };
 
 class Scope {
@@ -151,6 +153,8 @@ public:
     // type visible.  Returns true if the given type has already been imported
     // and false otherwise.
     bool addImport(DomainType *type);
+
+    TypeDecl *lookupType(const IdentifierInfo *name) const;
 
     TypeDecl *lookupDirectType(const IdentifierInfo *name,
                                bool traverse = true) const;
