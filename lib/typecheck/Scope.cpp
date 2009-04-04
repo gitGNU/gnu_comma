@@ -52,8 +52,8 @@ void ScopeEntry::addDirectDecl(Decl *decl)
             DeclIter iter;
             DeclIter endIter = edecl->endDecls();
             for (iter = edecl->beginDecls(); iter != endIter; ++iter) {
-                idInfo  = iter->first;
-                decl    = iter->second;
+                decl    = *iter;
+                idInfo  = decl->getIdInfo();
                 homonym = getOrCreateHomonym(idInfo);
                 homonym->addDirectDecl(decl);
             }
@@ -106,8 +106,8 @@ void ScopeEntry::importDeclarativeRegion(DeclarativeRegion *region)
     DeclIter iter;
     DeclIter endIter = region->endDecls();
     for (iter = region->beginDecls(); iter != endIter; ++iter) {
-        IdentifierInfo *idinfo  = iter->first;
-        Decl           *decl    = iter->second;
+        Decl           *decl    = *iter;
+        IdentifierInfo *idinfo  = decl->getIdInfo();
         Homonym        *homonym = getOrCreateHomonym(idinfo);
         homonym->addImportDecl(decl);
 
@@ -148,7 +148,7 @@ void ScopeEntry::clear()
         DeclIter iter;
         DeclIter endIter = domoid->endDecls();
         for (iter = domoid->beginDecls(); iter != endIter; ++iter)
-            removeImportDecl(iter->second);
+            removeImportDecl(*iter);
     }
 
     kind = DEAD_SCOPE;
@@ -357,7 +357,7 @@ void Scope::dump() const
                 for (Domoid::DeclIter iter = domoid->beginDecls();
                      iter != domoid->endDecls(); ++iter) {
                     std::cerr << "      ";
-                    iter->second->dump();
+                    (*iter)->dump();
                     std::cerr << '\n';
                 }
             }

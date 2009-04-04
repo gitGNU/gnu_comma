@@ -10,6 +10,7 @@
 #define COMMA_AST_DECL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/DeclarativeRegion.h"
 #include "comma/ast/SignatureSet.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/ParameterModes.h"

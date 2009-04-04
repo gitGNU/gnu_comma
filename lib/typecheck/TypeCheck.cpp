@@ -621,12 +621,14 @@ SubroutineDecl *findDecl(const AstRewriter &rewrites,
                          DeclarativeRegion *region,
                          SubroutineDecl    *decl)
 {
-    IdentifierInfo   *name       = decl->getIdInfo();
-    SubroutineType   *targetType = decl->getType();
-    Sigoid::DeclRange range      = region->findDecls(name);
+    typedef DeclarativeRegion::PredIter  PredIter;
+    typedef DeclarativeRegion::PredRange PredRange;
+    IdentifierInfo *name       = decl->getIdInfo();
+    SubroutineType *targetType = decl->getType();
+    PredRange       range      = region->findDecls(name);
 
-    for (Sigoid::DeclIter iter = range.first; iter != range.second; ++iter) {
-        if (SubroutineDecl *source = dyn_cast<SubroutineDecl>(iter->second)) {
+    for (PredIter &iter = range.first; iter != range.second; ++iter) {
+        if (SubroutineDecl *source = dyn_cast<SubroutineDecl>(*iter)) {
             SubroutineType *sourceType = source->getType();
             if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
                 return source;
@@ -673,7 +675,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         Sigoid::DeclIter iter    = sigdecl->beginDecls();
         Sigoid::DeclIter endIter = sigdecl->endDecls();
         for ( ; iter != endIter; ++iter) {
-            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(iter->second)) {
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*iter)) {
                 IdentifierInfo *name   = srDecl->getIdInfo();
                 SubroutineType *srType = srDecl->getType();
                 SubroutineDecl *decl   = findDecl(rewrites, model, srDecl);
@@ -735,7 +737,7 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
     Sigoid::DeclIter endIter = sigdecl->endDecls();
 
     for ( ; iter != endIter; ++iter) {
-        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(iter->second)) {
+        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
             if (ensureDistinctTypeDeclaration(model, tyDecl)) {
                 model->addDecl(tyDecl);
                 scope.addDirectDecl(tyDecl);
@@ -747,16 +749,15 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
 bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
                                               TypeDecl          *tyDecl)
 {
-    typedef DeclarativeRegion::DeclRange DeclRange;
-    typedef DeclarativeRegion::DeclIter  DeclIter;
+    typedef DeclarativeRegion::PredRange PredRange;
+    typedef DeclarativeRegion::PredIter  PredIter;
     IdentifierInfo *name  = tyDecl->getIdInfo();
-    DeclRange       range = region->findDecls(name);
+    PredRange       range = region->findDecls(name);
     bool            allOK = true;
 
     if (range.first != range.second) {
-        for (DeclIter dIter = range.first;
-             dIter != range.second; ++dIter) {
-            TypeDecl *conflict = dyn_cast<TypeDecl>(dIter->second);
+        for (PredIter &dIter = range.first; dIter != range.second; ++dIter) {
+            TypeDecl *conflict = dyn_cast<TypeDecl>(*dIter);
             if (conflict) {
                 SourceLocation tyLoc =
                     getSourceLocation(tyDecl->getLocation());

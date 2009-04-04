@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/DeclarativeRegion.h"
 #include "llvm/ADT/SmallVector.h"
 
 #ifndef COMMA_AST_STMT_HDR_GUARD

@@ -142,10 +142,10 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     DeclarativeRegion *region    = qualifier->resolve();
 
     // Lookup the name in the resolved declarative region.
-    typedef DeclarativeRegion::DeclRange DeclRange;
-    typedef DeclarativeRegion::DeclIter  DeclIter;
+    typedef DeclarativeRegion::PredRange PredRange;
+    typedef DeclarativeRegion::PredIter  PredIter;
 
-    DeclRange range = region->findDecls(name);
+    PredRange range = region->findDecls(name);
 
     if (range.first == range.second) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -156,8 +156,8 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     // decls.  Collect the nullary functions.
     llvm::SmallVector<FunctionDecl*, 4> functionDecls;
 
-    for (DeclIter iter = range.first; iter != range.second; ++iter) {
-        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(iter->second)) {
+    for (PredIter iter = range.first; iter != range.second; ++iter) {
+        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
             if (fdecl->getArity() == 0)
                 functionDecls.push_back(fdecl);
         }
