@@ -38,27 +38,28 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
 }
 
 // This function is a helper to acceptDirectName.  It checks that an arbitrary
-// decl denotes a direct name (a value decl or nullary function).  Returns a
-// valid Node when the decl is accepted, otherwise an invalid Node is returned.
-Node TypeCheck::resolveDirectDecl(Decl           *candidate,
-                                  IdentifierInfo *name,
-                                  Location        loc)
+// decl denotes a direct name (a value decl or nullary function).  Returns an
+// expression node corresponding to the given candidate when accepted, otherwise
+// 0 is returned.
+Expr *TypeCheck::resolveDirectDecl(Decl           *candidate,
+                                   IdentifierInfo *name,
+                                   Location        loc)
 {
     if (isa<ValueDecl>(candidate)) {
         ValueDecl  *decl = cast<ValueDecl>(candidate);
         DeclRefExpr *ref = new DeclRefExpr(decl, loc);
-        return Node(ref);
+        return ref;
     }
 
     if (isa<FunctionDecl>(candidate)) {
         FunctionDecl *decl = cast<FunctionDecl>(candidate);
         if (decl->getArity() == 0) {
             FunctionCallExpr *call = new FunctionCallExpr(decl, 0, 0, loc);
-            return Node(call);
+            return call;
         }
     }
 
-    return Node::getInvalidNode();
+    return 0;
 }
 
 // FIXME: This function is just an example of where name lookup is going.  The
@@ -75,9 +76,8 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
     // Examine the direct declarations for a value of the given name.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter) {
-        Node node = resolveDirectDecl(*iter, name, loc);
-        if (node.isValid())
-            return node;
+        if (Expr *expr = resolveDirectDecl(*iter, name, loc))
+            return Node(expr);
     }
 
     // Otherwise, scan the full set of imported declarations, and partition the

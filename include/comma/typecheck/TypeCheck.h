@@ -310,9 +310,13 @@ private:
                                               Type             **actuals,
                                               unsigned           numActuals);
 
-    Node resolveDirectDecl(Decl           *candidate,
-                           IdentifierInfo *name,
-                           Location        loc);
+    // This function is a helper to acceptDirectName.  It checks that an arbitrary
+    // decl denotes a direct name (a value decl or nullary function).  Returns an
+    // expression node corresponding to the given candidate when accepted, otherwise
+    // 0 is returned.
+    Expr *resolveDirectDecl(Decl           *candidate,
+                            IdentifierInfo *name,
+                            Location        loc);
 
     // Resolves the given call expression (which should have multiple candidate
     // connectives) to one which satisfies the given target type and returns
