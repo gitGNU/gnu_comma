@@ -53,10 +53,16 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "Qualifier"
 };
 
-void Ast::dump()
+void Ast::dump(unsigned depth)
 {
+    dumpSpaces(depth);
     std::cerr << '<'
               << getKindString()
               << ' ' << std::hex << uintptr_t(this)
               << '>';
+}
+
+void Ast::dumpSpaces(unsigned n)
+{
+    while (n--) std::cerr << "  ";
 }

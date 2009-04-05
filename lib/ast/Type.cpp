@@ -264,17 +264,18 @@ bool DomainType::equals(const Type *type) const
     return false;
 }
 
-void DomainType::dump()
+void DomainType::dump(unsigned depth)
 {
+    dumpSpaces(depth++);
     std::cerr << '<' << getKindString()
               << ' ' << std::hex << uintptr_t(this) << ' ';
 
     if (denotesPercent())
-        std::cerr << "% ";
+        std::cerr << "%\n";
     else
-        std::cerr << getString() << ' ';
+        std::cerr << getString() << '\n';
 
-    getDeclaration()->dump();
+    getDeclaration()->dump(depth);
     std::cerr << '>';
 }
 
@@ -405,41 +406,40 @@ bool SubroutineType::equals(const Type *type) const
     return isa<ProcedureType>(routineType);
 }
 
-void SubroutineType::dump()
+void SubroutineType::dump(unsigned depth)
 {
+    dumpSpaces(depth++);
     std::cerr << '<' <<  getKindString() << ' '
-              << std::hex << uintptr_t(this) << ' ';
+              << std::hex << uintptr_t(this) << '\n';
 
     if (numArgs > 0) {
-        std::cerr << "(";
-
         for (unsigned i = 0; i < numArgs; ++i) {
-            std::cerr << getKeyword(i)->getString()
-                      << " : ";
+            dumpSpaces(depth);
+            std::cerr << '(' << getKeyword(i)->getString() << " : ";
             switch (getExplicitParameterMode(i)) {
             case MODE_IN:
-                std::cerr << "in ";
+                std::cerr << "in";
                 break;
             case MODE_IN_OUT:
-                std::cerr << "in out ";
+                std::cerr << "in out";
                 break;
             case MODE_OUT:
-                std::cerr << "out ";
+                std::cerr << "out";
                 break;
             case MODE_DEFAULT:
                 break;
             }
-            getArgType(i)->dump();
+            std::cerr << '\n';
+            getArgType(i)->dump(depth + 1);
 
-            if (i != numArgs - 1) std::cerr << "; ";
+            std::cerr << ')';
+            if (i != numArgs - 1) std::cerr << '\n';
         }
-
-        std::cerr << ") ";
     }
 
     if (FunctionType *ftype = dyn_cast<FunctionType>(this)) {
-        std::cerr << "return ";
-        ftype->getReturnType()->dump();
+        std::cerr << '\n';
+        ftype->getReturnType()->dump(depth);
     }
     std::cerr << '>';
 }

@@ -386,19 +386,22 @@ BlockStmt *SubroutineDecl::getBody()
     return 0;
 }
 
-void SubroutineDecl::dump()
+void SubroutineDecl::dump(unsigned depth)
 {
+    dumpSpaces(depth);
     std::cerr << '<' << getKindString()
               << ' ' << uintptr_t(this)
-              << ' ' << getString() << ' ';
-    getType()->dump();
+              << ' ' << getString() << '\n';
+
+    depth++;
+    getType()->dump(depth);
 
     if (hasBody()) {
         BlockStmt::StmtIter iter    = body->beginStatements();
         BlockStmt::StmtIter endIter = body->endStatements();
         for ( ; iter != endIter; ++iter) {
-            std::cerr << ' ';
-            (*iter)->dump();
+            std::cerr << '\n';
+            (*iter)->dump(depth);
         }
     }
 

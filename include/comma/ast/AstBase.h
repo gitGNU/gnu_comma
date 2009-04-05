@@ -289,7 +289,11 @@ public:
     const char *getKindString() const { return kindStrings[kind]; }
 
     /// \brief Prints a representation of this ast node to stderr.
-    virtual void dump();
+    virtual void dump(unsigned depth = 0);
+
+    /// \brief Utility to print the given number of spaces to stderr.  To be
+    /// used in implementations of dump.
+    static void dumpSpaces(unsigned n);
 
     /// \brief Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }

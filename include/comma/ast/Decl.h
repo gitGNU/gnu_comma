@@ -682,7 +682,7 @@ public:
         return const_cast<SubroutineDecl*>(this)->getBody();
     }
 
-    void dump();
+    void dump(unsigned depth = 0);
 
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }

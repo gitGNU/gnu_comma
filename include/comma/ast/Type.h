@@ -307,7 +307,7 @@ public:
     bool equals(const Type *type) const;
 
     // Prints this node to stderr.
-    void dump();
+    void dump(unsigned depth = 0);
 
     // Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
@@ -385,7 +385,7 @@ public:
     bool equals(const Type *type) const;
 
     // Dumps this subroutine to stderr.
-    void dump();
+    void dump(unsigned depth = 0);
 
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }

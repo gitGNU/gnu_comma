@@ -276,7 +276,7 @@ public:
     Location getElseLocation() const { return elseLocation; }
 
     // Dump the if statement to stderr.
-    void dump();
+    void dump(unsigned depth = 0);
 
     static bool classof(const IfStmt *node) { return true; }
     static bool classof(const Ast *node) {
