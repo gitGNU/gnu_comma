@@ -55,7 +55,6 @@ class InjExpr;
 class KeywordSelector;
 class ModelDecl;
 class ModelType;
-class NamedDecl;
 class ObjectDecl;
 class ParameterizedModel;
 class ParameterizedType;

@@ -30,21 +30,21 @@ public:
     const llvm::sys::Path &getPath() const { return path; }
 
     // Registers the given declaration with this compilation unit.
-    void addDeclaration(NamedDecl *decl) {
+    void addDeclaration(Decl *decl) {
         declarations.push_back(decl);
     }
 
     // Iterators over the declarations contained in this compilation unit.  The
     // declarations are returned in the order they were installed via calls to
     // add_declaration.
-    typedef std::vector<NamedDecl *>::const_iterator decl_iterator;
+    typedef std::vector<Decl *>::const_iterator decl_iterator;
     decl_iterator beginDeclarations() const { return declarations.begin(); }
     decl_iterator endDeclarations()   const { return declarations.end(); }
 
 private:
     llvm::sys::Path path;
 
-    std::vector<NamedDecl *> declarations;
+    std::vector<Decl *> declarations;
 };
 
 } // End comma namespace

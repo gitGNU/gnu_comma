@@ -36,7 +36,7 @@ public:
     void parseModelDeclaration(Descriptor &desc);
     void parseModel();
 
-    Node parseModelParameter();
+    void parseModelParameter(Descriptor &desc);
     void parseModelParameterization(Descriptor &desc);
 
     void parseWithExpression();

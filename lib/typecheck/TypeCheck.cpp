@@ -150,9 +150,11 @@ void TypeCheck::endModelDefinition()
     ModelDecl *result = getCurrentModel();
     scope.pop();
     scope.addDirectModel(result);
+    compUnit->addDeclaration(result);
 }
 
-Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
+Node TypeCheck::acceptModelParameter(Descriptor     &desc,
+                                     IdentifierInfo *formal,
                                      Node            typeNode,
                                      Location        loc)
 {
@@ -165,14 +167,23 @@ Node TypeCheck::acceptModelParameter(IdentifierInfo *formal,
     // type into the current scope so that it may participate in upcomming
     // parameter types.
     if (SignatureType *sig = dyn_cast<SignatureType>(type)) {
-        // If the current scope contains a type declaration of the same name, it
-        // must be a formal parameter (since parameters are the first items
-        // brought into scope, and we explicitly request that parent scopes are
-        // not traversed).
-        if (scope.lookupDirectModel(formal, false)) {
-            report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal->getString();
+        // Check that the formal does not duplicate any previous parameters and
+        // does not shadow the model being defined.
+        if (formal == desc.getIdInfo()) {
+            report(loc, diag::MODEL_FORMAL_SHADOW) << formal;
             return Node::getInvalidNode();
         }
+
+        typedef Descriptor::paramIterator ParamIter;
+        for (ParamIter iter = desc.beginParams();
+             iter != desc.endParams(); ++iter) {
+            AbstractDomainDecl *param = cast_node<AbstractDomainDecl>(*iter);
+            if (param->getIdInfo() == formal) {
+                report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
+                return Node::getInvalidNode();
+            }
+        }
+
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
         scope.addDirectModel(dom);
         return Node(dom);

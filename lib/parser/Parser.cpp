@@ -411,31 +411,26 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 
 // Parses a formal parameter of a model: "id : type".  Passes the parsed type
 // off to the type checker.
-Node Parser::parseModelParameter()
+void Parser::parseModelParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
     Location        loc;
     Node            type = Node::getInvalidNode();
 
     loc = currentLocation();
+    formal = parseIdentifierInfo();
 
-    if ( !(formal = parseIdentifierInfo())) {
-        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
-        return Node::getInvalidNode();
+    if (formal && requireToken(Lexer::TKN_COLON)) {
+        type = parseModelInstantiation();
+        if (type.isValid()) {
+            Node param = client.acceptModelParameter(desc, formal, type, loc);
+            if (param.isValid())
+                desc.addParam(param);
+            return;
+        }
     }
-
-    if (!requireToken(Lexer::TKN_COLON)) {
-        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
-        return Node::getInvalidNode();
-    }
-
-    type = parseModelInstantiation();
-    if (type.isValid())
-        return client.acceptModelParameter(formal, type, loc);
-    else {
-        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
-        return Node::getInvalidNode();
-    }
+    seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
+    return;
 }
 
 // Assumes the current token is a left paren begining a model parameter list.
@@ -455,10 +450,7 @@ void Parser::parseModelParameterization(Descriptor &desc)
     NodeVector parameters;
     LocationVector locations;
     do {
-        Location loc = currentLocation();
-        Node node = parseModelParameter();
-        if (node.isValid())
-            desc.addParam(node);
+        parseModelParameter(desc);
     } while (reduceToken(Lexer::TKN_SEMI));
 
     requireToken(Lexer::TKN_RPAREN);
@@ -1019,9 +1011,8 @@ Node Parser::parseObjectDeclaration()
 
     if (type.isValid()) {
         Node init(0);
-        if (reduceToken(Lexer::TKN_ASSIGN)) {
+        if (reduceToken(Lexer::TKN_ASSIGN))
             init = parseExpr();
-        }
         if (init.isValid())
             return Node(client.acceptObjectDeclaration(loc, id, type, init));
         seekToken(Lexer::TKN_SEMI);

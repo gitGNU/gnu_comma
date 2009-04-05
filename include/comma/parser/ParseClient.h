@@ -33,9 +33,11 @@ public:
 
     // Called immediately after a model declaration has been registered.  This
     // call defines a formal parameter of a model.  The parser collects the
-    // results of this call into a Descriptor object and supplies them back to
-    // the client in a call to acceptModelDeclaration.
-    virtual Node acceptModelParameter(IdentifierInfo *formal,
+    // results of this call into the given descriptor object (and hense, the
+    // supplied descriptor contains all previously accumulated arguments) to be
+    // finalized in a call to acceptModelDeclaration.
+    virtual Node acceptModelParameter(Descriptor     &desc,
+                                      IdentifierInfo *formal,
                                       Node            typeNode,
                                       Location        loc) = 0;
 
