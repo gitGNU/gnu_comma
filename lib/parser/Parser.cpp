@@ -1017,27 +1017,16 @@ Node Parser::parseObjectDeclaration()
 
     type = parseModelInstantiation();
 
-    if (type.isValid())
-        switch (currentTokenCode()) {
-        default:
-            report(diag::UNEXPECTED_TOKEN) << currentTokenString();
-            return Node::getInvalidNode();
-
-        case Lexer::TKN_SEMI:
-            return client.acceptDeclaration(id, type, loc);
-
-        case Lexer::TKN_ASSIGN:
-            ignoreToken();
+    if (type.isValid()) {
+        Node init(0);
+        if (reduceToken(Lexer::TKN_ASSIGN)) {
             init = parseExpr();
-            if (init.isValid()) {
-                Node result = client.acceptDeclaration(id, type, loc);
-                client.acceptDeclarationInitializer(result, init);
-                return result;
-            }
-            else
-                seekToken(Lexer::TKN_SEMI);
-            return Node::getInvalidNode();
         }
+        if (init.isValid())
+            return Node(client.acceptObjectDeclaration(loc, id, type, init));
+        seekToken(Lexer::TKN_SEMI);
+        return Node::getInvalidNode();
+    }
     else {
         seekToken(Lexer::TKN_SEMI);
         return Node::getInvalidNode();

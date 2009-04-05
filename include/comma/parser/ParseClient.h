@@ -84,12 +84,10 @@ public:
     /// to singnal the completion of the definition.
     virtual void endSubroutineDefinition() = 0;
 
-    virtual Node acceptDeclaration(IdentifierInfo *name,
-                                   Node            type,
-                                   Location        loc) = 0;
-
-    virtual void acceptDeclarationInitializer(Node declNode,
-                                              Node initializer) = 0;
+    virtual Node acceptObjectDeclaration(Location        loc,
+                                         IdentifierInfo *name,
+                                         Node            type,
+                                         Node            initializer) = 0;
 
     virtual Node acceptPercent(Location loc) = 0;
 

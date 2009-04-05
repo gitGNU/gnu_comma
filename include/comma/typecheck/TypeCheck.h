@@ -54,9 +54,11 @@ public:
     void beginAddExpression();
     void endAddExpression();
 
-    Node acceptDeclaration(IdentifierInfo *name,
-                           Node            type,
-                           Location        loc);
+    Node acceptObjectDeclaration(Location        loc,
+                                 IdentifierInfo *name,
+                                 Node            type,
+                                 Node            initializer);
+
 
     void acceptDeclarationInitializer(Node declNode, Node initializer);
 

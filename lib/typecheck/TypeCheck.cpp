@@ -772,32 +772,28 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
     return allOK;
 }
 
-Node TypeCheck::acceptDeclaration(IdentifierInfo *name,
-                                  Node            typeNode,
-                                  Location        loc)
+Node TypeCheck::acceptObjectDeclaration(Location        loc,
+                                        IdentifierInfo *name,
+                                        Node            typeNode,
+                                        Node            initializerNode)
 {
     Type *type = cast_node<Type>(typeNode);
 
-    if (Type *domain = ensureValueType(type, loc)) {
-        ObjectDecl *decl = new ObjectDecl(name, domain, loc);
+    if ((type = ensureValueType(type, loc))) {
+        ObjectDecl *decl = new ObjectDecl(name, type, loc);
 
-        // FIXME: Adding the decl now will expose the binding in any
-        // initialization expression.  Perhaps we should combine this function
-        // and acceprDeclarationInitializer.
+        if (!initializerNode.isNull()) {
+            Expr *expr       = cast_node<Expr>(initializerNode);
+            Type *targetType = decl->getType();
+            if (ensureExprType(expr, targetType))
+                decl->setInitializer(expr);
+            else
+                return Node::getInvalidNode();
+        }
         scope.addDirectValue(decl);
         return Node(decl);
     }
     return Node::getInvalidNode();
-}
-
-void TypeCheck::acceptDeclarationInitializer(Node declNode, Node initializer)
-{
-    ObjectDecl *decl       = cast_node<ObjectDecl>(declNode);
-    Expr       *expr       = cast_node<Expr>(initializer);
-    Type       *targetType = decl->getType();
-
-    if (ensureExprType(expr, targetType))
-        decl->setInitializer(expr);
 }
 
 Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
