@@ -32,15 +32,5 @@ int main(int argc, const char **argv)
     Parser p(tp, idPool, tc, diag);
 
     while(p.parseTopLevelDeclaration());
-
-    /*
-    typedef CompilationUnit::decl_iterator DeclIter;
-    for (DeclIter iter = cu.beginDeclarations();
-         iter != cu.endDeclarations(); ++iter) {
-        (*iter)->dump();
-        std::cerr << std::endl;
-    }
-    */
-
     return 0;
 }
