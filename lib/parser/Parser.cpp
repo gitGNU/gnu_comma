@@ -8,11 +8,10 @@
 //
 // This parser is a typical hand written recursive decent parser.
 //
-// Tokens are requested from the lexer and stored in a small two token buffer
-// which provides one token of look-ahead.  There is always a "current token",
-// and each parse method begins its processing using the current token to guide
-// its logic.  Therefore, the rule to follow when calling a parse method (or
-// when writing one) is "the current token is the next token to be parsed".
+// There is always a "current token", and each parse method begins its
+// processing using the current token to guide its logic.  Therefore, the rule
+// to follow when calling a parse method (or when writing one) is "the current
+// token is the next token to be parsed".
 //
 // Similarly, parse methods leave the stream so that the current token is again
 // the next token to be parsed.  Thus, a parse method which consumes exactly one
