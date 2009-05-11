@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/parser/Lexer.h"
-#include <iostream>
 #include <cstring>
 
 using namespace comma;

@@ -12,8 +12,6 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Casting.h"
 
-#include <iostream>
-
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
