@@ -19,6 +19,34 @@ namespace comma {
 
 class ParseClient;
 
+//===----------------------------------------------------------------------===//
+// Node
+//
+// This class encapsulates (in a non-type-safe manner) the internal data
+// structures produced by a ParseClient, and provides automatic memory
+// management of that data by way of a reference counting mechanism.
+//
+// When a ParseClient returns data to the parser, it wraps it up in a Node
+// instance.  This provides a uniform, opaque handle on the data which the
+// parser can collect and submit back to the ParseClient.
+//
+// A Node provides automatic memory management using a reference counting
+// mechanism.  Nodes can be freely copied and assigned to.  Each Node contains a
+// pointer to the ParseClient which produced its associated data.  When the
+// reference count drops to zero, ParseClient::deleteNode is called with the
+// Node about to be freed, giving the ParseClient the opportunity to manage to
+// allocation of its data.
+//
+// In general, automatic reclamation of nodes occurs when an error is
+// encountered during parsing, or during the analysis performed by the
+// ParseClient itself.  When the ParseClient accepts a particular construct that
+// the parser produces, the associated Node's are typically released, thereby
+// inhibiting the automatic reclamation that would otherwise occur.
+//
+// A Node can be marked as "invalid", meaning that the data which is associated
+// with the Node is malformed in some respect.  A ParseClient can return invalid
+// nodes to indicate that it could not handle a construct produced by the
+// parser.  The parser in turn never submits an invalid Node back to the client.
 class Node {
 
     // This simple structure is used to maintain the ParseClient and reference
@@ -89,6 +117,9 @@ public:
     // Returns true if this Node is valid.
     bool isValid() const { return !isInvalid(); }
 
+    // Marks this node as invalid.
+    void markInvalid();
+
     // Returns true if this Node is not associated with any data.
     bool isNull() const {
         return state->payload == 0;
@@ -115,9 +146,13 @@ private:
     NodeState *state;
 };
 
-
+//===----------------------------------------------------------------------===//
+// NodeVector
+//
+// A simple vector type which manages a collection of Node's.  This type
+// provides a release method which releases all of the Node's associated with
+// the vector.
 class NodeVector : public llvm::SmallVector<Node, 16> {
-
 public:
     void release();
 };
@@ -127,7 +162,7 @@ class Descriptor {
 
     /// The type used to hold nodes representing the formal parameters of this
     /// descriptor.
-    typedef llvm::SmallVector<Node, 16> paramVector;
+    typedef NodeVector paramVector;
 
 public:
 
@@ -155,6 +190,9 @@ public:
         clear();
         kind = descKind;
     }
+
+    /// Releases all Node's associated with this descriptor.
+    void release();
 
     /// Associates the given identifier and location with this descriptor.
     void setIdentifier(IdentifierInfo *id, Location loc) {

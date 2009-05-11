@@ -43,6 +43,11 @@ bool Node::isOwning()
     return !(state->client.getInt() & NodeState::Released);
 }
 
+void Node::markInvalid()
+{
+    unsigned prop = state->client.getInt();
+    state->client.setInt(prop | NodeState::Invalid);
+}
 
 void NodeVector::release()
 {
@@ -88,3 +93,8 @@ void Descriptor::clear()
     params.clear();
 }
 
+void Descriptor::release()
+{
+    returnType.release();
+    params.release();
+}

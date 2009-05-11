@@ -203,11 +203,8 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 
     // Convert each parameter node into an AbstractDomainDecl and release the
     // Nodes.
-    //
-    // FIXME:  This introduces a memory leak when the descriptor is invalid.
     for (Descriptor::paramIterator iter = desc.beginParams();
          iter != desc.endParams(); ++iter) {
-        iter->release();
         AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
         domains.push_back(domain->getType());
     }
@@ -253,8 +250,10 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     currentModel      = modelDecl;
     declarativeRegion = modelDecl->asDeclarativeRegion();
 
-    // Bring the model itself into scope.
+    // Bring the model itself into scope, and release the nodes associated with
+    // the given descriptor.
     scope.addDirectModel(modelDecl);
+    desc.release();
 }
 
 void TypeCheck::acceptWithSupersignature(Node     typeNode,
@@ -996,14 +995,11 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         scope.addDirectSubroutine(routineDecl);
     }
 
-    // Release each of the parameter nodes and the return type.
-    for (Descriptor::paramIterator iter = desc.beginParams();
-         iter != desc.endParams(); ++iter)
-        iter->release();
-    if (desc.isFunctionDescriptor())
-        desc.getReturnType().release();
+    // Since the declaration has been added permanently to the environment,
+    // ensure the returned Node does not reclaim the decl.
     Node routine = getNode(routineDecl);
     routine.release();
+    desc.release();
     return routine;
 }
 
