@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef COMMA_PARSER_DESCRIPTORS_HDR_GUARD
+#define COMMA_PARSER_DESCRIPTORS_HDR_GUARD
+
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/basic/Location.h"
 #include "llvm/Support/DataTypes.h"
@@ -139,6 +142,6 @@ private:
     Node            returnType;
 };
 
-
-
 } // End comma namespace.
+
+#endif
