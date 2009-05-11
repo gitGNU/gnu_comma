@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -11,7 +11,6 @@
 
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/basic/Location.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/PointerIntPair.h"
 
