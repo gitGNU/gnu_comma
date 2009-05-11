@@ -13,7 +13,7 @@ using namespace comma;
 
 Node Parser::parseStatement()
 {
-    Node node = Node::getInvalidNode();
+    Node node = Node::getInvalidNode(&client);
 
     switch (currentTokenCode()) {
 
@@ -53,7 +53,7 @@ Node Parser::parseProcedureCallStatement()
     loc  = currentLocation();
     name = parseIdentifierInfo();
 
-    if (!name) return Node::getInvalidNode();
+    if (!name) return Node::getInvalidNode(&client);
 
     NodeVector arguments;
     bool       seenSelector = false;
@@ -63,12 +63,10 @@ Node Parser::parseProcedureCallStatement()
         report(diag::ILLEGAL_EMPTY_PARAMS);
         ignoreToken();
         ignoreToken();
-        return client.acceptProcedureCall(name, loc, 0, 0);
     }
-
-    if (reduceToken(Lexer::TKN_LPAREN)) {
+    else if (reduceToken(Lexer::TKN_LPAREN)) {
         do {
-            Node arg = Node::getInvalidNode();
+            Node arg = Node::getInvalidNode(&client);
             if (keywordSelectionFollows()) {
                 arg = parseSubroutineKeywordSelection();
                 seenSelector = true;
@@ -76,28 +74,25 @@ Node Parser::parseProcedureCallStatement()
             else if (seenSelector) {
                 report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
                 seekCloseParen();
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
             else
                 arg = parseExpr();
 
             if (arg.isInvalid()) {
                 seekCloseParen();
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
             arguments.push_back(arg);
         } while (reduceToken(Lexer::TKN_COMMA));
 
         if (!requireToken(Lexer::TKN_RPAREN)) {
             seekCloseParen();
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
     }
 
-    return client.acceptProcedureCall(name,
-                                      loc,
-                                      &arguments[0],
-                                      arguments.size());
+    return client.acceptProcedureCall(name, loc, arguments);
 }
 
 Node Parser::parseReturnStmt()
@@ -107,7 +102,7 @@ Node Parser::parseReturnStmt()
     Location loc = ignoreToken();
 
     if (currentTokenIs(Lexer::TKN_SEMI))
-        return client.acceptReturnStmt(loc);
+        return client.acceptEmptyReturnStmt(loc);
 
     Node expr = parseExpr();
 
@@ -122,13 +117,13 @@ Node Parser::parseAssignmentStmt()
 
     Location        location = currentLocation();
     IdentifierInfo *target   = parseIdentifierInfo();
-    Node            value(0);
+    Node            value    = Node::getNullNode(&client);
 
     ignoreToken();              // Ignore the `:='.
     value = parseExpr();
     if (value.isValid())
         return client.acceptAssignmentStmt(location, target, value);
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }
 
 Node Parser::parseIfStmt()
@@ -137,12 +132,13 @@ Node Parser::parseIfStmt()
 
     Location   loc       = ignoreToken();
     Node       condition = parseExpr();
+    Node       result    = Node::getNullNode(&client);
     NodeVector stmts;
-    Node       result(0);
+
 
     if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
         seekEndIf();
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
     }
 
     do {
@@ -157,7 +153,7 @@ Node Parser::parseIfStmt()
     result = client.acceptIfStmt(loc, condition, &stmts[0], stmts.size());
     if (result.isInvalid()) {
         seekEndIf();
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
     }
 
     while (currentTokenIs(Lexer::TKN_ELSIF)) {
@@ -165,7 +161,7 @@ Node Parser::parseIfStmt()
         condition = parseExpr();
         if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
             seekEndIf();
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
 
         stmts.clear();
@@ -183,7 +179,7 @@ Node Parser::parseIfStmt()
 
         if (result.isInvalid()) {
             seekEndIf();
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
     }
 
@@ -201,14 +197,14 @@ Node Parser::parseIfStmt()
     }
 
     if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_IF))
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
 
     return Node(result);
 }
 
 Node Parser::parseBlockStmt()
 {
-    Node            block(0);
+    Node            block = Node::getNullNode(&client);
     Location        loc   = currentLocation();
     IdentifierInfo *label = 0;
 
@@ -245,5 +241,5 @@ Node Parser::parseBlockStmt()
     }
 
     seekAndConsumeEndTag(label);
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }

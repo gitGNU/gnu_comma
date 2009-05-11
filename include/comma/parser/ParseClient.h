@@ -22,7 +22,7 @@ public:
     // calls this method when cleaning up after a bad parse.  The implementation
     // need not delete the node as a result of this call -- it might choose to
     // cache it, for instance.
-    virtual void deleteNode(Node node) = 0;
+    virtual void deleteNode(Node &node) = 0;
 
     // Starts the processing of a model.  The supplied Descriptor contains the
     // name and location of the declaration, as is either of kind
@@ -49,7 +49,7 @@ public:
     virtual void endWithExpression() = 0;
 
     // Called for each super signature of a with expression.
-    virtual Node acceptWithSupersignature(Node typeNode, Location loc) = 0;
+    virtual void acceptWithSupersignature(Node typeNode, Location loc) = 0;
 
     // Invoked when the parser consumes a carrier declaration.
     virtual void acceptCarrier(IdentifierInfo *name,
@@ -86,7 +86,7 @@ public:
     /// to singnal the completion of the definition.
     virtual void endSubroutineDefinition() = 0;
 
-    virtual Node acceptObjectDeclaration(Location        loc,
+    virtual bool acceptObjectDeclaration(Location        loc,
                                          IdentifierInfo *name,
                                          Node            type,
                                          Node            initializer) = 0;
@@ -96,9 +96,8 @@ public:
     virtual Node acceptTypeIdentifier(IdentifierInfo *info, Location loc) = 0;
 
     virtual Node acceptTypeApplication(IdentifierInfo  *connective,
-                                       Node            *argumentNodes,
+                                       NodeVector      &argumentNodes,
                                        Location        *argumentLocs,
-                                       unsigned         numArgs,
                                        IdentifierInfo **keys,
                                        Location        *keyLocs,
                                        unsigned         numKeys,
@@ -114,7 +113,7 @@ public:
 
     // Submits an import from the given type node, and the location of the
     // import reserved word.
-    virtual Node acceptImportDeclaration(Node importedType, Location loc) = 0;
+    virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
 
     virtual Node acceptKeywordSelector(IdentifierInfo *key,
                                        Location        loc,
@@ -129,13 +128,11 @@ public:
 
     virtual Node acceptFunctionCall(IdentifierInfo  *name,
                                     Location         loc,
-                                    Node            *args,
-                                    unsigned         numArgs) = 0;
+                                    NodeVector      &args) = 0;
 
     virtual Node acceptProcedureCall(IdentifierInfo  *name,
                                      Location         loc,
-                                     Node            *args,
-                                     unsigned         numArgs) = 0;
+                                     NodeVector      &args) = 0;
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.
@@ -163,7 +160,9 @@ public:
                                  Node    *consequents,
                                  unsigned numConsequents) = 0;
 
-    virtual Node acceptReturnStmt(Location loc, Node retNode = 0) = 0;
+    virtual Node acceptEmptyReturnStmt(Location loc) = 0;
+
+    virtual Node acceptReturnStmt(Location loc, Node retNode) = 0;
 
     virtual Node acceptAssignmentStmt(Location        loc,
                                       IdentifierInfo *target,

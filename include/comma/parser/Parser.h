@@ -63,13 +63,13 @@ public:
     /// endTagStack must hold the expected end tag name.
     void parseSubroutineBody(Node declarationNode);
 
-    Node parseObjectDeclaration();
-    Node parseImportDeclaration();
+    bool parseDeclaration();
+    bool parseObjectDeclaration();
+    bool parseImportDeclaration();
 
     void parseCarrier();
     void parseAddComponents();
 
-    Node parseDeclaration();
     Node parseStatement();
     Node parseIfStmt();
     Node parseReturnStmt();
@@ -129,10 +129,6 @@ private:
     };
 
     std::stack<EndTagEntry> endTagStack;
-
-    // We may wish to refine this typedef into a few classes which provide
-    // different sizes which better accomidate adverage demands.
-    typedef llvm::SmallVector<Node, 4> NodeVector;
 
     // Generic vector type to accumulate locations.
     typedef llvm::SmallVector<Location, 4> LocationVector;

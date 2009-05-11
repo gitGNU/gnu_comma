@@ -11,7 +11,6 @@
 
 using namespace comma;
 
-
 Node Parser::parseExpr()
 {
     switch (currentTokenCode()) {
@@ -32,36 +31,31 @@ Node Parser::parseSubroutineKeywordSelection()
     assert(keywordSelectionFollows());
     Location        loc  = currentLocation();
     IdentifierInfo *key  = parseIdentifierInfo();
-    Node            expr = Node::getInvalidNode();
 
     ignoreToken();              // consume the "=>".
-    expr = parseExpr();
+    Node expr = parseExpr();
 
     if (expr.isInvalid())
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
     else
         return client.acceptKeywordSelector(key, loc, expr, true);
 }
 
 Node Parser::parseQualificationExpr()
 {
-    Node     qualifier     = Node::getInvalidNode();
-    Node     qualifierType = Node::getInvalidNode();
-    Location location;
-
-    location      = currentLocation();
-    qualifierType = parseModelInstantiation();
+    Location location  = currentLocation();
+    Node qualifierType = parseModelInstantiation();
 
     if (qualifierType.isInvalid()) {
         do {
             seekAndConsumeToken(Lexer::TKN_DCOLON);
         } while (qualificationFollows());
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
     }
 
     if (reduceToken(Lexer::TKN_DCOLON)) {
 
-        qualifier = client.acceptQualifier(qualifierType, location);
+        Node qualifier = client.acceptQualifier(qualifierType, location);
 
         while (qualificationFollows()) {
             location      = currentLocation();
@@ -71,9 +65,9 @@ Node Parser::parseQualificationExpr()
                 do {
                     seekAndConsumeToken(Lexer::TKN_DCOLON);
                 } while (qualificationFollows());
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
-            else {
+            else if (qualifier.isValid()) {
                 assert(currentTokenIs(Lexer::TKN_DCOLON));
                 ignoreToken();
                 qualifier = client.acceptNestedQualifier(qualifier,
@@ -83,7 +77,7 @@ Node Parser::parseQualificationExpr()
         }
         return qualifier;
     }
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }
 
 Node Parser::parseInjExpr()
@@ -95,7 +89,7 @@ Node Parser::parseInjExpr()
 
     if (expr.isValid())
         return client.acceptInj(loc, expr);
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }
 
 Node Parser::parsePrjExpr()
@@ -107,12 +101,12 @@ Node Parser::parsePrjExpr()
 
     if (expr.isValid())
         return client.acceptPrj(loc, expr);
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }
 
 Node Parser::parsePrimaryExpr()
 {
-    Node     qualifier = Node::getNullNode();
+    Node     qualifier = Node::getNullNode(&client);
     Location loc       = currentLocation();
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
@@ -127,7 +121,7 @@ Node Parser::parsePrimaryExpr()
     if (qualificationFollows()) {
        qualifier = parseQualificationExpr();
        if (qualifier.isInvalid())
-           return Node::getInvalidNode();
+           return Node::getInvalidNode(&client);
     }
 
     // The only primary expressions we currently support are direct names.
@@ -135,7 +129,7 @@ Node Parser::parsePrimaryExpr()
 
     if (!directName) {
         seekToken(Lexer::TKN_SEMI);
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
     }
 
     // If we have an empty set of parameters, treat as a nullary name.
@@ -154,7 +148,7 @@ Node Parser::parsePrimaryExpr()
         NodeVector arguments;
         bool       seenSelector = false;
         do {
-            Node arg = Node::getInvalidNode();
+            Node arg = Node::getInvalidNode(&client);
             if (keywordSelectionFollows()) {
                 arg = parseSubroutineKeywordSelection();
                 seenSelector = true;
@@ -162,27 +156,24 @@ Node Parser::parsePrimaryExpr()
             else if (seenSelector) {
                 report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
                 seekCloseParen();
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
             else
                 arg = parseExpr();
 
             if (arg.isInvalid()) {
                 seekCloseParen();
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
             arguments.push_back(arg);
         } while (reduceToken(Lexer::TKN_COMMA));
 
         if (!requireToken(Lexer::TKN_RPAREN)) {
             seekCloseParen();
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
 
-        return client.acceptFunctionCall(directName,
-                                         loc,
-                                         &arguments[0],
-                                         arguments.size());
+        return client.acceptFunctionCall(directName, loc, arguments);
     }
 
     if (qualifier.isNull())

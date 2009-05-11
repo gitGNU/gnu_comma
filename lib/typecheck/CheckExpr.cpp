@@ -12,6 +12,8 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Casting.h"
 
+#include <iostream>
+
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
@@ -22,10 +24,12 @@ Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
 {
     Type *domain = ensureDomainType(typeNode, loc);
 
-    if (domain)
-        return Node(new Qualifier(domain, loc));
+    if (domain) {
+        typeNode.release();
+        return getNode(new Qualifier(domain, loc));
+    }
     else
-        return Node::getInvalidNode();
+        return getInvalidNode();
 }
 
 // FIXME: Implement.
@@ -34,7 +38,7 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
                                       Location loc)
 {
     assert(false && "Nested qualifiers not yet implemented!");
-    return Node::getInvalidNode();
+    return getInvalidNode();
 }
 
 // This function is a helper to acceptDirectName.  It checks that an arbitrary
@@ -70,14 +74,14 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
 
     if (!homonym || homonym->empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Examine the direct declarations for a value of the given name.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter) {
         if (Expr *expr = resolveDirectDecl(*iter, name, loc))
-            return Node(expr);
+            return getNode(expr);
     }
 
     // Otherwise, scan the full set of imported declarations, and partition the
@@ -98,7 +102,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
     // If both partitions are empty, then no name is visible.
     if (valueDecls.empty() && functionDecls.empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     if (valueDecls.empty()) {
@@ -112,25 +116,25 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
             new FunctionCallExpr(functionDecls[0], 0, 0, loc);
         for (unsigned i = 1; i < functionDecls.size(); ++i)
             call->addConnective(functionDecls[i]);
-        return Node(call);
+        return getNode(call);
     }
     else if (functionDecls.empty()) {
         // If a there is more than one value decl in effect, then we have an
         // ambiguity.  Value decls are not overloadable.
         if (valueDecls.size() > 1) {
             report(loc, diag::AMBIGUOUS_EXPRESSION);
-            return Node::getInvalidNode();
+            return getInvalidNode();
         }
         // Otherwise, we can fully resolve the value.
         DeclRefExpr *ref = new DeclRefExpr(valueDecls[0], loc);
-        return Node(ref);
+        return getNode(ref);
     }
     else {
         // There are both values and nullary function declarations in scope.
         // Since values are not overloadable entities we have a conflict and
         // this expression requires qualification.
         report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 }
 
@@ -149,7 +153,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 
     if (range.first == range.second) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Currently, the only component of a domain which we support are function
@@ -167,7 +171,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     // domain.
     if (functionDecls.empty()) {
         report(loc, diag::NAME_NOT_VISIBLE);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Form the function call node.
@@ -175,44 +179,45 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     for (unsigned i = 1; i < functionDecls.size(); ++i)
         call->addConnective(functionDecls[i]);
     call->setQualifier(qualifier);
-    return Node(call);
+    qualNode.release();
+    return getNode(call);
 }
 
 Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,
                                    Location        loc,
-                                   Node           *argNodes,
-                                   unsigned        numArgs)
+                                   NodeVector     &argNodes)
 {
-    return acceptSubroutineCall(name, loc, argNodes, numArgs, true);
+    return acceptSubroutineCall(name, loc, argNodes, true);
 }
 
 // Note that this function will evolve to take a Node in place of an identifier,
 // and will be renamed to acceptFunctionCall.
 Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
                                      Location        loc,
-                                     Node           *argNodes,
-                                     unsigned        numArgs,
+                                     NodeVector     &argNodes,
                                      bool            checkFunction)
 {
     llvm::SmallVector<Expr*, 8> args;
+    unsigned numArgs = argNodes.size();
 
-    // Convert the argument nodes to Expr's.
-    for (unsigned i = 0; i < numArgs; ++i)
+    // Convert the argument nodes to Expr's and release the Node's.
+    for (unsigned i = 0; i < numArgs; ++i) {
         args.push_back(cast_node<Expr>(argNodes[i]));
+    }
 
     llvm::SmallVector<SubroutineDecl*, 8> routineDecls;
     Homonym *homonym = name->getMetadata<Homonym>();
 
     if (!homonym) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     lookupSubroutineDecls(homonym, numArgs, routineDecls, checkFunction);
 
     if (routineDecls.empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     if (routineDecls.size() == 1)
@@ -238,7 +243,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
                     if (declFilter.none()) {
                         report(keyLoc, diag::SUBROUTINE_HAS_NO_SUCH_KEYWORD)
                             << key << name;
-                        return Node::getInvalidNode();
+                        return getInvalidNode();
                     }
                     break;
                 }
@@ -306,12 +311,16 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
     // If all of the declarations have been filtered out, it is due to ambiguous
     // arguments.  Simply return.
     if (declFilter.none())
-        return Node::getInvalidNode();
+        return getInvalidNode();
 
     // If we have a unique declaration, check the matching call.
     if (declFilter.count() == 1) {
+        argNodes.release();
         SubroutineDecl *decl = routineDecls[declFilter.find_first()];
-        return checkSubroutineCall(decl, loc, &args[0], numArgs);
+        Node result = checkSubroutineCall(decl, loc, &args[0], numArgs);
+        if (result.isValid())
+            argNodes.release();
+        return result;
     }
 
     // If we are dealing with functions, the resolution of the call will depend
@@ -328,11 +337,12 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
             new FunctionCallExpr(connectives[0], &args[0], numArgs, loc);
         for (unsigned i = 1; i < connectives.size(); ++i)
             call->addConnective(connectives[i]);
-        return Node(call);
+        argNodes.release();
+        return getNode(call);
     }
     else {
         report(loc, diag::AMBIGUOUS_EXPRESSION);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 }
 
@@ -407,7 +417,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
 {
     if (decl->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << decl->getIdInfo();
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     llvm::SmallVector<Expr*, 4> sortedArgs(numArgs);
@@ -426,7 +436,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
             if (keyIdx < 0) {
                 report(keyLoc, diag::SUBROUTINE_HAS_NO_SUCH_KEYWORD)
                     << key << decl->getIdInfo();
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
 
             // The corresponding index of the keyword must be greater than the
@@ -434,7 +444,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
             // `overlap' a positional parameter).
             if ((unsigned)keyIdx < numPositional) {
                 report(keyLoc, diag::PARAM_PROVIDED_POSITIONALLY) << key;
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
 
             // Ensure that this keyword is not a duplicate of any preceding
@@ -445,7 +455,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
 
                 if (prevSelector->getKeyword() == key) {
                     report(keyLoc, diag::DUPLICATE_KEYWORD) << key;
-                    return Node::getInvalidNode();
+                    return getInvalidNode();
                 }
             }
 
@@ -467,19 +477,19 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
             arg = selector->getExpression();
 
         if (!ensureExprType(arg, targetType))
-            return Node::getInvalidNode();
+            return getInvalidNode();
     }
 
     if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
         FunctionCallExpr *call =
             new FunctionCallExpr(fdecl, &sortedArgs[0], numArgs, loc);
-        return Node(call);
+        return getNode(call);
     }
     else {
         ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
         ProcedureCallStmt *call =
             new ProcedureCallStmt(pdecl, &sortedArgs[0], numArgs, loc);
-        return Node(call);
+        return getNode(call);
     }
 }
 
@@ -561,7 +571,7 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
 
     if (!domoid) {
         report(loc, diag::INVALID_INJ_CONTEXT);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Check that the given expression is of the current domain type.
@@ -569,17 +579,18 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
     Type      *exprTy = expr->getType();
     if (!domTy->equals(exprTy)) {
         report(loc, diag::INCOMPATIBLE_TYPES);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Check that the carrier type has been defined.
     CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
     if (!carrier) {
         report(loc, diag::CARRIER_TYPE_UNDEFINED);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
-    return Node(new InjExpr(expr, carrier->getType(), loc));
+    exprNode.release();
+    return getNode(new InjExpr(expr, carrier->getType(), loc));
 }
 
 Node TypeCheck::acceptPrj(Location loc, Node exprNode)
@@ -589,14 +600,14 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
 
     if (!domoid) {
         report(loc, diag::INVALID_PRJ_CONTEXT);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Check that the carrier type has been defined.
     CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
     if (!carrier) {
         report(loc, diag::CARRIER_TYPE_UNDEFINED);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Check that the given expression is of the carrier type.
@@ -604,8 +615,9 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
     Type *exprTy    = expr->getType();
     if (!carrierTy->equals(exprTy)) {
         report(loc, diag::INCOMPATIBLE_TYPES);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
-    return Node(new PrjExpr(expr, domoid->getPercent(), loc));
+    exprNode.release();
+    return getNode(new PrjExpr(expr, domoid->getPercent(), loc));
 }

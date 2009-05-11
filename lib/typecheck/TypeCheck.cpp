@@ -69,10 +69,11 @@ void TypeCheck::populateInitialEnvironment()
     theBoolDecl = boolEnum;
 }
 
-void TypeCheck::deleteNode(Node node)
+void TypeCheck::deleteNode(Node &node)
 {
     Ast *ast = lift_node<Ast>(node);
     if (ast && ast->isDeletable()) delete ast;
+    node.release();
 }
 
 Sigoid *TypeCheck::getCurrentSigoid() const
@@ -171,7 +172,7 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
         // does not shadow the model being defined.
         if (formal == desc.getIdInfo()) {
             report(loc, diag::MODEL_FORMAL_SHADOW) << formal;
-            return Node::getInvalidNode();
+            return getInvalidNode();
         }
 
         typedef Descriptor::paramIterator ParamIter;
@@ -180,18 +181,19 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
             AbstractDomainDecl *param = cast_node<AbstractDomainDecl>(*iter);
             if (param->getIdInfo() == formal) {
                 report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
         }
 
+        typeNode.release();
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
         scope.addDirectModel(dom);
-        return Node(dom);
+        return getNode(dom);
     }
     else {
         report(loc, diag::NOT_A_SIGNATURE) << formal->getString();
         getCurrentModel()->markInvalid();
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 }
 
@@ -199,9 +201,13 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 {
     llvm::SmallVector<DomainType*, 4> domains;
 
-    // Convert each parameter node into an AbstractDomainDecl.
+    // Convert each parameter node into an AbstractDomainDecl and release the
+    // Nodes.
+    //
+    // FIXME:  This introduces a memory leak when the descriptor is invalid.
     for (Descriptor::paramIterator iter = desc.beginParams();
          iter != desc.endParams(); ++iter) {
+        iter->release();
         AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
         domains.push_back(domain->getType());
     }
@@ -251,7 +257,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     scope.addDirectModel(modelDecl);
 }
 
-Node TypeCheck::acceptWithSupersignature(Node     typeNode,
+void TypeCheck::acceptWithSupersignature(Node     typeNode,
                                          Location loc)
 {
     ModelDecl     *model = getCurrentModel();
@@ -262,18 +268,16 @@ Node TypeCheck::acceptWithSupersignature(Node     typeNode,
     superSig = dyn_cast<SignatureType>(type);
     if (!superSig) {
         report(loc, diag::NOT_A_SIGNATURE);
-        delete type;
-        return Node::getInvalidNode();
+        return;
     }
 
     // Register the signature.
+    typeNode.release();
     model->addDirectSignature(superSig);
 
     // Check that this signature does not introduce any conflicting type names
     // and bring all non-conflicting types into the current region.
     aquireSignatureTypeDeclarations(model, superSig->getDeclaration());
-
-    return typeNode;
 }
 
 Node TypeCheck::acceptPercent(Location loc)
@@ -282,10 +286,10 @@ Node TypeCheck::acceptPercent(Location loc)
 
     if (model == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << "%";
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
-    return Node(model->getPercent());
+    return getNode(model->getPercent());
 }
 
 // Returns true if the given type decl is equivalent to % in the context of the
@@ -339,52 +343,52 @@ Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
 
     if (type == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     switch (type->getKind()) {
 
     default:
         assert(false && "Cannot handle type declaration.");
-        return Node::getInvalidNode();
+        return getInvalidNode();
 
     case Ast::AST_DomainDecl:
         if (denotesDomainPercent(type)) {
             report(loc, diag::PERCENT_EQUIVALENT);
-            return getCurrentPercent();
+            return getNode(getCurrentPercent());
         }
-        return Node(type->getType());
+        return getNode(type->getType());
 
     case Ast::AST_SignatureDecl:
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
-        return Node(type->getType());
+        return getNode(type->getType());
 
     case Ast::AST_FunctorDecl:
     case Ast::AST_VarietyDecl:
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 }
 
 Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
-                                      Node            *argumentNodes,
+                                      NodeVector      &argumentNodes,
                                       Location        *argumentLocs,
-                                      unsigned         numArgs,
                                       IdentifierInfo **keywords,
                                       Location        *keywordLocs,
                                       unsigned         numKeywords,
                                       Location         loc)
 {
-    assert(numKeywords <= numArgs && "More keywords than arguments!");
-
     ModelDecl  *model = scope.lookupDirectModel(connective);
     const char *name  = connective->getString();
+    unsigned numArgs  = argumentNodes.size();
+
+    assert(numKeywords <= numArgs && "More keywords than arguments!");
 
     if (model == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     ParameterizedType *candidate =
@@ -392,7 +396,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     if (!candidate || candidate->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     unsigned numPositional = numArgs - numKeywords;
@@ -412,7 +416,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         if (keywordIdx < 0) {
             report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
                 << keyword->getString() << candidate->getString();
-                return Node::getInvalidNode();
+                return getInvalidNode();
         }
 
         // The corresponding index of the keyword must be greater than the
@@ -421,7 +425,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         if ((unsigned)keywordIdx < numPositional) {
             report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY)
                 << keyword->getString();
-            return Node::getInvalidNode();
+            return getInvalidNode();
         }
 
         // Ensure that this keyword is not a duplicate of any preceeding
@@ -430,7 +434,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
             if (keywords[j] == keyword) {
                 report(keywordLoc, diag::DUPLICATE_KEYWORD)
                     << keyword->getString();
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
         }
 
@@ -438,6 +442,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // proper position.
         Type *argument =
             cast_node<Type>(argumentNodes[i + numPositional]);
+        argumentNodes[i + numPositional].release();
         arguments[keywordIdx] = argument;
     }
 
@@ -452,7 +457,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
             if (!has(domain, target)) {
                 report(argLoc, diag::DOES_NOT_SATISFY)
                     << domain->getString()  << target->getString();
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
             continue;
         }
@@ -462,12 +467,12 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                 dyn_cast<DomainType>(carrier->getRepresentationType());
             if (!rep) {
                 report(argLoc, diag::NOT_A_DOMAIN);
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
             if (!has(rep, target)) {
                 report(argLoc, diag::DOES_NOT_SATISFY)
                     << carrier->getString() << target->getString();
-                return Node::getInvalidNode();
+                return getInvalidNode();
             }
             continue;
         }
@@ -475,13 +480,13 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // Otherwise, the argument does not denote a domain, and so cannot
         // satisfy the signature constraint.
         report(argLoc, diag::NOT_A_DOMAIN);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // Obtain a memoized type node for this particular argument set.
-    Node node = Node::getInvalidNode();
+    Node node = getInvalidNode();
     if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
-        node = Node(variety->getCorrespondingType(&arguments[0], numArgs));
+        node = getNode(variety->getCorrespondingType(&arguments[0], numArgs));
     }
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
@@ -489,14 +494,15 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // Cannonicalize type applications which are equivalent to `%'.
         if (denotesFunctorPercent(functor, &arguments[0], numArgs)) {
             report(loc, diag::PERCENT_EQUIVALENT);
-            node = Node(getCurrentPercent());
+            node = getNode(getCurrentPercent());
         }
         else {
             DomainInstanceDecl *instance =
                 functor->getInstance(&arguments[0], numArgs);
-            node = Node(instance->getType());
+            node = getNode(instance->getType());
         }
     }
+    argumentNodes.release();
     return node;
 }
 
@@ -537,9 +543,9 @@ Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
     if (targetType && allOK) {
         FunctionType *ftype =
             new FunctionType(&formals[0], &argumentTypes[0], arity, targetType);
-        return Node(ftype);
+        return getNode(ftype);
     }
-    return Node::getInvalidNode();
+    return getInvalidNode();
 }
 
 void TypeCheck::beginWithExpression()
@@ -783,31 +789,34 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
     return allOK;
 }
 
-Node TypeCheck::acceptObjectDeclaration(Location        loc,
+bool TypeCheck::acceptObjectDeclaration(Location        loc,
                                         IdentifierInfo *name,
                                         Node            typeNode,
                                         Node            initializerNode)
 {
     Type *type = cast_node<Type>(typeNode);
 
-    if ((type = ensureValueType(type, loc))) {
+    if ((type = ensureValueType(typeNode, loc))) {
         ObjectDecl *decl = new ObjectDecl(name, type, loc);
 
         if (!initializerNode.isNull()) {
             Expr *expr       = cast_node<Expr>(initializerNode);
             Type *targetType = decl->getType();
-            if (ensureExprType(expr, targetType))
+            if (ensureExprType(expr, targetType)) {
+                initializerNode.release();
                 decl->setInitializer(expr);
+            }
             else
-                return Node::getInvalidNode();
+                return false;
         }
+        typeNode.release();
         scope.addDirectValue(decl);
-        return Node(decl);
+        return true;
     }
-    return Node::getInvalidNode();
+    return false;
 }
 
-Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
+bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
 {
     Type         *type = cast_node<Type>(importedNode);
     DomainType   *domain;
@@ -819,11 +828,16 @@ Node TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
 
     if (!domain) {
         report(loc, diag::IMPORT_FROM_NON_DOMAIN);
-        return Node::getInvalidNode();
+        return false;
     }
 
+    importedNode.release();
     scope.addImport(domain);
-    return new ImportDecl(domain, loc);
+
+    // FIXME:  We need to stitch this import declaration into the current
+    // context.
+    new ImportDecl(domain, loc);
+    return true;
 }
 
 void TypeCheck::beginAddExpression()
@@ -859,6 +873,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
     }
 
     if (Type *type = ensureValueType(typeNode, loc)) {
+        typeNode.release();
         CarrierDecl *carrier = new CarrierDecl(name, type, loc);
         add->setCarrier(carrier);
         scope.addDirectDecl(carrier);
@@ -884,12 +899,11 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
     // which encapsulates the needed location information.
     Type *dom = ensureValueType(typeNode, loc);
 
-    if (!dom) return Node::getInvalidNode();
+    if (!dom) return getInvalidNode();
 
-    // Create a declaration node for this parameter.
+    typeNode.release();
     ParamValueDecl *paramDecl = new ParamValueDecl(formal, dom, mode, loc);
-
-    return Node(paramDecl);
+    return getNode(paramDecl);
 }
 
 Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
@@ -960,7 +974,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
                                         parameters.size(),
                                         region);
 
-    if (!routineDecl) return Node::getInvalidNode();
+    if (!routineDecl) return getInvalidNode();
 
     // Check that this declaration does not conflict with any other.
     if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
@@ -973,7 +987,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
             report(location, diag::SUBROUTINE_REDECLARATION)
                 << routineDecl->getString()
                 << sloc;
-            return Node::getInvalidNode();
+            return getInvalidNode();
         }
     }
     else {
@@ -981,12 +995,22 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         region->addDecl(routineDecl);
         scope.addDirectSubroutine(routineDecl);
     }
-    return Node(routineDecl);
+
+    // Release each of the parameter nodes and the return type.
+    for (Descriptor::paramIterator iter = desc.beginParams();
+         iter != desc.endParams(); ++iter)
+        iter->release();
+    if (desc.isFunctionDescriptor())
+        desc.getReturnType().release();
+    Node routine = getNode(routineDecl);
+    routine.release();
+    return routine;
 }
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
     SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
+    declarationNode.release();
 
     // Enter a scope for the subroutine definition and populate it with the
     // formal parmeter bindings.
@@ -1011,6 +1035,7 @@ void TypeCheck::acceptSubroutineStmt(Node stmt)
     SubroutineDecl *subroutine = getCurrentSubroutine();
     assert(subroutine && "No currnet subroutine!");
 
+    stmt.release();
     BlockStmt *block = subroutine->getBody();
     block->addStmt(cast_node<Stmt>(stmt));
 }
@@ -1033,11 +1058,12 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
 {
     if (!forSubroutine) {
         assert(false && "cannot accept keyword selectors for types yet!");
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
+    exprNode.release();
     Expr *expr = cast_node<Expr>(exprNode);
-    return new KeywordSelector(key, loc, expr);
+    return getNode(new KeywordSelector(key, loc, expr));
 }
 
 Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
@@ -1048,10 +1074,12 @@ Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
     if (ensureDistinctTypeDeclaration(region, enumeration)) {
         region->addDecl(enumeration);
         scope.addDirectDecl(enumeration);
-        return Node(enumeration);
+        Node result = getNode(enumeration);
+        result.release();
+        return result;
     }
     else
-        return Node::getInvalidNode();
+        return getInvalidNode();
 }
 
 void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,

@@ -20,10 +20,9 @@ using llvm::isa;
 
 Node TypeCheck::acceptProcedureCall(IdentifierInfo  *name,
                                     Location         loc,
-                                    Node            *args,
-                                    unsigned         numArgs)
+                                    NodeVector      &args)
 {
-    return acceptSubroutineCall(name, loc, args, numArgs, false);
+    return acceptSubroutineCall(name, loc, args, false);
 }
 
 Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
@@ -31,27 +30,32 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
     assert((checkingProcedure() || checkingFunction()) &&
            "Return statement outside subroutine context!");
 
-    if (retNode.isNull()) {
-        if (checkingProcedure())
-            return Node(new ReturnStmt(loc));
+    if (checkingFunction()) {
+        FunctionDecl *fdecl      = getCurrentFunction();
+        Expr         *retExpr    = cast_node<Expr>(retNode);
+        Type         *targetType = fdecl->getReturnType();
 
-        report(loc, diag::EMPTY_RETURN_IN_FUNCTION);
-        return Node::getInvalidNode();
-    }
-    else {
-        if (checkingFunction()) {
-            FunctionDecl *fdecl      = getCurrentFunction();
-            Expr         *retExpr    = cast_node<Expr>(retNode);
-            Type         *targetType = fdecl->getReturnType();
-
-            if (ensureExprType(retExpr, targetType))
-                return Node(new ReturnStmt(loc, retExpr));
-            return Node::getInvalidNode();
+        if (ensureExprType(retExpr, targetType)) {
+            retNode.release();
+            return getNode(new ReturnStmt(loc, retExpr));
         }
-
-        report(loc, diag::NONEMPTY_RETURN_IN_PROCEDURE);
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
+
+    report(loc, diag::NONEMPTY_RETURN_IN_PROCEDURE);
+    return getInvalidNode();
+}
+
+Node TypeCheck::acceptEmptyReturnStmt(Location loc)
+{
+    assert((checkingProcedure() || checkingFunction()) &&
+           "Return statement outside subroutine context!");
+
+    if (checkingProcedure())
+        return getNode(new ReturnStmt(loc));
+
+    report(loc, diag::EMPTY_RETURN_IN_FUNCTION);
+    return getInvalidNode();
 }
 
 Node TypeCheck::acceptAssignmentStmt(Location        loc,
@@ -64,7 +68,7 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
 
     if (!homonym || homonym->empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     // FIXME: For now, lookup a lexical names only.  Revisit the issue of
@@ -77,15 +81,16 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
 
     if (!targetDecl) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return Node::getInvalidNode();
+        return getInvalidNode();
     }
 
     if (ensureExprType(value, targetDecl->getType())) {
+        valueNode.release();
         DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);
-        return Node(new AssignmentStmt(ref, value));
+        return getNode(new AssignmentStmt(ref, value));
     }
 
-    return Node::getInvalidNode();
+    return getInvalidNode();
 }
 
 Node TypeCheck::acceptIfStmt(Location loc,
@@ -98,12 +103,17 @@ Node TypeCheck::acceptIfStmt(Location loc,
 
     if (conditionTy->equals(theBoolDecl->getType())) {
         StmtSequence *consequents = new StmtSequence();
-        for (unsigned i = 0; i < numConsequents; ++i)
-            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
 
-        return Node(new IfStmt(loc, condition, consequents));
+        for (unsigned i = 0; i < numConsequents; ++i) {
+            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+            consequentNodes[i].release();
+        }
+        conditionNode.release();
+        return getNode(new IfStmt(loc, condition, consequents));
     }
-    return Node::getInvalidNode();
+
+    report(condition->getLocation(), diag::INCOMPATIBLE_TYPES);
+    return getInvalidNode();
 }
 
 Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
@@ -114,8 +124,10 @@ Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
 
     assert(!cond->hasAlternate() && "Multiple else component in IfStmt!");
 
-    for (unsigned i = 0; i < numAlternates; ++i)
+    for (unsigned i = 0; i < numAlternates; ++i) {
         alternates->addStmt(cast_node<Stmt>(alternateNodes[i]));
+        alternateNodes[i].release();
+    }
 
     cond->setAlternate(loc, alternates);
     return ifNode;
@@ -133,14 +145,17 @@ Node TypeCheck::acceptElsifStmt(Location loc,
 
     if (conditionTy->equals(theBoolDecl->getType())) {
         StmtSequence *consequents = new StmtSequence();
-        for (unsigned i = 0; i < numConsequents; ++i)
+        for (unsigned i = 0; i < numConsequents; ++i) {
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+            consequentNodes[i].release();
+        }
+        conditionNode.release();
         cond->addElsif(loc, condition, consequents);
         return ifNode;
     }
 
     report(condition->getLocation(), diag::INCOMPATIBLE_TYPES);
-    return Node::getInvalidNode();
+    return getInvalidNode();
 }
 
 // Called when a block statement is about to be parsed.
@@ -152,7 +167,7 @@ Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
 
     declarativeRegion = block;
     scope.push();
-    return Node(block);
+    return getNode(block);
 }
 
 // This method is called for each statement associated with the block.
@@ -161,6 +176,7 @@ void TypeCheck::acceptBlockStmt(Node blockNode, Node stmtNode)
     BlockStmt *block = cast_node<BlockStmt>(blockNode);
     Stmt      *stmt  = cast_node<Stmt>(stmtNode);
     block->addStmt(stmt);
+    stmtNode.release();
 }
 
 // Once the last statement of a block has been parsed, this method is called

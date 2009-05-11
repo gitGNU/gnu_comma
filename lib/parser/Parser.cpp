@@ -414,13 +414,12 @@ void Parser::parseModelParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
     Location        loc;
-    Node            type = Node::getInvalidNode();
 
     loc = currentLocation();
     formal = parseIdentifierInfo();
 
     if (formal && requireToken(Lexer::TKN_COLON)) {
-        type = parseModelInstantiation();
+        Node type = parseModelInstantiation();
         if (type.isValid()) {
             Node param = client.acceptModelParameter(desc, formal, type, loc);
             if (param.isValid())
@@ -478,7 +477,7 @@ void Parser::parseWithSupersignatures()
         Node super   = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
-            Node result = client.acceptWithSupersignature(super, loc);
+            client.acceptWithSupersignature(super, loc);
         }
         else {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
@@ -492,26 +491,27 @@ void Parser::parseWithSupersignatures()
 
 void Parser::parseWithDeclarations()
 {
-    Node decl = Node::getInvalidNode();
+    bool status = false;
 
     for (;;) {
         switch (currentTokenCode()) {
-        default: return;
+        default:
+            return;
 
         case Lexer::TKN_FUNCTION:
-            decl = parseFunctionDeclaration();
+            status = parseFunctionDeclaration().isValid();
             break;
 
         case Lexer::TKN_PROCEDURE:
-            decl = parseProcedureDeclaration();
+            status = parseProcedureDeclaration().isValid();
             break;
 
         case Lexer::TKN_TYPE:
-            decl = parseType();
+            status = parseType().isValid();
             break;
         }
 
-        if (decl.isInvalid())
+        if (!status)
             seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
                        Lexer::TKN_TYPE,     Lexer::TKN_SEMI,
                        Lexer::TKN_END,      Lexer::TKN_ADD);
@@ -524,7 +524,6 @@ void Parser::parseCarrier()
 {
     IdentifierInfo *name;
     Location        loc;
-    Node            type = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_CARRIER));
 
@@ -541,7 +540,7 @@ void Parser::parseCarrier()
         return;
     }
 
-    type = parseModelInstantiation();
+    Node type = parseModelInstantiation();
 
     if (type.isInvalid()) {
         seekToken(Lexer::TKN_SEMI);
@@ -627,7 +626,7 @@ void Parser::parseModelDeclaration(Descriptor &desc)
 
 void Parser::parseModel()
 {
-    Descriptor desc;
+    Descriptor desc(&client);
 
     parseModelDeclaration(desc);
 
@@ -648,81 +647,72 @@ void Parser::parseModel()
 Node Parser::parseModelInstantiation()
 {
     IdentifierInfo *info;
-    Node            type = Node::getInvalidNode();
-    Location        loc  = currentLocation();
+    Location        loc = currentLocation();
 
     if (reduceToken(Lexer::TKN_PERCENT))
         return client.acceptPercent(loc);
 
     info = parseIdentifierInfo();
-    if (!info) return Node::getInvalidNode();
+    if (!info) return Node::getInvalidNode(&client);
+
+    // Empty parameter lists for types are not allowed.  If the type checker
+    // accepts the non-parameterized form, then continue -- otherwise we
+    // complain ourselves.
+    if (unitExprFollows()) {
+        Node type = client.acceptTypeIdentifier(info, loc);
+        if (type.isValid()) report(loc, diag::ILLEGAL_EMPTY_PARAMS);
+        return type;
+    }
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
-        if (reduceToken(Lexer::TKN_RPAREN)) {
-            // Empty parameter lists for types are not allowed.  If the type
-            // checker accepts the non-parameterized form, then continue --
-            // otherwise we complain ourselves.
-            type = client.acceptTypeIdentifier(info, loc);
-            if (type.isValid()) report(loc, diag::ILLEGAL_EMPTY_PARAMS);
-        }
-        else {
-            NodeVector     arguments;
-            LocationVector argumentLocs;
-            IdInfoVector   keywords;
-            LocationVector keywordLocs;
-            bool allOK = true;
+        NodeVector     arguments;
+        LocationVector argumentLocs;
+        IdInfoVector   keywords;
+        LocationVector keywordLocs;
+        bool allOK = true;
 
-            do {
-                Location loc = currentLocation();
+        do {
+            Location loc = currentLocation();
 
-                if (keywordSelectionFollows()) {
-                    keywords.push_back(parseIdentifierInfo());
-                    keywordLocs.push_back(loc);
-                    loc = ignoreToken();
-                }
-                else if (!keywords.empty()) {
-                    // We have already parsed a keyword.
-                    report(loc, diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
-                    allOK = false;
-                }
-
-                Node argument = parseModelInstantiation();
-                if (argument.isValid()) {
-                    arguments.push_back(argument);
-                    argumentLocs.push_back(loc);
-                }
-                else
-                    allOK = false;
-
-            } while (reduceToken(Lexer::TKN_COMMA));
-            requireToken(Lexer::TKN_RPAREN);
-
-            // Do not attempt to form the application unless all of the
-            // arguments are valid.
-            if (allOK) {
-                Node            *args    = &arguments[0];
-                Location        *argLocs = &argumentLocs[0];
-                IdentifierInfo **keys    = &keywords[0];
-                Location        *keyLocs = &keywordLocs[0];
-                unsigned         arity   = arguments.size();
-                unsigned         numKeys = keywords.size();
-                type = client.acceptTypeApplication(
-                    info, args, argLocs, arity,
-                    keys, keyLocs, numKeys, loc);
+            if (keywordSelectionFollows()) {
+                keywords.push_back(parseIdentifierInfo());
+                keywordLocs.push_back(loc);
+                loc = ignoreToken();
             }
-            else {
-                // Cleanup whatever nodes we did manage to collect.
-                NodeVector::iterator iter;
-                NodeVector::iterator endIter = arguments.end();
-                for (iter = arguments.begin(); iter != endIter; ++iter)
-                    client.deleteNode(*iter);
+            else if (!keywords.empty()) {
+                // We have already parsed a keyword.
+                report(loc, diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
+                allOK = false;
             }
+
+            Node argument = parseModelInstantiation();
+            if (argument.isValid()) {
+                arguments.push_back(argument);
+                argumentLocs.push_back(loc);
+            }
+            else
+                allOK = false;
+
+        } while (reduceToken(Lexer::TKN_COMMA));
+        requireToken(Lexer::TKN_RPAREN);
+
+        // Do not attempt to form the application unless all of the
+        // arguments are valid.
+        if (allOK) {
+            Location        *argLocs = &argumentLocs[0];
+            IdentifierInfo **keys    = &keywords[0];
+            Location        *keyLocs = &keywordLocs[0];
+            unsigned         numKeys = keywords.size();
+            return client.acceptTypeApplication(
+                info, arguments, argLocs,
+                keys, keyLocs, numKeys, loc);
         }
+        else
+            return Node::getInvalidNode(&client);
     }
-    else
-        type = client.acceptTypeIdentifier(info, loc);
 
-    return type;
+    // Otherwise, this is a type constructor without parameters.
+    return client.acceptTypeIdentifier(info, loc);
 }
 
 // Parses an "in", "out" or "in out" parameter mode specification.  If no such
@@ -756,8 +746,6 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     IdentifierInfo *formal;
     Location        location;
     ParameterMode   mode;
-    Node            type  = Node::getInvalidNode();
-    Node            param = Node::getInvalidNode();
 
     location = currentLocation();
     formal   = parseIdentifierInfo();
@@ -767,10 +755,10 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     if (!requireToken(Lexer::TKN_COLON)) return false;
 
     mode = parseParameterMode();
-    type = parseModelInstantiation();
+    Node type = parseModelInstantiation();
     if (type.isInvalid()) return false;
 
-    param = client.acceptSubroutineParameter(formal, location, type, mode);
+    Node param = client.acceptSubroutineParameter(formal, location, type, mode);
     if (param.isInvalid()) return false;
 
     desc.addParam(param);
@@ -830,7 +818,7 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
 
 Node Parser::parseFunctionDeclaration()
 {
-    Descriptor desc;
+    Descriptor desc(&client);
     return parseFunctionDeclaration(desc);
 }
 
@@ -845,7 +833,7 @@ Node Parser::parseFunctionDeclaration(Descriptor &desc)
 
 Node Parser::parseProcedureDeclaration()
 {
-    Descriptor desc;
+    Descriptor desc(&client);
     return parseProcedureDeclaration(desc);
 }
 
@@ -863,7 +851,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     Location    location = currentLocation();
     IdentifierInfo *name = parseFunctionIdentifierInfo();
 
-    if (!name) return Node::getInvalidNode();
+    if (!name) return Node::getInvalidNode(&client);
 
     desc.setIdentifier(name, location);
     client.beginSubroutineDeclaration(desc);
@@ -876,13 +864,13 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
             Node returnType = parseModelInstantiation();
             if (returnType.isInvalid()) {
                 seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-                return Node::getInvalidNode();
+                return Node::getInvalidNode(&client);
             }
             desc.setReturnType(returnType);
         }
         else {
             report(diag::MISSING_RETURN_AFTER_FUNCTION);
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
     }
     else {
@@ -891,13 +879,12 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
         if (currentTokenIs(Lexer::TKN_RETURN)) {
             report(diag::RETURN_AFTER_PROCEDURE);
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-            return Node::getInvalidNode();
+            return Node::getInvalidNode(&client);
         }
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
-
-    return Node(client.acceptSubroutineDeclaration(desc, bodyFollows));
+    return client.acceptSubroutineDeclaration(desc, bodyFollows);
 }
 
 void Parser::parseSubroutineBody(Node declarationNode)
@@ -929,7 +916,7 @@ void Parser::parseSubroutineBody(Node declarationNode)
 
 void Parser::parseFunctionDeclOrDefinition()
 {
-    Descriptor desc;
+    Descriptor desc(&client);
     Node       decl = parseFunctionDeclaration(desc);
 
     if (decl.isInvalid()) {
@@ -951,7 +938,7 @@ void Parser::parseFunctionDeclOrDefinition()
 
 void Parser::parseProcedureDeclOrDefinition()
 {
-    Descriptor desc;
+    Descriptor desc(&client);
     Node       decl = parseProcedureDeclaration(desc);
 
     // FIXME: We should attempt to find the end of the procedure
@@ -967,34 +954,32 @@ void Parser::parseProcedureDeclOrDefinition()
     return;
 }
 
-Node Parser::parseDeclaration()
+bool Parser::parseDeclaration()
 {
     switch (currentTokenCode()) {
     default:
         report(diag::UNEXPECTED_TOKEN) << currentTokenString();
         seekAndConsumeToken(Lexer::TKN_SEMI);
-        return Node::getInvalidNode();
+        return false;
 
     case Lexer::TKN_IDENTIFIER:
         return parseObjectDeclaration();
 
     case Lexer::TKN_FUNCTION:
-        return parseFunctionDeclaration();
+        return parseFunctionDeclaration().isValid();
 
     case Lexer::TKN_PROCEDURE:
-        return parseProcedureDeclaration();
+        return parseProcedureDeclaration().isValid();
 
     case Lexer::TKN_IMPORT:
         return parseImportDeclaration();
     }
 }
 
-Node Parser::parseObjectDeclaration()
+bool Parser::parseObjectDeclaration()
 {
     IdentifierInfo *id;
     Location        loc;
-    Node            type = Node::getInvalidNode();
-    Node            init = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_IDENTIFIER));
 
@@ -1003,40 +988,38 @@ Node Parser::parseObjectDeclaration()
 
     if (!(id && requireToken(Lexer::TKN_COLON))) {
         seekAndConsumeToken(Lexer::TKN_SEMI);
-        return Node::getInvalidNode();
+        return false;
     }
 
-    type = parseModelInstantiation();
+    Node type = parseModelInstantiation();
 
     if (type.isValid()) {
-        Node init(0);
+        Node init = Node::getNullNode(&client);
         if (reduceToken(Lexer::TKN_ASSIGN))
             init = parseExpr();
-        if (init.isValid())
-            return Node(client.acceptObjectDeclaration(loc, id, type, init));
-        seekToken(Lexer::TKN_SEMI);
-        return Node::getInvalidNode();
+        if (init.isValid()) {
+            client.acceptObjectDeclaration(loc, id, type, init);
+            return true;
+        }
     }
-    else {
-        seekToken(Lexer::TKN_SEMI);
-        return Node::getInvalidNode();
-    }
+    seekToken(Lexer::TKN_SEMI);
+    return false;
 }
 
-Node Parser::parseImportDeclaration()
+bool Parser::parseImportDeclaration()
 {
     Location location = currentLocation();
-    Node importedType = Node::getInvalidNode();
 
     assert(currentTokenIs(Lexer::TKN_IMPORT));
     ignoreToken();
 
-    importedType = parseModelInstantiation();
+    Node importedType = parseModelInstantiation();
 
-    if (importedType.isValid())
-        return client.acceptImportDeclaration(importedType, location);
-    else
-        return Node::getInvalidNode();
+    if (importedType.isValid()) {
+        client.acceptImportDeclaration(importedType, location);
+        return true;
+    }
+    return false;
 }
 
 Node Parser::parseType()
@@ -1048,7 +1031,7 @@ Node Parser::parseType()
     IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name || !requireToken(Lexer::TKN_IS))
-        return Node::getInvalidNode();
+        return Node::getInvalidNode(&client);
 
     // For now, handle only enumeration types.
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
@@ -1062,7 +1045,7 @@ Node Parser::parseType()
             seekCloseParen();
         }
     }
-    return Node::getInvalidNode();
+    return Node::getInvalidNode(&client);
 }
 
 void Parser::parseEnumerationList(Node enumeration)

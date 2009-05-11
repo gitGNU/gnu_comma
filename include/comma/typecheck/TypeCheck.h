@@ -51,14 +51,14 @@ public:
     void endWithExpression();
 
     // Called for each supersignature in a with expression.
-    Node acceptWithSupersignature(Node typeNode, Location loc);
+    void acceptWithSupersignature(Node typeNode, Location loc);
 
     void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
 
     void beginAddExpression();
     void endAddExpression();
 
-    Node acceptObjectDeclaration(Location        loc,
+    bool acceptObjectDeclaration(Location        loc,
                                  IdentifierInfo *name,
                                  Node            type,
                                  Node            initializer);
@@ -71,9 +71,8 @@ public:
     Node acceptTypeIdentifier(IdentifierInfo *info, Location loc);
 
     Node acceptTypeApplication(IdentifierInfo  *connective,
-                               Node            *arguments,
+                               NodeVector      &arguments,
                                Location        *argumentLocs,
-                               unsigned         numArgs,
                                IdentifierInfo **keys,
                                Location        *keyLocs,
                                unsigned         numKeys,
@@ -105,7 +104,7 @@ public:
 
     void endSubroutineDefinition();
 
-    Node acceptImportDeclaration(Node importedType, Location loc);
+    bool acceptImportDeclaration(Node importedType, Location loc);
 
     Node acceptKeywordSelector(IdentifierInfo *key,
                                Location        loc,
@@ -120,13 +119,12 @@ public:
 
     Node acceptFunctionCall(IdentifierInfo  *name,
                             Location         loc,
-                            Node            *args,
-                            unsigned         numArgs);
+                            NodeVector      &args);
+
 
     Node acceptProcedureCall(IdentifierInfo  *name,
                              Location         loc,
-                             Node            *args,
-                             unsigned         numArgs);
+                             NodeVector      &args);
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.
@@ -154,7 +152,9 @@ public:
                          Node    *consequents,
                          unsigned numConsequents);
 
-    Node acceptReturnStmt(Location loc, Node retNode = 0);
+    Node acceptEmptyReturnStmt(Location loc);
+
+    Node acceptReturnStmt(Location loc, Node retNode);
 
     Node acceptAssignmentStmt(Location        loc,
                               IdentifierInfo *target,
@@ -185,7 +185,7 @@ public:
                                   Location        loc);
 
     // Delete the underlying Ast node.
-    void deleteNode(Node node);
+    void deleteNode(Node &node);
 
 private:
     Diagnostic        &diagnostic;
@@ -217,6 +217,12 @@ private:
     static T *cast_node(Node &node) {
         return llvm::cast<T>(Node::lift<Ast>(node));
     }
+
+    // Returns a node initialized to reference this TypeChecker.
+    Node getNode(void *ptr) { return Node(this, ptr); }
+
+    // Returns a Node marked as invalid.
+    Node getInvalidNode() { return Node::getInvalidNode(this); }
 
     DeclarativeRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
@@ -332,8 +338,7 @@ private:
 
     Node acceptSubroutineCall(IdentifierInfo *name,
                               Location        loc,
-                              Node           *args,
-                              unsigned        numArgs,
+                              NodeVector     &args,
                               bool            checkFunction);
 
     static void lookupSubroutineDecls(Homonym *homonym,

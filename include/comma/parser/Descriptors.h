@@ -13,39 +13,115 @@
 #include "comma/basic/Location.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/PointerIntPair.h"
 
 namespace comma {
 
+class ParseClient;
+
 class Node {
 
-    // Private default constructor to obtain an invalid node.
-    Node() : payload(1) { }
+    // This simple structure is used to maintain the ParseClient and reference
+    // count associated with each node.
+    struct NodeState {
+
+        // Disjoint properties associated with each node, recorded in the low
+        // order bits of NodeState::client.
+        enum Property {
+            None     = 0,      ///< Empty property.
+            Invalid  = 1,      ///< Node is invalid.
+            Released = 2       ///< Node does not own its payload.
+        };
+
+        // The ParseClient associated with this node.  We encode the
+        // NodePropertys associated with this node in the low order bits of this
+        // field as it is expected to be accessed relatively infrequently.
+        llvm::PointerIntPair<ParseClient *, 2> client;
+
+        // The reference count.
+        unsigned rc;
+
+        // The payload associated with this node.
+        void *payload;
+
+        // NOTE: Constructor initializes the reference count to 1.
+        NodeState(ParseClient *client,
+                  void *ptr = 0, Property prop = None)
+            : client(client, prop),
+              rc(1),
+              payload(ptr) { }
+
+    private:
+        // Do not implement.
+        NodeState(NodeState &state);
+        NodeState &operator=(const NodeState &state);
+    };
+
+    Node(ParseClient *client, void *ptr, NodeState::Property prop)
+        : state(new NodeState(client, ptr, prop)) { }
 
 public:
-    Node(void *ptr) : payload(reinterpret_cast<uintptr_t>(ptr)) { }
+    Node(ParseClient *client, void *ptr = 0)
+        : state(new NodeState(client, ptr)) { }
 
-    static Node getInvalidNode() { return Node(); }
-    static Node getNullNode()    { return Node(0); }
+    Node(const Node &node)
+        : state(node.state) {
+        ++state->rc;
+    }
+
+    static Node getInvalidNode(ParseClient *client) {
+        return Node(client, 0, NodeState::Invalid);
+    }
+
+    static Node getNullNode(ParseClient *client) {
+        return Node(client);
+    }
+
+    ~Node() { dispose(); }
+
+    Node &operator=(const Node &node);
 
     // Returns true if this node is invalid.
-    bool isInvalid() const { return payload & 1u; }
+    bool isInvalid() const {
+        return state->client.getInt() & NodeState::Invalid;
+    }
 
     // Returns true if this Node is valid.
     bool isValid() const { return !isInvalid(); }
 
     // Returns true if this Node is not associated with any data.
     bool isNull() const {
-        return (payload & ~((uintptr_t)1)) == 0;
+        return state->payload == 0;
     }
+
+    // Releases ownership of this node (and all copies).
+    void release();
+
+    // Returns true if this Node owns the associated pointer.
+    bool isOwning();
+
+    // Returns the reference count associated with this node.
+    unsigned getRC() { return state->rc; }
 
     // Returns the pointer associated with this node cast to the supplied type.
     template <class T> static T *lift(Node &node) {
-        return reinterpret_cast<T*>(node.payload & ~((uintptr_t)1));
+        return reinterpret_cast<T*>(node.state->payload);
     }
 
 private:
-    uintptr_t payload;
+    void dispose();
+
+    // Heap-allocated state associated with this node (and all copies).
+    NodeState *state;
 };
+
+
+class NodeVector : public llvm::SmallVector<Node, 16> {
+
+public:
+    void release();
+};
+
 
 class Descriptor {
 
@@ -63,12 +139,10 @@ public:
         DESC_Procedure          ///< Procedure descriptors.
     };
 
-    /// The default constructor initializes an empty descriptor.  One must call
-    /// initialize() and provide a valid kind before the object can be used.
-    Descriptor();
-
-    /// Creates a descriptor object of the given kind.
-    Descriptor(DescriptorKind kind);
+    /// Creates a descriptor object of the given kind.  The DescriptorKind
+    /// argument defaults to DESC_Empty, meaning the descriptor type must be set
+    /// (via a call to initialize) before it can be used.
+    Descriptor(ParseClient *client, DescriptorKind kind = DESC_Empty);
 
     /// Sets this Descriptor to an uninitialized state allowing it to be reused
     /// to represent a new element.  On return, the kind of this descriptor is
@@ -136,6 +210,7 @@ private:
     DescriptorKind  kind        : 8;
     bool            invalidFlag : 1;
     bool            hasReturn   : 1;
+    ParseClient    *client;
     IdentifierInfo *idInfo;
     Location        location;
     paramVector     params;
