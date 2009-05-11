@@ -653,7 +653,7 @@ Node Parser::parseModelInstantiation()
         return client.acceptPercent(loc);
 
     info = parseIdentifierInfo();
-    if (!info) return Node::getInvalidNode(&client);
+    if (!info) return getInvalidNode();
 
     // Empty parameter lists for types are not allowed.  If the type checker
     // accepts the non-parameterized form, then continue -- otherwise we
@@ -708,7 +708,7 @@ Node Parser::parseModelInstantiation()
                 keys, keyLocs, numKeys, loc);
         }
         else
-            return Node::getInvalidNode(&client);
+            return getInvalidNode();
     }
 
     // Otherwise, this is a type constructor without parameters.
@@ -851,7 +851,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     Location    location = currentLocation();
     IdentifierInfo *name = parseFunctionIdentifierInfo();
 
-    if (!name) return Node::getInvalidNode(&client);
+    if (!name) return getInvalidNode();
 
     desc.setIdentifier(name, location);
     client.beginSubroutineDeclaration(desc);
@@ -864,13 +864,13 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
             Node returnType = parseModelInstantiation();
             if (returnType.isInvalid()) {
                 seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-                return Node::getInvalidNode(&client);
+                return getInvalidNode();
             }
             desc.setReturnType(returnType);
         }
         else {
             report(diag::MISSING_RETURN_AFTER_FUNCTION);
-            return Node::getInvalidNode(&client);
+            return getInvalidNode();
         }
     }
     else {
@@ -879,7 +879,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
         if (currentTokenIs(Lexer::TKN_RETURN)) {
             report(diag::RETURN_AFTER_PROCEDURE);
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-            return Node::getInvalidNode(&client);
+            return getInvalidNode();
         }
     }
 
@@ -1031,7 +1031,7 @@ Node Parser::parseType()
     IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name || !requireToken(Lexer::TKN_IS))
-        return Node::getInvalidNode(&client);
+        return getInvalidNode();
 
     // For now, handle only enumeration types.
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
@@ -1045,7 +1045,7 @@ Node Parser::parseType()
             seekCloseParen();
         }
     }
-    return Node::getInvalidNode(&client);
+    return getInvalidNode();
 }
 
 void Parser::parseEnumerationList(Node enumeration)

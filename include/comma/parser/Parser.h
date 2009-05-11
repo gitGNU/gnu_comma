@@ -253,14 +253,8 @@ private:
     //   - the reserved word `begin'.
     bool blockStmtFollows();
 
-    // Convenience function for deleting a collection of Node's.
-    template <class T> void deleteNodes(T &nodes) {
-        typename T::iterator iter;
-        typename T::iterator endIter = nodes.end();
-        for (iter = nodes.begin(); iter != endIter; ++iter)
-            client.deleteNode(*iter);
-    }
-
+    // Convenience function returning an invalid node.
+    Node getInvalidNode() { return Node::getInvalidNode(&client); }
 };
 
 } // End comma namespace
