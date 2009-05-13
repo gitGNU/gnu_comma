@@ -474,7 +474,7 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
 
-        if (!ensureExprType(arg, targetType))
+        if (!checkType(arg, targetType))
             return getInvalidNode();
     }
 
@@ -544,22 +544,6 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     }
     call->setConnective(fdecl);
     return status;
-}
-
-bool TypeCheck::ensureExprType(Expr *expr, Type *targetType)
-{
-    if (expr->hasType()) {
-        if (targetType->equals(expr->getType()))
-            return true;
-        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
-    }
-    else {
-        // Otherwise, the expression must be a function call overloaded on the
-        // return type.
-        FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
-        return resolveFunctionCall(fcall, targetType);
-    }
 }
 
 Node TypeCheck::acceptInj(Location loc, Node exprNode)

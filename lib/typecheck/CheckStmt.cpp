@@ -35,7 +35,7 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
         Expr         *retExpr    = cast_node<Expr>(retNode);
         Type         *targetType = fdecl->getReturnType();
 
-        if (ensureExprType(retExpr, targetType)) {
+        if (checkType(retExpr, targetType)) {
             retNode.release();
             return getNode(new ReturnStmt(loc, retExpr));
         }
@@ -84,7 +84,7 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
         return getInvalidNode();
     }
 
-    if (ensureExprType(value, targetDecl->getType())) {
+    if (checkType(value, targetDecl->getType())) {
         valueNode.release();
         DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);
         return getNode(new AssignmentStmt(ref, value));

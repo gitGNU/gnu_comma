@@ -344,6 +344,12 @@ private:
     // indicates the position of the source type.
     bool checkType(Type *source, SignatureType *target, Location loc);
 
+
+    // Returns true if an expression satisfies the target type, performing any
+    // resolution of the expression as needed.  Otherwise false is returned an
+    // appropriate diagnostics are posted.
+    bool checkType(Expr *expr, Type *targetType);
+
     // Returns true if the given type decl is equivalent to % in the context of
     // the current domain.
     bool denotesDomainPercent(const TypeDecl *tyDecl);
@@ -364,11 +370,6 @@ private:
     // are compatible with the given functor.
     bool denotesFunctorPercent(const FunctorDecl *functor,
                                Type **args, unsigned numArgs);
-
-    // Returns true if an expression satisfies the target type, performing any
-    // resolution of the expression as needed.  Otherwise false is returned an
-    // appropriate diagnostics are posted.
-    bool ensureExprType(Expr *expr, Type *targetType);
 
     bool has(DomainType *source, SignatureType *target);
 

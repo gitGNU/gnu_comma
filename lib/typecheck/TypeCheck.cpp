@@ -201,8 +201,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 {
     llvm::SmallVector<DomainType*, 4> domains;
 
-    // Convert each parameter node into an AbstractDomainDecl and release the
-    // Nodes.
+    // Convert each parameter node into an AbstractDomainDecl.
     for (Descriptor::paramIterator iter = desc.beginParams();
          iter != desc.endParams(); ++iter) {
         AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
@@ -665,8 +664,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         // Remove and clean up memory for each inherited node found to require a
         // redeclaration.
         for (BadDeclSet::iterator iter = badDecls.begin();
-             iter != badDecls.end();
-             ++iter) {
+             iter != badDecls.end(); ++iter) {
             SubroutineDecl *badDecl = *iter;
             model->removeDecl(badDecl);
             delete badDecl;
@@ -733,7 +731,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
         if (!initializerNode.isNull()) {
             Expr *expr       = cast_node<Expr>(initializerNode);
             Type *targetType = decl->getType();
-            if (ensureExprType(expr, targetType)) {
+            if (checkType(expr, targetType)) {
                 initializerNode.release();
                 decl->setInitializer(expr);
             }
@@ -1055,4 +1053,20 @@ bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
     // signature constraint.
     report(loc, diag::NOT_A_DOMAIN);
     return false;
+}
+
+bool TypeCheck::checkType(Expr *expr, Type *targetType)
+{
+    if (expr->hasType()) {
+        if (targetType->equals(expr->getType()))
+            return true;
+        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+    else {
+        // Otherwise, the expression must be a function call overloaded on the
+        // return type.
+        FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
+        return resolveFunctionCall(fcall, targetType);
+    }
 }
