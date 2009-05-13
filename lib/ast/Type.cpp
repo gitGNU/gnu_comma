@@ -50,15 +50,12 @@ bool CarrierType::equals(const Type *type) const
 
 SignatureType::SignatureType(SignatureDecl *decl)
     : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
-{
-    deletable = false;
-}
+{ }
 
 SignatureType::SignatureType(VarietyDecl *decl,
                              Type **args, unsigned numArgs)
     : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
 {
-    deletable = false;
     arguments = new Type*[numArgs];
     std::copy(args, args + numArgs, arguments);
 }
@@ -153,11 +150,7 @@ VarietyType::VarietyType(DomainType **formalArguments,
                         variety->getIdInfo(),
                         variety,
                         formalArguments, arity)
-{
-    // We are owned by the corresponding variety and so we cannot be deleted
-    // independently.
-    deletable = false;
-}
+{ }
 
 VarietyType::~VarietyType()
 {
@@ -179,11 +172,7 @@ FunctorType::FunctorType(DomainType **formalArguments,
                         functor->getIdInfo(),
                         functor,
                         formalArguments, arity)
-{
-    // We are owned by the corresponding functor and so we cannot be deleted
-    // independently.
-    deletable = false;
-}
+{ }
 
 FunctorType::~FunctorType()
 {
@@ -200,27 +189,19 @@ FunctorDecl *FunctorType::getDeclaration() const
 
 DomainType::DomainType(DomainDecl *decl)
     : ModelType(AST_DomainType, decl->getIdInfo(), decl)
-{
-    deletable = false;
-}
+{ }
 
 DomainType::DomainType(DomainInstanceDecl *decl)
     : ModelType(AST_DomainType, decl->getIdInfo(), decl)
-{
-    deletable = false;
-}
+{ }
 
 DomainType::DomainType(AbstractDomainDecl *decl)
     : ModelType(AST_DomainType, decl->getIdInfo(), decl)
-{
-    deletable = false;
-}
+{ }
 
 DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
     : ModelType(AST_DomainType, percentId, model)
-{
-    deletable = false;
-}
+{ }
 
 DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
 {

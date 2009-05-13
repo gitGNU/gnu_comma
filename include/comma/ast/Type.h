@@ -36,7 +36,11 @@ public:
 
 protected:
     Type(AstKind kind) : Ast(kind) {
+        // Types are never directly deletable -- they are always owned by a
+        // containing node.
+        deletable = false;
         assert(this->denotesType());
+
     }
 };
 

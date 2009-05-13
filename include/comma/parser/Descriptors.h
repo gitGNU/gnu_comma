@@ -80,7 +80,7 @@ class Node {
 
     private:
         // Do not implement.
-        NodeState(NodeState &state);
+        NodeState(const NodeState &state);
         NodeState &operator=(const NodeState &state);
     };
 

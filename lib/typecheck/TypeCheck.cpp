@@ -723,28 +723,38 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
                                         Node            typeNode,
                                         Node            initializerNode)
 {
-    Type *type = cast_node<Type>(typeNode);
+    Type *type = ensureValueType(typeNode, loc);
 
-    if ((type = ensureValueType(typeNode, loc))) {
-        DeclarativeRegion *region = currentDeclarativeRegion();
-        ObjectDecl *decl = new ObjectDecl(name, type, loc);
+    if (!type) return false;
 
-        if (!initializerNode.isNull()) {
-            Expr *expr       = cast_node<Expr>(initializerNode);
-            Type *targetType = decl->getType();
-            if (checkType(expr, targetType)) {
-                initializerNode.release();
-                decl->setInitializer(expr);
-            }
-            else
-                return false;
-        }
-        typeNode.release();
-        scope.addDirectValue(decl);
-        region->addDecl(decl);
-        return true;
+    DeclarativeRegion *region = currentDeclarativeRegion();
+
+    // Check that there does not exist an immediate declaration of the same
+    // name.
+    if (region->containsDecl(name)) {
+        report(loc, diag::REDECLARATION) << name;
+        return false;
     }
-    return false;
+
+    ObjectDecl *decl;
+
+    if (initializerNode.isNull())
+        decl = new ObjectDecl(name, type, loc);
+    else {
+        Expr *expr = cast_node<Expr>(initializerNode);
+        if (checkType(expr, type)) {
+            decl = new ObjectDecl(name, type, loc);
+            decl->setInitializer(expr);
+        }
+        else
+            return false;
+    }
+
+    typeNode.release();
+    initializerNode.release();
+    scope.addDirectValue(decl);
+    region->addDecl(decl);
+    return true;
 }
 
 bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)

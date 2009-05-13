@@ -108,3 +108,5 @@ DIAGNOSTIC(PERCENT_EQUIVALENT, NOTE,
            "Type expression equivalent to `%%'.")
 DIAGNOSTIC(MODEL_FORMAL_SHADOW, ERROR,
            "Formal parameter `%0' shadows type declaration.")
+DIAGNOSTIC(REDECLARATION, ERROR,
+           "Redeclaration of `%0'.")
