@@ -78,14 +78,6 @@ public:
                                unsigned         numKeys,
                                Location         loc);
 
-    Node acceptFunctionType(IdentifierInfo **formals,
-                            Location        *formalLocations,
-                            Node            *types,
-                            Location        *typeLocations,
-                            unsigned         arity,
-                            Node             returnType,
-                            Location         returnLocation);
-
     void beginSubroutineDeclaration(Descriptor &desc);
 
     Node acceptSubroutineParameter(IdentifierInfo   *formal,

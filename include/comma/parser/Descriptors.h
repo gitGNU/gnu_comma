@@ -96,6 +96,10 @@ public:
         ++state->rc;
     }
 
+    ~Node() { dispose(); }
+
+    Node &operator=(const Node &node);
+
     static Node getInvalidNode(ParseClient *client) {
         return Node(client, 0, NodeState::Invalid);
     }
@@ -103,10 +107,6 @@ public:
     static Node getNullNode(ParseClient *client) {
         return Node(client);
     }
-
-    ~Node() { dispose(); }
-
-    Node &operator=(const Node &node);
 
     // Returns true if this node is invalid.
     bool isInvalid() const {

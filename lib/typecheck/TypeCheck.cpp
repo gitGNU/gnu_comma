@@ -505,48 +505,6 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     return node;
 }
 
-Node TypeCheck::acceptFunctionType(IdentifierInfo **formals,
-                                   Location        *formalLocations,
-                                   Node            *types,
-                                   Location        *typeLocations,
-                                   unsigned         arity,
-                                   Node             returnType,
-                                   Location         returnLocation)
-{
-    llvm::SmallVector<Type*, 4> argumentTypes;
-    Type *targetType;
-    bool allOK = true;
-
-    for (unsigned i = 0; i < arity; ++i) {
-        IdentifierInfo *formal    = formals[i];
-        Location        formalLoc = formalLocations[i];
-
-        // Check the current formal against all preceding parameters and report
-        // any duplication.
-        for (unsigned j = 0; j < i; ++j)
-            if (formal == formals[j]) {
-                allOK = false;
-                report(formalLoc, diag::DUPLICATE_FORMAL_PARAM)
-                    << formal->getString();
-            }
-
-        // Ensure each parameter denotes a value type.
-        Type *argumentType = ensureValueType(types[i], typeLocations[i]);
-        if (argumentType && allOK)
-            argumentTypes.push_back(argumentType);
-    }
-
-    // Ensure the return type denotes a value type.
-    targetType = ensureValueType(returnType, returnLocation);
-
-    if (targetType && allOK) {
-        FunctionType *ftype =
-            new FunctionType(&formals[0], &argumentTypes[0], arity, targetType);
-        return getNode(ftype);
-    }
-    return getInvalidNode();
-}
-
 void TypeCheck::beginWithExpression()
 {
     // Nothing to do.  The declarative region of the current model is the

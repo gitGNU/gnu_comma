@@ -103,14 +103,6 @@ public:
                                        unsigned         numKeys,
                                        Location         loc) = 0;
 
-    virtual Node acceptFunctionType(IdentifierInfo **formals,
-                                    Location        *formalLocations,
-                                    Node            *types,
-                                    Location        *typeLocations,
-                                    unsigned         arity,
-                                    Node             returnType,
-                                    Location         returnLocation) = 0;
-
     // Submits an import from the given type node, and the location of the
     // import reserved word.
     virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
