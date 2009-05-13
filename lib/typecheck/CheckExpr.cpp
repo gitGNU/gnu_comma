@@ -147,7 +147,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     // FIXME: Report that there are no nullary functions declared in this
     // domain.
     if (!region->collectFunctionDecls(name, 0, decls)) {
-        report(loc, diag::NAME_NOT_VISIBLE);
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
 
