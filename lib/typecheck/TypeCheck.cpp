@@ -726,6 +726,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
     Type *type = cast_node<Type>(typeNode);
 
     if ((type = ensureValueType(typeNode, loc))) {
+        DeclarativeRegion *region = currentDeclarativeRegion();
         ObjectDecl *decl = new ObjectDecl(name, type, loc);
 
         if (!initializerNode.isNull()) {
@@ -740,6 +741,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
         }
         typeNode.release();
         scope.addDirectValue(decl);
+        region->addDecl(decl);
         return true;
     }
     return false;
