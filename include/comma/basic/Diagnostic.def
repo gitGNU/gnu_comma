@@ -110,3 +110,5 @@ DIAGNOSTIC(MODEL_FORMAL_SHADOW, ERROR,
            "Formal parameter `%0' shadows type declaration.")
 DIAGNOSTIC(REDECLARATION, ERROR,
            "Redeclaration of `%0'.")
+DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
+           "`%0' conflicts with declaration at `%1'.")

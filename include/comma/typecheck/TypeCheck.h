@@ -365,8 +365,8 @@ private:
 
 
     // Returns true if an expression satisfies the target type, performing any
-    // resolution of the expression as needed.  Otherwise false is returned an
-    // appropriate diagnostics are posted.
+    // resolution of the expression as needed.  Otherwise false is returned and
+    // an appropriate diagnostics is posted.
     bool checkType(Expr *expr, Type *targetType);
 
     // Returns true if the given type decl is equivalent to % in the context of
@@ -392,12 +392,12 @@ private:
 
     bool has(DomainType *source, SignatureType *target);
 
-    SourceLocation getSourceLocation(Location loc) const {
+    SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) const {
-        return diagnostic.report(getSourceLocation(loc), kind);
+        return diagnostic.report(getSourceLoc(loc), kind);
     }
 };
 

@@ -646,9 +646,9 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
                         Location        modelLoc = model->getLocation();
                         SubroutineDecl *baseDecl = indirectDecls.lookup(decl);
                         SourceLocation     sloc1 =
-                            getSourceLocation(baseDecl->getLocation());
+                            getSourceLoc(baseDecl->getLocation());
                         SourceLocation     sloc2 =
-                            getSourceLocation(srDecl->getLocation());
+                            getSourceLoc(srDecl->getLocation());
                         report(modelLoc, diag::MISSING_REDECLARATION)
                             << decl->getString() << sloc1 << sloc2;
                         badDecls.insert(decl);
@@ -704,9 +704,9 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
             TypeDecl *conflict = dyn_cast<TypeDecl>(*dIter);
             if (conflict) {
                 SourceLocation tyLoc =
-                    getSourceLocation(tyDecl->getLocation());
+                    getSourceLoc(tyDecl->getLocation());
                 SourceLocation conflictLoc =
-                    getSourceLocation(conflict->getLocation());
+                    getSourceLoc(conflict->getLocation());
                 report(tyDecl->getLocation(),
                        diag::CONFLICTING_TYPE_DECLS)
                     << name << tyLoc << conflictLoc;
@@ -727,17 +727,39 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
 
     if (!type) return false;
 
+    // Traverse the enclosing regions, stopping at the first function, model, or
+    // top-level context encountered.
     DeclarativeRegion *region = currentDeclarativeRegion();
+    for ( ; region != 0; region = region->getParent()) {
+        DeclarativeRegion::PredRange range = region->findDecls(name);
+        if (range.first != range.second) {
+            Decl *decl = *range.first;
+            SourceLocation sloc = getSourceLoc(decl->getLocation());
+            report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+            return false;
+        }
 
-    // Check that there does not exist an immediate declaration of the same
-    // name.
-    if (region->containsDecl(name)) {
-        report(loc, diag::REDECLARATION) << name;
-        return false;
+        Ast *ast = region->asAst();
+        if (SubroutineDecl *decl = dyn_cast<SubroutineDecl>(ast)) {
+            // Check that the name does not conflict with the formal parameters
+            // of the subroutine.
+            for (SubroutineDecl::ParamDeclIterator iter = decl->beginParams();
+                 iter != decl->endParams(); ++iter) {
+                ParamValueDecl *param = *iter;
+                if (name == param->getIdInfo()) {
+                    SourceLocation sloc = getSourceLoc(param->getLocation());
+                    report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+                    return false;
+                }
+            }
+            break;
+        }
+
+        if (isa<ModelDecl>(ast))
+            break;
     }
 
     ObjectDecl *decl;
-
     if (initializerNode.isNull())
         decl = new ObjectDecl(name, type, loc);
     else {
@@ -920,7 +942,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     // Check that this declaration does not conflict with any other.
     if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
         SubroutineDecl *sdecl = cast<SubroutineDecl>(extantDecl);
-        SourceLocation   sloc = getSourceLocation(extantDecl->getLocation());
+        SourceLocation   sloc = getSourceLoc(extantDecl->getLocation());
 
         if (!sdecl->hasBody() && definitionFollows)
             sdecl->setDefiningDeclaration(routineDecl);
