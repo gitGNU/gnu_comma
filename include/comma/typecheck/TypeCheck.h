@@ -338,6 +338,12 @@ private:
                                       llvm::SmallVector<SubroutineDecl*, 8> &routines,
                                       bool lookupFunctions);
 
+    // Returns true if the source type is compatible with the target type.  In
+    // this case the target denotes a signature, and so the source must be a
+    // domain which satisfies the signature constraint.  The supplied location
+    // indicates the position of the source type.
+    bool checkType(Type *source, SignatureType *target, Location loc);
+
     // Returns true if the given type decl is equivalent to % in the context of
     // the current domain.
     bool denotesDomainPercent(const TypeDecl *tyDecl);

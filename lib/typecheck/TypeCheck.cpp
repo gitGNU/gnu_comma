@@ -450,36 +450,10 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         Type        *argument = arguments[i];
         Location       argLoc = argumentLocs[i];
         SignatureType *target =
-                resolveArgumentType(candidate, &arguments[0], i);
+            resolveArgumentType(candidate, &arguments[0], i);
 
-        if (DomainType *domain = dyn_cast<DomainType>(argument)) {
-            if (!has(domain, target)) {
-                report(argLoc, diag::DOES_NOT_SATISFY)
-                    << domain->getString()  << target->getString();
-                return getInvalidNode();
-            }
-            continue;
-        }
-
-        if (CarrierType *carrier = dyn_cast<CarrierType>(argument)) {
-            DomainType *rep =
-                dyn_cast<DomainType>(carrier->getRepresentationType());
-            if (!rep) {
-                report(argLoc, diag::NOT_A_DOMAIN);
-                return getInvalidNode();
-            }
-            if (!has(rep, target)) {
-                report(argLoc, diag::DOES_NOT_SATISFY)
-                    << carrier->getString() << target->getString();
-                return getInvalidNode();
-            }
-            continue;
-        }
-
-        // Otherwise, the argument does not denote a domain, and so cannot
-        // satisfy the signature constraint.
-        report(argLoc, diag::NOT_A_DOMAIN);
-        return getInvalidNode();
+        if (!checkType(argument, target, argLoc))
+            return getInvalidNode();
     }
 
     // Obtain a memoized type node for this particular argument set.
@@ -1049,4 +1023,36 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
 
     EnumerationLiteral *lit = new EnumerationLiteral(enumeration, name, loc);
     scope.addDirectDecl(lit);
+}
+
+bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
+{
+    if (DomainType *domain = dyn_cast<DomainType>(source)) {
+        if (!has(domain, target)) {
+            report(loc, diag::DOES_NOT_SATISFY)
+                << domain->getString()  << target->getString();
+            return false;
+        }
+        return true;
+    }
+
+    if (CarrierType *carrier = dyn_cast<CarrierType>(source)) {
+        DomainType *rep =
+            dyn_cast<DomainType>(carrier->getRepresentationType());
+        if (!rep) {
+            report(loc, diag::NOT_A_DOMAIN);
+            return false;
+        }
+        if (!has(rep, target)) {
+            report(loc, diag::DOES_NOT_SATISFY)
+                << carrier->getString() << target->getString();
+            return false;
+        }
+        return true;
+    }
+
+    // Otherwise, the source does not denote a domain, and so cannot satisfy the
+    // signature constraint.
+    report(loc, diag::NOT_A_DOMAIN);
+    return false;
 }
