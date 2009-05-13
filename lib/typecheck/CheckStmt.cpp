@@ -25,6 +25,25 @@ Node TypeCheck::acceptProcedureCall(IdentifierInfo  *name,
     return acceptSubroutineCall(name, loc, args, false);
 }
 
+Node TypeCheck::acceptQualifiedProcedureCall(Node            qualNode,
+                                             IdentifierInfo *name,
+                                             Location        loc,
+                                             NodeVector     &args)
+{
+    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+    DeclarativeRegion *region    = qualifier->resolve();
+    std::vector<SubroutineDecl*> decls;
+
+    // FIXME: Report that there are no functions of the given arity declared in
+    // this domain.
+    if (!region->collectProcedureDecls(name, args.size(), decls)) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return getInvalidNode();
+    }
+
+    return acceptSubroutineCall(decls, loc, args);
+}
+
 Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
 {
     assert((checkingProcedure() || checkingFunction()) &&

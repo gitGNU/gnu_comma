@@ -210,6 +210,13 @@ private:
 
     ParameterMode parseParameterMode();
 
+    // Parses the argument list of a subroutine call.  The current token must be
+    // a TKN_LPAREN.  If the parsing succeeds, dst is populated with the nodes
+    // for each argument and true is returned.  Otherwise, false is returned and
+    // the token stream has been adjusted such that the closing paren of the
+    // argument list has been consumed.
+    bool parseSubroutineArgumentList(NodeVector &dst);
+
     Node parseSubroutineDeclaration(Descriptor &desc);
 
     bool seekEndTag(IdentifierInfo *tag);

@@ -106,9 +106,6 @@ Node Parser::parsePrjExpr()
 
 Node Parser::parsePrimaryExpr()
 {
-    Node     qualifier = Node::getNullNode(&client);
-    Location loc       = currentLocation();
-
     if (reduceToken(Lexer::TKN_LPAREN)) {
         Node result = parseExpr();
         if (!reduceToken(Lexer::TKN_RPAREN))
@@ -117,67 +114,35 @@ Node Parser::parsePrimaryExpr()
         return result;
     }
 
-    // FIXME:  Use result of qualification parsing.
+    Node qual = Node::getNullNode(&client);
     if (qualificationFollows()) {
-       qualifier = parseQualificationExpr();
-       if (qualifier.isInvalid())
+       qual = parseQualificationExpr();
+       if (qual.isInvalid())
            return getInvalidNode();
     }
 
     // The only primary expressions we currently support are direct names.
-    IdentifierInfo *directName = parseIdentifierInfo();
+    Location        loc  = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
 
-    if (!directName) {
+    if (!name) {
         seekToken(Lexer::TKN_SEMI);
         return getInvalidNode();
     }
 
-    // If we have an empty set of parameters, treat as a nullary name.
-    if (unitExprFollows()) {
-        report(diag::ILLEGAL_EMPTY_PARAMS);
-        ignoreToken();
-        ignoreToken();
-
-        if (qualifier.isNull())
-            return client.acceptDirectName(directName, loc);
-        else
-            return client.acceptQualifiedName(qualifier, directName, loc);
-    }
-
-    if (reduceToken(Lexer::TKN_LPAREN)) {
-        NodeVector arguments;
-        bool       seenSelector = false;
-        do {
-            Node arg = getInvalidNode();
-            if (keywordSelectionFollows()) {
-                arg = parseSubroutineKeywordSelection();
-                seenSelector = true;
-            }
-            else if (seenSelector) {
-                report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
-                seekCloseParen();
-                return getInvalidNode();
-            }
-            else
-                arg = parseExpr();
-
-            if (arg.isInvalid()) {
-                seekCloseParen();
-                return getInvalidNode();
-            }
-            arguments.push_back(arg);
-        } while (reduceToken(Lexer::TKN_COMMA));
-
-        if (!requireToken(Lexer::TKN_RPAREN)) {
-            seekCloseParen();
+    if (currentTokenIs(Lexer::TKN_LPAREN)) {
+        NodeVector args;
+        if (!parseSubroutineArgumentList(args))
             return getInvalidNode();
-        }
-
-        return client.acceptFunctionCall(directName, loc, arguments);
+        else if (qual.isNull())
+            return client.acceptFunctionCall(name, loc, args);
+        else
+            return client.acceptQualifiedFunctionCall(qual, name, loc, args);
     }
-
-    if (qualifier.isNull())
-        return client.acceptDirectName(directName, loc);
-    else
-        return client.acceptQualifiedName(qualifier, directName, loc);
+    else {
+        if (qual.isNull())
+            return client.acceptDirectName(name, loc);
+        else
+            return client.acceptQualifiedName(qual, name, loc);
+    }
 }

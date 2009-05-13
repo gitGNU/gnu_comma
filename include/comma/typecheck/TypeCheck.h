@@ -113,10 +113,19 @@ public:
                             Location         loc,
                             NodeVector      &args);
 
+    Node acceptQualifiedFunctionCall(Node            qualNode,
+                                     IdentifierInfo *name,
+                                     Location        loc,
+                                     NodeVector     &args);
 
     Node acceptProcedureCall(IdentifierInfo  *name,
                              Location         loc,
                              NodeVector      &args);
+
+    Node acceptQualifiedProcedureCall(Node            qualNode,
+                                      IdentifierInfo *name,
+                                      Location        loc,
+                                      NodeVector     &args);
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.
@@ -333,10 +342,20 @@ private:
                               NodeVector     &args,
                               bool            checkFunction);
 
-    static void lookupSubroutineDecls(Homonym *homonym,
-                                      unsigned arity,
-                                      llvm::SmallVector<SubroutineDecl*, 8> &routines,
+    Node acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
+                              Location                      loc,
+                              NodeVector                   &args);
+
+    static bool lookupSubroutineDecls(Homonym                      *homonym,
+                                      unsigned                      arity,
+                                      std::vector<SubroutineDecl*> &routines,
                                       bool lookupFunctions);
+
+    // Looks up all function declarations in the given decl
+    static void collectFunctionDecls(IdentifierInfo    *name,
+                                     unsigned           arity,
+                                     DeclarativeRegion *region,
+                                     std::vector<FunctionDecl*> dst);
 
     // Returns true if the source type is compatible with the target type.  In
     // this case the target denotes a signature, and so the source must be a

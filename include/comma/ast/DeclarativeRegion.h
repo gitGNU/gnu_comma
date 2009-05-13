@@ -167,6 +167,21 @@ public:
     // removed, false otherwise.
     bool removeDecl(Decl *decl);
 
+    // Looks up all function declaration nodes in this region with the given
+    // name and arity, pushing the results onto the supplied vector.  Returns
+    // true if any declarations were found and false otherwise.
+    bool collectFunctionDecls(IdentifierInfo *name,
+                              unsigned        arity,
+                              std::vector<SubroutineDecl*> &dst);
+
+
+    // Looks up all procedure declaration nodes in this region with the given
+    // name and arity, pushing the results onto the supplied vector.  Returns
+    // true if any declarations were found and false otherwise.
+    bool collectProcedureDecls(IdentifierInfo *name,
+                               unsigned        arity,
+                               std::vector<SubroutineDecl*> &dst);
+
     // Converts this DeclarativeRegion into a raw Ast node.
     Ast *asAst();
     const Ast *asAst() const;

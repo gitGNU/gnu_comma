@@ -1068,6 +1068,50 @@ void Parser::parseEnumerationList(Node enumeration)
     requireToken(Lexer::TKN_RPAREN);
 }
 
+bool Parser::parseSubroutineArgumentList(NodeVector &dst)
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+
+    // If we have an empty set of parameters, consume them and post a
+    // diagnostic.
+    if (unitExprFollows()) {
+        report(diag::ILLEGAL_EMPTY_PARAMS);
+        ignoreToken();
+        ignoreToken();
+        return false;
+    }
+
+    ignoreToken();              // Ignore the '('.
+
+    bool seenSelector = false;
+    do {
+        Node arg = getInvalidNode();
+        if (keywordSelectionFollows()) {
+            arg = parseSubroutineKeywordSelection();
+            seenSelector = true;
+        }
+        else if (seenSelector) {
+            report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
+            seekCloseParen();
+            return false;
+        }
+        else
+            arg = parseExpr();
+
+        if (arg.isInvalid()) {
+            seekCloseParen();
+            return false;
+        }
+        dst.push_back(arg);
+    } while (reduceToken(Lexer::TKN_COMMA));
+
+    if (!requireToken(Lexer::TKN_RPAREN)) {
+        seekCloseParen();
+        return false;
+    }
+    return true;
+}
+
 bool Parser::parseTopLevelDeclaration()
 {
     for (;;) {

@@ -142,40 +142,21 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 {
     Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
     DeclarativeRegion *region    = qualifier->resolve();
-
-    // Lookup the name in the resolved declarative region.
-    typedef DeclarativeRegion::PredRange PredRange;
-    typedef DeclarativeRegion::PredIter  PredIter;
-
-    PredRange range = region->findDecls(name);
-
-    if (range.first == range.second) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    // Currently, the only component of a domain which we support are function
-    // decls.  Collect the nullary functions.
-    llvm::SmallVector<FunctionDecl*, 4> functionDecls;
-
-    for (PredIter iter = range.first; iter != range.second; ++iter) {
-        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
-            if (fdecl->getArity() == 0)
-                functionDecls.push_back(fdecl);
-        }
-    }
+    std::vector<SubroutineDecl*> decls;
 
     // FIXME: Report that there are no nullary functions declared in this
     // domain.
-    if (functionDecls.empty()) {
+    if (!region->collectFunctionDecls(name, 0, decls)) {
         report(loc, diag::NAME_NOT_VISIBLE);
         return getInvalidNode();
     }
 
-    // Form the function call node.
-    FunctionCallExpr *call = new FunctionCallExpr(functionDecls[0], 0, 0, loc);
-    for (unsigned i = 1; i < functionDecls.size(); ++i)
-        call->addConnective(functionDecls[i]);
+    // Form the function call node and poulate with any aditional connectives
+    // (too be resolved by the type context of this call).
+    FunctionCallExpr *call
+        = new FunctionCallExpr(cast<FunctionDecl>(decls[0]), 0, 0, loc);
+    for (unsigned i = 1; i < decls.size(); ++i)
+        call->addConnective(cast<FunctionDecl>(decls[i]));
     call->setQualifier(qualifier);
     qualNode.release();
     return getNode(call);
@@ -188,22 +169,31 @@ Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,
     return acceptSubroutineCall(name, loc, argNodes, true);
 }
 
-// Note that this function will evolve to take a Node in place of an identifier,
-// and will be renamed to acceptFunctionCall.
+Node TypeCheck::acceptQualifiedFunctionCall(Node            qualNode,
+                                            IdentifierInfo *name,
+                                            Location        loc,
+                                            NodeVector     &args)
+{
+    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+    DeclarativeRegion *region    = qualifier->resolve();
+    std::vector<SubroutineDecl*> decls;
+
+    // FIXME: Report that there are no functions of the given arity declared in
+    // this domain.
+    if (!region->collectFunctionDecls(name, args.size(), decls)) {
+        report(loc, diag::NAME_NOT_VISIBLE);
+        return getInvalidNode();
+    }
+
+    return acceptSubroutineCall(decls, loc, args);
+}
+
 Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
                                      Location        loc,
                                      NodeVector     &argNodes,
                                      bool            checkFunction)
 {
-    llvm::SmallVector<Expr*, 8> args;
-    unsigned numArgs = argNodes.size();
-
-    // Convert the argument nodes to Expr's and release the Node's.
-    for (unsigned i = 0; i < numArgs; ++i) {
-        args.push_back(cast_node<Expr>(argNodes[i]));
-    }
-
-    llvm::SmallVector<SubroutineDecl*, 8> routineDecls;
+    std::vector<SubroutineDecl*> routineDecls;
     Homonym *homonym = name->getMetadata<Homonym>();
 
     if (!homonym) {
@@ -211,25 +201,38 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
         return getInvalidNode();
     }
 
-    lookupSubroutineDecls(homonym, numArgs, routineDecls, checkFunction);
-
-    if (routineDecls.empty()) {
+    if (lookupSubroutineDecls(homonym, argNodes.size(), routineDecls, checkFunction))
+        return acceptSubroutineCall(routineDecls, loc, argNodes);
+    else {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
+}
 
-    if (routineDecls.size() == 1)
-        return checkSubroutineCall(routineDecls[0], loc, &args[0], numArgs);
+Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
+                                     Location                      loc,
+                                     NodeVector                   &argNodes)
+{
+    llvm::SmallVector<Expr*, 8> args;
+    unsigned numArgs = argNodes.size();
+    IdentifierInfo *name = decls[0]->getIdInfo();
 
-    // We use the following bit vector to indicate which elements of the
-    // routineDecl vector are applicable as we resolve the subroutine call with
-    // respect to the given arguments.
-    llvm::BitVector declFilter(routineDecls.size(), true);
+    // Convert the argument nodes to Expr's.
+    for (unsigned i = 0; i < numArgs; ++i)
+        args.push_back(cast_node<Expr>(argNodes[i]));
+
+    if (decls.size() == 1)
+        return checkSubroutineCall(decls[0], loc, &args[0], numArgs);
+
+    // We use the following bit vector to indicate which elements of the decl
+    // vector are applicable as we resolve the subroutine call with respect to
+    // the given arguments.
+    llvm::BitVector declFilter(decls.size(), true);
 
     // First, reduce the set of declarations to include only those which can
     // accept any keyword selectors provided.
-    for (unsigned i = 0; i < routineDecls.size(); ++i) {
-        SubroutineDecl *decl = routineDecls[i];
+    for (unsigned i = 0; i < decls.size(); ++i) {
+        SubroutineDecl *decl = decls[i];
         for (unsigned j = 0; j < numArgs; ++j) {
             Expr *arg = args[j];
             if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg)) {
@@ -251,8 +254,8 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
 
     // Reduce the set of declarations with respect to the types of its
     // arguments.
-    for (unsigned i = 0; i < routineDecls.size(); ++i) {
-        SubroutineDecl *decl = routineDecls[i];
+    for (unsigned i = 0; i < decls.size(); ++i) {
+        SubroutineDecl *decl = decls[i];
         for (unsigned j = 0; j < numArgs && declFilter[i]; ++j) {
             Expr     *arg         = args[j];
             unsigned  targetIndex = j;
@@ -314,7 +317,7 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
     // If we have a unique declaration, check the matching call.
     if (declFilter.count() == 1) {
         argNodes.release();
-        SubroutineDecl *decl = routineDecls[declFilter.find_first()];
+        SubroutineDecl *decl = decls[declFilter.find_first()];
         Node result = checkSubroutineCall(decl, loc, &args[0], numArgs);
         if (result.isValid())
             argNodes.release();
@@ -324,11 +327,11 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
     // If we are dealing with functions, the resolution of the call will depend
     // on the resolution of the return type.  If we are dealing with procedures,
     // then the call is ambiguous.
-    if (checkFunction) {
+    if (isa<FunctionDecl>(decls[0])) {
         llvm::SmallVector<FunctionDecl*, 4> connectives;
-        for (unsigned i = 0; i < routineDecls.size(); ++i)
+        for (unsigned i = 0; i < decls.size(); ++i)
             if (declFilter[i]) {
-                FunctionDecl *fdecl = cast<FunctionDecl>(routineDecls[i]);
+                FunctionDecl *fdecl = cast<FunctionDecl>(decls[i]);
                 connectives.push_back(fdecl);
             }
         FunctionCallExpr *call =
@@ -348,18 +351,20 @@ Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
 // the given homonym and populates the vector routineDecls with the results.  If
 // lookupFunctions is true, this method scans for functions, otherwise for
 // procedures.
-void TypeCheck::lookupSubroutineDecls(
-    Homonym *homonym,
-    unsigned arity,
-    llvm::SmallVector<SubroutineDecl*, 8> &routineDecls,
-    bool lookupFunctions)
+bool TypeCheck::lookupSubroutineDecls(Homonym *homonym,
+                                      unsigned arity,
+                                      std::vector<SubroutineDecl*> &decls,
+                                      bool lookupFunctions)
 {
     SubroutineDecl *decl;       // Declarations provided by the homonym.
     SubroutineType *type;       // Type of `decl'.
     SubroutineType *shadowType; // Type of previous direct lookups.
+    size_t          initSize;   // Initial size of the destination vector.
 
     if (homonym->empty())
-        return;
+        return false;
+
+    initSize = decls.size();
 
     // Accumulate any direct declarations.
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
@@ -370,22 +375,22 @@ void TypeCheck::lookupSubroutineDecls(
             decl = dyn_cast<ProcedureDecl>(*iter);
         if (decl && decl->getArity() == arity) {
             type = decl->getType();
-            for (unsigned i = 0; i < routineDecls.size(); ++i) {
-                shadowType = routineDecls[i]->getType();
+            for (unsigned i = 0; i < decls.size() - initSize; ++i) {
+                shadowType = decls[i]->getType();
                 if (shadowType->equals(type)) {
                     type = 0;
                     break;
                 }
             }
             if (type)
-                routineDecls.push_back(decl);
+                decls.push_back(decl);
         }
     }
 
     // Accumulate import declarations, ensuring that any directly visible
     // declarations shadow those imports with matching types.  Imported
     // declarations do not shadow each other.
-    unsigned numDirectDecls = routineDecls.size();
+    unsigned numDirectDecls = decls.size() - initSize;
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
         if (lookupFunctions)
@@ -395,16 +400,18 @@ void TypeCheck::lookupSubroutineDecls(
         if (decl && decl->getArity() == arity) {
             type = decl->getType();
             for (unsigned i = 0; i < numDirectDecls; ++i) {
-                shadowType = routineDecls[i]->getType();
+                shadowType = decls[i]->getType();
                 if (shadowType->equals(type)) {
                     type = 0;
                     break;
                 }
             }
             if (type)
-                routineDecls.push_back(decl);
+                decls.push_back(decl);
         }
     }
+
+    return initSize != decls.size();
 }
 
 Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,

@@ -43,56 +43,29 @@ Node Parser::parseStatement()
 
 Node Parser::parseProcedureCallStatement()
 {
-    Location        loc;
-    IdentifierInfo *name;
-
-    // FIXME:  Use result of qualification parsing.
-    if (qualificationFollows())
-        parseQualificationExpr();
-
-    loc  = currentLocation();
-    name = parseIdentifierInfo();
-
-    if (!name) return getInvalidNode();
-
-    NodeVector arguments;
-    bool       seenSelector = false;
-
-    // If we have an empty set paramters, treat as a nullary name.
-    if (unitExprFollows()) {
-        report(diag::ILLEGAL_EMPTY_PARAMS);
-        ignoreToken();
-        ignoreToken();
-    }
-    else if (reduceToken(Lexer::TKN_LPAREN)) {
-        do {
-            Node arg = getInvalidNode();
-            if (keywordSelectionFollows()) {
-                arg = parseSubroutineKeywordSelection();
-                seenSelector = true;
-            }
-            else if (seenSelector) {
-                report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
-                seekCloseParen();
-                return getInvalidNode();
-            }
-            else
-                arg = parseExpr();
-
-            if (arg.isInvalid()) {
-                seekCloseParen();
-                return getInvalidNode();
-            }
-            arguments.push_back(arg);
-        } while (reduceToken(Lexer::TKN_COMMA));
-
-        if (!requireToken(Lexer::TKN_RPAREN)) {
-            seekCloseParen();
+    Node qual = Node::getNullNode(&client);
+    if (qualificationFollows()) {
+        qual = parseQualificationExpr();
+        if (qual.isInvalid())
             return getInvalidNode();
-        }
     }
 
-    return client.acceptProcedureCall(name, loc, arguments);
+    Location        loc  = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+    if (!name) {
+        seekToken(Lexer::TKN_SEMI);
+        return getInvalidNode();
+    }
+
+    NodeVector args;
+    if (currentTokenIs(Lexer::TKN_LPAREN))
+        if (!parseSubroutineArgumentList(args))
+            return getInvalidNode();
+
+    if (qual.isNull())
+        return client.acceptProcedureCall(name, loc, args);
+    else
+        return client.acceptQualifiedProcedureCall(qual, name, loc, args);
 }
 
 Node Parser::parseReturnStmt()
@@ -117,10 +90,9 @@ Node Parser::parseAssignmentStmt()
 
     Location        location = currentLocation();
     IdentifierInfo *target   = parseIdentifierInfo();
-    Node            value    = Node::getNullNode(&client);
 
     ignoreToken();              // Ignore the `:='.
-    value = parseExpr();
+    Node value = parseExpr();
     if (value.isValid())
         return client.acceptAssignmentStmt(location, target, value);
     return getInvalidNode();
@@ -132,9 +104,7 @@ Node Parser::parseIfStmt()
 
     Location   loc       = ignoreToken();
     Node       condition = parseExpr();
-    Node       result    = Node::getNullNode(&client);
     NodeVector stmts;
-
 
     if (condition.isInvalid() || !requireToken(Lexer::TKN_THEN)) {
         seekEndIf();
@@ -150,7 +120,7 @@ Node Parser::parseIfStmt()
              !currentTokenIs(Lexer::TKN_ELSIF) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    result = client.acceptIfStmt(loc, condition, &stmts[0], stmts.size());
+    Node result = client.acceptIfStmt(loc, condition, &stmts[0], stmts.size());
     if (result.isInvalid()) {
         seekEndIf();
         return getInvalidNode();
@@ -204,20 +174,18 @@ Node Parser::parseIfStmt()
 
 Node Parser::parseBlockStmt()
 {
-    Node            block = Node::getNullNode(&client);
     Location        loc   = currentLocation();
     IdentifierInfo *label = 0;
 
     assert(blockStmtFollows());
 
+    // Parse this blocks label, if available.
     if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        // Parse this blocks label.
         label = parseIdentifierInfo();
-        ignoreToken();
-        block = client.beginBlockStmt(loc, label);
+        ignoreToken();          // Ignore the ":".
     }
-    else
-        block = client.beginBlockStmt(loc);
+
+    Node block = client.beginBlockStmt(loc, label);
 
     if (reduceToken(Lexer::TKN_DECLARE)) {
         while (!currentTokenIs(Lexer::TKN_BEGIN) &&

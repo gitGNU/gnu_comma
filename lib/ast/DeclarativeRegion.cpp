@@ -120,6 +120,38 @@ bool DeclarativeRegion::removeDecl(Decl *decl)
     return false;
 }
 
+bool DeclarativeRegion::collectFunctionDecls(IdentifierInfo *name,
+                                             unsigned        arity,
+                                             std::vector<SubroutineDecl*> &dst)
+{
+    PredRange range = findDecls(name);
+    size_t    size  = dst.size();
+
+    for (PredIter iter = range.first; iter != range.second; ++iter) {
+        if (FunctionDecl *decl = dyn_cast<FunctionDecl>(*iter)) {
+            if (decl->getArity() == arity)
+                dst.push_back(decl);
+        }
+    }
+    return size != dst.size();
+}
+
+bool DeclarativeRegion::collectProcedureDecls(IdentifierInfo *name,
+                                              unsigned        arity,
+                                              std::vector<SubroutineDecl*> &dst)
+{
+    PredRange range = findDecls(name);
+    size_t    size  = dst.size();
+
+    for (PredIter iter = range.first; iter != range.second; ++iter) {
+        if (ProcedureDecl *decl = dyn_cast<ProcedureDecl>(*iter)) {
+            if (decl->getArity() == arity)
+                dst.push_back(decl);
+        }
+    }
+    return size != dst.size();
+}
+
 const Ast *DeclarativeRegion::asAst() const
 {
     switch (regionKind) {
