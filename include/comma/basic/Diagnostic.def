@@ -33,8 +33,8 @@ DIAGNOSTIC(EXPECTED_END_TAG, ERROR,
            "Expected end tag `%s'.")
 DIAGNOSTIC(UNEXPECTED_END_TAG, ERROR,
            "Unexpected end tag `%s'.")
-DIAGNOSTIC(ILLEGAL_EMPTY_PARAMS, ERROR,
-           "Illegal empty parameter list.")
+DIAGNOSTIC(EMPTY_PARAMS, ERROR,
+           "Empty parameter lists are not permitted.")
 DIAGNOSTIC(POSITIONAL_FOLLOWING_SELECTED_PARAMETER, ERROR,
            "Positional arguments may not follow keyword selections.")
 DIAGNOSTIC(MISSING_RETURN_AFTER_FUNCTION, ERROR,
@@ -43,6 +43,8 @@ DIAGNOSTIC(RETURN_AFTER_PROCEDURE, ERROR,
            "Procedures cannot have return types.")
 DIAGNOSTIC(OUT_IN_PARAMETER_MODE, ERROR,
            "Use `in out' instead of `out in' in parameter mode specifications.")
+DIAGNOSTIC(EMPTY_ENUMERATION, ERROR,
+           "Empty enumerations are not permitted.")
 
 //
 // Semantic Diagnostics.

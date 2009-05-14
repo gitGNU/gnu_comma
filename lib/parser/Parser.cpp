@@ -440,7 +440,7 @@ void Parser::parseModelParameterization(Descriptor &desc)
 
     // We do not permit empty parameter lists.
     if (currentTokenIs(Lexer::TKN_RPAREN)) {
-        report(diag::ILLEGAL_EMPTY_PARAMS);
+        report(diag::EMPTY_PARAMS);
         ignoreToken();
         return;
     }
@@ -660,7 +660,7 @@ Node Parser::parseModelInstantiation()
     // complain ourselves.
     if (unitExprFollows()) {
         Node type = client.acceptTypeIdentifier(info, loc);
-        if (type.isValid()) report(loc, diag::ILLEGAL_EMPTY_PARAMS);
+        if (type.isValid()) report(loc, diag::EMPTY_PARAMS);
         return type;
     }
 
@@ -771,7 +771,7 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
 
     // Check that we do not have an empty parameter list.
     if (unitExprFollows()) {
-        report(diag::ILLEGAL_EMPTY_PARAMS);
+        report(diag::EMPTY_PARAMS);
 
         // Consume the opening and closing parens.
         ignoreToken();
@@ -1051,7 +1051,14 @@ Node Parser::parseType()
 void Parser::parseEnumerationList(Node enumeration)
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
+    Location loc = currentLocation();
     ignoreToken();
+
+    // Diagnose empty enumeration lists.
+    if (reduceToken(Lexer::TKN_RPAREN)) {
+        report(loc, diag::EMPTY_ENUMERATION);
+        return;
+    }
 
     do {
         Location        loc  = currentLocation();
@@ -1075,7 +1082,7 @@ bool Parser::parseSubroutineArgumentList(NodeVector &dst)
     // If we have an empty set of parameters, consume them and post a
     // diagnostic.
     if (unitExprFollows()) {
-        report(diag::ILLEGAL_EMPTY_PARAMS);
+        report(diag::EMPTY_PARAMS);
         ignoreToken();
         ignoreToken();
         return false;
