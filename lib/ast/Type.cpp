@@ -367,7 +367,7 @@ bool SubroutineType::equals(const Type *type) const
         return false;
 
     for (unsigned i = 0; i < arity; ++i)
-        if (getArgType(i) != routineType->getArgType(i))
+        if (!getArgType(i)->equals(routineType->getArgType(i)))
             return false;
 
     if (const FunctionType *thisType = dyn_cast<FunctionType>(this)) {
@@ -382,7 +382,7 @@ bool SubroutineType::equals(const Type *type) const
         return false;
     }
 
-    // This must be a function type.  The types are therefore equal if the
+    // This must be a procedure type.  The types are therefore equal if the
     // target is also a procedure.
     return isa<ProcedureType>(routineType);
 }

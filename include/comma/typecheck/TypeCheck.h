@@ -369,6 +369,11 @@ private:
     // an appropriate diagnostics is posted.
     bool checkType(Expr *expr, Type *targetType);
 
+    // Verifies that the given AddDecl satisfies the constraints imposed by its
+    // signature.  Returns true if the constraints are satisfied.  Otherwise,
+    // false is returned and diagnostics are posted.
+    bool ensureExportConstraints(AddDecl *add);
+
     // Returns true if the given type decl is equivalent to % in the context of
     // the current domain.
     bool denotesDomainPercent(const TypeDecl *tyDecl);
@@ -389,6 +394,13 @@ private:
     // are compatible with the given functor.
     bool denotesFunctorPercent(const FunctorDecl *functor,
                                Type **args, unsigned numArgs);
+
+    // Search all declarations present in the given declarative region for a
+    // match with respect to the given rewrites.  Returns a matching delcaration
+    // node or null.
+    static SubroutineDecl *findDecl(const AstRewriter &rewrites,
+                                    DeclarativeRegion *region,
+                                    SubroutineDecl    *decl);
 
     bool has(DomainType *source, SignatureType *target);
 

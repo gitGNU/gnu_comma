@@ -62,7 +62,8 @@ DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
 DIAGNOSTIC(SUBROUTINE_REDECLARATION, ERROR,
            "Redeclaration of subroutine `%0' originally defined at `%1'.")
 DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
-           "Multiple ambiguous declarations of `%0' (inherited from `%1' and `%2'). "
+           "Multiple ambiguous declarations of `%0' "
+           "(inherited from `%1' and `%2'). "
            "Redeclaration required.")
 DIAGNOSTIC(TYPE_HAS_NO_SUCH_KEYWORD, ERROR,
            "There is no argument keyword named `%0' defined for type `%0'.")
@@ -112,3 +113,5 @@ DIAGNOSTIC(REDECLARATION, ERROR,
            "Redeclaration of `%0'.")
 DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
+DIAGNOSTIC(MISSING_EXPORT, ERROR,
+           "Domain `%0' is missing export `%1'.")

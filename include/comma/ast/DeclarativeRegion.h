@@ -159,7 +159,7 @@ public:
         return range.first != range.second;
     }
 
-    // Returns the declaration with the given name and type is this region if
+    // Returns the declaration with the given name and type in this region if
     // one is present, else 0.
     Decl *findDecl(IdentifierInfo *name, Type *type);
 

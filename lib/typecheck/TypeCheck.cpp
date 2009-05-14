@@ -557,14 +557,12 @@ Type *TypeCheck::ensureValueType(Node     node,
         return ensureDomainType(node, loc);
 }
 
-namespace {
-
-// This function is a helper for ensureNecessaryRedeclarations.  It searches all
-// declarations present in the given declarative region for a match with respect
-// to the given rewrites.  Returns a matching delcaration node or null.
-SubroutineDecl *findDecl(const AstRewriter &rewrites,
-                         DeclarativeRegion *region,
-                         SubroutineDecl    *decl)
+// Search all declarations present in the given declarative region for a match
+// with respect to the given rewrites.  Returns a matching delcaration node or
+// null.
+SubroutineDecl *TypeCheck::findDecl(const AstRewriter &rewrites,
+                                    DeclarativeRegion *region,
+                                    SubroutineDecl    *decl)
 {
     typedef DeclarativeRegion::PredIter  PredIter;
     typedef DeclarativeRegion::PredRange PredRange;
@@ -581,8 +579,6 @@ SubroutineDecl *findDecl(const AstRewriter &rewrites,
     }
     return 0;
 }
-
-} // End anonymous namespace.
 
 void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 {
@@ -627,13 +623,12 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 
                 // If a matching declaration was not found, apply the rewrites
                 // and construct a new indirect declaration node for this
-                // signature.
+                // model.
                 if (!decl) {
                     SubroutineType *rewriteType = rewrites.rewrite(srType);
                     SubroutineDecl *rewriteDecl;
 
                     rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, model);
-                    rewriteDecl->setDeclarativeRegion(model);
                     model->addDecl(rewriteDecl);
                     indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
                 } else if (indirectDecls.count(decl)) {
@@ -846,6 +841,8 @@ void TypeCheck::beginAddExpression()
 
 void TypeCheck::endAddExpression()
 {
+    ensureExportConstraints(getCurrentDomoid()->getImplementation());
+
     // Leave the scope corresponding to the add expression and switch back to
     // the declarative region of the defining domain.
     declarativeRegion = declarativeRegion->getParent();
@@ -1131,4 +1128,45 @@ bool TypeCheck::checkType(Expr *expr, Type *targetType)
         FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
         return resolveFunctionCall(fcall, targetType);
     }
+}
+
+bool TypeCheck::ensureExportConstraints(AddDecl *add)
+{
+    Domoid *domoid = add->getImplementedDomoid();
+    IdentifierInfo *domainName = domoid->getIdInfo();
+    Location domainLoc = domoid->getLocation();
+
+    bool allOK = true;
+
+    // The domoid contains all of the declarations inherited from the super
+    // signatures and any associated with expression.  Tarverse the set of
+    // declarations and ensure that the AddDecl provides a definition.
+    for (Domoid::ConstDeclIter iter = domoid->beginDecls();
+         iter != domoid->endDecls(); ++iter) {
+        Decl *decl   = *iter;
+        Type *target = 0;
+
+        // Extract the associated type from this decl.
+        if (SubroutineDecl *routineDecl = dyn_cast<SubroutineDecl>(decl))
+            target = routineDecl->getType();
+        else if (ValueDecl *valueDecl = dyn_cast<ValueDecl>(decl))
+            target = valueDecl->getType();
+
+        // FIXME: We need a better diagnostic here.  In particular, we should be
+        // reporting which signature(s) demand the missing export.  However, the
+        // current organization makes this difficult.  One solution is to link
+        // declaration nodes with those provided by the original signature
+        // definition.  Another is to perform a search thru the signature
+        // hierarchy using TypeCheck::findDecl.
+        if (target) {
+            Decl *candidate = add->findDecl(decl->getIdInfo(), target);
+            SubroutineDecl *srDecl = dyn_cast_or_null<SubroutineDecl>(candidate);
+            if (!candidate || (srDecl && !srDecl->hasBody())) {
+                report(domainLoc, diag::MISSING_EXPORT)
+                    << domainName << decl->getIdInfo();
+                allOK = false;
+            }
+        }
+    }
+    return allOK;
 }

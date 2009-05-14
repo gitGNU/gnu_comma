@@ -176,9 +176,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
 DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
-    : Domoid(AST_DomainInstanceDecl,
-             domain->getIdInfo(),
-             loc),
+    : Domoid(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
       definition(domain)
 {
     domain->addObserver(this);
@@ -194,9 +192,7 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
                                        Type       **args,
                                        unsigned     numArgs,
                                        Location     loc)
-    : Domoid(AST_DomainInstanceDecl,
-             functor->getIdInfo(),
-             loc),
+    : Domoid(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
       definition(functor)
 {
     arguments = new Type*[numArgs];
@@ -287,6 +283,8 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
 {
     assert(this->denotesSubroutineDecl());
 
+    setDeclarativeRegion(parent);
+
     // Create our own copy of the parameter set.
     if (numParams > 0) {
         parameters = new ParamValueDecl*[numParams];
@@ -345,6 +343,8 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
       body(0)
 {
     assert(this->denotesSubroutineDecl());
+
+    setDeclarativeRegion(parent);
 
     // In this constructor, we need to create a set of ParamValueDecl nodes
     // which correspond to the supplied type.
@@ -452,7 +452,8 @@ EnumerationDecl::EnumerationDecl(IdentifierInfo    *name,
                                  Location           loc,
                                  DeclarativeRegion *parent)
     : TypeDecl(AST_EnumerationDecl, name, loc),
-      DeclarativeRegion(AST_EnumerationDecl)
+      DeclarativeRegion(AST_EnumerationDecl, parent)
 {
+    setDeclarativeRegion(parent);
     correspondingType = new EnumerationType(this);
 }
