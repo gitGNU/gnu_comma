@@ -105,8 +105,9 @@ public:
     /// \brief Construct a TextProvider over the given file.
     ///
     /// Initializes a TextProvider to manage the contents of the given file.
-    /// The provided path must name a readable text file.  If the path is
-    /// invalid, this constructor will simply call abort.
+    /// The provided path must name a readable text file, or if the path
+    /// specifies a file name "-", then read from all of stdin instead.  If the
+    /// path is invalid, this constructor will simply call abort.
     ///
     /// \param path The file used to back this TextProvider.
     TextProvider(const llvm::sys::Path& path);

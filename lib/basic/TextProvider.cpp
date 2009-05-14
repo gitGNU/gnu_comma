@@ -16,14 +16,20 @@ using namespace comma;
 
 TextProvider::TextProvider(const llvm::sys::Path &path)
 {
-    memBuffer = llvm::MemoryBuffer::getFile(path.c_str());
+    memBuffer = llvm::MemoryBuffer::getFileOrSTDIN(path.c_str());
 
     // Perhaps it would be better to simply return an empty TextProvider in this
     // case.
     if (!memBuffer) abort();
 
     buffer = memBuffer->getBufferStart();
+
     identity = path.getLast();
+
+    // If we are reading from stdin, update identity to a more meningful string.
+    if (identity.compare("-") == 0)
+        identity = "<stdin>";
+
     initializeLinevec();
 }
 
