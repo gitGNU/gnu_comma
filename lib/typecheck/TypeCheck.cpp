@@ -529,7 +529,7 @@ SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
 }
 
 DomainType *TypeCheck::ensureDomainType(Node     node,
-                                        Location loc) const
+                                        Location loc)
 {
     if (Type *type = lift_node<Type>(node))
         return ensureDomainType(type, loc);
@@ -538,7 +538,7 @@ DomainType *TypeCheck::ensureDomainType(Node     node,
 }
 
 DomainType *TypeCheck::ensureDomainType(Type    *type,
-                                        Location loc) const
+                                        Location loc)
 {
     if (DomainType *dom = dyn_cast<DomainType>(type))
         return dom;
@@ -549,7 +549,7 @@ DomainType *TypeCheck::ensureDomainType(Type    *type,
 }
 
 Type *TypeCheck::ensureValueType(Node     node,
-                                 Location loc) const
+                                 Location loc)
 {
     if (EnumerationType *etype = lift_node<EnumerationType>(node))
         return etype;

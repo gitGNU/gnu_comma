@@ -41,7 +41,7 @@ Parser::Parser(TextProvider   &txtProvider,
       client(client),
       diagnostic(diag),
       lexer(txtProvider, diag),
-      seenError(false)
+      errorCount(0)
 {
     lexer.scan(token);
 }

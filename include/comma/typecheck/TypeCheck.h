@@ -188,6 +188,13 @@ public:
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 
+    /// \brief Returns true if the type checker as not encountered an error and
+    /// false otherwise.
+    bool checkSuccessful() const { return errorCount == 0; }
+
+    /// \brief Returns the number of errors encountered thus far.
+    unsigned getErrorCount() const { return errorCount; }
+
 private:
     Diagnostic        &diagnostic;
     AstResource       &resource;
@@ -308,10 +315,9 @@ private:
                                        TypeDecl          *tyDecl);
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
-    DomainType *ensureDomainType(Node typeNode, Location loc) const;
-    DomainType *ensureDomainType(Type *type, Location loc) const;
-
-    Type *ensureValueType(Node typeNode, Location loc) const;
+    DomainType *ensureDomainType(Node typeNode, Location loc);
+    DomainType *ensureDomainType(Type *type, Location loc);
+    Type *ensureValueType(Node typeNode, Location loc);
 
     static SignatureType *resolveArgumentType(ParameterizedType *target,
                                               Type             **actuals,
@@ -408,7 +414,8 @@ private:
         return resource.getTextProvider().getSourceLocation(loc);
     }
 
-    DiagnosticStream &report(Location loc, diag::Kind kind) const {
+    DiagnosticStream &report(Location loc, diag::Kind kind) {
+        ++errorCount;
         return diagnostic.report(getSourceLoc(loc), kind);
     }
 };

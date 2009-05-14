@@ -88,9 +88,16 @@ public:
     Node parseType();
     void parseEnumerationList(Node enumeration);
 
-    // Parses a top level construct.  Returns false once all tokens have been
-    // consumed.
+    /// \brief Parses a top level construct.  Returns false once all tokens have
+    /// been consumed.
     bool parseTopLevelDeclaration();
+
+    /// \brief Returns true if the parser has been driven without seeing an
+    /// error and false otherwise.
+    bool parseSuccessful() const { return errorCount == 0; }
+
+    /// \brief Returns the number of errors seen by this Parser so far.
+    unsigned getErrorCount() const { return errorCount; }
 
 private:
     TextProvider   &txtProvider;
@@ -101,8 +108,8 @@ private:
 
     Lexer::Token token;
 
-    // Set to true when the parser encounters an error.
-    bool seenError;
+    // Maintains a count of the number of errors seen thus far.
+    unsigned errorCount;
 
     // The kind of end tag which is expected.  This enumeration will be
     // expanded.
@@ -192,15 +199,18 @@ private:
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
+        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(SourceLocation sloc, diag::Kind kind) {
+        ++errorCount;
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(diag::Kind kind) {
+        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
         return diagnostic.report(sloc, kind);
     }

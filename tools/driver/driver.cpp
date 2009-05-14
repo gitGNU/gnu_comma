@@ -31,6 +31,11 @@ int main(int argc, const char **argv)
     TypeCheck tc(diag, resource, &cu);
     Parser p(tp, idPool, tc, diag);
 
-    while(p.parseTopLevelDeclaration());
-    return 0;
+    int status = 0;
+    while (p.parseTopLevelDeclaration()) {
+        if (!p.parseSuccessful() || !tc.checkSuccessful())
+            status = 1;
+    }
+
+    return status;
 }
