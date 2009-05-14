@@ -94,10 +94,14 @@ public:
 
     /// \brief Returns true if the parser has been driven without seeing an
     /// error and false otherwise.
-    bool parseSuccessful() const { return errorCount == 0; }
+    bool parseSuccessful() const {
+        return errorCount == 0 && lexer.lexSuccessful();
+    }
 
     /// \brief Returns the number of errors seen by this Parser so far.
-    unsigned getErrorCount() const { return errorCount; }
+    unsigned getErrorCount() const {
+        return errorCount + lexer.getErrorCount();
+    }
 
 private:
     TextProvider   &txtProvider;

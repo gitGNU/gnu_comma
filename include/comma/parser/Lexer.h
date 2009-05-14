@@ -100,8 +100,11 @@ public:
 
     void forgetExcursion();
 
-    // Returns true if the lexer has seen an error while scanning its input.
-    bool seenError() const { return errorDetected; }
+    // Returns true if the lexer has not seen an error while scanning its input.
+    bool lexSuccessful() const { return errorCount == 0; }
+
+    // Returns the number of errors seen by the lexer.
+    unsigned getErrorCount() const { return errorCount; }
 
     /// Calling this function prematurely aborts scanning.  All further calls to
     /// Lexer::scan will result in a TKN_EOT token thereby ending the lexical
@@ -191,15 +194,18 @@ private:
                              const TextIterator &end);
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
+        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(SourceLocation sloc, diag::Kind kind)  {
+        ++errorCount;
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(diag::Kind kind) {
+        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
         return diagnostic.report(sloc, kind);
     }
@@ -213,8 +219,8 @@ private:
     // An iterator into our stream.
     TextIterator currentIter;
 
-    // Flag indicating if a lexical error has been detected.
-    bool errorDetected;
+    // Numer of errors detected.
+    unsigned errorCount;
 
     // True is lexing has been cancelled with a call to abortScanning().
     bool scanningAborted;

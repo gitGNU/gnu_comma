@@ -15,7 +15,7 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
     : txtProvider(txtProvider),
       diagnostic(diag),
       currentIter(txtProvider.begin()),
-      errorDetected(false),
+      errorCount(0),
       scanningAborted(false),
       index(0)
 { }
@@ -430,14 +430,12 @@ bool Lexer::scanEscape()
     case 0:
         // Premature end of stream.  We let this condition be picked up by the
         // caller.
-        errorDetected = true;
         ungetStream();
         return false;
 
     default:
         // Illegal escape sequence.
         report(loc, diag::ILLEGAL_ESCAPE) << (char)c;
-        errorDetected = true;
         return false;
     }
     return true;
@@ -464,14 +462,12 @@ bool Lexer::scanString()
                 // Premature end of stream.  Form the string literal from all
                 // tokens accumulated thus far.
                 report(loc, diag::UNTERMINATED_STRING);
-                errorDetected = true;
                 emitStringToken(start, currentIter);
                 return true;
 
             case '\n':
                 // Embedded newline.
                 report(loc, diag::NEWLINE_IN_STRING_LIT);
-                errorDetected = true;
                 emitStringToken(start, currentIter);
                 return true;
 
@@ -499,7 +495,6 @@ bool Lexer::scanNumeric()
         // diagnostic and drop the leading zeros.
         if (c == '0' && isDecimalDigit(peekStream())) {
             report(loc, diag::LEADING_ZERO_IN_INTEGER_LIT);
-            errorDetected = true;
 
             while (peekStream() == '0') ignoreStream();
 
@@ -615,7 +610,6 @@ void Lexer::scanToken()
         // For invalid character data, simply emit a diagnostic and continue to
         // scan for a token.
         report(diag::INVALID_CHARACTER) << (char)readStream();
-        errorDetected = true;
         continue;
     }
 }
