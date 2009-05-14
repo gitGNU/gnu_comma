@@ -67,7 +67,7 @@ bool percentHas(ModelDecl *source, SignatureType *target)
                 unsigned arity = variety->getArity();
                 for (unsigned i = 0; i < arity; ++i) {
                     Type       *actual = target->getActualParameter(i);
-                    DomainType *formal = variety->getFormalDomain(i);
+                    DomainType *formal = variety->getFormalType(i);
                     if (actual != formal) {
                         matchFound = false;
                         break;

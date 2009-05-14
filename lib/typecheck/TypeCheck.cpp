@@ -324,7 +324,7 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
     if (checkingFunctor()) {
         FunctorDecl *currentFunctor = getCurrentFunctor();
         for (unsigned i = 0; i < numArgs; ++i) {
-            DomainType *formal = currentFunctor->getFormalDomain(i);
+            DomainType *formal = currentFunctor->getFormalType(i);
             if (formal != args[i])
                 return false;
         }
@@ -505,12 +505,12 @@ SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
     // For each actual argument, establish a map from the formal parameter to
     // the actual.
     for (unsigned i = 0; i < numActuals; ++i) {
-        Type *formal = type->getFormalDomain(i);
+        Type *formal = type->getFormalType(i);
         Type *actual = actuals[i];
         rewriter.addRewrite(formal, actual);
     }
 
-    SignatureType *target = type->getFormalType(numActuals);
+    SignatureType *target = type->getFormalSignature(numActuals);
     return rewriter.rewrite(target);
 }
 
@@ -675,8 +675,8 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
                                                 Sigoid    *sigdecl)
 {
-    // Bring all type declarations provided by the given super signatures into
-    // the current model.
+    // Bring all type declarations provided by the signature into the given
+    // model.
     Sigoid::DeclIter iter    = sigdecl->beginDecls();
     Sigoid::DeclIter endIter = sigdecl->endDecls();
 
@@ -697,25 +697,53 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
     typedef DeclarativeRegion::PredIter  PredIter;
     IdentifierInfo *name  = tyDecl->getIdInfo();
     PredRange       range = region->findDecls(name);
-    bool            allOK = true;
+    Location        loc   = tyDecl->getLocation();
 
     if (range.first != range.second) {
-        for (PredIter &dIter = range.first; dIter != range.second; ++dIter) {
-            TypeDecl *conflict = dyn_cast<TypeDecl>(*dIter);
+        for (PredIter &iter = range.first; iter != range.second; ++iter) {
+            TypeDecl *conflict = dyn_cast<TypeDecl>(*iter);
             if (conflict) {
-                SourceLocation tyLoc =
-                    getSourceLoc(tyDecl->getLocation());
-                SourceLocation conflictLoc =
-                    getSourceLoc(conflict->getLocation());
-                report(tyDecl->getLocation(),
-                       diag::CONFLICTING_TYPE_DECLS)
-                    << name << tyLoc << conflictLoc;
-                allOK = false;
-                break;
+                SourceLocation sloc = getSourceLoc(conflict->getLocation());
+                report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+                return false;
             }
         }
     }
-    return allOK;
+
+    // If the declarative region denotes a model or an AddDecl, check to ensure
+    // that the declaration does not conflict with the model name or any model
+    // parameters.  We do not need to check declarations inherited from super
+    // signatures as they are injected into the models declarative region.
+    Ast *ast   = region->asAst();
+    if (AddDecl *add = dyn_cast<AddDecl>(ast)) {
+        // Recursively check the declarations present in this AddDecls
+        // associated model.
+        ModelDecl *model = add->getImplementedDomoid();
+        return ensureDistinctTypeDeclaration(model, tyDecl);
+    }
+
+    if (ModelDecl *model = dyn_cast<ModelDecl>(ast)) {
+        if (name == model->getIdInfo()) {
+            SourceLocation sloc = getSourceLoc(model->getLocation());
+            report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+            return false;
+        }
+
+        ParameterizedType *ptype;
+        if ((ptype = dyn_cast<ParameterizedType>(model->getType()))) {
+            for (unsigned i = 0; i < ptype->getArity(); ++i) {
+                IdentifierInfo *id = ptype->getFormalIdInfo(i);
+                if (name == id) {
+                    AbstractDomainDecl *formal =
+                        ptype->getFormalType(i)->getAbstractDecl();
+                    SourceLocation sloc = getSourceLoc(formal->getLocation());
+                    report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 bool TypeCheck::acceptObjectDeclaration(Location        loc,

@@ -37,7 +37,7 @@ void AstRewriter::installRewrites(DomainType *context)
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
-                DomainType *formal = functor->getFormalDomain(i);
+                DomainType *formal = functor->getFormalType(i);
                 Type       *actual = instance->getActualParameter(i);
                 rewrites[formal] = actual;
             }
@@ -52,7 +52,7 @@ void AstRewriter::installRewrites(SignatureType *context)
     if (variety) {
         unsigned arity = variety->getArity();
         for (unsigned i = 0; i < arity; ++i) {
-            DomainType *formal = variety->getFormalDomain(i);
+            DomainType *formal = variety->getFormalType(i);
             Type       *actual = context->getActualParameter(i);
             addRewrite(formal, actual);
         }

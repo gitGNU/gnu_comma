@@ -181,11 +181,11 @@ public:
     unsigned getArity() const { return numFormals; }
 
     // Returns the domain type representing the formal parameter.
-    DomainType *getFormalDomain(unsigned i) const;
+    DomainType *getFormalType(unsigned i) const;
 
     // Returns the SignatureType which the formal parameter satisfies (or which
     // an actual parameter must satisfy).
-    SignatureType *getFormalType(unsigned i) const;
+    SignatureType *getFormalSignature(unsigned i) const;
 
     // Returns the IdentifierInfo which labels this formal parameter.
     IdentifierInfo *getFormalIdInfo(unsigned i) const;

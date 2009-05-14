@@ -295,10 +295,18 @@ public:
     // Returns the number of arguments accepted by this variety.
     unsigned getArity() const { return getType()->getArity(); }
 
-    // Returns the an abstract domain node representing the i'th formal
-    // parameter.
-    DomainType *getFormalDomain(unsigned i) const {
-        return getType()->getFormalDomain(i);
+    // Returns the type of of the i'th formal parameter.
+    DomainType *getFormalType(unsigned i) const {
+        return getType()->getFormalType(i);
+    }
+
+    // Returns the abstract domain representing the i'th formal parameter.  Note
+    // that these declarations are meaningful only to the inner definition of
+    // the variety and do not participate in the public view.
+    AbstractDomainDecl *getFormalDomain(unsigned i) const {
+        AbstractDomainDecl *formal = getFormalType(i)->getAbstractDecl();
+        assert(formal && "Parameter not an abstract domain!");
+        return formal;
     }
 
     typedef llvm::FoldingSet<SignatureType>::iterator type_iterator;
@@ -312,8 +320,7 @@ public:
     }
 
 private:
-    mutable llvm::FoldingSet<SignatureType> types;
-
+    mutable llvm::FoldingSet<SignatureType>  types;
     VarietyType *varietyType;
 };
 
@@ -379,6 +386,9 @@ public:
 
     // Returns true if this Add implements a FunctorDecl.
     bool implementsFunctor() const;
+
+    // Returns the domoid which this add implements.
+    Domoid *getImplementedDomoid();
 
     // If implementsDomain returns true, this function provides the domain
     // declaration which this add implements, otherwise NULL is returned.
@@ -569,8 +579,18 @@ public:
     // Returns the number of arguments this functor accepts.
     unsigned getArity() const { return getType()->getArity(); }
 
-    DomainType *getFormalDomain(unsigned i) const {
-        return getType()->getFormalDomain(i);
+    // Returns the type of of the i'th formal parameter.
+    DomainType *getFormalType(unsigned i) const {
+        return getType()->getFormalType(i);
+    }
+
+    // Returns the abstract domain representing the i'th formal parameter.  Note
+    // that these declarations are meaningful only to the inner definition of
+    // the functor and do not participate in the public view.
+    AbstractDomainDecl *getFormalDomain(unsigned i) const {
+        AbstractDomainDecl *formal = getFormalType(i)->getAbstractDecl();
+        assert(formal && "Parameter not an abstract domain!");
+        return formal;
     }
 
     DomainType *getPercent() const { return percent; }

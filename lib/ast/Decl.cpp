@@ -120,6 +120,11 @@ bool AddDecl::implementsFunctor() const
     return isa<FunctorDecl>(getParent()->asAst());
 }
 
+Domoid *AddDecl::getImplementedDomoid()
+{
+    return cast<Domoid>(getParent()->asAst());
+}
+
 DomainDecl *AddDecl::getImplementedDomain()
 {
     return dyn_cast<DomainDecl>(getParent()->asAst());

@@ -114,21 +114,21 @@ ParameterizedType::ParameterizedType(AstKind         kind,
     std::copy(formalArgs, formalArgs + arity, formals);
 }
 
-DomainType *ParameterizedType::getFormalDomain(unsigned i) const
+DomainType *ParameterizedType::getFormalType(unsigned i) const
 {
     assert(i < getArity() && "Formal domain index out of bounds!");
     return formals[i];
 }
 
-SignatureType *ParameterizedType::getFormalType(unsigned i) const
+SignatureType *ParameterizedType::getFormalSignature(unsigned i) const
 {
-    AbstractDomainDecl *decl = getFormalDomain(i)->getAbstractDecl();
+    AbstractDomainDecl *decl = getFormalType(i)->getAbstractDecl();
     return decl->getSignatureType();
 }
 
 IdentifierInfo *ParameterizedType::getFormalIdInfo(unsigned i) const
 {
-    return getFormalDomain(i)->getIdInfo();
+    return getFormalType(i)->getIdInfo();
 }
 
 int ParameterizedType::getKeywordIndex(IdentifierInfo *keyword) const
