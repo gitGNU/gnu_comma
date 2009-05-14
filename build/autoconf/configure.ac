@@ -61,6 +61,25 @@ case "$enableval" in
    *)   AC_MSG_ERROR([Invalid setting for --enable-doxygen. Use "yes" or "no"]) ;;
 esac;
 
+
+dnl Enable Commaspec.
+AC_ARG_ENABLE([commaspec],
+              AS_HELP_STRING([--enable-commaspec],
+                             [Build Commaspec documentation (default is "no")]),,
+              [enableval=no])
+
+case "$enableval" in
+   yes) AC_PATH_PROG([XSLTPROC], [xsltproc], [])
+        if test -z "$XSLTPROC"; then
+           AC_MSG_ERROR([[Could not detect xsltproc. Disabling..]])
+           AC_SUBST(ENABLE_COMMASPEC,[0])
+        else
+           AC_SUBST(ENABLE_COMMASPEC,[1])
+        fi; ;;
+   no)  AC_SUBST(ENABLE_COMMASPEC,[0]) ;;
+   *)   AC_MSG_ERROR([Invalid setting for --enable-commaspec. Use "yes" or "no"]) ;;
+esac;
+
 dnl ****************************************************************************
 dnl * Determine the build, host, and target systems.
 dnl ****************************************************************************
@@ -84,8 +103,6 @@ AC_PATH_PROG(RM,   [rm],   [rm])
 AC_PATH_PROG(AR,   [ar],   [ar])
 AC_PATH_PROG(ECHO, [echo], [echo])
 AC_PATH_PROG(SED,  [sed],  [sed])
-
-AC_CHECK_PROG(XSLTPROC, xsltproc, xsltproc)
 
 dnl ****************************************************************************
 dnl * Check for libraries.

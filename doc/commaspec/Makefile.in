@@ -13,6 +13,11 @@ LEVEL = ../..
 
 include $(LEVEL)/Makefile.common
 
+#
+# Build the specification iff we have been configured to do so.
+#
+ifeq ($(enable_commaspec), 1)
+
 xml_sources := $(wildcard $(prj_srcdir)/*.xml)
 
 #
@@ -30,15 +35,13 @@ XML := $(prj_srcdir)/commaspec.xml
 all: $(index_html)
 
 $(index_html): $(xml_sources) $(CSS) $(XSL)
-ifeq ($(XSLTPROC),)
-	$(error Cannot build commaspec: xsltproc is not available.)
-else
 	$(ECHO) Building commaspec under $(prj_objdir)
 	$(verb) $(XSLTPROC) --nonet                 \
 	                    --xinclude              \
 	                    --output $(prj_objdir)/ \
 	                    $(XSL) $(XML)
-endif
+
+endif # enable_commaspec
 
 #
 # Cleanup everything.

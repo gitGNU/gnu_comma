@@ -133,6 +133,11 @@ doxygen_cfg = $(comma_objroot)/doc/doxygen/doxygen.cfg
 doxygen_dir = $(comma_objroot)/doc/doxygen
 
 #
+# Are we building the Comma language spec?
+#
+enable_commaspec = @ENABLE_COMMASPEC@
+
+#
 # Our default rule is always all.
 #
 all :
