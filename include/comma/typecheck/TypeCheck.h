@@ -226,12 +226,6 @@ private:
         return llvm::cast<T>(Node::lift<Ast>(node));
     }
 
-    // Returns a node initialized to reference this TypeChecker.
-    Node getNode(void *ptr) { return Node(this, ptr); }
-
-    // Returns a Node marked as invalid.
-    Node getInvalidNode() { return Node::getInvalidNode(this); }
-
     DeclarativeRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
     }

@@ -274,8 +274,11 @@ private:
     //   - the reserved word `begin'.
     bool blockStmtFollows();
 
-    // Convenience function returning an invalid node.
-    Node getInvalidNode() { return Node::getInvalidNode(&client); }
+    // Convenience function for obtaining null nodes.
+    Node getNullNode() { return client.getNullNode(); }
+
+    // Convenience function for obtaining invalid nodes.
+    Node getInvalidNode() { return client.getInvalidNode(); }
 };
 
 } // End comma namespace

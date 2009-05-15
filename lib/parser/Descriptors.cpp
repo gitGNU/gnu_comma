@@ -63,7 +63,7 @@ Descriptor::Descriptor(ParseClient *client, DescriptorKind kind)
       client(client),
       idInfo(0),
       location(0),
-      returnType(client, 0) { }
+      returnType(client->getNullNode()) { }
 
 void Descriptor::setReturnType(Node node)
 {
@@ -89,7 +89,7 @@ void Descriptor::clear()
     hasReturn   = false;
     idInfo      = 0;
     location    = 0;
-    returnType  = Node(client, 0);
+    returnType  = client->getNullNode();
     params.clear();
 }
 

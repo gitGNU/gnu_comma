@@ -43,7 +43,7 @@ Node Parser::parseStatement()
 
 Node Parser::parseProcedureCallStatement()
 {
-    Node qual = Node::getNullNode(&client);
+    Node qual = getNullNode();
     if (qualificationFollows()) {
         qual = parseQualificationExpr();
         if (qual.isInvalid())

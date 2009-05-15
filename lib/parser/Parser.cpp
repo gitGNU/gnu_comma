@@ -987,7 +987,7 @@ bool Parser::parseObjectDeclaration()
     Node type = parseModelInstantiation();
 
     if (type.isValid()) {
-        Node init = Node::getNullNode(&client);
+        Node init = getNullNode();
         if (reduceToken(Lexer::TKN_ASSIGN))
             init = parseExpr();
         if (init.isValid()) {

@@ -114,7 +114,7 @@ Node Parser::parsePrimaryExpr()
         return result;
     }
 
-    Node qual = Node::getNullNode(&client);
+    Node qual = getNullNode();
     if (qualificationFollows()) {
        qual = parseQualificationExpr();
        if (qual.isInvalid())

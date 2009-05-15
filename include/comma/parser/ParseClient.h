@@ -18,10 +18,22 @@ namespace comma {
 class ParseClient {
 
 public:
-    // The parser does not know about the underlying node representation.  It
-    // calls this method when cleaning up after a bad parse.  The implementation
-    // need not delete the node as a result of this call -- it might choose to
-    // cache it, for instance.
+    // Nodes cannot be constructed from outside a parse client, yet many of the
+    // callbacks take null nodes indicateing a non-existant argument.  This
+    // method is made available to the parser so that it has a means of
+    // producing such null nodes.
+    Node getNullNode() { return Node::getNullNode(this); }
+
+    // Nodes cannot be constructed from outside a parse client.  However, the
+    // parser needs to be able to create invalid nodes to communicate failures
+    // during parsing (just as the ParseClient returns invalid nodes to indicate
+    // a semantic failure).
+    Node getInvalidNode() { return Node::getInvalidNode(this); }
+
+    // Nodes do not know the representation of the data they carry.  This method
+    // is called by Nodes once their reference counts drop to zero.  The
+    // implementation need not delete the node as a result of this call -- it
+    // might choose to cache it, for instance.
     virtual void deleteNode(Node &node) = 0;
 
     // Starts the processing of a model.  The supplied Descriptor contains the
@@ -193,6 +205,10 @@ public:
     virtual void acceptEnumerationLiteral(Node            enumeration,
                                           IdentifierInfo *name,
                                           Location        loc) = 0;
+
+protected:
+    // Allow sub-classes to construct arbitrary nodes.
+    Node getNode(void *ptr) { return Node(this, ptr); }
 };
 
 } // End comma namespace.

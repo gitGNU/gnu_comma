@@ -84,13 +84,26 @@ class Node {
         NodeState &operator=(const NodeState &state);
     };
 
+    // Construction of nodes is prohibited except by the ParseClient producing
+    // them.  Thus, all direct constructors are private and we define the
+    // ParseClient as a friend.
     Node(ParseClient *client, void *ptr, NodeState::Property prop)
         : state(new NodeState(client, ptr, prop)) { }
 
-public:
     Node(ParseClient *client, void *ptr = 0)
         : state(new NodeState(client, ptr)) { }
 
+    static Node getInvalidNode(ParseClient *client) {
+        return Node(client, 0, NodeState::Invalid);
+    }
+
+    static Node getNullNode(ParseClient *client) {
+        return Node(client);
+    }
+
+    friend class ParseClient;
+
+public:
     Node(const Node &node)
         : state(node.state) {
         ++state->rc;
@@ -100,13 +113,6 @@ public:
 
     Node &operator=(const Node &node);
 
-    static Node getInvalidNode(ParseClient *client) {
-        return Node(client, 0, NodeState::Invalid);
-    }
-
-    static Node getNullNode(ParseClient *client) {
-        return Node(client);
-    }
 
     // Returns true if this node is invalid.
     bool isInvalid() const {
