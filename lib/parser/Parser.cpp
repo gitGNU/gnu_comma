@@ -439,14 +439,11 @@ void Parser::parseModelParameterization(Descriptor &desc)
     ignoreToken();
 
     // We do not permit empty parameter lists.
-    if (currentTokenIs(Lexer::TKN_RPAREN)) {
+    if (reduceToken(Lexer::TKN_RPAREN)) {
         report(diag::EMPTY_PARAMS);
-        ignoreToken();
         return;
     }
 
-    NodeVector parameters;
-    LocationVector locations;
     do {
         parseModelParameter(desc);
     } while (reduceToken(Lexer::TKN_SEMI));
