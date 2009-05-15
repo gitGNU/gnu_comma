@@ -2,7 +2,7 @@
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
-# Copyright (C) 2008, Stephen Wilson
+# Copyright (C) 2008-2009, Stephen Wilson
 #
 ##----------------------------------------------------------------------------##
 
@@ -21,3 +21,12 @@ DIRS=lib tools doc
 #
 include $(LEVEL)/Makefile.common
 include $(makefiles)/dirrules.mk
+
+#
+# Testsuite rules.
+#
+.PHONY: check
+
+check: all
+	$(verb) set -e; \
+	$(MAKE) -C testsuite

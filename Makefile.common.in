@@ -103,11 +103,12 @@ SED    := @SED@
 
 #
 # Non-standard tools on which we rely: The LLVM configurations tool, xsltproc
-# for xml translation (docbook), and doxygen.
+# for xml translation (docbook), runtest (DejGNU), and doxygen.
 #
 LLVM_CONFIG := @LLVM_CONFIG@
 XSLTPROC := @XSLTPROC@
 DOXYGEN := @DOXYGEN@
+RUNTEST := @RUNTEST@
 
 #
 # Enable the verbose build switch if enabled.

@@ -1,0 +1,40 @@
+##-- testsuite/Makefile --------------------------------------*- Makefile -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
+#
+# Copyright (C) 2009, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# Indicates our relative path to the projects root directory.
+#
+LEVEL = ..
+
+#
+# Define our environment.
+#
+include $(LEVEL)/Makefile.common
+
+# The site.exp configuration file.
+site_exp := $(prj_objdir)/site.exp
+
+#
+# Proceed iff our environment supports DejaGNU.
+#
+ifeq ($(RUNTEST),)
+	$(error Cannot run the testsuite: runtest (DejaGNU) not found.)
+else
+all: $(site_exp)
+	$(verb) echo "Running the testsuite.."; \
+	( $(RUNTEST); exit 0 )
+
+$(site_exp):
+	$(verb) echo "Generating $(site_exp)";            \
+	echo "set srcroot $(prj_srcroot)" > $(site_exp);  \
+	echo "set objroot $(prj_objroot)" >> $(site_exp); \
+	echo "set srcdir $(prj_srcdir)" >> $(site_exp);   \
+	echo "set objdir $(prj_objdir)" >> $(site_exp);   \
+	echo "set toolroot $(toolroot)" >> $(site_exp);
+
+endif

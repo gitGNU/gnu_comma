@@ -104,6 +104,9 @@ AC_PATH_PROG(AR,   [ar],   [ar])
 AC_PATH_PROG(ECHO, [echo], [echo])
 AC_PATH_PROG(SED,  [sed],  [sed])
 
+dnl Check for DejaGNU support.
+AC_PATH_PROG(RUNTEST, [runtest], [runtest])
+
 dnl ****************************************************************************
 dnl * Check for libraries.
 dnl ****************************************************************************
@@ -127,6 +130,7 @@ AC_CONFIG_FILES(tools/driver/Makefile)
 AC_CONFIG_FILES(doc/Makefile)
 AC_CONFIG_FILES(doc/commaspec/Makefile)
 AC_CONFIG_FILES(doc/doxygen/Makefile)
+AC_CONFIG_FILES(testsuite/Makefile)
 
 dnl If we are building the doxygen reference, output the config file.
 if test "$ENABLE_DOXYGEN" -eq 1 ; then
