@@ -9,11 +9,24 @@
 #
 # This function searches the input file for comment lines of the following form:
 #
-#   -- XFAIL: <other stuff>
+#   -- MUST-FAIL: <other stuff>
 #
-# An XFAIL comment indicates that the test is expected to fail.  If the file
-# does not provide such markup, we assume the test should pass.  This function
-# returns "PASS" or "XFAIL" as appropriate.
+#   -- BUG: <other stuff>
+#
+# A MUST-FAIL comment indicates that a non-zero exit status of the test
+# indicates a PASS.  And conversely, that a zero exit status indicates a FAIL.
+# A MUST-FAIL test is used to ensure that the system is detecting erroneous
+# input.
+#
+# A BUG comment indicates a known-bug.  A non-zero exit status from such a test
+# indicates an XFAIL (meaning that the bug persists), whereas a zero exit status
+# indicates an XPASS (meaning that the bug, in principle, no longer exists and
+# that the test status should be updated).
+#
+# By default (meaning that the file does not provide such markup), zero and
+# non-zero exit status represent PASS and FAIL respectively.
+#
+# This function returns "PASS", "MUST-FAIL", or "BUG" as appropriate.
 #
 proc getExpectedResult { input_file } {
 
@@ -21,10 +34,13 @@ proc getExpectedResult { input_file } {
     set input_channel [open $input_file r]
 
     foreach line [split [read $input_channel] \n] {
-        if {[regexp {^-- *XFAIL:.*$} $line]} {
-            set result "XFAIL"
+        if {[regexp {^-- *MUST-FAIL:.*$} $line]} {
+            set result "MUST-FAIL"
             break
-        }   set
+        } elseif {[regexp {^-- *BUG:.*$} $line]} {
+            set result "BUG"
+            break
+        }
     }
     return $result
 }
@@ -40,15 +56,23 @@ proc runCommaTests { test_inputs } {
         set expected_result [getExpectedResult $test_input]
         set retval [catch { exec $toolroot/driver $test_input } errmsg]
 
-        if { $retval == 0 } {
-            if { $expected_result == "PASS" } {
+        if { $expected_result == "MUST-FAIL" } {
+            set retval [expr ! $retval]
+
+            if { $retval == 0 } {
                 pass $test_input
             } else {
+                fail $errmsg
+            }
+        } elseif { $expected_result == "BUG" } {
+            if { $retval == 0 } {
                 xpass $test_input
+            } else {
+                xfail $errmsg
             }
         } else {
-            if { $expected_result == "XFAIL" } {
-                xfail $errmsg
+            if { $retval == 0 } {
+                pass $test_input
             } else {
                 fail $errmsg
             }
