@@ -103,11 +103,9 @@ public:
                                Node            exprNode,
                                bool            forSubroutine);
 
-    Node acceptDirectName(IdentifierInfo *name, Location loc);
-
-    Node acceptQualifiedName(Node            qualifier,
-                             IdentifierInfo *name,
-                             Location        loc);
+    Node acceptDirectName(IdentifierInfo *name,
+                          Location        loc,
+                          Node            qualNode);
 
     Node acceptFunctionCall(IdentifierInfo  *name,
                             Location         loc,
@@ -312,6 +310,10 @@ private:
     DomainType *ensureDomainType(Node typeNode, Location loc);
     DomainType *ensureDomainType(Type *type, Location loc);
     Type *ensureValueType(Node typeNode, Location loc);
+
+    Node acceptQualifiedName(Node            qualNode,
+                             IdentifierInfo *name,
+                             Location        loc);
 
     static SignatureType *resolveArgumentType(ParameterizedType *target,
                                               Type             **actuals,

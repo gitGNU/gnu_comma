@@ -139,10 +139,6 @@ Node Parser::parsePrimaryExpr()
         else
             return client.acceptQualifiedFunctionCall(qual, name, loc, args);
     }
-    else {
-        if (qual.isNull())
-            return client.acceptDirectName(name, loc);
-        else
-            return client.acceptQualifiedName(qual, name, loc);
-    }
+    else
+        return client.acceptDirectName(name, loc, qual);
 }

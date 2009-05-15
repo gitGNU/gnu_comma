@@ -64,10 +64,41 @@ Expr *TypeCheck::resolveDirectDecl(Decl           *candidate,
     return 0;
 }
 
-// FIXME: This function is just an example of where name lookup is going.  The
-// logic herein needs to be factored out appropriately.
-Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
+// Helper function for acceptDirectName -- called when the identifier in
+// question is qualified.
+Node TypeCheck::acceptQualifiedName(Node            qualNode,
+                                    IdentifierInfo *name,
+                                    Location        loc)
 {
+    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+    DeclarativeRegion *region    = qualifier->resolve();
+    std::vector<SubroutineDecl*> decls;
+
+    // FIXME: Report that there are no nullary functions declared in this
+    // domain.
+    if (!region->collectFunctionDecls(name, 0, decls)) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return getInvalidNode();
+    }
+
+    // Form the function call node and poulate with any aditional connectives
+    // (too be resolved by the type context of this call).
+    FunctionCallExpr *call
+        = new FunctionCallExpr(cast<FunctionDecl>(decls[0]), 0, 0, loc);
+    for (unsigned i = 1; i < decls.size(); ++i)
+        call->addConnective(cast<FunctionDecl>(decls[i]));
+    call->setQualifier(qualifier);
+    qualNode.release();
+    return getNode(call);
+}
+
+Node TypeCheck::acceptDirectName(IdentifierInfo *name,
+                                 Location        loc,
+                                 Node            qualNode)
+{
+    if (!qualNode.isNull())
+        return acceptQualifiedName(qualNode, name, loc);
+
     Homonym *homonym = name->getMetadata<Homonym>();
 
     if (!homonym || homonym->empty()) {
@@ -134,32 +165,6 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc)
         report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
         return getInvalidNode();
     }
-}
-
-Node TypeCheck::acceptQualifiedName(Node            qualNode,
-                                    IdentifierInfo *name,
-                                    Location        loc)
-{
-    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-    DeclarativeRegion *region    = qualifier->resolve();
-    std::vector<SubroutineDecl*> decls;
-
-    // FIXME: Report that there are no nullary functions declared in this
-    // domain.
-    if (!region->collectFunctionDecls(name, 0, decls)) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    // Form the function call node and poulate with any aditional connectives
-    // (too be resolved by the type context of this call).
-    FunctionCallExpr *call
-        = new FunctionCallExpr(cast<FunctionDecl>(decls[0]), 0, 0, loc);
-    for (unsigned i = 1; i < decls.size(); ++i)
-        call->addConnective(cast<FunctionDecl>(decls[i]));
-    call->setQualifier(qualifier);
-    qualNode.release();
-    return getNode(call);
 }
 
 Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,

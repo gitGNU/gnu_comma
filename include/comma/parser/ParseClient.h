@@ -120,11 +120,9 @@ public:
                                        Node            exprNode,
                                        bool            forSubroutine) = 0;
 
-    virtual Node acceptDirectName(IdentifierInfo *name, Location loc) = 0;
-
-    virtual Node acceptQualifiedName(Node            qualNode,
-                                     IdentifierInfo *name,
-                                     Location        loc) = 0;
+    virtual Node acceptDirectName(IdentifierInfo *name,
+                                  Location        loc,
+                                  Node            qualNode) = 0;
 
     virtual Node acceptFunctionCall(IdentifierInfo  *name,
                                     Location         loc,
