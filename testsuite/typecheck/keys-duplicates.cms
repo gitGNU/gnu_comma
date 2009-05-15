@@ -1,0 +1,8 @@
+-- MUST-FAIL: Ensure duplicate keys are in error.
+domain D add
+  procedure F (X : %; Y : %; Z : %) is begin end F;
+  procedure T (A : %) is
+  begin
+     F(A, Y => A, Y => A);
+  end T;
+end D;

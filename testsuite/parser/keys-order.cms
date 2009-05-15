@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure keys follow all positional parameters.
+domain D add
+  procedure Foo (X : %; Y : %; Z : %) is begin end Foo;
+
+  procedure Bar (A : %) is
+  begin
+     Foo (A, Z => A, A);
+  end Bar;
+end D;

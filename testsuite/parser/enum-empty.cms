@@ -1,0 +1,5 @@
+-- MUST-FAIL: Ensure empty enumerations are in error.
+signature S with
+   type X is ();
+end S;
+
