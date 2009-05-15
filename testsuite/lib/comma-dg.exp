@@ -1,0 +1,57 @@
+##-- testsuite/lib/comma-dg.exp -----------------------------------*- Tcl -*--##
+#
+# This file is distributed under the MIT License.  See LICENSE.txt for details.
+#
+# Copyright (C) 2009, Stephen Wilson
+#
+##----------------------------------------------------------------------------##
+
+#
+# This function searches the input file for comment lines of the following form:
+#
+#   -- XFAIL: <other stuff>
+#
+# An XFAIL comment indicates that the test is expected to fail.  If the file
+# does not provide such markup, we assume the test should pass.  This function
+# returns "PASS" or "XFAIL" as appropriate.
+#
+proc getExpectedResult { input_file } {
+
+    set result "PASS"
+    set input_channel [open $input_file r]
+
+    foreach line [split [read $input_channel] \n] {
+        if {[regexp {^-- *XFAIL:.*$} $line]} {
+            set result "XFAIL"
+            break
+        }   set
+    }
+    return $result
+}
+
+#
+# Tests each file provided.
+#
+proc runCommaTests { test_inputs } {
+
+    global srcroot objroot srcdir objdir toolroot
+
+    foreach test_input $test_inputs {
+        set expected_result [getExpectedResult $test_input]
+        set retval [catch { exec $toolroot/driver $test_input } errmsg]
+
+        if { $retval == 0 } {
+            if { $expected_result == "PASS" } {
+                pass $test_input
+            } else {
+                xpass $test_input
+            }
+        } else {
+            if { $expected_result == "XFAIL" } {
+                xfail $errmsg
+            } else {
+                fail $errmsg
+            }
+        }
+    }
+}
