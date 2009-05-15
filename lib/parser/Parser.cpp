@@ -457,12 +457,8 @@ void Parser::parseWithExpression()
     ignoreToken();
 
     client.beginWithExpression();
-
-    // Scan the set of supersignatures.  Currently this is simply a sequence of
-    // signature types.  For example:
     parseWithSupersignatures();
     parseWithDeclarations();
-
     client.endWithExpression();
 }
 
@@ -471,7 +467,7 @@ void Parser::parseWithSupersignatures()
 {
     while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         Location loc = currentLocation();
-        Node super   = parseModelInstantiation();
+        Node   super = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
             client.acceptWithSupersignature(super, loc);

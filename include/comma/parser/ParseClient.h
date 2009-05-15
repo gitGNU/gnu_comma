@@ -103,10 +103,6 @@ public:
                                        unsigned         numKeys,
                                        Location         loc) = 0;
 
-    // Submits an import from the given type node, and the location of the
-    // import reserved word.
-    virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
-
     virtual Node acceptKeywordSelector(IdentifierInfo *key,
                                        Location        loc,
                                        Node            exprNode,
@@ -149,6 +145,10 @@ public:
     virtual Node acceptNestedQualifier(Node     qualifier,
                                        Node     qualifierType,
                                        Location loc) = 0;
+
+    // Submits an import from the given type node, and the location of the
+    // import reserved word.
+    virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
 
     virtual Node acceptIfStmt(Location loc, Node condition,
                               Node *consequents, unsigned numConsequents) = 0;
