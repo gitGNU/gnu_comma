@@ -107,23 +107,22 @@ public:
                           Location        loc,
                           Node            qualNode);
 
-    Node acceptFunctionCall(IdentifierInfo  *name,
-                            Location         loc,
-                            NodeVector      &args);
+    Node acceptFunctionName(IdentifierInfo *name,
+                            Location        loc,
+                            Node            qualNode);
 
-    Node acceptQualifiedFunctionCall(Node            qualNode,
-                                     IdentifierInfo *name,
-                                     Location        loc,
-                                     NodeVector     &args);
+    Node acceptFunctionCall(Node        connective,
+                            Location    loc,
+                            NodeVector &args);
 
-    Node acceptProcedureCall(IdentifierInfo  *name,
-                             Location         loc,
-                             NodeVector      &args);
 
-    Node acceptQualifiedProcedureCall(Node            qualNode,
-                                      IdentifierInfo *name,
-                                      Location        loc,
-                                      NodeVector     &args);
+    Node acceptProcedureName(IdentifierInfo *name,
+                             Location        loc,
+                             Node            qualNode);
+
+    Node acceptProcedureCall(Node        connective,
+                             Location    loc,
+                             NodeVector &args);
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.
@@ -319,19 +318,20 @@ private:
                                               Type             **actuals,
                                               unsigned           numActuals);
 
-    // This function is a helper to acceptDirectName.  It checks that an arbitrary
-    // decl denotes a direct name (a value decl or nullary function).  Returns an
-    // expression node corresponding to the given candidate when accepted, otherwise
-    // 0 is returned.
-    Expr *resolveDirectDecl(Decl           *candidate,
-                            IdentifierInfo *name,
-                            Location        loc);
+    Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 
     // Resolves the given call expression (which should have multiple candidate
     // connectives) to one which satisfies the given target type and returns
-    // true.  Otherwise, false is returned and the appropriated diagnostics are
+    // true.  Otherwise, false is returned and the appropriate diagnostics are
     // emitted.
     bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
+
+    // Resolves the given call expression (which must be nullary function call,
+    // i.e. one without arguments) to one which satisfies the given target type
+    // and returns true.  Otherwise, false is returned and the appropriate
+    // diagnostics are emitted.
+    bool resolveNullaryFunctionCall(FunctionCallExpr *call,
+                                    Type             *targetType);
 
     Node checkSubroutineCall(SubroutineDecl *decl,
                              Location        loc,

@@ -242,14 +242,14 @@ bool Parser::seekEndIf()
             return false;
 
         case Lexer::TKN_IF:
+            ignoreToken();
             depth++;
             break;
 
         case Lexer::TKN_END:
-            if (expectToken(Lexer::TKN_IF)) {
-                ignoreToken();
-                depth--;
-                if (depth == 0)
+            ignoreToken();
+            if (reduceToken(Lexer::TKN_IF)) {
+                if (--depth == 0)
                     return true;
             }
         }

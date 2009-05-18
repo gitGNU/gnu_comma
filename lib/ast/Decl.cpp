@@ -43,6 +43,25 @@ DeclarativeRegion *Decl::asDeclarativeRegion()
 }
 
 //===----------------------------------------------------------------------===//
+// OverloadedDeclName
+
+OverloadedDeclName::OverloadedDeclName(Decl **decls, unsigned numDecls)
+    : Ast(AST_OverloadedDeclName),
+      decls(decls, decls + numDecls)
+{
+    assert(numDecls > 1 && "OverloadedDeclName's must be overloaded!");
+
+    // FIXME:  We should be using a better define for this.
+#ifndef NDEBUG
+    IdentifierInfo *idInfo = decls[0]->getIdInfo();
+    for (unsigned i = 1; i < numDecls; ++i) {
+        assert(decls[i]->getIdInfo() == idInfo &&
+               "All overloads must have the same identifier!");
+    }
+#endif
+}
+
+//===----------------------------------------------------------------------===//
 // SignatureDecl
 SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
                              IdentifierInfo *info,
@@ -436,11 +455,11 @@ ParameterMode ParamValueDecl::getParameterMode() const
 }
 
 //===----------------------------------------------------------------------===//
-// EnumerationLiteral
-EnumerationLiteral::EnumerationLiteral(EnumerationDecl *decl,
-                                       IdentifierInfo  *name,
-                                       Location         loc)
-    : ValueDecl(AST_EnumerationLiteral, name, decl->getType(), loc)
+// EnumLiteral
+EnumLiteral::EnumLiteral(EnumerationDecl *decl,
+                         IdentifierInfo  *name,
+                         Location         loc)
+    : ValueDecl(AST_EnumLiteral, name, decl->getType(), loc)
 {
     setDeclarativeRegion(decl);
     decl->addDecl(this);

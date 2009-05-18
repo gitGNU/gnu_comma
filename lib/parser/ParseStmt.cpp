@@ -62,10 +62,12 @@ Node Parser::parseProcedureCallStatement()
         if (!parseSubroutineArgumentList(args))
             return getInvalidNode();
 
-    if (qual.isNull())
-        return client.acceptProcedureCall(name, loc, args);
+    Node connective = client.acceptProcedureName(name, loc, qual);
+
+    if (connective.isValid())
+        return client.acceptProcedureCall(connective, loc, args);
     else
-        return client.acceptQualifiedProcedureCall(qual, name, loc, args);
+        return getInvalidNode();
 }
 
 Node Parser::parseReturnStmt()

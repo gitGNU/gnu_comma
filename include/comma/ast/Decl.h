@@ -88,6 +88,50 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// OverloadedDeclName
+//
+// This class represents a set of declaration nodes all of which have the same
+// name.  Members of this set are either procedure decls, or a mix of function
+// decls and enumeration literals (the latter being morally equivalent to a
+// nullary function).
+//
+// Note that this class is not a member of the Decl hierarchy, it is mearly a
+// wrapper/helper node used to encapsulate intermediate results.
+class OverloadedDeclName : public Ast {
+
+    typedef llvm::SmallVector<Decl*, 4> DeclVector;
+
+public:
+    OverloadedDeclName(Decl **decls, unsigned numDecls);
+
+    // Returns the IdentifierInfo common to all the overloads.
+    IdentifierInfo *getIdInfo() const {
+        return decls[0]->getIdInfo();
+    }
+
+    // Returns the number of overloaded declarations associated with this
+    // overloaded name.
+    unsigned numOverloads() const { return decls.size(); }
+
+    Decl *getOverload(unsigned i) const {
+        assert(i < numOverloads() && "Index out of range!");
+        return decls[i];
+    }
+
+    typedef DeclVector::const_iterator iterator;
+    iterator begin() { return decls.begin(); }
+    iterator end() { return decls.end(); }
+
+    static bool classof(const OverloadedDeclName *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_OverloadedDeclName;
+    }
+
+private:
+    DeclVector decls;
+};
+
+//===----------------------------------------------------------------------===//
 // ImportDecl
 //
 // Represents import declarations.
@@ -923,19 +967,19 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// EnumerationLiteral
+// EnumLiteral
 //
 // Instances of this class represent the elements of an EnumerationDecl.
-class EnumerationLiteral : public ValueDecl {
+class EnumLiteral : public ValueDecl {
 
 public:
-    EnumerationLiteral(EnumerationDecl *decl,
-                       IdentifierInfo  *name,
-                       Location         loc);
+    EnumLiteral(EnumerationDecl *decl,
+                IdentifierInfo  *name,
+                Location         loc);
 
-    static bool classof(const EnumerationLiteral *node) { return true; }
+    static bool classof(const EnumLiteral *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_EnumerationLiteral;
+        return node->getKind() == AST_EnumLiteral;
     }
 };
 

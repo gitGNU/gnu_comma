@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IdentifierResolver.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/typecheck/TypeCheck.h"
@@ -39,31 +40,6 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
     return getInvalidNode();
 }
 
-// This function is a helper to acceptDirectName.  It checks that an arbitrary
-// decl denotes a direct name (a value decl or nullary function).  Returns an
-// expression node corresponding to the given candidate when accepted, otherwise
-// 0 is returned.
-Expr *TypeCheck::resolveDirectDecl(Decl           *candidate,
-                                   IdentifierInfo *name,
-                                   Location        loc)
-{
-    if (isa<ValueDecl>(candidate)) {
-        ValueDecl  *decl = cast<ValueDecl>(candidate);
-        DeclRefExpr *ref = new DeclRefExpr(decl, loc);
-        return ref;
-    }
-
-    if (isa<FunctionDecl>(candidate)) {
-        FunctionDecl *decl = cast<FunctionDecl>(candidate);
-        if (decl->getArity() == 0) {
-            FunctionCallExpr *call = new FunctionCallExpr(decl, 0, 0, loc);
-            return call;
-        }
-    }
-
-    return 0;
-}
-
 // Helper function for acceptDirectName -- called when the identifier in
 // question is qualified.
 Node TypeCheck::acceptQualifiedName(Node            qualNode,
@@ -72,21 +48,26 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 {
     Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
     DeclarativeRegion *region    = qualifier->resolve();
-    std::vector<SubroutineDecl*> decls;
+    std::vector<Decl*> decls;
 
+    // FIXME: We need a more elegant mechanism for this.
+    //
     // FIXME: Report that there are no nullary functions declared in this
-    // domain.
-    if (!region->collectFunctionDecls(name, 0, decls)) {
+    // region.
+    for (DeclarativeRegion::DeclIter iter = region->beginDecls();
+         iter != region->endDecls(); ++iter) {
+        if (isa<FunctionDecl>(*iter)) decls.push_back(*iter);
+    }
+
+    if (decls.empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
 
-    // Form the function call node and poulate with any aditional connectives
-    // (too be resolved by the type context of this call).
+    // Form the function call node and populate with any aditional connectives
+    // (to be resolved by the type context of this call).
     FunctionCallExpr *call
-        = new FunctionCallExpr(cast<FunctionDecl>(decls[0]), 0, 0, loc);
-    for (unsigned i = 1; i < decls.size(); ++i)
-        call->addConnective(cast<FunctionDecl>(decls[i]));
+        = new FunctionCallExpr(&decls[0], decls.size(), 0, 0, loc);
     call->setQualifier(qualifier);
     qualNode.release();
     return getNode(call);
@@ -99,119 +80,194 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
     if (!qualNode.isNull())
         return acceptQualifiedName(qualNode, name, loc);
 
-    Homonym *homonym = name->getMetadata<Homonym>();
+    IdentifierResolver resolver;
 
-    if (!homonym || homonym->empty()) {
+    if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
 
-    // Examine the direct declarations for a value of the given name.
-    for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-         iter != homonym->endDirectDecls(); ++iter) {
-        if (Expr *expr = resolveDirectDecl(*iter, name, loc))
-            return getNode(expr);
-    }
-
-    // Otherwise, scan the full set of imported declarations, and partition the
-    // import decls into two sets:  one containing all value declarations, the
-    // other containing all nullary function declarations.
-    llvm::SmallVector<FunctionDecl*, 4> functionDecls;
-    llvm::SmallVector<ValueDecl*, 4>    valueDecls;
-
-    for (Homonym::ImportIterator iter = homonym->beginImportDecls();
-         iter != homonym->endImportDecls(); ++iter) {
-        Decl *candidate = *iter;
-        if (ValueDecl *decl = dyn_cast<ValueDecl>(candidate))
-            valueDecls.push_back(decl);
-        else if (FunctionDecl *decl = dyn_cast<FunctionDecl>(candidate))
-            if (decl->getArity() == 0) functionDecls.push_back(decl);
-    }
-
-    // If both partitions are empty, then no name is visible.
-    if (valueDecls.empty() && functionDecls.empty()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    if (valueDecls.empty()) {
-        // Possibly several nullary functions are visible.  We cannot resolve
-        // further so build a function call with an overloaded set of
-        // connectives.
-        //
-        // FIXME: We could check that the set collected admits at least two
-        // distinct return types.
-        FunctionCallExpr *call =
-            new FunctionCallExpr(functionDecls[0], 0, 0, loc);
-        for (unsigned i = 1; i < functionDecls.size(); ++i)
-            call->addConnective(functionDecls[i]);
-        return getNode(call);
-    }
-    else if (functionDecls.empty()) {
-        // If a there is more than one value decl in effect, then we have an
-        // ambiguity.  Value decls are not overloadable.
-        if (valueDecls.size() > 1) {
-            report(loc, diag::AMBIGUOUS_EXPRESSION);
-            return getInvalidNode();
-        }
-        // Otherwise, we can fully resolve the value.
-        DeclRefExpr *ref = new DeclRefExpr(valueDecls[0], loc);
+    // If there is a direct value, it shadows any other potentialy visible
+    // declaration.
+    if (resolver.hasDirectValue()) {
+        ValueDecl *vdecl = resolver.getDirectValue();
+        DeclRefExpr *ref = new DeclRefExpr(vdecl, loc);
         return getNode(ref);
     }
-    else {
-        // There are both values and nullary function declarations in scope.
-        // Since values are not overloadable entities we have a conflict and
-        // this expression requires qualification.
+
+    llvm::SmallVector<Decl *, 8> overloads;
+    unsigned numOverloads = 0;
+    resolver.filterOverloadsWRTArity(0);
+    resolver.filterProcedures();
+
+    // Collect any direct overloads.
+    overloads.append(resolver.beginDirectOverloads(),
+                     resolver.endDirectOverloads());
+
+    // Continue populating the call with indirect overloads if there are no
+    // indirect values visible and return the result.
+    if (!resolver.hasIndirectValues()) {
+        overloads.append(resolver.beginIndirectOverloads(),
+                         resolver.endIndirectOverloads());
+        if ((numOverloads = overloads.size())) {
+            FunctionCallExpr *call =
+                new FunctionCallExpr(&overloads[0], numOverloads, 0, 0, loc);
+            return getNode(call);
+        }
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return getInvalidNode();
+    }
+
+    // Otherwise, there are indirect values.  If we have any direct function
+    // decls, return a call expression for them.
+    if ((numOverloads = overloads.size())) {
+        FunctionCallExpr *call =
+            new FunctionCallExpr(&overloads[0], numOverloads, 0, 0, loc);
+        return getNode(call);
+    }
+
+    // If there are any overloadable indirect decls visible, the presence of
+    // indirect values hides them.
+    if (resolver.hasIndirectOverloads()) {
         report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
         return getInvalidNode();
     }
+
+    // If there are multiple indirect values we have an ambiguity.
+    if (resolver.numIndirectValues() != 1) {
+        report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
+        return getInvalidNode();
+    }
+
+    // Finally, a single indirect value is visible.
+    return getNode(new DeclRefExpr(resolver.getIndirectValue(0), loc));
 }
 
-Node TypeCheck::acceptFunctionCall(IdentifierInfo *name,
+Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
                                    Location        loc,
-                                   NodeVector     &argNodes)
+                                   Node            qualNode)
 {
-    return acceptSubroutineCall(name, loc, argNodes, true);
+    if (!qualNode.isNull()) {
+        Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+        DeclarativeRegion *region    = qualifier->resolve();
+
+        // Collect all of the function declarations in the region with the given
+        // name.  If the name does not resolve uniquely, return an
+        // OverloadedDeclName, otherwise the decl itself.
+        typedef DeclarativeRegion::PredRange PredRange;
+        typedef DeclarativeRegion::PredIter  PredIter;
+        PredRange range = region->findDecls(name);
+        llvm::SmallVector<Decl*, 8> decls;
+
+        // Collect all function decls.
+        for (PredIter iter = range.first; iter != range.second; ++iter) {
+            Decl *candidate = *iter;
+            if (isa<FunctionDecl>(candidate))
+                decls.push_back(candidate);
+        }
+
+        if (decls.empty()) {
+            report(loc, diag::NAME_NOT_VISIBLE);
+            return getInvalidNode();
+        }
+
+        if (decls.size() == 1)
+            return getNode(decls.front());
+
+        return getNode(new OverloadedDeclName(&decls[0], decls.size()));
+    }
+
+    IdentifierResolver resolver;
+
+    if (!resolver.resolve(name) || resolver.hasDirectValue()) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return getInvalidNode();
+    }
+
+    llvm::SmallVector<Decl *, 8> overloads;
+    unsigned numOverloads = 0;
+    resolver.filterProcedures();
+    resolver.filterNullaryOverloads();
+
+    // Collect any direct overloads.
+    overloads.append(resolver.beginDirectOverloads(),
+                     resolver.endDirectOverloads());
+
+    // Continue populating the call with indirect overloads if there are no
+    // indirect values visible and return the result.
+    if (!resolver.hasIndirectValues()) {
+        overloads.append(resolver.beginIndirectOverloads(),
+                         resolver.endIndirectOverloads());
+        numOverloads = overloads.size();
+        if (numOverloads == 1)
+            return getNode(overloads.front());
+        else if (numOverloads > 1)
+            return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
+        else {
+            report(loc, diag::NAME_NOT_VISIBLE) << name;
+            return getInvalidNode();
+        }
+    }
+
+    // There are indirect values which shadow all indirect functions.  If we
+    // have any direct function decls, return a node for them.
+    numOverloads = overloads.size();
+    if (numOverloads == 1)
+        return getNode(overloads.front());
+    else if (numOverloads > 1)
+        return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
+
+    // Otherwise, we cannot resolve the name.
+    report(loc, diag::NAME_NOT_VISIBLE) << name;
+    return getInvalidNode();
 }
 
-Node TypeCheck::acceptQualifiedFunctionCall(Node            qualNode,
-                                            IdentifierInfo *name,
-                                            Location        loc,
-                                            NodeVector     &args)
+Node TypeCheck::acceptFunctionCall(Node        connective,
+                                   Location    loc,
+                                   NodeVector &argNodes)
 {
-    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-    DeclarativeRegion *region    = qualifier->resolve();
     std::vector<SubroutineDecl*> decls;
+    unsigned targetArity = argNodes.size();
 
-    // FIXME: Report that there are no functions of the given arity declared in
-    // this domain.
-    if (!region->collectFunctionDecls(name, args.size(), decls)) {
-        report(loc, diag::NAME_NOT_VISIBLE);
+    assert(targetArity > 0 && "Cannot accept nullary function calls!");
+
+    connective.release();
+
+    if (FunctionDecl *fdecl = lift_node<FunctionDecl>(connective)) {
+        if (fdecl->getArity() == targetArity)
+            decls.push_back(fdecl);
+        else {
+            report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
+                << fdecl->getIdInfo();
+            return getInvalidNode();
+        }
+    }
+    else if (EnumLiteral *edecl = lift_node<EnumLiteral>(connective)) {
+        // FIXME:  This is not a terribly accurate diagnostic.
+        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << edecl->getIdInfo();
         return getInvalidNode();
     }
-
-    return acceptSubroutineCall(decls, loc, args);
-}
-
-Node TypeCheck::acceptSubroutineCall(IdentifierInfo *name,
-                                     Location        loc,
-                                     NodeVector     &argNodes,
-                                     bool            checkFunction)
-{
-    std::vector<SubroutineDecl*> routineDecls;
-    Homonym *homonym = name->getMetadata<Homonym>();
-
-    if (!homonym) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    if (lookupSubroutineDecls(homonym, argNodes.size(), routineDecls, checkFunction))
-        return acceptSubroutineCall(routineDecls, loc, argNodes);
     else {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
+        OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
+        for (OverloadedDeclName::iterator iter = odn->begin();
+             iter != odn->end(); ++iter) {
+            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
+                if (fdecl->getArity() == targetArity)
+                    decls.push_back(fdecl);
+            }
+        }
+
+        delete odn;
+
+        // FIXME: Report that there are no functions with the required arity
+        // visible.
+        if (decls.empty()) {
+            report(loc, diag::NAME_NOT_VISIBLE) << odn->getIdInfo();
+            return getInvalidNode();
+        }
     }
+
+    return acceptSubroutineCall(decls, loc, argNodes);
 }
 
 Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
@@ -295,8 +351,13 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
             // the current target type.
             for (ConnectiveIter iter = argCall->beginConnectives();
                  iter != argCall->endConnectives(); ++iter) {
-                FunctionDecl *connective = *iter;
-                Type         *returnType = connective->getReturnType();
+                Type *returnType = 0;
+                if (FunctionDecl *connective = dyn_cast<FunctionDecl>(*iter))
+                    returnType = connective->getReturnType();
+                else {
+                    EnumLiteral *connective = cast<EnumLiteral>(*iter);
+                    returnType = connective->getType();
+                }
                 if (targetType->equals(returnType)) {
                     applicableArgument = true;
                     break;
@@ -333,16 +394,13 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     // on the resolution of the return type.  If we are dealing with procedures,
     // then the call is ambiguous.
     if (isa<FunctionDecl>(decls[0])) {
-        llvm::SmallVector<FunctionDecl*, 4> connectives;
+        llvm::SmallVector<Decl*, 4> connectives;
         for (unsigned i = 0; i < decls.size(); ++i)
-            if (declFilter[i]) {
-                FunctionDecl *fdecl = cast<FunctionDecl>(decls[i]);
-                connectives.push_back(fdecl);
-            }
+            if (declFilter[i])
+                connectives.push_back(decls[i]);
         FunctionCallExpr *call =
-            new FunctionCallExpr(connectives[0], &args[0], numArgs, loc);
-        for (unsigned i = 1; i < connectives.size(); ++i)
-            call->addConnective(connectives[i]);
+            new FunctionCallExpr(&connectives[0], connectives.size(),
+                                 &args[0], numArgs, loc);
         argNodes.release();
         return getNode(call);
     }
@@ -350,73 +408,6 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
         report(loc, diag::AMBIGUOUS_EXPRESSION);
         return getInvalidNode();
     }
-}
-
-// This function looks up the set of visible subroutines of a certain arity in
-// the given homonym and populates the vector routineDecls with the results.  If
-// lookupFunctions is true, this method scans for functions, otherwise for
-// procedures.
-bool TypeCheck::lookupSubroutineDecls(Homonym *homonym,
-                                      unsigned arity,
-                                      std::vector<SubroutineDecl*> &decls,
-                                      bool lookupFunctions)
-{
-    SubroutineDecl *decl;       // Declarations provided by the homonym.
-    SubroutineType *type;       // Type of `decl'.
-    SubroutineType *shadowType; // Type of previous direct lookups.
-    size_t          initSize;   // Initial size of the destination vector.
-
-    if (homonym->empty())
-        return false;
-
-    initSize = decls.size();
-
-    // Accumulate any direct declarations.
-    for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-         iter != homonym->endDirectDecls(); ++iter) {
-        if (lookupFunctions)
-            decl = dyn_cast<FunctionDecl>(*iter);
-        else
-            decl = dyn_cast<ProcedureDecl>(*iter);
-        if (decl && decl->getArity() == arity) {
-            type = decl->getType();
-            for (unsigned i = 0; i < decls.size() - initSize; ++i) {
-                shadowType = decls[i]->getType();
-                if (shadowType->equals(type)) {
-                    type = 0;
-                    break;
-                }
-            }
-            if (type)
-                decls.push_back(decl);
-        }
-    }
-
-    // Accumulate import declarations, ensuring that any directly visible
-    // declarations shadow those imports with matching types.  Imported
-    // declarations do not shadow each other.
-    unsigned numDirectDecls = decls.size() - initSize;
-    for (Homonym::ImportIterator iter = homonym->beginImportDecls();
-         iter != homonym->endImportDecls(); ++iter) {
-        if (lookupFunctions)
-            decl = dyn_cast<FunctionDecl>(*iter);
-        else
-            decl = dyn_cast<ProcedureDecl>(*iter);
-        if (decl && decl->getArity() == arity) {
-            type = decl->getType();
-            for (unsigned i = 0; i < numDirectDecls; ++i) {
-                shadowType = decls[i]->getType();
-                if (shadowType->equals(type)) {
-                    type = 0;
-                    break;
-                }
-            }
-            if (type)
-                decls.push_back(decl);
-        }
-    }
-
-    return initSize != decls.size();
 }
 
 Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
@@ -503,18 +494,61 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
     }
 }
 
+// Resolves the given call expression (which must be nullary function call,
+// i.e. one without arguments) to one which satisfies the given target type and
+// returns true.  Otherwise, false is returned and the appropriate diagnostics
+// are emitted.
+bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
+                                           Type             *targetType)
+{
+    assert(call->getNumArgs() == 0 &&
+           "Call expression has too many arguments!");
+
+    typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
+    ConnectiveIter iter    = call->beginConnectives();
+    ConnectiveIter endIter = call->endConnectives();
+    Decl *decl   = 0;
+
+    for ( ; iter != endIter; ++iter) {
+        Type *returnType = 0;
+        Decl *candidate  = 0;
+        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
+            returnType = fdecl->getReturnType();
+            candidate  = fdecl;
+        }
+        else {
+            EnumLiteral *elit = cast<EnumLiteral>(*iter);
+            returnType = elit->getType();
+            candidate  = elit;
+        }
+        if (targetType->equals(returnType)) {
+            if (decl) {
+                report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+                return false;
+            }
+            else
+                decl = candidate;
+        }
+    }
+    call->resolveConnective(decl);
+    return true;
+}
+
 // Resolves the given call expression (which should have multiple candidate
 // connectives) to one which satisfies the given target type and returns true.
-// Otherwise, false is returned and the appropriated diagnostics are emitted.
+// Otherwise, false is returned and the appropriate diagnostics are emitted.
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
+    if (call->getNumArgs() == 0)
+        return resolveNullaryFunctionCall(call, targetType);
+
     typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
     ConnectiveIter iter    = call->beginConnectives();
     ConnectiveIter endIter = call->endConnectives();
     FunctionDecl  *fdecl   = 0;
 
     for ( ; iter != endIter; ++iter) {
-        FunctionDecl *candidate  = *iter;
+        FunctionDecl *candidate  = cast<FunctionDecl>(*iter);
         Type         *returnType = candidate->getReturnType();
         if (targetType->equals(returnType)) {
             if (fdecl) {
@@ -524,6 +558,13 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
             else
                 fdecl = candidate;
         }
+    }
+
+    // FIXME:  Diagnose that there are no functions of the given name satisfying
+    // the target type.
+    if (!fdecl) {
+        report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+        return false;
     }
 
     // Traverse the argument set, patching up any unresolved argument
@@ -554,7 +595,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
             status = status &&
                 resolveFunctionCall(argCall, fdecl->getArgType(argIndex));
     }
-    call->setConnective(fdecl);
+    call->resolveConnective(fdecl);
     return status;
 }
 

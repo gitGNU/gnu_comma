@@ -24,7 +24,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FunctionDecl",
     "ProcedureDecl",
     "ParamValueDecl",
-    "EnumerationLiteral",
+    "EnumLiteral",
     "ObjectDecl",
     "ImportDecl",
 
@@ -50,7 +50,8 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ReturnStmt",
     "StmtSequence",
 
-    "Qualifier"
+    "Qualifier",
+    "OverloadedDeclName"
 };
 
 void Ast::dump(unsigned depth)

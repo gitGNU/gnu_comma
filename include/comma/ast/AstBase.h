@@ -41,7 +41,7 @@ class DomainInstanceDecl;
 class DomainType;
 class Domoid;
 class EnumerationDecl;
-class EnumerationLiteral;
+class EnumLiteral;
 class EnumerationType;
 class Expr;
 class FunctionCallExpr;
@@ -56,6 +56,7 @@ class KeywordSelector;
 class ModelDecl;
 class ModelType;
 class ObjectDecl;
+class OverloadedDeclName;
 class ParameterizedModel;
 class ParameterizedType;
 class ParamValueDecl;
@@ -129,7 +130,7 @@ public:
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
-        AST_EnumerationLiteral, ///< EnumerationLiteral
+        AST_EnumLiteral,        ///< EnumLiteral
         AST_ObjectDecl,         ///< ObjectDecl
         AST_ImportDecl,         ///< ImportDecl
 
@@ -168,6 +169,7 @@ public:
         // Miscellaneous helper nodes.
         //
         AST_Qualifier,          ///< Qualifier
+        AST_OverloadedDeclName, ///< OverloadedDeclName
 
         //
         // Delimitiers providing classification of the above codes.

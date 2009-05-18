@@ -180,24 +180,20 @@ private:
 
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr
-//
-// There are two types of function call expressions -- ambiguous and
-// unambiguous.  An ambiguous function call is one where the arguments types are
-// fully resolved and known but there are multiple choices in effect wrt return
-// types.  An ambiguous call expression maintains a set of function declarations
-// which represent the possible candidates this call can resolve to.  Semantic
-// analysis resolves these ambiguous call nodes once the type context of the
-// call has been determined.
-//
-// Note that ambiguous function calls do not have an associated type, and
-// getType will assert when called.
+
 class FunctionCallExpr : public Expr {
 
 public:
-    FunctionCallExpr(FunctionDecl *connective,
-                     Expr        **arguments,
-                     unsigned      numArgs,
-                     Location      loc);
+    FunctionCallExpr(Decl      *connective,
+                     Expr     **arguments,
+                     unsigned   numArgs,
+                     Location   loc);
+
+    FunctionCallExpr(Decl     **connectives,
+                     unsigned   numConnectives,
+                     Expr     **arguments,
+                     unsigned   numArgs,
+                     Location   loc);
 
     ~FunctionCallExpr();
 
@@ -216,23 +212,26 @@ public:
     // has been set.
     const Qualifier *getQualifier() const { return qualifier; }
 
-    // Adds a connective to this call expression.  This always results in this
-    // call becoming ambiguous.  To resolve an ambiguous call, or to simply
-    // change the associated connective, use FunctionCallExpr::setConnective
-    // instead.
-    void addConnective(FunctionDecl *connective);
+    // Returns the connective associcated with this call.  The resulting node is
+    // either a FunctionDecl, EnumerationLiteral, or OverloadedDeclName.
+    Ast *getConnective();
 
-    // Sets the connective for this call.  This always `resolves' the call
-    // expression, making it unambiguous.  Use FunctionCallExpr::addConnective
-    // to extend the set of connectives associated with this call.
-    void setConnective(FunctionDecl *connective) {
-        this->connective = connective;
-        this->setType(connective->getReturnType());
-    }
+    // Resolved the connective for this call.  This method can only be called
+    // when the call is currently ambiguous.
+    void resolveConnective(FunctionDecl *connective);
+
+    // Resolved the connective for this call.  This method can only be called
+    // when the call is currently ambiguous.
+    void resolveConnective(EnumLiteral *connective);
+
+    // Resolved the connective for this call.  This method can only be called
+    // when the call is currently ambiguous.  This method will assert if its
+    // argument is not a FunctionDecl or EnumLiteral.
+    void resolveConnective(Decl *connective);
 
     // Returns true if this call is ambiguous.
     bool isAmbiguous() const {
-        return connectiveBits & AMBIGUOUS_BIT;
+        return llvm::isa<OverloadedDeclName>(connective);
     }
 
     // Returns true if this call is unambiguous.
@@ -240,12 +239,16 @@ public:
         return !isAmbiguous();
     }
 
+    // Returns true if this call contains a connective with the given type.
+    bool containsConnective(FunctionType *) const;
+
     // Returns the number of connectives associated with this call.  The result
     // is always greater than or equal to one.
     unsigned numConnectives() const;
 
-    // Returns the \p i'th connective associated with this call.
-    FunctionDecl *getConnective(unsigned i) const;
+    // Returns the \p i'th connective associated with this call.  The returned
+    // node is either an EnumLiteral or FunctionDecl.
+    Decl *getConnective(unsigned i) const;
 
     // Forward iterator over the set of connectives associated with a function
     // call expression.
@@ -270,7 +273,7 @@ public:
             : callExpr(iter.callExpr),
               index(iter.index) { }
 
-        FunctionDecl *operator *() {
+        Decl *operator *() {
             assert(callExpr && "Cannot dereference an empty iterator!");
             return callExpr->getConnective(index);
         }
@@ -326,28 +329,12 @@ public:
     }
 
 private:
-    enum { AMBIGUOUS_BIT = 1 };
-
-    // The type used to store multiple connective declarations.
-    typedef llvm::SmallVector<FunctionDecl*, 2> OptionVector;
-
-    union {
-        uintptr_t     connectiveBits;
-        FunctionDecl *connective;
-        OptionVector *connectiveOptions;
-    };
-
+    Ast       *connective;
     Expr     **arguments;
     unsigned   numArgs;
     Qualifier *qualifier;
 
-    // Returns a clean pointer to the options vector.  Can only be called on an
-    // ambiguous decl.
-    OptionVector *getOptions() const {
-        assert(isAmbiguous() &&
-               "Only ambiguous decls have optional connectives!");
-        return reinterpret_cast<OptionVector*>(connectiveBits & ~AMBIGUOUS_BIT);
-    }
+    void setTypeForConnective();
 };
 
 //===----------------------------------------------------------------------===//

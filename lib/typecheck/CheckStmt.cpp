@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IdentifierResolver.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
@@ -18,27 +19,120 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-Node TypeCheck::acceptProcedureCall(IdentifierInfo  *name,
+Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
                                     Location         loc,
-                                    NodeVector      &args)
+                                    Node             qualNode)
 {
-    return acceptSubroutineCall(name, loc, args, false);
-}
+    if (!qualNode.isNull()) {
+        Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
+        DeclarativeRegion *region    = qualifier->resolve();
 
-Node TypeCheck::acceptQualifiedProcedureCall(Node            qualNode,
-                                             IdentifierInfo *name,
-                                             Location        loc,
-                                             NodeVector     &args)
-{
-    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-    DeclarativeRegion *region    = qualifier->resolve();
-    std::vector<SubroutineDecl*> decls;
+        // Collect all of the function declarations in the region with the given
+        // name.  If the name does not resolve uniquely, return an
+        // OverloadedDeclName, otherwise the decl itself.
+        typedef DeclarativeRegion::PredRange PredRange;
+        typedef DeclarativeRegion::PredIter  PredIter;
+        PredRange range = region->findDecls(name);
+        llvm::SmallVector<Decl*, 8> decls;
 
-    // FIXME: Report that there are no functions of the given arity declared in
-    // this domain.
-    if (!region->collectProcedureDecls(name, args.size(), decls)) {
+        // Collect all procedure decls.
+        for (PredIter iter = range.first; iter != range.second; ++iter) {
+            Decl *candidate = *iter;
+            if (isa<ProcedureDecl>(candidate))
+                decls.push_back(candidate);
+        }
+
+        if (decls.empty()) {
+            report(loc, diag::NAME_NOT_VISIBLE);
+            return getInvalidNode();
+        }
+
+        if (decls.size() == 1)
+            return getNode(decls.front());
+
+        return getNode(new OverloadedDeclName(&decls[0], decls.size()));
+    }
+
+    IdentifierResolver resolver;
+
+    if (!resolver.resolve(name) || resolver.hasDirectValue()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
+    }
+
+    llvm::SmallVector<Decl *, 8> overloads;
+    unsigned numOverloads = 0;
+    resolver.filterFunctionals();
+
+    // Collect any direct overloads.
+    overloads.append(resolver.beginDirectOverloads(),
+                     resolver.endDirectOverloads());
+
+    // Continue populating the call with indirect overloads if there are no
+    // indirect values visible and return the result.
+    if (!resolver.hasIndirectValues()) {
+        overloads.append(resolver.beginIndirectOverloads(),
+                         resolver.endIndirectOverloads());
+        numOverloads = overloads.size();
+        if (numOverloads == 1)
+            return getNode(overloads.front());
+        else if (numOverloads > 1)
+            return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
+        else {
+            report(loc, diag::NAME_NOT_VISIBLE) << name;
+            return getInvalidNode();
+        }
+    }
+
+    // There are indirect values which shadow all indirect procedures.  If we
+    // have any direct decls, return a node for them.
+    numOverloads = overloads.size();
+    if (numOverloads == 1)
+        return getNode(overloads.front());
+    else if (numOverloads > 1)
+        return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
+
+    // Otherwise, we cannot resolve the name.
+    report(loc, diag::NAME_NOT_VISIBLE) << name;
+    return getInvalidNode();
+}
+
+Node TypeCheck::acceptProcedureCall(Node        connective,
+                                    Location    loc,
+                                    NodeVector &args)
+{
+    std::vector<SubroutineDecl*> decls;
+    unsigned targetArity = args.size();
+
+    connective.release();
+
+    if (ProcedureDecl *pdecl = lift_node<ProcedureDecl>(connective)) {
+        if (pdecl->getArity() == targetArity)
+            decls.push_back(pdecl);
+        else {
+            report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
+                << pdecl->getIdInfo();
+            return getInvalidNode();
+        }
+    }
+    else {
+        OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
+        for (OverloadedDeclName::iterator iter = odn->begin();
+             iter != odn->end(); ++iter) {
+            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
+                if (fdecl->getArity() == targetArity)
+                    decls.push_back(fdecl);
+            }
+        }
+
+        delete odn;
+
+        // FIXME: Report that there are no procedures visible with the required
+        // arity.
+        if (decls.empty()) {
+            report(loc, diag::NAME_NOT_VISIBLE) << odn->getIdInfo();
+            return getInvalidNode();
+        }
     }
 
     return acceptSubroutineCall(decls, loc, args);

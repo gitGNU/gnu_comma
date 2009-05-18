@@ -124,23 +124,21 @@ public:
                                   Location        loc,
                                   Node            qualNode) = 0;
 
-    virtual Node acceptFunctionCall(IdentifierInfo  *name,
-                                    Location         loc,
-                                    NodeVector      &args) = 0;
+    virtual Node acceptFunctionName(IdentifierInfo *name,
+                                    Location        loc,
+                                    Node            qualNode) = 0;
 
-    virtual Node acceptQualifiedFunctionCall(Node            qualNode,
-                                             IdentifierInfo *name,
-                                             Location        loc,
-                                             NodeVector     &args) = 0;
+    virtual Node acceptFunctionCall(Node        connective,
+                                    Location    loc,
+                                    NodeVector &args) = 0;
 
-    virtual Node acceptProcedureCall(IdentifierInfo  *name,
-                                     Location         loc,
-                                     NodeVector      &args) = 0;
+    virtual Node acceptProcedureName(IdentifierInfo *name,
+                                     Location        loc,
+                                     Node            qualNode) = 0;
 
-    virtual Node acceptQualifiedProcedureCall(Node            qualNode,
-                                              IdentifierInfo *name,
-                                              Location        loc,
-                                              NodeVector     &args) = 0;
+    virtual Node acceptProcedureCall(Node        connective,
+                                     Location    loc,
+                                     NodeVector &args) = 0;
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.

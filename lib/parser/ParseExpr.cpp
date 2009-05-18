@@ -134,10 +134,13 @@ Node Parser::parsePrimaryExpr()
         NodeVector args;
         if (!parseSubroutineArgumentList(args))
             return getInvalidNode();
-        else if (qual.isNull())
-            return client.acceptFunctionCall(name, loc, args);
+
+        Node connective = client.acceptFunctionName(name, loc, qual);
+
+        if (connective.isValid())
+            return client.acceptFunctionCall(connective, loc, args);
         else
-            return client.acceptQualifiedFunctionCall(qual, name, loc, args);
+            return getInvalidNode();
     }
     else
         return client.acceptDirectName(name, loc, qual);

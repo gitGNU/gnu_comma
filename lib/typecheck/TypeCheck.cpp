@@ -45,8 +45,8 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo *paramId = resource.getIdentifierInfo("|X|");
 
     EnumerationDecl    *boolEnum = new EnumerationDecl(boolId, 0, 0);
-    EnumerationLiteral *falseLit = new EnumerationLiteral(boolEnum, falseId, 0);
-    EnumerationLiteral *trueLit  = new EnumerationLiteral(boolEnum, trueId, 0);
+    new EnumLiteral(boolEnum, falseId, 0);
+    new EnumLiteral(boolEnum, trueId, 0);
 
     // Construct the Bool equality predicate.
     //
@@ -62,8 +62,6 @@ void TypeCheck::populateInitialEnvironment()
         new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
 
     scope.addDirectDecl(boolEnum);
-    scope.addDirectDecl(trueLit);
-    scope.addDirectDecl(falseLit);
     scope.addDirectDecl(equals);
 
     theBoolDecl = boolEnum;
@@ -1078,7 +1076,7 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
         return;
     }
 
-    EnumerationLiteral *lit = new EnumerationLiteral(enumeration, name, loc);
+    EnumLiteral *lit = new EnumLiteral(enumeration, name, loc);
     scope.addDirectDecl(lit);
 }
 
