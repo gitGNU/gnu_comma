@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AstBase.h"
-#include "comma/ast/DeclarativeRegion.h"
+#include "comma/ast/DeclRegion.h"
 #include "llvm/ADT/SmallVector.h"
 
 #ifndef COMMA_AST_STMT_HDR_GUARD
@@ -65,14 +65,14 @@ public:
 //
 // Represents a block statement consisting of an optional identifier, a possibly
 // empty declarative region, and a sequence of statements constituting the body.
-class BlockStmt : public StmtSequence, public DeclarativeRegion {
+class BlockStmt : public StmtSequence, public DeclRegion {
 
 public:
-    BlockStmt(Location           loc,
-              DeclarativeRegion *parent,
-              IdentifierInfo    *label = 0)
+    BlockStmt(Location        loc,
+              DeclRegion     *parent,
+              IdentifierInfo *label = 0)
         : StmtSequence(AST_BlockStmt),
-          DeclarativeRegion(AST_BlockStmt, parent),
+          DeclRegion(AST_BlockStmt, parent),
           location(loc),
           label(label) { }
 

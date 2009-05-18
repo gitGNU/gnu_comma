@@ -1,4 +1,4 @@
-//===-- ast/DeclarativeRegion.cpp ----------------------------- -*- C++ -*-===//
+//===-- ast/DeclRegion.cpp ------------------------------------ -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AstRewriter.h"
-#include "comma/ast/DeclarativeRegion.h"
+#include "comma/ast/DeclRegion.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Stmt.h"
 #include "llvm/Support/Casting.h"
@@ -20,13 +20,13 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-void DeclarativeRegion::addDecl(Decl *decl) {
+void DeclRegion::addDecl(Decl *decl) {
     declarations.push_back(decl);
     notifyObserversOfAddition(decl);
 }
 
-void DeclarativeRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
-                                                    Decl *decl)
+void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
+                                             Decl *decl)
 {
     Decl *newDecl = 0;
 
@@ -61,8 +61,8 @@ void DeclarativeRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
 }
 
 void
-DeclarativeRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
-                                                const DeclarativeRegion *region)
+DeclRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+                                         const DeclRegion *region)
 {
     ConstDeclIter iter;
     ConstDeclIter endIter = region->endDecls();
@@ -71,7 +71,7 @@ DeclarativeRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
         addDeclarationUsingRewrites(rewrites, *iter);
 }
 
-Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
+Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)
 {
     DeclIter endIter = endDecls();
     for (DeclIter iter = beginDecls(); iter != endIter; ++iter) {
@@ -91,8 +91,8 @@ Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
     return 0;
 }
 
-DeclarativeRegion::PredRange
-DeclarativeRegion::findDecls(IdentifierInfo *name) const
+DeclRegion::PredRange
+DeclRegion::findDecls(IdentifierInfo *name) const
 {
     struct Pred : public PredIter::Predicate {
         Pred(IdentifierInfo *name) : name(name) { }
@@ -107,7 +107,7 @@ DeclarativeRegion::findDecls(IdentifierInfo *name) const
     return PredRange(PredIter(pred, begin, end), PredIter(end));
 }
 
-bool DeclarativeRegion::removeDecl(Decl *decl)
+bool DeclRegion::removeDecl(Decl *decl)
 {
     DeclIter result = std::find(beginDecls(), endDecls(), decl);
     if (result != endDecls()) {
@@ -117,9 +117,9 @@ bool DeclarativeRegion::removeDecl(Decl *decl)
     return false;
 }
 
-bool DeclarativeRegion::collectFunctionDecls(IdentifierInfo *name,
-                                             unsigned        arity,
-                                             std::vector<SubroutineDecl*> &dst)
+bool DeclRegion::collectFunctionDecls(IdentifierInfo *name,
+                                      unsigned        arity,
+                                      std::vector<SubroutineDecl*> &dst)
 {
     PredRange range = findDecls(name);
     size_t    size  = dst.size();
@@ -133,9 +133,9 @@ bool DeclarativeRegion::collectFunctionDecls(IdentifierInfo *name,
     return size != dst.size();
 }
 
-bool DeclarativeRegion::collectProcedureDecls(IdentifierInfo *name,
-                                              unsigned        arity,
-                                              std::vector<SubroutineDecl*> &dst)
+bool DeclRegion::collectProcedureDecls(IdentifierInfo *name,
+                                       unsigned        arity,
+                                       std::vector<SubroutineDecl*> &dst)
 {
     PredRange range = findDecls(name);
     size_t    size  = dst.size();
@@ -149,7 +149,7 @@ bool DeclarativeRegion::collectProcedureDecls(IdentifierInfo *name,
     return size != dst.size();
 }
 
-const Ast *DeclarativeRegion::asAst() const
+const Ast *DeclRegion::asAst() const
 {
     switch (regionKind) {
     default:
@@ -180,26 +180,26 @@ const Ast *DeclarativeRegion::asAst() const
     }
 }
 
-Ast *DeclarativeRegion::asAst()
+Ast *DeclRegion::asAst()
 {
     return const_cast<Ast*>(
-        const_cast<const DeclarativeRegion *>(this)->asAst());
+        const_cast<const DeclRegion *>(this)->asAst());
 }
 
 // Default implementation -- do nothing.
-void DeclarativeRegion::notifyAddDecl(Decl *decl) { }
+void DeclRegion::notifyAddDecl(Decl *decl) { }
 
 // Default implementation -- do nothing.
-void DeclarativeRegion::notifyRemoveDecl(Decl *decl) { }
+void DeclRegion::notifyRemoveDecl(Decl *decl) { }
 
-void DeclarativeRegion::notifyObserversOfAddition(Decl *decl)
+void DeclRegion::notifyObserversOfAddition(Decl *decl)
 {
     for (ObserverList::iterator iter = observers.begin();
          iter != observers.end(); ++iter)
         (*iter)->notifyAddDecl(decl);
 }
 
-void DeclarativeRegion::notifyObserversOfRemoval(Decl *decl)
+void DeclRegion::notifyObserversOfRemoval(Decl *decl)
 {
     for (ObserverList::iterator iter = observers.begin();
          iter != observers.end(); ++iter)

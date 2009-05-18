@@ -195,13 +195,13 @@ public:
     unsigned getErrorCount() const { return errorCount; }
 
 private:
-    Diagnostic        &diagnostic;
-    AstResource       &resource;
-    CompilationUnit   *compUnit;
-    DeclarativeRegion *declarativeRegion;
-    ModelDecl         *currentModel;
-    Scope              scope;
-    unsigned           errorCount;
+    Diagnostic      &diagnostic;
+    AstResource     &resource;
+    CompilationUnit *compUnit;
+    DeclRegion      *declarativeRegion;
+    ModelDecl       *currentModel;
+    Scope            scope;
+    unsigned         errorCount;
 
     // FIXME: We need a class to hold instances of primitive types.  For now, we
     // simply stash them inline.
@@ -225,7 +225,7 @@ private:
         return llvm::cast<T>(Node::lift<Ast>(node));
     }
 
-    DeclarativeRegion *currentDeclarativeRegion() const {
+    DeclRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
     }
 
@@ -298,14 +298,14 @@ private:
 
     // Creates a procedure or function decl depending on the kind of the
     // supplied type.
-    static SubroutineDecl *makeSubroutineDecl(IdentifierInfo    *name,
-                                              Location           loc,
-                                              SubroutineType    *type,
-                                              DeclarativeRegion *region);
+    static SubroutineDecl *makeSubroutineDecl(IdentifierInfo *name,
+                                              Location        loc,
+                                              SubroutineType *type,
+                                              DeclRegion     *region);
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
-    bool ensureDistinctTypeDeclaration(DeclarativeRegion *region,
-                                       TypeDecl          *tyDecl);
+    bool ensureDistinctTypeDeclaration(DeclRegion *region,
+                                       TypeDecl   *tyDecl);
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc);
@@ -356,9 +356,9 @@ private:
                                       bool lookupFunctions);
 
     // Looks up all function declarations in the given decl
-    static void collectFunctionDecls(IdentifierInfo    *name,
-                                     unsigned           arity,
-                                     DeclarativeRegion *region,
+    static void collectFunctionDecls(IdentifierInfo *name,
+                                     unsigned        arity,
+                                     DeclRegion     *region,
                                      std::vector<FunctionDecl*> dst);
 
     // Returns true if the source type is compatible with the target type.  In
@@ -403,7 +403,7 @@ private:
     // match with respect to the given rewrites.  Returns a matching delcaration
     // node or null.
     static SubroutineDecl *findDecl(const AstRewriter &rewrites,
-                                    DeclarativeRegion *region,
+                                    DeclRegion        *region,
                                     SubroutineDecl    *decl);
 
     bool has(DomainType *source, SignatureType *target);

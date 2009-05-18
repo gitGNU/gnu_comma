@@ -53,8 +53,8 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
                                     IdentifierInfo *name,
                                     Location        loc)
 {
-    Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-    DeclarativeRegion *region    = qualifier->resolve();
+    Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
+    DeclRegion *region    = qualifier->resolve();
     llvm::SmallVector<Decl*, 8> decls;
 
     // Scan the entire set of declaration nodes, matching nullary function decls
@@ -69,7 +69,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
     // the two forms are not equivalent, as the former will match all functions
     // named X declared in D (as well as other enumeration literals of the same
     // name).
-    for (DeclarativeRegion::DeclIter iter = region->beginDecls();
+    for (DeclRegion::DeclIter iter = region->beginDecls();
          iter != region->endDecls(); ++iter) {
         Decl *decl = *iter;
         if (decl->getIdInfo() == name) {
@@ -178,14 +178,14 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
                                    Node            qualNode)
 {
     if (!qualNode.isNull()) {
-        Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-        DeclarativeRegion *region    = qualifier->resolve();
+        Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion *region    = qualifier->resolve();
 
         // Collect all of the function declarations in the region with the given
         // name.  If the name does not resolve uniquely, return an
         // OverloadedDeclName, otherwise the decl itself.
-        typedef DeclarativeRegion::PredRange PredRange;
-        typedef DeclarativeRegion::PredIter  PredIter;
+        typedef DeclRegion::PredRange PredRange;
+        typedef DeclRegion::PredIter  PredIter;
         PredRange range = region->findDecls(name);
         llvm::SmallVector<Decl*, 8> decls;
 

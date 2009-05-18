@@ -34,7 +34,7 @@ class CarrierDecl;
 class CarrierType;
 class CompilationUnit;
 class Decl;
-class DeclarativeRegion;
+class DeclRegion;
 class DeclRefExpr;
 class DomainDecl;
 class DomainInstanceDecl;

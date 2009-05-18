@@ -20,7 +20,7 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Decl
 
-DeclarativeRegion *Decl::asDeclarativeRegion()
+DeclRegion *Decl::asDeclRegion()
 {
     switch (getKind()) {
     default:
@@ -121,12 +121,12 @@ Domoid::Domoid(AstKind         kind,
 // An AddDecl's declarative region is a sub-region of its parent domain decl.
 AddDecl::AddDecl(DomainDecl *domain)
     : Decl(AST_AddDecl),
-      DeclarativeRegion(AST_AddDecl, domain),
+      DeclRegion(AST_AddDecl, domain),
       carrier(0) { }
 
 AddDecl::AddDecl(FunctorDecl *functor)
     : Decl(AST_AddDecl),
-      DeclarativeRegion(AST_AddDecl, functor),
+      DeclRegion(AST_AddDecl, functor),
       carrier(0) { }
 
 bool AddDecl::implementsDomain() const
@@ -286,15 +286,15 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
 //===----------------------------------------------------------------------===//
 // SubroutineDecl
 
-SubroutineDecl::SubroutineDecl(AstKind            kind,
-                               IdentifierInfo    *name,
-                               Location           loc,
-                               ParamValueDecl   **params,
-                               unsigned           numParams,
-                               Type              *returnType,
-                               DeclarativeRegion *parent)
+SubroutineDecl::SubroutineDecl(AstKind          kind,
+                               IdentifierInfo  *name,
+                               Location         loc,
+                               ParamValueDecl **params,
+                               unsigned         numParams,
+                               Type            *returnType,
+                               DeclRegion      *parent)
     : Decl(kind, name, loc),
-      DeclarativeRegion(kind, parent),
+      DeclRegion(kind, parent),
       routineType(0),
       definingDeclaration(0),
       parameters(0),
@@ -302,7 +302,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
 {
     assert(this->denotesSubroutineDecl());
 
-    setDeclarativeRegion(parent);
+    setDeclRegion(parent);
 
     // Create our own copy of the parameter set.
     if (numParams > 0) {
@@ -324,9 +324,9 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
         // subroutine itself, the associated declarative region of each
         // parameter should be null.  Assert this invarient and update each
         // param to point to the new context.
-        assert(!param->getDeclarativeRegion() &&
+        assert(!param->getDeclRegion() &&
                "Parameter associated with invalid region!");
-        param->setDeclarativeRegion(this);
+        param->setDeclRegion(this);
     }
 
     // Construct the type of this subroutine.
@@ -349,13 +349,13 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
     }
 }
 
-SubroutineDecl::SubroutineDecl(AstKind            kind,
-                               IdentifierInfo    *name,
-                               Location           loc,
-                               SubroutineType    *type,
-                               DeclarativeRegion *parent)
+SubroutineDecl::SubroutineDecl(AstKind         kind,
+                               IdentifierInfo *name,
+                               Location        loc,
+                               SubroutineType *type,
+                               DeclRegion     *parent)
     : Decl(kind, name, loc),
-      DeclarativeRegion(kind, parent),
+      DeclRegion(kind, parent),
       routineType(type),
       definingDeclaration(0),
       parameters(0),
@@ -363,7 +363,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
 {
     assert(this->denotesSubroutineDecl());
 
-    setDeclarativeRegion(parent);
+    setDeclRegion(parent);
 
     // In this constructor, we need to create a set of ParamValueDecl nodes
     // which correspond to the supplied type.
@@ -379,7 +379,7 @@ SubroutineDecl::SubroutineDecl(AstKind            kind,
             // Note that as these param decls are implicitly generated we supply
             // an invalid location for each node.
             param = new ParamValueDecl(formal, formalType, mode, 0);
-            param->setDeclarativeRegion(this);
+            param->setDeclRegion(this);
             parameters[i] = param;
         }
     }
@@ -461,18 +461,18 @@ EnumLiteral::EnumLiteral(EnumerationDecl *decl,
                          Location         loc)
     : ValueDecl(AST_EnumLiteral, name, decl->getType(), loc)
 {
-    setDeclarativeRegion(decl);
+    setDeclRegion(decl);
     decl->addDecl(this);
 }
 
 //===----------------------------------------------------------------------===//
 // EnumerationDecl
-EnumerationDecl::EnumerationDecl(IdentifierInfo    *name,
-                                 Location           loc,
-                                 DeclarativeRegion *parent)
+EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
+                                 Location        loc,
+                                 DeclRegion     *parent)
     : TypeDecl(AST_EnumerationDecl, name, loc),
-      DeclarativeRegion(AST_EnumerationDecl, parent)
+      DeclRegion(AST_EnumerationDecl, parent)
 {
-    setDeclarativeRegion(parent);
+    setDeclRegion(parent);
     correspondingType = new EnumerationType(this);
 }

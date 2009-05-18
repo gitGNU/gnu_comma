@@ -24,14 +24,14 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
                                     Node             qualNode)
 {
     if (!qualNode.isNull()) {
-        Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
-        DeclarativeRegion *region    = qualifier->resolve();
+        Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion *region    = qualifier->resolve();
 
         // Collect all of the function declarations in the region with the given
         // name.  If the name does not resolve uniquely, return an
         // OverloadedDeclName, otherwise the decl itself.
-        typedef DeclarativeRegion::PredRange PredRange;
-        typedef DeclarativeRegion::PredIter  PredIter;
+        typedef DeclRegion::PredRange PredRange;
+        typedef DeclRegion::PredIter  PredIter;
         PredRange range = region->findDecls(name);
         llvm::SmallVector<Decl*, 8> decls;
 
@@ -275,8 +275,8 @@ Node TypeCheck::acceptElsifStmt(Location loc,
 Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
 {
     // Create a new block node, establish a new declarative region and scope.
-    DeclarativeRegion *region = currentDeclarativeRegion();
-    BlockStmt         *block  = new BlockStmt(loc, region, label);
+    DeclRegion *region = currentDeclarativeRegion();
+    BlockStmt  *block  = new BlockStmt(loc, region, label);
 
     declarativeRegion = block;
     scope.push();

@@ -106,8 +106,8 @@ FunctorDecl *TypeCheck::getCurrentFunctor() const
 
 SubroutineDecl *TypeCheck::getCurrentSubroutine() const
 {
-    DeclarativeRegion *region = currentDeclarativeRegion();
-    SubroutineDecl    *routine;
+    DeclRegion     *region = currentDeclarativeRegion();
+    SubroutineDecl *routine;
 
     while (region) {
         if ((routine = dyn_cast<SubroutineDecl>(region)))
@@ -245,7 +245,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     }
 
     currentModel      = modelDecl;
-    declarativeRegion = modelDecl->asDeclarativeRegion();
+    declarativeRegion = modelDecl->asDeclRegion();
 
     // Bring the model itself into scope, and release the nodes associated with
     // the given descriptor.
@@ -338,14 +338,14 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
     TypeDecl *type = 0;
 
     if (!qualNode.isNull()) {
-        Qualifier               *qualifier = cast_node<Qualifier>(qualNode);
-        DeclarativeRegion          *region = qualifier->resolve();
-        DeclarativeRegion::PredRange range = region->findDecls(id);
+        Qualifier        *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion          *region = qualifier->resolve();
+        DeclRegion::PredRange range = region->findDecls(id);
 
         // Search the region for a type of the given name.  Type names do not
         // overload so if the type exists, it is unique, and the first match is
         // accepted.
-        for (DeclarativeRegion::PredIter iter = range.first;
+        for (DeclRegion::PredIter iter = range.first;
              iter != range.second; ++iter) {
             Decl *candidate = *iter;
             if ((type = dyn_cast<TypeDecl>(candidate)))
@@ -532,10 +532,10 @@ SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
 
 // Creates a procedure or function decl depending on the kind of the
 // supplied type.
-SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo    *name,
-                                              Location           loc,
-                                              SubroutineType    *type,
-                                              DeclarativeRegion *region)
+SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo *name,
+                                              Location        loc,
+                                              SubroutineType *type,
+                                              DeclRegion     *region)
 {
     if (FunctionType *ftype = dyn_cast<FunctionType>(type))
         return new FunctionDecl(name, loc, ftype, region);
@@ -577,11 +577,11 @@ Type *TypeCheck::ensureValueType(Node     node,
 // with respect to the given rewrites.  Returns a matching delcaration node or
 // null.
 SubroutineDecl *TypeCheck::findDecl(const AstRewriter &rewrites,
-                                    DeclarativeRegion *region,
+                                    DeclRegion        *region,
                                     SubroutineDecl    *decl)
 {
-    typedef DeclarativeRegion::PredIter  PredIter;
-    typedef DeclarativeRegion::PredRange PredRange;
+    typedef DeclRegion::PredIter  PredIter;
+    typedef DeclRegion::PredRange PredRange;
     IdentifierInfo *name       = decl->getIdInfo();
     SubroutineType *targetType = decl->getType();
     PredRange       range      = region->findDecls(name);
@@ -701,11 +701,11 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
     }
 }
 
-bool TypeCheck::ensureDistinctTypeDeclaration(DeclarativeRegion *region,
-                                              TypeDecl          *tyDecl)
+bool TypeCheck::ensureDistinctTypeDeclaration(DeclRegion *region,
+                                              TypeDecl   *tyDecl)
 {
-    typedef DeclarativeRegion::PredRange PredRange;
-    typedef DeclarativeRegion::PredIter  PredIter;
+    typedef DeclRegion::PredRange PredRange;
+    typedef DeclRegion::PredIter  PredIter;
     IdentifierInfo *name  = tyDecl->getIdInfo();
     PredRange       range = region->findDecls(name);
     Location        loc   = tyDecl->getLocation();
@@ -768,9 +768,9 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
 
     // Traverse the enclosing regions, stopping at the first function, model, or
     // top-level context encountered.
-    DeclarativeRegion *region = currentDeclarativeRegion();
+    DeclRegion *region = currentDeclarativeRegion();
     for ( ; region != 0; region = region->getParent()) {
-        DeclarativeRegion::PredRange range = region->findDecls(name);
+        DeclRegion::PredRange range = region->findDecls(name);
         if (range.first != range.second) {
             Decl *decl = *range.first;
             SourceLocation sloc = getSourceLoc(decl->getLocation());
@@ -862,7 +862,7 @@ void TypeCheck::endAddExpression()
     // Leave the scope corresponding to the add expression and switch back to
     // the declarative region of the defining domain.
     declarativeRegion = declarativeRegion->getParent();
-    assert(declarativeRegion == getCurrentModel()->asDeclarativeRegion());
+    assert(declarativeRegion == getCurrentModel()->asDeclRegion());
     scope.pop();
 }
 
@@ -956,9 +956,9 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     }
 
     SubroutineDecl *routineDecl = 0;
-    DeclarativeRegion   *region = currentDeclarativeRegion();
-    IdentifierInfo        *name = desc.getIdInfo();
-    Location           location = desc.getLocation();
+    DeclRegion     *region   = currentDeclarativeRegion();
+    IdentifierInfo *name     = desc.getIdInfo();
+    Location        location = desc.getLocation();
 
     if (desc.isFunctionDescriptor()) {
         // If this descriptor is a function, then we must return a value type.
@@ -1069,8 +1069,8 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
 
 Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
 {
-    DeclarativeRegion *region      = currentDeclarativeRegion();
-    EnumerationDecl   *enumeration = new EnumerationDecl(name, loc, region);
+    DeclRegion      *region      = currentDeclarativeRegion();
+    EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
 
     if (ensureDistinctTypeDeclaration(region, enumeration)) {
         region->addDecl(enumeration);

@@ -48,7 +48,7 @@ void ScopeEntry::addDirectDecl(Decl *decl)
 
         // Add the literals of enumeration declarations.
         if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
-            typedef DeclarativeRegion::DeclIter DeclIter;
+            typedef DeclRegion::DeclIter DeclIter;
             DeclIter iter;
             DeclIter endIter = edecl->endDecls();
             for (iter = edecl->beginDecls(); iter != endIter; ++iter) {
@@ -99,9 +99,9 @@ bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
     return false;
 }
 
-void ScopeEntry::importDeclarativeRegion(DeclarativeRegion *region)
+void ScopeEntry::importDeclarativeRegion(DeclRegion *region)
 {
-    typedef DeclarativeRegion::DeclIter DeclIter;
+    typedef DeclRegion::DeclIter DeclIter;
 
     DeclIter iter;
     DeclIter endIter = region->endDecls();
@@ -119,7 +119,7 @@ void ScopeEntry::importDeclarativeRegion(DeclarativeRegion *region)
 
 void ScopeEntry::addImportDecl(DomainType *type)
 {
-    typedef DeclarativeRegion::DeclIter DeclIter;
+    typedef DeclRegion::DeclIter DeclIter;
     Domoid *domoid = type->getDomoidDecl();
 
     assert((isa<AbstractDomainDecl>(domoid) || isa<DomainInstanceDecl>(domoid))

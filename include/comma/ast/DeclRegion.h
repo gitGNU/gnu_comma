@@ -1,4 +1,4 @@
-//===-- ast/DeclarativeRegion.h ------------------------------- -*- C++ -*-===//
+//===-- ast/DeclRegion.h -------------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef COMMA_DECLARATIVEREGION_HDR_GUARD
-#define COMMA_DECLARATIVEREGION_HDR_GUARD
+#ifndef COMMA_AST_DECLREGION_HDR_GUARD
+#define COMMA_AST_DECLREGION_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
@@ -17,27 +17,27 @@
 namespace comma {
 
 //===----------------------------------------------------------------------===//
-// DeclarativeRegion
-class DeclarativeRegion {
+// DeclRegion
+class DeclRegion {
 
 protected:
-    DeclarativeRegion(Ast::AstKind kind)
+    DeclRegion(Ast::AstKind kind)
         : regionKind(kind), parent(0) { }
 
-    DeclarativeRegion(Ast::AstKind kind, DeclarativeRegion *parent)
+    DeclRegion(Ast::AstKind kind, DeclRegion *parent)
         : regionKind(kind), parent(parent) { }
 
     typedef std::vector<Decl*> DeclarationTable;
     DeclarationTable declarations;
 
 public:
-    DeclarativeRegion *getParent() { return parent; }
-    const DeclarativeRegion *getParent() const { return parent; }
+    DeclRegion *getParent() { return parent; }
+    const DeclRegion *getParent() const { return parent; }
 
     // Sets the parent of this region.  This function can only be called if the
     // parent of this region has not yet been set.
-    void setParent(DeclarativeRegion *parentRegion) {
-        assert(!parent && "Cannot reset the parent of a DeclarativeRegion!");
+    void setParent(DeclRegion *parentRegion) {
+        assert(!parent && "Cannot reset the parent of a DeclRegion!");
         parent = parentRegion;
     }
 
@@ -54,8 +54,8 @@ public:
 
     // Adds the declarations from the given region to this one using the
     // supplied rewrite rules.
-    void addDeclarationsUsingRewrites(const AstRewriter       &rewrites,
-                                      const DeclarativeRegion *region);
+    void addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+                                      const DeclRegion  *region);
 
     typedef DeclarationTable::iterator DeclIter;
     DeclIter beginDecls() { return declarations.begin(); }
@@ -88,9 +88,9 @@ public:
     // parameters for each predicate yet permits arbitrary filtering strategies
     // to be implemented.
     class PredIter {
-        friend class DeclarativeRegion;
+        friend class DeclRegion;
 
-        typedef DeclarativeRegion::ConstDeclIter DeclIter;
+        typedef DeclRegion::ConstDeclIter DeclIter;
 
         struct Predicate : public llvm::RefCountedBaseVPTR<Predicate> {
             virtual bool operator()(const Decl*) = 0;
@@ -182,11 +182,11 @@ public:
                                unsigned        arity,
                                std::vector<SubroutineDecl*> &dst);
 
-    // Converts this DeclarativeRegion into a raw Ast node.
+    // Converts this DeclRegion into a raw Ast node.
     Ast *asAst();
     const Ast *asAst() const;
 
-    void addObserver(DeclarativeRegion *region) { observers.push_front(region); }
+    void addObserver(DeclRegion *region) { observers.push_front(region); }
 
     static bool classof(const Ast *node) {
         switch (node->getKind()) {
@@ -225,9 +225,9 @@ protected:
 
 private:
     Ast::AstKind       regionKind;
-    DeclarativeRegion *parent;
+    DeclRegion *parent;
 
-    typedef std::list<DeclarativeRegion*> ObserverList;
+    typedef std::list<DeclRegion*> ObserverList;
     ObserverList observers;
 
     void notifyObserversOfAddition(Decl *decl);
@@ -238,82 +238,82 @@ private:
 
 namespace llvm {
 
-// Specialize isa_impl_wrap to test if a DeclarativeRegion is a specific Decl.
+// Specialize isa_impl_wrap to test if a DeclRegion is a specific Decl.
 template<class To>
 struct isa_impl_wrap<To,
-                     const comma::DeclarativeRegion, const comma::DeclarativeRegion> {
-    static bool doit(const comma::DeclarativeRegion &val) {
+                     const comma::DeclRegion, const comma::DeclRegion> {
+    static bool doit(const comma::DeclRegion &val) {
         return To::classof(val.asAst());
     }
 };
 
 template<class To>
-struct isa_impl_wrap<To, comma::DeclarativeRegion, comma::DeclarativeRegion>
+struct isa_impl_wrap<To, comma::DeclRegion, comma::DeclRegion>
   : public isa_impl_wrap<To,
-                         const comma::DeclarativeRegion,
-                         const comma::DeclarativeRegion> { };
+                         const comma::DeclRegion,
+                         const comma::DeclRegion> { };
 
-// Decl to DeclarativeRegion conversions.
+// Decl to DeclRegion conversions.
 template<class From>
-struct cast_convert_val<comma::DeclarativeRegion, From, From> {
-    static comma::DeclarativeRegion &doit(const From &val) {
-        return *val.asDeclarativeRegion();
+struct cast_convert_val<comma::DeclRegion, From, From> {
+    static comma::DeclRegion &doit(const From &val) {
+        return *val.asDeclRegion();
     }
 };
 
 template<class From>
-struct cast_convert_val<comma::DeclarativeRegion, From*, From*> {
-    static comma::DeclarativeRegion *doit(const From *val) {
-        return val->asDeclarativeRegion();
+struct cast_convert_val<comma::DeclRegion, From*, From*> {
+    static comma::DeclRegion *doit(const From *val) {
+        return val->asDeclRegion();
     }
 };
 
 template<class From>
-struct cast_convert_val<const comma::DeclarativeRegion, From, From> {
-    static const comma::DeclarativeRegion &doit(const From &val) {
-        return *val.asDeclarativeRegion();
+struct cast_convert_val<const comma::DeclRegion, From, From> {
+    static const comma::DeclRegion &doit(const From &val) {
+        return *val.asDeclRegion();
     }
 };
 
 template<class From>
-struct cast_convert_val<const comma::DeclarativeRegion, From*, From*> {
-    static const comma::DeclarativeRegion *doit(const From *val) {
-        return val->asDeclarativeRegion();
+struct cast_convert_val<const comma::DeclRegion, From*, From*> {
+    static const comma::DeclRegion *doit(const From *val) {
+        return val->asDeclRegion();
     }
 };
 
-// DeclarativeRegion to Decl conversions.
+// DeclRegion to Decl conversions.
 template<class To>
 struct cast_convert_val<To,
-                        const comma::DeclarativeRegion,
-                        const comma::DeclarativeRegion> {
-    static To &doit(const comma::DeclarativeRegion &val) {
+                        const comma::DeclRegion,
+                        const comma::DeclRegion> {
+    static To &doit(const comma::DeclRegion &val) {
         return *reinterpret_cast<To*>(
             const_cast<comma::Ast*>(val.asAst()));
     }
 };
 
 template<class To>
-struct cast_convert_val<To, comma::DeclarativeRegion, comma::DeclarativeRegion>
+struct cast_convert_val<To, comma::DeclRegion, comma::DeclRegion>
     : public cast_convert_val<To,
-                              const comma::DeclarativeRegion,
-                              const comma::DeclarativeRegion> { };
+                              const comma::DeclRegion,
+                              const comma::DeclRegion> { };
 
 template<class To>
 struct cast_convert_val<To,
-                        const comma::DeclarativeRegion*,
-                        const comma::DeclarativeRegion*> {
-    static To *doit(const comma::DeclarativeRegion *val) {
+                        const comma::DeclRegion*,
+                        const comma::DeclRegion*> {
+    static To *doit(const comma::DeclRegion *val) {
         return reinterpret_cast<To*>(
             const_cast<comma::Ast*>(val->asAst()));
     }
 };
 
 template<class To>
-struct cast_convert_val<To, comma::DeclarativeRegion*, comma::DeclarativeRegion*>
+struct cast_convert_val<To, comma::DeclRegion*, comma::DeclRegion*>
     : public cast_convert_val<To,
-                              const comma::DeclarativeRegion*,
-                              const comma::DeclarativeRegion*> { };
+                              const comma::DeclRegion*,
+                              const comma::DeclRegion*> { };
 
 } // End llvm namespace.
 

@@ -10,7 +10,7 @@
 #define COMMA_AST_DECL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
-#include "comma/ast/DeclarativeRegion.h"
+#include "comma/ast/DeclRegion.h"
 #include "comma/ast/SignatureSet.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/ParameterModes.h"
@@ -48,7 +48,7 @@ public:
 
     // Sets the declarative region for this decl.  This function can only be
     // called once to initialize the decl.
-    void setDeclarativeRegion(DeclarativeRegion *region) {
+    void setDeclRegion(DeclRegion *region) {
         assert(context == 0 && "Cannot reset a decl's declarative region!");
         context = region;
     }
@@ -56,16 +56,16 @@ public:
     // Returns the declarative region for this decl.  Sometimes decls are
     // created before their associated regions exist, so this method may return
     // null.
-    DeclarativeRegion *getDeclarativeRegion() { return context; }
+    DeclRegion *getDeclRegion() { return context; }
 
     // Returns true if this decl was declared in the given region.
-    bool isDeclaredIn(DeclarativeRegion *region) {
+    bool isDeclaredIn(DeclRegion *region) {
         return region == context;
     }
 
-    /// Returns this cast to a DeclarativeRegion, or NULL if this model does not
+    /// Returns this cast to a DeclRegion, or NULL if this model does not
     /// support declarations.
-    DeclarativeRegion *asDeclarativeRegion();
+    DeclRegion *asDeclRegion();
 
     // Support isa and dyn_cast.
     static bool classof(const Decl *node) { return true; }
@@ -82,9 +82,9 @@ protected:
         assert(this->denotesDecl());
     }
 
-    IdentifierInfo    *idInfo;
-    Location           location;
-    DeclarativeRegion *context;
+    IdentifierInfo *idInfo;
+    Location        location;
+    DeclRegion     *context;
 };
 
 //===----------------------------------------------------------------------===//
@@ -191,7 +191,7 @@ protected:
 // additional parameter is necessary since the Ast classes cannot create
 // IdentifierInfo's on their own -- we do not have access to a global
 // IdentifierPool with which to create them.
-class ModelDecl : public TypeDecl, public DeclarativeRegion {
+class ModelDecl : public TypeDecl, public DeclRegion {
 
 public:
     virtual ~ModelDecl() { }
@@ -239,7 +239,7 @@ protected:
               IdentifierInfo *name,
               Location        loc)
         : TypeDecl(kind, name, loc),
-          DeclarativeRegion(kind),
+          DeclRegion(kind),
           sigset(this) { }
 
     // The set of signatures which this model satisfies.
@@ -416,7 +416,7 @@ protected:
 // This class represents an add expression.  It provides a declarative region
 // for the body of a domain and contains all function and values which the
 // domain defines.
-class AddDecl : public Decl, public DeclarativeRegion {
+class AddDecl : public Decl, public DeclRegion {
 
 public:
     // Creates an AddDecl to represent the body of the given domain.
@@ -685,28 +685,28 @@ private:
 // SubroutineDecl
 //
 // Base class for representing procedures and functions.
-class SubroutineDecl : public Decl, public DeclarativeRegion {
+class SubroutineDecl : public Decl, public DeclRegion {
 
 protected:
     // When this constructor is invoked, a new type is generated to represent
     // the subroutine.  In addition, the parameter decls are updated so that
     // their associated declarative regions point to the newly constructed decl.
-    SubroutineDecl(AstKind            kind,
-                   IdentifierInfo    *name,
-                   Location           loc,
-                   ParamValueDecl   **params,
-                   unsigned           numParams,
-                   Type              *returnType,
-                   DeclarativeRegion *parent);
+    SubroutineDecl(AstKind          kind,
+                   IdentifierInfo  *name,
+                   Location         loc,
+                   ParamValueDecl **params,
+                   unsigned         numParams,
+                   Type            *returnType,
+                   DeclRegion      *parent);
 
     // This constructor is provided when we need to construct a decl given a
     // type.  In this case, a set of ParamValueDecls are implicitly constructed
     // according to the type provided.
-    SubroutineDecl(AstKind            kind,
-                   IdentifierInfo    *name,
-                   Location           loc,
-                   SubroutineType    *type,
-                   DeclarativeRegion *parent);
+    SubroutineDecl(AstKind         kind,
+                   IdentifierInfo *name,
+                   Location        loc,
+                   SubroutineType *type,
+                   DeclRegion     *parent);
 
 public:
     const SubroutineType *getType() const { return routineType; }
@@ -768,22 +768,22 @@ protected:
 class FunctionDecl : public SubroutineDecl {
 
 public:
-    FunctionDecl(IdentifierInfo    *name,
-                 Location           loc,
-                 ParamValueDecl   **params,
-                 unsigned           numParams,
-                 Type              *returnType,
-                 DeclarativeRegion *parent)
+    FunctionDecl(IdentifierInfo  *name,
+                 Location         loc,
+                 ParamValueDecl **params,
+                 unsigned         numParams,
+                 Type            *returnType,
+                 DeclRegion      *parent)
         : SubroutineDecl(AST_FunctionDecl,
                          name, loc,
                          params, numParams,
                          returnType,
                          parent) { }
 
-    FunctionDecl(IdentifierInfo    *name,
-                 Location           loc,
-                 FunctionType      *type,
-                 DeclarativeRegion *parent)
+    FunctionDecl(IdentifierInfo *name,
+                 Location        loc,
+                 FunctionType   *type,
+                 DeclRegion     *parent)
         : SubroutineDecl(AST_FunctionDecl,
                          name, loc,
                          type, parent) { }
@@ -823,21 +823,21 @@ public:
 class ProcedureDecl : public SubroutineDecl {
 
 public:
-    ProcedureDecl(IdentifierInfo    *name,
-                  Location           loc,
-                  ParamValueDecl   **params,
-                  unsigned           numParams,
-                  DeclarativeRegion *parent)
+    ProcedureDecl(IdentifierInfo  *name,
+                  Location         loc,
+                  ParamValueDecl **params,
+                  unsigned         numParams,
+                  DeclRegion      *parent)
         : SubroutineDecl(AST_ProcedureDecl,
                          name, loc,
                          params, numParams,
                          0,     // Null return type for procedures.
                          parent) { }
 
-    ProcedureDecl(IdentifierInfo    *name,
-                  Location           loc,
-                  ProcedureType     *type,
-                  DeclarativeRegion *parent)
+    ProcedureDecl(IdentifierInfo *name,
+                  Location        loc,
+                  ProcedureType  *type,
+                  DeclRegion     *parent)
         : SubroutineDecl(AST_ProcedureDecl,
                          name, loc,
                          type, parent) { }
@@ -985,12 +985,12 @@ public:
 
 //===----------------------------------------------------------------------===//
 // EnumerationDecl
-class EnumerationDecl : public TypeDecl, public DeclarativeRegion {
+class EnumerationDecl : public TypeDecl, public DeclRegion {
 
 public:
-    EnumerationDecl(IdentifierInfo    *name,
-                    Location           loc,
-                    DeclarativeRegion *parent);
+    EnumerationDecl(IdentifierInfo *name,
+                    Location        loc,
+                    DeclRegion     *parent);
 
     const EnumerationType *getType() const { return correspondingType; }
 

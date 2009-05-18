@@ -18,11 +18,11 @@ using llvm::isa;
 // Qualifier
 
 // Returns the base type of this qualifier as a declarative region.
-DeclarativeRegion  *Qualifier::resolve()
+DeclRegion  *Qualifier::resolve()
 {
-    DeclarativeRegion *region   = 0;
-    QualPair           pair     = getBaseQualifier();
-    Type              *baseType = pair.first;
+    DeclRegion *region   = 0;
+    QualPair    pair     = getBaseQualifier();
+    Type       *baseType = pair.first;
 
     if (DomainType *domain = dyn_cast<DomainType>(baseType))
         region = domain->getDomoidDecl();
