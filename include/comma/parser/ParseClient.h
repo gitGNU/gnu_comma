@@ -105,7 +105,7 @@ public:
 
     virtual Node acceptPercent(Location loc) = 0;
 
-    virtual Node acceptTypeIdentifier(IdentifierInfo *info, Location loc) = 0;
+    virtual Node acceptTypeName(IdentifierInfo *info, Location loc) = 0;
 
     virtual Node acceptTypeApplication(IdentifierInfo  *connective,
                                        NodeVector      &argumentNodes,

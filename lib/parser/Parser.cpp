@@ -652,7 +652,7 @@ Node Parser::parseModelInstantiation()
     // accepts the non-parameterized form, then continue -- otherwise we
     // complain ourselves.
     if (unitExprFollows()) {
-        Node type = client.acceptTypeIdentifier(info, loc);
+        Node type = client.acceptTypeName(info, loc);
         if (type.isValid()) report(loc, diag::EMPTY_PARAMS);
         return type;
     }
@@ -705,7 +705,7 @@ Node Parser::parseModelInstantiation()
     }
 
     // Otherwise, this is a type constructor without parameters.
-    return client.acceptTypeIdentifier(info, loc);
+    return client.acceptTypeName(info, loc);
 }
 
 // Parses an "in", "out" or "in out" parameter mode specification.  If no such

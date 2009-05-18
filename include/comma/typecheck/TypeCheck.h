@@ -68,7 +68,7 @@ public:
 
     Node acceptPercent(Location loc);
 
-    Node acceptTypeIdentifier(IdentifierInfo *info, Location loc);
+    Node acceptTypeName(IdentifierInfo *info, Location loc);
 
     Node acceptTypeApplication(IdentifierInfo  *connective,
                                NodeVector      &arguments,

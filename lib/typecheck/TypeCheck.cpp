@@ -331,8 +331,8 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
     return false;
 }
 
-Node TypeCheck::acceptTypeIdentifier(IdentifierInfo *id,
-                                     Location        loc)
+Node TypeCheck::acceptTypeName(IdentifierInfo *id,
+                               Location        loc)
 {
     TypeDecl   *type = scope.lookupType(id);
     const char *name = id->getString();
