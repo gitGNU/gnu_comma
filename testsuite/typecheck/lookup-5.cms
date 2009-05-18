@@ -1,0 +1,21 @@
+-- MUST-FAIL:  Ensure local variables shadow imported procedures.
+
+domain D with
+   procedure Foo;
+add
+   procedure Foo is begin end Foo;
+end D;
+
+domain E add
+
+   procedure Test is
+      Foo : Bool := true;
+      import D;
+   begin
+      Foo;
+   end Test;
+
+end E;
+
+
+

@@ -1,0 +1,15 @@
+-- Ensure enumeration literals overload.
+
+domain D add
+
+   type A is (X);
+   type B is (X);
+
+   procedure Test is
+      V1 : A := X;
+      V2 : B := X;
+   begin
+   end Test;
+
+end D;
+

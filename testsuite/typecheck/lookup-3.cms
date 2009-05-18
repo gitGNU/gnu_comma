@@ -1,0 +1,18 @@
+-- MUST-FAIL:  Ensure local variables shadow local functions.
+
+domain D add
+
+  type Not_Bool is (X);
+
+  function Foo return Bool is
+  begin
+     return true;
+  end Foo;
+
+  function Test return Bool is
+     Foo : Not_Bool := X;
+  begin
+     return Foo;
+  end Test;
+
+end D;

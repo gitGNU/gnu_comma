@@ -1,0 +1,13 @@
+-- MUST-FAIL:  Ensure local variables shadow local procedures.
+
+domain D add
+
+  procedure Foo is begin end Foo;
+
+  procedure Test is
+     Foo : Bool := true;
+  begin
+     Foo;
+  end Test;
+
+end D;

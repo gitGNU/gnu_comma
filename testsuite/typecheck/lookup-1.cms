@@ -1,0 +1,28 @@
+-- Ensure local and imported function declarations overload.
+
+domain D with
+   function Foo (X : Bool) return Bool;
+add
+   function Foo (X : Bool) return Bool is
+   begin
+      return X;
+   end Foo;
+end D;
+
+domain E add
+
+   type A is (An_A);
+
+   function Foo (X : Bool) return A is
+   begin
+      return An_A;
+   end Foo;
+
+   function Test return A is
+      import D;
+   begin
+      return Foo(Foo(true));
+   end Test;
+
+end E;
+
