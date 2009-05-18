@@ -21,23 +21,30 @@ using llvm::isa;
 
 Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
 {
-    Type *domain = ensureDomainType(typeNode, loc);
+    Type *type = ensureValueType(typeNode, loc);
 
-    if (domain) {
+    if (type) {
         typeNode.release();
-        return getNode(new Qualifier(domain, loc));
+        return getNode(new Qualifier(type, loc));
     }
     else
         return getInvalidNode();
 }
 
-// FIXME: Implement.
 Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
                                       Node     typeNode,
                                       Location loc)
 {
-    assert(false && "Nested qualifiers not yet implemented!");
-    return getInvalidNode();
+    Qualifier *qualifier = cast_node<Qualifier>(qualifierNode);
+    Type      *type      = ensureValueType(typeNode, loc);
+
+    if (type) {
+        typeNode.release();
+        qualifier->addQualifier(type, loc);
+        return qualifierNode;
+    }
+    else
+        return getInvalidNode();
 }
 
 // Helper function for acceptDirectName -- called when the identifier in
@@ -48,15 +55,38 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 {
     Qualifier         *qualifier = cast_node<Qualifier>(qualNode);
     DeclarativeRegion *region    = qualifier->resolve();
-    std::vector<Decl*> decls;
+    llvm::SmallVector<Decl*, 8> decls;
 
-    // FIXME: We need a more elegant mechanism for this.
+    // Scan the entire set of declaration nodes, matching nullary function decls
+    // and enumeration literals of the given name.  In addition, look for
+    // enumeration declarations which in turn provide a literal of the given
+    // name.  This allows the "short hand qualification" of enumeration
+    // literals.  For example, given:
     //
-    // FIXME: Report that there are no nullary functions declared in this
-    // region.
+    //   domain D with type T is (X); end D;
+    //
+    // The the qualified name D::X will resolve to D::T::X.  Note however that
+    // the two forms are not equivalent, as the former will match all functions
+    // named X declared in D (as well as other enumeration literals of the same
+    // name).
     for (DeclarativeRegion::DeclIter iter = region->beginDecls();
          iter != region->endDecls(); ++iter) {
-        if (isa<FunctionDecl>(*iter)) decls.push_back(*iter);
+        Decl *decl = *iter;
+        if (decl->getIdInfo() == name) {
+            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
+                if (fdecl->getArity() == 0)
+                    decls.push_back(decl);
+            }
+            if (isa<EnumLiteral>(decl))
+                decls.push_back(decl);
+        }
+        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
+            // Lift the literals of an enumeration decl.  For example, given:
+            //   domain D with type T is (X); end D;
+            // Then D::X will match D::T::X.
+            if ((decl = edecl->findDecl(name, edecl->getType())))
+                decls.push_back(decl);
+        }
     }
 
     if (decls.empty()) {
@@ -64,7 +94,7 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
         return getInvalidNode();
     }
 
-    // Form the function call node and populate with any aditional connectives
+    // Form the function call node and populate with any additional connectives
     // (to be resolved by the type context of this call).
     FunctionCallExpr *call
         = new FunctionCallExpr(&decls[0], decls.size(), 0, 0, loc);

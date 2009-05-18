@@ -1,0 +1,12 @@
+-- Ensure enumeration types can be qualified.
+
+domain D with
+   type T is (V);
+end D;
+
+domain E add
+   procedure Test (X : D::T) is begin end Test;
+end E;
+
+
+

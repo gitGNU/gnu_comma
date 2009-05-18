@@ -332,13 +332,31 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
 }
 
 Node TypeCheck::acceptTypeName(IdentifierInfo *id,
-                               Location        loc)
+                               Location        loc,
+                               Node            qualNode)
 {
-    TypeDecl   *type = scope.lookupType(id);
-    const char *name = id->getString();
+    TypeDecl *type = 0;
+
+    if (!qualNode.isNull()) {
+        Qualifier               *qualifier = cast_node<Qualifier>(qualNode);
+        DeclarativeRegion          *region = qualifier->resolve();
+        DeclarativeRegion::PredRange range = region->findDecls(id);
+
+        // Search the region for a type of the given name.  Type names do not
+        // overload so if the type exists, it is unique, and the first match is
+        // accepted.
+        for (DeclarativeRegion::PredIter iter = range.first;
+             iter != range.second; ++iter) {
+            Decl *candidate = *iter;
+            if ((type = dyn_cast<TypeDecl>(candidate)))
+                break;
+        }
+    }
+    else
+        type = scope.lookupType(id);
 
     if (type == 0) {
-        report(loc, diag::TYPE_NOT_VISIBLE) << name;
+        report(loc, diag::TYPE_NOT_VISIBLE) << id;
         return getInvalidNode();
     }
 
@@ -363,7 +381,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
 
     case Ast::AST_FunctorDecl:
     case Ast::AST_VarietyDecl:
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << id;
         return getInvalidNode();
     }
 }

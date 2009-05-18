@@ -45,6 +45,7 @@ public:
 
     void parseSignatureDecls();
 
+    Node parseModelApplication(Node qualNode);
     Node parseModelInstantiation();
 
     bool parseSubroutineParameter(Descriptor &desc);

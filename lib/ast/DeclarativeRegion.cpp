@@ -77,18 +77,15 @@ Decl *DeclarativeRegion::findDecl(IdentifierInfo *name, Type *type)
     for (DeclIter iter = beginDecls(); iter != endIter; ++iter) {
         Decl *decl = *iter;
         if (decl->getIdInfo() == name) {
-            if (ModelDecl *model = dyn_cast<ModelDecl>(*iter)) {
-                Type *candidateType = model->getType();
-                if (candidateType->equals(type))
-                    return model;
-                continue;
-            }
-            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*iter)) {
-                SubroutineType *candidateType = srDecl->getType();
-                if (candidateType->equals(type))
-                    return srDecl;
-                continue;
-            }
+            Type *candidateType = 0;
+            if (ModelDecl *model = dyn_cast<ModelDecl>(decl))
+                candidateType = model->getType();
+            else if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(decl))
+                candidateType = srDecl->getType();
+            else if (EnumLiteral *elit = dyn_cast<EnumLiteral>(decl))
+                candidateType = elit->getType();
+            if (type->equals(candidateType))
+                return decl;
         }
     }
     return 0;

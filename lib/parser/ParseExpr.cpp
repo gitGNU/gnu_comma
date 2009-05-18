@@ -83,7 +83,6 @@ Node Parser::parsePrimaryExpr()
            return getInvalidNode();
     }
 
-    // The only primary expressions we currently support are direct names.
     Location        loc  = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
 

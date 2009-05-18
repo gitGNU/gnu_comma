@@ -329,8 +329,9 @@ bool Parser::qualifierFollows()
 
 Node Parser::parseQualifier()
 {
-    Location location  = currentLocation();
-    Node qualifierType = parseModelInstantiation();
+    Node     qualifier = getNullNode();
+    Location  location = currentLocation();
+    Node qualifierType = parseModelApplication(qualifier);
 
     if (qualifierType.isInvalid()) {
         do {
@@ -341,11 +342,11 @@ Node Parser::parseQualifier()
 
     if (reduceToken(Lexer::TKN_DCOLON)) {
 
-        Node qualifier = client.acceptQualifier(qualifierType, location);
+        qualifier = client.acceptQualifier(qualifierType, location);
 
         while (qualifierFollows()) {
             location      = currentLocation();
-            qualifierType = parseModelInstantiation();
+            qualifierType = parseModelApplication(qualifier);
 
             if (qualifierType.isInvalid()) {
                 do {
@@ -676,22 +677,17 @@ void Parser::parseModel()
     client.endModelDefinition();
 }
 
-Node Parser::parseModelInstantiation()
+Node Parser::parseModelApplication(Node qualNode)
 {
-    IdentifierInfo *info;
-    Location        loc = currentLocation();
-
-    if (reduceToken(Lexer::TKN_PERCENT))
-        return client.acceptPercent(loc);
-
-    info = parseIdentifierInfo();
+    Location         loc = currentLocation();
+    IdentifierInfo *info = parseIdentifierInfo();
     if (!info) return getInvalidNode();
 
     // Empty parameter lists for types are not allowed.  If the type checker
     // accepts the non-parameterized form, then continue -- otherwise we
     // complain ourselves.
     if (unitExprFollows()) {
-        Node type = client.acceptTypeName(info, loc);
+        Node type = client.acceptTypeName(info, loc, qualNode);
         if (type.isValid()) report(loc, diag::EMPTY_PARAMS);
         return type;
     }
@@ -744,12 +740,30 @@ Node Parser::parseModelInstantiation()
     }
 
     // Otherwise, this is a type constructor without parameters.
-    return client.acceptTypeName(info, loc);
+    return client.acceptTypeName(info, loc, qualNode);
 }
+
+Node Parser::parseModelInstantiation()
+{
+    // FIXME: Support the qualification of precent nodes.
+    Location loc = currentLocation();
+    if (reduceToken(Lexer::TKN_PERCENT))
+        return client.acceptPercent(loc);
+
+    Node qual = getNullNode();
+    if (qualifierFollows()) {
+        qual = parseQualifier();
+        if (qual.isInvalid())
+            return getInvalidNode();
+    }
+
+    return parseModelApplication(qual);
+}
+
 
 // Parses an "in", "out" or "in out" parameter mode specification.  If no such
 // specification is available on the stream MODE_DEFAULT is returned.  A common
-// mistake is to find "out int" instead of "in out".  In this case, we simply
+// mistake is to find "out in" instead of "in out".  In this case, we simply
 // issue a diagnostic and return MODE_IN_OUT.
 ParameterMode Parser::parseParameterMode()
 {

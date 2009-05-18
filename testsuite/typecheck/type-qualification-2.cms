@@ -1,0 +1,14 @@
+-- Ensure "short hand" enumeration qualification.
+
+domain D with
+   type T is (V);
+end D;
+
+domain E add
+   procedure Foo (X : D::T) is begin end Foo;
+
+   procedure Test is
+   begin
+      Foo(D::V);
+   end Test;
+end E;
