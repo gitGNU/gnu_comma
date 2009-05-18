@@ -16,7 +16,7 @@ using namespace comma;
 bool SignatureSet::addDirectSignature(SignatureType *signature)
 {
     if (directSignatures.insert(signature)) {
-        Sigoid     *sigDecl = signature->getDeclaration();
+        Sigoid     *sigDecl = signature->getSigoid();
         AstRewriter rewriter;
 
         // Rewrite the percent node of the signature to that of the model

@@ -512,7 +512,7 @@ public:
     SignatureType *getSignatureType() const { return signature; }
 
     DomainType *getPercent() const {
-        return signature->getDeclaration()->getPercent();
+        return signature->getSigoid()->getPercent();
     }
 
     static bool classof(const AbstractDomainDecl *node) { return true; }

@@ -65,7 +65,7 @@ public:
     // given name.
     bool containsDirectDecl(IdentifierInfo *name);
 
-    // Returns true if this teh given declaration is directly visible in this
+    // Returns true if this the given declaration is directly visible in this
     // entry.
     bool containsDirectDecl(Decl *decl) {
         return directDecls.count(decl);

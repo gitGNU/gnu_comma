@@ -19,6 +19,11 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // CarrierType
 
+Decl *CarrierType::getDeclaration()
+{
+    return declaration;
+}
+
 Type *CarrierType::getRepresentationType()
 {
     return declaration->getRepresentationType();
@@ -46,6 +51,14 @@ bool CarrierType::equals(const Type *type) const
 }
 
 //===----------------------------------------------------------------------===//
+// ModelType
+
+Decl *ModelType::getDeclaration()
+{
+    return declaration;
+}
+
+//===----------------------------------------------------------------------===//
 // SignatureType
 
 SignatureType::SignatureType(SignatureDecl *decl)
@@ -60,7 +73,7 @@ SignatureType::SignatureType(VarietyDecl *decl,
     std::copy(args, args + numArgs, arguments);
 }
 
-Sigoid *SignatureType::getDeclaration() const
+Sigoid *SignatureType::getSigoid()
 {
     return dyn_cast<Sigoid>(declaration);
 }
@@ -157,7 +170,7 @@ VarietyType::~VarietyType()
     delete[] formals;
 }
 
-VarietyDecl *VarietyType::getDeclaration() const
+VarietyDecl *VarietyType::getVarietyDecl()
 {
     return dyn_cast<VarietyDecl>(declaration);
 }
@@ -179,7 +192,7 @@ FunctorType::~FunctorType()
     delete[] formals;
 }
 
-FunctorDecl *FunctorType::getDeclaration() const
+FunctorDecl *FunctorType::getFunctorDecl()
 {
     return dyn_cast<FunctorDecl>(declaration);
 }
@@ -211,6 +224,11 @@ DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
 bool DomainType::denotesPercent() const
 {
     return this == declaration->getPercent();
+}
+
+Decl *DomainType::getDeclaration()
+{
+    return declaration;
 }
 
 Domoid *DomainType::getDomoidDecl() const
@@ -434,4 +452,9 @@ bool EnumerationType::equals(const Type *type) const
         return this == carrier->getRepresentationType();
 
     return this == type;
+}
+
+Decl *EnumerationType::getDeclaration()
+{
+    return correspondingDecl;
 }

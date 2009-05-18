@@ -273,7 +273,7 @@ void TypeCheck::acceptWithSupersignature(Node     typeNode,
 
     // Check that this signature does not introduce any conflicting type names
     // and bring all non-conflicting types into the current region.
-    aquireSignatureTypeDeclarations(model, superSig->getDeclaration());
+    aquireSignatureTypeDeclarations(model, superSig->getSigoid());
 }
 
 Node TypeCheck::acceptPercent(Location loc)
@@ -623,7 +623,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
         SignatureType *super   = *superIter;
-        Sigoid        *sigdecl = super->getDeclaration();
+        Sigoid        *sigdecl = super->getSigoid();
         AstRewriter    rewrites;
 
         rewrites[sigdecl->getPercent()] = model->getPercent();

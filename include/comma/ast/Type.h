@@ -29,6 +29,10 @@ public:
 
     virtual bool equals(const Type *type) const { return type == this; }
 
+    /// Returns the declaration associated with this type. If there is no
+    /// such declaration, 0 is returned.
+    virtual Decl *getDeclaration() { return 0; }
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
@@ -56,9 +60,10 @@ public:
         : Type(AST_CarrierType),
           declaration(carrier) { }
 
+    Decl *getDeclaration();
+
     // Return the underlying carrier declaration.
-    CarrierDecl *getCarrierDecl() { return declaration; }
-    const CarrierDecl *getCarrierDecl() const { return declaration; }
+    CarrierDecl *getCarrierDecl() const { return declaration; }
 
     // Return the representation type which this carrier aliases.
     Type *getRepresentationType();
@@ -101,7 +106,8 @@ public:
         return node->denotesModelType();
     }
 
-    ModelDecl *getDeclaration() const { return declaration; }
+    Decl *getDeclaration();
+    ModelDecl *getModelDecl() { return declaration; }
 
 protected:
     // FIXME:  We can get rid of the IdInfo and just refer to the decl.
@@ -121,7 +127,7 @@ protected:
 class SignatureType : public ModelType, public llvm::FoldingSetNode {
 
 public:
-    Sigoid *getDeclaration() const;
+    Sigoid *getSigoid();
 
     SignatureDecl *getSignature() const;
 
@@ -225,7 +231,7 @@ class VarietyType : public ParameterizedType {
 public:
     ~VarietyType();
 
-    VarietyDecl *getDeclaration() const;
+    VarietyDecl *getVarietyDecl();
 
     static bool classof(const VarietyType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -252,7 +258,7 @@ class FunctorType : public ParameterizedType {
 public:
     ~FunctorType();
 
-    FunctorDecl *getDeclaration() const;
+    FunctorDecl *getFunctorDecl();
 
     static bool classof(const FunctorType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -287,6 +293,11 @@ public:
 
     // Returns true if this node is a percent node.
     bool denotesPercent() const;
+
+    // Returns the declaration associated with domain type.  More often than
+    // not, the declaration is a Domoid.  The exception is when this type
+    // represents the % of a signature, in which case a Sigoid is returned.
+    Decl *getDeclaration();
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is a domoid.
@@ -461,8 +472,9 @@ public:
         : Type(AST_EnumerationType),
           correspondingDecl(decl) { }
 
-    EnumerationDecl *getDeclaration() { return correspondingDecl; }
-    const EnumerationDecl *getDeclaration() const { return correspondingDecl; }
+    Decl *getDeclaration();
+
+    EnumerationDecl *getEnumerationDecl() { return correspondingDecl; }
 
     bool equals(const Type *type) const;
 

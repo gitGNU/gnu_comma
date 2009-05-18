@@ -23,7 +23,7 @@ bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
 {
     AstRewriter    rewrites;
     SignatureType *signature = source->getSignatureType();
-    Sigoid        *sigoid    = signature->getDeclaration();
+    Sigoid        *sigoid    = signature->getSigoid();
 
     if (signature == target) return true;
 
@@ -94,12 +94,12 @@ bool percentHas(ModelDecl *source, SignatureType *target)
 
 bool TypeCheck::has(DomainType *source, SignatureType *target)
 {
+    Domoid *domoid  = source->getDomoidDecl();
+
     if (AbstractDomainDecl *domain = source->getAbstractDecl())
         return abstractDomainHas(domain, target);
     else if (source->denotesPercent())
-        return percentHas(source->getDeclaration(), target);
-
-    Domoid *domoid  = source->getDomoidDecl();
+        return percentHas(domoid, target);
 
     if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(domoid))
         domoid = instance->getDefiningDecl();

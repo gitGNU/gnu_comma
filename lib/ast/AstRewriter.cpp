@@ -29,7 +29,7 @@ void AstRewriter::installRewrites(DomainType *context)
 {
     if (context->denotesPercent()) return;
 
-    ModelDecl *model = context->getDeclaration();
+    ModelDecl *model = context->getModelDecl();
 
     addRewrite(model->getPercent(), context);
 

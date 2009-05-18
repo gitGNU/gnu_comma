@@ -76,28 +76,28 @@ private:
 class Qualifier : public Ast {
 
 public:
-    Qualifier(Type *qualifier,  Location loc)
+    Qualifier(DeclRegion *qualifier,  Location loc)
         : Ast(AST_Qualifier) {
         qualifiers.push_back(QualPair(qualifier, loc));
     }
 
-    void addQualifier(Type *qualifier, Location loc) {
+    void addQualifier(DeclRegion *qualifier, Location loc) {
         qualifiers.push_back(QualPair(qualifier, loc));
     }
 
     unsigned numQualifiers() const { return qualifiers.size(); }
 
-    typedef std::pair<Type*, Location> QualPair;
+    typedef std::pair<DeclRegion*, Location> QualPair;
 
     QualPair getQualifier(unsigned n) const {
         assert(n < numQualifiers() && "Index out of range!");
         return qualifiers[n];
     }
 
-    QualPair getBaseQualifier() const { return qualifiers.back(); }
-
-    // Returns the base type of this qualifier as a declarative region.
-    DeclRegion *resolve();
+    // Returns the base (most specific) declarative region of this qualifier.
+    DeclRegion *resolve() {
+        return qualifiers.back().first;
+    }
 
 private:
     typedef llvm::SmallVector<QualPair, 2> QualVector;

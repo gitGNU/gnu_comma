@@ -25,7 +25,9 @@ Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
 
     if (type) {
         typeNode.release();
-        return getNode(new Qualifier(type, loc));
+        DeclRegion *region = type->getDeclaration()->asDeclRegion();
+        assert(region && "Bad type serving as qualifier.");
+        return getNode(new Qualifier(region, loc));
     }
     else
         return getInvalidNode();
@@ -40,7 +42,9 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
 
     if (type) {
         typeNode.release();
-        qualifier->addQualifier(type, loc);
+        DeclRegion *region = type->getDeclaration()->asDeclRegion();
+        assert(region && "Bad type serving as qualifier.");
+        qualifier->addQualifier(region, loc);
         return qualifierNode;
     }
     else

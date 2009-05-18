@@ -25,12 +25,16 @@ DeclRegion *Decl::asDeclRegion()
     switch (getKind()) {
     default:
         return 0;
+    case AST_DomainInstanceDecl:
+        return static_cast<DomainInstanceDecl*>(this);
+    case AST_DomainDecl:
+        return static_cast<DomainDecl*>(this);
+    case AST_EnumerationDecl:
+        return static_cast<EnumerationDecl*>(this);
     case AST_SignatureDecl:
         return static_cast<SignatureDecl*>(this);
     case AST_VarietyDecl:
         return static_cast<VarietyDecl*>(this);
-    case AST_DomainDecl:
-        return static_cast<DomainDecl*>(this);
     case AST_FunctorDecl:
         return static_cast<FunctorDecl*>(this);
     case AST_AddDecl:
@@ -178,7 +182,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
     abstractType = new DomainType(this);
 
     AstRewriter rewriter;
-    Sigoid     *sigoid = type->getDeclaration();
+    Sigoid     *sigoid = type->getSigoid();
 
     // Establish a mapping from the % node of the signature to the abstract
     // domain type.
