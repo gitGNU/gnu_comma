@@ -41,44 +41,6 @@ Node Parser::parseSubroutineKeywordSelection()
         return client.acceptKeywordSelector(key, loc, expr, true);
 }
 
-Node Parser::parseQualificationExpr()
-{
-    Location location  = currentLocation();
-    Node qualifierType = parseModelInstantiation();
-
-    if (qualifierType.isInvalid()) {
-        do {
-            seekAndConsumeToken(Lexer::TKN_DCOLON);
-        } while (qualificationFollows());
-        return getInvalidNode();
-    }
-
-    if (reduceToken(Lexer::TKN_DCOLON)) {
-
-        Node qualifier = client.acceptQualifier(qualifierType, location);
-
-        while (qualificationFollows()) {
-            location      = currentLocation();
-            qualifierType = parseModelInstantiation();
-
-            if (qualifierType.isInvalid()) {
-                do {
-                    seekAndConsumeToken(Lexer::TKN_DCOLON);
-                } while (qualificationFollows());
-                return getInvalidNode();
-            }
-            else if (qualifier.isValid()) {
-                assert(currentTokenIs(Lexer::TKN_DCOLON));
-                ignoreToken();
-                qualifier = client.acceptNestedQualifier(qualifier,
-                                                         qualifierType,
-                                                         location);
-            }
-        }
-        return qualifier;
-    }
-    return getInvalidNode();
-}
 
 Node Parser::parseInjExpr()
 {
@@ -115,8 +77,8 @@ Node Parser::parsePrimaryExpr()
     }
 
     Node qual = getNullNode();
-    if (qualificationFollows()) {
-       qual = parseQualificationExpr();
+    if (qualifierFollows()) {
+       qual = parseQualifier();
        if (qual.isInvalid())
            return getInvalidNode();
     }

@@ -297,7 +297,7 @@ bool Parser::keywordSelectionFollows()
         && nextTokenIs(Lexer::TKN_RDARROW);
 }
 
-bool Parser::qualificationFollows()
+bool Parser::qualifierFollows()
 {
     bool status = false;
 
@@ -325,6 +325,45 @@ bool Parser::qualificationFollows()
         }
     }
     return status;
+}
+
+Node Parser::parseQualifier()
+{
+    Location location  = currentLocation();
+    Node qualifierType = parseModelInstantiation();
+
+    if (qualifierType.isInvalid()) {
+        do {
+            seekAndConsumeToken(Lexer::TKN_DCOLON);
+        } while (qualifierFollows());
+        return getInvalidNode();
+    }
+
+    if (reduceToken(Lexer::TKN_DCOLON)) {
+
+        Node qualifier = client.acceptQualifier(qualifierType, location);
+
+        while (qualifierFollows()) {
+            location      = currentLocation();
+            qualifierType = parseModelInstantiation();
+
+            if (qualifierType.isInvalid()) {
+                do {
+                    seekAndConsumeToken(Lexer::TKN_DCOLON);
+                } while (qualifierFollows());
+                return getInvalidNode();
+            }
+            else if (qualifier.isValid()) {
+                assert(currentTokenIs(Lexer::TKN_DCOLON));
+                ignoreToken();
+                qualifier = client.acceptNestedQualifier(qualifier,
+                                                         qualifierType,
+                                                         location);
+            }
+        }
+        return qualifier;
+    }
+    return getInvalidNode();
 }
 
 bool Parser::blockStmtFollows()

@@ -81,10 +81,10 @@ public:
 
     Node parseExpr();
     Node parsePrimaryExpr();
-    Node parseQualificationExpr();
     Node parseInjExpr();
     Node parsePrjExpr();
 
+    Node parseQualifier();
     Node parseType();
     void parseEnumerationList(Node enumeration);
 
@@ -261,7 +261,7 @@ private:
     //   - a double colon;
     //
     //   - a left paren with a matching close paren followed by a double colon.
-    bool qualificationFollows();
+    bool qualifierFollows();
 
     // Returns true is a block statement follows on the token stream.
     //
