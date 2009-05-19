@@ -45,19 +45,6 @@ void ScopeEntry::addDirectDecl(Decl *decl)
         IdentifierInfo *idInfo  = decl->getIdInfo();
         Homonym        *homonym = getOrCreateHomonym(idInfo);
         homonym->addDirectDecl(decl);
-
-        // Add the literals of enumeration declarations.
-        if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
-            typedef DeclRegion::DeclIter DeclIter;
-            DeclIter iter;
-            DeclIter endIter = edecl->endDecls();
-            for (iter = edecl->beginDecls(); iter != endIter; ++iter) {
-                decl    = *iter;
-                idInfo  = decl->getIdInfo();
-                homonym = getOrCreateHomonym(idInfo);
-                homonym->addDirectDecl(decl);
-            }
-        }
     }
 }
 
@@ -109,11 +96,27 @@ void ScopeEntry::importDeclarativeRegion(DeclRegion *region)
         Decl           *decl    = *iter;
         IdentifierInfo *idinfo  = decl->getIdInfo();
         Homonym        *homonym = getOrCreateHomonym(idinfo);
+
         homonym->addImportDecl(decl);
 
         // Import the contents of enumeration literals.
         if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
             importDeclarativeRegion(edecl);
+    }
+}
+
+void ScopeEntry::clearDeclarativeRegion(DeclRegion *region)
+{
+    typedef DeclRegion::DeclIter DeclIter;
+
+    DeclIter iter;
+    DeclIter endIter = region->endDecls();
+    for (iter = region->beginDecls(); iter != endIter; ++iter) {
+        Decl *decl = *iter;
+        removeImportDecl(decl);
+        // Clear the contents of enumeration literals.
+        if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
+            clearDeclarativeRegion(edecl);
     }
 }
 
@@ -142,14 +145,8 @@ void ScopeEntry::clear()
 
     ImportIterator endImportIter = endImportDecls();
     for (ImportIterator importIter = beginImportDecls();
-         importIter != endImportIter; ++importIter) {
-        typedef Domoid::DeclIter DeclIter;
-        Domoid *domoid = (*importIter)->getDomoidDecl();
-        DeclIter iter;
-        DeclIter endIter = domoid->endDecls();
-        for (iter = domoid->beginDecls(); iter != endIter; ++iter)
-            removeImportDecl(*iter);
-    }
+         importIter != endImportIter; ++importIter)
+        clearDeclarativeRegion((*importIter)->getDomoidDecl());
 
     kind = DEAD_SCOPE;
     directDecls.clear();

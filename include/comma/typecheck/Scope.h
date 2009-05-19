@@ -102,6 +102,7 @@ private:
     static Homonym *getOrCreateHomonym(IdentifierInfo *info);
 
     void importDeclarativeRegion(DeclRegion *region);
+    void clearDeclarativeRegion(DeclRegion *region);
 };
 
 class Scope {

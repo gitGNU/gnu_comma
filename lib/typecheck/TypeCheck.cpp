@@ -44,9 +44,9 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo *falseId = resource.getIdentifierInfo("false");
     IdentifierInfo *paramId = resource.getIdentifierInfo("|X|");
 
-    EnumerationDecl    *boolEnum = new EnumerationDecl(boolId, 0, 0);
-    new EnumLiteral(boolEnum, falseId, 0);
-    new EnumLiteral(boolEnum, trueId, 0);
+    EnumerationDecl *boolEnum  = new EnumerationDecl(boolId, 0, 0);
+    EnumLiteral     *trueEnum  = new EnumLiteral(boolEnum, falseId, 0);
+    EnumLiteral     *falseEnum = new EnumLiteral(boolEnum, trueId, 0);
 
     // Construct the Bool equality predicate.
     //
@@ -62,6 +62,8 @@ void TypeCheck::populateInitialEnvironment()
         new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
 
     scope.addDirectDecl(boolEnum);
+    scope.addDirectDecl(trueEnum);
+    scope.addDirectDecl(falseEnum);
     scope.addDirectDecl(equals);
 
     theBoolDecl = boolEnum;
@@ -688,14 +690,21 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
 {
     // Bring all type declarations provided by the signature into the given
     // model.
-    Sigoid::DeclIter iter    = sigdecl->beginDecls();
-    Sigoid::DeclIter endIter = sigdecl->endDecls();
+    DeclRegion::DeclIter iter    = sigdecl->beginDecls();
+    DeclRegion::DeclIter endIter = sigdecl->endDecls();
 
     for ( ; iter != endIter; ++iter) {
         if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
             if (ensureDistinctTypeDeclaration(model, tyDecl)) {
                 model->addDecl(tyDecl);
                 scope.addDirectDecl(tyDecl);
+
+                if (EnumerationDecl *decl = dyn_cast<EnumerationDecl>(tyDecl)) {
+                    DeclRegion::DeclIter litIter = decl->beginDecls();
+                    DeclRegion::DeclIter litEnd  = decl->endDecls();
+                    for ( ; litIter != litEnd; ++litIter)
+                        scope.addDirectDecl(*litIter);
+                }
             }
         }
     }
