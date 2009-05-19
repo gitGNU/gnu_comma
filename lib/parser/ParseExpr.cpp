@@ -41,7 +41,6 @@ Node Parser::parseSubroutineKeywordSelection()
         return client.acceptKeywordSelector(key, loc, expr, true);
 }
 
-
 Node Parser::parseInjExpr()
 {
     assert(currentTokenIs(Lexer::TKN_INJ));
@@ -86,10 +85,8 @@ Node Parser::parsePrimaryExpr()
     Location        loc  = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
 
-    if (!name) {
-        seekToken(Lexer::TKN_SEMI);
+    if (!name)
         return getInvalidNode();
-    }
 
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
         NodeVector args;
