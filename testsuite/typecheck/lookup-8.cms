@@ -1,0 +1,13 @@
+-- Ensure super-signatures propagate enumeration literals into domain bodies.
+
+signature S with
+   type T1 is (E1);
+end S;
+
+domain D with
+   S;
+add
+   procedure P is
+      V : T1 := E1;
+   begin end P;
+end D;
