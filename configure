@@ -641,6 +641,7 @@ ENABLE_COMMASPEC
 XSLTPROC
 ENABLE_DOXYGEN
 DOXYGEN
+OPTIMIZED_BUILD
 VERBOSE_BUILD
 target_alias
 host_alias
@@ -683,6 +684,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_verbosity
+enable_optimized
 enable_doxygen
 enable_commaspec
 with_llvm
@@ -1326,6 +1328,8 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-verbosity      Echo compilation commands during build (default is
                           "no")
+  --enable-optimized      Build Comma with optimizations enabled (default is
+                          "no")
   --enable-doxygen        Build Doxygen documentation (default is "no")
   --enable-commaspec      Build Commaspec documentation (default is "no")
 
@@ -1850,6 +1854,24 @@ case "$enableval" in
  ;;
    *)   { { $as_echo "$as_me:$LINENO: error: Invalid setting for --enable-verbosity. Use \"yes\" or \"no\"" >&5
 $as_echo "$as_me: error: Invalid setting for --enable-verbosity. Use \"yes\" or \"no\"" >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+
+# Check whether --enable-optimized was given.
+if test "${enable_optimized+set}" = set; then
+  enableval=$enable_optimized;
+else
+  enableval=no
+fi
+
+
+case "$enableval" in
+   yes) OPTIMIZED_BUILD=1
+ ;;
+   no)  OPTIMIZED_BUILD=0
+ ;;
+   *)   { { $as_echo "$as_me:$LINENO: error: Invalid setting for --enable-optimized. Use \"yes\" or \"no\"" >&5
+$as_echo "$as_me: error: Invalid setting for --enable-optimized. Use \"yes\" or \"no\"" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
 

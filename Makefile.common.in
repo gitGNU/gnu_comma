@@ -75,6 +75,12 @@ makefiles := $(prj_srcroot)/build
 verbose_build = @VERBOSE_BUILD@
 
 #
+# The following variable determines if optimizations should be turned on when
+# compiling the system.
+#
+optimized_build = @OPTIMIZED_BUILD@
+
+#
 # LLVM preprocessor flags.
 #
 llvm_cpp_flags = $(shell $(LLVM_CONFIG) --cppflags)
@@ -85,11 +91,23 @@ llvm_cpp_flags = $(shell $(LLVM_CONFIG) --cppflags)
 comma_cpp_flags = -I $(comma_srcroot)/include
 
 #
-# Default preprocessor and compiler switches.
+# Default preprocessor switches.
 #
 cpp_flags = $(llvm_cpp_flags) $(comma_cpp_flags) $(CPPFLAGS)
-cxx_flags = -g -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
 
+#
+# Optimization flag, depending on the configuration.
+#
+ifeq ($(optimized_build), 0)
+   cxx_flags = -g
+else
+   cxx_flags = -O3
+endif
+
+#
+# Default compiler switches.
+#
+cxx_flags += $(cxx_optimise) -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
 
 #
 # The following list of commands are required to build the system.

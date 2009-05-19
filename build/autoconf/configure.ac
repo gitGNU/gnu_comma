@@ -43,6 +43,18 @@ case "$enableval" in
    *)   AC_MSG_ERROR([Invalid setting for --enable-verbosity. Use "yes" or "no"]) ;;
 esac
 
+dnl Enable optimized build.
+AC_ARG_ENABLE([optimized],
+              AS_HELP_STRING([--enable-optimized],
+                             [Build Comma with optimizations enabled (default is "no")]),,
+              [enableval=no])
+
+case "$enableval" in
+   yes) AC_SUBST(OPTIMIZED_BUILD,[1]) ;;
+   no)  AC_SUBST(OPTIMIZED_BUILD,[0]) ;;
+   *)   AC_MSG_ERROR([Invalid setting for --enable-optimized. Use "yes" or "no"]) ;;
+esac
+
 dnl Enable Doxygen.
 AC_ARG_ENABLE([doxygen],
               AS_HELP_STRING([--enable-doxygen],
