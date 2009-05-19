@@ -2,11 +2,12 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
 #include "comma/basic/Diagnostic.h"
+#include "comma/basic/TextProvider.h"
 #include <cassert>
 
 using namespace comma;
@@ -16,8 +17,9 @@ DiagnosticStream::DiagnosticStream(std::ostream &stream)
 
 void DiagnosticStream::emitSourceLocation(const SourceLocation &sloc)
 {
-    if (!sloc.getIdentity().empty())
-        message << sloc.getIdentity() << ":";
+    std::string identity = sloc.getTextProvider()->getIdentity();
+    if (!identity.empty())
+        message << identity << ":";
     message << sloc.getLine() << ":" << sloc.getColumn();
 }
 
@@ -25,6 +27,8 @@ DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
                                                const char *format)
 {
     assert(position == 0 && "Diagnostic reinitialized before completion!");
+
+    sourceLoc = sloc;
 
     message.str("");
     this->format = format;
@@ -49,9 +53,19 @@ void DiagnosticStream::emitFormatComponent()
         }
         message << c;
     }
-    // If we get here, the format string is exhausted.  Publish the accumulated
-    // format control and reset our position.
-    stream << message.str() << std::endl;
+
+    // If we get here, the format string is exhausted.  Print the message and
+    // extract the associcated line of source text.  To ensure that diagnostics
+    // print properly, strip the source line of any trailing newlines.
+    std::string sourceLine = sourceLoc.getTextProvider()->extract(sourceLoc);
+    unsigned    column     = sourceLoc.getColumn();
+    unsigned    endLoc     = sourceLine.find('\n');
+    if (endLoc != std::string::npos)
+        sourceLine.erase(endLoc);
+
+    stream << message.str() << '\n';
+    stream << "  " << sourceLine << '\n';
+    stream << "  " << std::string(column, '.') << '^' << std::endl;
     position = 0;
     message.str("");
 }

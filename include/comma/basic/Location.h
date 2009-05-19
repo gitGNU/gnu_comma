@@ -13,6 +13,8 @@
 
 namespace comma {
 
+class TextProvider;
+
 /// \class Location
 /// \brief Provides a light-weight indicator of a position in source code.
 ///
@@ -60,10 +62,8 @@ private:
 /// \class SourceLocation
 /// \brief Provides explicit line/column information.
 ///
-/// This class encapsulates explicit line.column information and provides an
-/// identifying string.  Typically the string names the source file which the
-/// line/column coordinates correspond, or a name describing the source of some
-/// character data.
+/// This class encapsulates explicit line/column information associated with a
+/// particular TextProvider.
 ///
 /// SourceLocation objects are typically created via a call to
 /// TextProvider::getSourceLocation.
@@ -75,14 +75,16 @@ class SourceLocation {
 public:
     /// \brief Constructs a SourceLocation object.
     ///
-    /// \param  line  The line coordinate.
+    /// \param line The line coordinate.
     ///
-    /// \param  column  The column coordinate.
+    /// \param column The column coordinate.
     ///
-    /// \param  identity  A string indicating the source file or input stream
-    /// associated with this object.
-    SourceLocation(unsigned line, unsigned column, const std::string &identity)
-        : line(line), column(column), identity(identity) { }
+    /// \param provider The TextProvider object this SourceLocation describes.
+    SourceLocation(unsigned line, unsigned column, const TextProvider *provider)
+        : line(line), column(column), provider(provider) { }
+
+    /// \brief Constructs an uninitialized SourceLocation object.
+    SourceLocation() : line(0), column(0), provider(0) { }
 
     /// \brief Accesses the line coordinate.
     unsigned getLine() const { return line; }
@@ -90,13 +92,13 @@ public:
     /// \brief Accesses the column coordinate.
     unsigned getColumn() const { return column; }
 
-    /// \brief Accesses the associated identity of this SourceLocation.
-    const std::string &getIdentity() const { return identity; }
+    /// \breif Accesses the associcated TextProvider.
+    const TextProvider *getTextProvider() const { return provider; }
 
 private:
     unsigned line;
     unsigned column;
-    std::string identity;
+    const TextProvider *provider;
 };
 
 } // End comma namespace.

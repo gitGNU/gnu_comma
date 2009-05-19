@@ -94,13 +94,14 @@ bool percentHas(ModelDecl *source, SignatureType *target)
 
 bool TypeCheck::has(DomainType *source, SignatureType *target)
 {
-    Domoid *domoid  = source->getDomoidDecl();
-
     if (AbstractDomainDecl *domain = source->getAbstractDecl())
         return abstractDomainHas(domain, target);
-    else if (source->denotesPercent())
-        return percentHas(domoid, target);
+    else if (source->denotesPercent()) {
+        ModelDecl *model = cast<ModelDecl>(source->getDeclaration());
+        return percentHas(model, target);
+    }
 
+    Domoid *domoid  = source->getDomoidDecl();
     if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(domoid))
         domoid = instance->getDefiningDecl();
 

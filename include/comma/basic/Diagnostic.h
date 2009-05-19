@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -53,10 +53,11 @@ private:
 
     void emitSourceLocation(const SourceLocation &sloc);
 
-    std::ostream &stream;
-    unsigned position;
-    std::ostringstream message;
-    const char *format;
+    std::ostream       &stream;
+    unsigned            position;
+    std::ostringstream  message;
+    const char         *format;
+    SourceLocation      sourceLoc;
 };
 
 class Diagnostic {

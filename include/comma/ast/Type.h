@@ -44,7 +44,6 @@ protected:
         // containing node.
         deletable = false;
         assert(this->denotesType());
-
     }
 };
 

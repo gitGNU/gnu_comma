@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -131,6 +131,14 @@ public:
 
     ~TextProvider();
 
+    /// \brief Returns a string identifying this TextProvider.
+    ///
+    /// The string is typically the name of the underlying file, or "<stdin>" if
+    /// the provider has obtained its input from the standard input stream.
+    /// This string may be empty for providers which were constructed over raw
+    /// memory buffers.
+    std::string getIdentity() const { return identity; }
+
     /// \brief Returns the Location object corresponding to the position of the
     /// supplied TextIterator.
     ///
@@ -196,6 +204,12 @@ public:
     std::string extract(const TextIterator &iter,
                         const TextIterator &endIter) const;
 
+    /// \brief Returns a string corresponding to the line of text containing the
+    /// given SourceLocation.
+    ///
+    /// \param sloc The location of the line of text to extract.
+    std::string extract(const SourceLocation &sloc) const;
+
     /// \brief Extracts a range of text into a buffer.
     ///
     /// Places the range of text delimited by the given pair of iterators into
@@ -221,7 +235,6 @@ public:
     unsigned extract(const TextIterator &iter,
                      const TextIterator &endIter,
                      char *buffer, size_t size) const;
-
 
 private:
     friend class TextIterator;

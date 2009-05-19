@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -61,23 +61,22 @@ Location TextProvider::getLocation(const TextIterator &ti) const
 
 SourceLocation TextProvider::getSourceLocation(const TextIterator &ti) const
 {
-    unsigned line = getLine(ti);
+    unsigned line   = getLine(ti);
     unsigned column = getColumn(ti);
-    return SourceLocation(line, column, identity);
+    return SourceLocation(line, column, this);
 }
 
 SourceLocation TextProvider::getSourceLocation(const Location loc) const
 {
-    unsigned line = getLine(loc);
+    unsigned line   = getLine(loc);
     unsigned column = getColumn(loc);
-    return SourceLocation(line, column, identity);
+    return SourceLocation(line, column, this);
 }
 
 TextIterator TextProvider::begin() const
 {
     return TextIterator(buffer);
 }
-
 
 TextIterator TextProvider::end() const
 {
@@ -95,13 +94,25 @@ std::string TextProvider::extract(Location start, Location end) const
     return str;
 }
 
-
 std::string TextProvider::extract(const TextIterator &s,
                                   const TextIterator &e) const
 {
     std::string str;
     unsigned length = e.cursor - s.cursor;
     str.insert(0, s.cursor, length);
+    return str;
+}
+
+std::string TextProvider::extract(const SourceLocation &sloc) const
+{
+    assert(sloc.getTextProvider() == this &&
+           "SourceLocation not associated with this TextProvider!");
+
+    std::string str;
+    unsigned line  = sloc.getLine();
+    unsigned start = lines[line - 1];
+    unsigned end   = lines[line];
+    str.insert(0, &buffer[start], end - start);
     return str;
 }
 
