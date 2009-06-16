@@ -20,7 +20,7 @@
 #ifndef COMMA_AST_SIGNATURESET_HDR_GUARD
 #define COMMA_AST_SIGNATURESET_HDR_GUARD
 
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SetVector.h"
 
 namespace comma {
 
@@ -29,7 +29,7 @@ class Model;
 
 class SignatureSet {
 
-    typedef llvm::SmallPtrSet<SignatureType*, 8> SignatureTable;
+    typedef llvm::SetVector<SignatureType*> SignatureTable;
 
     SignatureTable directSignatures;
     SignatureTable allSignatures;
@@ -40,10 +40,10 @@ public:
     SignatureSet(ModelDecl *model)
         : associatedModel(model) { }
 
-    // \brief Adds a direct signature to this set.
-    //
-    // Returns true if the signature did not previously exist in this set and
-    // false otherwise.
+    /// \brief Adds a direct signature to this set.
+    ///
+    /// Returns true if the signature did not previously exist in this set and
+    /// false otherwise.
     bool addDirectSignature(SignatureType *signature);
 
     /// \brief Returns true is the given signature type is already contained in
@@ -85,14 +85,20 @@ public:
     typedef SignatureTable::iterator iterator;
     typedef SignatureTable::const_iterator const_iterator;
 
-    // Iterators over the direct signatures in this set.
+    /// \brief Iterators over the direct signatures in this set.
+    ///
+    /// Returns the direct supersignatures in insertion order (this is, in the
+    /// order defined by the sequence of calls to addDirectSignature).
     iterator beginDirect() { return directSignatures.begin(); }
     iterator endDirect()   { return directSignatures.end(); }
 
     const_iterator beginDirect() const { return directSignatures.begin(); }
     const_iterator endDirect()   const { return directSignatures.end(); }
 
-    // Iterators over all of the signatures in this set.
+    /// \brief Iterators over all of the signatures in this set.
+    ///
+    /// Returns the signatures in a depth-first preorder traversal of the
+    /// signature graph, ignoring all repeats.
     iterator begin() { return allSignatures.begin(); }
     iterator end()   { return allSignatures.end(); }
 

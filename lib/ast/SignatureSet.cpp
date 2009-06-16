@@ -31,11 +31,11 @@ bool SignatureSet::addDirectSignature(SignatureType *signature)
 
         const SignatureSet& sigset = sigDecl->getSignatureSet();
 
+        allSignatures.insert(signature);
         for (iterator iter = sigset.begin(); iter != sigset.end(); ++iter) {
             SignatureType *rewrite = rewriter.rewrite(*iter);
             allSignatures.insert(rewrite);
         }
-        allSignatures.insert(signature);
 
         return true;
     }
