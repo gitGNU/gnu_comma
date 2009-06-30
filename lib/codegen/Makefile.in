@@ -1,4 +1,4 @@
-##-- lib/Makefile --------------------------------------------*- Makefile -*--##
+##-- lib/codegen/Makefile ------------------------------------*- Makefile -*--##
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
@@ -9,15 +9,10 @@
 #
 # Indicates our relative path to the projects root directory.
 #
-LEVEL = ..
+LEVEL = ../..
 
 #
-# We recurse into the following directories, in the following order.
-#
-DIRS=basic parser ast typecheck codegen
-
-#
-# Define our environment.
+# We are building a library.  The defaults are fine.
 #
 include $(LEVEL)/Makefile.common
-include $(makefiles)/dirrules.mk
+include $(makefiles)/library.mk

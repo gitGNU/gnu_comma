@@ -24,7 +24,7 @@ llvm_components = support
 #
 # Define the comma components on which we rely.
 #
-comma_components = typecheck parser ast basic
+comma_components = codegen typecheck parser ast basic
 
 include $(LEVEL)/Makefile.common
 include $(makefiles)/tool.mk
