@@ -78,6 +78,11 @@ Sigoid *SignatureType::getSigoid()
     return dyn_cast<Sigoid>(declaration);
 }
 
+const Sigoid *SignatureType::getSigoid() const
+{
+    return dyn_cast<Sigoid>(declaration);
+}
+
 SignatureDecl *SignatureType::getSignature() const
 {
     return dyn_cast<SignatureDecl>(declaration);
