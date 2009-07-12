@@ -57,9 +57,11 @@ public:
     // created before their associated regions exist, so this method may return
     // null.
     DeclRegion *getDeclRegion() { return context; }
+    const DeclRegion *getDeclRegion() const { return context; }
+
 
     // Returns true if this decl was declared in the given region.
-    bool isDeclaredIn(DeclRegion *region) {
+    bool isDeclaredIn(const DeclRegion *region) const {
         return region == context;
     }
 
