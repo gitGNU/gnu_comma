@@ -42,24 +42,24 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo *boolId  = resource.getIdentifierInfo("Bool");
     IdentifierInfo *trueId  = resource.getIdentifierInfo("true");
     IdentifierInfo *falseId = resource.getIdentifierInfo("false");
-    IdentifierInfo *paramId = resource.getIdentifierInfo("|X|");
+    IdentifierInfo *paramX  = resource.getIdentifierInfo("X");
+    IdentifierInfo *paramY  = resource.getIdentifierInfo("Y");
 
     EnumerationDecl *boolEnum  = new EnumerationDecl(boolId, 0, 0);
     EnumLiteral     *trueEnum  = new EnumLiteral(boolEnum, falseId, 0);
     EnumLiteral     *falseEnum = new EnumLiteral(boolEnum, trueId, 0);
 
     // Construct the Bool equality predicate.
-    //
-    // FIXME: This definition should be bound to "=", but we do not have infix
-    // operator parsing yet.
-    IdentifierInfo  *equalsId = resource.getIdentifierInfo("Equals");
+    IdentifierInfo  *equalsId = resource.getIdentifierInfo("=");
     EnumerationType *boolType = boolEnum->getType();
     ParamValueDecl  *params[] = {
-        new ParamValueDecl(paramId, boolType, MODE_DEFAULT, 0),
-        new ParamValueDecl(paramId, boolType, MODE_DEFAULT, 0)
+        new ParamValueDecl(paramX, boolType, MODE_DEFAULT, 0),
+        new ParamValueDecl(paramY, boolType, MODE_DEFAULT, 0)
     };
     FunctionDecl *equals =
         new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
+
+    boolEnum->addDecl(equals);
 
     scope.addDirectDecl(boolEnum);
     scope.addDirectDecl(trueEnum);
