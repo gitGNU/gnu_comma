@@ -127,6 +127,7 @@ class SignatureType : public ModelType, public llvm::FoldingSetNode {
 
 public:
     Sigoid *getSigoid();
+    const Sigoid *getSigoid() const;
 
     SignatureDecl *getSignature() const;
 
