@@ -1082,14 +1082,33 @@ Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
 
     if (ensureDistinctTypeDeclaration(region, enumeration)) {
+        // Construct the builtin functions associated with an enumeration.
+
+        IdentifierInfo *equalsId = resource.getIdentifierInfo("=");
+        IdentifierInfo *paramX   = resource.getIdentifierInfo("X");
+        IdentifierInfo *paramY   = resource.getIdentifierInfo("Y");
+        Type           *enumType = enumeration->getType();
+
+        ParamValueDecl *params[] = {
+            new ParamValueDecl(paramX, enumType, MODE_DEFAULT, 0),
+            new ParamValueDecl(paramY, enumType, MODE_DEFAULT, 0)
+        };
+        FunctionDecl *equals =
+            new FunctionDecl(equalsId, 0, params, 2, theBoolDecl->getType(), 0);
+
+        enumeration->addDecl(equals);
+
         region->addDecl(enumeration);
         scope.addDirectDecl(enumeration);
+        scope.addDirectDecl(equals);
         Node result = getNode(enumeration);
         result.release();
         return result;
     }
-    else
+    else {
+        delete enumeration;
         return getInvalidNode();
+    }
 }
 
 void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
