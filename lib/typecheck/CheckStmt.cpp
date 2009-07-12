@@ -251,9 +251,8 @@ Node TypeCheck::acceptElsifStmt(Location loc,
 {
     IfStmt *cond        = cast_node<IfStmt>(ifNode);
     Expr   *condition   = cast_node<Expr>(conditionNode);
-    Type   *conditionTy = condition->getType();
 
-    if (conditionTy->equals(theBoolDecl->getType())) {
+    if (checkType(condition, theBoolDecl->getType())) {
         StmtSequence *consequents = new StmtSequence();
         for (unsigned i = 0; i < numConsequents; ++i) {
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
@@ -263,8 +262,6 @@ Node TypeCheck::acceptElsifStmt(Location loc,
         cond->addElsif(loc, condition, consequents);
         return ifNode;
     }
-
-    report(condition->getLocation(), diag::INCOMPATIBLE_TYPES);
     return getInvalidNode();
 }
 
