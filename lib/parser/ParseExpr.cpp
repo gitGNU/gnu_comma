@@ -16,7 +16,7 @@ Node Parser::parseExpr()
     switch (currentTokenCode()) {
 
     default:
-        return parsePrimaryExpr();
+        return parseOperatorExpr();
 
     case Lexer::TKN_INJ:
         return parseInjExpr();
@@ -63,6 +63,157 @@ Node Parser::parsePrjExpr()
     if (expr.isValid())
         return client.acceptPrj(loc, expr);
     return getInvalidNode();
+}
+
+Node Parser::parseOperatorExpr()
+{
+    return parseRelationalOperator();
+}
+
+Node Parser::parseExponentialOperator()
+{
+    IdentifierInfo *opInfo;
+    Location loc;
+    Node lhs = parsePrimaryExpr();
+
+    if (lhs.isInvalid())
+        return getInvalidNode();
+
+    switch (currentTokenCode()) {
+
+    default:
+        return lhs;
+
+    case Lexer::TKN_HAT:
+        loc    = currentLocation();
+        opInfo = parseFunctionIdentifierInfo();
+        break;
+    }
+
+    // Right associativity for the exponential operator, hense the recursive
+    // call.
+    Node rhs = parseExponentialOperator();
+
+    if (rhs.isValid()) {
+        Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
+        if (fname.isValid()) {
+            NodeVector args;
+            args.push_back(lhs);
+            args.push_back(rhs);
+            return client.acceptFunctionCall(fname, loc, args);
+        }
+    }
+    return getInvalidNode();
+}
+
+Node Parser::parseMultiplicativeOperator()
+{
+    IdentifierInfo *opInfo;
+    Location loc;
+    Node lhs = parseExponentialOperator();
+
+    while (lhs.isValid()) {
+        switch (currentTokenCode()) {
+
+        default:
+            return lhs;
+
+        case Lexer::TKN_STAR:
+        case Lexer::TKN_FSLASH:
+            loc    = currentLocation();
+            opInfo = parseFunctionIdentifierInfo();
+            break;
+        }
+
+        Node rhs = parseExponentialOperator();
+
+        if (rhs.isValid()) {
+            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
+            if (fname.isValid()) {
+                NodeVector args;
+                args.push_back(lhs);
+                args.push_back(rhs);
+                lhs = client.acceptFunctionCall(fname, loc, args);
+                continue;
+            }
+        }
+        return getInvalidNode();
+    }
+    return lhs;
+}
+
+Node Parser::parseAdditiveOperator()
+{
+    IdentifierInfo *opInfo;
+    Location loc;
+    Node lhs = parseMultiplicativeOperator();
+
+    while (lhs.isValid()) {
+        switch (currentTokenCode()) {
+
+        default:
+            return lhs;
+
+        case Lexer::TKN_PLUS:
+        case Lexer::TKN_MINUS:
+            loc    = currentLocation();
+            opInfo = parseFunctionIdentifierInfo();
+            break;
+        }
+
+        Node rhs = parseMultiplicativeOperator();
+
+        if (rhs.isValid()) {
+            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
+            if (fname.isValid()) {
+                NodeVector args;
+                args.push_back(lhs);
+                args.push_back(rhs);
+                lhs = client.acceptFunctionCall(fname, loc, args);
+                continue;
+            }
+        }
+        return getInvalidNode();
+    }
+    return lhs;
+}
+
+Node Parser::parseRelationalOperator()
+{
+    IdentifierInfo *opInfo;
+    Location loc;
+    Node lhs = parseAdditiveOperator();
+
+    while (lhs.isValid()) {
+        switch (currentTokenCode()) {
+
+        default:
+            return lhs;
+
+        case Lexer::TKN_EQUAL:
+        case Lexer::TKN_LESS:
+        case Lexer::TKN_GREAT:
+        case Lexer::TKN_DIAMOND:
+            loc    = currentLocation();
+            opInfo = parseFunctionIdentifierInfo();
+            break;
+        }
+
+        Node rhs = parseAdditiveOperator();
+
+        if (rhs.isValid()) {
+            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
+            if (fname.isValid()) {
+                NodeVector args;
+                args.push_back(lhs);
+                args.push_back(rhs);
+                lhs = client.acceptFunctionCall(fname, loc, args);
+                continue;
+            }
+        }
+        return getInvalidNode();
+    }
+    return lhs;
 }
 
 Node Parser::parsePrimaryExpr()

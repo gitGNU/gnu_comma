@@ -84,6 +84,7 @@ public:
     Node parsePrimaryExpr();
     Node parseInjExpr();
     Node parsePrjExpr();
+    Node parseOperatorExpr();
 
     Node parseQualifier();
     Node parseType();
@@ -274,6 +275,11 @@ private:
     //
     //   - the reserved word `begin'.
     bool blockStmtFollows();
+
+    Node parseExponentialOperator();
+    Node parseMultiplicativeOperator();
+    Node parseAdditiveOperator();
+    Node parseRelationalOperator();
 
     // Convenience function for obtaining null nodes.
     Node getNullNode() { return client.getNullNode(); }
