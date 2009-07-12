@@ -211,10 +211,9 @@ Node TypeCheck::acceptIfStmt(Location loc,
                              Node    *consequentNodes,
                              unsigned numConsequents)
 {
-    Expr *condition   = cast_node<Expr>(conditionNode);
-    Type *conditionTy = condition->getType();
+    Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (conditionTy->equals(theBoolDecl->getType())) {
+    if (checkType(condition, theBoolDecl->getType())) {
         StmtSequence *consequents = new StmtSequence();
 
         for (unsigned i = 0; i < numConsequents; ++i) {
@@ -224,8 +223,6 @@ Node TypeCheck::acceptIfStmt(Location loc,
         conditionNode.release();
         return getNode(new IfStmt(loc, condition, consequents));
     }
-
-    report(condition->getLocation(), diag::INCOMPATIBLE_TYPES);
     return getInvalidNode();
 }
 
