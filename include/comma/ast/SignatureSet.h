@@ -20,6 +20,8 @@
 #ifndef COMMA_AST_SIGNATURESET_HDR_GUARD
 #define COMMA_AST_SIGNATURESET_HDR_GUARD
 
+#include "comma/ast/AstBase.h"
+
 #include "llvm/ADT/SetVector.h"
 
 namespace comma {
@@ -87,7 +89,7 @@ public:
 
     /// \brief Iterators over the direct signatures in this set.
     ///
-    /// Returns the direct supersignatures in insertion order (this is, in the
+    /// Returns the direct supersignatures in insertion order (that is, in the
     /// order defined by the sequence of calls to addDirectSignature).
     iterator beginDirect() { return directSignatures.begin(); }
     iterator endDirect()   { return directSignatures.end(); }
