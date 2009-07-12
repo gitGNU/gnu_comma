@@ -433,12 +433,14 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
                 report(diag::EXPECTED_END_TAG) << expectedTag;
             else {
                 tagLoc = currentLocation();
-                tag    = parseIdentifierInfo();
+                tag    = parseFunctionIdentifierInfo();
                 if (tag && tag != expectedTag)
                     report(tagLoc, diag::EXPECTED_END_TAG) << expectedTag;
             }
         }
         else if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+            // FIXME:  The above test is not general enough, since we could have
+            // operator tokens (TKN_PLUS, TKN_STAR, etc) labeling an "end".
             tagLoc = currentLocation();
             tag    = parseIdentifierInfo();
             report(tagLoc, diag::UNEXPECTED_END_TAG) << tag;
