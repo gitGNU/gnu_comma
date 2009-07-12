@@ -11,6 +11,9 @@
 
 #include "comma/ast/AstBase.h"
 
+#include "llvm/Module.h"
+#include "llvm/Constants.h"
+
 #include <string>
 
 namespace comma {
@@ -18,6 +21,19 @@ namespace comma {
 class CodeGen {
 
 public:
+    CodeGen(llvm::Module *M) : M(M) { };
+
+    /// \brief Emits a string with internal linkage, returning the global
+    /// variable for the associated data.
+    llvm::Constant *emitStringLiteral(const std::string &str,
+                                      bool isConstant,
+                                      const std::string &name);
+
+
+    /// \brief Returns the qualification prefix used to form LLVM IR
+    /// identifiers.
+    static std::string getLinkPrefix(const Decl *decl);
+
     /// \brief Returns the name of the given subroutine as it should appear in
     /// LLVM IR.
     ///
@@ -34,6 +50,9 @@ public:
     static std::string getLinkName(const SubroutineDecl *sr);
 
 private:
+    /// The Module we are emiting code for.
+    llvm::Module *M;
+
     /// \brief Returns the index of a decl within a declarative region.
     ///
     /// This function scans the given region for the given decl.  For each

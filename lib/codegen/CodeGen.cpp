@@ -19,24 +19,40 @@ using llvm::cast;
 using llvm::dyn_cast;
 using llvm::isa;
 
+llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
+                                           bool isConstant,
+                                           const std::string &name)
+{
+    llvm::Constant *stringConstant = llvm::ConstantArray::get(name);
+    return new llvm::GlobalVariable(stringConstant->getType(), isConstant,
+                                    llvm::GlobalValue::InternalLinkage,
+                                    stringConstant, name, M);
+}
+
+std::string CodeGen::getLinkPrefix(const Decl *decl)
+{
+    std::string prefix;
+    const DeclRegion *region = decl->getDeclRegion();
+    const char *component;
+
+    while (region) {
+        if (isa<AddDecl>(region))
+            region = region->getParent();
+
+        component = cast<Decl>(region)->getString();
+        prefix.insert(0, "__");
+        prefix.insert(0, component);
+    }
+
+    return prefix;
+}
+
 std::string CodeGen::getLinkName(const SubroutineDecl *sr)
 {
     std::string name;
     int index;
-    const DeclRegion *region = sr;
-    const char *component;
 
-    while ((region = region->getParent())) {
-
-        if (isa<AddDecl>(region))
-            region = region->getParent();
-
-        const Decl *decl = cast<Decl>(region);
-        component = decl->getString();
-        name.insert(0, "__");
-        name.insert(0, component);
-    }
-
+    name = getLinkPrefix(sr);
     name.append(getSubroutineName(sr));
 
     index = getDeclIndex(sr, sr->getParent());
