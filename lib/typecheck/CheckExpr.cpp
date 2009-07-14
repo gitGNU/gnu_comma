@@ -316,8 +316,11 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     for (unsigned i = 0; i < numArgs; ++i)
         args.push_back(cast_node<Expr>(argNodes[i]));
 
-    if (decls.size() == 1)
-        return checkSubroutineCall(decls[0], loc, &args[0], numArgs);
+    if (decls.size() == 1) {
+        Node call = checkSubroutineCall(decls[0], loc, &args[0], numArgs);
+        if (call.isValid()) argNodes.release();
+        return call;
+    }
 
     // We use the following bit vector to indicate which elements of the decl
     // vector are applicable as we resolve the subroutine call with respect to
@@ -419,8 +422,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
         argNodes.release();
         SubroutineDecl *decl = decls[declFilter.find_first()];
         Node result = checkSubroutineCall(decl, loc, &args[0], numArgs);
-        if (result.isValid())
-            argNodes.release();
+        if (result.isValid()) argNodes.release();
         return result;
     }
 
