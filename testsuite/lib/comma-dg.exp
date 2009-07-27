@@ -54,7 +54,7 @@ proc runCommaTests { test_inputs } {
 
     foreach test_input $test_inputs {
         set expected_result [getExpectedResult $test_input]
-        set retval [catch { exec $toolroot/driver $test_input } errmsg]
+        set retval [catch { exec $toolroot/driver -fsyntax-only $test_input } errmsg]
 
         if { $expected_result == "MUST-FAIL" } {
             set retval [expr ! $retval]

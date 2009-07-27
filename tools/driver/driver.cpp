@@ -15,6 +15,7 @@
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/System/Path.h"
 
 #include <iostream>
@@ -22,18 +23,28 @@
 
 using namespace comma;
 
-int main(int argc, const char **argv)
+// The input file name as a positional argument.  The default of "-" means read
+// from standard input.
+llvm::cl::opt<std::string>
+InputFile(llvm::cl::Positional,
+          llvm::cl::desc("<input file>"),
+          llvm::cl::init("-"));
+
+// A switch that asks the driver to perform syntatic and semantic processing
+// only.
+llvm::cl::opt<bool>
+SyntaxOnly("fsyntax-only",
+           llvm::cl::desc("Only perform syntatic and semantic analysis."));
+
+int main(int argc, char **argv)
 {
     Diagnostic diag;
 
-    if (argc != 2) {
-        std::cerr << "Usage : " << argv[0] << " <filename>"
-                  << std::endl;
-        return 1;
-    }
-    llvm::sys::Path path(argv[1]);
-    IdentifierPool idPool;
+    llvm::cl::ParseCommandLineOptions(argc, argv);
+
+    llvm::sys::Path path(InputFile);
     TextProvider tp(path);
+    IdentifierPool idPool;
     AstResource resource(tp, idPool);
     CompilationUnit cu(path);
     TypeCheck tc(diag, resource, &cu);
@@ -43,7 +54,7 @@ int main(int argc, const char **argv)
     while (p.parseTopLevelDeclaration());
     status = !p.parseSuccessful() || !tc.checkSuccessful();
 
-    if (!status) {
+    if (!status && !SyntaxOnly) {
 
         llvm::Module M("test_module");
         std::string message;
