@@ -1076,7 +1076,7 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
     return getNode(new KeywordSelector(key, loc, expr));
 }
 
-Node TypeCheck::acceptEnumerationType(IdentifierInfo *name, Location loc)
+Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
 {
     DeclRegion      *region      = currentDeclarativeRegion();
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
@@ -1125,6 +1125,8 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
     EnumLiteral *lit = new EnumLiteral(enumeration, name, loc);
     scope.addDirectDecl(lit);
 }
+
+void TypeCheck::endEnumerationType(Node enumerationNode) { }
 
 bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
 {
@@ -1183,7 +1185,7 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
     bool allOK = true;
 
     // The domoid contains all of the declarations inherited from the super
-    // signatures and any associated with expression.  Tarverse the set of
+    // signatures and any associated with expression.  Traverse the set of
     // declarations and ensure that the AddDecl provides a definition.
     for (Domoid::ConstDeclIter iter = domoid->beginDecls();
          iter != domoid->endDecls(); ++iter) {

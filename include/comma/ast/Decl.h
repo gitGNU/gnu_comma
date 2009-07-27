@@ -728,6 +728,11 @@ public:
         return routineType->getArgType(i);
     }
 
+    ParamValueDecl *getParam(unsigned i) {
+        assert(i < getArity() && "Index out of range!");
+        return parameters[i];
+    }
+
     typedef ParamValueDecl **ParamDeclIterator;
 
     ParamDeclIterator beginParams() { return parameters; }
@@ -998,13 +1003,22 @@ public:
 
     EnumerationType *getType() { return correspondingType; }
 
+    // Returns the number of EnumLiteral's associated with this enumeration.
+    unsigned getNumLiterals() const { return numLiterals; }
+
     static bool classof(const EnumerationDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumerationDecl;
     }
 
 private:
+    // The number of EnumLiteral's associated with this enumeration.
+    uint32_t numLiterals;
+
     EnumerationType *correspondingType;
+
+    void notifyAddDecl(Decl *decl);
+    void notifyRemoveDecl(Decl *decl);
 };
 
 //===----------------------------------------------------------------------===//

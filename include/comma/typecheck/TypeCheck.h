@@ -175,14 +175,17 @@ public:
     // of the type and its location.  For each literal composing the
     // enumeration, acceptEnumerationLiteral is called with the result of this
     // function.
-    Node acceptEnumerationType(IdentifierInfo   *name,
-                                       Location loc);
+    Node beginEnumerationType(IdentifierInfo *name,
+                              Location        loc);
 
     // Called for each literal composing an enumeration type, where the first
     // argument is a valid node as returned by acceptEnumerationType.
     void acceptEnumerationLiteral(Node            enumeration,
                                   IdentifierInfo *name,
                                   Location        loc);
+    // Called when all of the enumeration literals have been processed, thus
+    // completing the definition of the enumeration.
+    void endEnumerationType(Node enumeration);
 
     // Delete the underlying Ast node.
     void deleteNode(Node &node);

@@ -214,7 +214,8 @@ public:
 
     // Returns the connective associcated with this call.  The resulting node is
     // either a FunctionDecl, EnumerationLiteral, or OverloadedDeclName.
-    Ast *getConnective();
+    Ast *getConnective() { return connective; }
+    const Ast *getConnective() const { return connective; }
 
     // Resolved the connective for this call.  This method can only be called
     // when the call is currently ambiguous.

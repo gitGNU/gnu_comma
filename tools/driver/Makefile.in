@@ -19,7 +19,7 @@ tool_name = driver
 #
 # Define the llvm components on which we rely.
 #
-llvm_components = support
+llvm_components = support core x86
 
 #
 # Define the comma components on which we rely.

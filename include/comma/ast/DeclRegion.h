@@ -224,7 +224,7 @@ protected:
     virtual void notifyRemoveDecl(Decl *decl);
 
 private:
-    Ast::AstKind       regionKind;
+    Ast::AstKind regionKind;
     DeclRegion *parent;
 
     typedef std::list<DeclRegion*> ObserverList;

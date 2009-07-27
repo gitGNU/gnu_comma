@@ -8,6 +8,10 @@
 
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
+#include "comma/codegen/CodeGenCapsule.h"
+#include "comma/codegen/CodeGenTypes.h"
+#include "comma/codegen/CodeGenRoutine.h"
+#include "comma/codegen/CommaRT.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -19,11 +23,75 @@ using llvm::cast;
 using llvm::dyn_cast;
 using llvm::isa;
 
+CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data)
+    : M(M),
+      TD(data),
+      CGTypes(new CodeGenTypes(*this)),
+      CRT(new CommaRT(*this)) { }
+
+CodeGen::~CodeGen()
+{
+    delete CGTypes;
+    delete CRT;
+}
+
+CodeGenTypes &CodeGen::getTypeGenerator()
+{
+    return *CGTypes;
+}
+
+const CodeGenTypes &CodeGen::getTypeGenerator() const
+{
+    return *CGTypes;
+}
+
+void CodeGen::emitToplevelDecl(Decl *decl)
+{
+    // Emit domains only.
+    if (Domoid *domoid = dyn_cast<Domoid>(decl)) {
+        CodeGenCapsule CGC(*this, domoid);
+        llvm::GlobalVariable *info = CRT->registerCapsule(CGC);
+        capsuleInfoTable[CGC.getLinkName()] = info;
+    }
+}
+
+bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
+{
+    assert(GV && "Cannot insert null values into the global table!");
+
+    if (lookupGlobal(linkName))
+        return false;
+
+    globalTable[linkName] = GV;
+    return true;
+}
+
+llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
+{
+    StringGlobalMap::const_iterator iter = globalTable.find(linkName);
+
+    if (iter != globalTable.end())
+        return iter->second;
+    return 0;
+}
+
+llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
+{
+    std::string name = getLinkName(domoid);
+    StringGlobalMap::const_iterator iter = capsuleInfoTable.find(name);
+
+    if (iter != capsuleInfoTable.end())
+        return iter->second;
+    else
+        return 0;
+}
+
+
 llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
                                            bool isConstant,
                                            const std::string &name)
 {
-    llvm::Constant *stringConstant = llvm::ConstantArray::get(name);
+    llvm::Constant *stringConstant = llvm::ConstantArray::get(str, true);
     return new llvm::GlobalVariable(stringConstant->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
                                     stringConstant, name, M);
@@ -42,6 +110,8 @@ std::string CodeGen::getLinkPrefix(const Decl *decl)
         component = cast<Decl>(region)->getString();
         prefix.insert(0, "__");
         prefix.insert(0, component);
+
+        region = region->getParent();
     }
 
     return prefix;
@@ -65,6 +135,11 @@ std::string CodeGen::getLinkName(const SubroutineDecl *sr)
     }
 
     return name;
+}
+
+std::string CodeGen::getLinkName(const Domoid *domoid)
+{
+    return domoid->getString();
 }
 
 int CodeGen::getDeclIndex(const Decl *decl, const DeclRegion *region)

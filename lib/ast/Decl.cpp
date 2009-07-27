@@ -475,8 +475,26 @@ EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
                                  Location        loc,
                                  DeclRegion     *parent)
     : TypeDecl(AST_EnumerationDecl, name, loc),
-      DeclRegion(AST_EnumerationDecl, parent)
+      DeclRegion(AST_EnumerationDecl, parent),
+      numLiterals(0)
 {
     setDeclRegion(parent);
     correspondingType = new EnumerationType(this);
+
+    // Ensure that each call to addDecl notifies us so that we can keep track of
+    // each enumeration literal added to this decl.
+    addObserver(this);
 }
+
+void EnumerationDecl::notifyAddDecl(Decl *decl)
+{
+    if (isa<EnumLiteral>(decl))
+        numLiterals++;
+}
+
+void EnumerationDecl::notifyRemoveDecl(Decl *decl)
+{
+    if (isa<EnumLiteral>(decl))
+        numLiterals--;
+}
+
