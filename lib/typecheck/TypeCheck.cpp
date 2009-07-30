@@ -935,33 +935,31 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     // are accumulated.  Any duplicates found are discarded.
     typedef llvm::SmallVector<ParamValueDecl*, 6> paramVec;
     paramVec parameters;
-    if (desc.hasParams()) {
-        for (Descriptor::paramIterator iter = desc.beginParams();
-             iter != desc.endParams(); ++iter) {
+    for (Descriptor::paramIterator iter = desc.beginParams();
+         iter != desc.endParams(); ++iter) {
 
-            ParamValueDecl *param = cast_node<ParamValueDecl>(*iter);
+        ParamValueDecl *param = cast_node<ParamValueDecl>(*iter);
 
-            for (paramVec::iterator cursor = parameters.begin();
-                 cursor != parameters.end(); ++cursor) {
-                if (param->getIdInfo() == (*cursor)->getIdInfo()) {
-                    report(param->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
-                        << param->getString();
-                    paramsOK = false;
-                }
-            }
-
-            // If this is a function descriptor, check that the parameter mode
-            // is not of an "out" variety.
-            if (desc.isFunctionDescriptor()
-                && (param->getParameterMode() == MODE_OUT ||
-                    param->getParameterMode() == MODE_IN_OUT)) {
-                report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
+        for (paramVec::iterator cursor = parameters.begin();
+             cursor != parameters.end(); ++cursor) {
+            if (param->getIdInfo() == (*cursor)->getIdInfo()) {
+                report(param->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
+                    << param->getString();
                 paramsOK = false;
             }
-
-            // Add the parameter to the set if checking is proceeding smoothly.
-            if (paramsOK) parameters.push_back(param);
         }
+
+        // If this is a function descriptor, check that the parameter mode is
+        // not of an "out" variety.
+        if (desc.isFunctionDescriptor()
+            && (param->getParameterMode() == MODE_OUT ||
+                param->getParameterMode() == MODE_IN_OUT)) {
+            report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
+            paramsOK = false;
+        }
+
+        // Add the parameter to the set if checking is proceeding smoothly.
+        if (paramsOK) parameters.push_back(param);
     }
 
     SubroutineDecl *routineDecl = 0;
