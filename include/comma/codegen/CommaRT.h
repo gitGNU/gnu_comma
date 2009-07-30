@@ -74,7 +74,6 @@ private:
         static const std::string theTypeName;
     };
 
-
     CodeGen &CG;
 
     // Names of the basic runtime types as they appear in llvm IR.
@@ -112,6 +111,7 @@ private:
     void defineDomainViewTy();
     void defineDomainInstanceTy();
 
+    // Builds a declaration in LLVM IR for the get_domain runtime function.
     void defineGetDomain();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
@@ -124,12 +124,25 @@ private:
     // Builds the constructor function for the given capsule.
     llvm::Constant *genCapsuleCtor(CodeGenCapsule &CGC);
 
-    // Generates a call to get_domain for the given instance decl, storing the
-    // result into the destination vector with the given index.
+    // Helper method for genCapsuleCtor.  Generates a call to get_domain for the
+    // given instance decl, storing the result into the destination vector with
+    // the given index.
     unsigned genInstanceRequirement(llvm::IRBuilder<> &builder,
                                     DomainInstanceDecl *instanceDecl,
                                     unsigned index,
                                     llvm::Value *destVector);
+
+    // Generates an llvm IR integer constant representing the number of
+    // supersignatures implemented by the given capsule.
+    llvm::ConstantInt *genSignatureCount(CodeGenCapsule &CGC);
+
+    llvm::Constant *genSignatureOffsets(CodeGenCapsule &CGC);
+
+    unsigned
+    emitOffsetsForSignature(SignatureType *sig,
+                            unsigned index,
+                            const llvm::Type *elemTy,
+                            std::vector<llvm::Constant *> &offsets);
 
 };
 

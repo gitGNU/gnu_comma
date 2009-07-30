@@ -215,6 +215,7 @@ void CommaRT::generateRuntimeFunctions()
     defineGetDomain();
 }
 
+// Builds a declaration in LLVM IR for the get_domain runtime function.
 void CommaRT::defineGetDomain()
 {
     const llvm::Type *retTy = getType(CRT_DomainInstance);
@@ -243,8 +244,6 @@ llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
     const llvm::Type *DINameTy = DIType.getFieldType(DomainInfoTy::Name);
     const llvm::Type *DIArityTy = DIType.getFieldType(DomainInfoTy::Arity);
     const llvm::Type *DIITabTy = DIType.getFieldType(DomainInfoTy::ITable);
-    const llvm::Type *DINumSigsTy = DIType.getFieldType(DomainInfoTy::NumSigs);
-    const llvm::Type *DISigOffsetTy = DIType.getFieldType(DomainInfoTy::SigOffsets);
     const llvm::Type *DIExportsTy = DIType.getFieldType(DomainInfoTy::Exvec);
 
     // First, allocate a constant string to hold the name of the capsule.
@@ -265,9 +264,13 @@ llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
     elts.push_back(llvm::ConstantPointerNull::get(
                        cast<llvm::PointerType>(DIITabTy)));
 
-    // FIXME: Populate the signature count, sig offsets and export vectors.
-    elts.push_back(llvm::ConstantInt::get(DINumSigsTy, 0));
-    elts.push_back(llvm::ConstantPointerNull::get(cast<llvm::PointerType>(DISigOffsetTy)));
+    // Populate the signature count.
+    elts.push_back(genSignatureCount(CGC));
+
+    // Generate the signature offset array.
+    elts.push_back(genSignatureOffsets(CGC));
+
+    // FIXME: Generate the export array.
     elts.push_back(llvm::ConstantPointerNull::get(cast<llvm::PointerType>(DIExportsTy)));
 
     // Create the global for this info object.
@@ -371,6 +374,9 @@ llvm::Constant *CommaRT::genCapsuleCtor(CodeGenCapsule &CGC)
     return ctor;
 }
 
+// Helper method for genCapsuleCtor.  Generates a call to get_domain for the
+// given instance decl, storing the result into the destination vector with the
+// given index.
 unsigned CommaRT::genInstanceRequirement(llvm::IRBuilder<> &builder,
                                          DomainInstanceDecl *instanceDecl,
                                          unsigned index,
@@ -390,6 +396,77 @@ unsigned CommaRT::genInstanceRequirement(llvm::IRBuilder<> &builder,
     else {
         assert(false && "Cannot codegen parameterized dependents yet!");
     }
+
+    return index;
+}
+
+// Generates an llvm IR integer constant representing the number of
+// supersignatures implemented by the given capsule.
+llvm::ConstantInt *CommaRT::genSignatureCount(CodeGenCapsule &CGC)
+{
+    Domoid *theCapsule = CGC.getCapsule();
+    SignatureSet &sigSet = theCapsule->getSignatureSet();
+    const llvm::Type *intTy = DIType.getFieldType(DomainInfoTy::NumSigs);
+
+    return llvm::ConstantInt::get(intTy, sigSet.numSignatures());
+}
+
+llvm::Constant *CommaRT::genSignatureOffsets(CodeGenCapsule &CGC)
+{
+    llvm::Module *M = CG.getModule();
+    Domoid *theCapsule = CGC.getCapsule();
+    SignatureSet &sigSet = theCapsule->getSignatureSet();
+    const llvm::PointerType *vectorTy =
+        cast<llvm::PointerType>(DIType.getFieldType(DomainInfoTy::SigOffsets));
+    const llvm::Type *elemTy = vectorTy->getElementType();
+
+    // If the domain in question does not implement any signatures, generate a
+    // null for the offset vector.
+    if (!sigSet.numSignatures())
+        return llvm::ConstantPointerNull::get(vectorTy);
+
+    // Otherwise, collect all of the offsets.
+    typedef SignatureSet::const_iterator iterator;
+    std::vector<llvm::Constant *> offsets;
+    unsigned index = 0;
+
+    for (iterator iter = sigSet.beginDirect();
+         iter != sigSet.endDirect(); ++iter)
+        index = emitOffsetsForSignature(*iter, index, elemTy, offsets);
+
+    llvm::ArrayType *arrayTy = llvm::ArrayType::get(elemTy, offsets.size());
+    llvm::Constant *offsetInit = llvm::ConstantArray::get(arrayTy, offsets);
+    llvm::GlobalVariable *offsetVal =
+        new llvm::GlobalVariable(arrayTy, true,
+                                 llvm::GlobalVariable::InternalLinkage,
+                                 offsetInit, "", M);
+    return llvm::ConstantExpr::getPointerCast(offsetVal, vectorTy);
+}
+
+unsigned
+CommaRT::emitOffsetsForSignature(SignatureType *sig,
+                                 unsigned index,
+                                 const llvm::Type *elemTy,
+                                 std::vector<llvm::Constant *> &offsets)
+{
+    typedef SignatureSet::const_iterator sig_iterator;
+    typedef DeclRegion::ConstDeclIter decl_iterator;
+
+    const Sigoid *sigoid = sig->getSigoid();
+
+    offsets.push_back(llvm::ConstantInt::get(elemTy, index));
+
+    for (decl_iterator iter = sigoid->beginDecls();
+         iter != sigoid->endDecls(); ++iter) {
+        const SubroutineDecl *decl = dyn_cast<SubroutineDecl>(*iter);
+        if (decl && decl->isImmediate())
+                index++;
+    }
+
+    const SignatureSet &sigSet = sigoid->getSignatureSet();
+    for (sig_iterator iter = sigSet.beginDirect();
+         iter != sigSet.endDirect(); ++iter)
+        index = emitOffsetsForSignature(*iter, index, elemTy, offsets);
 
     return index;
 }

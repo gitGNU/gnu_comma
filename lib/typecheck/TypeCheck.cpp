@@ -1007,6 +1007,9 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         scope.addDirectSubroutine(routineDecl);
     }
 
+    // This is an immediate declaration.  Mark it so.
+    routineDecl->setImmediate();
+
     // Since the declaration has been added permanently to the environment,
     // ensure the returned Node does not reclaim the decl.
     Node routine = getNode(routineDecl);
