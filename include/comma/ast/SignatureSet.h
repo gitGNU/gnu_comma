@@ -66,7 +66,7 @@ public:
         return contains(signature) && !isDirect(signature);
     }
 
-    /// \brief Returns the number direct and indirect signatures in this set.
+    /// \brief Returns the number of direct and indirect signatures in this set.
     unsigned numSignatures() const { return allSignatures.size(); }
 
     /// \brief Analogus to numSignatures().
