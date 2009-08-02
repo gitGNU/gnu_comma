@@ -61,7 +61,7 @@ bool percentHas(ModelDecl *source, SignatureType *target)
         else {
             // When % is defined in the context of some variety V (X1 : T1, ..,
             // Xn : Tn), check if the target corresponds to V(X1, .., Xn).
-            VarietyDecl *variety = dyn_cast<VarietyDecl>(sigoid);
+            VarietyDecl *variety = cast<VarietyDecl>(sigoid);
             if (variety == target->getDeclaration()) {
                 bool matchFound = true;
                 unsigned arity = variety->getArity();
