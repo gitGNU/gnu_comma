@@ -25,38 +25,32 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
 
     default:
         assert(false && "Cannot handle node kind!");
-        break;
+        return false;
 
-    case Ast::AST_SignatureType:
-        if (SignatureType *sigY = dyn_cast<SignatureType>(typeY)) {
-            SignatureType *sigX = cast<SignatureType>(typeX);
-            return compareTypesUsingRewrites(rewrites, sigX, sigY);
-        }
-        break;
-
-    case Ast::AST_DomainType:
-        if (DomainType *domY = dyn_cast<DomainType>(typeY)) {
-            DomainType *domX = cast<DomainType>(typeX);
-            return compareTypesUsingRewrites(rewrites, domX, domY);
-        }
-        break;
-
-    case Ast::AST_FunctionType:
-        if (FunctionType *funY = dyn_cast<FunctionType>(typeY)) {
-            FunctionType *funX = cast<FunctionType>(typeX);
-            return compareTypesUsingRewrites(rewrites, funX, funY);
-        }
-        break;
-
-    case Ast::AST_ProcedureType:
-        if (ProcedureType *procY = dyn_cast<ProcedureType>(typeY)) {
-            ProcedureType *procX = cast<ProcedureType>(typeX);
-            return compareTypesUsingRewrites(rewrites, procX, procY);
-        }
-        break;
+    case Ast::AST_SignatureType: {
+        SignatureType *sigX = cast<SignatureType>(typeX);
+        SignatureType *sigY = cast<SignatureType>(typeY);
+        return compareTypesUsingRewrites(rewrites, sigX, sigY);
     }
 
-    return false;
+    case Ast::AST_DomainType: {
+        DomainType *domX = cast<DomainType>(typeX);
+        DomainType *domY = cast<DomainType>(typeY);
+        return compareTypesUsingRewrites(rewrites, domX, domY);
+    }
+
+    case Ast::AST_FunctionType: {
+        FunctionType *funX = cast<FunctionType>(typeX);
+        FunctionType *funY = cast<FunctionType>(typeY);
+        return compareTypesUsingRewrites(rewrites, funX, funY);
+    }
+
+    case Ast::AST_ProcedureType: {
+        ProcedureType *procX = cast<ProcedureType>(typeX);
+        ProcedureType *procY = cast<ProcedureType>(typeY);
+        return compareTypesUsingRewrites(rewrites, procX, procY);
+    }
+    }
 }
 
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
