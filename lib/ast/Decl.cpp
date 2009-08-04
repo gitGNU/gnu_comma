@@ -29,6 +29,8 @@ DeclRegion *Decl::asDeclRegion()
         return static_cast<DomainInstanceDecl*>(this);
     case AST_DomainDecl:
         return static_cast<DomainDecl*>(this);
+    case AST_AbstractDomainDecl:
+        return static_cast<AbstractDomainDecl*>(this);
     case AST_EnumerationDecl:
         return static_cast<EnumerationDecl*>(this);
     case AST_SignatureDecl:
@@ -63,6 +65,14 @@ OverloadedDeclName::OverloadedDeclName(Decl **decls, unsigned numDecls)
                "All overloads must have the same identifier!");
     }
 #endif
+}
+
+//===----------------------------------------------------------------------===//
+// ModelDecl
+
+bool ModelDecl::addDirectSignature(SignatureType *signature)
+{
+    return sigset.addDirectSignature(signature);
 }
 
 //===----------------------------------------------------------------------===//
@@ -170,6 +180,17 @@ DomainDecl::DomainDecl(IdentifierInfo *percentId,
     percent        = DomainType::getPercent(percentId, this);
 }
 
+// Override the default as provided by ModelDecl so that instances can be
+// informed of the update to their defining declaration.
+bool DomainDecl::addDirectSignature(SignatureType *signature)
+{
+    bool status = ModelDecl::addDirectSignature(signature);
+
+    if (status)
+        instance->addDirectSignature(signature);
+
+    return status;
+}
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
@@ -194,6 +215,9 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
     rewriter.installRewrites(type);
 
     addDeclarationsUsingRewrites(rewriter, sigoid);
+
+    // Populate our signature set.
+    addDirectSignature(type);
 }
 
 //===----------------------------------------------------------------------===//
@@ -250,6 +274,16 @@ void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
     // FIXME:  Implement.
 }
 
+bool DomainInstanceDecl::addDirectSignature(SignatureType *signature)
+{
+    AstRewriter rewrites;
+
+    rewrites.installRewrites(getType());
+    SignatureType *super = rewrites.rewrite(signature);
+
+    return ModelDecl::addDirectSignature(super);
+}
+
 void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
                                  Type **args, unsigned numArgs)
 {
@@ -287,6 +321,33 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
     return instance;
 }
 
+
+// Override the default as provided by ModelDecl so that instances can be
+// informed of the update to their defining declaration.
+bool FunctorDecl::addDirectSignature(SignatureType *signature)
+{
+    typedef llvm::FoldingSet<DomainInstanceDecl>::iterator iterator;
+
+    if (!ModelDecl::addDirectSignature(signature))
+        return false;
+
+    for (iterator iter = instances.begin(); iter != instances.end(); ++iter)
+            iter->addDirectSignature(signature);
+    return true;
+}
+
+// Returns the index of the given abstract domain (which is asserted to be
+// a member of the functors formal parameters).
+unsigned FunctorDecl::getFormalIndex(const AbstractDomainDecl *decl) const
+{
+    for (unsigned i = 0; i < getArity(); ++i) {
+        if (getFormalDomain(i) == decl)
+            return i;
+    }
+    assert(false && "Declaration not a formal parameter!");
+    return 0;
+}
+
 //===----------------------------------------------------------------------===//
 // SubroutineDecl
 
@@ -301,9 +362,10 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
       DeclRegion(kind, parent),
       immediate(false),
       routineType(0),
-      definingDeclaration(0),
       parameters(0),
-      body(0)
+      body(0),
+      definingDeclaration(0),
+      origin(0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -363,9 +425,10 @@ SubroutineDecl::SubroutineDecl(AstKind         kind,
       DeclRegion(kind, parent),
       immediate(false),
       routineType(type),
-      definingDeclaration(0),
       parameters(0),
-      body(0)
+      body(0),
+      definingDeclaration(0),
+      origin(0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -414,6 +477,26 @@ BlockStmt *SubroutineDecl::getBody()
         return definingDeclaration->body;
 
     return 0;
+}
+
+SubroutineDecl *SubroutineDecl::resolveOrigin()
+{
+    SubroutineDecl *res = this;
+
+    while (res->hasOrigin())
+        res = res->getOrigin();
+
+    return res;
+}
+
+const SubroutineDecl *SubroutineDecl::resolveOrigin() const
+{
+    const SubroutineDecl *res = this;
+
+    while (res->hasOrigin())
+        res = res->getOrigin();
+
+    return res;
 }
 
 void SubroutineDecl::dump(unsigned depth)

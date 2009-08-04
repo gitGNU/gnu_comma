@@ -47,12 +47,13 @@ const CodeGenTypes &CodeGen::getTypeGenerator() const
 
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
-    // Emit domains only.
     if (Domoid *domoid = dyn_cast<Domoid>(decl)) {
         CodeGenCapsule CGC(*this, domoid);
         llvm::GlobalVariable *info = CRT->registerCapsule(CGC);
         capsuleInfoTable[CGC.getLinkName()] = info;
     }
+    else if (Sigoid *sigoid = dyn_cast<Sigoid>(decl))
+        CRT->registerSignature(sigoid);
 }
 
 bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
@@ -225,4 +226,74 @@ std::string CodeGen::getSubroutineName(const SubroutineDecl *srd)
         else
             return name;
     }
+}
+
+llvm::Constant *CodeGen::getNullPointer(const llvm::PointerType *Ty) const
+{
+    return llvm::ConstantPointerNull::get(Ty);
+}
+
+llvm::PointerType *CodeGen::getPointerType(const llvm::Type *Ty) const
+{
+    return llvm::PointerType::getUnqual(Ty);
+}
+
+llvm::GlobalVariable *CodeGen::makeExternGlobal(llvm::Constant *init,
+                                                bool isConstant,
+                                                const std::string &name)
+
+{
+    return new llvm::GlobalVariable(init->getType(), isConstant,
+                                    llvm::GlobalValue::ExternalLinkage,
+                                    init, name, M);
+}
+
+llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
+                                                bool isConstant,
+                                                const std::string &name)
+
+{
+    return new llvm::GlobalVariable(init->getType(), isConstant,
+                                    llvm::GlobalValue::InternalLinkage,
+                                    init, name, M);
+}
+
+llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
+                                      const std::string &name)
+{
+    llvm::Function *fn =
+        llvm::Function::Create(Ty, llvm::Function::ExternalLinkage, name, M);
+
+    // FIXME:  For now, Comma functions never thow.  When they do, this method
+    // can be extended with an additional boolean flag indicating if the
+    // function throws.
+    fn->setDoesNotThrow();
+    return fn;
+}
+
+llvm::Function *CodeGen::makeInternFunction(const llvm::FunctionType *Ty,
+                                            const std::string &name)
+{
+    llvm::Function *fn =
+        llvm::Function::Create(Ty, llvm::Function::InternalLinkage, name, M);
+
+    // FIXME:  For now, Comma functions never thow.  When they do, this method
+    // can be extended with an additional boolean flag indicating if the
+    // function throws.
+    fn->setDoesNotThrow();
+    return fn;
+}
+
+llvm::Constant *CodeGen::getPointerCast(llvm::Constant *constant,
+                                        const llvm::PointerType *Ty) const
+{
+    return llvm::ConstantExpr::getPointerCast(constant, Ty);
+}
+
+llvm::Constant *
+CodeGen::getConstantArray(const llvm::Type *elementType,
+                          std::vector<llvm::Constant*> &elems) const
+{
+    llvm::ArrayType *arrayTy = llvm::ArrayType::get(elementType, elems.size());
+    return llvm::ConstantArray::get(arrayTy, elems);
 }

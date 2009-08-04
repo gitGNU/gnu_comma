@@ -36,17 +36,22 @@ public:
     const std::string &getLinkName() const { return linkName; }
 
     /// Notifies this code generator that the underlying capsule relys on the
-    /// given domain instance.  Returns a unique ID representing the instance.
-    unsigned addCapsuleDependency(DomainInstanceDecl *instance) {
-        return requiredInstances.insert(instance) - 1;
-    }
+    /// given domain instance.  Returns a unique ID > 0 representing the
+    /// instance.
+    unsigned addCapsuleDependency(DomainInstanceDecl *instance);
 
     /// Returns the number of capsule dependencies registered.
     unsigned dependencyCount() const { return requiredInstances.size(); }
 
     /// Returns the instance with the given ID.
-    DomainInstanceDecl *getCapsuleDependency(unsigned ID) {
-        return requiredInstances[ID + 1];
+    DomainInstanceDecl *getDependency(unsigned ID) {
+        return requiredInstances[ID];
+    }
+
+    /// Returns the ID of the given instance if present in the dependency set,
+    /// else 0.
+    unsigned getDependencyID(DomainInstanceDecl *instance) {
+        return requiredInstances.idFor(instance);
     }
 
 private:

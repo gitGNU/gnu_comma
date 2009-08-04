@@ -226,9 +226,7 @@ public:
     const SignatureSet &getSignatureSet() const { return sigset; }
 
     // Adds a direct signature to the underlying signature set.
-    bool addDirectSignature(SignatureType *signature) {
-        return sigset.addDirectSignature(signature);
-    }
+    virtual bool addDirectSignature(SignatureType *signature);
 
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
@@ -487,6 +485,10 @@ public:
 
     DomainType *getPercent() const { return percent; }
 
+    // Override the default as provided by ModelDecl so that instances can be
+    // informed of the update to their defining declaration.
+    bool addDirectSignature(SignatureType *signature);
+
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -513,9 +515,7 @@ public:
 
     SignatureType *getSignatureType() const { return signature; }
 
-    DomainType *getPercent() const {
-        return signature->getSigoid()->getPercent();
-    }
+    DomainType *getPercent() const { return abstractType; }
 
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const Ast* node) {
@@ -524,6 +524,9 @@ public:
 
 private:
     DomainType    *abstractType;
+
+    // FIXME:  We do not need this field anymore.  The principle signature is
+    // the first (and only) direct signature in this decls SignatureSet.
     SignatureType *signature;
 };
 
@@ -547,9 +550,7 @@ public:
     DomainDecl  *getDefiningDomain() const;
     FunctorDecl *getDefiningFunctor() const;
 
-    DomainType *getPercent() const {
-        return getDefiningDecl()->getPercent();
-    }
+    DomainType *getPercent() const { return correspondingType; }
 
     // Returns the arity of the underlying declaration.
     unsigned getArity() const;
@@ -567,6 +568,11 @@ public:
     typedef Type **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
+
+    // FIXME: This is a hack.  DomainInstanceDecl should not inherit from
+    // domoid.  For now, this method is only called by the defining declaration
+    // to inform the instance that a signature has been added to the definition.
+    bool addDirectSignature(SignatureType *signature);
 
     void Profile(llvm::FoldingSetNodeID &id) {
         Profile(id, &arguments[0], getArity());
@@ -625,9 +631,14 @@ public:
     // Returns the number of arguments this functor accepts.
     unsigned getArity() const { return getType()->getArity(); }
 
-    // Returns the type of of the i'th formal parameter.
+    // Returns the type of the i'th formal parameter.
     DomainType *getFormalType(unsigned i) const {
         return getType()->getFormalType(i);
+    }
+
+    // Returns the signature constraint of the i'th formal parameter.
+    SignatureType *getFormalSignature(unsigned i) const {
+        return getType()->getFormalSignature(i);
     }
 
     // Returns the abstract domain representing the i'th formal parameter.  Note
@@ -639,7 +650,15 @@ public:
         return formal;
     }
 
+    // Returns the index of the given abstract domain (which is asserted to be
+    // a member of the functors formal parameters).
+    unsigned getFormalIndex(const AbstractDomainDecl *decl) const;
+
     DomainType *getPercent() const { return percent; }
+
+    // Override the default as provided by ModelDecl so that instances can be
+    // informed of the update to their defining declaration.
+    bool addDirectSignature(SignatureType *signature);
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }
@@ -761,8 +780,30 @@ public:
     /// declaration is one which was inherited from a supersignature.
     bool isImmediate() const { return immediate; }
 
-    /// Marks this declaration as immediate.
+    /// Mark this declaration as immediate.
     void setImmediate() { immediate = true; }
+
+    /// Returns the origin of this decl, or null if there is no associated
+    /// origin.
+    ///
+    /// A declaration has an origin if it is not an immediate declaration.  That
+    /// is to say, the declaration was implicitly generated due to inheritance
+    /// from a supersignature.  The returned node is the actual declaration
+    /// object provided by some supersignature.
+    ///
+    /// \see isImmediate
+    SubroutineDecl *getOrigin() { return origin; }
+    const SubroutineDecl *getOrigin() const { return origin; }
+
+    /// Returns true if this decl has an origin.
+    bool hasOrigin() const { return origin != 0; }
+
+    /// Sets the origin of this decl.
+    void setOrigin(SubroutineDecl *decl) { origin = decl; }
+
+    /// Walks the chain of origins returning the final non-null declaration;
+    SubroutineDecl *resolveOrigin();
+    const SubroutineDecl *resolveOrigin() const;
 
     void dump(unsigned depth = 0);
 
@@ -777,9 +818,10 @@ private:
 
 protected:
     SubroutineType  *routineType;
-    SubroutineDecl  *definingDeclaration;
     ParamValueDecl **parameters;
     BlockStmt       *body;
+    SubroutineDecl  *definingDeclaration;
+    SubroutineDecl  *origin;
 };
 
 //===----------------------------------------------------------------------===//

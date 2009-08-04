@@ -249,6 +249,14 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     currentModel      = modelDecl;
     declarativeRegion = modelDecl->asDeclRegion();
 
+    // For each parameter node, set its declarative region to be that of the
+    // newly constructed model.
+    for (Descriptor::paramIterator iter = desc.beginParams();
+         iter != desc.endParams(); ++iter) {
+        AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
+        domain->setDeclRegion(declarativeRegion);
+    }
+
     // Bring the model itself into scope, and release the nodes associated with
     // the given descriptor.
     scope.addDirectModel(modelDecl);
@@ -467,7 +475,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         Type        *argument = arguments[i];
         Location       argLoc = argumentLocs[i];
         SignatureType *target =
-            resolveArgumentType(candidate, &arguments[0], i);
+            candidate->resolveFormalSignature(&arguments[0], i);
 
         if (!checkType(argument, target, argLoc))
             return getInvalidNode();
@@ -508,28 +516,6 @@ void TypeCheck::endWithExpression()
     // ambiguity that can arise is wrt conflicting argument keyword sets.
     ModelDecl *model = getCurrentModel();
     ensureNecessaryRedeclarations(model);
-}
-
-// The following function resolves the argument type of a functor or variety
-// given previous actual arguments.  That is, for a dependent argument list of
-// the form (X : T, Y : U(X)), this function resolves the type of U(X) given an
-// actual parameter for X.
-SignatureType *TypeCheck::resolveArgumentType(ParameterizedType *type,
-                                              Type             **actuals,
-                                              unsigned           numActuals)
-{
-    AstRewriter rewriter;
-
-    // For each actual argument, establish a map from the formal parameter to
-    // the actual.
-    for (unsigned i = 0; i < numActuals; ++i) {
-        Type *formal = type->getFormalType(i);
-        Type *actual = actuals[i];
-        rewriter.addRewrite(formal, actual);
-    }
-
-    SignatureType *target = type->getFormalSignature(numActuals);
-    return rewriter.rewrite(target);
 }
 
 // Creates a procedure or function decl depending on the kind of the
@@ -641,12 +627,14 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 
                 // If a matching declaration was not found, apply the rewrites
                 // and construct a new indirect declaration node for this
-                // model.
+                // model.  Also, set the origin of this new decl to point at the
+                // node from which it was derived.
                 if (!decl) {
                     SubroutineType *rewriteType = rewrites.rewrite(srType);
                     SubroutineDecl *rewriteDecl;
 
                     rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, model);
+                    rewriteDecl->setOrigin(srDecl);
                     model->addDecl(rewriteDecl);
                     indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
                 } else if (indirectDecls.count(decl)) {
@@ -667,10 +655,17 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
                         badDecls.insert(decl);
                     }
                 }
-                // FIXME: The final case corresponds to a matching declaration
-                // in a super signature which was redeclared.  Perhaps we should
-                // explicity link the overriding declaration with those decls
-                // which it overrides.
+                else {
+                    // A declaration provided by a supersignature was found to
+                    // exactly match one provided by the current model.  Set the
+                    // origin to point at this decl if it has not been set
+                    // already.
+                    //
+                    // FIXME: We should warn here that the declaration is
+                    // redundant.
+                    if (!decl->hasOrigin())
+                        decl->setOrigin(srDecl);
+                }
             }
         }
 

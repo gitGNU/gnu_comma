@@ -1,0 +1,12 @@
+-- Ensure domains satisfy signature constraints.
+
+signature S1 end S1;
+
+signature S2 (X : S1) end S2;
+
+domain D with S1; end D;
+
+signature S3 with
+  S2(D);
+end S3;
+

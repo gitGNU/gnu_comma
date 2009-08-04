@@ -200,6 +200,13 @@ public:
     // or -1 if no such keyword exists.
     int getKeywordIndex(IdentifierInfo *keyword) const;
 
+    // Resolves the argument type of a parameterized type given previous actual
+    // arguments.  That is, for a dependent argument list of the form (X : T, Y
+    // : U(X)), this function resolves the type of U(X) given an actual
+    // parameter for X.
+    SignatureType *resolveFormalSignature(Type  **actuals,
+                                          unsigned numActuals);
+
     static bool classof(const ParameterizedType *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
@@ -316,7 +323,7 @@ public:
     AbstractDomainDecl *getAbstractDecl() const;
 
     // Returns true if the underlying declaration is an AbstractDomainDecl.
-    bool isAbstract() const;
+    bool isAbstract() const { return getAbstractDecl() != 0; }
 
     // Returns true if this type and the given type are equal.
     bool equals(const Type *type) const;

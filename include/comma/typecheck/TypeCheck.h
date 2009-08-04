@@ -319,10 +319,6 @@ private:
                              IdentifierInfo *name,
                              Location        loc);
 
-    static SignatureType *resolveArgumentType(ParameterizedType *target,
-                                              Type             **actuals,
-                                              unsigned           numActuals);
-
     Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 
     // Resolves the given call expression (which should have multiple candidate

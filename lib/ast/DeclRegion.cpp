@@ -39,14 +39,18 @@ void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
     case Ast::AST_FunctionDecl: {
         FunctionDecl *fdecl = cast<FunctionDecl>(decl);
         FunctionType *ftype = rewrites.rewrite(fdecl->getType());
-        newDecl = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
+        FunctionDecl *p = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
+        p->setOrigin(fdecl);
+        newDecl = p;
         break;
     }
 
     case Ast::AST_ProcedureDecl: {
         ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
         ProcedureType *ptype = rewrites.rewrite(pdecl->getType());
-        newDecl = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
+        ProcedureDecl *p = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
+        p->setOrigin(pdecl);
+        newDecl = p;
         break;
     }
 

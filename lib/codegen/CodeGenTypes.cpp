@@ -42,22 +42,36 @@ const llvm::IntegerType *CodeGenTypes::lowerType(EnumerationType *type)
     // Enumeration types are lowered to an integer type with sufficient capacity
     // to hold each element of the enumeration.
     EnumerationDecl *decl = type->getEnumerationDecl();
-    unsigned numBits = 32 - llvm::CountLeadingZeros_32(decl->getNumLiterals() - 1);
-    return llvm::IntegerType::get(numBits);
+    unsigned numBits = llvm::Log2_32_Ceil(decl->getNumLiterals());
+
+    // Promote the bit width to a power of two.
+    if (numBits <= 8)
+        return llvm::Type::Int8Ty;
+    else if (numBits <= 16)
+        return llvm::Type::Int16Ty;
+    else if (numBits <= 32)
+        return llvm::Type::Int32Ty;
+    else if (numBits <= 64)
+        return llvm::Type::Int64Ty;
+    else {
+        // FIXME: This should be a fatal error, not an assert.
+        assert(false && "Enumeration type too large to codegen!");
+        return 0;
+    }
 }
 
-const llvm::FunctionType *CodeGenTypes::lowerType(SubroutineType *type)
+const llvm::FunctionType *CodeGenTypes::lowerType(const SubroutineType *type)
 {
     std::vector<const llvm::Type*> args;
     const llvm::FunctionType *result;
 
     // Emit the implicit first "%" argument.
-    args.push_back(CG.getRuntime().getType(CommaRT::CRT_DomainInstance));
+    args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
 
     for (unsigned i = 0; i < type->getArity(); ++i)
         args.push_back(lowerType(type->getArgType(i)));
 
-    if (FunctionType *ftype = dyn_cast<FunctionType>(type))
+    if (const FunctionType *ftype = dyn_cast<FunctionType>(type))
         result = llvm::FunctionType::get(lowerType(ftype->getReturnType()), args, false);
     else
         result = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);

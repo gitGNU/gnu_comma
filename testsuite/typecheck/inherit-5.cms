@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure abstract domains which do not satisfy are rejected.
+
+signature S1 end S1;
+
+signature S2 (X : S1) end S2;
+
+signature S3 end S3;
+
+signature S4 (X : S3) with S2(X); end S4;

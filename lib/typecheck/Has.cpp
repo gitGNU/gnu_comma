@@ -19,34 +19,6 @@ using llvm::isa;
 
 namespace {
 
-bool abstractDomainHas(AbstractDomainDecl *source, SignatureType *target)
-{
-    AstRewriter    rewrites;
-    SignatureType *signature = source->getSignatureType();
-    Sigoid        *sigoid    = signature->getSigoid();
-
-    if (signature == target) return true;
-
-    // Set up our rewrite context.  First install a mapping from the % of the
-    // underlying signature declaration to that of the abstract domain.
-    // Rewrites involving the signature map the formal parameters of the
-    // declaration (if any) to the actual parameters of the type.  This rewrite
-    // provides a public view of the signature corresponding to the given
-    // abstract domain.
-    rewrites.addRewrite(sigoid->getPercent(), source->getType());
-    rewrites.installRewrites(signature);
-
-    SignatureSet          &sigset  = sigoid->getSignatureSet();
-    SignatureSet::iterator iter    = sigset.begin();
-    SignatureSet::iterator endIter = sigset.end();
-    for ( ; iter != endIter; ++iter) {
-        SignatureType *candidate = *iter;
-        if (compareTypesUsingRewrites(rewrites, candidate, target))
-            return true;
-    }
-    return false;
-}
-
 bool percentHas(ModelDecl *source, SignatureType *target)
 {
     if (Sigoid *sigoid = dyn_cast<Sigoid>(source)) {
@@ -94,27 +66,19 @@ bool percentHas(ModelDecl *source, SignatureType *target)
 
 bool TypeCheck::has(DomainType *source, SignatureType *target)
 {
-    if (AbstractDomainDecl *domain = source->getAbstractDecl())
-        return abstractDomainHas(domain, target);
-    else if (source->denotesPercent()) {
+    if (source->denotesPercent()) {
         ModelDecl *model = cast<ModelDecl>(source->getDeclaration());
         return percentHas(model, target);
     }
 
-    Domoid *domoid  = source->getDomoidDecl();
-    if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(domoid))
-        domoid = instance->getDefiningDecl();
-
-    SignatureSet          &sigset  = domoid->getSignatureSet();
+    Domoid *domoid = source->getDomoidDecl();
+    SignatureSet &sigset  = domoid->getSignatureSet();
     SignatureSet::iterator iter    = sigset.begin();
     SignatureSet::iterator endIter = sigset.end();
 
-    AstRewriter rewrites;
-    rewrites.installRewrites(source);
-
     for ( ; iter != endIter; ++iter) {
         SignatureType *candidate = *iter;
-        if (compareTypesUsingRewrites(rewrites, candidate, target))
+        if (candidate->equals(target))
             return true;
     }
     return false;

@@ -158,6 +158,23 @@ int ParameterizedType::getKeywordIndex(IdentifierInfo *keyword) const
     return -1;
 }
 
+SignatureType *ParameterizedType::resolveFormalSignature(Type   **actuals,
+                                                         unsigned numActuals)
+{
+    AstRewriter rewriter;
+
+    // For each actual argument, establish a map from the formal parameter to
+    // the actual.
+    for (unsigned i = 0; i < numActuals; ++i) {
+        Type *formal = getFormalType(i);
+        Type *actual = actuals[i];
+        rewriter.addRewrite(formal, actual);
+    }
+
+    SignatureType *target = getFormalSignature(numActuals);
+    return rewriter.rewrite(target);
+}
+
 //===----------------------------------------------------------------------===//
 // VarietyType
 

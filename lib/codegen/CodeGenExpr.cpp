@@ -52,7 +52,7 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 {
-    llvm::SmallVector<llvm::Value *, 8> args;
+    std::vector<llvm::Value *> args;
     for (unsigned i = 0; i < expr->getNumArgs(); ++i)
         args.push_back(emitExpr(expr->getArg(i)));
 
@@ -91,8 +91,10 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 
         return Builder.CreateCall(func, args.begin(), args.end());
     }
-
-    assert(false && "Cannot codegen non-direct calls!");
-    return 0;
+    else {
+        // We must have an abstract call.
+        FunctionDecl *fdecl = cast<FunctionDecl>(expr->getConnective());
+        return CRT.genAbstractCall(Builder, percent, fdecl, args);
+    }
 }
 

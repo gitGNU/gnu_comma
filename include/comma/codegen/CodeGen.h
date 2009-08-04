@@ -25,6 +25,7 @@ namespace comma {
 class CodeGenCapsule;
 class CodeGenTypes;
 class CommaRT;
+class ExportMap;
 
 class CodeGen {
 
@@ -97,6 +98,60 @@ public:
     /// \brief Returns the name of the given Domoid as it should appear in LLVM
     /// IR.
     static std::string getLinkName(const Domoid *domoid);
+
+    /// \brief Returns a null pointer constant of the specified type.
+    llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
+
+    /// \brief Returns a global variable with external linkage embedded in the
+    /// current module.
+    ///
+    /// \param init A constant initializer for the global.
+    ///
+    /// \param isConstant If true, the global will be allocated in a read-only
+    /// section, otherwise in a writeable section.
+    ///
+    /// \param name The name of the global to be linked into the module.
+    llvm::GlobalVariable *makeExternGlobal(llvm::Constant *init,
+                                           bool isConstant = false,
+                                           const std::string &name = "");
+
+
+    /// \brief Returns a global variable with internal linkage embedded in the
+    /// current module.
+    ///
+    /// \param init A constant initializer for the global.
+    ///
+    /// \param isConstant If true, the global will be allocated in a read-only
+    /// section, otherwise in a writeable section.
+    ///
+    /// \param name The name of the global to be linked into the module.
+    llvm::GlobalVariable *makeInternGlobal(llvm::Constant *init,
+                                           bool isConstant = false,
+                                           const std::string &name = "");
+
+    /// \brief Creates a function with the given name and type.  The linkage
+    /// type is external.
+    llvm::Function *makeFunction(const llvm::FunctionType *Ty,
+                                 const std::string &name = "");
+
+    /// \brief Creates a function with the given name and type.  The linkage
+    /// type is internal.
+    llvm::Function *makeInternFunction(const llvm::FunctionType *Ty,
+                                       const std::string &name = "");
+
+    /// \brief Casts the given constant expression into the given pointer type.
+    llvm::Constant *getPointerCast(llvm::Constant *constant,
+                                   const llvm::PointerType *Ty) const;
+
+    /// \brief Returns a pointer-to the given type.
+    llvm::PointerType *getPointerType(const llvm::Type *Ty) const;
+
+
+    /// \brief Returns a constant array consiting of the given elements, each of
+    /// which must be of the supplied type.
+    llvm::Constant *getConstantArray(const llvm::Type *elementType,
+                                     std::vector<llvm::Constant*> &elems) const;
+
 
 private:
     /// The Module we are emiting code for.

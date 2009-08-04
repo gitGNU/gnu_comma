@@ -36,3 +36,24 @@ void CodeGenCapsule::emit()
         }
     }
 }
+
+unsigned CodeGenCapsule::addCapsuleDependency(DomainInstanceDecl *instance)
+{
+    // If the given instance is parameterized, insert each argument as a
+    // dependency, ignoring abstract domains (the formal parameters of a functor
+    // need not be recorded).
+    if (instance->isParameterized()) {
+        typedef DomainInstanceDecl::arg_iterator iterator;
+        for (iterator iter = instance->beginArguments();
+             iter != instance->endArguments(); ++iter) {
+            DomainType *argTy = cast<DomainType>(*iter);
+            if (!argTy->isAbstract()) {
+                DomainInstanceDecl *argInstance = argTy->getInstanceDecl();
+                assert(argInstance && "Bad domain type!");
+                requiredInstances.insert(argInstance);
+            }
+        }
+    }
+    return requiredInstances.insert(instance);
+}
+
