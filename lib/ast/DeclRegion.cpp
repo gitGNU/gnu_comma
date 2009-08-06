@@ -81,14 +81,15 @@ Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)
     for (DeclIter iter = beginDecls(); iter != endIter; ++iter) {
         Decl *decl = *iter;
         if (decl->getIdInfo() == name) {
-            Type *candidateType = 0;
-            if (ModelDecl *model = dyn_cast<ModelDecl>(decl))
-                candidateType = model->getType();
-            else if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(decl))
-                candidateType = srDecl->getType();
-            else if (EnumLiteral *elit = dyn_cast<EnumLiteral>(decl))
-                candidateType = elit->getType();
-            if (type->equals(candidateType))
+            Type *candidate = 0;
+            if (TypeDecl *TD = dyn_cast<TypeDecl>(decl))
+                candidate = TD->getType();
+            else if (SubroutineDecl *SD = dyn_cast<SubroutineDecl>(decl))
+                candidate = SD->getType();
+            else if (EnumLiteral *EL = dyn_cast<EnumLiteral>(decl))
+                candidate = EL->getType();
+
+            if (candidate && type->equals(candidate))
                 return decl;
         }
     }
