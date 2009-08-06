@@ -14,6 +14,7 @@
 #include "comma/ast/SignatureSet.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/ParameterModes.h"
+#include "comma/basic/PrimitiveOps.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/FoldingSet.h"
 
@@ -805,6 +806,15 @@ public:
     SubroutineDecl *resolveOrigin();
     const SubroutineDecl *resolveOrigin() const;
 
+    /// Returns true if this subroutine represents a primitive operation.
+    bool isPrimitive() const { return opID != PO::NotPrimitive; }
+
+    /// Marks this declaration as primitive.
+    void setAsPrimitive(PO::PrimitiveID ID) { opID = ID; }
+
+    /// Returns the PrimitiveID of this subroutine.
+    PO::PrimitiveID getPrimitiveID() const { return opID; }
+
     void dump(unsigned depth = 0);
 
     // Support for isa and dyn_cast.
@@ -814,7 +824,8 @@ public:
     }
 
 private:
-    bool immediate : 1;         ///< Set if the declaration is immediate.
+    bool immediate       : 1;   ///< Set if the declaration is immediate.
+    PO::PrimitiveID opID : 7;   ///< Identifies the type of operation.
 
 protected:
     SubroutineType  *routineType;
