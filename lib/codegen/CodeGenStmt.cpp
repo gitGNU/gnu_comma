@@ -72,23 +72,25 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
                                                 llvm::BasicBlock *predecessor)
 {
     assert(block && "NULL block statement!");
-    llvm::BasicBlock *BB;
+    std::string label;
 
-    // Create a basic block and make it the current insertion point.
-    {
-        std::string label;
+    if (block->hasLabel())
+        label = block->getLabel()->getString();
 
-        if (predecessor == 0)
-            predecessor = Builder.GetInsertBlock();
+    llvm::BasicBlock *BB = llvm::BasicBlock::Create(label, SRFn);
 
-        if (block->hasLabel())
-            label = block->getLabel()->getString();
+    if (predecessor == 0) {
+        // If we are not supplied a predecessor, terminate the current
+        // insertion block with a direct branch to the new one.
+        predecessor = Builder.GetInsertBlock();
 
-        BB = llvm::BasicBlock::Create(label, SRFn);
-        BB->moveAfter(predecessor);
-        Builder.SetInsertPoint(BB);
+        assert(!predecessor->getTerminator() &&
+               "Current insertion block already terminated!");
+        Builder.CreateBr(BB);
     }
 
+    BB->moveAfter(predecessor);
+    Builder.SetInsertPoint(BB);
     emitStmtSequence(block);
     return BB;
 }

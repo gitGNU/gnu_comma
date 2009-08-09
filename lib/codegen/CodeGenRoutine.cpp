@@ -82,7 +82,7 @@ void CodeGenRoutine::emit()
 
     // Codegen the function body.  If the insertion context is not properly
     // terminated, create a branch to the return BB.
-    llvm::BasicBlock *bodyBB = emitBlockStmt(SRDecl->getBody());
+    llvm::BasicBlock *bodyBB = emitBlockStmt(SRDecl->getBody(), entryBB);
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(returnBB);
 

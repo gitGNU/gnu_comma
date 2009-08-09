@@ -78,6 +78,14 @@ private:
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
     void emitStmtSequence(StmtSequence *seq);
+
+    /// Generates code for the given BlockStmt.
+    ///
+    /// If \p predecessor is not null, then this method generates a BasicBlock
+    /// assuming that the caller will construct the appropriate instructions
+    /// necessary to ensure the block generated is reachable.  Otherwise, the
+    /// current insertion block advertised thru the IRBuiler is taken and an
+    /// unconditional branch to the generated block is appended.
     llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
                                     llvm::BasicBlock *predecessor = 0);
 
