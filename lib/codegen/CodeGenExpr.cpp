@@ -60,50 +60,84 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 {
+    FunctionDecl *fdecl = cast<FunctionDecl>(expr->getConnective());
     std::vector<llvm::Value *> args;
-    for (unsigned i = 0; i < expr->getNumArgs(); ++i)
-        args.push_back(emitExpr(expr->getArg(i)));
 
-    FunctionDecl *decl = cast<FunctionDecl>(expr->getConnective());
+    for (unsigned i = 0; i < expr->getNumArgs(); ++i) {
+        Expr *arg = expr->getArg(i);
+        args.push_back(emitCallArgument(fdecl, arg, i));
+    }
 
-    if (decl->isPrimitive())
+    if (fdecl->isPrimitive())
         return emitPrimitiveCall(expr, args);
-    else if (isLocalCall(expr)) {
-        // Insert the implicit first parameter, which for a local call is the
-        // percent handed to the current subroutine.
-        args.insert(args.begin(), percent);
-
-        llvm::Value  *func = CG.lookupGlobal(CodeGen::getLinkName(decl));
-        assert(func && "function lookup failed!");
-        return Builder.CreateCall(func, args.begin(), args.end());
-    }
-    else if (isDirectCall(expr)) {
-        // Lookup the domain info structure for the connective.
-        DomainInstanceDecl *instance;
-        Domoid *target;
-
-        instance = cast<DomainInstanceDecl>(decl->getDeclRegion());
-        target = instance->getDefiningDecl();
-        llvm::GlobalValue *capsuleInfo = CG.lookupCapsuleInfo(target);
-        assert(capsuleInfo && "Could not resolve info for direct call!");
-
-        // Register the domain of computation with the capsule context.  Using
-        // the ID of the instance, index into percent to obtain the appropriate
-        // domain_instance.
-        unsigned instanceID = CGC.addCapsuleDependency(instance);
-        args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
-
-        llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(decl));
-        assert(func && "function lookup failed!");
-
-        return Builder.CreateCall(func, args.begin(), args.end());
-    }
-    else {
+    else if (isLocalCall(expr))
+        return emitLocalCall(fdecl, args);
+    else if (isDirectCall(expr))
+        return emitDirectCall(fdecl, args);
+    else
         // We must have an abstract call.
-        return CRT.genAbstractCall(Builder, percent, decl, args);
-    }
+        return CRT.genAbstractCall(Builder, percent, fdecl, args);
 }
 
+llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
+                                              unsigned argPosition)
+{
+    llvm::Value *argVal = emitExpr(arg);
+
+    // If the argument is a formal of the current subroutine, convert if
+    // necessary to satisfy the context mode.
+    if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(arg)) {
+        Decl *refDecl = refExpr->getDeclaration();
+        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+            ParameterMode contextMode = srDecl->getParamMode(argPosition);
+            ParameterMode paramMode = pvDecl->getParameterMode();
+
+            // If the argument has a mode being either "out" or "in out", and
+            // the context mode is "in", then we must load the parameter value.
+            if (contextMode == MODE_IN and
+                (paramMode == MODE_OUT or paramMode == MODE_IN_OUT))
+                argVal = Builder.CreateLoad(argVal);
+        }
+    }
+
+    return argVal;
+}
+
+llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
+                                           std::vector<llvm::Value *> &args)
+{
+    // Insert the implicit first parameter, which for a local call is the
+    // percent handed to the current subroutine.
+    args.insert(args.begin(), percent);
+
+    llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(srDecl));
+    assert(func && "function lookup failed!");
+    return Builder.CreateCall(func, args.begin(), args.end());
+}
+
+llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
+                                            std::vector<llvm::Value *> &args)
+{
+    DomainInstanceDecl *instance;
+    Domoid *target;
+
+    // Lookup the domain info structure for the connective.
+    instance = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
+    target = instance->getDefiningDecl();
+    llvm::GlobalValue *capsuleInfo = CG.lookupCapsuleInfo(target);
+    assert(capsuleInfo && "Could not resolve info for direct call!");
+
+    // Register the domain of computation with the capsule context.  Using the
+    // ID of the instance, index into percent to obtain the appropriate
+    // domain_instance.
+    unsigned instanceID = CGC.addCapsuleDependency(instance);
+    args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
+
+    llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(srDecl));
+    assert(func && "function lookup failed!");
+
+    return Builder.CreateCall(func, args.begin(), args.end());
+}
 
 llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
                                                std::vector<llvm::Value *> &args)

@@ -96,7 +96,7 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// ProcedureStmt
+// ProcedureCallStmt
 //
 // Representation of a procedure call statement.
 class ProcedureCallStmt : public Stmt {

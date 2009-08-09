@@ -90,8 +90,17 @@ const llvm::FunctionType *CodeGenTypes::lowerType(const SubroutineType *type)
     // Emit the implicit first "%" argument.
     args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
 
-    for (unsigned i = 0; i < type->getArity(); ++i)
-        args.push_back(lowerType(type->getArgType(i)));
+    for (unsigned i = 0; i < type->getArity(); ++i) {
+        const llvm::Type *argTy = lowerType(type->getArgType(i));
+
+        // If the argument mode is "out" or "in out", make the argument a
+        // pointer-to type.
+        ParameterMode mode = type->getParameterMode(i);
+        if (mode == MODE_OUT or mode == MODE_IN_OUT)
+            argTy = CG.getPointerType(argTy);
+
+        args.push_back(argTy);
+    }
 
     if (const FunctionType *ftype = dyn_cast<FunctionType>(type))
         result = llvm::FunctionType::get(lowerType(ftype->getReturnType()), args, false);

@@ -209,14 +209,14 @@ unsigned CommaRT::getSignatureOffset(Domoid *domoid, SignatureType *target)
 
 llvm::Value *CommaRT::genAbstractCall(llvm::IRBuilder<> &builder,
                                       llvm::Value *percent,
-                                      const FunctionDecl *fdecl,
+                                      const SubroutineDecl *srDecl,
                                       const std::vector<llvm::Value *> &args) const
 {
     const AbstractDomainDecl *param;
     const FunctorDecl *context;
     SignatureType *target;
 
-    param   = cast<AbstractDomainDecl>(fdecl->getDeclRegion());
+    param   = cast<AbstractDomainDecl>(srDecl->getDeclRegion());
     context = cast<FunctorDecl>(param->getDeclRegion());
     target  = param->getSignatureType();
 
@@ -225,8 +225,8 @@ llvm::Value *CommaRT::genAbstractCall(llvm::IRBuilder<> &builder,
     // Get the index of the function we wish to call by first resolving the
     // offset for the signature of origin of the function decl, and the
     // export offset within that signature.
-    unsigned sigIdx = ExportMap::getSignatureOffset(fdecl);
-    unsigned exportIdx = EM->getLocalIndex(fdecl);
+    unsigned sigIdx = ExportMap::getSignatureOffset(srDecl);
+    unsigned exportIdx = EM->getLocalIndex(srDecl);
 
     // Obtain the domain_view_t corresponding to this parameter.
     llvm::Value *view = DInstance->loadParam(builder, percent, paramIdx);
@@ -252,7 +252,7 @@ llvm::Value *CommaRT::genAbstractCall(llvm::IRBuilder<> &builder,
 
     // With the export in hand, bit cast it to a function of the required type.
     CodeGenTypes &CGT = CG.getTypeGenerator();
-    const llvm::FunctionType *funcTy = CGT.lowerType(fdecl->getType());
+    const llvm::FunctionType *funcTy = CGT.lowerType(srDecl->getType());
     llvm::PointerType *funcPtrTy = CG.getPointerType(funcTy);
     llvm::Value *func = builder.CreateBitCast(exportFn, funcPtrTy);
 

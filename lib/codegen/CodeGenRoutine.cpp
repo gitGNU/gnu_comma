@@ -136,6 +136,13 @@ bool CodeGenRoutine::isDirectCall(const FunctionCallExpr *expr)
     return false;
 }
 
+bool CodeGenRoutine::isDirectCall(const ProcedureCallStmt *stmt)
+{
+    const ProcedureDecl *pdecl = stmt->getConnective();
+    const DeclRegion *region = pdecl->getDeclRegion();
+    return isa<DomainInstanceDecl>(region);
+}
+
 bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
 {
     const FunctionDecl *decl = dyn_cast<FunctionDecl>(expr->getConnective());
@@ -148,5 +155,16 @@ bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
         return isa<AddDecl>(region);
     }
     return false;
+}
+
+bool CodeGenRoutine::isLocalCall(const ProcedureCallStmt *stmt)
+{
+    // FIXME: This is a hack (and not truely correct).  We rely here on the
+    // esoteric property that a local decl is declared in an "add" context.
+    // Rather, check that the decl originates from the curent domain, or
+    // explicity tag decls as local.
+    const ProcedureDecl *pdecl = stmt->getConnective();
+    const DeclRegion *region = pdecl->getDeclRegion();
+    return isa<AddDecl>(region);
 }
 

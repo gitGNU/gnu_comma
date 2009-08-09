@@ -78,7 +78,7 @@ public:
 
     llvm::Value *genAbstractCall(llvm::IRBuilder<> &builder,
                                  llvm::Value *percent,
-                                 const FunctionDecl *fdecl,
+                                 const SubroutineDecl *srDecl,
                                  const std::vector<llvm::Value *> &args) const;
 
 

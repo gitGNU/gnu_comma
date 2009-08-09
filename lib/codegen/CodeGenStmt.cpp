@@ -11,6 +11,7 @@
 #include "comma/ast/Stmt.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
+#include "comma/codegen/CommaRT.h"
 
 using namespace comma;
 
@@ -27,6 +28,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 
     case Ast::AST_StmtSequence:
         emitStmtSequence(cast<StmtSequence>(stmt));
+        break;
+
+    case Ast::AST_ProcedureCallStmt:
+        emitProcedureCallStmt(cast<ProcedureCallStmt>(stmt));
         break;
 
     case Ast::AST_BlockStmt:
@@ -144,4 +149,22 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     }
 
     Builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
+{
+    ProcedureDecl *pdecl = stmt->getConnective();
+    std::vector<llvm::Value *> args;
+
+    for (unsigned i = 0; i < stmt->getNumArgs(); ++i) {
+        Expr *arg = stmt->getArg(i);
+        args.push_back(emitCallArgument(pdecl, arg, i));
+    }
+
+    if (isLocalCall(stmt))
+        emitLocalCall(pdecl, args);
+    else if (isDirectCall(stmt))
+        emitDirectCall(pdecl, args);
+    else
+        CRT.genAbstractCall(Builder, percent, pdecl, args);
 }

@@ -73,11 +73,11 @@ private:
     // Emits the epilogue for the current subroutine.
     void emitEpilogue();
 
-
     void emitStmt(Stmt *stmt);
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
     void emitStmtSequence(StmtSequence *seq);
+    void emitProcedureCallStmt(ProcedureCallStmt *stmt);
 
     /// Generates code for the given BlockStmt.
     ///
@@ -91,19 +91,41 @@ private:
 
     llvm::Value *emitExpr(Expr *expr);
     llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
-    llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
-    llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
-                                   std::vector<llvm::Value *> &args);
     llvm::Value *emitPrjExpr(PrjExpr *expr);
     llvm::Value *emitInjExpr(InjExpr *expr);
 
+    llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
+
+    llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
+                                   std::vector<llvm::Value *> &args);
+
+    llvm::Value *emitLocalCall(SubroutineDecl *srDecl,
+                               std::vector<llvm::Value *> &args);
+
+    llvm::Value *emitDirectCall(SubroutineDecl *srDecl,
+                                std::vector<llvm::Value *> &args);
+
+    llvm::Value *emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
+                                  unsigned argPosition);
+
     llvm::Value *lookupDecl(Decl *decl);
 
-    // Returns true if the given call is "direct", meaning that the domain of
-    // computation is known.
+    /// Returns true if the given call is "direct", meaning that the domain of
+    /// computation is staticly known.
     static bool isDirectCall(const FunctionCallExpr *expr);
 
+    /// Returns true if the given call is "direct", meaning that the domain of
+    /// computation is staticly known.
+    static bool isDirectCall(const ProcedureCallStmt *stmt);
+
+    /// Returns true if the given call is "local", meaning that the call is to a
+    /// function defined in the current capsule.
     static bool isLocalCall(const FunctionCallExpr *expr);
+
+    /// Returns true if the given call is "local", meaning that the call is to a
+    /// function defined in the current capsule.
+    static bool isLocalCall(const ProcedureCallStmt *stmt);
+
 };
 
 } // end comma namespace
