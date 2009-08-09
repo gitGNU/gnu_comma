@@ -1,0 +1,15 @@
+-- Ensure we are resolving procedures in the overloaded case.
+
+signature S with
+  type T is (A, B);
+  procedure P (X : Bool);
+  procedure P (X : T);
+end S;
+
+domain D (X : S) add
+   import X;
+   procedure Test is
+   begin
+      P(true);
+   end Test;
+end D;

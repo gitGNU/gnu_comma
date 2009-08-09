@@ -125,9 +125,9 @@ Node TypeCheck::acceptProcedureCall(Node        connective,
         OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
         for (OverloadedDeclName::iterator iter = odn->begin();
              iter != odn->end(); ++iter) {
-            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
-                if (fdecl->getArity() == targetArity)
-                    decls.push_back(fdecl);
+            if (ProcedureDecl *pdecl = dyn_cast<ProcedureDecl>(*iter)) {
+                if (pdecl->getArity() == targetArity)
+                    decls.push_back(pdecl);
             }
         }
 
