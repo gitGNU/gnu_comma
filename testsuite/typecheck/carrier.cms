@@ -1,0 +1,11 @@
+-- Ensure carrier types are compatable with their underlying representation.
+
+domain D add
+   type T is (A);
+   carrier Rep is T;
+
+   function Test (X : Rep) return T is
+   begin
+      return X;
+   end Test;
+end D;
