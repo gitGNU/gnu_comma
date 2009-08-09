@@ -463,6 +463,10 @@ void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
     definingDeclaration = routineDecl;
 }
 
+ParameterMode SubroutineDecl::getParamMode(unsigned i) {
+    return getParam(i)->getParameterMode();
+}
+
 bool SubroutineDecl::hasBody() const
 {
     return body || (definingDeclaration && definingDeclaration->body);

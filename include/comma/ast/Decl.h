@@ -767,6 +767,14 @@ public:
     ParamDeclIterator beginParams() { return parameters; }
     ParamDeclIterator endParams()   { return parameters + getArity(); }
 
+    /// Returns the parameter mode of the parameter with the given index.
+    ///
+    /// This method is analogous to ParamValueDecl::getParameterMode in that it
+    /// returns either MODE_IN, MODE_OUT, or MODE_IN_OUT.  If one needs to know
+    /// if the parameter was explicitly supplied with a mode or not
+    /// (MODE_DEFAULT), one must interrogate the parameter directly.
+    ParameterMode getParamMode(unsigned i);
+
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
     SubroutineDecl *getDefiningDeclaration() { return definingDeclaration; }
     const SubroutineDecl *getDefiningDeclaration() const {

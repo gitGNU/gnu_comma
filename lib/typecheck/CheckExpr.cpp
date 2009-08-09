@@ -508,17 +508,8 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
         }
     }
 
-    // Check each argument types wrt this decl.
-    for (unsigned i = 0; i < numArgs; ++i) {
-        Type *targetType = decl->getArgType(i);
-        Expr *arg        = sortedArgs[i];
-
-        if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
-            arg = selector->getExpression();
-
-        if (!checkType(arg, targetType))
-            return getInvalidNode();
-    }
+    if (!checkSubroutineArguments(decl, &sortedArgs[0], numArgs))
+        return getInvalidNode();
 
     if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
         FunctionCallExpr *call =
@@ -531,6 +522,55 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
             new ProcedureCallStmt(pdecl, &sortedArgs[0], numArgs, loc);
         return getNode(call);
     }
+}
+
+/// Checks that the supplied array of arguments are compatible with those of
+/// the given decl.  This is a helper method for checkSubroutineCall.
+///
+/// It is assumed that the number of arguments passed matches the number
+/// expected by the decl.  This function checks that the argument types and
+/// modes are compatible with that of the given decl.  Returns true if the check
+/// succeeds, false otherwise and appropriate diagnostics are posted.
+bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
+                                         Expr **args,
+                                         unsigned numArgs)
+{
+    // Check each argument types wrt this decl.
+    for (unsigned i = 0; i < numArgs; ++i) {
+        Type *targetType = decl->getArgType(i);
+        Expr *arg        = args[i];
+
+        if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
+            arg = selector->getExpression();
+
+        // If the argument is a subroutine parameter, enusure its mode is
+        // compatable with that of the call.
+        if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
+            ValueDecl *vdecl = declRef->getDeclaration();
+            if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
+                ParameterMode targetMode = decl->getParamMode(i);
+                Location loc = arg->getLocation();
+
+                // If the argument is of mode IN, then so too must be the target
+                // mode.
+                if (param->getParameterMode() == MODE_IN) {
+                    if (targetMode == MODE_OUT) {
+                        report(loc, diag::MODE_IN_MODE_OUT_CONTEXT)
+                            << param->getString();
+                        return false;
+                    }
+                    else if (targetMode == MODE_IN_OUT) {
+                        report(loc, diag::MODE_IN_MODE_IN_OUT_CONTEXT)
+                            << param->getString();
+                        return false;
+                    }
+                }
+            }
+        }
+        if (!checkType(arg, targetType))
+            return false;
+    }
+    return true;
 }
 
 // Resolves the given call expression (which must be nullary function call,

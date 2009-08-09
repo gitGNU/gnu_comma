@@ -1,0 +1,15 @@
+-- MUST-FAIL: Ensure parameters of mode "in" cannot be used in a mode "out"
+-- context.
+
+domain D add
+   procedure P (X : out Bool) is
+   begin
+      X := true;
+   end P;
+
+   procedure Test (X : in Bool) is
+   begin
+      P(X);
+   end Test;
+end D;
+

@@ -119,4 +119,9 @@ DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
 DIAGNOSTIC(ASSIGNMENT_TO_MODE_IN, ERROR,
            "Cannot assign to parameter `%0' of mode \"in\".")
-
+DIAGNOSTIC(MODE_IN_MODE_OUT_CONTEXT, ERROR,
+           "Parameter `%0' of mode \"in\" cannot be used in a \"out\" "
+           "context.")
+DIAGNOSTIC(MODE_IN_MODE_IN_OUT_CONTEXT, ERROR,
+           "Parameter `%0' of mode \"in\" cannot be used in a \"in out\" "
+           "context.")

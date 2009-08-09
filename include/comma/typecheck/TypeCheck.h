@@ -339,6 +339,16 @@ private:
                              Expr          **args,
                              unsigned        numArgs);
 
+    /// Checks that the supplied array of arguments are compatible with those of
+    /// the given decl.  This is a helper method for checkSubroutineCall.
+    ///
+    /// It is assumed that the number of arguments passed matches the number
+    /// expected by the decl.  This function checks that the argument types and
+    /// modes are compatible with that of the given decl.  Returns true if the
+    /// check succeeds, false otherwise and appropriate diagnostics are posted.
+    bool checkSubroutineArguments(SubroutineDecl *decl,
+                                  Expr **args,
+                                  unsigned numArgs);
 
     Node acceptSubroutineCall(IdentifierInfo *name,
                               Location        loc,
