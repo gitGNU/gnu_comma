@@ -532,33 +532,45 @@ SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo *name,
     return new ProcedureDecl(name, loc, ptype, region);
 }
 
-DomainType *TypeCheck::ensureDomainType(Node     node,
-                                        Location loc)
+DomainType *TypeCheck::ensureDomainType(Node node,
+                                        Location loc,
+                                        bool report)
 {
-    if (Type *type = lift_node<Type>(node))
-        return ensureDomainType(type, loc);
-    report(loc, diag::NOT_A_DOMAIN);
-    return 0;
+    Type *type = cast_node<Type>(node);
+    return ensureDomainType(type, loc);
 }
 
-DomainType *TypeCheck::ensureDomainType(Type    *type,
-                                        Location loc)
+DomainType *TypeCheck::ensureDomainType(Type *type,
+                                        Location loc,
+                                        bool report)
 {
     if (DomainType *dom = dyn_cast<DomainType>(type))
         return dom;
     else if (CarrierType *carrier = dyn_cast<CarrierType>(type))
         return ensureDomainType(carrier->getRepresentationType(), loc);
-    report(loc, diag::NOT_A_DOMAIN);
+    if (report)
+        this->report(loc, diag::NOT_A_DOMAIN);
     return 0;
 }
 
-Type *TypeCheck::ensureValueType(Node     node,
-                                 Location loc)
+Type *TypeCheck::ensureValueType(Type *type,
+                                 Location loc,
+                                 bool report)
 {
-    if (EnumerationType *etype = lift_node<EnumerationType>(node))
-        return etype;
-    else
-        return ensureDomainType(node, loc);
+    if (isa<EnumerationType>(type) || isa<CarrierType>(type) ||
+        ensureDomainType(type, loc, false))
+        return type;
+    if (report)
+        this->report(loc, diag::TYPE_CANNOT_DENOTE_VALUE);
+    return 0;
+}
+
+Type *TypeCheck::ensureValueType(Node node,
+                                 Location loc,
+                                 bool report)
+{
+    Type *type = cast_node<Type>(node);
+    return ensureValueType(type, loc, report);
 }
 
 // Search all declarations present in the given declarative region for a match

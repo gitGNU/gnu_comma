@@ -311,9 +311,10 @@ private:
                                        TypeDecl   *tyDecl);
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
-    DomainType *ensureDomainType(Node typeNode, Location loc);
-    DomainType *ensureDomainType(Type *type, Location loc);
-    Type *ensureValueType(Node typeNode, Location loc);
+    DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
+    DomainType *ensureDomainType(Type *type, Location loc, bool report = true);
+    Type *ensureValueType(Node typeNode, Location loc, bool report = true);
+    Type *ensureValueType(Type *type, Location loc, bool report = true);
 
     Node acceptQualifiedName(Node            qualNode,
                              IdentifierInfo *name,
