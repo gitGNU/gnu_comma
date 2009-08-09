@@ -1,0 +1,8 @@
+-- MUST-FAIL: Ensure functions cannot have parameters of mode "out".
+
+domain D add
+   function F (X : out Bool) return Bool is
+   begin
+      return true;
+   end F;
+end D;
