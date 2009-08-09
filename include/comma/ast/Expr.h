@@ -337,12 +337,19 @@ class InjExpr : public Expr
 {
 public:
     InjExpr(Expr *argument, Type *resultType, Location loc)
-        : Expr(AST_InjExpr, resultType, loc) { }
+        : Expr(AST_InjExpr, resultType, loc),
+          operand(argument) { }
+
+    Expr *getOperand() { return operand; }
+    const Expr *getOperand() const { return operand; }
 
     static bool classof(const InjExpr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_InjExpr;
     }
+
+private:
+    Expr *operand;
 };
 
 //===----------------------------------------------------------------------===//
@@ -353,12 +360,19 @@ class PrjExpr : public Expr
 {
 public:
     PrjExpr(Expr *argument, DomainType *resultType, Location loc)
-        : Expr(AST_PrjExpr, resultType, loc) { }
+        : Expr(AST_PrjExpr, resultType, loc),
+          operand(argument) { }
+
+    Expr *getOperand() { return operand; }
+    const Expr *getOperand() const { return operand; }
 
     static bool classof(const PrjExpr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_PrjExpr;
     }
+
+private:
+    Expr *operand;
 };
 
 } // End comma namespace.

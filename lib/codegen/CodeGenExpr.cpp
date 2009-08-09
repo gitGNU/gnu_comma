@@ -38,6 +38,14 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
     case Ast::AST_FunctionCallExpr:
         val = emitFunctionCall(cast<FunctionCallExpr>(expr));
         break;
+
+    case Ast::AST_InjExpr:
+        val = emitInjExpr(cast<InjExpr>(expr));
+        break;
+
+    case Ast::AST_PrjExpr:
+        val = emitPrjExpr(cast<PrjExpr>(expr));
+        break;
     }
 
     return val;
@@ -119,4 +127,46 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
         return llvm::ConstantInt::get(ty, idx);
     }
     };
+}
+
+llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
+{
+    typedef llvm::IntegerType LLVMIntTy;
+
+    llvm::Value *op = emitExpr(expr->getOperand());
+    const llvm::Type *targetTy = CGTypes.lowerType(expr->getType());
+
+    assert(isa<llvm::PointerType>(op->getType()) &&
+           "Percent expression not a pointer type!");
+
+    // If the target type is an integer type, convert the incomming expression
+    // (which must be a pointer type) to a integral value of the needed size.
+    if (const LLVMIntTy *intTy = dyn_cast<LLVMIntTy>(targetTy)) {
+        assert(intTy->getBitWidth() <= CG.getTargetData().getPointerSizeInBits()
+               && "Integral type too large for pointer cast!");
+        return Builder.CreatePtrToInt(op, intTy);
+    }
+
+    assert(false && "Cannot codegen inj expression yet!");
+    return 0;
+}
+
+llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
+{
+    typedef llvm::IntegerType LLVMIntTy;
+
+    llvm::Value *op = emitExpr(expr->getOperand());
+    const llvm::PointerType *percentTy =
+        cast<llvm::PointerType>(CGTypes.lowerType(expr->getType()));
+
+    // If the operand is an integer type, its width is no more than that of a
+    // pointer.  Extend it to an i8*.
+    if (const LLVMIntTy *intTy = dyn_cast<LLVMIntTy>(op->getType())) {
+        assert(intTy->getBitWidth() <= CG.getTargetData().getPointerSizeInBits()
+               && "Integral type too large for pointer cast!");
+        return Builder.CreateIntToPtr(op, percentTy);
+    }
+
+    assert(false && "Cannot codegen prj expression yet!");
+    return 0;
 }

@@ -28,6 +28,8 @@ public:
 
     const llvm::Type *lowerType(Type *type);
 
+    const llvm::Type *lowerType(DomainType *type);
+    const llvm::Type *lowerType(CarrierType *type);
     const llvm::IntegerType *lowerType(EnumerationType *type);
     const llvm::FunctionType *lowerType(const SubroutineType *type);
 };

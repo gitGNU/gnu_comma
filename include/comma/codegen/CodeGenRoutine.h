@@ -94,6 +94,8 @@ private:
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
     llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
                                    std::vector<llvm::Value *> &args);
+    llvm::Value *emitPrjExpr(PrjExpr *expr);
+    llvm::Value *emitInjExpr(InjExpr *expr);
 
     llvm::Value *lookupDecl(Decl *decl);
 

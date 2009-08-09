@@ -28,6 +28,12 @@ const llvm::Type *CodeGenTypes::lowerType(Type *type)
         assert(false && "Cannot lower the given Type!");
         return 0;
 
+    case Ast::AST_DomainType:
+        return lowerType(cast<DomainType>(type));
+
+    case Ast::AST_CarrierType:
+        return lowerType(cast<CarrierType>(type));
+
     case Ast::AST_EnumerationType:
         return lowerType(cast<EnumerationType>(type));
 
@@ -35,6 +41,20 @@ const llvm::Type *CodeGenTypes::lowerType(Type *type)
     case Ast::AST_ProcedureType:
         return lowerType(cast<SubroutineType>(type));
     }
+}
+
+const llvm::Type *CodeGenTypes::lowerType(DomainType *type)
+{
+    // If the given domain type denotes `%', lower it to a generic i8*.
+    if (type->denotesPercent())
+        return CG.getPointerType(llvm::Type::Int8Ty);
+
+    assert(false && "Cannot lower this domain type yet!");
+}
+
+const llvm::Type *CodeGenTypes::lowerType(CarrierType *type)
+{
+    return lowerType(type->getRepresentationType());
 }
 
 const llvm::IntegerType *CodeGenTypes::lowerType(EnumerationType *type)
