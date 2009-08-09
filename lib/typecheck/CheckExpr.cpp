@@ -33,8 +33,8 @@ Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
         return getInvalidNode();
 }
 
-Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
-                                      Node     typeNode,
+Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
+                                      Node typeNode,
                                       Location loc)
 {
     Qualifier *qualifier = cast_node<Qualifier>(qualifierNode);
@@ -53,9 +53,9 @@ Node TypeCheck::acceptNestedQualifier(Node     qualifierNode,
 
 // Helper function for acceptDirectName -- called when the identifier in
 // question is qualified.
-Node TypeCheck::acceptQualifiedName(Node            qualNode,
+Node TypeCheck::acceptQualifiedName(Node qualNode,
                                     IdentifierInfo *name,
-                                    Location        loc)
+                                    Location loc)
 {
     Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
     DeclRegion *region    = qualifier->resolve();
@@ -105,8 +105,8 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 }
 
 Node TypeCheck::acceptDirectName(IdentifierInfo *name,
-                                 Location        loc,
-                                 Node            qualNode)
+                                 Location loc,
+                                 Node qualNode)
 {
     if (!qualNode.isNull())
         return acceptQualifiedName(qualNode, name, loc);
@@ -186,8 +186,8 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
 }
 
 Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
-                                   Location        loc,
-                                   Node            qualNode)
+                                   Location loc,
+                                   Node qualNode)
 {
     if (!qualNode.isNull()) {
         Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
@@ -270,8 +270,8 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
     return getInvalidNode();
 }
 
-Node TypeCheck::acceptFunctionCall(Node        connective,
-                                   Location    loc,
+Node TypeCheck::acceptFunctionCall(Node connective,
+                                   Location loc,
                                    NodeVector &argNodes)
 {
     std::vector<SubroutineDecl*> decls;
@@ -313,8 +313,8 @@ Node TypeCheck::acceptFunctionCall(Node        connective,
 }
 
 Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
-                                     Location                      loc,
-                                     NodeVector                   &argNodes)
+                                     Location loc,
+                                     NodeVector &argNodes)
 {
     llvm::SmallVector<Expr*, 8> args;
     unsigned numArgs = argNodes.size();
@@ -450,9 +450,9 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
 }
 
 Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
-                                    Location         loc,
-                                    Expr           **args,
-                                    unsigned         numArgs)
+                                    Location loc,
+                                    Expr **args,
+                                    unsigned numArgs)
 
 {
     if (decl->getArity() != numArgs) {
@@ -578,7 +578,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
 // returns true.  Otherwise, false is returned and the appropriate diagnostics
 // are emitted.
 bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
-                                           Type             *targetType)
+                                           Type *targetType)
 {
     assert(call->getNumArgs() == 0 &&
            "Call expression has too many arguments!");
