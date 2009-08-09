@@ -203,6 +203,14 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
         return getInvalidNode();
     }
 
+    // If the target decl is a parameter, ensure that it is not of mode "in".
+    if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
+        if (param->getParameterMode() == MODE_IN) {
+            report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
+            return getInvalidNode();
+        }
+    }
+
     if (checkType(value, targetDecl->getType())) {
         valueNode.release();
         DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);

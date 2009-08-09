@@ -117,3 +117,6 @@ DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
 DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
+DIAGNOSTIC(ASSIGNMENT_TO_MODE_IN, ERROR,
+           "Cannot assign to parameter `%0' of mode \"in\".")
+
