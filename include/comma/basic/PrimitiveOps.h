@@ -19,7 +19,7 @@ enum PrimitiveID {
 
     Equality,
 
-    EnumCall
+    EnumFunction
 };
 
 } // end primitive_ops namespace.

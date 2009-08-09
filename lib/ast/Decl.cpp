@@ -51,20 +51,18 @@ DeclRegion *Decl::asDeclRegion()
 //===----------------------------------------------------------------------===//
 // OverloadedDeclName
 
-OverloadedDeclName::OverloadedDeclName(Decl **decls, unsigned numDecls)
-    : Ast(AST_OverloadedDeclName),
-      decls(decls, decls + numDecls)
-{
-    assert(numDecls > 1 && "OverloadedDeclName's must be overloaded!");
+IdentifierInfo *OverloadedDeclName::getIdInfo() const {
+    return decls[0]->getIdInfo();
+}
 
-    // FIXME:  We should be using a better define for this.
-#ifndef NDEBUG
+void OverloadedDeclName::verify()
+{
+    assert(decls.size() > 1 && "OverloadedDeclName's must be overloaded!");
     IdentifierInfo *idInfo = decls[0]->getIdInfo();
-    for (unsigned i = 1; i < numDecls; ++i) {
+    for (unsigned i = 1; i < decls.size(); ++i) {
         assert(decls[i]->getIdInfo() == idInfo &&
                "All overloads must have the same identifier!");
     }
-#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -398,7 +396,7 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
     }
 
     // Construct the type of this subroutine.
-    if (kind == AST_FunctionDecl)
+    if (kind == AST_FunctionDecl || kind == AST_EnumLiteral)
         routineType = new FunctionType(&paramIds[0],
                                        &paramTypes[0],
                                        numParams,
@@ -550,10 +548,13 @@ ParameterMode ParamValueDecl::getParameterMode() const
 EnumLiteral::EnumLiteral(EnumerationDecl *decl,
                          IdentifierInfo  *name,
                          Location         loc)
-    : ValueDecl(AST_EnumLiteral, name, decl->getType(), loc)
+    : FunctionDecl(AST_EnumLiteral, name, loc, 0, 0, decl->getType(), decl)
 {
-    setDeclRegion(decl);
+    // Add ourselves to the enclosing EnumerationDecl, and mark this new
+    // function-like declaration as primitive.
+    index = decl->getNumLiterals();
     decl->addDecl(this);
+    setAsPrimitive(PO::EnumFunction);
 }
 
 //===----------------------------------------------------------------------===//
@@ -585,3 +586,11 @@ void EnumerationDecl::notifyRemoveDecl(Decl *decl)
         numLiterals--;
 }
 
+EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
+{
+    PredRange range = findDecls(name);
+
+    if (range.first != range.second)
+        return cast<EnumLiteral>(*range.first);
+    return 0;
+}

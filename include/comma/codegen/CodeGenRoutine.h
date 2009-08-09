@@ -73,14 +73,19 @@ private:
     // Emits the epilogue for the current subroutine.
     void emitEpilogue();
 
-    llvm::BasicBlock *emitBlock(BlockStmt        *block,
-                                llvm::BasicBlock *predecessor = 0);
 
     void emitStmt(Stmt *stmt);
+    void emitIfStmt(IfStmt *ite);
+    void emitReturnStmt(ReturnStmt *ret);
+    void emitStmtSequence(StmtSequence *seq);
+    llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
+                                    llvm::BasicBlock *predecessor = 0);
 
     llvm::Value *emitExpr(Expr *expr);
     llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
+    llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
+                                   std::vector<llvm::Value *> &args);
 
     llvm::Value *lookupDecl(Decl *decl);
 

@@ -80,11 +80,10 @@ void CodeGenRoutine::emit()
     if (isa<FunctionDecl>(SRDecl))
         returnValue = Builder.CreateAlloca(SRTy->getReturnType());
 
-    // Codegen the function body.  If the resulting basick block is not properly
-    // terminated (which can happen when CG'ing a procedure), terminate the
-    // block with a branch to the return BB.
-    llvm::BasicBlock *bodyBB = emitBlock(SRDecl->getBody());
-    if (!bodyBB->getTerminator())
+    // Codegen the function body.  If the insertion context is not properly
+    // terminated, create a branch to the return BB.
+    llvm::BasicBlock *bodyBB = emitBlockStmt(SRDecl->getBody());
+    if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(returnBB);
 
     emitPrologue(bodyBB);

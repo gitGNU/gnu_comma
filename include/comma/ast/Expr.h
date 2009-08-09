@@ -184,16 +184,16 @@ private:
 class FunctionCallExpr : public Expr {
 
 public:
-    FunctionCallExpr(Decl      *connective,
-                     Expr     **arguments,
-                     unsigned   numArgs,
-                     Location   loc);
+    FunctionCallExpr(FunctionDecl *connective,
+                     Expr **arguments,
+                     unsigned numArgs,
+                     Location loc);
 
-    FunctionCallExpr(Decl     **connectives,
-                     unsigned   numConnectives,
-                     Expr     **arguments,
-                     unsigned   numArgs,
-                     Location   loc);
+    FunctionCallExpr(FunctionDecl **connectives,
+                     unsigned numConnectives,
+                     Expr **arguments,
+                     unsigned numArgs,
+                     Location loc);
 
     ~FunctionCallExpr();
 
@@ -213,22 +213,13 @@ public:
     const Qualifier *getQualifier() const { return qualifier; }
 
     // Returns the connective associcated with this call.  The resulting node is
-    // either a FunctionDecl, EnumerationLiteral, or OverloadedDeclName.
+    // either a FunctionDecl or OverloadedDeclName.
     Ast *getConnective() { return connective; }
     const Ast *getConnective() const { return connective; }
 
     // Resolved the connective for this call.  This method can only be called
     // when the call is currently ambiguous.
     void resolveConnective(FunctionDecl *connective);
-
-    // Resolved the connective for this call.  This method can only be called
-    // when the call is currently ambiguous.
-    void resolveConnective(EnumLiteral *connective);
-
-    // Resolved the connective for this call.  This method can only be called
-    // when the call is currently ambiguous.  This method will assert if its
-    // argument is not a FunctionDecl or EnumLiteral.
-    void resolveConnective(Decl *connective);
 
     // Returns true if this call is ambiguous.
     bool isAmbiguous() const {
@@ -249,7 +240,7 @@ public:
 
     // Returns the \p i'th connective associated with this call.  The returned
     // node is either an EnumLiteral or FunctionDecl.
-    Decl *getConnective(unsigned i) const;
+    FunctionDecl *getConnective(unsigned i) const;
 
     // Forward iterator over the set of connectives associated with a function
     // call expression.
@@ -274,7 +265,7 @@ public:
             : callExpr(iter.callExpr),
               index(iter.index) { }
 
-        Decl *operator *() {
+        FunctionDecl *operator *() {
             assert(callExpr && "Cannot dereference an empty iterator!");
             return callExpr->getConnective(index);
         }

@@ -1079,7 +1079,6 @@ Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
 
     if (ensureDistinctTypeDeclaration(region, enumeration)) {
         // Construct the builtin functions associated with an enumeration.
-
         IdentifierInfo *equalsId = resource.getIdentifierInfo("=");
         IdentifierInfo *paramX   = resource.getIdentifierInfo("X");
         IdentifierInfo *paramY   = resource.getIdentifierInfo("Y");
@@ -1089,8 +1088,10 @@ Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
             new ParamValueDecl(paramX, enumType, MODE_DEFAULT, 0),
             new ParamValueDecl(paramY, enumType, MODE_DEFAULT, 0)
         };
+
         FunctionDecl *equals =
             new FunctionDecl(equalsId, 0, params, 2, theBoolDecl->getType(), 0);
+        equals->setAsPrimitive(PO::Equality);
 
         enumeration->addDecl(equals);
 

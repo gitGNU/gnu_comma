@@ -56,26 +56,25 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
     for (unsigned i = 0; i < expr->getNumArgs(); ++i)
         args.push_back(emitExpr(expr->getArg(i)));
 
-    // For now, emit local calls only.
-    if (isLocalCall(expr)) {
+    FunctionDecl *decl = cast<FunctionDecl>(expr->getConnective());
+
+    if (decl->isPrimitive())
+        return emitPrimitiveCall(expr, args);
+    else if (isLocalCall(expr)) {
         // Insert the implicit first parameter, which for a local call is the
         // percent handed to the current subroutine.
         args.insert(args.begin(), percent);
 
-        FunctionDecl *decl = cast<FunctionDecl>(expr->getConnective());
         llvm::Value  *func = CG.lookupGlobal(CodeGen::getLinkName(decl));
-
         assert(func && "function lookup failed!");
         return Builder.CreateCall(func, args.begin(), args.end());
     }
     else if (isDirectCall(expr)) {
         // Lookup the domain info structure for the connective.
-        FunctionDecl *fdecl;
         DomainInstanceDecl *instance;
         Domoid *target;
 
-        fdecl = cast<FunctionDecl>(expr->getConnective());
-        instance = cast<DomainInstanceDecl>(fdecl->getDeclRegion());
+        instance = cast<DomainInstanceDecl>(decl->getDeclRegion());
         target = instance->getDefiningDecl();
         llvm::GlobalValue *capsuleInfo = CG.lookupCapsuleInfo(target);
         assert(capsuleInfo && "Could not resolve info for direct call!");
@@ -86,15 +85,38 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
         unsigned instanceID = CGC.addCapsuleDependency(instance);
         args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
 
-        llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(fdecl));
+        llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(decl));
         assert(func && "function lookup failed!");
 
         return Builder.CreateCall(func, args.begin(), args.end());
     }
     else {
         // We must have an abstract call.
-        FunctionDecl *fdecl = cast<FunctionDecl>(expr->getConnective());
-        return CRT.genAbstractCall(Builder, percent, fdecl, args);
+        return CRT.genAbstractCall(Builder, percent, decl, args);
     }
 }
 
+
+llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
+                                               std::vector<llvm::Value *> &args)
+{
+    FunctionDecl *decl = cast<FunctionDecl>(expr->getConnective());
+
+    switch (decl->getPrimitiveID()) {
+
+    default:
+        assert(false && "Cannot codegen primitive!");
+        return 0;
+
+    case PO::Equality:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateICmpEQ(args[0], args[1]);
+
+    case PO::EnumFunction: {
+        EnumLiteral *lit = cast<EnumLiteral>(decl);
+        unsigned idx = lit->getIndex();
+        const llvm::Type *ty = CGTypes.lowerType(lit->getReturnType());
+        return llvm::ConstantInt::get(ty, idx);
+    }
+    };
+}

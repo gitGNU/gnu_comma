@@ -29,10 +29,10 @@ KeywordSelector::KeywordSelector(IdentifierInfo *key, Location loc, Expr *expr)
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr
 
-FunctionCallExpr::FunctionCallExpr(Decl      *connective,
-                                   Expr     **args,
-                                   unsigned   numArgs,
-                                   Location   loc)
+FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective,
+                                   Expr **args,
+                                   unsigned numArgs,
+                                   Location loc)
     : Expr(AST_FunctionCallExpr, loc),
       connective(connective),
       numArgs(numArgs),
@@ -43,17 +43,18 @@ FunctionCallExpr::FunctionCallExpr(Decl      *connective,
     setTypeForConnective();
 }
 
-FunctionCallExpr::FunctionCallExpr(Decl     **connectives,
-                                   unsigned   numConnectives,
-                                   Expr     **args,
-                                   unsigned   numArgs,
-                                   Location   loc)
+FunctionCallExpr::FunctionCallExpr(FunctionDecl **connectives,
+                                   unsigned numConnectives,
+                                   Expr **args,
+                                   unsigned numArgs,
+                                   Location loc)
     : Expr(AST_FunctionCallExpr, loc),
       numArgs(numArgs),
       qualifier(0)
 {
     if (numConnectives > 1)
-        connective = new OverloadedDeclName(connectives, numConnectives);
+        connective = new OverloadedDeclName(connectives,
+                                            connectives + numConnectives);
     else {
         connective = connectives[0];
         setTypeForConnective();
@@ -61,24 +62,12 @@ FunctionCallExpr::FunctionCallExpr(Decl     **connectives,
 
     arguments = new Expr*[numArgs];
     std::copy(args, args + numArgs, arguments);
-
-    // FIXME:  We should probably conditionalize over a better define.
-#ifndef NDEBUG
-    for (unsigned i = 0; i < numConnectives; ++i)
-        assert((isa<FunctionDecl>(connectives[i]) ||
-                isa<EnumLiteral>(connectives[i])) &&
-               "Bad type for function call connective!");
-#endif
 }
 
 void FunctionCallExpr::setTypeForConnective()
 {
-    if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(connective))
-        setType(fdecl->getReturnType());
-    else if (EnumLiteral *elit = dyn_cast<EnumLiteral>(connective))
-        setType(elit->getType());
-    else
-        assert(false && "Bad type for function call connective!");
+    FunctionDecl *fdecl = cast<FunctionDecl>(connective);
+    setType(fdecl->getReturnType());
 }
 
 FunctionCallExpr::~FunctionCallExpr()
@@ -97,44 +86,23 @@ unsigned FunctionCallExpr::numConnectives() const
         return 1;
 }
 
-Decl *FunctionCallExpr::getConnective(unsigned i) const
+FunctionDecl *FunctionCallExpr::getConnective(unsigned i) const
 {
     assert(i < numConnectives() && "Connective index out of range!");
 
     if (OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective))
-        return odn->getOverload(i);
+        return cast<FunctionDecl>(odn->getOverload(i));
     else
-        return cast<Decl>(connective);
+        return cast<FunctionDecl>(connective);
 }
 
 void FunctionCallExpr::resolveConnective(FunctionDecl *decl)
 {
-    OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective);
-    assert(odn && "Cannot resolve non-overloaded function calls!");
+    OverloadedDeclName *odn = cast<OverloadedDeclName>(connective);
 
     connective = decl;
     setType(decl->getReturnType());
     delete odn;
-}
-
-void FunctionCallExpr::resolveConnective(EnumLiteral *decl)
-{
-    OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective);
-    assert(odn && "Cannot resolove non-overloaded function calls!");
-    assert(getNumArgs() == 0 &&
-           "Enumeration calls cannot be applied to arguments!");
-
-    connective = decl;
-    setType(decl->getType());
-    delete odn;
-}
-
-void FunctionCallExpr::resolveConnective(Decl *connective)
-{
-    if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(connective))
-        resolveConnective(fdecl);
-    else
-        resolveConnective(cast<EnumLiteral>(connective));
 }
 
 bool FunctionCallExpr::containsConnective(FunctionType *ftype) const

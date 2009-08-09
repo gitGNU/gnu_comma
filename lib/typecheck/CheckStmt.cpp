@@ -33,12 +33,12 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         typedef DeclRegion::PredRange PredRange;
         typedef DeclRegion::PredIter  PredIter;
         PredRange range = region->findDecls(name);
-        llvm::SmallVector<Decl*, 8> decls;
+        llvm::SmallVector<SubroutineDecl*, 8> decls;
 
         // Collect all procedure decls.
         for (PredIter iter = range.first; iter != range.second; ++iter) {
-            Decl *candidate = *iter;
-            if (isa<ProcedureDecl>(candidate))
+            ProcedureDecl *candidate = dyn_cast<ProcedureDecl>(*iter);
+            if (candidate)
                 decls.push_back(candidate);
         }
 
@@ -60,19 +60,25 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         return getInvalidNode();
     }
 
-    llvm::SmallVector<Decl *, 8> overloads;
+    llvm::SmallVector<SubroutineDecl *, 8> overloads;
     unsigned numOverloads = 0;
     resolver.filterFunctionals();
 
     // Collect any direct overloads.
-    overloads.append(resolver.beginDirectOverloads(),
-                     resolver.endDirectOverloads());
+    {
+        typedef IdentifierResolver::DirectOverloadIter iterator;
+        iterator E = resolver.endDirectOverloads();
+        for (iterator I = resolver.beginDirectOverloads(); I != E; ++I)
+            overloads.push_back(cast<ProcedureDecl>(*I));
+    }
 
     // Continue populating the call with indirect overloads if there are no
     // indirect values visible and return the result.
     if (!resolver.hasIndirectValues()) {
-        overloads.append(resolver.beginIndirectOverloads(),
-                         resolver.endIndirectOverloads());
+        typedef IdentifierResolver::IndirectOverloadIter iterator;
+        iterator E = resolver.endIndirectOverloads();
+        for (iterator I = resolver.beginIndirectOverloads(); I != E; ++I)
+            overloads.push_back(cast<ProcedureDecl>(*I));
         numOverloads = overloads.size();
         if (numOverloads == 1)
             return getNode(overloads.front());

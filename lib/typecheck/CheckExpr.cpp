@@ -59,13 +59,12 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
 {
     Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
     DeclRegion *region    = qualifier->resolve();
-    llvm::SmallVector<Decl*, 8> decls;
+    llvm::SmallVector<FunctionDecl*, 8> decls;
 
     // Scan the entire set of declaration nodes, matching nullary function decls
-    // and enumeration literals of the given name.  In addition, look for
-    // enumeration declarations which in turn provide a literal of the given
-    // name.  This allows the "short hand qualification" of enumeration
-    // literals.  For example, given:
+    // of the given name.  In addition, look for enumeration declarations which
+    // in turn provide a literal of the given name.  This allows the "short hand
+    // qualification" of enumeration literals.  For example, given:
     //
     //   domain D with type T is (X); end D;
     //
@@ -79,17 +78,15 @@ Node TypeCheck::acceptQualifiedName(Node            qualNode,
         if (decl->getIdInfo() == name) {
             if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
                 if (fdecl->getArity() == 0)
-                    decls.push_back(decl);
+                    decls.push_back(fdecl);
             }
-            if (isa<EnumLiteral>(decl))
-                decls.push_back(decl);
         }
         else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
             // Lift the literals of an enumeration decl.  For example, given:
             //   domain D with type T is (X); end D;
             // Then D::X will match D::T::X.
-            if ((decl = edecl->findDecl(name, edecl->getType())))
-                decls.push_back(decl);
+            if (EnumLiteral *lit = edecl->findLiteral(name))
+                decls.push_back(lit);
         }
     }
 
@@ -130,7 +127,6 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
     }
 
     llvm::SmallVector<Decl *, 8> overloads;
-    unsigned numOverloads = 0;
     resolver.filterOverloadsWRTArity(0);
     resolver.filterProcedures();
 
@@ -143,9 +139,15 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
     if (!resolver.hasIndirectValues()) {
         overloads.append(resolver.beginIndirectOverloads(),
                          resolver.endIndirectOverloads());
-        if ((numOverloads = overloads.size())) {
+        if (!overloads.empty()) {
+            llvm::SmallVector<FunctionDecl*, 8> connectives;
+            unsigned size = overloads.size();
+
+            for (unsigned i = 0; i < size; ++i)
+                connectives.push_back(cast<FunctionDecl>(overloads[i]));
+
             FunctionCallExpr *call =
-                new FunctionCallExpr(&overloads[0], numOverloads, 0, 0, loc);
+                new FunctionCallExpr(&connectives[0], size, 0, 0, loc);
             return getNode(call);
         }
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -154,9 +156,15 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
 
     // Otherwise, there are indirect values.  If we have any direct function
     // decls, return a call expression for them.
-    if ((numOverloads = overloads.size())) {
+    if (!overloads.empty()) {
+        llvm::SmallVector<FunctionDecl*, 8> connectives;
+        unsigned size = overloads.size();
+
+        for (unsigned i = 0; i < size; ++i)
+            connectives.push_back(cast<FunctionDecl>(overloads[i]));
+
         FunctionCallExpr *call =
-            new FunctionCallExpr(&overloads[0], numOverloads, 0, 0, loc);
+            new FunctionCallExpr(&connectives[0], size, 0, 0, loc);
         return getNode(call);
     }
 
@@ -191,12 +199,12 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
         typedef DeclRegion::PredRange PredRange;
         typedef DeclRegion::PredIter  PredIter;
         PredRange range = region->findDecls(name);
-        llvm::SmallVector<Decl*, 8> decls;
+        llvm::SmallVector<SubroutineDecl*, 8> decls;
 
         // Collect all function decls.
         for (PredIter iter = range.first; iter != range.second; ++iter) {
-            Decl *candidate = *iter;
-            if (isa<FunctionDecl>(candidate))
+            FunctionDecl *candidate = dyn_cast<FunctionDecl>(*iter);
+            if (candidate)
                 decls.push_back(candidate);
         }
 
@@ -218,20 +226,26 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
         return getInvalidNode();
     }
 
-    llvm::SmallVector<Decl *, 8> overloads;
+    llvm::SmallVector<SubroutineDecl *, 8> overloads;
     unsigned numOverloads = 0;
     resolver.filterProcedures();
     resolver.filterNullaryOverloads();
 
     // Collect any direct overloads.
-    overloads.append(resolver.beginDirectOverloads(),
-                     resolver.endDirectOverloads());
+    {
+        typedef IdentifierResolver::DirectOverloadIter iterator;
+        iterator E = resolver.endDirectOverloads();
+        for (iterator I = resolver.beginDirectOverloads(); I != E; ++I)
+            overloads.push_back(cast<FunctionDecl>(*I));
+    }
 
     // Continue populating the call with indirect overloads if there are no
     // indirect values visible and return the result.
     if (!resolver.hasIndirectValues()) {
-        overloads.append(resolver.beginIndirectOverloads(),
-                         resolver.endIndirectOverloads());
+        typedef IdentifierResolver::IndirectOverloadIter iterator;
+        iterator E = resolver.endIndirectOverloads();
+        for (iterator I = resolver.beginIndirectOverloads(); I != E; ++I)
+            overloads.push_back(cast<FunctionDecl>(*I));
         numOverloads = overloads.size();
         if (numOverloads == 1)
             return getNode(overloads.front());
@@ -276,19 +290,13 @@ Node TypeCheck::acceptFunctionCall(Node        connective,
             return getInvalidNode();
         }
     }
-    else if (EnumLiteral *edecl = lift_node<EnumLiteral>(connective)) {
-        // FIXME:  This is not a terribly accurate diagnostic.
-        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << edecl->getIdInfo();
-        return getInvalidNode();
-    }
     else {
         OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
         for (OverloadedDeclName::iterator iter = odn->begin();
              iter != odn->end(); ++iter) {
-            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
-                if (fdecl->getArity() == targetArity)
-                    decls.push_back(fdecl);
-            }
+            FunctionDecl *fdecl = cast<FunctionDecl>(*iter);
+            if (fdecl->getArity() == targetArity)
+                decls.push_back(fdecl);
         }
 
         delete odn;
@@ -355,11 +363,11 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     for (unsigned i = 0; i < decls.size(); ++i) {
         SubroutineDecl *decl = decls[i];
         for (unsigned j = 0; j < numArgs && declFilter[i]; ++j) {
-            Expr     *arg         = args[j];
+            Expr     *arg = args[j];
             unsigned  targetIndex = j;
 
             if (KeywordSelector *selector = dyn_cast<KeywordSelector>(args[j])) {
-                arg         = selector->getExpression();
+                arg = selector->getExpression();
                 targetIndex = decl->getKeywordIndex(selector->getKeyword());
             }
 
@@ -382,19 +390,14 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
             // be a function call expression).
             typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
             FunctionCallExpr *argCall = cast<FunctionCallExpr>(arg);
-            bool   applicableArgument = false;
+            bool applicableArgument = false;
 
             // Check if at least one interpretation of the argument satisfies
             // the current target type.
             for (ConnectiveIter iter = argCall->beginConnectives();
                  iter != argCall->endConnectives(); ++iter) {
-                Type *returnType = 0;
-                if (FunctionDecl *connective = dyn_cast<FunctionDecl>(*iter))
-                    returnType = connective->getReturnType();
-                else {
-                    EnumLiteral *connective = cast<EnumLiteral>(*iter);
-                    returnType = connective->getType();
-                }
+                FunctionDecl *connective = cast<FunctionDecl>(*iter);
+                Type *returnType = connective->getReturnType();
                 if (targetType->equals(returnType)) {
                     applicableArgument = true;
                     break;
@@ -430,10 +433,10 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     // on the resolution of the return type.  If we are dealing with procedures,
     // then the call is ambiguous.
     if (isa<FunctionDecl>(decls[0])) {
-        llvm::SmallVector<Decl*, 4> connectives;
+        llvm::SmallVector<FunctionDecl*, 4> connectives;
         for (unsigned i = 0; i < decls.size(); ++i)
             if (declFilter[i])
-                connectives.push_back(decls[i]);
+                connectives.push_back(cast<FunctionDecl>(decls[i]));
         FunctionCallExpr *call =
             new FunctionCallExpr(&connectives[0], connectives.size(),
                                  &args[0], numArgs, loc);
@@ -543,30 +546,22 @@ bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
     typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
     ConnectiveIter iter    = call->beginConnectives();
     ConnectiveIter endIter = call->endConnectives();
-    Decl *decl   = 0;
+    FunctionDecl *connective = 0;
 
     for ( ; iter != endIter; ++iter) {
-        Type *returnType = 0;
-        Decl *candidate  = 0;
-        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(*iter)) {
-            returnType = fdecl->getReturnType();
-            candidate  = fdecl;
-        }
-        else {
-            EnumLiteral *elit = cast<EnumLiteral>(*iter);
-            returnType = elit->getType();
-            candidate  = elit;
-        }
+        FunctionDecl *candidate = *iter;
+        Type *returnType = candidate->getReturnType();
+
         if (targetType->equals(returnType)) {
-            if (decl) {
+            if (connective) {
                 report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
                 return false;
             }
             else
-                decl = candidate;
+                connective = candidate;
         }
     }
-    call->resolveConnective(decl);
+    call->resolveConnective(connective);
     return true;
 }
 

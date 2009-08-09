@@ -94,29 +94,36 @@ protected:
 // OverloadedDeclName
 //
 // This class represents a set of declaration nodes all of which have the same
-// name.  Members of this set are either procedure decls, or a mix of function
-// decls and enumeration literals (the latter being morally equivalent to a
-// nullary function).
+// name.  Members of this set are either procedure decls or function decls.
 //
 // Note that this class is not a member of the Decl hierarchy, it is mearly a
 // wrapper/helper node used to encapsulate intermediate results.
 class OverloadedDeclName : public Ast {
 
-    typedef llvm::SmallVector<Decl*, 4> DeclVector;
+    typedef llvm::SmallVector<SubroutineDecl*, 4> DeclVector;
 
 public:
-    OverloadedDeclName(Decl **decls, unsigned numDecls);
+    OverloadedDeclName(SubroutineDecl **decls, unsigned numDecls)
+        : Ast(AST_OverloadedDeclName),
+          decls(decls, decls + numDecls) {
+        verify();
+    }
+
+    template <class I>
+    OverloadedDeclName(I begin, I end)
+        : Ast(AST_OverloadedDeclName),
+          decls(begin, end) {
+        verify();
+    }
 
     // Returns the IdentifierInfo common to all the overloads.
-    IdentifierInfo *getIdInfo() const {
-        return decls[0]->getIdInfo();
-    }
+    IdentifierInfo *getIdInfo() const;
 
     // Returns the number of overloaded declarations associated with this
     // overloaded name.
     unsigned numOverloads() const { return decls.size(); }
 
-    Decl *getOverload(unsigned i) const {
+    SubroutineDecl *getOverload(unsigned i) const {
         assert(i < numOverloads() && "Index out of range!");
         return decls[i];
     }
@@ -132,6 +139,8 @@ public:
 
 private:
     DeclVector decls;
+
+    void verify();
 };
 
 //===----------------------------------------------------------------------===//
@@ -886,8 +895,24 @@ public:
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_FunctionDecl;
+        return (node->getKind() == AST_FunctionDecl ||
+                node->getKind() == AST_EnumLiteral);
     }
+
+protected:
+    // Constructor used by derived function-like declarations (EnumLiteral, for
+    // example).
+    FunctionDecl(AstKind          kind,
+                 IdentifierInfo  *name,
+                 Location         loc,
+                 ParamValueDecl **params,
+                 unsigned         numParams,
+                 Type            *returnType,
+                 DeclRegion      *parent)
+        : SubroutineDecl(kind, name, loc,
+                         params, numParams,
+                         returnType,
+                         parent) { }
 };
 
 //===----------------------------------------------------------------------===//
@@ -1044,17 +1069,23 @@ private:
 // EnumLiteral
 //
 // Instances of this class represent the elements of an EnumerationDecl.
-class EnumLiteral : public ValueDecl {
+class EnumLiteral : public FunctionDecl {
 
 public:
     EnumLiteral(EnumerationDecl *decl,
                 IdentifierInfo  *name,
                 Location         loc);
 
+    /// Returns the index (or value) of this EnumLiteral.
+    unsigned getIndex() const { return index; }
+
     static bool classof(const EnumLiteral *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumLiteral;
     }
+
+private:
+    unsigned index;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1072,6 +1103,10 @@ public:
 
     // Returns the number of EnumLiteral's associated with this enumeration.
     unsigned getNumLiterals() const { return numLiterals; }
+
+    // Returns the literal with the given name, or null if no such literal is a
+    // member of this enumeration.
+    EnumLiteral *findLiteral(IdentifierInfo *name);
 
     static bool classof(const EnumerationDecl *node) { return true; }
     static bool classof(const Ast *node) {

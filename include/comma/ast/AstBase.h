@@ -251,7 +251,8 @@ public:
     /// a procedure or function decl).
     bool denotesSubroutineDecl() const {
         return (kind == AST_FunctionDecl ||
-                kind == AST_ProcedureDecl);
+                kind == AST_ProcedureDecl ||
+                kind == AST_EnumLiteral);
     }
 
     /// \brief Returns true if this node denotes a Value.

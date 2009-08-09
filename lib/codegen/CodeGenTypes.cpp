@@ -45,6 +45,8 @@ const llvm::IntegerType *CodeGenTypes::lowerType(EnumerationType *type)
     unsigned numBits = llvm::Log2_32_Ceil(decl->getNumLiterals());
 
     // Promote the bit width to a power of two.
+    if (numBits <= 1)
+        return llvm::Type::Int1Ty;
     if (numBits <= 8)
         return llvm::Type::Int8Ty;
     else if (numBits <= 16)
