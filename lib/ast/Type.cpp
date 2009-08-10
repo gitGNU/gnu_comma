@@ -17,6 +17,16 @@ using llvm::dyn_cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
+// Type
+
+bool Type::isScalarType() const
+{
+    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
+        return carrier->getRepresentationType()->isScalarType();
+    return isa<EnumerationType>(this);
+}
+
+//===----------------------------------------------------------------------===//
 // CarrierType
 
 Decl *CarrierType::getDeclaration()

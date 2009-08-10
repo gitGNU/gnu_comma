@@ -33,6 +33,9 @@ public:
     /// such declaration, 0 is returned.
     virtual Decl *getDeclaration() { return 0; }
 
+    /// Returns true if this type denotes a scalar type.
+    bool isScalarType() const;
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
