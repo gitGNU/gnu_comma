@@ -782,10 +782,9 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
 
     if (!type) return false;
 
-    // Traverse the enclosing regions, stopping at the first function, model, or
-    // top-level context encountered.
-    DeclRegion *region = currentDeclarativeRegion();
-    for ( ; region != 0; region = region->getParent()) {
+    // Check that this declaration does not conflict.
+    for (DeclRegion *region = currentDeclarativeRegion();
+         region != 0; region = region->getParent()) {
         DeclRegion::PredRange range = region->findDecls(name);
         if (range.first != range.second) {
             Decl *decl = *range.first;
@@ -830,7 +829,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
     typeNode.release();
     initializerNode.release();
     scope.addDirectValue(decl);
-    region->addDecl(decl);
+    currentDeclarativeRegion()->addDecl(decl);
     return true;
 }
 
