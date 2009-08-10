@@ -127,6 +127,8 @@ private:
     /// function defined in the current capsule.
     static bool isLocalCall(const ProcedureCallStmt *stmt);
 
+    llvm::Function *getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl);
+
 };
 
 } // end comma namespace

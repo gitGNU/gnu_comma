@@ -18,6 +18,7 @@
 using namespace comma;
 
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -34,11 +35,24 @@ CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC)
 
 void CodeGenRoutine::declareSubroutine(SubroutineDecl *srDecl)
 {
+    getOrCreateSubroutineDeclaration(srDecl);
+}
+
+llvm::Function *
+CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
+{
     const llvm::FunctionType *srTy = CGTypes.lowerType(srDecl->getType());
     std::string srName = CG.getLinkName(srDecl);
 
-    llvm::Function *fn = CG.makeFunction(srTy, srName);
-    CG.insertGlobal(srName, fn);
+    llvm::Function *fn =
+        dyn_cast_or_null<llvm::Function>(CG.lookupGlobal(srName));
+
+    if (!fn) {
+        fn = CG.makeFunction(srTy, srName);
+        CG.insertGlobal(srName, fn);
+    }
+
+    return fn;
 }
 
 void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
@@ -48,15 +62,9 @@ void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
 
     const llvm::FunctionType *SRTy = CGTypes.lowerType(SRDecl->getType());
     std::string SRName = CG.getLinkName(SRDecl);
-    llvm::Module *M = CG.getModule();
 
-    // Get the llvm function for this routine.  If no such function exists,
-    // create one.
-    if (!(SRFn = M->getFunction(SRName))) {
-        declareSubroutine(SRDecl);
-        SRFn = M->getFunction(SRName);
-        assert(SRFn && "Function creation failed!");
-    }
+    // Get the llvm function for this routine.
+    SRFn = getOrCreateSubroutineDeclaration(srDecl);
 
     // Resolve the defining declaration, if needed.
     if (SRDecl->getDefiningDeclaration())
