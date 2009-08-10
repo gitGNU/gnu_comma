@@ -78,6 +78,7 @@ private:
     void emitReturnStmt(ReturnStmt *ret);
     void emitStmtSequence(StmtSequence *seq);
     void emitProcedureCallStmt(ProcedureCallStmt *stmt);
+    void emitAssignmentStmt(AssignmentStmt *stmt);
 
     /// Generates code for the given BlockStmt.
     ///

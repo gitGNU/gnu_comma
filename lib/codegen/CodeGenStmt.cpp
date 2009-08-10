@@ -26,12 +26,16 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
     default:
         assert(false && "Cannot codegen stmt yet!");
 
-    case Ast::AST_StmtSequence:
-        emitStmtSequence(cast<StmtSequence>(stmt));
-        break;
-
     case Ast::AST_ProcedureCallStmt:
         emitProcedureCallStmt(cast<ProcedureCallStmt>(stmt));
+        break;
+
+    case Ast::AST_AssignmentStmt:
+        emitAssignmentStmt(cast<AssignmentStmt>(stmt));
+        break;
+
+    case Ast::AST_StmtSequence:
+        emitStmtSequence(cast<StmtSequence>(stmt));
         break;
 
     case Ast::AST_BlockStmt:
@@ -167,4 +171,24 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
         emitDirectCall(pdecl, args);
     else
         CRT.genAbstractCall(Builder, percent, pdecl, args);
+}
+
+void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
+{
+    DeclRefExpr *target = stmt->getTarget();
+    Decl *targetDecl = target->getDeclaration();
+
+    // If the target is a ParamValueDecl, then we can be assured that it has a
+    // parameter mode of "in" or "in out", and that the result of decl lookup
+    // will return a pointer to the argument.
+    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(targetDecl)) {
+        llvm::Value *param = lookupDecl(pvDecl);
+        assert(param && "Lookup failed!");
+
+        llvm::Value *rhs = emitExpr(stmt->getAssignedExpr());
+        Builder.CreateStore(rhs, param);
+        return;
+    }
+
+    assert(false && "Cannot codegen assignment!");
 }
