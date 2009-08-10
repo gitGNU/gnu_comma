@@ -27,12 +27,27 @@ CodeGenCapsule::CodeGenCapsule(CodeGen &CG, Domoid *domoid)
 
 void CodeGenCapsule::emit()
 {
+    // Declare every subroutine in the add.
     if (AddDecl *add = capsule->getImplementation()) {
         typedef DeclRegion::DeclIter iterator;
         for (iterator iter = add->beginDecls();
              iter != add->endDecls(); ++iter) {
-            if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*iter))
-                CodeGenRoutine CGR(*this, SR);
+            if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*iter)) {
+                CodeGenRoutine CGR(*this);
+                CGR.declareSubroutine(SR);
+            }
+        }
+    }
+
+    // Codegen each subroutine.
+    if (AddDecl *add = capsule->getImplementation()) {
+        typedef DeclRegion::DeclIter iterator;
+        for (iterator iter = add->beginDecls();
+             iter != add->endDecls(); ++iter) {
+            if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*iter)) {
+                CodeGenRoutine CGR(*this);
+                CGR.emitSubroutine(SR);
+            }
         }
     }
 }

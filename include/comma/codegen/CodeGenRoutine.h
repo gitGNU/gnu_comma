@@ -60,12 +60,12 @@ class CodeGenRoutine {
     DeclMap declTable;
 
 public:
-    CodeGenRoutine(CodeGenCapsule &CGC, SubroutineDecl *SR);
+    CodeGenRoutine(CodeGenCapsule &CGC);
+
+    void declareSubroutine(SubroutineDecl *srDecl);
+    void emitSubroutine(SubroutineDecl *srDecl);
 
 private:
-    // Emits the associated subroutine decl into llvm IR.
-    void emit();
-
     // Emits the prologue for the current subroutine given a basic block
     // representing the body of the function.
     void emitPrologue(llvm::BasicBlock *body);

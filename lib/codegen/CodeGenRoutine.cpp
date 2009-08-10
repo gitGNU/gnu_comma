@@ -21,45 +21,54 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC, SubroutineDecl *SR)
+CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC)
     : CGC(CGC),
       CG(CGC.getCodeGen()),
       CGTypes(CG.getTypeGenerator()),
       CRT(CG.getRuntime()),
-      SRDecl(SR),
+      SRDecl(0),
       SRFn(0),
       entryBB(0),
       returnBB(0),
-      returnValue(0)
+      returnValue(0) { }
+
+void CodeGenRoutine::declareSubroutine(SubroutineDecl *srDecl)
 {
-    emit();
+    const llvm::FunctionType *srTy = CGTypes.lowerType(srDecl->getType());
+    std::string srName = CG.getLinkName(srDecl);
+
+    llvm::Function *fn = CG.makeFunction(srTy, srName);
+    CG.insertGlobal(srName, fn);
 }
 
-void CodeGenRoutine::emit()
+void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
 {
+    // Remember the declaration we are processing.
+    SRDecl = srDecl;
+
     const llvm::FunctionType *SRTy = CGTypes.lowerType(SRDecl->getType());
     std::string SRName = CG.getLinkName(SRDecl);
-    llvm::Module    *M = CG.getModule();
+    llvm::Module *M = CG.getModule();
 
-    SRFn = llvm::Function::Create(SRTy,
-                                  llvm::Function::ExternalLinkage,
-                                  SRName, M);
+    // Get the llvm function for this routine.  If no such function exists,
+    // create one.
+    if (!(SRFn = M->getFunction(SRName))) {
+        declareSubroutine(SRDecl);
+        SRFn = M->getFunction(SRName);
+        assert(SRFn && "Function creation failed!");
+    }
 
-    // For now Comma functions do not throw exceptions.
-    SRFn->setDoesNotThrow();
-
-    CG.insertGlobal(SRName, SRFn);
+    // Resolve the defining declaration, if needed.
+    if (SRDecl->getDefiningDeclaration())
+        SRDecl = SRDecl->getDefiningDeclaration();
 
     {
         // Extract and save the first implicit argument "%".
         llvm::Function::arg_iterator iter = SRFn->arg_begin();
-        percent = &*iter++;
+        percent = iter++;
 
         // For each formal argument, set its name to match that of the declaration.
         // Also, populate the declTable with entries for each of the parameters.
-        //
-        // FIXME: parameters which are mutated (assigned to) need to be copied into
-        // alloca'd stack slots.
         for (unsigned i = 0; iter != SRFn->arg_end(); ++iter, ++i) {
             ParamValueDecl *param = SRDecl->getParam(i);
             iter->setName(param->getString());
