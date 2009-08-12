@@ -558,16 +558,9 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
                     // If the argument is of mode IN, then so too must be the
                     // target mode.
                     if (param->getParameterMode() == PM::MODE_IN) {
-                        if (targetMode == PM::MODE_OUT) {
-                            report(argLoc, diag::MODE_IN_MODE_OUT_CONTEXT)
-                                << param->getString();
-                            return false;
-                        }
-                        else {
-                            report(argLoc, diag::MODE_IN_MODE_IN_OUT_CONTEXT)
-                                << param->getString();
-                            return false;
-                        }
+                        report(argLoc, diag::IN_PARAMETER_NOT_MODE_COMPATABLE)
+                            << param->getString() << targetMode;
+                        return false;
                     }
                 }
                 else {
@@ -579,10 +572,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
             }
 
             // The argument is not usable in an "out" or "in out" context.
-            if (targetMode == PM::MODE_OUT)
-                report(argLoc, diag::EXPRESSION_NOT_MODE_OUT_COMPATABLE);
-            else
-                report(argLoc, diag::EXPRESSION_NOT_MODE_IN_OUT_COMPATABLE);
+            report(argLoc, diag::EXPRESSION_NOT_MODE_COMPATABLE) << targetMode;
             return false;
         }
     }

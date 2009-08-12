@@ -11,6 +11,7 @@
 
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/basic/Location.h"
+#include "comma/basic/ParameterModes.h"
 #include <iostream>
 #include <sstream>
 
@@ -47,6 +48,8 @@ public:
     DiagnosticStream &operator<<(const SourceLocation &sloc);
 
     DiagnosticStream &operator<<(const IdentifierInfo *idInfo);
+
+    DiagnosticStream &operator<<(PM::ParameterMode mode);
 
 private:
     void emitFormatComponent();

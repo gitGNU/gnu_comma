@@ -112,6 +112,30 @@ DiagnosticStream &DiagnosticStream::operator<<(const IdentifierInfo *idInfo)
     return *this;
 }
 
+DiagnosticStream &DiagnosticStream::operator<<(PM::ParameterMode mode)
+{
+    switch (mode) {
+    default:
+        assert(false && "Bad parameter mode!");
+        break;
+
+    case PM::MODE_DEFAULT:
+    case PM::MODE_IN:
+        message << "in";
+        break;
+
+    case PM::MODE_OUT:
+        message << "out";
+        break;
+
+    case PM::MODE_IN_OUT:
+        message << "in out";
+        break;
+    }
+    emitFormatComponent();
+    return *this;
+}
+
 DiagnosticStream &Diagnostic::report(const SourceLocation &loc, diag::Kind kind)
 {
     return diagstream.initialize(loc, messages[kind]);
