@@ -406,7 +406,8 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
 
             // If this argument is not applicable (meaning, there is no
             // interpretation of the argument for this particular decl), filter
-            // out the decl.
+            // out the decl.  Also, if we have exhausted all possibilities, use
+            // the current argument as context for generating a diagnostic.
             if (!applicableArgument) {
                 declFilter[i] = false;
                 if (declFilter.none())
@@ -416,7 +417,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     }
 
     // If all of the declarations have been filtered out, it is due to ambiguous
-    // arguments.  Simply return.
+    // arguments.  Simply return (we have already generated a diagnostic).
     if (declFilter.none())
         return getInvalidNode();
 
@@ -538,37 +539,52 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
     // Check each argument types wrt this decl.
     for (unsigned i = 0; i < numArgs; ++i) {
         Type *targetType = decl->getArgType(i);
-        Expr *arg        = args[i];
+        Expr *arg = args[i];
+        Location argLoc = arg->getLocation();
+        ParameterMode targetMode = decl->getParamMode(i);
 
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
 
-        // If the argument is a subroutine parameter, enusure its mode is
-        // compatable with that of the call.
-        if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
-            ValueDecl *vdecl = declRef->getDeclaration();
-            if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
-                ParameterMode targetMode = decl->getParamMode(i);
-                Location loc = arg->getLocation();
-
-                // If the argument is of mode IN, then so too must be the target
-                // mode.
-                if (param->getParameterMode() == MODE_IN) {
-                    if (targetMode == MODE_OUT) {
-                        report(loc, diag::MODE_IN_MODE_OUT_CONTEXT)
-                            << param->getString();
-                        return false;
-                    }
-                    else if (targetMode == MODE_IN_OUT) {
-                        report(loc, diag::MODE_IN_MODE_IN_OUT_CONTEXT)
-                            << param->getString();
-                        return false;
-                    }
-                }
-            }
-        }
         if (!checkType(arg, targetType))
             return false;
+
+        // If the target mode is either "out" or "in out", ensure that the
+        // argument provided is compatable.
+        if (targetMode == MODE_OUT or targetMode == MODE_IN_OUT) {
+            if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
+                ValueDecl *vdecl = declRef->getDeclaration();
+                if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
+                    // If the argument is of mode IN, then so too must be the
+                    // target mode.
+                    if (param->getParameterMode() == MODE_IN) {
+                        if (targetMode == MODE_OUT) {
+                            report(argLoc, diag::MODE_IN_MODE_OUT_CONTEXT)
+                                << param->getString();
+                            return false;
+                        }
+                        else {
+                            report(argLoc, diag::MODE_IN_MODE_IN_OUT_CONTEXT)
+                                << param->getString();
+                            return false;
+                        }
+                    }
+                }
+                else {
+                    // The only other case (currently) are ObjectDecls, which
+                    // are always usable.
+                    assert(isa<ObjectDecl>(vdecl) && "Cannot typecheck decl!");
+                }
+                continue;
+            }
+
+            // The argument is not usable in an "out" or "in out" context.
+            if (targetMode == MODE_OUT)
+                report(argLoc, diag::EXPRESSION_NOT_MODE_OUT_COMPATABLE);
+            else
+                report(argLoc, diag::EXPRESSION_NOT_MODE_IN_OUT_COMPATABLE);
+            return false;
+        }
     }
     return true;
 }

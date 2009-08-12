@@ -1,0 +1,30 @@
+-- MUST-FAIL:  Ensure function results are not usable in an "out" or "in out" context.
+
+domain D add
+
+   function F return Bool is
+   begin
+      return true;
+   end F;
+
+   procedure P1 (X : out Bool) is
+   begin
+      X := true;
+   end P1;
+
+   procedure P2 (X : in out Bool) is
+   begin
+      P1(X);
+   end P2;
+
+   procedure Test1 is
+   begin
+      P1(F);
+   end Test1;
+
+   procedure Test2 is
+   begin
+      P2(F);
+   end Test2;
+end D;
+
