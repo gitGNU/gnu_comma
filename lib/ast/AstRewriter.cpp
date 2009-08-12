@@ -27,8 +27,6 @@ Type *AstRewriter::getRewrite(Type *source) const
 
 void AstRewriter::installRewrites(DomainType *context)
 {
-    if (context->denotesPercent()) return;
-
     ModelDecl *model = context->getModelDecl();
 
     addRewrite(model->getPercent(), context);

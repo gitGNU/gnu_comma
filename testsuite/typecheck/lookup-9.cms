@@ -1,0 +1,26 @@
+-- Ensure functor exports are resolved.
+
+signature S end S;
+
+domain F (X : S) with
+   procedure Foo (x : X);
+add
+   procedure Foo (x : X) is begin end Foo;
+end F;
+
+domain D1 with S; end D1;
+
+domain D2 add
+   -- Ensure qualified calls resolve.
+   procedure Test1 (x : D1) is
+   begin
+      F(D1)::Foo(x);
+   end Test1;
+
+   -- Ensure unqualified calls resolve.
+   procedure Test2 (x : D1) is
+      import F(D1);
+   begin
+      Foo(x);
+   end Test2;
+end D2;
