@@ -60,9 +60,6 @@ void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
     // Remember the declaration we are processing.
     SRDecl = srDecl;
 
-    const llvm::FunctionType *SRTy = CGTypes.lowerType(SRDecl->getType());
-    std::string SRName = CG.getLinkName(SRDecl);
-
     // Get the llvm function for this routine.
     SRFn = getOrCreateSubroutineDeclaration(srDecl);
 
@@ -70,42 +67,55 @@ void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
     if (SRDecl->getDefiningDeclaration())
         SRDecl = SRDecl->getDefiningDeclaration();
 
-    {
-        // Extract and save the first implicit argument "%".
-        llvm::Function::arg_iterator iter = SRFn->arg_begin();
-        percent = iter++;
+    injectSubroutineArgs();
+    emitSubroutineBody();
+    llvm::verifyFunction(*SRFn);
+}
 
-        // For each formal argument, set its name to match that of the declaration.
-        // Also, populate the declTable with entries for each of the parameters.
-        for (unsigned i = 0; iter != SRFn->arg_end(); ++iter, ++i) {
-            ParamValueDecl *param = SRDecl->getParam(i);
-            iter->setName(param->getString());
-            declTable[param] = iter;
-        }
-    }
-
+/// Generates code for the current subroutines body.
+void CodeGenRoutine::emitSubroutineBody()
+{
     // Create the return block.
     returnBB = llvm::BasicBlock::Create("return", SRFn);
 
-    // Create the entry block (before the return block) and set it as the
-    // current insertion point for our IRBuilder.
+    // Create the entry block and set it as the current insertion point for our
+    // IRBuilder.
     entryBB = llvm::BasicBlock::Create("entry", SRFn, returnBB);
     Builder.SetInsertPoint(entryBB);
 
     // If we are generating a function, allocate a stack slot for the return
     // value.
     if (isa<FunctionDecl>(SRDecl))
-        returnValue = Builder.CreateAlloca(SRTy->getReturnType());
+        returnValue = Builder.CreateAlloca(SRFn->getReturnType());
 
-    // Codegen the function body.  If the insertion context is not properly
-    // terminated, create a branch to the return BB.
+    // Codegen the function body.  If the resulting insertion context is not
+    // properly terminated, create a branch to the return BB.
     llvm::BasicBlock *bodyBB = emitBlockStmt(SRDecl->getBody(), entryBB);
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(returnBB);
 
     emitPrologue(bodyBB);
     emitEpilogue();
-    llvm::verifyFunction(*SRFn);
+}
+
+/// Given the current SubroutineDecl and llvm::Function, initialize
+/// CodeGenRoutine::percent with the llvm value corresponding to the first
+/// (implicit) argument.  Also, name the llvm arguments after the source
+/// formals, and populate the lookup tables such that a search for a parameter
+/// decl yields the corresponding llvm value.
+void CodeGenRoutine::injectSubroutineArgs()
+{
+    // Extract and save the first implicit argument "%".
+    llvm::Function::arg_iterator iter = SRFn->arg_begin();
+    percent = iter++;
+
+    // For each formal argument, set its name to match that of the declaration.
+    // Also, populate the declTable with entries for each of the parameters.
+    for (unsigned i = 0; iter != SRFn->arg_end(); ++iter, ++i) {
+        ParamValueDecl *param = SRDecl->getParam(i);
+        iter->setName(param->getString());
+        declTable[param] = iter;
+    }
 }
 
 void CodeGenRoutine::emitPrologue(llvm::BasicBlock *bodyBB)
@@ -164,10 +174,10 @@ bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
 {
     const FunctionDecl *decl = dyn_cast<FunctionDecl>(expr->getConnective());
     if (decl) {
-        // FIXME: This is a hack (and not truely correct).  We rely here on the
-        // esoteric property that a local decl is declared in an "add" context.
-        // Rather, check that the decl originates from the curent domain, or
-        // explicity tag decls as local.
+        // FIXME: This is a hack.  We rely here on the esoteric property that a
+        // local decl is declared in an "add" context.  Rather, check that the
+        // decl originates from the curent domain, or explicity tag decls as
+        // local in the AST.
         const DeclRegion *region = decl->getDeclRegion();
         return isa<AddDecl>(region);
     }
@@ -176,12 +186,118 @@ bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
 
 bool CodeGenRoutine::isLocalCall(const ProcedureCallStmt *stmt)
 {
-    // FIXME: This is a hack (and not truely correct).  We rely here on the
-    // esoteric property that a local decl is declared in an "add" context.
-    // Rather, check that the decl originates from the curent domain, or
-    // explicity tag decls as local.
+    // FIXME: This is a hack.  We rely here on the esoteric property that a
+    // local decl is declared in an "add" context.  Rather, check that the decl
+    // originates from the curent domain, or explicity tag decls as local in the
+    // AST.
     const ProcedureDecl *pdecl = stmt->getConnective();
     const DeclRegion *region = pdecl->getDeclRegion();
     return isa<AddDecl>(region);
 }
 
+void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
+{
+    llvm::Value *stackSlot = createStackSlot(objDecl);
+
+    if (objDecl->hasInitializer()) {
+        llvm::Value *init = emitExpr(objDecl->getInitializer());
+        Builder.CreateStore(init, stackSlot);
+    }
+}
+
+llvm::Value *CodeGenRoutine::emitScalarLoad(llvm::Value *ptr)
+{
+    return Builder.CreateLoad(ptr);
+}
+
+llvm::Value *CodeGenRoutine::getStackSlot(Decl *decl)
+{
+    // FIXME: We should be more precise.  Subroutine parameters, for example,
+    // are accessible via lookupDecl.  There is no way (ATM) to distinguish a
+    // parameter from a alloca'd local.  The lookup methods should provide finer
+    // grained resolution.
+    llvm::Value *stackSlot = lookupDecl(decl);
+    assert(stackSlot && "Lookup failed!");
+    return stackSlot;
+}
+
+llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
+{
+    assert(lookupDecl(decl) == 0 &&
+           "Cannot create stack slot for preexisting decl!");
+
+    // The only kind of declaration we emit stack slots for are value
+    // declarations, hense the cast.
+    ValueDecl *vDecl = cast<ValueDecl>(decl);
+    const llvm::Type *type = CGTypes.lowerType(vDecl->getType());
+    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+
+    Builder.SetInsertPoint(entryBB);
+    llvm::Value *stackSlot = Builder.CreateAlloca(type);
+    declTable[decl] = stackSlot;
+    Builder.SetInsertPoint(savedBB);
+    return stackSlot;
+}
+
+llvm::Value *CodeGenRoutine::getOrCreateStackSlot(Decl *decl)
+{
+    if (llvm::Value *stackSlot = lookupDecl(decl))
+        return stackSlot;
+    else
+        return createStackSlot(decl);
+}
+
+llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
+{
+    // FIXME: All variable references must be DeclRefExpressions for now.  This
+    // will not always be the case.
+    DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
+    Decl *refDecl = refExpr->getDeclaration();
+
+    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+        ParameterMode paramMode = pvDecl->getParameterMode();
+
+        // Enusure that the parameter has a mode consistent with reference
+        // emission.
+        assert((paramMode == MODE_OUT or paramMode == MODE_IN_OUT) &&
+               "Cannot take reference to a parameter with mode IN!");
+
+        return lookupDecl(pvDecl);
+    }
+
+    if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(refDecl)) {
+        // Local object declarations are always generated with repect to a stack
+        // slot.
+        return getStackSlot(objDecl);
+    }
+
+    assert(false && "Cannot codegen reference for expression!");
+}
+
+llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
+{
+    if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
+        Decl *refDecl = refExpr->getDeclaration();
+
+        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+            // If the parameter mode is either "out" or "in out" then load the
+            // actual value.
+            llvm::Value *param = lookupDecl(pvDecl);
+            ParameterMode paramMode = pvDecl->getParameterMode();
+
+            if (paramMode == MODE_OUT or paramMode == MODE_IN_OUT)
+                return Builder.CreateLoad(param);
+            else
+                return param;
+        }
+
+        // Otherwise, we must have an ObjectDecl.  Just load from the alloca'd
+        // stack slot.
+        ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
+        llvm::Value *stackSlot = lookupDecl(objDecl);
+        return Builder.CreateLoad(stackSlot);
+    }
+
+    // FIXME:  This is not precise enough, but works for the remaining cases.
+    return emitExpr(expr);
+}

@@ -82,25 +82,12 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                                               unsigned argPosition)
 {
-    llvm::Value *argVal = emitExpr(arg);
+    ParameterMode mode = srDecl->getParamMode(argPosition);
 
-    // If the argument is a formal of the current subroutine, convert if
-    // necessary to satisfy the context mode.
-    if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(arg)) {
-        Decl *refDecl = refExpr->getDeclaration();
-        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-            ParameterMode contextMode = srDecl->getParamMode(argPosition);
-            ParameterMode paramMode = pvDecl->getParameterMode();
-
-            // If the argument has a mode being either "out" or "in out", and
-            // the context mode is "in", then we must load the parameter value.
-            if (contextMode == MODE_IN and
-                (paramMode == MODE_OUT or paramMode == MODE_IN_OUT))
-                argVal = Builder.CreateLoad(argVal);
-        }
-    }
-
-    return argVal;
+    if (mode == MODE_OUT or mode == MODE_IN_OUT)
+        return emitVariableReference(arg);
+    else
+        return emitExpr(arg);
 }
 
 llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
@@ -165,20 +152,13 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
 
 llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
 {
-    typedef llvm::IntegerType LLVMIntTy;
-
     llvm::Value *op = emitExpr(expr->getOperand());
-    const llvm::Type *targetTy = CGTypes.lowerType(expr->getType());
 
-    assert(isa<llvm::PointerType>(op->getType()) &&
-           "Percent expression not a pointer type!");
-
-    // If the target type is an integer type, convert the incomming expression
+    // If the result type is a scalar type, convert the incomming expression
     // (which must be a pointer type) to a integral value of the needed size.
-    if (const LLVMIntTy *intTy = dyn_cast<LLVMIntTy>(targetTy)) {
-        assert(intTy->getBitWidth() <= CG.getTargetData().getPointerSizeInBits()
-               && "Integral type too large for pointer cast!");
-        return Builder.CreatePtrToInt(op, intTy);
+    if (expr->getType()->isScalarType()) {
+        const llvm::Type *loweredTy = CGTypes.lowerType(expr->getType());
+        return Builder.CreatePtrToInt(op, loweredTy);
     }
 
     assert(false && "Cannot codegen inj expression yet!");
@@ -187,18 +167,13 @@ llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
 {
-    typedef llvm::IntegerType LLVMIntTy;
-
     llvm::Value *op = emitExpr(expr->getOperand());
-    const llvm::PointerType *percentTy =
-        cast<llvm::PointerType>(CGTypes.lowerType(expr->getType()));
 
-    // If the operand is an integer type, its width is no more than that of a
+    // If the operand is a scalar type, its width is no more than that of a
     // pointer.  Extend it to an i8*.
-    if (const LLVMIntTy *intTy = dyn_cast<LLVMIntTy>(op->getType())) {
-        assert(intTy->getBitWidth() <= CG.getTargetData().getPointerSizeInBits()
-               && "Integral type too large for pointer cast!");
-        return Builder.CreateIntToPtr(op, percentTy);
+    if (expr->getOperand()->getType()->isScalarType()) {
+        const llvm::Type *loweredTy = CGTypes.lowerType(expr->getType());
+        return Builder.CreateIntToPtr(op, loweredTy);
     }
 
     assert(false && "Cannot codegen prj expression yet!");

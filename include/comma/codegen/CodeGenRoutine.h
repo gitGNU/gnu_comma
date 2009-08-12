@@ -73,6 +73,18 @@ private:
     // Emits the epilogue for the current subroutine.
     void emitEpilogue();
 
+    /// Given the current SubroutineDecl and llvm::Function, initialize
+    /// CodeGenRoutine::percent with the llvm value corresponding to the first
+    /// (implicit) argument.  Also, name the llvm arguments after the source
+    /// formals, and populate the lookup tables such that a search for a
+    /// parameter decl yields the corresponding llvm value.
+    void injectSubroutineArgs();
+
+    /// Generates code for the current subroutines body.
+    void emitSubroutineBody();
+
+    void emitObjectDecl(ObjectDecl *objDecl);
+
     void emitStmt(Stmt *stmt);
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
@@ -129,6 +141,17 @@ private:
 
     llvm::Function *getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl);
 
+    llvm::Value *emitScalarLoad(llvm::Value *ptr);
+
+    llvm::Value *getStackSlot(Decl *decl);
+
+    llvm::Value *emitVariableReference(Expr *expr);
+
+    llvm::Value *emitValue(Expr *expr);
+
+    llvm::Value *createStackSlot(Decl *decl);
+
+    llvm::Value *getOrCreateStackSlot(Decl *decl);
 };
 
 } // end comma namespace

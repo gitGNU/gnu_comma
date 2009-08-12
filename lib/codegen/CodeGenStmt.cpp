@@ -57,8 +57,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
     if (ret->hasReturnExpr()) {
         // Store the result into the return slot.
         assert(returnValue && "Non-empty return from function!");
-        Expr *expr = ret->getReturnExpr();
-        llvm::Value *res = emitExpr(expr);
+        llvm::Value *res = emitValue(ret->getReturnExpr());
         Builder.CreateStore(res, returnValue);
         Builder.CreateBr(returnBB);
     }
@@ -100,6 +99,13 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
     BB->moveAfter(predecessor);
     Builder.SetInsertPoint(BB);
+
+    // Generate any object declarations provided by this block, followed by the
+    // blocks sequence of statements.
+    typedef DeclRegion::DeclIter iterator;
+    for (iterator I = block->beginDecls(); I != block->endDecls(); ++I)
+        if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(*I))
+            emitObjectDecl(objDecl);
     emitStmtSequence(block);
     return BB;
 }
@@ -175,20 +181,8 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
 
 void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 {
-    DeclRefExpr *target = stmt->getTarget();
-    Decl *targetDecl = target->getDeclaration();
+    llvm::Value *ref = emitVariableReference(stmt->getTarget());
+    llvm::Value *rhs = emitValue(stmt->getAssignedExpr());
 
-    // If the target is a ParamValueDecl, then we can be assured that it has a
-    // parameter mode of "in" or "in out", and that the result of decl lookup
-    // will return a pointer to the argument.
-    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(targetDecl)) {
-        llvm::Value *param = lookupDecl(pvDecl);
-        assert(param && "Lookup failed!");
-
-        llvm::Value *rhs = emitExpr(stmt->getAssignedExpr());
-        Builder.CreateStore(rhs, param);
-        return;
-    }
-
-    assert(false && "Cannot codegen assignment!");
+    Builder.CreateStore(rhs, ref);
 }
