@@ -541,7 +541,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
         Type *targetType = decl->getArgType(i);
         Expr *arg = args[i];
         Location argLoc = arg->getLocation();
-        ParameterMode targetMode = decl->getParamMode(i);
+        PM::ParameterMode targetMode = decl->getParamMode(i);
 
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
@@ -551,14 +551,14 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
 
         // If the target mode is either "out" or "in out", ensure that the
         // argument provided is compatable.
-        if (targetMode == MODE_OUT or targetMode == MODE_IN_OUT) {
+        if (targetMode == PM::MODE_OUT or targetMode == PM::MODE_IN_OUT) {
             if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
                 ValueDecl *vdecl = declRef->getDeclaration();
                 if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
                     // If the argument is of mode IN, then so too must be the
                     // target mode.
-                    if (param->getParameterMode() == MODE_IN) {
-                        if (targetMode == MODE_OUT) {
+                    if (param->getParameterMode() == PM::MODE_IN) {
+                        if (targetMode == PM::MODE_OUT) {
                             report(argLoc, diag::MODE_IN_MODE_OUT_CONTEXT)
                                 << param->getString();
                             return false;
@@ -579,7 +579,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
             }
 
             // The argument is not usable in an "out" or "in out" context.
-            if (targetMode == MODE_OUT)
+            if (targetMode == PM::MODE_OUT)
                 report(argLoc, diag::EXPRESSION_NOT_MODE_OUT_COMPATABLE);
             else
                 report(argLoc, diag::EXPRESSION_NOT_MODE_IN_OUT_COMPATABLE);

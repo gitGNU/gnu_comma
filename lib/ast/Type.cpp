@@ -329,11 +329,11 @@ SubroutineType::SubroutineType(AstKind          kind,
         parameterInfo[i].setPointer(argTypes[i]);
 }
 
-SubroutineType::SubroutineType(AstKind          kind,
+SubroutineType::SubroutineType(AstKind kind,
                                IdentifierInfo **formals,
-                               Type           **argTypes,
-                               ParameterMode   *modes,
-                               unsigned         numArgs)
+                               Type **argTypes,
+                               PM::ParameterMode *modes,
+                               unsigned numArgs)
     : Type(kind),
       numArgs(numArgs)
 {
@@ -363,25 +363,26 @@ int SubroutineType::getKeywordIndex(IdentifierInfo *key) const
     return -1;
 }
 
-ParameterMode SubroutineType::getParameterMode(unsigned i) const
+PM::ParameterMode SubroutineType::getParameterMode(unsigned i) const
 {
-    ParameterMode mode = getExplicitParameterMode(i);
-    if (mode == MODE_DEFAULT)
-        return MODE_IN;
+    PM::ParameterMode mode = getExplicitParameterMode(i);
+    if (mode == PM::MODE_DEFAULT)
+        return PM::MODE_IN;
     else
         return mode;
 }
 
-ParameterMode SubroutineType::getExplicitParameterMode(unsigned i) const
+PM::ParameterMode SubroutineType::getExplicitParameterMode(unsigned i) const
 {
-    return static_cast<ParameterMode>(parameterInfo[i].getInt());
+    return static_cast<PM::ParameterMode>(parameterInfo[i].getInt());
 }
 
-void SubroutineType::setParameterMode(ParameterMode mode, unsigned i)
+void SubroutineType::setParameterMode(PM::ParameterMode mode, unsigned i)
 {
     assert(i < getArity() && "Index out of range!");
 
-    if ((mode == MODE_OUT || mode == MODE_IN_OUT) && isa<FunctionType>(this))
+    if ((mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT) &&
+        isa<FunctionType>(this))
         assert(false && "Only procedures can have `out' parameter modes!");
 
     parameterInfo[i].setInt(mode);
@@ -448,16 +449,16 @@ void SubroutineType::dump(unsigned depth)
             dumpSpaces(depth);
             std::cerr << '(' << getKeyword(i)->getString() << " : ";
             switch (getExplicitParameterMode(i)) {
-            case MODE_IN:
+            case PM::MODE_IN:
                 std::cerr << "in";
                 break;
-            case MODE_IN_OUT:
+            case PM::MODE_IN_OUT:
                 std::cerr << "in out";
                 break;
-            case MODE_OUT:
+            case PM::MODE_OUT:
                 std::cerr << "out";
                 break;
-            case MODE_DEFAULT:
+            case PM::MODE_DEFAULT:
                 break;
             }
             std::cerr << '\n';

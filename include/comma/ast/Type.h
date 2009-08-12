@@ -352,17 +352,17 @@ class SubroutineType : public Type {
 protected:
     // This constructor produces a subroutine type where the parameter modes are
     // set to MODE_DEFAULT.
-    SubroutineType(AstKind          kind,
+    SubroutineType(AstKind kind,
                    IdentifierInfo **formals,
-                   Type           **argTypes,
-                   unsigned         numArgs);
+                   Type **argTypes,
+                   unsigned numArgs);
 
     // Constructor where each parameter mode can be specified.
-    SubroutineType(AstKind          kind,
+    SubroutineType(AstKind kind,
                    IdentifierInfo **formals,
-                   Type           **argTypes,
-                   ParameterMode   *modes,
-                   unsigned         numArgs);
+                   Type **argTypes,
+                   PM::ParameterMode *modes,
+                   unsigned numArgs);
 
 public:
     // Returns the number of arguments accepted by this type.
@@ -382,14 +382,14 @@ public:
     // Returns the i'th parameter mode for this type.  Parameters with
     // MODE_DEFAULT are automatically converted to MODE_IN (if this conversion
     // is undesierable use getExplicitParameterMode instead).
-    ParameterMode getParameterMode(unsigned i) const;
+    PM::ParameterMode getParameterMode(unsigned i) const;
 
     // Returns the i'th parameter mode for this type.
-    ParameterMode getExplicitParameterMode(unsigned i) const;
+    PM::ParameterMode getExplicitParameterMode(unsigned i) const;
 
     // Sets the i'th parameter mode.  This method will assert if this subroutine
     // denotes a function type and the mode is `out' or `in out'.
-    void setParameterMode(ParameterMode mode, unsigned i);
+    void setParameterMode(PM::ParameterMode mode, unsigned i);
 
     // Returns an array of IdentifierInfo's corresponding to the keyword set for
     // this type, or 0 if there are no parameters.  This function is intended to

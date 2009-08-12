@@ -53,8 +53,8 @@ void TypeCheck::populateInitialEnvironment()
     IdentifierInfo  *equalsId = resource.getIdentifierInfo("=");
     EnumerationType *boolType = boolEnum->getType();
     ParamValueDecl  *params[] = {
-        new ParamValueDecl(paramX, boolType, MODE_DEFAULT, 0),
-        new ParamValueDecl(paramY, boolType, MODE_DEFAULT, 0)
+        new ParamValueDecl(paramX, boolType, PM::MODE_DEFAULT, 0),
+        new ParamValueDecl(paramY, boolType, PM::MODE_DEFAULT, 0)
     };
     FunctionDecl *equals =
         new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
@@ -908,10 +908,8 @@ void TypeCheck::beginSubroutineDeclaration(Descriptor &desc)
            "Beginning a subroutine which is neither a function or procedure?");
 }
 
-Node TypeCheck::acceptSubroutineParameter(IdentifierInfo   *formal,
-                                          Location          loc,
-                                          Node              typeNode,
-                                          ParameterMode     mode)
+Node TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
+                                          Node typeNode, PM::ParameterMode mode)
 {
     // FIXME: The location provided here is the location of the formal, not the
     // location of the type.  The type node here should be a ModelRef or similar
@@ -958,8 +956,8 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         // If this is a function descriptor, check that the parameter mode is
         // not of an "out" variety.
         if (desc.isFunctionDescriptor()
-            && (param->getParameterMode() == MODE_OUT ||
-                param->getParameterMode() == MODE_IN_OUT)) {
+            && (param->getParameterMode() == PM::MODE_OUT ||
+                param->getParameterMode() == PM::MODE_IN_OUT)) {
             report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
             paramsOK = false;
         }
@@ -1096,8 +1094,8 @@ Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
         Type           *enumType = enumeration->getType();
 
         ParamValueDecl *params[] = {
-            new ParamValueDecl(paramX, enumType, MODE_DEFAULT, 0),
-            new ParamValueDecl(paramY, enumType, MODE_DEFAULT, 0)
+            new ParamValueDecl(paramX, enumType, PM::MODE_DEFAULT, 0),
+            new ParamValueDecl(paramY, enumType, PM::MODE_DEFAULT, 0)
         };
 
         FunctionDecl *equals =

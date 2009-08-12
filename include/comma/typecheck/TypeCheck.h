@@ -82,10 +82,10 @@ public:
 
     void beginSubroutineDeclaration(Descriptor &desc);
 
-    Node acceptSubroutineParameter(IdentifierInfo   *formal,
-                                   Location          loc,
-                                   Node              typeNode,
-                                   ParameterMode     mode);
+    Node acceptSubroutineParameter(IdentifierInfo *formal,
+                                   Location loc,
+                                   Node typeNode,
+                                   PM::ParameterMode mode);
 
     Node acceptSubroutineDeclaration(Descriptor &desc,
                                      bool        definitionFollows);

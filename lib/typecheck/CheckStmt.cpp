@@ -205,7 +205,7 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
 
     // If the target decl is a parameter, ensure that it is not of mode "in".
     if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
-        if (param->getParameterMode() == MODE_IN) {
+        if (param->getParameterMode() == PM::MODE_IN) {
             report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
             return getInvalidNode();
         }

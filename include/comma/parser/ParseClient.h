@@ -79,9 +79,9 @@ public:
     virtual void beginSubroutineDeclaration(Descriptor &desc) = 0;
 
     virtual Node acceptSubroutineParameter(IdentifierInfo *formal,
-                                           Location        loc,
-                                           Node            typeNode,
-                                           ParameterMode   mode) = 0;
+                                           Location loc,
+                                           Node typeNode,
+                                           PM::ParameterMode mode) = 0;
 
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;

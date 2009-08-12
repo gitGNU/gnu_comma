@@ -95,8 +95,8 @@ const llvm::FunctionType *CodeGenTypes::lowerType(const SubroutineType *type)
 
         // If the argument mode is "out" or "in out", make the argument a
         // pointer-to type.
-        ParameterMode mode = type->getParameterMode(i);
-        if (mode == MODE_OUT or mode == MODE_IN_OUT)
+        PM::ParameterMode mode = type->getParameterMode(i);
+        if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
             argTy = CG.getPointerType(argTy);
 
         args.push_back(argTy);

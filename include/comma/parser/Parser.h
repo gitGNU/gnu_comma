@@ -224,7 +224,7 @@ private:
     IdentifierInfo *parseIdentifierInfo();
     IdentifierInfo *parseFunctionIdentifierInfo();
 
-    ParameterMode parseParameterMode();
+    PM::ParameterMode parseParameterMode();
 
     // Parses the argument list of a subroutine call.  The current token must be
     // a TKN_LPAREN.  If the parsing succeeds, dst is populated with the nodes

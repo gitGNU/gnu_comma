@@ -410,7 +410,7 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
 
     // Set the parameter modes for the type.
     for (unsigned i = 0; i < numParams; ++i) {
-        ParameterMode mode = params[i]->getExplicitParameterMode();
+        PM::ParameterMode mode = params[i]->getExplicitParameterMode();
         routineType->setParameterMode(mode, i);
     }
 }
@@ -441,9 +441,9 @@ SubroutineDecl::SubroutineDecl(AstKind         kind,
         parameters = new ParamValueDecl*[numParams];
         for (unsigned i = 0; i < numParams; ++i) {
             IdentifierInfo *formal = type->getKeyword(i);
-            Type       *formalType = type->getArgType(i);
-            ParameterMode     mode = type->getParameterMode(i);
-            ParamValueDecl  *param;
+            Type *formalType = type->getArgType(i);
+            PM::ParameterMode mode = type->getParameterMode(i);
+            ParamValueDecl *param;
 
             // Note that as these param decls are implicitly generated we supply
             // an invalid location for each node.
@@ -463,7 +463,7 @@ void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
     definingDeclaration = routineDecl;
 }
 
-ParameterMode SubroutineDecl::getParamMode(unsigned i) {
+PM::ParameterMode SubroutineDecl::getParamMode(unsigned i) {
     return getParam(i)->getParameterMode();
 }
 
@@ -528,21 +528,21 @@ void SubroutineDecl::dump(unsigned depth)
 //===----------------------------------------------------------------------===//
 // ParamValueDecl
 
-ParameterMode ParamValueDecl::getExplicitParameterMode() const
+PM::ParameterMode ParamValueDecl::getExplicitParameterMode() const
 {
-    return static_cast<ParameterMode>(bits);
+    return static_cast<PM::ParameterMode>(bits);
 }
 
 bool ParamValueDecl::parameterModeSpecified() const
 {
-    return getExplicitParameterMode() == MODE_DEFAULT;
+    return getExplicitParameterMode() == PM::MODE_DEFAULT;
 }
 
-ParameterMode ParamValueDecl::getParameterMode() const
+PM::ParameterMode ParamValueDecl::getParameterMode() const
 {
-    ParameterMode mode = getExplicitParameterMode();
-    if (mode == MODE_DEFAULT)
-        return MODE_IN;
+    PM::ParameterMode mode = getExplicitParameterMode();
+    if (mode == PM::MODE_DEFAULT)
+        return PM::MODE_IN;
     else
         return mode;
 }

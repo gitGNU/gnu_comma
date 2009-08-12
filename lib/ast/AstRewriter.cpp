@@ -159,7 +159,7 @@ ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
     result   = new ProcedureType(keywords, &params[0], arity);
 
     for (unsigned i = 0; i < arity; ++i) {
-        ParameterMode mode = ptype->getExplicitParameterMode(i);
+        PM::ParameterMode mode = ptype->getExplicitParameterMode(i);
         result->setParameterMode(mode, i);
     }
 

@@ -82,9 +82,9 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                                               unsigned argPosition)
 {
-    ParameterMode mode = srDecl->getParamMode(argPosition);
+    PM::ParameterMode mode = srDecl->getParamMode(argPosition);
 
-    if (mode == MODE_OUT or mode == MODE_IN_OUT)
+    if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
         return emitVariableReference(arg);
     else
         return emitExpr(arg);

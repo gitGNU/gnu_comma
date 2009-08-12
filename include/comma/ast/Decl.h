@@ -773,7 +773,7 @@ public:
     /// returns either MODE_IN, MODE_OUT, or MODE_IN_OUT.  If one needs to know
     /// if the parameter was explicitly supplied with a mode or not
     /// (MODE_DEFAULT), one must interrogate the parameter directly.
-    ParameterMode getParamMode(unsigned i);
+    PM::ParameterMode getParamMode(unsigned i);
 
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
     SubroutineDecl *getDefiningDeclaration() { return definingDeclaration; }
@@ -1002,9 +1002,9 @@ class ParamValueDecl : public ValueDecl {
 
 public:
     ParamValueDecl(IdentifierInfo *name,
-                   Type           *type,
-                   ParameterMode   mode,
-                   Location        loc)
+                   Type *type,
+                   PM::ParameterMode mode,
+                   Location loc)
         : ValueDecl(AST_ParamValueDecl, name, type, loc) {
         // Store the mode for this decl in the bit field provided by our
         // base Ast instance.
@@ -1025,10 +1025,10 @@ public:
     /// never returns MODE_DEFAULT, only MODE_IN.  To check if the mode was
     /// implicitly defined as "in" use parameterModeSpecified, or call
     /// getExplicitParameterMode.
-    ParameterMode getParameterMode() const;
+    PM::ParameterMode getParameterMode() const;
 
     /// \brief Returns the parameter mdoe associated with this decl.
-    ParameterMode getExplicitParameterMode() const;
+    PM::ParameterMode getExplicitParameterMode() const;
 
     static bool classof(const ParamValueDecl *node) { return true; }
     static bool classof(const Ast *node) {

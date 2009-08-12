@@ -18,6 +18,8 @@
 
 namespace comma {
 
+namespace parameter_modes {
+
 /// Modes associated with the formal parameters of a subroutine.  MODE_DEFAULT
 /// is equivalent to MODE_IN, but is used to indicate that the mode was
 /// implicitly associated with the parameter, rather than explicitly by the
@@ -28,6 +30,10 @@ enum ParameterMode {
     MODE_OUT,
     MODE_IN_OUT
 };
+
+} // End parameter_modes namespace.
+
+namespace PM = parameter_modes;
 
 } // End comma namespace.
 

@@ -767,24 +767,24 @@ Node Parser::parseModelInstantiation()
 // specification is available on the stream MODE_DEFAULT is returned.  A common
 // mistake is to find "out in" instead of "in out".  In this case, we simply
 // issue a diagnostic and return MODE_IN_OUT.
-ParameterMode Parser::parseParameterMode()
+PM::ParameterMode Parser::parseParameterMode()
 {
-   ParameterMode mode = MODE_DEFAULT;
+    PM::ParameterMode mode = PM::MODE_DEFAULT;
 
     if (reduceToken(Lexer::TKN_IN)) {
         if (reduceToken(Lexer::TKN_OUT))
-            mode = MODE_IN_OUT;
+            mode = PM::MODE_IN_OUT;
         else
-            mode = MODE_IN;
+            mode = PM::MODE_IN;
     }
     else if (reduceToken(Lexer::TKN_OUT)) {
         if (currentTokenIs(Lexer::TKN_IN)) {
             report(diag::OUT_IN_PARAMETER_MODE);
             ignoreToken();
-            mode = MODE_IN_OUT;
+            mode = PM::MODE_IN_OUT;
         }
         else
-            mode = MODE_OUT;
+            mode = PM::MODE_OUT;
     }
     return mode;
 }
@@ -792,8 +792,8 @@ ParameterMode Parser::parseParameterMode()
 bool Parser::parseSubroutineParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
-    Location        location;
-    ParameterMode   mode;
+    Location location;
+    PM::ParameterMode mode;
 
     location = currentLocation();
     formal   = parseIdentifierInfo();

@@ -255,11 +255,11 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
     Decl *refDecl = refExpr->getDeclaration();
 
     if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-        ParameterMode paramMode = pvDecl->getParameterMode();
+        PM::ParameterMode paramMode = pvDecl->getParameterMode();
 
         // Enusure that the parameter has a mode consistent with reference
         // emission.
-        assert((paramMode == MODE_OUT or paramMode == MODE_IN_OUT) &&
+        assert((paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT) &&
                "Cannot take reference to a parameter with mode IN!");
 
         return lookupDecl(pvDecl);
@@ -283,9 +283,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
             // If the parameter mode is either "out" or "in out" then load the
             // actual value.
             llvm::Value *param = lookupDecl(pvDecl);
-            ParameterMode paramMode = pvDecl->getParameterMode();
+            PM::ParameterMode paramMode = pvDecl->getParameterMode();
 
-            if (paramMode == MODE_OUT or paramMode == MODE_IN_OUT)
+            if (paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT)
                 return Builder.CreateLoad(param);
             else
                 return param;
