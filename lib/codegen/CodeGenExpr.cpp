@@ -152,7 +152,7 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
 
 llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
 {
-    llvm::Value *op = emitExpr(expr->getOperand());
+    llvm::Value *op = emitValue(expr->getOperand());
 
     // If the result type is a scalar type, convert the incomming expression
     // (which must be a pointer type) to a integral value of the needed size.
@@ -167,13 +167,14 @@ llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
 {
-    llvm::Value *op = emitExpr(expr->getOperand());
+    Expr *operand = expr->getOperand();
+    llvm::Value *val = emitValue(operand);
 
     // If the operand is a scalar type, its width is no more than that of a
     // pointer.  Extend it to an i8*.
-    if (expr->getOperand()->getType()->isScalarType()) {
+    if (operand->getType()->isScalarType()) {
         const llvm::Type *loweredTy = CGTypes.lowerType(expr->getType());
-        return Builder.CreateIntToPtr(op, loweredTy);
+        return Builder.CreateIntToPtr(val, loweredTy);
     }
 
     assert(false && "Cannot codegen prj expression yet!");
