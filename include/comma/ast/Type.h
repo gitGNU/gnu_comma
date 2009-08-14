@@ -35,6 +35,9 @@ public:
     /// Returns the declaration associated with this type. If there is no
     /// such declaration, 0 is returned.
     virtual Decl *getDeclaration() { return 0; }
+    const Decl *getDeclaration() const {
+        return const_cast<Type*>(this)->getDeclaration();
+    }
 
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
