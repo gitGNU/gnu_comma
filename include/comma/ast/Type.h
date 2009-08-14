@@ -29,6 +29,9 @@ public:
 
     virtual bool equals(const Type *type) const { return type == this; }
 
+    /// Returns true if there is a declaration associcated with this type.
+    bool hasDeclaration() const { return getDeclaration() != 0; }
+
     /// Returns the declaration associated with this type. If there is no
     /// such declaration, 0 is returned.
     virtual Decl *getDeclaration() { return 0; }
@@ -84,7 +87,6 @@ public:
 private:
     CarrierDecl *declaration;
 };
-
 
 //===----------------------------------------------------------------------===//
 // ModelType
