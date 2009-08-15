@@ -379,6 +379,10 @@ private:
 
 //===----------------------------------------------------------------------===//
 // IntegerLiteral
+//
+// Initially, IntegerLiteral nodes do not have an associated type.  The expected
+// use case is that the node is created and the type refined once the context
+// has been analyzed.
 class IntegerLiteral : public Expr
 {
 public:
