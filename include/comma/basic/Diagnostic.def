@@ -45,6 +45,8 @@ DIAGNOSTIC(OUT_IN_PARAMETER_MODE, ERROR,
            "Use `in out' instead of `out in' in parameter mode specifications.")
 DIAGNOSTIC(EMPTY_ENUMERATION, ERROR,
            "Empty enumerations are not permitted.")
+DIAGNOSTIC(NON_STATIC_EXPRESSION, ERROR,
+           "Static expression required.")
 
 //
 // Semantic Diagnostics.

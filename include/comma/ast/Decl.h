@@ -1138,7 +1138,11 @@ private:
 class IntegerDecl : public TypeDecl {
 
 public:
+    ~IntegerDecl();
+
+    /// Constructs an integer type declaration.
     IntegerDecl(IdentifierInfo *name, Location loc,
+                Expr *lowRange, Expr *highRange,
                 IntegerType *baseType, DeclRegion *parent);
 
     /// IntegerDecl nodes declare a new type distinct from all others.  This is
@@ -1155,6 +1159,16 @@ public:
         return llvm::cast<IntegerType>(correspondingType->getBaseType());
     }
 
+    /// Returns the expression forming the lower bound of this integer
+    /// declaration.
+    Expr *getLowerBoundExpr() { return lowExpr; }
+    const Expr *getLowerBoundExpr() const { return lowExpr; }
+
+    /// Returns the expression forming the upper bound of this integer
+    /// declaration.
+    Expr *getHighBoundExpr() { return highExpr; }
+    const Expr *getHighBoundExpr() const { return highExpr; }
+
     static bool classof(const IntegerDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerDecl;
@@ -1162,6 +1176,8 @@ public:
 
 private:
     TypedefType *correspondingType;
+    Expr *lowExpr;              // Expr forming the lower bound.
+    Expr *highExpr;             // Expr forming the high bound.
 };
 
 //===----------------------------------------------------------------------===//

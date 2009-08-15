@@ -603,8 +603,15 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 // IntegerDecl
 
 IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
+                         Expr *lowRange, Expr *highRange,
                          IntegerType *baseType, DeclRegion *parent)
-    : TypeDecl(AST_IntegerDecl, name, loc)
+    : TypeDecl(AST_IntegerDecl, name, loc),
+      lowExpr(lowRange), highExpr(highRange)
 {
     correspondingType = new TypedefType(baseType, this);
+}
+
+IntegerDecl::~IntegerDecl()
+{
+    delete correspondingType;
 }

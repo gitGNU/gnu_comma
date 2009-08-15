@@ -217,9 +217,25 @@ public:
     // completing the definition of the enumeration.
     virtual void endEnumerationType(Node enumeration) = 0;
 
+    /// Called to process integer type definitions.
+    ///
+    /// For example, given a definition of the form <tt>type T is range
+    /// X..Y;</tt>, this callback is invoked with \p name set to the identifier
+    /// \c T, \p loc set to the location of \p name, \p low set to the
+    /// expression \c X, and \p high set to the expression \c Y.
+    virtual void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
+                                      Node low, Node high) = 0;
+
 protected:
     // Allow sub-classes to construct arbitrary nodes.
     Node getNode(void *ptr) { return Node(this, ptr); }
+
+    // Construct a node which has released its ownership to the associated data.
+    Node getReleasedNode(void *ptr) {
+        Node node(this, ptr);
+        node.release();
+        return node;
+    }
 };
 
 } // End comma namespace.

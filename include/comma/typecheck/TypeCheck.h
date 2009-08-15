@@ -16,8 +16,16 @@
 #include "comma/basic/TextProvider.h"
 #include "comma/parser/ParseClient.h"
 #include "comma/typecheck/Scope.h"
+
 #include "llvm/Support/Casting.h"
+
 #include <iosfwd>
+
+namespace llvm {
+
+class APInt;
+
+} // end llvm namespace.
 
 namespace comma {
 
@@ -189,6 +197,15 @@ public:
     // completing the definition of the enumeration.
     void endEnumerationType(Node enumeration);
 
+    /// Called to process integer type definitions.
+    ///
+    /// For example, given a definition of the form <tt>type T is range
+    /// X..Y;</tt>, this callback is invoked with \p name set to the identifier
+    /// \c T, \p loc set to the location of \p name, \p low set to the
+    /// expression \c X, and \p high set to the expression \c Y.
+    void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
+                              Node low, Node high);
+
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 
@@ -309,14 +326,21 @@ private:
                                               DeclRegion     *region);
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
-    bool ensureDistinctTypeDeclaration(DeclRegion *region,
-                                       TypeDecl   *tyDecl);
+
+    /// Returns true if the given identifier can be used to name a new type
+    /// within the context of the given declarative region.  Otherwise, false is
+    /// returned and diagnostics are posted with respect to the given location.
+    bool ensureDistinctTypeName(IdentifierInfo *name, Location loc,
+                                DeclRegion *region);
+
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
     DomainType *ensureDomainType(Type *type, Location loc, bool report = true);
     Type *ensureValueType(Node typeNode, Location loc, bool report = true);
     Type *ensureValueType(Type *type, Location loc, bool report = true);
+
+    bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
 
     Node acceptQualifiedName(Node            qualNode,
                              IdentifierInfo *name,

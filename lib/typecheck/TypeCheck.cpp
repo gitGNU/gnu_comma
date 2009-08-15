@@ -573,6 +573,22 @@ Type *TypeCheck::ensureValueType(Node node,
     return ensureValueType(type, loc, report);
 }
 
+bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
+{
+    // FIXME: IntegerLiterals are not the only kind of static integer
+    // expression!
+
+    if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(expr)) {
+        result = ILit->getValue();
+        return true;
+    }
+    else {
+        report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
+        return false;
+    }
+}
+
+
 // Search all declarations present in the given declarative region for a match
 // with respect to the given rewrites.  Returns a matching delcaration node or
 // null.
@@ -702,7 +718,9 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
 
     for ( ; iter != endIter; ++iter) {
         if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
-            if (ensureDistinctTypeDeclaration(model, tyDecl)) {
+            IdentifierInfo *name = tyDecl->getIdInfo();
+            Location loc = tyDecl->getLocation();
+            if (ensureDistinctTypeName(name, loc, model)) {
                 model->addDecl(tyDecl);
                 scope.addDirectDecl(tyDecl);
 
@@ -717,14 +735,15 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
     }
 }
 
-bool TypeCheck::ensureDistinctTypeDeclaration(DeclRegion *region,
-                                              TypeDecl   *tyDecl)
+/// Returns true if the given identifier can be used to name a new type within
+/// the context of the given declarative region.  Otherwise, false is returned
+/// and diagnostics are posted with respect to the given location.
+bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
+                                       DeclRegion *region)
 {
     typedef DeclRegion::PredRange PredRange;
     typedef DeclRegion::PredIter  PredIter;
-    IdentifierInfo *name  = tyDecl->getIdInfo();
-    PredRange       range = region->findDecls(name);
-    Location        loc   = tyDecl->getLocation();
+    PredRange range = region->findDecls(name);
 
     if (range.first != range.second) {
         for (PredIter &iter = range.first; iter != range.second; ++iter) {
@@ -738,7 +757,7 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclRegion *region,
     }
 
     // If the declarative region denotes a model or an AddDecl, check to ensure
-    // that the declaration does not conflict with the model name or any model
+    // that the name does not conflict with the model name or any model
     // parameters.  We do not need to check declarations inherited from super
     // signatures as they are injected into the models declarative region.
     Ast *ast   = region->asAst();
@@ -746,7 +765,7 @@ bool TypeCheck::ensureDistinctTypeDeclaration(DeclRegion *region,
         // Recursively check the declarations present in this AddDecls
         // associated model.
         ModelDecl *model = add->getImplementedDomoid();
-        return ensureDistinctTypeDeclaration(model, tyDecl);
+        return ensureDistinctTypeName(name, loc, model);
     }
 
     if (ModelDecl *model = dyn_cast<ModelDecl>(ast)) {
@@ -1083,38 +1102,34 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
 
 Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
 {
-    DeclRegion      *region      = currentDeclarativeRegion();
+    DeclRegion *region = currentDeclarativeRegion();
+
+    if (!ensureDistinctTypeName(name, loc, region))
+        return getInvalidNode();
+
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
 
-    if (ensureDistinctTypeDeclaration(region, enumeration)) {
-        // Construct the builtin functions associated with an enumeration.
-        IdentifierInfo *equalsId = resource.getIdentifierInfo("=");
-        IdentifierInfo *paramX   = resource.getIdentifierInfo("X");
-        IdentifierInfo *paramY   = resource.getIdentifierInfo("Y");
-        Type           *enumType = enumeration->getType();
+    // Construct the builtin functions associated with an enumeration.
+    IdentifierInfo *equalsId = resource.getIdentifierInfo("=");
+    IdentifierInfo *paramX   = resource.getIdentifierInfo("X");
+    IdentifierInfo *paramY   = resource.getIdentifierInfo("Y");
+    Type           *enumType = enumeration->getType();
 
-        ParamValueDecl *params[] = {
-            new ParamValueDecl(paramX, enumType, PM::MODE_DEFAULT, 0),
-            new ParamValueDecl(paramY, enumType, PM::MODE_DEFAULT, 0)
-        };
+    ParamValueDecl *params[] = {
+        new ParamValueDecl(paramX, enumType, PM::MODE_DEFAULT, 0),
+        new ParamValueDecl(paramY, enumType, PM::MODE_DEFAULT, 0)
+    };
 
-        FunctionDecl *equals =
-            new FunctionDecl(equalsId, 0, params, 2, theBoolDecl->getType(), 0);
-        equals->setAsPrimitive(PO::Equality);
+    FunctionDecl *equals =
+        new FunctionDecl(equalsId, 0, params, 2, theBoolDecl->getType(), 0);
+    equals->setAsPrimitive(PO::Equality);
 
-        enumeration->addDecl(equals);
+    enumeration->addDecl(equals);
 
-        region->addDecl(enumeration);
-        scope.addDirectDecl(enumeration);
-        scope.addDirectDecl(equals);
-        Node result = getNode(enumeration);
-        result.release();
-        return result;
-    }
-    else {
-        delete enumeration;
-        return getInvalidNode();
-    }
+    region->addDecl(enumeration);
+    scope.addDirectDecl(enumeration);
+    scope.addDirectDecl(equals);
+    return getReleasedNode(enumeration);
 }
 
 void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
@@ -1133,6 +1148,41 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
 }
 
 void TypeCheck::endEnumerationType(Node enumerationNode) { }
+
+/// Called to process integer type definitions.
+///
+/// For example, given a definition of the form <tt>type T is range X..Y;</tt>,
+/// this callback is invoked with \p name set to the identifier \c T, \p loc set
+/// to the location of \p name, \p low set to the expression \c X, and \p high
+/// set to the expression \c Y.
+void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
+                                     Node lowNode, Node highNode)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+
+    if (!ensureDistinctTypeName(name, loc, region))
+        return;
+
+    Expr *lowExpr = cast_node<Expr>(lowNode);
+    Expr *highExpr = cast_node<Expr>(highNode);
+
+    llvm::APInt lowValue;
+    llvm::APInt highValue;
+    if (!ensureStaticIntegerExpr(lowExpr, lowValue) or
+        !ensureStaticIntegerExpr(highExpr, highValue))
+        return;
+
+    // Obtain a uniqued integer type to represent the base type of this
+    // declaration and release the range expressions as they are now owned by
+    // this new declaration.
+    lowNode.release();
+    highNode.release();
+    IntegerType *intTy = resource.getIntegerType(lowValue, highValue);
+    IntegerDecl *Idecl =
+        new IntegerDecl(name, loc, lowExpr, highExpr, intTy, region);
+    region->addDecl(Idecl);
+    scope.addDirectDecl(Idecl);
+}
 
 bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
 {
