@@ -36,6 +36,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FunctionType",
     "IntegerType",
     "ProcedureType",
+    "TypedefType",
     "EnumerationType",
 
     "DeclRefExpr",

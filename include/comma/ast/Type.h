@@ -542,6 +542,38 @@ private:
     llvm::APInt high;
 };
 
+//===----------------------------------------------------------------------===//
+// TypedefType
+//
+// Nodes representing new named types.  These nodes always correspond to a
+// declaration in the source code (or a programmaticly generated decl in the
+// case of primitive types).  These nodes are owned by the associated
+// declaration nodes.
+class TypedefType : public Type {
+public:
+    TypedefType(Type *baseType, TypeDecl *decl)
+        : Type(AST_TypedefType),
+          baseType(baseType),
+          declaration(decl) { }
+
+    /// Returns the declaration associated with this type definition.
+    Decl *getDeclaration();
+
+    /// Returns the base type of this type definition.
+    Type *getBaseType() { return baseType; }
+    const Type *getBaseType() const { return baseType; }
+
+    /// Support isa and dyn_cast.
+    static bool classof(const TypedefType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_TypedefType;
+    }
+
+private:
+    Type *baseType;
+    TypeDecl *declaration;
+};
+
 } // End comma namespace
 
 #endif

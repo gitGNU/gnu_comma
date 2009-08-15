@@ -77,6 +77,7 @@ class SubroutineDecl;
 class SubroutineType;
 class Type;
 class TypeDecl;
+class TypedefType;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
@@ -147,6 +148,7 @@ public:
         AST_FunctionType,       ///< FunctionType
         AST_IntegerType,        ///< IntegerType
         AST_ProcedureType,      ///< ProcedureType
+        AST_TypedefType,        ///< TypedefType
         AST_EnumerationType,    ///< EnumerationType
 
         //

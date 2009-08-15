@@ -501,3 +501,11 @@ void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
     low.Profile(ID);
     high.Profile(ID);
 }
+
+//===----------------------------------------------------------------------===//
+// TypedefType
+
+Decl *TypedefType::getDeclaration()
+{
+    return declaration;
+}
