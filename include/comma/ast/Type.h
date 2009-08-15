@@ -12,6 +12,8 @@
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/basic/ParameterModes.h"
+
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -500,6 +502,44 @@ public:
 
 private:
     EnumerationDecl *correspondingDecl;
+};
+
+//===----------------------------------------------------------------------===//
+// IntegerType
+//
+// These nodes represent ranged, signed, integer types.  They are allocated,
+// owned, and uniqued by an AstResource instance.
+class IntegerType : public Type, public llvm::FoldingSetNode
+{
+public:
+    const llvm::APInt &getLowerBound() const { return low; }
+    const llvm::APInt &getUpperBound() const { return high; }
+
+    /// Profile implementation for use by llvm::FoldingSet.
+    void Profile(llvm::FoldingSetNodeID &ID) {
+        return Profile(ID, low, high);
+    }
+
+    /// Support isa and dyn_cast;
+    static bool classof(const IntegerType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerType;
+    }
+
+private:
+    // Private constructor used by AstResource to allocate ranged integer types.
+    IntegerType(const llvm::APInt &low, const llvm::APInt &high)
+        : Type(AST_IntegerType), low(low), high(high) { }
+
+    // Profile method used by AstResource to unique integer type nodes.
+    static void Profile(llvm::FoldingSetNodeID &ID,
+                        const llvm::APInt &low, const llvm::APInt &high);
+
+    friend class AstResource;
+
+    // Lower and upper bounds for this type.
+    llvm::APInt low;
+    llvm::APInt high;
 };
 
 } // End comma namespace

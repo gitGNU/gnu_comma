@@ -53,6 +53,7 @@ class IfStmt;
 class ImportDecl;
 class InjExpr;
 class IntegerLiteral;
+class IntegerType;
 class KeywordSelector;
 class ModelDecl;
 class ModelType;
@@ -144,6 +145,7 @@ public:
         AST_DomainType,         ///< DomainType
         AST_CarrierType,        ///< CarrierType
         AST_FunctionType,       ///< FunctionType
+        AST_IntegerType,        ///< IntegerType
         AST_ProcedureType,      ///< ProcedureType
         AST_EnumerationType,    ///< EnumerationType
 

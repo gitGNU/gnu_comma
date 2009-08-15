@@ -491,3 +491,13 @@ Decl *EnumerationType::getDeclaration()
 {
     return correspondingDecl;
 }
+
+//===----------------------------------------------------------------------===//
+// IntegerType
+
+void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
+                          const llvm::APInt &low, const llvm::APInt &high)
+{
+    low.Profile(ID);
+    high.Profile(ID);
+}

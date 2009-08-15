@@ -34,6 +34,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "DomainType",
     "CarrierType",
     "FunctionType",
+    "IntegerType",
     "ProcedureType",
     "EnumerationType",
 
