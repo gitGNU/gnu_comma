@@ -51,6 +51,7 @@ class FunctorDecl;
 class FunctorType;
 class IfStmt;
 class ImportDecl;
+class IntegerDecl;
 class InjExpr;
 class IntegerLiteral;
 class IntegerType;
@@ -129,6 +130,7 @@ public:
         AST_FunctorDecl,        ///< FunctorDecl
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
+        AST_IntegerDecl,        ///< IntegerDecl
         AST_AddDecl,            ///< AddDecl
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
@@ -189,7 +191,7 @@ public:
         LAST_ModelDecl  = AST_FunctorDecl,
 
         FIRST_TypeDecl  = AST_SignatureDecl,
-        LAST_TypeDecl   = AST_EnumerationDecl,
+        LAST_TypeDecl   = AST_IntegerDecl,
 
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl  = AST_ObjectDecl,

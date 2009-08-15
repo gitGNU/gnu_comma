@@ -20,6 +20,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FunctorDecl",
     "CarrierDecl",
     "EnumerationDecl",
+    "IntegerDecl",
     "AddDecl",
     "FunctionDecl",
     "ProcedureDecl",

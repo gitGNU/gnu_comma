@@ -1132,6 +1132,39 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// IntegerDecl
+//
+// These nodes represent integer type declarations.
+class IntegerDecl : public TypeDecl {
+
+public:
+    IntegerDecl(IdentifierInfo *name, Location loc,
+                IntegerType *baseType, DeclRegion *parent);
+
+    /// IntegerDecl nodes declare a new type distinct from all others.  This is
+    /// modeled by a TypedefType whose base is an IntegerType.  The following
+    /// methods return the unique TypedefType.
+    const TypedefType *getType() const { return correspondingType; }
+    TypedefType *getType() { return correspondingType; }
+
+    /// Returns the base integer type associated with this declaration.
+    const IntegerType *getBaseType() const {
+        return llvm::cast<IntegerType>(correspondingType->getBaseType());
+    }
+    IntegerType *getBaseType() {
+        return llvm::cast<IntegerType>(correspondingType->getBaseType());
+    }
+
+    static bool classof(const IntegerDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerDecl;
+    }
+
+private:
+    TypedefType *correspondingType;
+};
+
+//===----------------------------------------------------------------------===//
 // Inline methods, now that the decl hierarchy is in place.
 
 inline SignatureDecl *Sigoid::getSignature()

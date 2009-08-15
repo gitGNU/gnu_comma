@@ -598,3 +598,13 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
         return cast<EnumLiteral>(*range.first);
     return 0;
 }
+
+//===----------------------------------------------------------------------===//
+// IntegerDecl
+
+IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
+                         IntegerType *baseType, DeclRegion *parent)
+    : TypeDecl(AST_IntegerDecl, name, loc)
+{
+    correspondingType = new TypedefType(baseType, this);
+}
