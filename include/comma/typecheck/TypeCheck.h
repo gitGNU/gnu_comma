@@ -340,6 +340,9 @@ private:
     Type *ensureValueType(Node typeNode, Location loc, bool report = true);
     Type *ensureValueType(Type *type, Location loc, bool report = true);
 
+    /// Returns true if \p expr is a static integer expression.  If so,
+    /// initializes \p result to a signed value which can accommodate the given
+    /// static expression.
     bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
 
     Node acceptQualifiedName(Node            qualNode,

@@ -37,6 +37,9 @@ const llvm::Type *CodeGenTypes::lowerType(Type *type)
     case Ast::AST_EnumerationType:
         return lowerType(cast<EnumerationType>(type));
 
+    case Ast::AST_TypedefType:
+        return lowerType(cast<TypedefType>(type));
+
     case Ast::AST_FunctionType:
     case Ast::AST_ProcedureType:
         return lowerType(cast<SubroutineType>(type));
@@ -64,22 +67,7 @@ const llvm::IntegerType *CodeGenTypes::lowerType(EnumerationType *type)
     EnumerationDecl *decl = type->getEnumerationDecl();
     unsigned numBits = llvm::Log2_32_Ceil(decl->getNumLiterals());
 
-    // Promote the bit width to a power of two.
-    if (numBits <= 1)
-        return llvm::Type::Int1Ty;
-    if (numBits <= 8)
-        return llvm::Type::Int8Ty;
-    else if (numBits <= 16)
-        return llvm::Type::Int16Ty;
-    else if (numBits <= 32)
-        return llvm::Type::Int32Ty;
-    else if (numBits <= 64)
-        return llvm::Type::Int64Ty;
-    else {
-        // FIXME: This should be a fatal error, not an assert.
-        assert(false && "Enumeration type too large to codegen!");
-        return 0;
-    }
+    return getTypeForWidth(numBits);
 }
 
 const llvm::FunctionType *CodeGenTypes::lowerType(const SubroutineType *type)
@@ -110,5 +98,34 @@ const llvm::FunctionType *CodeGenTypes::lowerType(const SubroutineType *type)
     return result;
 }
 
+const llvm::IntegerType *CodeGenTypes::lowerType(const TypedefType *type)
+{
+    // Currently, all TypedefType's are Integer types.
+    const IntegerType *baseType = cast<IntegerType>(type->getBaseType());
+    return lowerType(baseType);
+}
 
+const llvm::IntegerType *CodeGenTypes::lowerType(const IntegerType *type)
+{
+    return getTypeForWidth(type->getBitWidth());
+}
 
+const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
+{
+    // Promote the bit width to a power of two.
+    if (numBits <= 1)
+        return llvm::Type::Int1Ty;
+    if (numBits <= 8)
+        return llvm::Type::Int8Ty;
+    else if (numBits <= 16)
+        return llvm::Type::Int16Ty;
+    else if (numBits <= 32)
+        return llvm::Type::Int32Ty;
+    else if (numBits <= 64)
+        return llvm::Type::Int64Ty;
+    else {
+        // FIXME: This should be a fatal error, not an assert.
+        assert(false && "Enumeration type too large to codegen!");
+        return 0;
+    }
+}

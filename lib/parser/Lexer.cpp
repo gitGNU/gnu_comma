@@ -248,6 +248,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_ELSIF;
         else if (strncmp(str, "while", length) == 0)
             code = TKN_WHILE;
+        else if (strncmp(str, "range", length) == 0)
+            code = TKN_RANGE;
         break;
 
     case 6:
@@ -326,7 +328,15 @@ bool Lexer::scanGlyph()
         break;
 
     case '.':
-        code = TKN_DOT;
+        switch (peekStream()) {
+        case '.':
+            ignoreStream();
+            code = TKN_DDOT;
+            break;
+
+        default:
+            code = TKN_DOT;
+        }
         break;
 
     case ':':

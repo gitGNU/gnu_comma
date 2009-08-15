@@ -387,7 +387,7 @@ class IntegerLiteral : public Expr
 {
 public:
     IntegerLiteral(const llvm::APInt &value, Location loc)
-        : Expr(AST_IntegerLiteral, loc) { }
+        : Expr(AST_IntegerLiteral, loc), value(value) { }
 
     const llvm::APInt &getValue() const { return value; }
 

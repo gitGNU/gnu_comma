@@ -495,6 +495,13 @@ Decl *EnumerationType::getDeclaration()
 //===----------------------------------------------------------------------===//
 // IntegerType
 
+IntegerType::IntegerType(const llvm::APInt &low, const llvm::APInt &high)
+  : Type(AST_IntegerType), low(low), high(high)
+{
+    assert(low.getBitWidth() == high.getBitWidth() &&
+           "Inconsistent widths for IntegerType bounds!");
+}
+
 void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
                           const llvm::APInt &low, const llvm::APInt &high)
 {

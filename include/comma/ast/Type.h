@@ -509,11 +509,18 @@ private:
 //
 // These nodes represent ranged, signed, integer types.  They are allocated,
 // owned, and uniqued by an AstResource instance.
+//
+// NOTE: IntegerType's are constructed with respect to a range, represented by
+// llvm::APInt's.  These values must be of identical width, as the bounds of an
+// IntegerType must be compatable with the type itself.
 class IntegerType : public Type, public llvm::FoldingSetNode
 {
 public:
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
+
+    // Returns the number of bits needed to represent this integer type.
+    unsigned getBitWidth() const { return low.getBitWidth(); }
 
     /// Profile implementation for use by llvm::FoldingSet.
     void Profile(llvm::FoldingSetNodeID &ID) {
@@ -528,8 +535,7 @@ public:
 
 private:
     // Private constructor used by AstResource to allocate ranged integer types.
-    IntegerType(const llvm::APInt &low, const llvm::APInt &high)
-        : Type(AST_IntegerType), low(low), high(high) { }
+    IntegerType(const llvm::APInt &low, const llvm::APInt &high);
 
     // Profile method used by AstResource to unique integer type nodes.
     static void Profile(llvm::FoldingSetNodeID &ID,

@@ -94,8 +94,9 @@ public:
     Node parseIntegerLiteral();
 
     Node parseQualifier();
-    Node parseType();
+    bool parseType();
     void parseEnumerationList(Node enumeration);
+    bool parseIntegerRange(IdentifierInfo *name, Location loc);
 
     /// \brief Parses a top level construct.  Returns false once all tokens have
     /// been consumed.
@@ -206,6 +207,12 @@ private:
                               Lexer::Code code2 = Lexer::UNUSED_ID,
                               Lexer::Code code3 = Lexer::UNUSED_ID,
                               Lexer::Code code4 = Lexer::UNUSED_ID);
+
+    // Seeks a terminating semicolon.  This method skips all semicolons which
+    // appear nested within braces.  It trys to find a semicolon at the same
+    // syntatic level it was envoked at.  Note that this method does not save
+    // the state of the token stream.
+    bool seekSemi();
 
     std::string currentTokenString() {
         return currentToken().getString();

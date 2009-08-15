@@ -202,6 +202,21 @@ bool Parser::seekCloseParen()
     }
 }
 
+bool Parser::seekSemi()
+{
+    while (seekTokens(Lexer::TKN_LBRACE, Lexer::TKN_SEMI)) {
+
+        if (currentTokenIs(Lexer::TKN_SEMI))
+            return true;
+
+        // Otherwise, the current token is an LBRACE.  Dive into the parens and
+        // seek the closing token.
+        ignoreToken();
+        seekCloseParen();
+    }
+    return false;
+}
+
 // This function drives the stream of input tokens looking for an end statement.
 // If the end statement is followed by a matching tag, true is returned.
 // Otherwise the search continues until a matching end is found or the end of
@@ -545,7 +560,7 @@ void Parser::parseWithDeclarations()
             break;
 
         case Lexer::TKN_TYPE:
-            status = parseType().isValid();
+            status = parseType();
             break;
         }
 
@@ -1073,31 +1088,35 @@ bool Parser::parseImportDeclaration()
     return false;
 }
 
-Node Parser::parseType()
+bool Parser::parseType()
 {
     assert(currentTokenIs(Lexer::TKN_TYPE));
     ignoreToken();
 
-    Location        loc  = currentLocation();
+    Location loc  = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name || !requireToken(Lexer::TKN_IS))
-        return getInvalidNode();
+        return false;
 
-    // For now, handle only enumeration types.
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
+        // We must have an enumeration type.  Always call endEnumerationType if
+        // beginEnumerationType returns a valid node.
         Node enumeration = client.beginEnumerationType(name, loc);
         if (enumeration.isValid()) {
             parseEnumerationList(enumeration);
             client.endEnumerationType(enumeration);
-            return enumeration;
+            return true;
         }
         else {
             ignoreToken();
             seekCloseParen();
         }
     }
-    return getInvalidNode();
+    else if (currentTokenIs(Lexer::TKN_RANGE))
+        return parseIntegerRange(name, loc);
+
+    return false;
 }
 
 void Parser::parseEnumerationList(Node enumeration)
@@ -1125,6 +1144,27 @@ void Parser::parseEnumerationList(Node enumeration)
     } while (reduceToken(Lexer::TKN_COMMA));
 
     requireToken(Lexer::TKN_RPAREN);
+}
+
+bool Parser::parseIntegerRange(IdentifierInfo *name, Location loc)
+{
+    assert(currentTokenIs(Lexer::TKN_RANGE));
+    ignoreToken();
+
+    Node low = parseExpr();
+    if (low.isInvalid() or !requireToken(Lexer::TKN_DDOT)) {
+        seekSemi();
+        return false;
+    }
+
+    Node high = parseExpr();
+    if (high.isInvalid()) {
+        seekSemi();
+        return false;
+    }
+
+    client.acceptIntegerTypedef(name, loc, low, high);
+    return true;
 }
 
 bool Parser::parseSubroutineArgumentList(NodeVector &dst)
@@ -1208,9 +1248,20 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
     }
     assert(!digits.empty() && "Empty string literal!");
 
-    unsigned numBits =
-        llvm::APInt::getBitsNeeded(&digits[0], digits.size(), 10);
+    // NOTE:  Ideally, this code could just use APInt::getBitsNeeded, but
+    // APInt's constructors will assert using that value.  IMHO, this is a bug
+    // in APInt's API.  For now, use code similar to getBitsNeeded to avoid the
+    // assertion and retain an accurate bit width.
 
+    // Compute a generous number of bits for the value.
+    unsigned numDigits = digits.size();
+    unsigned numBits = numDigits * 64 / 18;
+
+    // Get the binary value and adjust the number of bits to an accurate width.
+    value = llvm::APInt(numBits, &digits[0], numDigits, 10);
+    if (value == 0)
+        numBits = 1;
+    else
+        numBits = value.logBase2() + 1;
     value.zextOrTrunc(numBits);
-    value = llvm::APInt(numBits, &digits[0], digits.size(), 10);
 }

@@ -21,8 +21,6 @@ class CodeGen;
 // This class is responsible for lowering Comma AST types to LLVM IR types.
 class CodeGenTypes {
 
-    const CodeGen &CG;
-
 public:
     CodeGenTypes(const CodeGen &CG) : CG(CG) { }
 
@@ -32,6 +30,13 @@ public:
     const llvm::Type *lowerType(CarrierType *type);
     const llvm::IntegerType *lowerType(EnumerationType *type);
     const llvm::FunctionType *lowerType(const SubroutineType *type);
+    const llvm::IntegerType *lowerType(const TypedefType *type);
+    const llvm::IntegerType *lowerType(const IntegerType *type);
+
+private:
+    const CodeGen &CG;
+
+    const llvm::IntegerType *getTypeForWidth(unsigned numBits);
 };
 
 }; // end comma namespace

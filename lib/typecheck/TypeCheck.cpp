@@ -387,6 +387,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
+    case Ast::AST_IntegerDecl:
         return getNode(type->getType());
 
     case Ast::AST_FunctorDecl:
@@ -557,7 +558,9 @@ Type *TypeCheck::ensureValueType(Type *type,
                                  Location loc,
                                  bool report)
 {
-    if (isa<EnumerationType>(type) || isa<CarrierType>(type) ||
+    if (isa<TypedefType>(type) ||
+        isa<EnumerationType>(type) ||
+        isa<CarrierType>(type) ||
         ensureDomainType(type, loc, false))
         return type;
     if (report)
@@ -573,11 +576,13 @@ Type *TypeCheck::ensureValueType(Node node,
     return ensureValueType(type, loc, report);
 }
 
+/// Returns true if \p expr is a static integer expression.  If so, initializes
+/// \p result to a signed value which can accommodate the given static
+/// expression.
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
     // FIXME: IntegerLiterals are not the only kind of static integer
     // expression!
-
     if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(expr)) {
         result = ILit->getValue();
         return true;
@@ -587,7 +592,6 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
         return false;
     }
 }
-
 
 // Search all declarations present in the given declarative region for a match
 // with respect to the given rewrites.  Returns a matching delcaration node or
@@ -1171,6 +1175,14 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     if (!ensureStaticIntegerExpr(lowExpr, lowValue) or
         !ensureStaticIntegerExpr(highExpr, highValue))
         return;
+
+    // Sign extend the values so that they have identical widths.
+    unsigned lowWidth = lowValue.getBitWidth();
+    unsigned highWidth = highValue.getBitWidth();
+    if (lowWidth < highWidth)
+        lowValue.sext(highWidth);
+    else if (highWidth < lowWidth)
+        highValue.sext(lowWidth);
 
     // Obtain a uniqued integer type to represent the base type of this
     // declaration and release the range expressions as they are now owned by
