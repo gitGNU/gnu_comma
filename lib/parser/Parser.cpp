@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -25,6 +25,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/parser/Parser.h"
+
+#include "llvm/ADT/APInt.h"
+
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -1188,4 +1191,26 @@ bool Parser::parseTopLevelDeclaration()
             seekTokens(Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
         }
     }
+}
+
+// Converts a character array representing a Comma integer literal into an
+// llvm::APInt.  The bit width of the resulting APInt is always set to the
+// minimal number of bits needed to represent the given number.
+void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
+                                   llvm::APInt &value)
+{
+    llvm::SmallVector<char, 8> digits;
+
+    for (const char *cursor = start; cursor != start + length; ++cursor) {
+        char ch = *cursor;
+        if (ch != '_')
+            digits.push_back(ch);
+    }
+    assert(!digits.empty() && "Empty string literal!");
+
+    unsigned numBits =
+        llvm::APInt::getBitsNeeded(&digits[0], digits.size(), 10);
+
+    value.zextOrTrunc(numBits);
+    value = llvm::APInt(numBits, &digits[0], digits.size(), 10);
 }

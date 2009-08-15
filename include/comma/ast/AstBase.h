@@ -52,6 +52,7 @@ class FunctorType;
 class IfStmt;
 class ImportDecl;
 class InjExpr;
+class IntegerLiteral;
 class KeywordSelector;
 class ModelDecl;
 class ModelType;
@@ -152,6 +153,7 @@ public:
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
         AST_InjExpr,            ///< InjExpr
+        AST_IntegerLiteral,     ///< IntegerLiteral
         AST_KeywordSelector,    ///< KeywordSelector
         AST_PrjExpr,            ///< PrjExpr
 

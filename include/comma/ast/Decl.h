@@ -193,6 +193,18 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// TypedefDecl
+//
+// Represents new type definitions of the form "type T is ...".
+class TypedefDecl : public TypeDecl {
+
+public:
+
+
+
+};
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 //
 // Models represent those attributes and characteristics which both signatures

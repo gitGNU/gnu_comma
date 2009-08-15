@@ -733,3 +733,8 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
     exprNode.release();
     return getNode(new PrjExpr(expr, domoid->getPercent(), loc));
 }
+
+Node TypeCheck::acceptIntegerLiteral(const llvm::APInt &value, Location loc)
+{
+    return getNode(new IntegerLiteral(value, loc));
+}

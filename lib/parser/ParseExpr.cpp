@@ -7,6 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/parser/Parser.h"
+
+#include "llvm/ADT/APInt.h"
+
 #include <cassert>
 
 using namespace comma;
@@ -226,6 +229,9 @@ Node Parser::parsePrimaryExpr()
         return result;
     }
 
+    if (currentTokenIs(Lexer::TKN_INTEGER))
+        return parseIntegerLiteral();
+
     Node qual = getNullNode();
     if (qualifierFollows()) {
        qual = parseQualifier();
@@ -254,3 +260,20 @@ Node Parser::parsePrimaryExpr()
     else
         return client.acceptDirectName(name, loc, qual);
 }
+
+Node Parser::parseIntegerLiteral()
+{
+    assert(currentTokenIs(Lexer::TKN_INTEGER));
+
+    typedef std::char_traits<char> Traits;
+
+    const char *rep = currentToken().getRep();
+    unsigned repLen = currentToken().getLength();
+    Location loc = ignoreToken();
+
+    llvm::APInt value;
+    decimalLiteralToAPInt(rep, repLen, value);
+    return client.acceptIntegerLiteral(value, loc);
+}
+
+

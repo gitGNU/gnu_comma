@@ -17,6 +17,12 @@
 #include <iosfwd>
 #include <stack>
 
+namespace llvm {
+
+class APInt;
+
+} // end llvm namespace.
+
 namespace comma {
 
 class Parser {
@@ -85,6 +91,7 @@ public:
     Node parseInjExpr();
     Node parsePrjExpr();
     Node parseOperatorExpr();
+    Node parseIntegerLiteral();
 
     Node parseQualifier();
     Node parseType();
@@ -286,6 +293,12 @@ private:
 
     // Convenience function for obtaining invalid nodes.
     Node getInvalidNode() { return client.getInvalidNode(); }
+
+    // Converts a character array representing a Comma integer literal into an
+    // llvm::APInt.  The bit width of the resulting APInt is always set to the
+    // minimal number of bits needed to represent the given number.
+    void decimalLiteralToAPInt(const char *start, unsigned length,
+                               llvm::APInt &value);
 };
 
 } // End comma namespace

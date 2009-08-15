@@ -12,6 +12,8 @@
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Type.h"
+
+#include "llvm/ADT/APInt.h"
 #include "llvm/Support/DataTypes.h"
 
 namespace comma {
@@ -373,6 +375,27 @@ public:
 
 private:
     Expr *operand;
+};
+
+//===----------------------------------------------------------------------===//
+// IntegerLiteral
+class IntegerLiteral : public Expr
+{
+public:
+    IntegerLiteral(const llvm::APInt &value, Location loc)
+        : Expr(AST_IntegerLiteral, loc) { }
+
+    const llvm::APInt &getValue() const { return value; }
+
+    void setValue(const llvm::APInt &V) { value = V; }
+
+    static bool classof(const IntegerLiteral *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerLiteral;
+    }
+
+private:
+    llvm::APInt value;
 };
 
 } // End comma namespace.

@@ -140,6 +140,8 @@ public:
                                Node     qualifierType,
                                Location loc);
 
+    Node acceptIntegerLiteral(const llvm::APInt &value, Location loc);
+
     Node acceptIfStmt(Location loc, Node condition,
                       Node *consequents, unsigned numConsequents);
 

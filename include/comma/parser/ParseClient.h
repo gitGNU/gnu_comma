@@ -13,6 +13,12 @@
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/parser/Descriptors.h"
 
+namespace llvm {
+
+class APInt;
+
+} // end llvm namespace
+
 namespace comma {
 
 class ParseClient {
@@ -155,6 +161,9 @@ public:
     virtual Node acceptNestedQualifier(Node     qualifier,
                                        Node     qualifierType,
                                        Location loc) = 0;
+
+    virtual Node acceptIntegerLiteral(const llvm::APInt &value,
+                                      Location loc) = 0;
 
     // Submits an import from the given type node, and the location of the
     // import reserved word.
