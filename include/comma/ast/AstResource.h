@@ -21,6 +21,8 @@
 #include "comma/basic/TextProvider.h"
 #include "comma/ast/AstBase.h"
 
+#include "llvm/ADT/FoldingSet.h"
+
 namespace comma {
 
 class AstResource {
@@ -44,9 +46,15 @@ public:
         return &idPool.getIdentifierInfo(name);
     }
 
+    /// Returns a uniqued IntegerType node of the specified range.
+    IntegerType *getIntegerType(const llvm::APInt &low,
+                                const llvm::APInt &high);
+
 private:
     TextProvider   &txtProvider;
     IdentifierPool &idPool;
+
+    llvm::FoldingSet<IntegerType> integerTypes;
 };
 
 } // End comma namespace.

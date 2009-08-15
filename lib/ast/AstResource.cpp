@@ -16,3 +16,18 @@ AstResource::AstResource(TextProvider   &txtProvider,
                          IdentifierPool &idPool)
     : txtProvider(txtProvider),
       idPool(idPool) { }
+
+IntegerType *AstResource::getIntegerType(const llvm::APInt &low,
+                                         const llvm::APInt &high)
+{
+    llvm::FoldingSetNodeID ID;
+    IntegerType::Profile(ID, low, high);
+
+    void *pos = 0;
+    if (IntegerType *IT = integerTypes.FindNodeOrInsertPos(ID, pos))
+        return IT;
+
+    IntegerType *res = new IntegerType(low, high);
+    integerTypes.InsertNode(res, pos);
+    return res;
+}
