@@ -26,6 +26,7 @@
 #define COMMA_TYPECHECK_DECLPRODUCER_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/basic/PrimitiveOps.h"
 
 namespace comma {
 
@@ -75,12 +76,32 @@ private:
     /// not generate the associated implicit functions.
     void createTheIntegerDecl();
 
-    /// Generates a binary equality function.
+    /// An enumeration itemizing the various types of predicate functions we can
+    /// produce.  Used as an argument to DeclProducer::createBinaryPredicate.
+    enum PredicateKind {
+        EQ_pred,
+        LT_pred,
+        GT_pred,
+        LTEQ_pred,
+        GTEQ_pred,
+    };
+
+    /// Returns an IdentifierInfo nameing the given predicate.
+    IdentifierInfo *getPredicateName(PredicateKind kind);
+
+    /// Returns the primitive operation marker for the given predicate.
+    PO::PrimitiveID getPredicatePrimitive(PredicateKind kind);
+
+    /// Generates a binary predicate function.
     ///
-    /// The function is named "=" with two parameters having selectors "X" and
-    /// "Y" with type \p paramType.  Of cource, the return type is Bool.  The
-    /// declarative region of the resulting function is set to \p region.
-    FunctionDecl *createEquality(Type *paramType, DeclRegion *parent);
+    /// The function is named after the Comma operator for the given type of
+    /// predicate.  For example, \c EQ_pred results in a function names "=",
+    /// while LTEQ_pred results in a function named "<=".  All predicate
+    /// functions have argument selectors named "X" and "Y".  And, obviously,
+    /// the return type is Bool.  The parent declarative region of the resulting
+    /// function decl is set to \p region.
+    FunctionDecl *createPredicate(PredicateKind kind, Type *paramType,
+                                  DeclRegion *parent);
 };
 
 } // end comma namespace.

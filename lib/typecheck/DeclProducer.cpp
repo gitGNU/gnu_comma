@@ -93,12 +93,53 @@ TypedefType *DeclProducer::getIntegerType() const
     return theIntegerDecl->getType();
 }
 
+/// Returns an IdentifierInfo nameing the given predicate.
+IdentifierInfo *DeclProducer::getPredicateName(PredicateKind kind)
+{
+    switch (kind) {
+    default:
+        assert(false && "Bad kind of predicate!");
+        return 0;
+    case EQ_pred:
+        return resource->getIdentifierInfo("=");
+    case LT_pred:
+        return resource->getIdentifierInfo("<");
+    case GT_pred:
+        return resource->getIdentifierInfo(">");
+    case LTEQ_pred:
+        return resource->getIdentifierInfo("<=");
+    case GTEQ_pred:
+        return resource->getIdentifierInfo(">=");
+    }
+}
+
+/// Returns the primitive operation marker for the given predicate.
+PO::PrimitiveID DeclProducer::getPredicatePrimitive(PredicateKind kind)
+{
+    switch (kind) {
+    default:
+        assert(false && "Bad kind of predicate!");
+        return PO::NotPrimitive;
+    case EQ_pred:
+        return PO::Equality;
+    case LT_pred:
+        return PO::LessThan;
+    case GT_pred:
+        return PO::GreaterThan;
+    case LTEQ_pred:
+        return PO::LessThanOrEqual;
+    case GTEQ_pred:
+        return PO::GreaterThanOrEqual;
+    }
+}
+
 /// Generates declarations appropriate for the given enumeration, populating \p
 /// enumDecl viewed as a DeclRegion with the results.
 void DeclProducer::createImplicitDecls(EnumerationDecl *enumDecl)
 {
     // Construct the builtin equality function.
-    FunctionDecl *equals = createEquality(enumDecl->getType(), enumDecl);
+    FunctionDecl *equals =
+        createPredicate(EQ_pred, enumDecl->getType(), enumDecl);
     enumDecl->addDecl(equals);
 }
 
@@ -106,13 +147,16 @@ void DeclProducer::createImplicitDecls(EnumerationDecl *enumDecl)
 /// populating \p region viewed as a DeclRegion with the results.
 void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
 {
-    FunctionDecl *equals = createEquality(intDecl->getType(), intDecl);
+    FunctionDecl *equals =
+        createPredicate(EQ_pred, intDecl->getType(), intDecl);
     intDecl->addDecl(equals);
 }
 
-FunctionDecl *DeclProducer::createEquality(Type *paramType, DeclRegion *parent)
+FunctionDecl *
+DeclProducer::createPredicate(PredicateKind kind, Type *paramType,
+                              DeclRegion *parent)
 {
-    IdentifierInfo *name = resource->getIdentifierInfo("=");
+    IdentifierInfo *name = getPredicateName(kind);
     IdentifierInfo *paramX = resource->getIdentifierInfo("X");
     IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
 
@@ -121,10 +165,9 @@ FunctionDecl *DeclProducer::createEquality(Type *paramType, DeclRegion *parent)
         new ParamValueDecl(paramY, paramType, PM::MODE_DEFAULT, 0)
     };
 
-    FunctionDecl *equals =
+    FunctionDecl *pred =
         new FunctionDecl(name, 0, params, 2, theBoolDecl->getType(),
                          parent);
-    equals->setAsPrimitive(PO::Equality);
-
-    return equals;
+    pred->setAsPrimitive(getPredicatePrimitive(kind));
+    return pred;
 }

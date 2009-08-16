@@ -18,7 +18,10 @@ enum PrimitiveID {
     NotPrimitive,
 
     Equality,
-
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
     EnumFunction
 };
 
