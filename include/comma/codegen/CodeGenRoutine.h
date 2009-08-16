@@ -91,6 +91,7 @@ private:
     void emitStmtSequence(StmtSequence *seq);
     void emitProcedureCallStmt(ProcedureCallStmt *stmt);
     void emitAssignmentStmt(AssignmentStmt *stmt);
+    void emitWhileStmt(WhileStmt *stmt);
 
     /// Generates code for the given BlockStmt.
     ///

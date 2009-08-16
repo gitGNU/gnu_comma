@@ -46,6 +46,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
         emitIfStmt(cast<IfStmt>(stmt));
         break;
 
+    case Ast::AST_WhileStmt:
+        emitWhileStmt(cast<WhileStmt>(stmt));
+        break;
+
     case Ast::AST_ReturnStmt:
         emitReturnStmt(cast<ReturnStmt>(stmt));
         break;
@@ -185,4 +189,33 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
     llvm::Value *rhs = emitValue(stmt->getAssignedExpr());
 
     Builder.CreateStore(rhs, ref);
+}
+
+void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
+{
+    llvm::BasicBlock *entryBB = llvm::BasicBlock::Create("while.top", SRFn);
+    llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create("while.entry", SRFn);
+    llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create("while.merge", SRFn);
+
+    // Branch unconditionally from the current insertion point to the entry
+    // block and set up our new context.  Emit the loop condition into the entry
+    // block.
+    Builder.CreateBr(entryBB);
+    Builder.SetInsertPoint(entryBB);
+    llvm::Value *condition = emitValue(stmt->getCondition());
+
+    // Branch into bodyBB if condition evaluates to true, mergeBB otherwise.
+    Builder.CreateCondBr(condition, bodyBB, mergeBB);
+
+    // Generate the body.
+    Builder.SetInsertPoint(bodyBB);
+    emitStmt(stmt->getBody());
+
+    // If the current insertion point does not have a terminator,
+    // unconditionally branch to entryBB.
+    if (!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(entryBB);
+
+    // Finally, set mergeBB the current insertion point.
+    Builder.SetInsertPoint(mergeBB);
 }
