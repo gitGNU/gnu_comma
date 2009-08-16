@@ -35,6 +35,8 @@ class DiagnosticStream {
 public:
     DiagnosticStream(std::ostream &stream);
 
+    ~DiagnosticStream();
+
     DiagnosticStream &initialize(const SourceLocation &sloc, const char *format);
 
     DiagnosticStream &operator<<(const std::string &string);

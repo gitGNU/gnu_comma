@@ -15,6 +15,12 @@ using namespace comma;
 DiagnosticStream::DiagnosticStream(std::ostream &stream)
     : stream(stream), position(0) { }
 
+DiagnosticStream::~DiagnosticStream()
+{
+    // If the stream was initialized, ensure that it was driven to completion.
+    assert(position == 0 && "Diagnostic not driven to completion!");
+}
+
 void DiagnosticStream::emitSourceLocation(const SourceLocation &sloc)
 {
     std::string identity = sloc.getTextProvider()->getIdentity();
