@@ -53,6 +53,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ProcedureCallStmt",
     "ReturnStmt",
     "StmtSequence",
+    "WhileStmt",
 
     "Qualifier",
     "OverloadedDeclName"

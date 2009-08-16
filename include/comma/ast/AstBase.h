@@ -82,6 +82,7 @@ class TypedefType;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
+class WhileStmt;
 
 /// \class Ast
 /// \brief The root of the AST hierarchy.
@@ -172,6 +173,7 @@ public:
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_ReturnStmt,         ///< ReturnStmt
         AST_StmtSequence,       ///< StmtSequence
+        AST_WhileStmt,          ///< WhileStmt
 
         //
         // Miscellaneous helper nodes.
@@ -206,7 +208,7 @@ public:
         LAST_Expr       = AST_PrjExpr,
 
         FIRST_Stmt      = AST_AssignmentStmt,
-        LAST_Stmt       = AST_StmtSequence
+        LAST_Stmt       = AST_WhileStmt
     };
 
     virtual ~Ast() { }

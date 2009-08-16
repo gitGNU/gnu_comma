@@ -204,8 +204,8 @@ public:
     const Expr *getCondition() const { return condition; }
 
     // Returns the statement associated with the "then" branch of this IfStmt.
-    Stmt *getConsequent() { return consequent; }
-    const Stmt *getConsequent() const { return consequent; }
+    StmtSequence *getConsequent() { return consequent; }
+    const StmtSequence *getConsequent() const { return consequent; }
 
     // Sets the statement associated with the "else" branch of this IfStmt.
     void setAlternate(Location loc, StmtSequence *stmt) {
@@ -290,6 +290,40 @@ private:
     StmtSequence *consequent;
     StmtSequence *alternate;
     ElsifVector   elsifs;
+};
+
+//===----------------------------------------------------------------------===//
+// WhileStmt
+//
+// Ast nodes representing the 'while' loop construct.
+class WhileStmt : public Stmt {
+
+public:
+    WhileStmt(Location loc, Expr *condition, StmtSequence *body)
+        : Stmt(AST_WhileStmt),
+          location(loc),
+          body(body) { }
+
+    // Returns the condition expression controlling this loop.
+    Expr *getCondition() { return condition; }
+    const Expr *getCondition() const { return condition; }
+
+    // Returns the body of this loop.
+    StmtSequence *getBody() { return body; }
+    const StmtSequence *getBody() const { return body; }
+
+    // Returns the location of the 'while' reserved word starting this loop.
+    Location getLocation() { return location; }
+
+    static bool classof(const WhileStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_WhileStmt;
+    }
+
+private:
+    Location location;
+    Expr *condition;
+    StmtSequence *body;
 };
 
 } // End comma namespace.
