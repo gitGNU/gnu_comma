@@ -310,3 +310,9 @@ void TypeCheck::endBlockStmt(Node blockNode)
     declarativeRegion = currentDeclarativeRegion()->getParent();
     scope.pop();
 }
+
+Node TypeCheck::acceptWhileStmt(Location loc, Node condition,
+                                NodeVector &stmtNodes)
+{
+    return getInvalidNode();
+}

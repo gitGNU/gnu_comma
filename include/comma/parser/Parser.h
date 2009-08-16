@@ -82,6 +82,7 @@ public:
     Node parseReturnStmt();
     Node parseAssignmentStmt();
     Node parseBlockStmt();
+    Node parseWhileStmt();
 
     Node parseSubroutineKeywordSelection();
     Node parseProcedureCallStatement();
@@ -190,6 +191,10 @@ private:
     // Assuming an 'if' token has been consumed, moves the token stream past a
     // matching 'end if' sequence (taking into account inner 'if' expressions.
     bool seekEndIf();
+
+    // Moves the token stream past an 'end loop' sequence, taking into account
+    // inner loop statmement.
+    bool seekEndLoop();
 
     bool seekToken(Lexer::Code code);
     bool seekAndConsumeToken(Lexer::Code code);

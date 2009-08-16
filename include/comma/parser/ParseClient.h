@@ -199,6 +199,10 @@ public:
     // the last call to beginBlockStmt.
     virtual void endBlockStmt(Node block) = 0;
 
+    // Called to inform the client of a while statement.
+    virtual Node acceptWhileStmt(Location loc, Node condition,
+                                 NodeVector &stmtNodes) = 0;
+
     // Called when an enumeration type is about to be parsed, supplying the name
     // of the type and its location.  For each literal composing the
     // enumeration, acceptEnumerationLiteral is called with the result of this

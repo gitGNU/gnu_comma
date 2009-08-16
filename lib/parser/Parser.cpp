@@ -275,6 +275,30 @@ bool Parser::seekEndIf()
     return false;
 }
 
+bool Parser::seekEndLoop()
+{
+    unsigned depth = 1;
+    while (seekTokens(Lexer::TKN_WHILE, Lexer::TKN_END)) {
+        switch (currentTokenCode()) {
+        default:
+            return false;
+
+        case Lexer::TKN_WHILE:
+            ignoreToken();
+            depth++;
+            break;
+
+        case Lexer::TKN_END:
+            ignoreToken();
+            if (reduceToken(Lexer::TKN_LOOP)) {
+                if (--depth == 0)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
 Location Parser::currentLocation()
 {
     return currentToken().getLocation();
