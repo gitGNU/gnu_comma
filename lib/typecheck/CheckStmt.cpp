@@ -311,8 +311,21 @@ void TypeCheck::endBlockStmt(Node blockNode)
     scope.pop();
 }
 
-Node TypeCheck::acceptWhileStmt(Location loc, Node condition,
+Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
                                 NodeVector &stmtNodes)
 {
-    return getInvalidNode();
+    Expr *condition = cast_node<Expr>(conditionNode);
+
+    if (!checkExprInContext(condition, declProducer->getBoolType()))
+        return getInvalidNode();
+
+    StmtSequence *body = new StmtSequence();
+    for (NodeVector::iterator I = stmtNodes.begin();
+         I != stmtNodes.end(); ++I) {
+        Stmt *stmt = cast_node<Stmt>(*I);
+        body->addStmt(stmt);
+        I->release();
+    }
+    stmtNodes.release();
+    return getNode(new WhileStmt(loc, condition, body));
 }
