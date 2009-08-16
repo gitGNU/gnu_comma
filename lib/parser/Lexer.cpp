@@ -233,6 +233,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
     case 4:
         if (strncmp(str, "else", length) == 0)
             code = TKN_ELSE;
+        else if (strncmp(str, "loop", length) == 0)
+            code = TKN_LOOP;
         else if (strncmp(str, "then", length) == 0)
             code = TKN_THEN;
         else if (strncmp(str, "with", length) == 0)
@@ -259,8 +261,6 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_RETURN;
         else if (strncmp(str, "import", length) == 0)
             code = TKN_IMPORT;
-        else if (strncmp(str, "repeat", length) == 0)
-            code = TKN_REPEAT;
         break;
 
     case 7:
