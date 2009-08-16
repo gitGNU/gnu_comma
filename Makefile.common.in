@@ -100,14 +100,21 @@ cpp_flags = $(llvm_cpp_flags) $(comma_cpp_flags) $(CPPFLAGS)
 #
 ifeq ($(optimized_build), 0)
    cxx_flags = -g
+   c_flags = -g
 else
    cxx_flags = -O3
+   c_flags = -O3
 endif
 
 #
-# Default compiler switches.
+# Default C++ compiler switches.
 #
-cxx_flags += $(cxx_optimise) -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
+cxx_flags += -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
+
+#
+# Default C compiler switches.
+#
+c_flags += -Wall $(CFLAGS)
 
 #
 # The following list of commands are required to build the system.
