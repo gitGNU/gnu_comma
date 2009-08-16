@@ -202,6 +202,7 @@ public:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
         case Ast::AST_EnumerationDecl:
+        case Ast::AST_IntegerDecl:
         case Ast::AST_BlockStmt:
             return true;
         }
@@ -215,6 +216,7 @@ public:
     static bool classof(const ProcedureDecl *node) { return true; }
     static bool classof(const FunctionDecl  *node) { return true; }
     static bool classof(const BlockStmt     *node) { return true; }
+    static bool classof(const IntegerDecl   *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }

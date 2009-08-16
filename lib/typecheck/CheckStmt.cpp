@@ -7,11 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "IdentifierResolver.h"
+#include "DeclProducer.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/Type.h"
 #include "comma/typecheck/TypeCheck.h"
+
 #include "llvm/Support/Casting.h"
 
 using namespace comma;
@@ -227,7 +229,7 @@ Node TypeCheck::acceptIfStmt(Location loc,
 {
     Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (checkType(condition, theBoolDecl->getType())) {
+    if (checkType(condition, declProducer->getBoolType())) {
         StmtSequence *consequents = new StmtSequence();
 
         for (unsigned i = 0; i < numConsequents; ++i) {
@@ -266,7 +268,7 @@ Node TypeCheck::acceptElsifStmt(Location loc,
     IfStmt *cond        = cast_node<IfStmt>(ifNode);
     Expr   *condition   = cast_node<Expr>(conditionNode);
 
-    if (checkType(condition, theBoolDecl->getType())) {
+    if (checkType(condition, declProducer->getBoolType())) {
         StmtSequence *consequents = new StmtSequence();
         for (unsigned i = 0; i < numConsequents; ++i) {
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));

@@ -29,6 +29,8 @@ class APInt;
 
 namespace comma {
 
+class DeclProducer;
+
 class TypeCheck : public ParseClient {
 
 public:
@@ -225,9 +227,9 @@ private:
     Scope            scope;
     unsigned         errorCount;
 
-    // FIXME: We need a class to hold instances of primitive types.  For now, we
-    // simply stash them inline.
-    EnumerationDecl *theBoolDecl;
+    /// Instance of a helper class used to hold primitive types and to construct
+    /// implicit operations.
+    DeclProducer *declProducer;
 
     //===------------------------------------------------------------------===//
     // Utility functions.
@@ -444,6 +446,9 @@ private:
     static SubroutineDecl *findDecl(const AstRewriter &rewrites,
                                     DeclRegion        *region,
                                     SubroutineDecl    *decl);
+
+    /// Imports the given declarative region into the current scope.
+    void importDeclRegion(DeclRegion *region);
 
     bool has(DomainType *source, SignatureType *target);
 

@@ -606,6 +606,7 @@ IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
                          Expr *lowRange, Expr *highRange,
                          IntegerType *baseType, DeclRegion *parent)
     : TypeDecl(AST_IntegerDecl, name, loc),
+      DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lowRange), highExpr(highRange)
 {
     correspondingType = new TypedefType(baseType, this);

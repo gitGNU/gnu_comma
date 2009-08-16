@@ -1,0 +1,15 @@
+-- This file tests that the primitive types and operations are all available.
+
+domain Primitive_Tests_1 add
+
+  function Test_Bool_EQ (X : Bool) return Bool is
+  begin
+     return X = X;
+  end Test_Bool_EQ;
+
+  function Test_Integer_EQ (X : Integer) return Bool is
+  begin
+     return X = X;
+  end Test_Integer_EQ;
+
+end Primitive_Tests_1;

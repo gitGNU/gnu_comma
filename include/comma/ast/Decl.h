@@ -1135,7 +1135,7 @@ private:
 // IntegerDecl
 //
 // These nodes represent integer type declarations.
-class IntegerDecl : public TypeDecl {
+class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
     ~IntegerDecl();

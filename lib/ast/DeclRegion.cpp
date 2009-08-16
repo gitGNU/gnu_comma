@@ -182,6 +182,8 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const EnumerationDecl*>(this);
     case Ast::AST_BlockStmt:
         return static_cast<const BlockStmt*>(this);
+    case Ast::AST_IntegerDecl:
+        return static_cast<const IntegerDecl*>(this);
     }
 }
 

@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DeclProducer.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
@@ -25,7 +26,8 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
     : diagnostic(diag),
       resource(resource),
       compUnit(cunit),
-      errorCount(0)
+      errorCount(0),
+      declProducer(new DeclProducer(&resource))
 {
     populateInitialEnvironment();
 }
@@ -36,37 +38,13 @@ TypeCheck::~TypeCheck() { }
 // with an initial environment.
 void TypeCheck::populateInitialEnvironment()
 {
-    // Construct the Bool type as an enumeration, equivalent to a top level
-    // declaration of the form "type Bool is (false, true);".  Note that false
-    // is specified first, giving it the numeric value 0 (and true 1).
-    IdentifierInfo *boolId  = resource.getIdentifierInfo("Bool");
-    IdentifierInfo *trueId  = resource.getIdentifierInfo("true");
-    IdentifierInfo *falseId = resource.getIdentifierInfo("false");
-    IdentifierInfo *paramX  = resource.getIdentifierInfo("X");
-    IdentifierInfo *paramY  = resource.getIdentifierInfo("Y");
+    EnumerationDecl *theBoolDecl = declProducer->getBoolDecl();
+    scope.addDirectDecl(theBoolDecl);
+    importDeclRegion(theBoolDecl);
 
-    EnumerationDecl *boolEnum  = new EnumerationDecl(boolId, 0, 0);
-    EnumLiteral     *trueEnum  = new EnumLiteral(boolEnum, falseId, 0);
-    EnumLiteral     *falseEnum = new EnumLiteral(boolEnum, trueId, 0);
-
-    // Construct the Bool equality predicate.
-    IdentifierInfo  *equalsId = resource.getIdentifierInfo("=");
-    EnumerationType *boolType = boolEnum->getType();
-    ParamValueDecl  *params[] = {
-        new ParamValueDecl(paramX, boolType, PM::MODE_DEFAULT, 0),
-        new ParamValueDecl(paramY, boolType, PM::MODE_DEFAULT, 0)
-    };
-    FunctionDecl *equals =
-        new FunctionDecl(equalsId, 0, params, 2, boolType, 0);
-
-    boolEnum->addDecl(equals);
-
-    scope.addDirectDecl(boolEnum);
-    scope.addDirectDecl(trueEnum);
-    scope.addDirectDecl(falseEnum);
-    scope.addDirectDecl(equals);
-
-    theBoolDecl = boolEnum;
+    IntegerDecl *theIntegerDecl = declProducer->getIntegerDecl();
+    scope.addDirectDecl(theIntegerDecl);
+    importDeclRegion(theIntegerDecl);
 }
 
 void TypeCheck::deleteNode(Node &node)
@@ -1112,28 +1090,7 @@ Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
         return getInvalidNode();
 
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
-
-    // Construct the builtin functions associated with an enumeration.
-    IdentifierInfo *equalsId = resource.getIdentifierInfo("=");
-    IdentifierInfo *paramX   = resource.getIdentifierInfo("X");
-    IdentifierInfo *paramY   = resource.getIdentifierInfo("Y");
-    Type           *enumType = enumeration->getType();
-
-    ParamValueDecl *params[] = {
-        new ParamValueDecl(paramX, enumType, PM::MODE_DEFAULT, 0),
-        new ParamValueDecl(paramY, enumType, PM::MODE_DEFAULT, 0)
-    };
-
-    FunctionDecl *equals =
-        new FunctionDecl(equalsId, 0, params, 2, theBoolDecl->getType(), 0);
-    equals->setAsPrimitive(PO::Equality);
-
-    enumeration->addDecl(equals);
-
-    region->addDecl(enumeration);
-    scope.addDirectDecl(enumeration);
-    scope.addDirectDecl(equals);
-    return getReleasedNode(enumeration);
+    return getNode(enumeration);
 }
 
 void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
@@ -1146,12 +1103,20 @@ void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
         report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
         return;
     }
-
-    EnumLiteral *lit = new EnumLiteral(enumeration, name, loc);
-    scope.addDirectDecl(lit);
+    new EnumLiteral(enumeration, name, loc);
 }
 
-void TypeCheck::endEnumerationType(Node enumerationNode) { }
+void TypeCheck::endEnumerationType(Node enumerationNode)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+
+    enumerationNode.release();
+    declProducer->createImplicitDecls(enumeration);
+    region->addDecl(enumeration);
+    importDeclRegion(enumeration);
+    scope.addDirectDecl(enumeration);
+}
 
 /// Called to process integer type definitions.
 ///
@@ -1192,7 +1157,10 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     IntegerType *intTy = resource.getIntegerType(lowValue, highValue);
     IntegerDecl *Idecl =
         new IntegerDecl(name, loc, lowExpr, highExpr, intTy, region);
+
+    declProducer->createImplicitDecls(Idecl);
     region->addDecl(Idecl);
+    importDeclRegion(Idecl);
     scope.addDirectDecl(Idecl);
 }
 
@@ -1283,4 +1251,15 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
         }
     }
     return allOK;
+}
+
+void TypeCheck::importDeclRegion(DeclRegion *region)
+{
+    // FIXME: We should be able to import a region directly into a scope, thus
+    // making these declarations indirect.  However, we do not have appropriate
+    // scope API's yet.
+    typedef DeclRegion::DeclIter iterator;
+
+    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
+        scope.addDirectDecl(*I);
 }
