@@ -23,8 +23,24 @@ bool Type::isScalarType() const
 {
     if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
         return carrier->getRepresentationType()->isScalarType();
+
+    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
+        return TyDef->getBaseType()->isScalarType();
+
     return isa<EnumerationType>(this);
 }
+
+bool Type::isIntegerType() const
+{
+    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
+        return carrier->getRepresentationType()->isIntegerType();
+
+    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
+        return TyDef->getBaseType()->isIntegerType();
+
+    return isa<IntegerType>(this);
+}
+
 
 //===----------------------------------------------------------------------===//
 // CarrierType

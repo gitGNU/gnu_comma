@@ -353,10 +353,22 @@ private:
 
     Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 
-    // Resolves the given call expression (which should have multiple candidate
-    // connectives) to one which satisfies the given target type and returns
-    // true.  Otherwise, false is returned and the appropriate diagnostics are
-    // emitted.
+    // Typechecks the given expression in the given type context.  This method
+    // can update the expression (by resolving overloaded function calls, or
+    // assigning a type to an integer literal, for example).  Returns true if
+    // the expression was successfully checked.  Otherwise, false is returned
+    // and appropriate diagnostics are emitted.
+    bool checkExprInContext(Expr *expr, Type *context);
+
+    // Resolves the type of the given integer literal, and ensures that the
+    // given type context is itself compatible with the literal provided.
+    // Returns true if the literal was successfully checked.  Otherwise, false
+    // is returned and appropriate diagnostics are posted.
+    bool resolveIntegerLiteral(IntegerLiteral *intLit, Type *context);
+
+    // Resolves the given call expression to one which satisfies the given
+    // target type and returns true.  Otherwise, false is returned and the
+    // appropriate diagnostics are emitted.
     bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
 
     // Resolves the given call expression (which must be nullary function call,
@@ -371,8 +383,9 @@ private:
                              Expr          **args,
                              unsigned        numArgs);
 
-    /// Checks that the supplied array of arguments are compatible with those of
-    /// the given decl.  This is a helper method for checkSubroutineCall.
+    /// Checks that the supplied array of arguments are mode compatible with
+    /// those of the given decl.  This is a helper method for
+    /// checkSubroutineCall.
     ///
     /// It is assumed that the number of arguments passed matches the number
     /// expected by the decl.  This function checks that the argument types and
@@ -407,12 +420,6 @@ private:
     // domain which satisfies the signature constraint.  The supplied location
     // indicates the position of the source type.
     bool checkType(Type *source, SignatureType *target, Location loc);
-
-
-    // Returns true if an expression satisfies the target type, performing any
-    // resolution of the expression as needed.  Otherwise false is returned and
-    // an appropriate diagnostics is posted.
-    bool checkType(Expr *expr, Type *targetType);
 
     // Verifies that the given AddDecl satisfies the constraints imposed by its
     // signature.  Returns true if the constraints are satisfied.  Otherwise,

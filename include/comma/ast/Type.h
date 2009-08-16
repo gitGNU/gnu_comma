@@ -44,6 +44,9 @@ public:
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
 
+    /// Returns true if this type denotes an integer type.
+    bool isIntegerType() const;
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();

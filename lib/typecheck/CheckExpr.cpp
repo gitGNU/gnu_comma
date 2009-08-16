@@ -342,9 +342,10 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
         for (unsigned j = 0; j < numArgs; ++j) {
             Expr *arg = args[j];
             if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg)) {
-                IdentifierInfo *key      = selector->getKeyword();
-                Location        keyLoc   = selector->getLocation();
-                int             keyIndex = decl->getKeywordIndex(key);
+                IdentifierInfo *key = selector->getKeyword();
+                Location keyLoc = selector->getLocation();
+                int keyIndex = decl->getKeywordIndex(key);
+
                 if (keyIndex < 0) {
                     declFilter[i] = false;
                     if (declFilter.none()) {
@@ -363,8 +364,8 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     for (unsigned i = 0; i < decls.size(); ++i) {
         SubroutineDecl *decl = decls[i];
         for (unsigned j = 0; j < numArgs && declFilter[i]; ++j) {
-            Expr     *arg = args[j];
-            unsigned  targetIndex = j;
+            Expr *arg = args[j];
+            unsigned targetIndex = j;
 
             if (KeywordSelector *selector = dyn_cast<KeywordSelector>(args[j])) {
                 arg = selector->getExpression();
@@ -379,18 +380,35 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                 if (!targetType->equals(arg->getType())) {
                     declFilter[i] = false;
                     // If the set of applicable declarations has been reduced to
-                    // zero, report this argument as ambiguous.
+                    // zero, report this call as ambiguous.
                     if (declFilter.none())
-                        report(arg->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+                        report(loc, diag::AMBIGUOUS_EXPRESSION);
                 }
                 continue;
             }
 
-            // Otherwise, we have an unresolved argument expression (which must
-            // be a function call expression).
+            // Otherwise, we have an unresolved argument expression.  The
+            // expression can be an integer literal or a function call
+            // expression.
+            if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(arg)) {
+                if (!targetType->isIntegerType()) {
+                    declFilter[i] = false;
+                    // If the set of applicable declarations has been reduced to
+                    // zero, report this call as ambiguous.
+                    if (declFilter.none())
+                        report(loc, diag::AMBIGUOUS_EXPRESSION);
+                }
+                else {
+                    // FIXME: Ensure that the literal meets any range
+                    // constraints implied by the context.
+                    intLit->setType(targetType);
+                }
+                continue;
+            }
+
             typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
-            FunctionCallExpr *argCall = cast<FunctionCallExpr>(arg);
             bool applicableArgument = false;
+            FunctionCallExpr *argCall = cast<FunctionCallExpr>(arg);
 
             // Check if at least one interpretation of the argument satisfies
             // the current target type.
@@ -450,11 +468,8 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     }
 }
 
-Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
-                                    Location loc,
-                                    Expr **args,
-                                    unsigned numArgs)
-
+Node TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
+                                    Expr **args, unsigned numArgs)
 {
     if (decl->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << decl->getIdInfo();
@@ -525,8 +540,8 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl  *decl,
     }
 }
 
-/// Checks that the supplied array of arguments are compatible with those of
-/// the given decl.  This is a helper method for checkSubroutineCall.
+/// Checks that the supplied array of arguments are mode compatible with those
+/// of the given decl.  This is a helper method for checkSubroutineCall.
 ///
 /// It is assumed that the number of arguments passed matches the number
 /// expected by the decl.  This function checks that the argument types and
@@ -546,7 +561,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
         if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
             arg = selector->getExpression();
 
-        if (!checkType(arg, targetType))
+        if (!checkExprInContext(arg, targetType))
             return false;
 
         // If the target mode is either "out" or "in out", ensure that the
@@ -576,6 +591,53 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
             return false;
         }
     }
+    return true;
+}
+
+// Typechecks the given expression in the given type context.  This method can
+// update the expression (by resolving overloaded function calls, or assigning a
+// type to an integer literal, for example).  Returns true if the expression was
+// successfully checked.  Otherwise, false is returned and appropriate
+// diagnostics are emitted.
+bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
+{
+    // Currently, only two types of expressions are "sensitive" to context,
+    // meaning that we might need to patch up the AST so that it conforms to the
+    // context -- IntegerLiterals and FunctionCallExpr's.
+    if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(expr))
+        return resolveIntegerLiteral(intLit, context);
+    if (FunctionCallExpr *fcall = dyn_cast<FunctionCallExpr>(expr))
+        return resolveFunctionCall(fcall, context);
+
+    // Otherwise, simply ensure that the given expression is compatable with the
+    // context.
+    Type *exprTy = expr->getType();
+    assert(exprTy && "Expression does not have a resolved type!");
+    if (exprTy->equals(context))
+        return true;
+    else {
+        // FIXME: Need a better diagnostic here.
+        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+}
+
+// Resolves the type of the given integer literal, and ensures that the given
+// type context is itself compatible with the literal provided.  Returns true if
+// the literal was successfully checked.  Otherwise, false is returned and
+// appropriate diagnostics are posted.
+bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
+{
+    assert(!intLit->hasType() && "Integer literal already resolved!");
+    if (!context->isIntegerType()) {
+        // FIXME: Need a better diagnostic here.
+        report(intLit->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+
+    // FIXME: Ensure that the literal meets any range constraints implied by the
+    // context.
+    intLit->setType(context);
     return true;
 }
 
@@ -611,11 +673,23 @@ bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
     return true;
 }
 
-// Resolves the given call expression (which should have multiple candidate
-// connectives) to one which satisfies the given target type and returns true.
-// Otherwise, false is returned and the appropriate diagnostics are emitted.
+// Resolves the given call expression to one which satisfies the given target
+// type and returns true.  Otherwise, false is returned and the appropriate
+// diagnostics are emitted.
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
+    if (!call->isAmbiguous()) {
+        // The function call is not ambiguous.  Ensure that the return type of
+        // the call and the target type match.
+        //
+        // FIXME: Need a better diagnostic here.
+        if (!call->getType()->equals(targetType)) {
+            report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
+            return false;
+        }
+        return true;
+    }
+
     if (call->getNumArgs() == 0)
         return resolveNullaryFunctionCall(call, targetType);
 
@@ -643,36 +717,37 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
         report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
         return false;
     }
+    else {
+        // The declaration has been resolved.  Set it.
+        call->resolveConnective(fdecl);
+    }
 
     // Traverse the argument set, patching up any unresolved argument
     // expressions.  We also need to sort the arguments according to the keyword
     // selections, since the connectives do not necessarily respect a uniform
     // ordering.
-    bool     status  = true;
+    bool status = true;
     unsigned numArgs = call->getNumArgs();
     llvm::SmallVector<Expr*, 8> sortedArgs(numArgs);
 
     for (unsigned i = 0; i < call->getNumArgs(); ++i) {
-        FunctionCallExpr *argCall;
-        unsigned          argIndex = i;
-        Expr             *arg      = call->getArg(i);
+        unsigned argIndex = i;
+        Expr *arg = call->getArg(i);
 
         // If we have a keyword selection, locate the corresponding index, and
         // resolve the selection to its corresponding expression.
         if (KeywordSelector *select = dyn_cast<KeywordSelector>(arg)) {
-            arg      = select->getExpression();
+            arg = select->getExpression();
             argIndex = fdecl->getKeywordIndex(select->getKeyword());
             sortedArgs[argIndex] = select;
         }
         else
             sortedArgs[argIndex] = arg;
 
-        argCall = dyn_cast<FunctionCallExpr>(arg);
-        if (argCall && argCall->isAmbiguous())
-            status = status &&
-                resolveFunctionCall(argCall, fdecl->getArgType(argIndex));
+        status = status and
+            checkExprInContext(arg, fdecl->getArgType(argIndex));
     }
-    call->resolveConnective(fdecl);
+
     return status;
 }
 

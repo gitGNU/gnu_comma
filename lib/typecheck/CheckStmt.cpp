@@ -156,7 +156,7 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
         Expr         *retExpr    = cast_node<Expr>(retNode);
         Type         *targetType = fdecl->getReturnType();
 
-        if (checkType(retExpr, targetType)) {
+        if (checkExprInContext(retExpr, targetType)) {
             retNode.release();
             return getNode(new ReturnStmt(loc, retExpr));
         }
@@ -213,7 +213,7 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
         }
     }
 
-    if (checkType(value, targetDecl->getType())) {
+    if (checkExprInContext(value, targetDecl->getType())) {
         valueNode.release();
         DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);
         return getNode(new AssignmentStmt(ref, value));
@@ -229,7 +229,7 @@ Node TypeCheck::acceptIfStmt(Location loc,
 {
     Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (checkType(condition, declProducer->getBoolType())) {
+    if (checkExprInContext(condition, declProducer->getBoolType())) {
         StmtSequence *consequents = new StmtSequence();
 
         for (unsigned i = 0; i < numConsequents; ++i) {
@@ -268,7 +268,7 @@ Node TypeCheck::acceptElsifStmt(Location loc,
     IfStmt *cond        = cast_node<IfStmt>(ifNode);
     Expr   *condition   = cast_node<Expr>(conditionNode);
 
-    if (checkType(condition, declProducer->getBoolType())) {
+    if (checkExprInContext(condition, declProducer->getBoolType())) {
         StmtSequence *consequents = new StmtSequence();
         for (unsigned i = 0; i < numConsequents; ++i) {
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));

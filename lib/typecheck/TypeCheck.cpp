@@ -819,7 +819,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
         decl = new ObjectDecl(name, type, loc);
     else {
         Expr *expr = cast_node<Expr>(initializerNode);
-        if (checkType(expr, type)) {
+        if (checkExprInContext(expr, type)) {
             decl = new ObjectDecl(name, type, loc);
             decl->setInitializer(expr);
         }
@@ -1194,22 +1194,6 @@ bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
     // signature constraint.
     report(loc, diag::NOT_A_DOMAIN);
     return false;
-}
-
-bool TypeCheck::checkType(Expr *expr, Type *targetType)
-{
-    if (expr->hasType()) {
-        if (targetType->equals(expr->getType()))
-            return true;
-        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
-    }
-    else {
-        // Otherwise, the expression must be a function call overloaded on the
-        // return type.
-        FunctionCallExpr *fcall = cast<FunctionCallExpr>(expr);
-        return resolveFunctionCall(fcall, targetType);
-    }
 }
 
 bool TypeCheck::ensureExportConstraints(AddDecl *add)

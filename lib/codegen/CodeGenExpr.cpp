@@ -46,6 +46,10 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
     case Ast::AST_PrjExpr:
         val = emitPrjExpr(cast<PrjExpr>(expr));
         break;
+
+    case Ast::AST_IntegerLiteral:
+        val = emitIntegerLiteral(cast<IntegerLiteral>(expr));
+        break;
     }
 
     return val;
@@ -87,7 +91,7 @@ llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
     if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
         return emitVariableReference(arg);
     else
-        return emitExpr(arg);
+        return emitValue(arg);
 }
 
 llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
@@ -179,4 +183,24 @@ llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
 
     assert(false && "Cannot codegen prj expression yet!");
     return 0;
+}
+
+llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
+{
+    assert(expr->hasType() && "Unresolve literal type!");
+
+    const llvm::IntegerType *ty =
+        cast<llvm::IntegerType>(CGTypes.lowerType(expr->getType()));
+    llvm::APInt val(expr->getValue());
+
+    // All comma integer types are represented as signed.  Sign extend the value
+    // if needed.
+    unsigned valWidth = val.getBitWidth();
+    unsigned tyWidth = ty->getBitWidth();
+    assert(valWidth <= tyWidth && "Value/Type width mismatch!");
+
+    if (valWidth < tyWidth)
+        val.sext(tyWidth);
+
+    return llvm::ConstantInt::get(val);
 }
