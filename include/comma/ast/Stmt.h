@@ -302,6 +302,7 @@ public:
     WhileStmt(Location loc, Expr *condition, StmtSequence *body)
         : Stmt(AST_WhileStmt),
           location(loc),
+          condition(condition),
           body(body) { }
 
     // Returns the condition expression controlling this loop.
