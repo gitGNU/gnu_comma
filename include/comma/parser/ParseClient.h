@@ -162,8 +162,7 @@ public:
                                        Node     qualifierType,
                                        Location loc) = 0;
 
-    virtual Node acceptIntegerLiteral(const llvm::APInt &value,
-                                      Location loc) = 0;
+    virtual Node acceptIntegerLiteral(llvm::APInt &value, Location loc) = 0;
 
     // Submits an import from the given type node, and the location of the
     // import reserved word.

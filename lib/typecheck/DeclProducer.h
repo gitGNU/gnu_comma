@@ -77,7 +77,7 @@ private:
     void createTheIntegerDecl();
 
     /// An enumeration itemizing the various types of predicate functions we can
-    /// produce.  Used as an argument to DeclProducer::createBinaryPredicate.
+    /// produce.  Used as an argument to DeclProducer::createPredicate.
     enum PredicateKind {
         EQ_pred,
         LT_pred,
@@ -86,7 +86,7 @@ private:
         GTEQ_pred,
     };
 
-    /// Returns an IdentifierInfo nameing the given predicate.
+    /// Returns an IdentifierInfo naming the given predicate.
     IdentifierInfo *getPredicateName(PredicateKind kind);
 
     /// Returns the primitive operation marker for the given predicate.
@@ -95,13 +95,37 @@ private:
     /// Generates a binary predicate function.
     ///
     /// The function is named after the Comma operator for the given type of
-    /// predicate.  For example, \c EQ_pred results in a function names "=",
+    /// predicate.  For example, \c EQ_pred results in a function named "=",
     /// while LTEQ_pred results in a function named "<=".  All predicate
     /// functions have argument selectors named "X" and "Y".  And, obviously,
     /// the return type is Bool.  The parent declarative region of the resulting
     /// function decl is set to \p region.
     FunctionDecl *createPredicate(PredicateKind kind, Type *paramType,
                                   DeclRegion *parent);
+
+    /// An enumeration itemizing the various types of arithmetic functions we
+    /// can produce.
+    enum ArithKind {
+        PLUS_arith,
+        MINUS_arith
+    };
+
+    /// Returns an IdentifierInfo naming the given binary arithmetic operator.
+    IdentifierInfo *getArithName(ArithKind kind);
+
+    /// Returns the primitive operation marker for the given arithmetic operator.
+    PO::PrimitiveID getArithPrimitive(ArithKind kind);
+
+    /// Generates a binary arithmetic operation.
+    ///
+    /// The function is named after the Comma operator for the given binary
+    /// arithmetic kind.  For example, \c PLUS_arith results in a function named
+    /// "+".  All such functions have argument selectors named "X" and "Y".
+    /// Both argument types and return type are given by \p Ty.  The parent
+    /// declarative region of the resulting decl is set to \p region.
+    FunctionDecl *createBinaryArithOp(ArithKind kind, Type *Ty,
+                                      DeclRegion *parent);
+
 };
 
 } // end comma namespace.

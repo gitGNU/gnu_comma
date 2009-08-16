@@ -157,12 +157,18 @@ void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
         createPredicate(LTEQ_pred, intDecl->getType(), intDecl);
     FunctionDecl *gteq =
         createPredicate(GTEQ_pred, intDecl->getType(), intDecl);
+    FunctionDecl *plus =
+        createBinaryArithOp(PLUS_arith, intDecl->getType(), intDecl);
+    FunctionDecl *minus =
+        createBinaryArithOp(MINUS_arith, intDecl->getType(), intDecl);
 
     intDecl->addDecl(equals);
     intDecl->addDecl(lt);
     intDecl->addDecl(gt);
     intDecl->addDecl(lteq);
     intDecl->addDecl(gteq);
+    intDecl->addDecl(plus);
+    intDecl->addDecl(minus);
 }
 
 FunctionDecl *
@@ -183,4 +189,47 @@ DeclProducer::createPredicate(PredicateKind kind, Type *paramType,
                          parent);
     pred->setAsPrimitive(getPredicatePrimitive(kind));
     return pred;
+}
+
+IdentifierInfo *DeclProducer::getArithName(ArithKind kind)
+{
+    switch (kind) {
+    default:
+        assert(false && "Bad arithmetic kind!");
+        return 0;
+    case PLUS_arith:
+        return resource->getIdentifierInfo("+");
+    case MINUS_arith:
+        return resource->getIdentifierInfo("-");
+    }
+}
+
+PO::PrimitiveID DeclProducer::getArithPrimitive(ArithKind kind)
+{
+    switch (kind) {
+    default:
+        assert(false && "Bad arithmetic kind!");
+        return PO::NotPrimitive;
+    case PLUS_arith:
+        return PO::Plus;
+    case MINUS_arith:
+        return PO::Minus;
+    }
+}
+
+FunctionDecl *
+DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, DeclRegion *parent)
+{
+    IdentifierInfo *name = getArithName(kind);
+    IdentifierInfo *paramX = resource->getIdentifierInfo("X");
+    IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
+
+    ParamValueDecl *params[] = {
+        new ParamValueDecl(paramX, Ty, PM::MODE_DEFAULT, 0),
+        new ParamValueDecl(paramY, Ty, PM::MODE_DEFAULT, 0)
+    };
+
+    FunctionDecl *op = new FunctionDecl(name, 0, params, 2, Ty, parent);
+    op->setAsPrimitive(getArithPrimitive(kind));
+    return op;
 }

@@ -814,7 +814,20 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
     return getNode(new PrjExpr(expr, domoid->getPercent(), loc));
 }
 
-Node TypeCheck::acceptIntegerLiteral(const llvm::APInt &value, Location loc)
+Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
 {
+    // The current convention is to represent the values of integer literals as
+    // signed APInts such that the bit width of the value can accomidate a two's
+    // complement representation.  Since literals are always positive at this
+    // stage (we have yet to apply a negation operator, say), zero extend the
+    // value by one bit -- this assumes that the parser produces APInt's which
+    // are not wider than necessary to represent the unsigned value of the
+    // literal, hense the assert.
+    assert((value == 0 || value.countLeadingZeros() == 0) &&
+           "Unexpected literal representation!");
+
+    if (value != 0)
+        value.zext(value.getBitWidth() + 1);
+
     return getNode(new IntegerLiteral(value, loc));
 }
