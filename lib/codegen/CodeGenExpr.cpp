@@ -145,6 +145,22 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
         assert(args.size() == 2 && "Bad arity for primitive!");
         return Builder.CreateICmpEQ(args[0], args[1]);
 
+    case PO::LessThan:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateICmpSLT(args[0], args[1]);
+
+    case PO::GreaterThan:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateICmpSGT(args[0], args[1]);
+
+    case PO::LessThanOrEqual:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateICmpSLE(args[0], args[1]);
+
+    case PO::GreaterThanOrEqual:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateICmpSGE(args[0], args[1]);
+
     case PO::EnumFunction: {
         EnumLiteral *lit = cast<EnumLiteral>(decl);
         unsigned idx = lit->getIndex();

@@ -196,6 +196,8 @@ Node Parser::parseRelationalOperator()
         case Lexer::TKN_EQUAL:
         case Lexer::TKN_LESS:
         case Lexer::TKN_GREAT:
+        case Lexer::TKN_LEQ:
+        case Lexer::TKN_GEQ:
         case Lexer::TKN_DIAMOND:
             loc    = currentLocation();
             opInfo = parseFunctionIdentifierInfo();

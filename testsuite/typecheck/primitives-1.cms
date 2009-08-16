@@ -12,4 +12,9 @@ domain Primitive_Tests_1 add
      return X = X;
   end Test_Integer_EQ;
 
+  function Test_Integer_LT (X : Integer) return Bool is
+  begin
+     return X < X;
+  end Test_Integer_LT;
+
 end Primitive_Tests_1;

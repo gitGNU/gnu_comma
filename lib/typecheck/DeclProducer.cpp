@@ -144,12 +144,25 @@ void DeclProducer::createImplicitDecls(EnumerationDecl *enumDecl)
 }
 
 /// Generates declarations appropriate for the given integer declaration,
-/// populating \p region viewed as a DeclRegion with the results.
+/// populating \p intDecl viewed as a DeclRegion with the results.
 void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
 {
     FunctionDecl *equals =
         createPredicate(EQ_pred, intDecl->getType(), intDecl);
+    FunctionDecl *lt =
+        createPredicate(LT_pred, intDecl->getType(), intDecl);
+    FunctionDecl *gt =
+        createPredicate(GT_pred, intDecl->getType(), intDecl);
+    FunctionDecl *lteq =
+        createPredicate(LTEQ_pred, intDecl->getType(), intDecl);
+    FunctionDecl *gteq =
+        createPredicate(GTEQ_pred, intDecl->getType(), intDecl);
+
     intDecl->addDecl(equals);
+    intDecl->addDecl(lt);
+    intDecl->addDecl(gt);
+    intDecl->addDecl(lteq);
+    intDecl->addDecl(gteq);
 }
 
 FunctionDecl *

@@ -373,6 +373,32 @@ bool Lexer::scanGlyph()
         }
         break;
 
+    case '<':
+        switch (peekStream()) {
+        default:
+            code = TKN_LESS;
+            break;
+
+        case '=':
+            ignoreStream();
+            code = TKN_LEQ;
+            break;
+        }
+        break;
+
+    case '>':
+        switch (peekStream()) {
+        default:
+            code = TKN_GREAT;
+            break;
+
+        case '=':
+            ignoreStream();
+            code = TKN_GEQ;
+            break;
+        }
+        break;
+
     case '[':
         code = TKN_LBRACK;
         break;

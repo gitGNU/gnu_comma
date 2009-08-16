@@ -54,7 +54,7 @@ public:
     void createImplicitDecls(EnumerationDecl *enumDecl);
 
     /// Generates declarations appropriate for the given integer declaration,
-    /// populating \p region viewed as a DeclRegion with the results.
+    /// populating \p intDecl viewed as a DeclRegion with the results.
     void createImplicitDecls(IntegerDecl *intDecl);
 
 private:
