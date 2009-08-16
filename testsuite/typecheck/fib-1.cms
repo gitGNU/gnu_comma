@@ -1,0 +1,16 @@
+-- Ensure a simple Fibonacci function typechecks.
+
+domain D add
+
+   function Fib(X : Integer) return Integer is
+   begin
+      if (X <= 0) then
+         return 0;
+      elsif (X = 1) then
+         return 1;
+      else
+         return Fib(X - 2) + Fib(X - 1);
+      end if;
+   end Fib;
+
+end D;
