@@ -628,7 +628,12 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
 // appropriate diagnostics are posted.
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
-    assert(!intLit->hasType() && "Integer literal already resolved!");
+    if (intLit->hasType()) {
+        assert(intLit->getType()->equals(context) &&
+               "Cannot resolve literal to different type!");
+        return true;
+    }
+
     if (!context->isIntegerType()) {
         // FIXME: Need a better diagnostic here.
         report(intLit->getLocation(), diag::INCOMPATIBLE_TYPES);
