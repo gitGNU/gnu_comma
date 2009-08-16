@@ -145,6 +145,14 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
         assert(args.size() == 2 && "Bad arity for primitive!");
         return Builder.CreateICmpEQ(args[0], args[1]);
 
+    case PO::Plus:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateAdd(args[0], args[1]);
+
+    case PO::Minus:
+        assert(args.size() == 2 && "Bad arity for primitive!");
+        return Builder.CreateSub(args[0], args[1]);
+
     case PO::LessThan:
         assert(args.size() == 2 && "Bad arity for primitive!");
         return Builder.CreateICmpSLT(args[0], args[1]);

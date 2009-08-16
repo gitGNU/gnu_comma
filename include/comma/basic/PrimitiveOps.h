@@ -22,6 +22,8 @@ enum PrimitiveID {
     GreaterThan,
     LessThanOrEqual,
     GreaterThanOrEqual,
+    Plus,
+    Minus,
     EnumFunction
 };
 
