@@ -3851,6 +3851,8 @@ ac_config_files="$ac_config_files lib/codegen/Makefile"
 
 ac_config_files="$ac_config_files lib/parser/Makefile"
 
+ac_config_files="$ac_config_files lib/runtime/Makefile"
+
 ac_config_files="$ac_config_files lib/typecheck/Makefile"
 
 ac_config_files="$ac_config_files tools/Makefile"
@@ -4488,6 +4490,7 @@ do
     "lib/basic/Makefile") CONFIG_FILES="$CONFIG_FILES lib/basic/Makefile" ;;
     "lib/codegen/Makefile") CONFIG_FILES="$CONFIG_FILES lib/codegen/Makefile" ;;
     "lib/parser/Makefile") CONFIG_FILES="$CONFIG_FILES lib/parser/Makefile" ;;
+    "lib/runtime/Makefile") CONFIG_FILES="$CONFIG_FILES lib/runtime/Makefile" ;;
     "lib/typecheck/Makefile") CONFIG_FILES="$CONFIG_FILES lib/typecheck/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
     "tools/driver/Makefile") CONFIG_FILES="$CONFIG_FILES tools/driver/Makefile" ;;
