@@ -324,8 +324,8 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
          I != stmtNodes.end(); ++I) {
         Stmt *stmt = cast_node<Stmt>(*I);
         body->addStmt(stmt);
-        I->release();
     }
+    conditionNode.release();
     stmtNodes.release();
     return getNode(new WhileStmt(loc, condition, body));
 }
