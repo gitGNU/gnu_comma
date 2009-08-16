@@ -252,7 +252,21 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         DomainType *argTy = cast<DomainType>(instance->getActualParameter(i));
         SignatureType *targetTy = functor->getFormalSignature(i);
 
-        if (DomainInstanceDecl *arg = argTy->getInstanceDecl()) {
+        if (argTy->denotesPercent()) {
+            assert(argTy->getDomoidDecl() == CGC.getCapsule() &&
+                   "Percent node does not represent the current domain!");
+
+            // The argument to this functor is %. Obtain the signature offset
+            // for the current domain, load the associated view and push it onto
+            // get_domains argument list.
+            unsigned sigOffset =
+                CRT.getSignatureOffset(CGC.getCapsule(), targetTy);
+            llvm::Value *view =
+                DInstance->loadView(builder, percent, sigOffset);
+            arguments.push_back(view);
+
+        }
+        else if (DomainInstanceDecl *arg = argTy->getInstanceDecl()) {
             unsigned argIndex = CGC.getDependencyID(arg) - 1;
 
             // Load the instance from the destination vector.

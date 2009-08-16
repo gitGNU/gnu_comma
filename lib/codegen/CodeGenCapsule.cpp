@@ -55,14 +55,14 @@ void CodeGenCapsule::emit()
 unsigned CodeGenCapsule::addCapsuleDependency(DomainInstanceDecl *instance)
 {
     // If the given instance is parameterized, insert each argument as a
-    // dependency, ignoring abstract domains (the formal parameters of a functor
-    // need not be recorded).
+    // dependency, ignoring abstract domains and % (the formal parameters of a
+    // functor, nor the domain itself, need recording).
     if (instance->isParameterized()) {
         typedef DomainInstanceDecl::arg_iterator iterator;
         for (iterator iter = instance->beginArguments();
              iter != instance->endArguments(); ++iter) {
             DomainType *argTy = cast<DomainType>(*iter);
-            if (!argTy->isAbstract()) {
+            if (!(argTy->isAbstract() or argTy->denotesPercent())) {
                 DomainInstanceDecl *argInstance = argTy->getInstanceDecl();
                 assert(argInstance && "Bad domain type!");
                 requiredInstances.insert(argInstance);
