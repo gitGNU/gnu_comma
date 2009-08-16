@@ -2,7 +2,7 @@
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
-# Copyright (C) 2008, Stephen Wilson
+# Copyright (C) 2008-2009, Stephen Wilson
 #
 ##----------------------------------------------------------------------------##
 
@@ -14,7 +14,7 @@ LEVEL = ..
 #
 # We recurse into the following directories, in the following order.
 #
-DIRS=basic parser ast typecheck codegen
+DIRS=basic parser ast typecheck codegen runtime
 
 #
 # Define our environment.
