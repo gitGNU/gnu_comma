@@ -27,84 +27,6 @@ enum ScopeKind {
     FUNCTION_SCOPE          // function scope.
 };
 
-// An entry in a Scope object.
-class ScopeEntry {
-
-    // The set of lexical declarations associated with this entry.
-    typedef llvm::SmallPtrSet<Decl*, 16> DeclSet;
-
-    // Collection of imports associated with this entry.
-    typedef llvm::SmallVector<DomainType*, 8> ImportVector;
-
-public:
-    ScopeEntry(ScopeKind kind, unsigned tag)
-        : kind(kind),
-          tag(tag) { }
-
-    // Reinitializes this frame to the specified kind.
-    void initialize(ScopeKind kind, unsigned tag) {
-        this->kind = kind;
-        this->tag  = tag;
-    }
-
-    // Returns the kind of this entry.
-    ScopeKind getKind() const { return kind; }
-
-    unsigned getTag() const { return tag; }
-
-    void addDirectDecl(Decl *decl);
-
-    void removeDirectDecl(Decl *decl);
-
-    void removeImportDecl(Decl *decl);
-
-    // Returns the number of direct declarations managed by this entry.
-    unsigned numDirectDecls() const { return directDecls.size(); }
-
-    // Returns true if this entry contains a direct declaration bound to the
-    // given name.
-    bool containsDirectDecl(IdentifierInfo *name);
-
-    // Returns true if this the given declaration is directly visible in this
-    // entry.
-    bool containsDirectDecl(Decl *decl) {
-        return directDecls.count(decl);
-    }
-
-    void addImportDecl(DomainType *type);
-
-    // Returns the number of imported declarations managed by this frame.
-    unsigned numImportDecls() const { return importDecls.size(); }
-
-    bool containsImportDecl(IdentifierInfo *name);
-    bool containsImportDecl(DomainType *type);
-
-    // Iterators over the direct declarations managed by this frame.
-    typedef DeclSet::const_iterator DirectIterator;
-    DirectIterator beginDirectDecls() const { return directDecls.begin(); }
-    DirectIterator endDirectDecls()   const { return directDecls.end(); }
-
-    // Iterators over the imports managed by this frame.
-    typedef ImportVector::const_iterator ImportIterator;
-    ImportIterator beginImportDecls() const { return importDecls.begin(); }
-    ImportIterator endImportDecls()  const { return importDecls.end(); }
-
-    // Turns this into an uninitialized (dead) scope entry.  This method is
-    // used so that entries can be cached and recognized as inactive objects.
-    void clear();
-
-private:
-    ScopeKind    kind;
-    unsigned     tag;
-    DeclSet      directDecls;
-    ImportVector importDecls;
-
-    static Homonym *getOrCreateHomonym(IdentifierInfo *info);
-
-    void importDeclarativeRegion(DeclRegion *region);
-    void clearDeclarativeRegion(DeclRegion *region);
-};
-
 class Scope {
 
 public:
@@ -124,9 +46,6 @@ public:
 
     // Returns the number of ScopeEntries currently being managed.
     unsigned numEntries() const { return entries.size(); }
-
-    // Returns the current active entry in this scope.
-    ScopeEntry *currentEntry() const { return entries.front(); }
 
     // Pushes a fresh scope of the given kind.
     void push(ScopeKind kind = BASIC_SCOPE);
@@ -168,14 +87,94 @@ public:
     void dump() const;
 
 private:
+
+    // An entry in a Scope object.
+    class Entry {
+
+        // The set of lexical declarations associated with this entry.
+        typedef llvm::SmallPtrSet<Decl*, 16> DeclSet;
+
+        // Collection of imports associated with this entry.
+        typedef llvm::SmallVector<DomainType*, 8> ImportVector;
+
+    public:
+        Entry(ScopeKind kind, unsigned tag)
+            : kind(kind),
+              tag(tag) { }
+
+        // Reinitializes this frame to the specified kind.
+        void initialize(ScopeKind kind, unsigned tag) {
+            this->kind = kind;
+            this->tag  = tag;
+        }
+
+        // Returns the kind of this entry.
+        ScopeKind getKind() const { return kind; }
+
+        unsigned getTag() const { return tag; }
+
+        void addDirectDecl(Decl *decl);
+
+        void removeDirectDecl(Decl *decl);
+
+        void removeImportDecl(Decl *decl);
+
+        // Returns the number of direct declarations managed by this entry.
+        unsigned numDirectDecls() const { return directDecls.size(); }
+
+        // Returns true if this entry contains a direct declaration bound to the
+        // given name.
+        bool containsDirectDecl(IdentifierInfo *name);
+
+        // Returns true if this the given declaration is directly visible in
+        // this entry.
+        bool containsDirectDecl(Decl *decl) {
+            return directDecls.count(decl);
+        }
+
+        void addImportDecl(DomainType *type);
+
+        // Returns the number of imported declarations managed by this frame.
+        unsigned numImportDecls() const { return importDecls.size(); }
+
+        bool containsImportDecl(IdentifierInfo *name);
+        bool containsImportDecl(DomainType *type);
+
+        // Iterators over the direct declarations managed by this frame.
+        typedef DeclSet::const_iterator DirectIterator;
+        DirectIterator beginDirectDecls() const { return directDecls.begin(); }
+        DirectIterator endDirectDecls()   const { return directDecls.end(); }
+
+        // Iterators over the imports managed by this frame.
+        typedef ImportVector::const_iterator ImportIterator;
+        ImportIterator beginImportDecls() const { return importDecls.begin(); }
+        ImportIterator endImportDecls()  const { return importDecls.end(); }
+
+        // Turns this into an uninitialized (dead) scope entry.  This method is
+        // used so that entries can be cached and recognized as inactive
+        // objects.
+        void clear();
+
+    private:
+        ScopeKind    kind;
+        unsigned     tag;
+        DeclSet      directDecls;
+        ImportVector importDecls;
+
+        static Homonym *getOrCreateHomonym(IdentifierInfo *info);
+
+        void importDeclarativeRegion(DeclRegion *region);
+        void clearDeclarativeRegion(DeclRegion *region);
+    };
+
     // Type of stack used to maintain our scope frames.
-    typedef std::deque<ScopeEntry*> EntryStack;
+    typedef std::deque<Entry*> EntryStack;
     EntryStack entries;
 
     // We cache the following number of entries to help ease allocation
     // pressure.
     enum { ENTRY_CACHE_SIZE = 16 };
-    ScopeEntry *entryCache[ENTRY_CACHE_SIZE];
+    Entry *entryCache[ENTRY_CACHE_SIZE];
 
     // Number of entries currently cached and available for reuse.
     unsigned numCachedEntries;

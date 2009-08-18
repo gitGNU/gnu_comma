@@ -21,7 +21,9 @@ using llvm::cast;
 using llvm::isa;
 
 
-bool ScopeEntry::containsImportDecl(DomainType *type)
+
+
+bool Scope::Entry::containsImportDecl(DomainType *type)
 {
     ImportIterator endIter = endImportDecls();
 
@@ -30,7 +32,7 @@ bool ScopeEntry::containsImportDecl(DomainType *type)
     return false;
 }
 
-bool ScopeEntry::containsImportDecl(IdentifierInfo *name)
+bool Scope::Entry::containsImportDecl(IdentifierInfo *name)
 {
     ImportIterator endIter = endImportDecls();
 
@@ -39,7 +41,7 @@ bool ScopeEntry::containsImportDecl(IdentifierInfo *name)
     return false;
 }
 
-void ScopeEntry::addDirectDecl(Decl *decl)
+void Scope::Entry::addDirectDecl(Decl *decl)
 {
     if (directDecls.insert(decl)) {
         IdentifierInfo *idInfo  = decl->getIdInfo();
@@ -48,7 +50,7 @@ void ScopeEntry::addDirectDecl(Decl *decl)
     }
 }
 
-void ScopeEntry::removeDirectDecl(Decl *decl)
+void Scope::Entry::removeDirectDecl(Decl *decl)
 {
     IdentifierInfo *info    = decl->getIdInfo();
     Homonym        *homonym = info->getMetadata<Homonym>();
@@ -63,7 +65,7 @@ void ScopeEntry::removeDirectDecl(Decl *decl)
     assert(false && "Decl not associated with corresponding identifier!");
 }
 
-void ScopeEntry::removeImportDecl(Decl *decl)
+void Scope::Entry::removeImportDecl(Decl *decl)
 {
     IdentifierInfo *info    = decl->getIdInfo();
     Homonym        *homonym = info->getMetadata<Homonym>();
@@ -78,7 +80,7 @@ void ScopeEntry::removeImportDecl(Decl *decl)
     assert(false && "Decl not associated with corresponding indentifier!");
 }
 
-bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
+bool Scope::Entry::containsDirectDecl(IdentifierInfo *name)
 {
     DirectIterator endIter = endDirectDecls();
     for (DirectIterator iter = beginDirectDecls(); iter != endIter; ++iter)
@@ -86,7 +88,7 @@ bool ScopeEntry::containsDirectDecl(IdentifierInfo *name)
     return false;
 }
 
-void ScopeEntry::importDeclarativeRegion(DeclRegion *region)
+void Scope::Entry::importDeclarativeRegion(DeclRegion *region)
 {
     typedef DeclRegion::DeclIter DeclIter;
 
@@ -105,7 +107,7 @@ void ScopeEntry::importDeclarativeRegion(DeclRegion *region)
     }
 }
 
-void ScopeEntry::clearDeclarativeRegion(DeclRegion *region)
+void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
 {
     typedef DeclRegion::DeclIter DeclIter;
 
@@ -120,7 +122,7 @@ void ScopeEntry::clearDeclarativeRegion(DeclRegion *region)
     }
 }
 
-void ScopeEntry::addImportDecl(DomainType *type)
+void Scope::Entry::addImportDecl(DomainType *type)
 {
     typedef DeclRegion::DeclIter DeclIter;
     Domoid *domoid = type->getDomoidDecl();
@@ -134,7 +136,7 @@ void ScopeEntry::addImportDecl(DomainType *type)
 
 // Turns this into an uninitialized (dead) scope entry.  This method is
 // used so that entries can be cached and recognized as inactive objects.
-void ScopeEntry::clear()
+void Scope::Entry::clear()
 {
     // Traverse the set of IdentifierInfo's owned by this entry and reduce the
     // associated decl stacks.
@@ -153,7 +155,7 @@ void ScopeEntry::clear()
     importDecls.clear();
 }
 
-Homonym *ScopeEntry::getOrCreateHomonym(IdentifierInfo *info)
+Homonym *Scope::Entry::getOrCreateHomonym(IdentifierInfo *info)
 {
     Homonym *homonym = info->getMetadata<Homonym>();
 
@@ -182,15 +184,15 @@ ScopeKind Scope::getKind() const
 
 void Scope::push(ScopeKind kind)
 {
-    ScopeEntry *entry;
-    unsigned    tag = numEntries() + 1;
+    Entry *entry;
+    unsigned tag = numEntries() + 1;
 
     if (numCachedEntries) {
         entry = entryCache[--numCachedEntries];
         entry->initialize(kind, tag);
     }
     else
-        entry = new ScopeEntry(kind, tag);
+        entry = new Entry(kind, tag);
     entries.push_front(entry);
 }
 
@@ -198,7 +200,7 @@ void Scope::pop()
 {
     assert(!entries.empty() && "Cannot pop empty stack frame!");
 
-    ScopeEntry *entry = entries.front();
+    Entry *entry = entries.front();
 
     entry->clear();
     entries.pop_front();
@@ -262,12 +264,12 @@ TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
         }
         else {
             // Otherwise, scan the direct bindings associated with the current
-            // ScopeEntry.  We should never have more than one model associated
-            // with an entry, so we need not concern ourselves with the order of
-            // the search.
-            ScopeEntry *entry = entries.front();
-            ScopeEntry::DirectIterator    iter = entry->beginDirectDecls();
-            ScopeEntry::DirectIterator endIter = entry->endDirectDecls();
+            // Entry.  We should never have more than one model associated with
+            // an entry, so we need not concern ourselves with the order of the
+            // search.
+            Entry *entry = entries.front();
+            Entry::DirectIterator    iter = entry->beginDirectDecls();
+            Entry::DirectIterator endIter = entry->endDirectDecls();
             for ( ; iter != endIter; ++iter) {
                 Decl *candidate = *iter;
                 if (candidate->getIdInfo() == name && isa<TypeDecl>(candidate))
@@ -308,7 +310,7 @@ void Scope::dump() const
     unsigned depth = entries.size();
     for (EntryStack::const_iterator entryIter = entries.begin();
          entryIter != entries.end(); ++entryIter) {
-        ScopeEntry *entry = *entryIter;
+        Entry *entry = *entryIter;
         std::cerr << "  Entry[" << depth-- << "] <"
                   << std::hex << (uintptr_t)entry
                   << ">: ";
@@ -331,7 +333,7 @@ void Scope::dump() const
 
         if (entry->numDirectDecls()) {
             std::cerr << "  Direct Decls:\n";
-            for (ScopeEntry::DirectIterator lexIter = entry->beginDirectDecls();
+            for (Entry::DirectIterator lexIter = entry->beginDirectDecls();
                  lexIter != entry->endDirectDecls(); ++lexIter) {
                 Decl *decl = *lexIter;
                 std::cerr << "   " << decl->getString() << " : ";
@@ -343,7 +345,7 @@ void Scope::dump() const
 
         if (entry->numImportDecls()) {
             std::cerr << "  Imports:\n";
-            for (ScopeEntry::ImportIterator importIter = entry->beginImportDecls();
+            for (Entry::ImportIterator importIter = entry->beginImportDecls();
                  importIter != entry->endImportDecls(); ++importIter) {
                 DomainType *type = *importIter;
                 std::cerr << "   " << type->getString() << " : ";
