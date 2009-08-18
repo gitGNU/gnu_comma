@@ -1023,9 +1023,8 @@ void Parser::parseFunctionDeclOrDefinition()
 
     if (decl.isInvalid()) {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-        if (currentTokenIs(Lexer::TKN_IS)) {
+        if (currentTokenIs(Lexer::TKN_IS))
             seekAndConsumeEndTag(desc.getIdInfo());
-        }
         return;
     }
 
@@ -1043,9 +1042,12 @@ void Parser::parseProcedureDeclOrDefinition()
     Descriptor desc(&client);
     Node       decl = parseProcedureDeclaration(desc);
 
-    // FIXME: We should attempt to find the end of the procedure
-    // decl/definition.
-    if (decl.isInvalid()) return;
+    if (decl.isInvalid()) {
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+        if (currentTokenIs(Lexer::TKN_IS))
+            seekAndConsumeEndTag(desc.getIdInfo());
+        return;
+    }
 
     if (reduceToken(Lexer::TKN_IS)) {
         endTagStack.push(EndTagEntry(NAMED_TAG,
