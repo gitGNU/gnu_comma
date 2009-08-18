@@ -153,15 +153,8 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
             return getInvalidNode();
         }
 
-        typedef Descriptor::paramIterator ParamIter;
-        for (ParamIter iter = desc.beginParams();
-             iter != desc.endParams(); ++iter) {
-            AbstractDomainDecl *param = cast_node<AbstractDomainDecl>(*iter);
-            if (param->getIdInfo() == formal) {
-                report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
-                return getInvalidNode();
-            }
-        }
+        if (!checkDescriptorDuplicateParams(desc, formal, loc))
+            return getInvalidNode();
 
         typeNode.release();
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
@@ -177,36 +170,20 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
 
 void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 {
-    llvm::SmallVector<DomainType*, 4> domains;
-
-    // Convert each parameter node into an AbstractDomainDecl.
-    for (Descriptor::paramIterator iter = desc.beginParams();
-         iter != desc.endParams(); ++iter) {
-        AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
-        domains.push_back(domain->getType());
-    }
-
     // Create the appropriate type of model.
-    ModelDecl      *modelDecl;
+    ModelDecl *modelDecl;
     IdentifierInfo *percent = resource.getIdentifierInfo("%");
-    IdentifierInfo *name    = desc.getIdInfo();
-    Location        loc     = desc.getLocation();
-    if (domains.empty()) {
-        switch (desc.getKind()) {
-
-        case Descriptor::DESC_Signature:
-            modelDecl = new SignatureDecl(percent, name, loc);
-            break;
-
-        case Descriptor::DESC_Domain:
-            modelDecl = new DomainDecl(percent, name, loc);
-            break;
-
-        default:
-            assert(false && "Corruption of currentModelInfo->kind!");
+    IdentifierInfo *name = desc.getIdInfo();
+    Location loc = desc.getLocation();
+    if (desc.hasParams()) {
+        // Convert each parameter node into an AbstractDomainDecl.
+        llvm::SmallVector<DomainType*, 4> domains;
+        for (Descriptor::paramIterator iter = desc.beginParams();
+             iter != desc.endParams(); ++iter) {
+            AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
+            domains.push_back(domain->getType());
         }
-    }
-    else {
+
         DomainType **formals = &domains[0];
         unsigned     arity   = domains.size();
         switch (desc.getKind()) {
@@ -223,8 +200,22 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
             assert(false && "Corruption of currentModelInfo->kind!");
         }
     }
+    else {
+        switch (desc.getKind()) {
 
-    currentModel      = modelDecl;
+        case Descriptor::DESC_Signature:
+            modelDecl = new SignatureDecl(percent, name, loc);
+            break;
+
+        case Descriptor::DESC_Domain:
+            modelDecl = new DomainDecl(percent, name, loc);
+            break;
+
+        default:
+            assert(false && "Corruption of currentModelInfo->kind!");
+        }
+    }
+
     declarativeRegion = modelDecl->asDeclRegion();
 
     // For each parameter node, set its declarative region to be that of the
@@ -237,6 +228,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 
     // Bring the model itself into scope, and release the nodes associated with
     // the given descriptor.
+    currentModel = modelDecl;
     scope.addDirectModel(modelDecl);
     desc.release();
 }
@@ -933,39 +925,28 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     // If we uncover a problem with the subroutines parameters, the following
     // flag is set to false.  Note that we do not create a declaration for the
     // subroutine unless it checks out 100%.
-    bool paramsOK = true;
+    //
+    // Start by ensuring all parameters are distinct.
+    bool paramsOK = checkDescriptorDuplicateParams(desc);
 
     // Every parameter of this descriptor should be a ParamValueDecl.  As we
     // validate the type of each node, test that no duplicate formal parameters
     // are accumulated.  Any duplicates found are discarded.
     typedef llvm::SmallVector<ParamValueDecl*, 6> paramVec;
     paramVec parameters;
-    for (Descriptor::paramIterator iter = desc.beginParams();
-         iter != desc.endParams(); ++iter) {
+    convertDescriptorParams<ParamValueDecl>(desc, parameters);
 
-        ParamValueDecl *param = cast_node<ParamValueDecl>(*iter);
-
-        for (paramVec::iterator cursor = parameters.begin();
-             cursor != parameters.end(); ++cursor) {
-            if (param->getIdInfo() == (*cursor)->getIdInfo()) {
-                report(param->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
-                    << param->getString();
-                paramsOK = false;
-            }
-        }
-
-        // If this is a function descriptor, check that the parameter mode is
-        // not of an "out" variety.
-        if (desc.isFunctionDescriptor()
-            && (param->getParameterMode() == PM::MODE_OUT ||
-                param->getParameterMode() == PM::MODE_IN_OUT)) {
-            report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
-            paramsOK = false;
-        }
-
-        // Add the parameter to the set if checking is proceeding smoothly.
-        if (paramsOK) parameters.push_back(param);
+    // If this is a function descriptor, ensure that every parameter is of mode
+    // "in".
+    if (desc.isFunctionDescriptor()) {
+        for (paramVec::iterator I = parameters.begin();
+             I != parameters.end(); ++I)
+            paramsOK = checkFunctionParameter(*I);
     }
+
+    // If the parameters did not check, stop.
+    if (!paramsOK)
+        return getInvalidNode();
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion     *region   = currentDeclarativeRegion();
@@ -973,22 +954,22 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     Location        location = desc.getLocation();
 
     if (desc.isFunctionDescriptor()) {
-        // If this descriptor is a function, then we must return a value type.
-        Type *returnType = ensureValueType(desc.getReturnType(), 0);
-        if (returnType && paramsOK)
+        if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
             routineDecl = new FunctionDecl(name,
                                            location,
                                            &parameters[0],
                                            parameters.size(),
                                            returnType,
                                            region);
+        }
     }
-    else if (paramsOK)
+    else {
         routineDecl = new ProcedureDecl(name,
                                         location,
                                         &parameters[0],
                                         parameters.size(),
                                         region);
+    }
 
     if (!routineDecl) return getInvalidNode();
 
@@ -1247,3 +1228,61 @@ void TypeCheck::importDeclRegion(DeclRegion *region)
     for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
         scope.addDirectDecl(*I);
 }
+
+/// Returns true if the given parameter is of mode "in", and thus capatable with
+/// a function declaration.  Otherwise false is returned an a diagnostic is
+/// posted.
+bool TypeCheck::checkFunctionParameter(ParamValueDecl *param)
+{
+    PM::ParameterMode mode = param->getParameterMode();
+    if (mode == PM::MODE_IN)
+        return true;
+    report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
+    return false;
+}
+
+/// Returns true if the given descriptor does not contain any duplicate formal
+/// parameters.  Otherwise false is returned and the appropriate diagnostic is
+/// posted.
+bool TypeCheck::checkDescriptorDuplicateParams(Descriptor &desc)
+{
+    typedef Descriptor::paramIterator iterator;
+
+    bool status = true;
+    iterator I = desc.beginParams();
+    iterator E = desc.endParams();
+    while (I != E) {
+        Decl *p1 = cast_node<Decl>(*I);
+        for (iterator J = ++I; J != E; ++J) {
+            Decl *p2 = cast_node<Decl>(*J);
+            if (p1->getIdInfo() == p2->getIdInfo()) {
+                report(p2->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
+                    << p2->getString();
+                status = false;
+            }
+        }
+    }
+    return status;
+}
+
+/// Returns true if the descriptor does not contain any parameters with the
+/// given name.  Otherwise false is returned and the appropriate diagnostic is
+/// posted.
+bool TypeCheck::checkDescriptorDuplicateParams(Descriptor &desc,
+                                               IdentifierInfo *idInfo,
+                                               Location loc)
+{
+    typedef Descriptor::paramIterator iterator;
+
+    iterator I = desc.beginParams();
+    iterator E = desc.endParams();
+    for ( ; I != E; ++I) {
+        Decl *param = cast_node<Decl>(*I);
+        if (param->getIdInfo() == idInfo) {
+            report(loc, diag::DUPLICATE_FORMAL_PARAM) << idInfo;
+            return false;
+        }
+    }
+    return true;
+}
+

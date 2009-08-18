@@ -449,6 +449,34 @@ private:
     bool denotesFunctorPercent(const FunctorDecl *functor,
                                Type **args, unsigned numArgs);
 
+    /// Returns true if the given parameter is of mode "in", and thus capatable
+    /// with a function declaration.  Otherwise false is returned an a
+    /// diagnostic is posted.
+    bool checkFunctionParameter(ParamValueDecl *param);
+
+    /// Returns true if the given descriptor does not contain any duplicate
+    /// formal parameters.  Otherwise false is returned and the appropriate
+    /// diagnostic is posted.
+    bool checkDescriptorDuplicateParams(Descriptor &desc);
+
+    /// Returns true if the descriptor does not contain any parameters with the
+    /// given name.  Otherwise false is returned and the appropriate diagnostic
+    /// is posted.
+    bool checkDescriptorDuplicateParams(Descriptor &desc,
+                                        IdentifierInfo *idInfo, Location loc);
+
+    /// Given a container type \p V with a push_back method, this function
+    /// converts the parameters of the descriptor to type T and appends them to
+    /// \p vec.
+    template <class T, class V>
+    void convertDescriptorParams(Descriptor &desc, V &vec) {
+        typedef Descriptor::paramIterator iterator;
+        iterator I = desc.beginParams();
+        iterator E = desc.endParams();
+        for ( ; I != E; ++I)
+            vec.push_back(cast_node<T>(*I));
+    }
+
     // Search all declarations present in the given declarative region for a
     // match with respect to the given rewrites.  Returns a matching delcaration
     // node or null.
