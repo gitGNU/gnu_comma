@@ -7,12 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "DeclProducer.h"
+#include "Scope.h"
+#include "TypeEqual.h"
+
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Stmt.h"
+
 #include "llvm/ADT/DenseMap.h"
-#include "TypeEqual.h"
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -26,24 +29,29 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
     : diagnostic(diag),
       resource(resource),
       compUnit(cunit),
+      scope(new Scope),
       errorCount(0),
       declProducer(new DeclProducer(&resource))
 {
     populateInitialEnvironment();
 }
 
-TypeCheck::~TypeCheck() { }
+TypeCheck::~TypeCheck()
+{
+    delete scope;
+    delete declProducer;
+}
 
 // Called when then type checker is constructed.  Populates the top level scope
 // with an initial environment.
 void TypeCheck::populateInitialEnvironment()
 {
     EnumerationDecl *theBoolDecl = declProducer->getBoolDecl();
-    scope.addDirectDecl(theBoolDecl);
+    scope->addDirectDecl(theBoolDecl);
     importDeclRegion(theBoolDecl);
 
     IntegerDecl *theIntegerDecl = declProducer->getIntegerDecl();
-    scope.addDirectDecl(theIntegerDecl);
+    scope->addDirectDecl(theIntegerDecl);
     importDeclRegion(theIntegerDecl);
 }
 
@@ -120,15 +128,15 @@ void TypeCheck::beginModelDeclaration(Descriptor &desc)
 {
     assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
            "Beginning a model which is neither a signature or domain?");
-    scope.push(MODEL_SCOPE);
+    scope->push(MODEL_SCOPE);
 }
 
 void TypeCheck::endModelDefinition()
 {
-    assert(scope.getKind() == MODEL_SCOPE);
+    assert(scope->getKind() == MODEL_SCOPE);
     ModelDecl *result = getCurrentModel();
-    scope.pop();
-    scope.addDirectModel(result);
+    scope->pop();
+    scope->addDirectModel(result);
     compUnit->addDeclaration(result);
 }
 
@@ -139,7 +147,7 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
 {
     ModelType *type = cast_node<ModelType>(typeNode);
 
-    assert(scope.getKind() == MODEL_SCOPE);
+    assert(scope->getKind() == MODEL_SCOPE);
 
     // Check that the parameter type denotes a signature.  For each parameter,
     // we create an AbstractDomainType to represent the formal, and add that
@@ -158,7 +166,7 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
 
         typeNode.release();
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
-        scope.addDirectModel(dom);
+        scope->addDirectModel(dom);
         return getNode(dom);
     }
     else {
@@ -229,7 +237,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     // Bring the model itself into scope, and release the nodes associated with
     // the given descriptor.
     currentModel = modelDecl;
-    scope.addDirectModel(modelDecl);
+    scope->addDirectModel(modelDecl);
     desc.release();
 }
 
@@ -333,7 +341,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
         }
     }
     else
-        type = scope.lookupType(id);
+        type = scope->lookupType(id);
 
     if (type == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << id;
@@ -375,7 +383,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       unsigned         numKeywords,
                                       Location         loc)
 {
-    ModelDecl  *model = scope.lookupDirectModel(connective);
+    ModelDecl  *model = scope->lookupDirectModel(connective);
     const char *name  = connective->getString();
     unsigned numArgs  = argumentNodes.size();
 
@@ -696,13 +704,13 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
             Location loc = tyDecl->getLocation();
             if (ensureDistinctTypeName(name, loc, model)) {
                 model->addDecl(tyDecl);
-                scope.addDirectDecl(tyDecl);
+                scope->addDirectDecl(tyDecl);
 
                 if (EnumerationDecl *decl = dyn_cast<EnumerationDecl>(tyDecl)) {
                     DeclRegion::DeclIter litIter = decl->beginDecls();
                     DeclRegion::DeclIter litEnd  = decl->endDecls();
                     for ( ; litIter != litEnd; ++litIter)
-                        scope.addDirectDecl(*litIter);
+                        scope->addDirectDecl(*litIter);
                 }
             }
         }
@@ -821,7 +829,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
 
     typeNode.release();
     initializerNode.release();
-    scope.addDirectValue(decl);
+    scope->addDirectValue(decl);
     currentDeclarativeRegion()->addDecl(decl);
     return true;
 }
@@ -842,7 +850,7 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
     }
 
     importedNode.release();
-    scope.addImport(domain);
+    scope->addImport(domain);
 
     // FIXME:  We need to stitch this import declaration into the current
     // context.
@@ -860,7 +868,7 @@ void TypeCheck::beginAddExpression()
     assert(declarativeRegion && "Domain missing Add declaration node!");
 
     // Enter a new scope for the add expression.
-    scope.push();
+    scope->push();
 }
 
 void TypeCheck::endAddExpression()
@@ -871,7 +879,7 @@ void TypeCheck::endAddExpression()
     // the declarative region of the defining domain.
     declarativeRegion = declarativeRegion->getParent();
     assert(declarativeRegion == getCurrentModel()->asDeclRegion());
-    scope.pop();
+    scope->pop();
 }
 
 void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
@@ -888,7 +896,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
         typeNode.release();
         CarrierDecl *carrier = new CarrierDecl(name, type, loc);
         add->setCarrier(carrier);
-        scope.addDirectDecl(carrier);
+        scope->addDirectDecl(carrier);
     }
 }
 
@@ -990,7 +998,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     else {
         // Add the subroutine declaration into the current declarative region.
         region->addDecl(routineDecl);
-        scope.addDirectSubroutine(routineDecl);
+        scope->addDirectSubroutine(routineDecl);
     }
 
     // This is an immediate declaration.  Mark it so.
@@ -1011,12 +1019,12 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
 
     // Enter a scope for the subroutine definition and populate it with the
     // formal parmeter bindings.
-    scope.push(FUNCTION_SCOPE);
+    scope->push(FUNCTION_SCOPE);
     typedef SubroutineDecl::ParamDeclIterator ParamIter;
     for (ParamIter iter = srDecl->beginParams();
          iter != srDecl->endParams(); ++iter) {
         ParamValueDecl *param = *iter;
-        scope.addDirectValue(param);
+        scope->addDirectValue(param);
     }
 
     // Allocate a BlockStmt for the subroutines body and make this block the
@@ -1039,13 +1047,13 @@ void TypeCheck::acceptSubroutineStmt(Node stmt)
 
 void TypeCheck::endSubroutineDefinition()
 {
-    assert(scope.getKind() == FUNCTION_SCOPE);
+    assert(scope->getKind() == FUNCTION_SCOPE);
 
     // We established two levels of declarative regions in
     // beginSubroutineDefinition: one for the BlockStmt constituting the body
     // and another corresponding the subroutine itself.  Remove them both.
     declarativeRegion = declarativeRegion->getParent()->getParent();
-    scope.pop();
+    scope->pop();
 }
 
 Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
@@ -1096,7 +1104,7 @@ void TypeCheck::endEnumerationType(Node enumerationNode)
     declProducer->createImplicitDecls(enumeration);
     region->addDecl(enumeration);
     importDeclRegion(enumeration);
-    scope.addDirectDecl(enumeration);
+    scope->addDirectDecl(enumeration);
 }
 
 /// Called to process integer type definitions.
@@ -1142,7 +1150,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     declProducer->createImplicitDecls(Idecl);
     region->addDecl(Idecl);
     importDeclRegion(Idecl);
-    scope.addDirectDecl(Idecl);
+    scope->addDirectDecl(Idecl);
 }
 
 bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
@@ -1226,7 +1234,7 @@ void TypeCheck::importDeclRegion(DeclRegion *region)
     typedef DeclRegion::DeclIter iterator;
 
     for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
-        scope.addDirectDecl(*I);
+        scope->addDirectDecl(*I);
 }
 
 /// Returns true if the given parameter is of mode "in", and thus capatable with

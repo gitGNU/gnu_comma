@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Scope.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/typecheck/TypeCheck.h"
@@ -110,7 +111,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
     if (!qualNode.isNull())
         return acceptQualifiedName(qualNode, name, loc);
 
-    Scope::Resolver &resolver = scope.getResolver();
+    Scope::Resolver &resolver = scope->getResolver();
 
     if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -218,7 +219,7 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
         return getNode(new OverloadedDeclName(&decls[0], decls.size()));
     }
 
-    Scope::Resolver &resolver = scope.getResolver();
+    Scope::Resolver &resolver = scope->getResolver();
 
     if (!resolver.resolve(name) || resolver.hasDirectValue()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;

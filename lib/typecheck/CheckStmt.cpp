@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "DeclProducer.h"
+#include "Scope.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
@@ -54,7 +55,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         return getNode(new OverloadedDeclName(&decls[0], decls.size()));
     }
 
-    Scope::Resolver &resolver = scope.getResolver();
+    Scope::Resolver &resolver = scope->getResolver();
 
     if (!resolver.resolve(name) || resolver.hasDirectValue()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -182,27 +183,22 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
                                      IdentifierInfo *name,
                                      Node            valueNode)
 {
-    Expr      *value      = cast_node<Expr>(valueNode);
-    Homonym   *homonym    = name->getMetadata<Homonym>();
-    ValueDecl *targetDecl = 0;
+    Expr *value = cast_node<Expr>(valueNode);
+    Scope::Resolver &resolver = scope->getResolver();
 
-    if (!homonym || homonym->empty()) {
+    if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
 
-    // FIXME: For now, lookup a lexical names only.  Revisit the issue of
-    // assignment to an exported name later.
-    for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-         iter != homonym->endDirectDecls(); ++iter) {
-        if ((targetDecl = dyn_cast<ValueDecl>(*iter)))
-            break;
-    }
-
-    if (!targetDecl) {
+    // FIXME: Only direct (lexical) values can be assigned to for now.  Revisit
+    // the issue of assignment ot an exported name later.
+    if (!resolver.hasDirectValue()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
+
+    ValueDecl *targetDecl = resolver.getDirectValue();
 
     // If the target decl is a parameter, ensure that it is not of mode "in".
     if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
@@ -288,7 +284,7 @@ Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
     BlockStmt  *block  = new BlockStmt(loc, region, label);
 
     declarativeRegion = block;
-    scope.push();
+    scope->push();
     return getNode(block);
 }
 
@@ -307,7 +303,7 @@ void TypeCheck::acceptBlockStmt(Node blockNode, Node stmtNode)
 void TypeCheck::endBlockStmt(Node blockNode)
 {
     declarativeRegion = currentDeclarativeRegion()->getParent();
-    scope.pop();
+    scope->pop();
 }
 
 Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,

@@ -1,4 +1,4 @@
-//===-- ast/Homonym.h ----------------------------------------- -*- C++ -*-===//
+//===-- typecheck/Homonym.h ----------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
@@ -7,7 +7,8 @@
 //===----------------------------------------------------------------------===//
 //
 // A Homonym represents a set of directly visible declarations associated with a
-// given identifier.  These objects are used to implement lookup resolution.
+// given identifier.  These objects are used to implement lookup resolution by
+// the Scope class.
 //
 // Every declaration associated with a homonym has a visibility attribuite.  We
 // have:

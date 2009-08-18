@@ -15,7 +15,6 @@
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
 #include "comma/parser/ParseClient.h"
-#include "comma/typecheck/Scope.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -30,6 +29,7 @@ class APInt;
 namespace comma {
 
 class DeclProducer;
+class Scope;
 
 class TypeCheck : public ParseClient {
 
@@ -226,7 +226,7 @@ private:
     CompilationUnit *compUnit;
     DeclRegion      *declarativeRegion;
     ModelDecl       *currentModel;
-    Scope            scope;
+    Scope           *scope;
     unsigned         errorCount;
 
     /// Instance of a helper class used to hold primitive types and to construct
@@ -405,11 +405,6 @@ private:
     Node acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                               Location                      loc,
                               NodeVector                   &args);
-
-    static bool lookupSubroutineDecls(Homonym                      *homonym,
-                                      unsigned                      arity,
-                                      std::vector<SubroutineDecl*> &routines,
-                                      bool lookupFunctions);
 
     // Looks up all function declarations in the given decl
     static void collectFunctionDecls(IdentifierInfo *name,

@@ -6,12 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Homonym.h"
+#include "Scope.h"
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Type.h"
-#include "comma/typecheck/Scope.h"
+
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DataTypes.h"
+
 #include <iostream>
 
 using namespace comma;

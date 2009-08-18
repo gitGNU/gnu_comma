@@ -1,4 +1,4 @@
-//===-- tyecheck/Scope.h -------------------------------------- -*- C++ -*-===//
+//===-- typecheck/Scope.h ------------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
@@ -11,13 +11,14 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Decl.h"
-#include "comma/ast/Homonym.h"
+
 #include "llvm/ADT/SmallPtrSet.h"
+
 #include <deque>
 
 namespace comma {
 
-class Scope;
+class Homonym;
 
 enum ScopeKind {
     DEAD_SCOPE,             // Indicates an uninitialized scope.
