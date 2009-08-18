@@ -423,6 +423,9 @@ private:
     // false is returned and diagnostics are posted.
     bool ensureExportConstraints(AddDecl *add);
 
+    /// Returns true if the IdentifierInfo \p info can name a binary function.
+    bool namesBinaryFunction(IdentifierInfo *info);
+
     // Returns true if the given type decl is equivalent to % in the context of
     // the current domain.
     bool denotesDomainPercent(const TypeDecl *tyDecl);

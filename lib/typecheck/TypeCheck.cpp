@@ -17,6 +17,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 
+#include <cstring>
+
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::dyn_cast_or_null;
@@ -936,6 +938,8 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     //
     // Start by ensuring all parameters are distinct.
     bool paramsOK = checkDescriptorDuplicateParams(desc);
+    IdentifierInfo *name = desc.getIdInfo();
+    Location location = desc.getLocation();
 
     // Every parameter of this descriptor should be a ParamValueDecl.  As we
     // validate the type of each node, test that no duplicate formal parameters
@@ -945,11 +949,17 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     convertDescriptorParams<ParamValueDecl>(desc, parameters);
 
     // If this is a function descriptor, ensure that every parameter is of mode
-    // "in".
+    // "in".  Also, ensure that if this function names a binary operator it has
+    // arity 2.
     if (desc.isFunctionDescriptor()) {
         for (paramVec::iterator I = parameters.begin();
              I != parameters.end(); ++I)
             paramsOK = checkFunctionParameter(*I);
+
+        if (parameters.size() != 2 and namesBinaryFunction(desc.getIdInfo())) {
+            report(location, diag::BINARY_FUNCTION_ARITY_MISMATCH) << name;
+            paramsOK = false;
+        }
     }
 
     // If the parameters did not check, stop.
@@ -958,8 +968,6 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion     *region   = currentDeclarativeRegion();
-    IdentifierInfo *name     = desc.getIdInfo();
-    Location        location = desc.getLocation();
 
     if (desc.isFunctionDescriptor()) {
         if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
@@ -1292,5 +1300,32 @@ bool TypeCheck::checkDescriptorDuplicateParams(Descriptor &desc,
         }
     }
     return true;
+}
+
+/// Returns true if the IdentifierInfo \p info can name a binary function.
+bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
+{
+    const char* name = info->getString();
+    size_t length = std::strlen(name);
+
+    if (length > 2)
+        return false;
+
+    if (length == 1) {
+        switch (*name) {
+        default:
+            return false;
+        case '=':
+        case '+':
+        case '*':
+        case '-':
+        case '>':
+        case '<':
+            return true;
+        }
+    }
+    else
+        return (std::strncmp(name, "<=", 2) or
+                std::strncmp(name, ">=", 2));
 }
 

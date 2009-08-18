@@ -1,0 +1,7 @@
+-- MUST-FAIL: Ensure binary functions cannot be defined with one argument.
+
+signature S with
+
+   function * (X : Integer) return Integer;
+
+end S;
