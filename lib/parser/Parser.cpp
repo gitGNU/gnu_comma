@@ -35,10 +35,8 @@
 
 using namespace comma;
 
-Parser::Parser(TextProvider   &txtProvider,
-               IdentifierPool &idPool,
-               ParseClient    &client,
-               Diagnostic     &diag)
+Parser::Parser(TextProvider &txtProvider, IdentifierPool &idPool,
+               ParseClient &client, Diagnostic &diag)
     : txtProvider(txtProvider),
       idPool(idPool),
       client(client),
@@ -150,7 +148,7 @@ bool Parser::seekTokens(Lexer::Code code0, Lexer::Code code1,
                         Lexer::Code code4, Lexer::Code code5)
 {
     Lexer::Code codes[] = { code0, code1, code2, code3, code4, code5 };
-    Lexer::Code *end    = &codes[6];
+    Lexer::Code *end = &codes[6];
 
     while (!currentTokenIs(Lexer::TKN_EOT))
     {
@@ -316,9 +314,9 @@ unsigned Parser::currentColumn()
 
 IdentifierInfo *Parser::getIdentifierInfo(const Lexer::Token &tkn)
 {
-    const char     *rep    = tkn.getRep();
-    unsigned        length = tkn.getLength();
-    IdentifierInfo *info   = &idPool.getIdentifierInfo(rep, length);
+    const char *rep = tkn.getRep();
+    unsigned length = tkn.getLength();
+    IdentifierInfo *info = &idPool.getIdentifierInfo(rep, length);
     return info;
 }
 
@@ -371,8 +369,8 @@ bool Parser::qualifierFollows()
 
 Node Parser::parseQualifier()
 {
-    Node     qualifier = getNullNode();
-    Location  location = currentLocation();
+    Node qualifier = getNullNode();
+    Location location = currentLocation();
     Node qualifierType = parseModelApplication(qualifier);
 
     if (qualifierType.isInvalid()) {
@@ -387,7 +385,7 @@ Node Parser::parseQualifier()
         qualifier = client.acceptQualifier(qualifierType, location);
 
         while (qualifierFollows()) {
-            location      = currentLocation();
+            location = currentLocation();
             qualifierType = parseModelApplication(qualifier);
 
             if (qualifierType.isInvalid()) {
@@ -466,7 +464,7 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
 // parse fails due to a missing or unexpected end tag) and false otherwise.
 bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 {
-    Location        tagLoc;
+    Location tagLoc;
     IdentifierInfo *tag;
 
     if (requireToken(Lexer::TKN_END)) {
@@ -475,7 +473,7 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
                 report(diag::EXPECTED_END_TAG) << expectedTag;
             else {
                 tagLoc = currentLocation();
-                tag    = parseFunctionIdentifierInfo();
+                tag = parseFunctionIdentifierInfo();
                 if (tag && tag != expectedTag)
                     report(tagLoc, diag::EXPECTED_END_TAG) << expectedTag;
             }
@@ -484,7 +482,7 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
             // FIXME:  The above test is not general enough, since we could have
             // operator tokens (TKN_PLUS, TKN_STAR, etc) labeling an "end".
             tagLoc = currentLocation();
-            tag    = parseIdentifierInfo();
+            tag = parseIdentifierInfo();
             report(tagLoc, diag::UNEXPECTED_END_TAG) << tag;
         }
         return true;
@@ -497,7 +495,7 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
 void Parser::parseModelParameter(Descriptor &desc)
 {
     IdentifierInfo *formal;
-    Location        loc;
+    Location loc;
 
     loc = currentLocation();
     formal = parseIdentifierInfo();
@@ -551,7 +549,7 @@ void Parser::parseWithSupersignatures()
 {
     while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         Location loc = currentLocation();
-        Node   super = parseModelInstantiation();
+        Node super = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
             client.acceptWithSupersignature(super, loc);
@@ -600,11 +598,11 @@ void Parser::parseWithDeclarations()
 void Parser::parseCarrier()
 {
     IdentifierInfo *name;
-    Location        loc;
+    Location loc;
 
     assert(currentTokenIs(Lexer::TKN_CARRIER));
 
-    loc  = ignoreToken();
+    loc = ignoreToken();
     name = parseIdentifierInfo();
 
     if (!name) {
@@ -665,7 +663,7 @@ void Parser::parseAddComponents()
 void Parser::parseModelDeclaration(Descriptor &desc)
 {
     IdentifierInfo *name;
-    Location        location;
+    Location location;
 
     assert(currentTokenIs(Lexer::TKN_SIGNATURE) ||
            currentTokenIs(Lexer::TKN_DOMAIN));
@@ -686,7 +684,7 @@ void Parser::parseModelDeclaration(Descriptor &desc)
     }
 
     location = currentLocation();
-    name     = parseIdentifierInfo();
+    name = parseIdentifierInfo();
 
     // If we cannot even parse the models name, we do not even attempt a
     // recovery sice we would not even know what end tag to look for.
@@ -723,9 +721,11 @@ void Parser::parseModel()
 
 Node Parser::parseModelApplication(Node qualNode)
 {
-    Location         loc = currentLocation();
+    Location loc = currentLocation();
     IdentifierInfo *info = parseIdentifierInfo();
-    if (!info) return getInvalidNode();
+
+    if (!info)
+        return getInvalidNode();
 
     // Empty parameter lists for types are not allowed.  If the type checker
     // accepts the non-parameterized form, then continue -- otherwise we
@@ -737,9 +737,9 @@ Node Parser::parseModelApplication(Node qualNode)
     }
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
-        NodeVector     arguments;
+        NodeVector arguments;
         LocationVector argumentLocs;
-        IdInfoVector   keywords;
+        IdInfoVector keywords;
         LocationVector keywordLocs;
         bool allOK = true;
 
@@ -771,10 +771,10 @@ Node Parser::parseModelApplication(Node qualNode)
         // Do not attempt to form the application unless all of the
         // arguments are valid.
         if (allOK) {
-            Location        *argLocs = &argumentLocs[0];
-            IdentifierInfo **keys    = &keywords[0];
-            Location        *keyLocs = &keywordLocs[0];
-            unsigned         numKeys = keywords.size();
+            Location *argLocs = &argumentLocs[0];
+            IdentifierInfo **keys = &keywords[0];
+            Location *keyLocs = &keywordLocs[0];
+            unsigned numKeys = keywords.size();
             return client.acceptTypeApplication(
                 info, arguments, argLocs,
                 keys, keyLocs, numKeys, loc);
@@ -838,7 +838,7 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     PM::ParameterMode mode;
 
     location = currentLocation();
-    formal   = parseIdentifierInfo();
+    formal = parseIdentifierInfo();
 
     if (!formal) return false;
 
@@ -1019,7 +1019,7 @@ void Parser::parseSubroutineBody(Node declarationNode)
 void Parser::parseFunctionDeclOrDefinition()
 {
     Descriptor desc(&client);
-    Node       decl = parseFunctionDeclaration(desc);
+    Node decl = parseFunctionDeclaration(desc);
 
     if (decl.isInvalid()) {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
@@ -1040,7 +1040,7 @@ void Parser::parseFunctionDeclOrDefinition()
 void Parser::parseProcedureDeclOrDefinition()
 {
     Descriptor desc(&client);
-    Node       decl = parseProcedureDeclaration(desc);
+    Node decl = parseProcedureDeclaration(desc);
 
     if (decl.isInvalid()) {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
@@ -1083,12 +1083,12 @@ bool Parser::parseDeclaration()
 bool Parser::parseObjectDeclaration()
 {
     IdentifierInfo *id;
-    Location        loc;
+    Location loc;
 
     assert(currentTokenIs(Lexer::TKN_IDENTIFIER));
 
     loc = currentLocation();
-    id  = parseIdentifierInfo();
+    id = parseIdentifierInfo();
 
     if (!(id && requireToken(Lexer::TKN_COLON))) {
         seekAndConsumeToken(Lexer::TKN_SEMI);
@@ -1131,7 +1131,7 @@ bool Parser::parseType()
     assert(currentTokenIs(Lexer::TKN_TYPE));
     ignoreToken();
 
-    Location loc  = currentLocation();
+    Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name || !requireToken(Lexer::TKN_IS))
@@ -1170,7 +1170,7 @@ void Parser::parseEnumerationList(Node enumeration)
     }
 
     do {
-        Location        loc  = currentLocation();
+        Location loc = currentLocation();
         IdentifierInfo *name = parseIdentifierInfo();
 
         if (!name) {
