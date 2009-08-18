@@ -142,14 +142,12 @@ void TypeCheck::endModelDefinition()
     compUnit->addDeclaration(result);
 }
 
-Node TypeCheck::acceptModelParameter(Descriptor     &desc,
-                                     IdentifierInfo *formal,
-                                     Node            typeNode,
-                                     Location        loc)
+Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
+                                     Node typeNode, Location loc)
 {
-    ModelType *type = cast_node<ModelType>(typeNode);
-
     assert(scope->getKind() == MODEL_SCOPE);
+
+    Type *type = cast_node<Type>(typeNode);
 
     // Check that the parameter type denotes a signature.  For each parameter,
     // we create an AbstractDomainType to represent the formal, and add that
@@ -172,8 +170,7 @@ Node TypeCheck::acceptModelParameter(Descriptor     &desc,
         return getNode(dom);
     }
     else {
-        report(loc, diag::NOT_A_SIGNATURE) << formal->getString();
-        getCurrentModel()->markInvalid();
+        report(loc, diag::NOT_A_SIGNATURE);
         return getInvalidNode();
     }
 }
