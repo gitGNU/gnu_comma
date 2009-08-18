@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure procedures cannot have function names.
+
+sigature S with
+
+   procedure * (X : Integer; Y : Integer);
+
+end S;
+
+

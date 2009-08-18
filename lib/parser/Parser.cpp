@@ -918,6 +918,15 @@ Node Parser::parseFunctionDeclaration(Descriptor &desc)
 
     desc.initialize(Descriptor::DESC_Function);
     ignoreToken();
+
+    Location location = currentLocation();
+    IdentifierInfo *name = parseFunctionIdentifierInfo();
+
+    if (!name)
+        return getInvalidNode();
+    else
+        desc.setIdentifier(name, location);
+
     return parseSubroutineDeclaration(desc);
 }
 
@@ -933,17 +942,20 @@ Node Parser::parseProcedureDeclaration(Descriptor &desc)
 
     desc.initialize(Descriptor::DESC_Procedure);
     ignoreToken();
+
+    Location location = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+
+    if (!name)
+        return getInvalidNode();
+    else
+        desc.setIdentifier(name, location);
+
     return parseSubroutineDeclaration(desc);
 }
 
 Node Parser::parseSubroutineDeclaration(Descriptor &desc)
 {
-    Location    location = currentLocation();
-    IdentifierInfo *name = parseFunctionIdentifierInfo();
-
-    if (!name) return getInvalidNode();
-
-    desc.setIdentifier(name, location);
     client.beginSubroutineDeclaration(desc);
 
     if (currentTokenIs(Lexer::TKN_LPAREN))
