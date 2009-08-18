@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IdentifierResolver.h"
 #include "DeclProducer.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
@@ -55,7 +54,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         return getNode(new OverloadedDeclName(&decls[0], decls.size()));
     }
 
-    IdentifierResolver resolver;
+    Scope::Resolver &resolver = scope.getResolver();
 
     if (!resolver.resolve(name) || resolver.hasDirectValue()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -68,18 +67,18 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
 
     // Collect any direct overloads.
     {
-        typedef IdentifierResolver::DirectOverloadIter iterator;
-        iterator E = resolver.endDirectOverloads();
-        for (iterator I = resolver.beginDirectOverloads(); I != E; ++I)
+        typedef Scope::Resolver::direct_overload_iter iterator;
+        iterator E = resolver.end_direct_overloads();
+        for (iterator I = resolver.begin_direct_overloads(); I != E; ++I)
             overloads.push_back(cast<ProcedureDecl>(*I));
     }
 
     // Continue populating the call with indirect overloads if there are no
     // indirect values visible and return the result.
     if (!resolver.hasIndirectValues()) {
-        typedef IdentifierResolver::IndirectOverloadIter iterator;
-        iterator E = resolver.endIndirectOverloads();
-        for (iterator I = resolver.beginIndirectOverloads(); I != E; ++I)
+        typedef Scope::Resolver::indirect_overload_iter iterator;
+        iterator E = resolver.end_indirect_overloads();
+        for (iterator I = resolver.begin_indirect_overloads(); I != E; ++I)
             overloads.push_back(cast<ProcedureDecl>(*I));
         numOverloads = overloads.size();
         if (numOverloads == 1)
