@@ -233,8 +233,7 @@ llvm::Value *CommaRT::genAbstractCall(llvm::IRBuilder<> &builder,
 
     // Add the signature offset to the views offset, yielding the DFPO index of
     // the signature.
-    llvm::Value *viewIndexAdr = builder.CreateStructGEP(view, 1);
-    llvm::Value *viewIndex = builder.CreateLoad(viewIndexAdr);
+    llvm::Value *viewIndex = DView->loadIndex(builder, view);
     llvm::Value *sigIndex =
         builder.CreateAdd(viewIndex,
                           llvm::ConstantInt::get(llvm::Type::Int64Ty, sigIdx));
