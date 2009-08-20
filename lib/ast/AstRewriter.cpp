@@ -27,18 +27,19 @@ Type *AstRewriter::getRewrite(Type *source) const
 
 void AstRewriter::installRewrites(DomainType *context)
 {
-    ModelDecl *model = context->getModelDecl();
+    DomainInstanceDecl *instance = context->getInstanceDecl();
+    assert(instance && "Cannot rewrite this type of domain!");
 
-    addRewrite(model->getPercent(), context);
+    // Rewrite the percent node of the defining model declaration to this
+    // instances type.
+    addRewrite(instance->getDefiningDecl()->getPercent(), context);
 
-    if (DomainInstanceDecl *instance = context->getInstanceDecl()) {
-        if (FunctorDecl *functor = instance->getDefiningFunctor()) {
-            unsigned arity = instance->getArity();
-            for (unsigned i = 0; i < arity; ++i) {
-                DomainType *formal = functor->getFormalType(i);
-                Type       *actual = instance->getActualParameter(i);
-                rewrites[formal] = actual;
-            }
+    if (FunctorDecl *functor = instance->getDefiningFunctor()) {
+        unsigned arity = instance->getArity();
+        for (unsigned i = 0; i < arity; ++i) {
+            DomainType *formal = functor->getFormalType(i);
+            Type       *actual = instance->getActualParameter(i);
+            rewrites[formal] = actual;
         }
     }
 }

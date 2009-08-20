@@ -29,7 +29,7 @@ class Type : public Ast {
 public:
     virtual ~Type() { }
 
-    virtual bool equals(const Type *type) const { return type == this; }
+    virtual bool equals(const Type *type) const;
 
     /// Returns true if there is a declaration associcated with this type.
     bool hasDeclaration() const { return getDeclaration() != 0; }

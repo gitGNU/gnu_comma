@@ -353,12 +353,14 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
         assert(false && "Cannot handle type declaration.");
         return getInvalidNode();
 
-    case Ast::AST_DomainDecl:
+    case Ast::AST_DomainDecl: {
         if (denotesDomainPercent(type)) {
             report(loc, diag::PERCENT_EQUIVALENT);
             return getNode(getCurrentPercent());
         }
-        return getNode(type->getType());
+        DomainDecl *domDecl = cast<DomainDecl>(type);
+        return getNode(domDecl->getInstance()->getType());
+    }
 
     case Ast::AST_SignatureDecl:
     case Ast::AST_AbstractDomainDecl:

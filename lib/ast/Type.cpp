@@ -19,6 +19,11 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Type
 
+bool Type::equals(const Type *type) const
+{
+    return type == this;
+}
+
 bool Type::isScalarType() const
 {
     if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
@@ -27,7 +32,7 @@ bool Type::isScalarType() const
     if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
         return TyDef->getBaseType()->isScalarType();
 
-    return isa<EnumerationType>(this);
+    return isa<EnumerationType>(this) or isIntegerType();
 }
 
 bool Type::isIntegerType() const
@@ -271,6 +276,12 @@ DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
 
 bool DomainType::denotesPercent() const
 {
+    // FIXME: This is a hack.  Work around the fact that instance and abstract
+    // domain decls should not be model decls, and should not have a getPercent
+    // method.
+    if (isa<DomainInstanceDecl>(declaration) or
+        isa<AbstractDomainDecl>(declaration))
+        return false;
     return this == declaration->getPercent();
 }
 

@@ -57,10 +57,9 @@ void DeclProducer::createTheIntegerDecl()
 {
     IdentifierInfo *integerId = resource->getIdentifierInfo("Integer");
 
-    // FIXME:  The following is obviously target dependent.  For now, assume
-    // that we are targeting x86-64.
-    llvm::APInt lowVal(64, 1UL << 63);
-    llvm::APInt highVal(64, ~(1UL << 63));
+    // Define Integer as a signed 32 bit type.
+    llvm::APInt lowVal(32, 1UL << 31);
+    llvm::APInt highVal(32, ~(1UL << 31));
     IntegerLiteral *lowExpr = new IntegerLiteral(lowVal, 0);
     IntegerLiteral *highExpr = new IntegerLiteral(highVal, 0);
     IntegerType *intTy = resource->getIntegerType(lowVal, highVal);

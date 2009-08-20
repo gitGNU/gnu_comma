@@ -374,10 +374,22 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
 
             Type *targetType = decl->getArgType(targetIndex);
 
+            // FIXME: This is a hack.  The type equality predicates should perform
+            // this reduction.
+            if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
+                targetType = carrierTy->getRepresentationType();
+
             // If the argument as a fully resolved type, all we currently do is
             // test for type equality.
             if (arg->hasType()) {
-                if (!targetType->equals(arg->getType())) {
+                Type *argTy = arg->getType();
+
+                // FIXME: This is a hack.  The type equality predicates should
+                // perform this reduction.
+                if (CarrierType *carrierTy = dyn_cast<CarrierType>(argTy))
+                    argTy = carrierTy->getRepresentationType();
+
+                if (!targetType->equals(argTy)) {
                     declFilter[i] = false;
                     // If the set of applicable declarations has been reduced to
                     // zero, report this call as ambiguous.
@@ -609,10 +621,18 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
     if (FunctionCallExpr *fcall = dyn_cast<FunctionCallExpr>(expr))
         return resolveFunctionCall(fcall, context);
 
-    // Otherwise, simply ensure that the given expression is compatable with the
-    // context.
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
+
+    // FIXME:  This is a hack.  The basic equality predicate should be able to
+    // sort thru this.
+    if (CarrierType *carrierTy = dyn_cast<CarrierType>(context)) {
+        if (exprTy->equals(carrierTy->getRepresentationType()))
+            return true;
+    }
+
+    // Otherwise, simply ensure that the given expression is compatable with the
+    // context.
     if (exprTy->equals(context))
         return true;
     else {
@@ -686,9 +706,17 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     if (!call->isAmbiguous()) {
         // The function call is not ambiguous.  Ensure that the return type of
         // the call and the target type match.
-        //
+        Type *callTy = call->getType();
+
+        // FIXME: This is a hack.  The type equality predicates should perform
+        // these reductions.
+        if (CarrierType *carrierTy = dyn_cast<CarrierType>(callTy))
+            callTy = carrierTy->getRepresentationType();
+        if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
+            targetType = carrierTy->getRepresentationType();
+
         // FIXME: Need a better diagnostic here.
-        if (!call->getType()->equals(targetType)) {
+        if (!callTy->equals(targetType)) {
             report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
             return false;
         }
@@ -758,7 +786,6 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 
 Node TypeCheck::acceptInj(Location loc, Node exprNode)
 {
-    Expr   *expr   = cast_node<Expr>(exprNode);
     Domoid *domoid = getCurrentDomoid();
 
     if (!domoid) {
@@ -768,11 +795,9 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
 
     // Check that the given expression is of the current domain type.
     DomainType *domTy = domoid->getPercent();
-    Type      *exprTy = expr->getType();
-    if (!domTy->equals(exprTy)) {
-        report(loc, diag::INCOMPATIBLE_TYPES);
+    Expr *expr = cast_node<Expr>(exprNode);
+    if (!checkExprInContext(expr, domTy))
         return getInvalidNode();
-    }
 
     // Check that the carrier type has been defined.
     CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
@@ -787,7 +812,6 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
 
 Node TypeCheck::acceptPrj(Location loc, Node exprNode)
 {
-    Expr   *expr   = cast_node<Expr>(exprNode);
     Domoid *domoid = getCurrentDomoid();
 
     if (!domoid) {
@@ -802,13 +826,10 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
         return getInvalidNode();
     }
 
-    // Check that the given expression is of the carrier type.
     Type *carrierTy = carrier->getType();
-    Type *exprTy    = expr->getType();
-    if (!carrierTy->equals(exprTy)) {
-        report(loc, diag::INCOMPATIBLE_TYPES);
+    Expr *expr = cast_node<Expr>(exprNode);
+    if (!checkExprInContext(expr, carrierTy))
         return getInvalidNode();
-    }
 
     exprNode.release();
     return getNode(new PrjExpr(expr, domoid->getPercent(), loc));

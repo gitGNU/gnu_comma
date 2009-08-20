@@ -48,11 +48,9 @@ const llvm::Type *CodeGenTypes::lowerType(Type *type)
 
 const llvm::Type *CodeGenTypes::lowerType(DomainType *type)
 {
-    // If the given domain type denotes `%', lower it to a generic i8*.
-    if (type->denotesPercent())
-        return CG.getPointerType(llvm::Type::Int8Ty);
-
-    assert(false && "Cannot lower this domain type yet!");
+    // FIXME: Lower all domain types to a generic i8*. Perhaps in the future we
+    // would like to lower the carrier type instead.
+    return CG.getPointerType(llvm::Type::Int8Ty);
 }
 
 const llvm::Type *CodeGenTypes::lowerType(CarrierType *type)

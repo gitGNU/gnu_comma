@@ -337,6 +337,7 @@ bool Scope::addImport(DomainType *type)
     return false;
 }
 
+// FIXME: Rename to lookupTypeDecl.
 TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
 {
     TypeDecl *result = lookupDirectType(name);
@@ -360,6 +361,7 @@ TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
     return result;
 }
 
+// FIXME: Rename to lookupDirectTypeDecl.
 TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
                                   bool traverse) const
 {
