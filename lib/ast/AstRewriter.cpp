@@ -49,7 +49,7 @@ void AstRewriter::installRewrites(SignatureType *context)
         unsigned arity = variety->getArity();
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *formal = variety->getFormalType(i);
-            Type       *actual = context->getActualParameter(i);
+            Type *actual = context->getActualParameter(i);
             addRewrite(formal, actual);
         }
     }
@@ -111,8 +111,7 @@ SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
 // Rewrites "count" parameter types of the given subroutine, placing the results
 // of the rewrite in "params".
 void AstRewriter::rewriteParameters(SubroutineType *srType,
-                                    unsigned        count,
-                                    Type          **params) const
+                                    unsigned count, Type **params) const
 {
     Type *source;
     Type *target;
@@ -129,16 +128,16 @@ void AstRewriter::rewriteParameters(SubroutineType *srType,
 
 FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 {
-    unsigned         arity = ftype->getArity();
-    Type            *params[arity];
+    unsigned arity = ftype->getArity();
+    Type *params[arity];
     IdentifierInfo **keywords;
-    Type            *source;
-    Type            *target;
+    Type *source;
+    Type *target;
 
     rewriteParameters(ftype, arity, params);
     keywords = ftype->getKeywordArray();
-    source   = ftype->getReturnType();
-    target   = getRewrite(source);
+    source = ftype->getReturnType();
+    target = getRewrite(source);
     if (target)
         return new FunctionType(keywords, params, arity, target);
     else
@@ -147,14 +146,14 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 
 ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
 {
-    unsigned         arity = ptype->getArity();
-    Type            *params[arity];
+    unsigned arity = ptype->getArity();
+    Type *params[arity];
     IdentifierInfo **keywords;
-    ProcedureType   *result;
+    ProcedureType *result;
 
     rewriteParameters(ptype, arity, params);
     keywords = ptype->getKeywordArray();
-    result   = new ProcedureType(keywords, &params[0], arity);
+    result = new ProcedureType(keywords, &params[0], arity);
 
     for (unsigned i = 0; i < arity; ++i) {
         PM::ParameterMode mode = ptype->getExplicitParameterMode(i);

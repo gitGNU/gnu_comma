@@ -96,8 +96,7 @@ private:
     // Rewrites "count" parameter types of the given subroutine, placing the
     // results of the rewrite in "params".
     void rewriteParameters(SubroutineType *srType,
-                           unsigned        count,
-                           Type          **params) const;
+                           unsigned count, Type **params) const;
 };
 
 } // End comma namespace
