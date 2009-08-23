@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,19 +27,16 @@ Type *AstRewriter::getRewrite(Type *source) const
 
 void AstRewriter::installRewrites(DomainType *context)
 {
-    DomainInstanceDecl *instance = context->getInstanceDecl();
-    assert(instance && "Cannot rewrite this type of domain!");
-
-    // Rewrite the percent node of the defining model declaration to this
-    // instances type.
-    addRewrite(instance->getDefiningDecl()->getPercent(), context);
-
-    if (FunctorDecl *functor = instance->getDefiningFunctor()) {
-        unsigned arity = instance->getArity();
-        for (unsigned i = 0; i < arity; ++i) {
-            DomainType *formal = functor->getFormalType(i);
-            Type       *actual = instance->getActualParameter(i);
-            rewrites[formal] = actual;
+    // If this type is parameterized, install rewites mapping the formal
+    // arguments of the underlying functor to the actual arguments of the type.
+    if (DomainInstanceDecl *instance = context->getInstanceDecl()) {
+        if (FunctorDecl *functor = instance->getDefiningFunctor()) {
+            unsigned arity = instance->getArity();
+            for (unsigned i = 0; i < arity; ++i) {
+                DomainType *formal = functor->getFormalType(i);
+                Type *actual = instance->getActualParameter(i);
+                rewrites[formal] = actual;
+            }
         }
     }
 }
@@ -90,7 +87,7 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
                 // If the argument is a member of the rewrite set, then we must
                 // create a new
-                if (Type *target = getRewrite(*iter))
+                if (DomainType *target = cast<DomainType>(getRewrite(*iter)))
                     args.push_back(target);
                 else
                     args.push_back(*iter);

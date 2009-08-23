@@ -21,16 +21,26 @@ using llvm::isa;
 
 Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
 {
-    Type *type = ensureValueType(typeNode, loc);
+    NamedType *type = cast_node<NamedType>(typeNode);
+    DeclRegion *region = 0;
 
-    if (type) {
-        typeNode.release();
-        DeclRegion *region = type->getDeclaration()->asDeclRegion();
-        assert(region && "Bad type serving as qualifier.");
-        return getNode(new Qualifier(region, loc));
-    }
-    else
+    switch (type->getKind()) {
+    default:
+        // The given type cannot serve as a qualifier.
+        report(loc, diag::INVALID_QUALIFIER) << type->getIdInfo();
         return getInvalidNode();
+
+    case Ast::AST_DomainType:
+        region = cast<DomainType>(type)->getDeclaration()->asDeclRegion();
+        break;
+
+    case Ast::AST_EnumerationType:
+        region = cast<EnumerationType>(type)->getEnumerationDecl();
+        break;
+    }
+
+    typeNode.release();
+    return getNode(new Qualifier(region, loc));
 }
 
 Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
@@ -38,17 +48,34 @@ Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
                                       Location loc)
 {
     Qualifier *qualifier = cast_node<Qualifier>(qualifierNode);
-    Type      *type      = ensureValueType(typeNode, loc);
+    NamedType *type = cast_node<NamedType>(typeNode);
+    DeclRegion *region = 0;
 
-    if (type) {
-        typeNode.release();
-        DeclRegion *region = type->getDeclaration()->asDeclRegion();
-        assert(region && "Bad type serving as qualifier.");
-        qualifier->addQualifier(region, loc);
-        return qualifierNode;
-    }
-    else
+    if (!qualifier->resolve()->findDecl(type->getIdInfo(), type)) {
+        report(loc, diag::NAME_NOT_VISIBLE) << type->getIdInfo();
         return getInvalidNode();
+    }
+
+    // FIXME: We should combine the following logic with that in
+    // acceptQualifier.
+    switch (type->getKind()) {
+    default:
+        // The given type cannot serve as a qualifier.
+        report(loc, diag::INVALID_QUALIFIER) << type->getIdInfo();
+        return getInvalidNode();
+
+    case Ast::AST_DomainType:
+        region = cast<DomainType>(type)->getDeclaration()->asDeclRegion();
+        break;
+
+    case Ast::AST_EnumerationType:
+        region = cast<EnumerationType>(type)->getEnumerationDecl();
+        break;
+    }
+
+    typeNode.release();
+    qualifier->addQualifier(region, loc);
+    return qualifierNode;
 }
 
 // Helper function for acceptDirectName -- called when the identifier in

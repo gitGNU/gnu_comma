@@ -75,10 +75,12 @@ public:
     // and false otherwise.
     bool addImport(DomainType *type);
 
-    TypeDecl *lookupType(const IdentifierInfo *name) const;
+    TypedDecl *lookupType(const IdentifierInfo *name) const;
 
-    TypeDecl *lookupDirectType(const IdentifierInfo *name,
-                               bool traverse = true) const;
+    TypedDecl *lookupDirectType(const IdentifierInfo *name,
+                                bool traverse = true) const;
+
+    ModelDecl *lookupModel(const IdentifierInfo *name) const;
 
     ModelDecl *lookupDirectModel(const IdentifierInfo *name,
                                  bool traverse = true) const;

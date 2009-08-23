@@ -196,7 +196,7 @@ void DomainInfo::genInstanceRequirement(llvm::IRBuilder<> &builder,
                                         llvm::Value *percent)
 {
     DomainInstanceDecl *instance = CGC.getDependency(ID);
-    Domoid *domoid = instance->getDefiningDecl();
+    Domoid *domoid = instance->getDefinition();
 
     if (isa<DomainDecl>(domoid))
         genDomainRequirement(builder, CGC, ID, destVector);
@@ -253,7 +253,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         SignatureType *targetTy = functor->getFormalSignature(i);
 
         if (argTy->denotesPercent()) {
-            assert(argTy->getDomoidDecl() == CGC.getCapsule() &&
+            assert(argTy->getModelDecl() == CGC.getCapsule() &&
                    "Percent node does not represent the current domain!");
 
             // The argument to this functor is %. Obtain the signature offset
@@ -285,7 +285,6 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         }
         else {
             AbstractDomainDecl *arg = argTy->getAbstractDecl();
-
             unsigned paramIdx = functor->getFormalIndex(arg);
             SignatureType *targetTy = functor->getFormalSignature(paramIdx);
             unsigned sigOffset = CRT.getSignatureOffset(arg, targetTy);

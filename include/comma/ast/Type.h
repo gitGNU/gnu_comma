@@ -29,23 +29,13 @@ class Type : public Ast {
 public:
     virtual ~Type() { }
 
-    virtual bool equals(const Type *type) const;
-
-    /// Returns true if there is a declaration associcated with this type.
-    bool hasDeclaration() const { return getDeclaration() != 0; }
-
-    /// Returns the declaration associated with this type. If there is no
-    /// such declaration, 0 is returned.
-    virtual Decl *getDeclaration() { return 0; }
-    const Decl *getDeclaration() const {
-        return const_cast<Type*>(this)->getDeclaration();
-    }
-
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
 
     /// Returns true if this type denotes an integer type.
     bool isIntegerType() const;
+
+    virtual bool equals(const Type *type) const;
 
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
@@ -62,28 +52,49 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// NamedType
+//
+// This class represents types that provide IdentifierInfo's which name them.
+class NamedType : public Type {
+
+public:
+    virtual ~NamedType() { }
+
+    NamedType(AstKind kind, IdentifierInfo *idInfo)
+        : Type(kind), idInfo(idInfo) { }
+
+    /// Returns the IdentifierInfo naming this type.
+    IdentifierInfo *getIdInfo() const { return idInfo; }
+
+    /// Returns a C-style string naming this type.
+    const char *getString() const { return idInfo->getString(); }
+
+    /// Support isa and dyn_cast.
+    static bool classof(const NamedType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesNamedType();
+    }
+
+private:
+    IdentifierInfo *idInfo;
+};
+
+//===----------------------------------------------------------------------===//
 // CarrierType
 //
 // The type of carrier declarations.  In the future this node could be combined
 // into a general "type alias" node or similar.
-class CarrierType : public Type {
+class CarrierType : public NamedType {
 
 public:
-    CarrierType(CarrierDecl *carrier)
-        : Type(AST_CarrierType),
-          declaration(carrier) { }
+    CarrierType(CarrierDecl *carrier);
 
-    Decl *getDeclaration();
+    /// Returns the underlying carrier declaration supporting this type.
+    CarrierDecl *getDeclaration();
 
-    // Return the underlying carrier declaration.
-    CarrierDecl *getCarrierDecl() const { return declaration; }
-
-    // Return the representation type which this carrier aliases.
+    /// Returns the representation type which this carrier aliases.
     Type *getRepresentationType();
     const Type *getRepresentationType() const;
-
-    IdentifierInfo *getIdInfo() const;
-    const char *getString() const;
 
     bool equals(const Type *type) const;
 
@@ -97,77 +108,37 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// ModelType
-
-class ModelType : public Type {
-
-public:
-    virtual ~ModelType() { }
-
-    IdentifierInfo *getIdInfo() const { return idInfo; }
-
-    // Returns a c-string representing the name of this model, or NULL if this
-    // model is anonymous.
-    const char *getString() const {
-        return getIdInfo()->getString();
-    }
-
-    // Suport isa and dyn_cast.
-    static bool classof(const ModelType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesModelType();
-    }
-
-    Decl *getDeclaration();
-    ModelDecl *getModelDecl() { return declaration; }
-
-protected:
-    // FIXME:  We can get rid of the IdInfo and just refer to the decl.
-    ModelType(AstKind kind, IdentifierInfo *idInfo, ModelDecl *decl)
-        : Type(kind),
-          idInfo(idInfo),
-          declaration(decl)
-        { assert(this->denotesModelType()); }
-
-    IdentifierInfo *idInfo;
-    ModelDecl *declaration;
-};
-
-//===----------------------------------------------------------------------===//
 // SignatureType
 
-class SignatureType : public ModelType, public llvm::FoldingSetNode {
+class SignatureType : public NamedType, public llvm::FoldingSetNode {
 
 public:
-    Sigoid *getSigoid();
-    const Sigoid *getSigoid() const;
+    Sigoid *getSigoid() { return declaration; }
+    const Sigoid *getSigoid() const { return declaration; }
 
     SignatureDecl *getSignature() const;
 
     VarietyDecl *getVariety() const;
 
-    // Returns true if this type is a variety instance.
+    /// Returns true if this type represents an instance of some variety.
     bool isParameterized() const { return getVariety() != 0; }
 
-    // Returns the number of arguments used to define this type.  When the
-    // supporting declaration is a signature, the arity is zero.
+    /// Returns the number of arguments used to define this type.  When the
+    /// supporting declaration is a signature, the arity is zero.
     unsigned getArity() const;
 
-    // Returns the i'th actual parameter.  This function asserts if its argument
-    // is out of range.
+    /// Returns the i'th actual parameter.  This method asserts if its argument
+    /// is out of range.
     Type *getActualParameter(unsigned n) const;
 
     typedef Type **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
+    /// For use by llvm::FoldingSet.
     void Profile(llvm::FoldingSetNodeID &id) {
         Profile(id, &arguments[0], getArity());
     }
-
-    // Called by VarietyDecl when memoizing.
-    static void
-    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
 
     static bool classof(const SignatureType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -182,150 +153,41 @@ private:
 
     SignatureType(VarietyDecl *decl, Type **args, unsigned numArgs);
 
+    // Called by VarietyDecl when memoizing.
+    static void
+    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
+
+    // The declaration supporing this type.
+    Sigoid *declaration;
+
     // If the supporting declaration is a variety, then this array contains the
     // actual arguments defining this instance.
     Type **arguments;
 };
 
 //===----------------------------------------------------------------------===//
-// ParameterizedType
-//
-// Base class for both functor and variety types.
-
-class ParameterizedType : public ModelType {
-
-public:
-    virtual ~ParameterizedType() { }
-
-    unsigned getArity() const { return numFormals; }
-
-    // Returns the domain type representing the formal parameter.
-    DomainType *getFormalType(unsigned i) const;
-
-    // Returns the SignatureType which the formal parameter satisfies (or which
-    // an actual parameter must satisfy).
-    SignatureType *getFormalSignature(unsigned i) const;
-
-    // Returns the IdentifierInfo which labels this formal parameter.
-    IdentifierInfo *getFormalIdInfo(unsigned i) const;
-
-    // Returns the index of the parameter corresponding to the given keyword,
-    // or -1 if no such keyword exists.
-    int getKeywordIndex(IdentifierInfo *keyword) const;
-
-    // Resolves the argument type of a parameterized type given previous actual
-    // arguments.  That is, for a dependent argument list of the form (X : T, Y
-    // : U(X)), this function resolves the type of U(X) given an actual
-    // parameter for X.
-    SignatureType *resolveFormalSignature(Type  **actuals,
-                                          unsigned numActuals);
-
-    static bool classof(const ParameterizedType *node) { return true; }
-    static bool classof(const Ast *node) {
-        AstKind kind = node->getKind();
-        return kind == AST_VarietyType || kind == AST_FunctorType;
-    }
-
-protected:
-    ParameterizedType(AstKind         kind,
-                      IdentifierInfo *idInfo,
-                      ModelDecl      *decl,
-                      DomainType    **formalArguments,
-                      unsigned        arity);
-
-    DomainType **formals;
-    unsigned numFormals;
-};
-
-//===----------------------------------------------------------------------===//
-// VarietyType
-//
-// These nodes represent the type of a parameterized signature.  In some sense,
-// they do not represent real types -- they are incomplete until provided with a
-// compatible set of actual arguments.  The main role of these types is to
-// provide a handle for the purpose of lookup resolution.
-//
-// VarietyType nodes are always owned by their associated decl.
-class VarietyType : public ParameterizedType {
-
-public:
-    ~VarietyType();
-
-    VarietyDecl *getVarietyDecl();
-
-    static bool classof(const VarietyType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_VarietyType;
-    }
-
-private:
-    friend class VarietyDecl;
-
-    VarietyType(DomainType **formalArguments,
-                VarietyDecl *variety,
-                unsigned     arity);
-};
-
-//===----------------------------------------------------------------------===//
-// FunctorType
-//
-// These nodes represent the type of a parameterized domain and serve
-// essentially the same purpose of VarietyType nodes.  Again, FunctorType's do
-// not represent real types (they are incomplete until provided with a
-// compatible set of actual arguments), and are owned by their associated decl.
-class FunctorType : public ParameterizedType {
-
-public:
-    ~FunctorType();
-
-    FunctorDecl *getFunctorDecl();
-
-    static bool classof(const FunctorType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_FunctorType;
-    }
-
-private:
-    friend class FunctorDecl;
-
-    FunctorType(DomainType **formalArguments,
-                FunctorDecl *functor,
-                unsigned     arity);
-};
-
-//===----------------------------------------------------------------------===//
 // DomainType
-class DomainType : public ModelType, public llvm::FoldingSetNode {
+class DomainType : public NamedType, public llvm::FoldingSetNode {
 
 public:
-    // Creates a domain type representing the given domain declaration.
-    DomainType(DomainDecl *decl);
-
-    // Creates a domain type representing the given domain instance.
-    DomainType(DomainInstanceDecl *decl);
-
-    // Creates a domain type representing the given abstract domain.
-    DomainType(AbstractDomainDecl *decl);
+    /// Creates a domain type representing the given domain value declaration.
+    DomainType(DomainValueDecl *DVDecl);
 
     // Creates a domain type representing the % node of the given model.
     static DomainType *getPercent(IdentifierInfo *percentInfo,
-                                  ModelDecl      *model);
+                                  ModelDecl *model);
 
     // Returns true if this node is a percent node.
     bool denotesPercent() const;
 
-    // Returns the declaration associated with domain type.  More often than
-    // not, the declaration is a Domoid.  The exception is when this type
-    // represents the % of a signature, in which case a Sigoid is returned.
-    Decl *getDeclaration();
+    /// Returns the declaration associated with this domain type.  This can be
+    /// either a DomainValueDecl or a ModelDecl.  In the latter case, this
+    /// domain type represents the type of % within the context of of the model.
+    Decl *getDeclaration() { return declaration; }
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a domoid.
-    Domoid *getDomoidDecl() const;
+    ModelDecl *getModelDecl() const;
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a domain.
-    DomainDecl *getDomainDecl() const;
+    DomainValueDecl *getDomainValueDecl() const;
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is a domain instance declaration.
@@ -353,6 +215,8 @@ public:
 private:
     // This constructor is called by getPercent() to create a percent node.
     DomainType(IdentifierInfo *percentId, ModelDecl *model);
+
+    Decl *declaration;
 };
 
 //===----------------------------------------------------------------------===//
@@ -485,12 +349,10 @@ public:
 //
 // Ownership of an enumeration type is always deligated to the corresponding
 // declaration.
-class EnumerationType : public Type
+class EnumerationType : public NamedType
 {
 public:
-    EnumerationType(EnumerationDecl *decl)
-        : Type(AST_EnumerationType),
-          correspondingDecl(decl) { }
+    EnumerationType(EnumerationDecl *decl);
 
     Decl *getDeclaration();
 
@@ -560,7 +422,7 @@ private:
 // declaration nodes.
 class TypedefType : public Type {
 public:
-    TypedefType(Type *baseType, TypeDecl *decl)
+    TypedefType(Type *baseType, Decl *decl)
         : Type(AST_TypedefType),
           baseType(baseType),
           declaration(decl) { }
@@ -580,7 +442,7 @@ public:
 
 private:
     Type *baseType;
-    TypeDecl *declaration;
+    Decl *declaration;
 };
 
 } // End comma namespace

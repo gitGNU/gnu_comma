@@ -50,7 +50,11 @@ bool Type::isIntegerType() const
 //===----------------------------------------------------------------------===//
 // CarrierType
 
-Decl *CarrierType::getDeclaration()
+CarrierType::CarrierType(CarrierDecl *carrier)
+  : NamedType(AST_CarrierType, carrier->getIdInfo()),
+    declaration(carrier) { }
+
+CarrierDecl *CarrierType::getDeclaration()
 {
     return declaration;
 }
@@ -65,16 +69,6 @@ const Type *CarrierType::getRepresentationType() const
     return declaration->getRepresentationType();
 }
 
-IdentifierInfo *CarrierType::getIdInfo() const
-{
-    return declaration->getIdInfo();
-}
-
-const char *CarrierType::getString() const
-{
-    return declaration->getString();
-}
-
 bool CarrierType::equals(const Type *type) const
 {
     if (this == type) return true;
@@ -82,36 +76,20 @@ bool CarrierType::equals(const Type *type) const
 }
 
 //===----------------------------------------------------------------------===//
-// ModelType
-
-Decl *ModelType::getDeclaration()
-{
-    return declaration;
-}
-
-//===----------------------------------------------------------------------===//
 // SignatureType
 
 SignatureType::SignatureType(SignatureDecl *decl)
-    : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
+    : NamedType(AST_SignatureType, decl->getIdInfo()),
+      declaration(decl)
 { }
 
 SignatureType::SignatureType(VarietyDecl *decl,
                              Type **args, unsigned numArgs)
-    : ModelType(AST_SignatureType, decl->getIdInfo(), decl)
+    : NamedType(AST_SignatureType, decl->getIdInfo()),
+      declaration(decl)
 {
     arguments = new Type*[numArgs];
     std::copy(args, args + numArgs, arguments);
-}
-
-Sigoid *SignatureType::getSigoid()
-{
-    return dyn_cast<Sigoid>(declaration);
-}
-
-const Sigoid *SignatureType::getSigoid() const
-{
-    return dyn_cast<Sigoid>(declaration);
 }
 
 SignatureDecl *SignatureType::getSignature() const
@@ -148,125 +126,16 @@ void SignatureType::Profile(llvm::FoldingSetNodeID &id,
 }
 
 //===----------------------------------------------------------------------===//
-// ParameterizedType
-
-ParameterizedType::ParameterizedType(AstKind         kind,
-                                     IdentifierInfo *idInfo,
-                                     ModelDecl      *decl,
-                                     DomainType    **formalArgs,
-                                     unsigned        arity)
-    : ModelType(kind, idInfo, decl),
-      numFormals(arity)
-{
-    assert(kind == AST_VarietyType || kind == AST_FunctorType);
-    formals = new DomainType*[arity];
-    std::copy(formalArgs, formalArgs + arity, formals);
-}
-
-DomainType *ParameterizedType::getFormalType(unsigned i) const
-{
-    assert(i < getArity() && "Formal domain index out of bounds!");
-    return formals[i];
-}
-
-SignatureType *ParameterizedType::getFormalSignature(unsigned i) const
-{
-    AbstractDomainDecl *decl = getFormalType(i)->getAbstractDecl();
-    return decl->getSignatureType();
-}
-
-IdentifierInfo *ParameterizedType::getFormalIdInfo(unsigned i) const
-{
-    return getFormalType(i)->getIdInfo();
-}
-
-int ParameterizedType::getKeywordIndex(IdentifierInfo *keyword) const
-{
-    for (unsigned i = 0; i < getArity(); ++i) {
-        if (getFormalIdInfo(i) == keyword)
-            return i;
-    }
-    return -1;
-}
-
-SignatureType *ParameterizedType::resolveFormalSignature(Type   **actuals,
-                                                         unsigned numActuals)
-{
-    AstRewriter rewriter;
-
-    // For each actual argument, establish a map from the formal parameter to
-    // the actual.
-    for (unsigned i = 0; i < numActuals; ++i) {
-        Type *formal = getFormalType(i);
-        Type *actual = actuals[i];
-        rewriter.addRewrite(formal, actual);
-    }
-
-    SignatureType *target = getFormalSignature(numActuals);
-    return rewriter.rewrite(target);
-}
-
-//===----------------------------------------------------------------------===//
-// VarietyType
-
-VarietyType::VarietyType(DomainType **formalArguments,
-                         VarietyDecl *variety,
-                         unsigned     arity)
-    : ParameterizedType(AST_VarietyType,
-                        variety->getIdInfo(),
-                        variety,
-                        formalArguments, arity)
-{ }
-
-VarietyType::~VarietyType()
-{
-    delete[] formals;
-}
-
-VarietyDecl *VarietyType::getVarietyDecl()
-{
-    return dyn_cast<VarietyDecl>(declaration);
-}
-
-//===----------------------------------------------------------------------===//
-// FunctorType
-
-FunctorType::FunctorType(DomainType **formalArguments,
-                         FunctorDecl *functor,
-                         unsigned     arity)
-    : ParameterizedType(AST_FunctorType,
-                        functor->getIdInfo(),
-                        functor,
-                        formalArguments, arity)
-{ }
-
-FunctorType::~FunctorType()
-{
-    delete[] formals;
-}
-
-FunctorDecl *FunctorType::getFunctorDecl()
-{
-    return dyn_cast<FunctorDecl>(declaration);
-}
-
-//===----------------------------------------------------------------------===//
 // DomainType
 
-DomainType::DomainType(DomainDecl *decl)
-    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
-{ }
-
-DomainType::DomainType(DomainInstanceDecl *decl)
-    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
-{ }
-
-DomainType::DomainType(AbstractDomainDecl *decl)
-    : ModelType(AST_DomainType, decl->getIdInfo(), decl)
+DomainType::DomainType(DomainValueDecl *DVDecl)
+    : NamedType(AST_DomainType, DVDecl->getIdInfo()),
+      declaration(DVDecl)
 { }
 
 DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
-    : ModelType(AST_DomainType, percentId, model)
+    : NamedType(AST_DomainType, percentId),
+      declaration(model)
 { }
 
 DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
@@ -276,28 +145,19 @@ DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
 
 bool DomainType::denotesPercent() const
 {
-    // FIXME: This is a hack.  Work around the fact that instance and abstract
-    // domain decls should not be model decls, and should not have a getPercent
-    // method.
-    if (isa<DomainInstanceDecl>(declaration) or
-        isa<AbstractDomainDecl>(declaration))
-        return false;
-    return this == declaration->getPercent();
+    // When our defining declaration is a model, this type represents the % node
+    // of that model.
+    return isa<ModelDecl>(declaration);
 }
 
-Decl *DomainType::getDeclaration()
+ModelDecl *DomainType::getModelDecl() const
 {
-    return declaration;
+    return dyn_cast<ModelDecl>(declaration);
 }
 
-Domoid *DomainType::getDomoidDecl() const
+DomainValueDecl *DomainType::getDomainValueDecl() const
 {
-    return dyn_cast<Domoid>(declaration);
-}
-
-DomainDecl *DomainType::getDomainDecl() const
-{
-    return dyn_cast<DomainDecl>(declaration);
+    return dyn_cast<DomainValueDecl>(declaration);
 }
 
 DomainInstanceDecl *DomainType::getInstanceDecl() const
@@ -505,6 +365,10 @@ void SubroutineType::dump(unsigned depth)
 
 //===----------------------------------------------------------------------===//
 // EnumerationType
+
+EnumerationType::EnumerationType(EnumerationDecl *decl)
+    : NamedType(AST_EnumerationType, decl->getIdInfo()),
+      correspondingDecl(decl) { }
 
 bool EnumerationType::equals(const Type *type) const
 {

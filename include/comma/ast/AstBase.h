@@ -29,6 +29,7 @@ class AddDecl;
 class AssignmentStmt;
 class Ast;
 class AstRewriter;
+class AstResource;
 class BlockStmt;
 class CarrierDecl;
 class CarrierType;
@@ -39,6 +40,7 @@ class DeclRefExpr;
 class DomainDecl;
 class DomainInstanceDecl;
 class DomainType;
+class DomainValueDecl;
 class Domoid;
 class EnumerationDecl;
 class EnumLiteral;
@@ -57,11 +59,9 @@ class IntegerLiteral;
 class IntegerType;
 class KeywordSelector;
 class ModelDecl;
-class ModelType;
+class NamedType;
 class ObjectDecl;
 class OverloadedDeclName;
-class ParameterizedModel;
-class ParameterizedType;
 class ParamValueDecl;
 class PrjExpr;
 class ProcedureCallStmt;
@@ -77,7 +77,7 @@ class StmtSequence;
 class SubroutineDecl;
 class SubroutineType;
 class Type;
-class TypeDecl;
+class TypedDecl;
 class TypedefType;
 class ValueDecl;
 class VarietyDecl;
@@ -117,7 +117,7 @@ public:
         //
         //    - Model decls which denotes signatures and domains.
         //
-        //    - Type declarations (models, carriers, etc).
+        //    - Typed declarations (carriers, value decls, etc).
         //
         //    - Subroutine decls denoting functions and procedures.
         //
@@ -125,32 +125,37 @@ public:
         //
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
-        AST_AbstractDomainDecl, ///< AbstractDomainDecl
-        AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
+        AST_AddDecl,            ///< AddDecl
+
         AST_CarrierDecl,        ///< CarrierDecl
+        AST_DomainValueDecl,    ///< DomainValueDecl
+        AST_AbstractDomainDecl, ///< AbstractDomainDecl
+        AST_DomainInstanceDecl, ///< DomainInstanceDecl
+        AST_ParamValueDecl,     ///< ParamValueDecl
+        AST_ObjectDecl,         ///< ObjectDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IntegerDecl,        ///< IntegerDecl
-        AST_AddDecl,            ///< AddDecl
+
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
-        AST_ParamValueDecl,     ///< ParamValueDecl
         AST_EnumLiteral,        ///< EnumLiteral
-        AST_ObjectDecl,         ///< ObjectDecl
         AST_ImportDecl,         ///< ImportDecl
 
         //
         // Type nodes.
         //
-        AST_SignatureType,      ///< SignatureType
-        AST_VarietyType,        ///< VarietyType
-        AST_FunctorType,        ///< FunctorType
-        AST_DomainType,         ///< DomainType
-        AST_CarrierType,        ///< CarrierType
         AST_FunctionType,       ///< FunctionType
         AST_IntegerType,        ///< IntegerType
         AST_ProcedureType,      ///< ProcedureType
+
+        //
+        // NamedType nodes.
+        //
+        AST_SignatureType,      ///< SignatureType
+        AST_DomainType,         ///< DomainType
+        AST_CarrierType,        ///< CarrierType
         AST_TypedefType,        ///< TypedefType
         AST_EnumerationType,    ///< EnumerationType
 
@@ -186,44 +191,47 @@ public:
         //
         LAST_AstKind,
 
-        FIRST_Decl      = AST_SignatureDecl,
-        LAST_Decl       = AST_ImportDecl,
+        FIRST_Decl = AST_SignatureDecl,
+        LAST_Decl = AST_ImportDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
-        LAST_ModelDecl  = AST_FunctorDecl,
+        LAST_ModelDecl = AST_FunctorDecl,
 
-        FIRST_TypeDecl  = AST_SignatureDecl,
-        LAST_TypeDecl   = AST_IntegerDecl,
+        FIRST_TypedDecl = AST_CarrierDecl,
+        LAST_TypedDecl = AST_IntegerDecl,
 
-        FIRST_ValueDecl = AST_ParamValueDecl,
-        LAST_ValueDecl  = AST_ObjectDecl,
+        FIRST_ValueDecl = AST_DomainValueDecl,
+        LAST_ValueDecl = AST_ObjectDecl,
 
-        FIRST_Type      = AST_SignatureType,
-        LAST_Type       = AST_EnumerationType,
+        FIRST_DomainValue = AST_AbstractDomainDecl,
+        LAST_DomainValue = AST_DomainInstanceDecl,
 
-        FIRST_ModelType = AST_SignatureType,
-        LAST_ModelType  = AST_DomainType,
+        FIRST_Type = AST_FunctionType,
+        LAST_Type = AST_EnumerationType,
 
-        FIRST_Expr      = AST_DeclRefExpr,
-        LAST_Expr       = AST_PrjExpr,
+        FIRST_NamedType = AST_SignatureType,
+        LAST_NamedType = AST_EnumerationType,
 
-        FIRST_Stmt      = AST_AssignmentStmt,
-        LAST_Stmt       = AST_WhileStmt
+        FIRST_Expr = AST_DeclRefExpr,
+        LAST_Expr = AST_PrjExpr,
+
+        FIRST_Stmt = AST_AssignmentStmt,
+        LAST_Stmt = AST_WhileStmt
     };
 
     virtual ~Ast() { }
 
-    /// \brief  Accesses the code identifying this node.
+    ///  Accesses the code identifying this node.
     AstKind getKind() const { return kind; }
 
-    /// \brief Accesses the location of this node.
+    /// Accesses the location of this node.
     ///
     /// If no location information is available, or if this node was created
     /// internally by the compiler, an invalid location object (queriable by
     /// Location::isValid()) is returned.
     virtual Location getLocation() const { return Location(); }
 
-    /// \brief Returns true if this node is valid.
+    /// Returns true if this node is valid.
     ///
     /// The validity of a node does not have an inforced semantics.  The Ast
     /// classes themselves never consult the validity bit.  Nodes are marked
@@ -231,10 +239,10 @@ public:
     /// meaning of such a mark is left for the client to decide.
     bool isValid() const { return validFlag == true; }
 
-    /// \brief Marks this node as invalid.
+    /// Marks this node as invalid.
     void markInvalid() { validFlag = false; }
 
-    /// \brief Returns true if one may call std::delete on this node.
+    /// Returns true if one may call std::delete on this node.
     ///
     /// Certain nodes are not deletable since they are allocated in special
     /// containers which perform memoization or manage memory in a special way.
@@ -242,22 +250,22 @@ public:
     /// \note  This property is likely to disappear in the future.
     bool isDeletable() const { return deletable; }
 
-    /// \brief Returns true if this node denotes a declaration.
+    /// Returns true if this node denotes a declaration.
     bool denotesDecl() const {
         return (FIRST_Decl <= kind && kind <= LAST_Decl);
     }
 
-    /// \brief Returns true if this node denotes a Model.
+    /// Returns true if this node denotes a Model.
     bool denotesModelDecl() const {
         return (FIRST_ModelDecl <= kind && kind <= LAST_ModelDecl);
     }
 
-    /// \brief Returns true if this node denotes a type declaration.
-    bool denotesTypeDecl() const {
-        return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
+    /// Returns true if this node denotes a typed declaration.
+    bool denotesTypedDecl() const {
+        return (FIRST_TypedDecl <= kind && kind <= LAST_TypedDecl);
     }
 
-    /// \brief Returns true if this node denotes a subroutine decl (i.e. either
+    /// Returns true if this node denotes a subroutine decl (i.e. either
     /// a procedure or function decl).
     bool denotesSubroutineDecl() const {
         return (kind == AST_FunctionDecl ||
@@ -265,53 +273,58 @@ public:
                 kind == AST_EnumLiteral);
     }
 
-    /// \brief Returns true if this node denotes a Value.
+    /// Returns true if this node denotes a Value.
     bool denotesValueDecl() const {
         return (FIRST_ValueDecl <= kind && kind <= LAST_ValueDecl);
     }
 
-    /// \brief Returns true if this node denotes a Type.
+    /// Returns true if this node denotes a domain value.
+    bool denotesDomainValue() const {
+        return (FIRST_DomainValue <= kind && kind <= LAST_DomainValue);
+    }
+
+    /// Returns true if this node denotes a Type.
     bool denotesType() const {
         return (FIRST_Type <= kind && kind <= LAST_Type);
     }
 
-    /// \brief Returns true if this node denotes a model type.
-    bool denotesModelType() const {
-        return (FIRST_ModelType <= kind && kind <= LAST_ModelType);
+    /// Returns true of thos node denotes a named type.
+    bool denotesNamedType() const {
+        return (FIRST_NamedType <= kind && kind <= LAST_NamedType);
     }
 
-    /// \brief Returns true if this node denotes a subroutine type (i.e. either
-    /// a procedure of function type).
+    /// Returns true if this node denotes a subroutine type (i.e. either a
+    /// procedure of function type).
     bool denotesSubroutineType() const {
         return (kind == AST_FunctionType ||
                 kind == AST_ProcedureType);
     }
 
-    /// \brief Returns true if this node denotes a expression.
+    /// Returns true if this node denotes a expression.
     bool denotesExpr() const {
         return (FIRST_Expr <= kind && kind <= LAST_Expr);
     }
 
-    /// \brief Returns true if this node denotes a Stmt.
+    /// Returns true if this node denotes a Stmt.
     bool denotesStmt() const {
         return (FIRST_Stmt <= kind && kind <= LAST_Stmt);
     }
 
-    /// \brief Returns a string matching the kind of this node.
+    /// Returns a string matching the kind of this node.
     const char *getKindString() const { return kindStrings[kind]; }
 
-    /// \brief Prints a representation of this ast node to stderr.
+    /// Prints a representation of this ast node to stderr.
     virtual void dump(unsigned depth = 0);
 
-    /// \brief Utility to print the given number of spaces to stderr.  To be
-    /// used in implementations of dump.
+    /// Utility to print the given number of spaces to stderr.  To be used in
+    /// implementations of dump.
     static void dumpSpaces(unsigned n);
 
-    /// \brief Support isa and dyn_cast.
+    /// Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }
 
 protected:
-    /// \brief Initializes an Ast node of the specified kind.
+    /// Initializes an Ast node of the specified kind.
     ///
     /// \param  kind  The kind of node to create.
     Ast(AstKind kind)

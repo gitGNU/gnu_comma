@@ -10,6 +10,7 @@
 #define COMMA_CODEGEN_COMMART_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+
 #include "llvm/Support/IRBuilder.h"
 
 namespace llvm {
@@ -26,6 +27,7 @@ class DomainInfo;
 class DomainInstance;
 class DomainView;
 class ExportMap;
+class SignatureSet;
 
 class CommaRT {
 
@@ -82,8 +84,8 @@ public:
                                  const std::vector<llvm::Value *> &args) const;
 
 
-    unsigned getSignatureOffset(Domoid *domoid, SignatureType *target);
-
+    unsigned getSignatureOffset(DomainValueDecl *dom, SignatureType *target);
+    unsigned getSignatureOffset(Domoid *dom, SignatureType *target);
 
     /// The following methods are not for public consumption.  They provide
     /// access to objects used in other areas of the runtime coegen system.
@@ -179,6 +181,9 @@ private:
                             unsigned index,
                             const llvm::Type *elemTy,
                             std::vector<llvm::Constant *> &offsets);
+
+    unsigned getSignatureOffset(const SignatureSet &sigset,
+                                SignatureType *target);
 
 };
 

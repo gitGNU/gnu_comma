@@ -27,14 +27,14 @@ bool percentHas(ModelDecl *source, SignatureType *target)
         // source declaration.  That is to say, in the context of some signature
         // S, % certainly has S.
         if (SignatureDecl *signature = dyn_cast<SignatureDecl>(sigoid)) {
-            if (signature == target->getDeclaration())
+            if (signature == target->getSignature())
                 return true;
         }
         else {
             // When % is defined in the context of some variety V (X1 : T1, ..,
             // Xn : Tn), check if the target corresponds to V(X1, .., Xn).
             VarietyDecl *variety = cast<VarietyDecl>(sigoid);
-            if (variety == target->getDeclaration()) {
+            if (variety == target->getVariety()) {
                 bool matchFound = true;
                 unsigned arity = variety->getArity();
                 for (unsigned i = 0; i < arity; ++i) {
@@ -71,10 +71,10 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
         return percentHas(model, target);
     }
 
-    Domoid *domoid = source->getDomoidDecl();
-    SignatureSet &sigset  = domoid->getSignatureSet();
-    SignatureSet::iterator iter    = sigset.begin();
-    SignatureSet::iterator endIter = sigset.end();
+    DomainValueDecl *dom = source->getDomainValueDecl();
+    const SignatureSet &sigset = dom->getSignatureSet();
+    SignatureSet::const_iterator iter = sigset.begin();
+    SignatureSet::const_iterator endIter = sigset.end();
 
     for ( ; iter != endIter; ++iter) {
         SignatureType *candidate = *iter;

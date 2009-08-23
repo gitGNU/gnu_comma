@@ -114,7 +114,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
 
     // Lookup the domain info structure for the connective.
     instance = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
-    target = instance->getDefiningDecl();
+    target = instance->getDefinition();
     llvm::GlobalValue *capsuleInfo = CG.lookupCapsuleInfo(target);
     assert(capsuleInfo && "Could not resolve info for direct call!");
 

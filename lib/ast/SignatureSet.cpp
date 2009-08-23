@@ -13,30 +13,17 @@
 
 using namespace comma;
 
-bool SignatureSet::addDirectSignature(SignatureType *signature)
+bool SignatureSet::addDirectSignature(SignatureType *signature,
+                                      const AstRewriter &rewriter)
 {
     if (directSignatures.insert(signature)) {
-        Sigoid     *sigDecl = signature->getSigoid();
-        AstRewriter rewriter;
-
-        // Rewrite the percent node of the signature to that of the model
-        // associated with this set.
-        rewriter.addRewrite(sigDecl->getPercent(),
-                            associatedModel->getPercent());
-
-        // If the supplied signature is parameterized, install rewrites mapping
-        // the formal parameters of the signature to the actual parameters of
-        // the type.
-        rewriter.installRewrites(signature);
-
+        Sigoid *sigDecl = signature->getSigoid();
         const SignatureSet& sigset = sigDecl->getSignatureSet();
-
         allSignatures.insert(signature);
         for (iterator iter = sigset.begin(); iter != sigset.end(); ++iter) {
             SignatureType *rewrite = rewriter.rewrite(*iter);
             allSignatures.insert(rewrite);
         }
-
         return true;
     }
     return false;

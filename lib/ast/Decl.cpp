@@ -7,8 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AstRewriter.h"
+#include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Stmt.h"
+
 #include <algorithm>
 #include <iostream>
 
@@ -68,17 +70,101 @@ void OverloadedDeclName::verify()
 //===----------------------------------------------------------------------===//
 // ModelDecl
 
+ModelDecl::ModelDecl(AstResource &resource,
+                     AstKind kind, IdentifierInfo *name, Location loc)
+    : Decl(kind, name, loc),
+      DeclRegion(kind),
+      percent(0)
+{
+    IdentifierInfo *percentId = resource.getIdentifierInfo("%");
+    percent =  DomainType::getPercent(percentId, this);
+}
+
 bool ModelDecl::addDirectSignature(SignatureType *signature)
 {
-    return sigset.addDirectSignature(signature);
+    // Rewrite % nodes of the signature to the % nodes of this model and map any
+    // formal arguments to the actuals.
+    AstRewriter rewrites;
+    rewrites.addRewrite(signature->getSigoid()->getPercent(),
+                        getPercent());
+    rewrites.installRewrites(signature);
+    return sigset.addDirectSignature(signature, rewrites);
 }
+
+unsigned ModelDecl::getArity() const
+{
+    return 0;
+}
+
+/// Returns the abstract domain declaration corresponding the i'th formal
+/// parameter.  This method will assert if this declaration is not
+/// parameterized.
+AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve formal decls from a non-parameterized model!");
+}
+
+/// Returns the index of the given AbstractDomainDecl which must be a formal
+/// parameter of this model.  This method will assert if this declaration is not
+/// parameterized.
+unsigned ModelDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve formal index from a non-parameterized model!");
+}
+
+/// Returns the type of the i'th formal formal parameter.  This method will
+/// assert if this declaration is not parameterized.
+DomainType *ModelDecl::getFormalType(unsigned i) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve formal type from a non-parameterized model!");
+}
+
+/// Returns the SignatureType which the i'th actual parameter must satisfy.
+/// This method will assert if this declaration is not parameterized.
+SignatureType *ModelDecl::getFormalSignature(unsigned i) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve formal signature from a non-parameterized model!");
+}
+
+/// Returns the IdentifierInfo which labels the i'th formal parameter.  This
+/// method will assert if this declaration is not parameterized.
+IdentifierInfo *ModelDecl::getFormalIdInfo(unsigned i) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve formal identifier from a non-parameterized model!");
+}
+
+/// Returns the index of the parameter corresponding to the given keyword,
+/// or -1 if no such keyword exists.  This method will assert if this
+/// declaration is not parameterized.
+int ModelDecl::getKeywordIndex(IdentifierInfo *keyword) const
+{
+    assert(!isParameterized() &&
+           "Parameterized decls must implement this method!");
+    assert(false &&
+           "Cannot retrieve keyword index from a non-parameterized model!");
+}
+
 
 //===----------------------------------------------------------------------===//
 // SignatureDecl
-SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
-                             IdentifierInfo *info,
-                             const Location &loc)
-    : Sigoid(AST_SignatureDecl, percentId, info, loc)
+SignatureDecl::SignatureDecl(AstResource &resource,
+                             IdentifierInfo *info, const Location &loc)
+    : Sigoid(resource, AST_SignatureDecl, info, loc)
 {
     canonicalType = new SignatureType(this);
 }
@@ -86,14 +172,14 @@ SignatureDecl::SignatureDecl(IdentifierInfo *percentId,
 //===----------------------------------------------------------------------===//
 // VarietyDecl
 
-VarietyDecl::VarietyDecl(IdentifierInfo *percentId,
-                         IdentifierInfo *name,
-                         Location        loc,
-                         DomainType    **formals,
-                         unsigned        arity)
-    : Sigoid(AST_VarietyDecl, percentId, name, loc)
+VarietyDecl::VarietyDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         AbstractDomainDecl **formals, unsigned arity)
+    : Sigoid(resource, AST_VarietyDecl, name, loc),
+      arity(arity)
 {
-    varietyType = new VarietyType(formals, this, arity);
+    formalDecls = new AbstractDomainDecl*[arity];
+    std::copy(formals, formals + arity, formalDecls);
 }
 
 SignatureType *
@@ -112,20 +198,41 @@ VarietyDecl::getCorrespondingType(Type **args, unsigned numArgs)
     return type;
 }
 
-SignatureType *VarietyDecl::getCorrespondingType()
+/// Returns the index of the given AbstractDomainDecl (which must be a
+/// formal parameter of this variety).
+unsigned VarietyDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
 {
-    VarietyType *thisType = getType();
-    Type       **formals = reinterpret_cast<Type**>(thisType->formals);
-    return getCorrespondingType(formals, getArity());
+    for (unsigned i = 0; i < arity; ++i) {
+        AbstractDomainDecl *candidate = formalDecls[i];
+        if (candidate == ADDecl)
+            return i;
+    }
+    assert(false && "Domain decl is not a formal parameter of this variety!");
+    return -1U;
+}
+
+/// Returns the type of of the i'th formal parameter.
+DomainType *VarietyDecl::getFormalType(unsigned i) const {
+    return getFormalDecl(i)->getType();
+}
+
+/// Returns the SignatureType which the i'th actual parameter must satisfy.
+SignatureType *VarietyDecl::getFormalSignature(unsigned i) const
+{
+    return getFormalDecl(i)->getSignatureType();
+}
+
+/// Returns the IdentifierInfo which labels the i'th formal parameter.
+IdentifierInfo *VarietyDecl::getFormalIdInfo(unsigned i) const {
+    return getFormalDecl(i)->getIdInfo();
 }
 
 //===----------------------------------------------------------------------===//
 // Domoid
 
-Domoid::Domoid(AstKind         kind,
-               IdentifierInfo *idInfo,
-               Location        loc)
-    : ModelDecl(kind, idInfo, loc) { }
+Domoid::Domoid(AstResource &resource,
+               AstKind kind, IdentifierInfo *idInfo, Location loc)
+    : ModelDecl(resource, kind, idInfo, loc) { }
 
 //===----------------------------------------------------------------------===//
 // AddDecl
@@ -168,139 +275,39 @@ FunctorDecl *AddDecl::getImplementedFunctor()
 
 //===----------------------------------------------------------------------===//
 // DomainDecl
-DomainDecl::DomainDecl(IdentifierInfo *percentId,
-                       IdentifierInfo *name,
-                       const Location &loc)
-    : Domoid(AST_DomainDecl, name, loc)
+
+DomainDecl::DomainDecl(AstResource &resource,
+                       IdentifierInfo *name, const Location &loc)
+    : Domoid(resource, AST_DomainDecl, name, loc),
+      instance(0)
 {
-    instance       = new DomainInstanceDecl(this, loc);
     implementation = new AddDecl(this);
-    percent        = DomainType::getPercent(percentId, this);
 }
 
-// Override the default as provided by ModelDecl so that instances can be
-// informed of the update to their defining declaration.
-bool DomainDecl::addDirectSignature(SignatureType *signature)
+// FIXME: This is a temporary solution to the problem of initializing domain
+// instances before the corresponding DomDecl is fully initialized.  In
+// particular, we need a machanism similar to the observer failcility in
+// DeclRegion but for signature sets.
+DomainInstanceDecl *DomainDecl::getInstance()
 {
-    bool status = ModelDecl::addDirectSignature(signature);
-
-    if (status)
-        instance->addDirectSignature(signature);
-
-    return status;
-}
-
-//===----------------------------------------------------------------------===//
-// AbstractDomainDecl
-AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
-                                       SignatureType  *type,
-                                       Location        loc)
-    : Domoid(AST_AbstractDomainDecl, name, loc),
-      signature(type)
-{
-    abstractType = new DomainType(this);
-
-    AstRewriter rewriter;
-    Sigoid     *sigoid = type->getSigoid();
-
-    // Establish a mapping from the % node of the signature to the abstract
-    // domain type.
-    rewriter.addRewrite(sigoid->getPercent(), abstractType);
-
-    // Establish mappings from the formal parameters of the signature to the
-    // actual parameters of the type (this is a no-op if the signature is not
-    // parametrized).
-    rewriter.installRewrites(type);
-
-    addDeclarationsUsingRewrites(rewriter, sigoid);
-
-    // Populate our signature set.
-    addDirectSignature(type);
-}
-
-//===----------------------------------------------------------------------===//
-// DomainInstanceDecl
-DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
-    : Domoid(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
-      definition(domain)
-{
-    domain->addObserver(this);
-
-    AstRewriter rewriter;
-    correspondingType = new DomainType(this);
-
-    rewriter.installRewrites(correspondingType);
-    addDeclarationsUsingRewrites(rewriter, domain);
-}
-
-DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
-                                       Type       **args,
-                                       unsigned     numArgs,
-                                       Location     loc)
-    : Domoid(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
-      definition(functor)
-{
-    arguments = new Type*[numArgs];
-    std::copy(args, args + numArgs, arguments);
-
-    functor->addObserver(this);
-
-    AstRewriter rewriter;
-    correspondingType = new DomainType(this);
-
-    rewriter.installRewrites(correspondingType);
-    addDeclarationsUsingRewrites(rewriter, functor);
-}
-
-unsigned DomainInstanceDecl::getArity() const
-{
-    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(definition))
-        return functor->getArity();
-    else
-        return 0;
-}
-
-void DomainInstanceDecl::notifyAddDecl(Decl *decl)
-{
-    AstRewriter rewriter;
-    rewriter.installRewrites(correspondingType);
-    addDeclarationUsingRewrites(rewriter, decl);
-}
-
-void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
-{
-    // FIXME:  Implement.
-}
-
-bool DomainInstanceDecl::addDirectSignature(SignatureType *signature)
-{
-    AstRewriter rewrites;
-
-    rewrites.installRewrites(getType());
-    SignatureType *super = rewrites.rewrite(signature);
-
-    return ModelDecl::addDirectSignature(super);
-}
-
-void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
-                                 Type **args, unsigned numArgs)
-{
-    for (unsigned i = 0; i < numArgs; ++i)
-        id.AddPointer(args[i]);
+    if (instance == 0)
+        instance = new DomainInstanceDecl(this, getLocation());
+    return instance;
 }
 
 //===----------------------------------------------------------------------===//
 // FunctorDecl
-FunctorDecl::FunctorDecl(IdentifierInfo *percentId,
-                         IdentifierInfo *name,
-                         Location        loc,
-                         DomainType    **formals,
-                         unsigned        arity)
-    : Domoid(AST_FunctorDecl, name, loc)
+
+FunctorDecl::FunctorDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         AbstractDomainDecl **formals, unsigned arity)
+    : Domoid(resource, AST_FunctorDecl, name, loc),
+      arity(arity)
 {
-    functor        = new FunctorType(formals, this, arity);
+    formalDecls = new AbstractDomainDecl*[arity];
+    std::copy(formals, formals + arity, formalDecls);
+
     implementation = new AddDecl(this);
-    percent        = DomainType::getPercent(percentId, this);
 }
 
 DomainInstanceDecl *
@@ -319,31 +326,33 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
     return instance;
 }
 
-
-// Override the default as provided by ModelDecl so that instances can be
-// informed of the update to their defining declaration.
-bool FunctorDecl::addDirectSignature(SignatureType *signature)
+/// Returns the index of the given AbstractDomainDecl (which must be a
+/// formal parameter of this functor).
+unsigned FunctorDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
 {
-    typedef llvm::FoldingSet<DomainInstanceDecl>::iterator iterator;
-
-    if (!ModelDecl::addDirectSignature(signature))
-        return false;
-
-    for (iterator iter = instances.begin(); iter != instances.end(); ++iter)
-            iter->addDirectSignature(signature);
-    return true;
-}
-
-// Returns the index of the given abstract domain (which is asserted to be
-// a member of the functors formal parameters).
-unsigned FunctorDecl::getFormalIndex(const AbstractDomainDecl *decl) const
-{
-    for (unsigned i = 0; i < getArity(); ++i) {
-        if (getFormalDomain(i) == decl)
+    for (unsigned i = 0; i < arity; ++i) {
+        AbstractDomainDecl *candidate = formalDecls[i];
+        if (candidate == ADDecl)
             return i;
     }
-    assert(false && "Declaration not a formal parameter!");
-    return 0;
+    assert(false && "Domain decl is not a formal parameter of this variety!");
+    return -1U;
+}
+
+/// Returns the type of of the i'th formal parameter.
+DomainType *FunctorDecl::getFormalType(unsigned i) const {
+    return getFormalDecl(i)->getType();
+}
+
+/// Returns the SignatureType which the i'th actual parameter must satisfy.
+SignatureType *FunctorDecl::getFormalSignature(unsigned i) const
+{
+    return getFormalDecl(i)->getSignatureType();
+}
+
+/// Returns the IdentifierInfo which labels the i'th formal parameter.
+IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
+    return getFormalDecl(i)->getIdInfo();
 }
 
 //===----------------------------------------------------------------------===//
@@ -526,6 +535,124 @@ void SubroutineDecl::dump(unsigned depth)
 }
 
 //===----------------------------------------------------------------------===//
+// DomainValueDecl
+
+// FIXME:  Perhaps the sensible parent of the declarative region would be the
+// parent of the defining declaration.
+DomainValueDecl::DomainValueDecl(AstKind kind, IdentifierInfo *name, Location loc)
+    : ValueDecl(kind, name, 0, loc),
+      DeclRegion(kind)
+{
+    assert(this->denotesDomainValue());
+    // Create a new unique type to represent us.
+    correspondingType = new DomainType(this);
+}
+
+//===----------------------------------------------------------------------===//
+// AbstractDomainDecl
+AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
+                                       SignatureType *sigType, Location loc)
+    : DomainValueDecl(AST_AbstractDomainDecl, name, loc)
+{
+    AstRewriter rewriter;
+    Sigoid *sigoid = sigType->getSigoid();
+
+    // Establish a mapping from the % node of the signature to the type of this
+    // abstract domain.
+    rewriter.addRewrite(sigoid->getPercent(), getType());
+
+    // Establish mappings from the formal parameters of the signature to the
+    // actual parameters of the type (this is a no-op if the signature is not
+    // parametrized).
+    rewriter.installRewrites(getType());
+
+    // Rewrite the declarations proided by the signature and populated our
+    // region with the results.
+    addDeclarationsUsingRewrites(rewriter, sigoid);
+
+    // Add our rewritten signature hierarchy.
+    sigset.addDirectSignature(sigType, rewriter);
+}
+
+//===----------------------------------------------------------------------===//
+// DomainInstanceDecl
+DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
+    : DomainValueDecl(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
+      definition(domain)
+{
+    // Ensure that we are notified if the declarations provided by the defining
+    // domoid change.
+    domain->addObserver(this);
+
+    AstRewriter rewriter;
+    rewriter.addRewrite(domain->getPercent(), getType());
+    rewriter.installRewrites(getType());
+    addDeclarationsUsingRewrites(rewriter, domain);
+
+    // Populate our signature set with a rewritten version of our defining
+    // domain.
+    const SignatureSet &SS = domain->getSignatureSet();
+    for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
+        sigset.addDirectSignature(*I, rewriter);
+}
+
+DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
+                                       Type **args, unsigned numArgs,
+                                       Location loc)
+    : DomainValueDecl(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
+      definition(functor)
+{
+    assert(functor->getArity() == numArgs &&
+           "Wrong number of arguments for domain instance!");
+
+    arguments = new Type*[numArgs];
+    std::copy(args, args + numArgs, arguments);
+
+    // Ensure that we are notified if the declarations provided by the defining
+    // functor change.
+    functor->addObserver(this);
+
+    AstRewriter rewriter;
+    rewriter.addRewrite(functor->getPercent(), getType());
+    rewriter.installRewrites(getType());
+    addDeclarationsUsingRewrites(rewriter, functor);
+
+    // Populate our signature set with a rewritten version of our defining
+    // functor.
+    const SignatureSet &SS = functor->getSignatureSet();
+    for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
+        sigset.addDirectSignature(*I, rewriter);
+}
+
+unsigned DomainInstanceDecl::getArity() const
+{
+    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(definition))
+        return functor->getArity();
+    else
+        return 0;
+}
+
+void DomainInstanceDecl::notifyAddDecl(Decl *decl)
+{
+    AstRewriter rewriter;
+    rewriter.addRewrite(getDefinition()->getPercent(), getType());
+    rewriter.installRewrites(getType());
+    addDeclarationUsingRewrites(rewriter, decl);
+}
+
+void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
+{
+    // FIXME:  Implement.
+}
+
+void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
+                                 Type **args, unsigned numArgs)
+{
+    for (unsigned i = 0; i < numArgs; ++i)
+        id.AddPointer(args[i]);
+}
+
+//===----------------------------------------------------------------------===//
 // ParamValueDecl
 
 PM::ParameterMode ParamValueDecl::getExplicitParameterMode() const
@@ -566,7 +693,7 @@ EnumLiteral::EnumLiteral(EnumerationDecl *decl,
 EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
                                  Location        loc,
                                  DeclRegion     *parent)
-    : TypeDecl(AST_EnumerationDecl, name, loc),
+    : TypedDecl(AST_EnumerationDecl, name, loc),
       DeclRegion(AST_EnumerationDecl, parent),
       numLiterals(0)
 {
@@ -605,7 +732,7 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
                          Expr *lowRange, Expr *highRange,
                          IntegerType *baseType, DeclRegion *parent)
-    : TypeDecl(AST_IntegerDecl, name, loc),
+    : TypedDecl(AST_IntegerDecl, name, loc),
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lowRange), highExpr(highRange)
 {

@@ -27,7 +27,6 @@
 namespace comma {
 
 class SignatureType;
-class Model;
 
 class SignatureSet {
 
@@ -36,17 +35,16 @@ class SignatureSet {
     SignatureTable directSignatures;
     SignatureTable allSignatures;
 
-    ModelDecl *associatedModel;
-
 public:
-    SignatureSet(ModelDecl *model)
-        : associatedModel(model) { }
-
-    /// \brief Adds a direct signature to this set.
+    /// Adds a direct signature to this set using the supplied rewrite rules.
     ///
-    /// Returns true if the signature did not previously exist in this set and
-    /// false otherwise.
-    bool addDirectSignature(SignatureType *signature);
+    /// This method adds \p signature to the direct signature set.  Then, using
+    /// the supplied rewrite rules, inserts all super-signatures of \p signature
+    /// into the set of indirect signatures, rewriting each in turm.  Returns
+    /// true if the signature did not previously exist in this set and false
+    /// otherwise.
+    bool addDirectSignature(SignatureType *signature,
+                            const AstRewriter &rewriter);
 
     /// \brief Returns true is the given signature type is already contained in
     /// this set.
@@ -79,10 +77,6 @@ public:
     unsigned numIndirectSignatures() const {
         return numSignatures() - numDirectSignatures();
     }
-
-    // Returns the model which owns this set.
-    const ModelDecl *getAssociatedModel() const { return associatedModel; }
-    ModelDecl *getAssociatedModel() { return associatedModel; }
 
     typedef SignatureTable::iterator iterator;
     typedef SignatureTable::const_iterator const_iterator;

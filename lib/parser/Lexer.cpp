@@ -645,7 +645,7 @@ void Lexer::scanToken()
 
         // For invalid character data, simply emit a diagnostic and continue to
         // scan for a token.
-        report(diag::INVALID_CHARACTER) << (char)readStream();
+        report(diag::INVALID_CHARACTER) << static_cast<char>(readStream());
         continue;
     }
 }

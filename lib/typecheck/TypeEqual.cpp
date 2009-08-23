@@ -54,10 +54,10 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
 }
 
 bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
-                                      SignatureType     *typeX,
-                                      SignatureType     *typeY)
+                                      SignatureType *typeX,
+                                      SignatureType *typeY)
 {
-    if (typeX->getDeclaration() == typeY->getDeclaration()) {
+    if (typeX->getSigoid() == typeY->getSigoid()) {
         if (typeX->isParameterized()) {
             unsigned arity = typeX->getArity();
             for (unsigned i = 0; i < arity; ++i) {
@@ -91,7 +91,7 @@ bool comma::compareTypesUsingRewrites(const AstRewriter &rewrites,
     DomainInstanceDecl *instanceY = domY->getInstanceDecl();
     if (instanceX && instanceY) {
 
-        if (instanceX->getDefiningDecl() != instanceY->getDefiningDecl())
+        if (instanceX->getDefinition() != instanceY->getDefinition())
             return false;
 
         // We know the arity of both types are the same since they are supported

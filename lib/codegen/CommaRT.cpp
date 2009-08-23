@@ -192,19 +192,30 @@ llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,
     return builder.CreateLoad(elt);
 }
 
-unsigned CommaRT::getSignatureOffset(Domoid *domoid, SignatureType *target)
+unsigned CommaRT::getSignatureOffset(const SignatureSet &sigset,
+                                     SignatureType *target)
 {
     typedef SignatureSet::iterator iterator;
-    SignatureSet &SS = domoid->getSignatureSet();
-
     unsigned offset = 0;
-    for (iterator iter = SS.begin(); iter != SS.end(); ++iter) {
+    for (iterator iter = sigset.begin(); iter != sigset.end(); ++iter) {
         if (target->equals(*iter))
             return offset;
         offset++;
     }
     assert(false && "Could not find target signature!");
     return 0;
+
+}
+
+unsigned CommaRT::getSignatureOffset(DomainValueDecl *dom,
+                                     SignatureType *target)
+{
+    return getSignatureOffset(dom->getSignatureSet(), target);
+}
+
+unsigned CommaRT::getSignatureOffset(Domoid *dom, SignatureType *target)
+{
+    return getSignatureOffset(dom->getSignatureSet(), target);
 }
 
 llvm::Value *CommaRT::genAbstractCall(llvm::IRBuilder<> &builder,

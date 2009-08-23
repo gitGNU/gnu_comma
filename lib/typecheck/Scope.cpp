@@ -128,12 +128,10 @@ void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
 void Scope::Entry::addImportDecl(DomainType *type)
 {
     typedef DeclRegion::DeclIter DeclIter;
-    Domoid *domoid = type->getDomoidDecl();
+    DomainValueDecl *domain = type->getDomainValueDecl();
+    assert(domain && "Cannot import from the given domain!");
 
-    assert((isa<AbstractDomainDecl>(domoid) || isa<DomainInstanceDecl>(domoid))
-           && "Cannot import from the given domain!");
-
-    importDeclarativeRegion(domoid);
+    importDeclarativeRegion(domain);
     importDecls.push_back(type);
 }
 
@@ -151,7 +149,7 @@ void Scope::Entry::clear()
     ImportIterator endImportIter = endImportDecls();
     for (ImportIterator importIter = beginImportDecls();
          importIter != endImportIter; ++importIter)
-        clearDeclarativeRegion((*importIter)->getDomoidDecl());
+        clearDeclarativeRegion((*importIter)->getDomainValueDecl());
 
     kind = DEAD_SCOPE;
     directDecls.clear();
@@ -337,23 +335,25 @@ bool Scope::addImport(DomainType *type)
     return false;
 }
 
-// FIXME: Rename to lookupTypeDecl.
-TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
+// FIXME: Rename to lookupTypedDecl.
+TypedDecl *Scope::lookupType(const IdentifierInfo *name) const
 {
-    TypeDecl *result = lookupDirectType(name);
+    TypedDecl *result = lookupDirectType(name);
 
-    if (result) return result;
+    if (result)
+        return result;
 
     Homonym *homonym = name->getMetadata<Homonym>();
 
-    if (!homonym) return 0;
+    if (!homonym)
+        return 0;
 
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
         Decl *candidate = *iter;
-        if (isa<TypeDecl>(candidate)) {
+        if (isa<TypedDecl>(candidate)) {
             if (!result)
-                result = cast<TypeDecl>(candidate);
+                result = cast<TypedDecl>(candidate);
             else
                 return 0;
         }
@@ -361,19 +361,74 @@ TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
     return result;
 }
 
-// FIXME: Rename to lookupDirectTypeDecl.
-TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
-                                  bool traverse) const
+// FIXME: Rename to lookupDirectTypedDecl.
+TypedDecl *Scope::lookupDirectType(const IdentifierInfo *name,
+                                   bool traverse) const
 {
     if (name->hasMetadata()) {
         if (traverse) {
             Homonym *homonym = name->getMetadata<Homonym>();
-
             for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
                  iter != homonym->endDirectDecls(); ++iter) {
                 Decl *candidate = *iter;
-                if (isa<TypeDecl>(candidate))
-                    return cast<TypeDecl>(candidate);
+                if (isa<TypedDecl>(candidate))
+                    return cast<TypedDecl>(candidate);
+            }
+        }
+        else {
+            // Otherwise, scan the direct bindings associated with the current
+            // Entry.  We should never have more than one TypedDecl associated
+            // with an entry, so we need not concern ourselves with the order of
+            // the search.
+            Entry *entry = entries.front();
+            Entry::DirectIterator iter = entry->beginDirectDecls();
+            Entry::DirectIterator endIter = entry->endDirectDecls();
+            for ( ; iter != endIter; ++iter) {
+                Decl *candidate = *iter;
+                if (candidate->getIdInfo() == name && isa<TypedDecl>(candidate))
+                    return cast<TypedDecl>(candidate);
+            }
+        }
+    }
+    return 0;
+}
+
+ModelDecl *Scope::lookupModel(const IdentifierInfo *name) const
+{
+    ModelDecl *result = lookupDirectModel(name);
+
+    if (result)
+        return result;
+
+    Homonym *homonym = name->getMetadata<Homonym>();
+
+    if (!homonym)
+        return 0;
+
+    for (Homonym::ImportIterator iter = homonym->beginImportDecls();
+         iter != homonym->endImportDecls(); ++iter) {
+        Decl *candidate = *iter;
+        if (isa<ModelDecl>(candidate)) {
+            if (!result)
+                result = cast<ModelDecl>(candidate);
+            else
+                return 0;
+        }
+    }
+    return result;
+}
+
+ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
+                                    bool traverse) const
+{
+    if (name->hasMetadata()) {
+        if (traverse) {
+            Homonym *homonym = name->getMetadata<Homonym>();
+            for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+                 iter != homonym->endDirectDecls(); ++iter) {
+                Decl *candidate = *iter;
+                if (isa<ModelDecl>(candidate))
+                    return cast<ModelDecl>(candidate);
             }
         }
         else {
@@ -382,22 +437,16 @@ TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name,
             // an entry, so we need not concern ourselves with the order of the
             // search.
             Entry *entry = entries.front();
-            Entry::DirectIterator    iter = entry->beginDirectDecls();
+            Entry::DirectIterator iter = entry->beginDirectDecls();
             Entry::DirectIterator endIter = entry->endDirectDecls();
             for ( ; iter != endIter; ++iter) {
                 Decl *candidate = *iter;
-                if (candidate->getIdInfo() == name && isa<TypeDecl>(candidate))
-                    return cast<TypeDecl>(candidate);
+                if (candidate->getIdInfo() == name && isa<ModelDecl>(candidate))
+                    return cast<ModelDecl>(candidate);
             }
         }
     }
     return 0;
-}
-
-ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
-                                    bool traverse) const
-{
-    return dyn_cast_or_null<ModelDecl>(lookupDirectType(name, traverse));
 }
 
 ValueDecl *Scope::lookupDirectValue(const IdentifierInfo *info) const
@@ -466,9 +515,9 @@ void Scope::dump() const
                 type->dump();
                 std::cerr << '\n';
 
-                Domoid *domoid = type->getDomoidDecl();
-                for (Domoid::DeclIter iter = domoid->beginDecls();
-                     iter != domoid->endDecls(); ++iter) {
+                DomainValueDecl *domain = type->getDomainValueDecl();
+                for (Domoid::DeclIter iter = domain->beginDecls();
+                     iter != domain->endDecls(); ++iter) {
                     std::cerr << "      ";
                     (*iter)->dump();
                     std::cerr << '\n';

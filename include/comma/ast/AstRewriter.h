@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -49,10 +49,9 @@ public:
     }
 
     // Populates this rewriter with rules which map the formal argument nodes of
-    // the underlying declaration to the actual arguments provided by the
-    // supplied type.  In addition, a mapping from the % node of the declaration
-    // to the given type is established.  The only case in which this method is
-    // a no-op is when the supplied type is a PercentType.
+    // the underlying domain declaration to the actual arguments provided by the
+    // supplied type.  This method is a no-op when the supplied type is not
+    // parameterized.
     void installRewrites(DomainType *context);
 
     // Populates this rewriter with rules which map the formal argument nodes of

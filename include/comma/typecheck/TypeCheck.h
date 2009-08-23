@@ -146,8 +146,7 @@ public:
 
     Node acceptQualifier(Node qualifierType, Location loc);
 
-    Node acceptNestedQualifier(Node     qualifier,
-                               Node     qualifierType,
+    Node acceptNestedQualifier(Node qualifier, Node qualifierType,
                                Location loc);
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
@@ -158,19 +157,15 @@ public:
     Node acceptElseStmt(Location loc, Node ifNode,
                         Node *alternates, unsigned numAlternates);
 
-    Node acceptElsifStmt(Location loc,
-                         Node     ifNode,
-                         Node     condition,
-                         Node    *consequents,
-                         unsigned numConsequents);
+    Node acceptElsifStmt(Location loc, Node ifNode, Node condition,
+                         Node *consequents, unsigned numConsequents);
 
     Node acceptEmptyReturnStmt(Location loc);
 
     Node acceptReturnStmt(Location loc, Node retNode);
 
-    Node acceptAssignmentStmt(Location        loc,
-                              IdentifierInfo *target,
-                              Node            value);
+    Node acceptAssignmentStmt(Location loc,
+                              IdentifierInfo *target, Node value);
 
     // Called when a block statement is about to be parsed.
     Node beginBlockStmt(Location loc, IdentifierInfo *label = 0);
@@ -319,7 +314,8 @@ private:
     bool checkingFunction() const { return getCurrentFunction() != 0; }
 
     // Called when then type checker is constructed.  Populates the top level
-    // scope with an initial environment.
+    // scope with the default environment specified by Comma (declarations of
+    // primitive types like Bool, for example).
     void populateInitialEnvironment();
 
     // Creates a procedure or function decl depending on the kind of the
@@ -426,9 +422,9 @@ private:
     /// Returns true if the IdentifierInfo \p info can name a binary function.
     bool namesBinaryFunction(IdentifierInfo *info);
 
-    // Returns true if the given type decl is equivalent to % in the context of
-    // the current domain.
-    bool denotesDomainPercent(const TypeDecl *tyDecl);
+    // Returns true if the given decl is equivalent to % in the context of the
+    // current domain.
+    bool denotesDomainPercent(const Decl *decl);
 
     // Returns true if we are currently checking a functor, and if the given
     // functor declaration together with the provided arguments would denote an
@@ -446,6 +442,17 @@ private:
     // are compatible with the given functor.
     bool denotesFunctorPercent(const FunctorDecl *functor,
                                Type **args, unsigned numArgs);
+
+    /// Resolves the argument type of a Functor or Variety given previous actual
+    /// arguments.
+    ///
+    /// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>,
+    /// this function resolves the type of \c U(X) given an actual parameter for
+    /// \c X.  It is assumed that the actual arguments provided are compatable
+    /// with the given model.
+    SignatureType *
+    resolveFormalSignature(ModelDecl *parameterizedModel,
+                           Type **arguments, unsigned numArguments);
 
     /// Returns true if the given parameter is of mode "in", and thus capatable
     /// with a function declaration.  Otherwise false is returned an a

@@ -166,7 +166,7 @@ Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
 
         typeNode.release();
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
-        scope->addDirectModel(dom);
+        scope->addDirectDecl(dom);
         return getNode(dom);
     }
     else {
@@ -179,28 +179,22 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 {
     // Create the appropriate type of model.
     ModelDecl *modelDecl;
-    IdentifierInfo *percent = resource.getIdentifierInfo("%");
     IdentifierInfo *name = desc.getIdInfo();
     Location loc = desc.getLocation();
     if (desc.hasParams()) {
         // Convert each parameter node into an AbstractDomainDecl.
-        llvm::SmallVector<DomainType*, 4> domains;
-        for (Descriptor::paramIterator iter = desc.beginParams();
-             iter != desc.endParams(); ++iter) {
-            AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
-            domains.push_back(domain->getType());
-        }
-
-        DomainType **formals = &domains[0];
-        unsigned     arity   = domains.size();
+        llvm::SmallVector<AbstractDomainDecl*, 4> domains;
+        convertDescriptorParams<AbstractDomainDecl>(desc, domains);
+        AbstractDomainDecl **formals = &domains[0];
+        unsigned arity = domains.size();
         switch (desc.getKind()) {
 
         case Descriptor::DESC_Signature:
-            modelDecl = new VarietyDecl(percent, name, loc, formals, arity);
+            modelDecl = new VarietyDecl(resource, name, loc, formals, arity);
             break;
 
         case Descriptor::DESC_Domain:
-            modelDecl = new FunctorDecl(percent, name, loc, formals, arity);
+            modelDecl = new FunctorDecl(resource, name, loc, formals, arity);
             break;
 
         default:
@@ -211,11 +205,11 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
         switch (desc.getKind()) {
 
         case Descriptor::DESC_Signature:
-            modelDecl = new SignatureDecl(percent, name, loc);
+            modelDecl = new SignatureDecl(resource, name, loc);
             break;
 
         case Descriptor::DESC_Domain:
-            modelDecl = new DomainDecl(percent, name, loc);
+            modelDecl = new DomainDecl(resource, name, loc);
             break;
 
         default:
@@ -275,14 +269,14 @@ Node TypeCheck::acceptPercent(Location loc)
     return getNode(model->getPercent());
 }
 
-// Returns true if the given type decl is equivalent to % in the context of the
+// Returns true if the given decl is equivalent to % in the context of the
 // current domain.
-bool TypeCheck::denotesDomainPercent(const TypeDecl *tyDecl)
+bool TypeCheck::denotesDomainPercent(const Decl *decl)
 {
     if (checkingDomain()) {
         DomainDecl *domain = getCurrentDomain();
-        const DomainDecl *candidate = dyn_cast<DomainDecl>(tyDecl);
-        if (candidate && domain)
+        const DomainDecl *candidate = dyn_cast<DomainDecl>(decl);
+        if (candidate and domain)
             return domain == candidate;
     }
     return false;
@@ -318,15 +312,41 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
     return false;
 }
 
-Node TypeCheck::acceptTypeName(IdentifierInfo *id,
-                               Location        loc,
-                               Node            qualNode)
+/// Resolves the argument type of a Functor or Variety given previous actual
+/// arguments.
+///
+/// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>, this
+/// function resolves the type of \c U(X) given an actual parameter for \c X.
+/// It is assumed that the actual arguments provided are compatable with the
+/// given model.
+SignatureType *
+TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
+                                  Type **arguments, unsigned numArguments)
 {
-    TypeDecl *type = 0;
+    assert(parameterizedModel->isParameterized());
+    assert(numArguments < parameterizedModel->getArity());
+
+    AstRewriter rewriter;
+
+    // For each actual argument, establish a map from the formal parameter to
+    // the actual.
+    for (unsigned i = 0; i < numArguments; ++i) {
+        Type *formal = parameterizedModel->getFormalType(i);
+        Type *actual = arguments[i];
+        rewriter.addRewrite(formal, actual);
+    }
+
+    SignatureType *target = parameterizedModel->getFormalSignature(numArguments);
+    return rewriter.rewrite(target);
+}
+
+Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
+{
+    Decl *decl = 0;
 
     if (!qualNode.isNull()) {
-        Qualifier        *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion          *region = qualifier->resolve();
+        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion *region = qualifier->resolve();
         DeclRegion::PredRange range = region->findDecls(id);
 
         // Search the region for a type of the given name.  Type names do not
@@ -335,39 +355,50 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id,
         for (DeclRegion::PredIter iter = range.first;
              iter != range.second; ++iter) {
             Decl *candidate = *iter;
-            if ((type = dyn_cast<TypeDecl>(candidate)))
+            if ((decl = dyn_cast<ModelDecl>(candidate)) or
+                (decl = dyn_cast<TypedDecl>(candidate)))
                 break;
         }
     }
-    else
-        type = scope->lookupType(id);
+    else {
+        // FIXME: We should have a unified lookup method for this.
+        decl = scope->lookupModel(id);
+        if (!decl)
+            decl = scope->lookupType(id);
+    }
 
-    if (type == 0) {
+    if (decl == 0) {
         report(loc, diag::TYPE_NOT_VISIBLE) << id;
         return getInvalidNode();
     }
 
-    switch (type->getKind()) {
+    switch (decl->getKind()) {
 
     default:
         assert(false && "Cannot handle type declaration.");
         return getInvalidNode();
 
     case Ast::AST_DomainDecl: {
-        if (denotesDomainPercent(type)) {
+        if (denotesDomainPercent(decl)) {
             report(loc, diag::PERCENT_EQUIVALENT);
             return getNode(getCurrentPercent());
         }
-        DomainDecl *domDecl = cast<DomainDecl>(type);
+        DomainDecl *domDecl = cast<DomainDecl>(decl);
         return getNode(domDecl->getInstance()->getType());
     }
 
-    case Ast::AST_SignatureDecl:
+    case Ast::AST_SignatureDecl: {
+        SignatureDecl *sigDecl = cast<SignatureDecl>(decl);
+        return getNode(sigDecl->getCorrespondingType());
+    }
+
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
-    case Ast::AST_IntegerDecl:
-        return getNode(type->getType());
+    case Ast::AST_IntegerDecl: {
+        TypedDecl *tyDecl = cast<TypedDecl>(decl);
+        return getNode(tyDecl->getType());
+    }
 
     case Ast::AST_FunctorDecl:
     case Ast::AST_VarietyDecl:
@@ -384,7 +415,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       unsigned         numKeywords,
                                       Location         loc)
 {
-    ModelDecl  *model = scope->lookupDirectModel(connective);
+    ModelDecl *model = scope->lookupModel(connective);
     const char *name  = connective->getString();
     unsigned numArgs  = argumentNodes.size();
 
@@ -395,10 +426,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         return getInvalidNode();
     }
 
-    ParameterizedType *candidate =
-        dyn_cast<ParameterizedType>(model->getType());
-
-    if (!candidate || candidate->getArity() != numArgs) {
+    if (!model->isParameterized() || model->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
         return getInvalidNode();
     }
@@ -412,15 +440,15 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     // Process any keywords provided.
     for (unsigned i = 0; i < numKeywords; ++i) {
-        IdentifierInfo *keyword    = keywords[i];
-        Location        keywordLoc = keywordLocs[i];
-        int             keywordIdx = candidate->getKeywordIndex(keyword);
+        IdentifierInfo *keyword = keywords[i];
+        Location keywordLoc = keywordLocs[i];
+        int keywordIdx = model->getKeywordIndex(keyword);
 
         // Ensure the given keyword exists.
         if (keywordIdx < 0) {
             report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
-                << keyword->getString() << candidate->getString();
-                return getInvalidNode();
+                << keyword->getString() << name;
+            return getInvalidNode();
         }
 
         // The corresponding index of the keyword must be greater than the
@@ -452,11 +480,9 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     // Check each argument type.
     for (unsigned i = 0; i < numArgs; ++i) {
-        Type        *argument = arguments[i];
-        Location       argLoc = argumentLocs[i];
-        SignatureType *target =
-            candidate->resolveFormalSignature(&arguments[0], i);
-
+        Type *argument = arguments[i];
+        Location argLoc = argumentLocs[i];
+        SignatureType *target = resolveFormalSignature(model, &arguments[0], i);
         if (!checkType(argument, target, argLoc))
             return getInvalidNode();
     }
@@ -700,7 +726,7 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
     DeclRegion::DeclIter endIter = sigdecl->endDecls();
 
     for ( ; iter != endIter; ++iter) {
-        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
+        if (TypedDecl *tyDecl = dyn_cast<TypedDecl>(*iter)) {
             IdentifierInfo *name = tyDecl->getIdInfo();
             Location loc = tyDecl->getLocation();
             if (ensureDistinctTypeName(name, loc, model)) {
@@ -730,7 +756,7 @@ bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
 
     if (range.first != range.second) {
         for (PredIter &iter = range.first; iter != range.second; ++iter) {
-            TypeDecl *conflict = dyn_cast<TypeDecl>(*iter);
+            TypedDecl *conflict = dyn_cast<TypedDecl>(*iter);
             if (conflict) {
                 SourceLocation sloc = getSourceLoc(conflict->getLocation());
                 report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
@@ -743,7 +769,7 @@ bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
     // that the name does not conflict with the model name or any model
     // parameters.  We do not need to check declarations inherited from super
     // signatures as they are injected into the models declarative region.
-    Ast *ast   = region->asAst();
+    Ast *ast = region->asAst();
     if (AddDecl *add = dyn_cast<AddDecl>(ast)) {
         // Recursively check the declarations present in this AddDecls
         // associated model.
@@ -758,13 +784,12 @@ bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
             return false;
         }
 
-        ParameterizedType *ptype;
-        if ((ptype = dyn_cast<ParameterizedType>(model->getType()))) {
-            for (unsigned i = 0; i < ptype->getArity(); ++i) {
-                IdentifierInfo *id = ptype->getFormalIdInfo(i);
+        if (model->isParameterized()) {
+            for (unsigned i = 0; i < model->getArity(); ++i) {
+                IdentifierInfo *id = model->getFormalIdInfo(i);
                 if (name == id) {
                     AbstractDomainDecl *formal =
-                        ptype->getFormalType(i)->getAbstractDecl();
+                        model->getFormalType(i)->getAbstractDecl();
                     SourceLocation sloc = getSourceLoc(formal->getLocation());
                     report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
                     return false;

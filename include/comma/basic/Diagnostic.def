@@ -130,3 +130,5 @@ DIAGNOSTIC(EXPRESSION_NOT_MODE_COMPATABLE, ERROR,
            "Expression cannot be used as an \"%0\" parameter.")
 DIAGNOSTIC(BINARY_FUNCTION_ARITY_MISMATCH, ERROR,
            "Functions named \"%0\" must be defined with two arguments.")
+DIAGNOSTIC(INVALID_QUALIFIER, ERROR,
+           "`%0' cannot qualify an expression.")
