@@ -60,7 +60,6 @@ domain_instance_t _comma_get_domain(domain_info_t info, ...)
          * Create all of the views of this instance.
          */
         for (i = 0; i < info->num_signatures; ++i) {
-                ptrdiff_t offset = info->sig_offsets[i];
                 instance->views[i].instance = instance;
                 instance->views[i].index    = i;
         }
