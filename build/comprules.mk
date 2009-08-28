@@ -47,7 +47,8 @@ prj_depends = $(patsubst %.o,%.d,$(prj_objects))
 # Generic C++ build rule.
 #
 $(prj_objdir)/%.o: $(prj_srcdir)/%.cpp
-	$(verb) echo "compiling $(notdir $<)";                    \
+	$(verb) set -e;                                           \
+	echo "compiling $(notdir $<)";                            \
 	$(CXX) -MM $(cpp_flags) -o $*.d.tmp $<;                   \
 	$(SED) -e 's|.*:|$(prj_objdir)/$*.o:|' < $*.d.tmp > $*.d; \
 	$(RM)  -f $*.d.tmp;                                       \
@@ -57,7 +58,8 @@ $(prj_objdir)/%.o: $(prj_srcdir)/%.cpp
 # Generic C build rule.
 #
 $(prj_objdir)/%.o: $(prj_srcdir)/%.c
-	$(verb) echo "compiling $(notdir $<)";                    \
+	$(verb) set -e;                                           \
+	echo "compiling $(notdir $<)";                            \
 	$(CXX) -MM $(cpp_flags) -o $*.d.tmp $<;                   \
 	$(SED) -e 's|.*:|$(prj_objdir)/$*.o:|' < $*.d.tmp > $*.d; \
 	$(RM)  -f $*.d.tmp;                                       \
