@@ -991,7 +991,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         return getInvalidNode();
 
     SubroutineDecl *routineDecl = 0;
-    DeclRegion     *region   = currentDeclarativeRegion();
+    DeclRegion *region = currentDeclarativeRegion();
 
     if (desc.isFunctionDescriptor()) {
         if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
@@ -1013,10 +1013,14 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 
     if (!routineDecl) return getInvalidNode();
 
-    // Check that this declaration does not conflict with any other.
+    // Check that this declaration does not conflict with any other in the
+    // current region.  If we find a decl with the same name and type, it must
+    // be a forward decl (detected by checking that there no associated body).
+    // When a forward decl is present, and a definition follows, set the
+    // defining declaration link in the forward decl.
     if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
         SubroutineDecl *sdecl = cast<SubroutineDecl>(extantDecl);
-        SourceLocation   sloc = getSourceLoc(extantDecl->getLocation());
+        SourceLocation sloc = getSourceLoc(extantDecl->getLocation());
 
         if (!sdecl->hasBody() && definitionFollows)
             sdecl->setDefiningDeclaration(routineDecl);
@@ -1083,15 +1087,13 @@ void TypeCheck::endSubroutineDefinition()
 
     // We established two levels of declarative regions in
     // beginSubroutineDefinition: one for the BlockStmt constituting the body
-    // and another corresponding the subroutine itself.  Remove them both.
+    // and another corresponding to the subroutine itself.  Pop them both.
     declarativeRegion = declarativeRegion->getParent()->getParent();
     scope->pop();
 }
 
-Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key,
-                                      Location        loc,
-                                      Node            exprNode,
-                                      bool            forSubroutine)
+Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key, Location loc,
+                                      Node exprNode, bool forSubroutine)
 {
     if (!forSubroutine) {
         assert(false && "cannot accept keyword selectors for types yet!");
@@ -1352,4 +1354,3 @@ bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
         return (std::strncmp(name, "<=", 2) or
                 std::strncmp(name, ">=", 2));
 }
-

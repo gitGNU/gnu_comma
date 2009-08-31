@@ -314,11 +314,7 @@ public:
     const char *getKindString() const { return kindStrings[kind]; }
 
     /// Prints a representation of this ast node to stderr.
-    virtual void dump(unsigned depth = 0);
-
-    /// Utility to print the given number of spaces to stderr.  To be used in
-    /// implementations of dump.
-    static void dumpSpaces(unsigned n);
+    virtual void dump();
 
     /// Support isa and dyn_cast.
     static bool classof(const Ast *node) { return true; }

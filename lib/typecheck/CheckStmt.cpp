@@ -14,8 +14,6 @@
 #include "comma/ast/Type.h"
 #include "comma/typecheck/TypeCheck.h"
 
-#include "llvm/Support/Casting.h"
-
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;

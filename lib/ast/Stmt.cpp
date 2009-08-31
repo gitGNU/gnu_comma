@@ -41,34 +41,3 @@ ReturnStmt::~ReturnStmt()
 {
     if (returnExpr) delete returnExpr;
 }
-
-//===----------------------------------------------------------------------===//
-// IfStmt
-void IfStmt::dump(unsigned depth)
-{
-    dumpSpaces(depth++);
-    std::cerr << '<' << getKindString()
-              << ' ' << std::hex << uintptr_t(this) << '\n';
-
-    condition->dump(depth);
-    std::cerr << '\n';
-    consequent->dump(depth);
-
-    iterator endIter = endElsif();
-    for (iterator iter = beginElsif(); iter != endIter; ++iter) {
-        Elsif &elsif = *iter;
-        std::cerr << '\n';
-        dumpSpaces(depth);
-        std::cerr << "elsif:\n";
-        elsif.getCondition()->dump(depth + 1);
-
-        std::cerr << '\n';
-        elsif.getConsequent()->dump(depth + 1);
-    }
-
-    if (hasAlternate()) {
-        std::cerr << '\n';
-        alternate->dump(depth);
-    }
-    std::cerr << '>';
-}

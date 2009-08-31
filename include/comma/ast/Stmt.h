@@ -174,7 +174,7 @@ public:
     const DeclRefExpr *getTarget() const { return target; }
 
     Expr *getAssignedExpr() { return value; }
-    const Expr *getAssignmentExpr() const { return value; }
+    const Expr *getAssignedExpr() const { return value; }
 
     static bool classof(const AssignmentStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -274,9 +274,6 @@ public:
 
     // Returns the location of the "else" token if an alternate branch exists.
     Location getElseLocation() const { return elseLocation; }
-
-    // Dump the if statement to stderr.
-    void dump(unsigned depth = 0);
 
     static bool classof(const IfStmt *node) { return true; }
     static bool classof(const Ast *node) {

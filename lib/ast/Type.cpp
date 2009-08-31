@@ -182,21 +182,6 @@ bool DomainType::equals(const Type *type) const
     return false;
 }
 
-void DomainType::dump(unsigned depth)
-{
-    dumpSpaces(depth++);
-    std::cerr << '<' << getKindString()
-              << ' ' << std::hex << uintptr_t(this) << ' ';
-
-    if (denotesPercent())
-        std::cerr << "%\n";
-    else
-        std::cerr << getString() << '\n';
-
-    getDeclaration()->dump(depth);
-    std::cerr << '>';
-}
-
 //===----------------------------------------------------------------------===//
 // SubroutineType.
 
@@ -325,44 +310,6 @@ bool SubroutineType::equals(const Type *type) const
     return isa<ProcedureType>(routineType);
 }
 
-void SubroutineType::dump(unsigned depth)
-{
-    dumpSpaces(depth++);
-    std::cerr << '<' <<  getKindString() << ' '
-              << std::hex << uintptr_t(this) << '\n';
-
-    if (numArgs > 0) {
-        for (unsigned i = 0; i < numArgs; ++i) {
-            dumpSpaces(depth);
-            std::cerr << '(' << getKeyword(i)->getString() << " : ";
-            switch (getExplicitParameterMode(i)) {
-            case PM::MODE_IN:
-                std::cerr << "in";
-                break;
-            case PM::MODE_IN_OUT:
-                std::cerr << "in out";
-                break;
-            case PM::MODE_OUT:
-                std::cerr << "out";
-                break;
-            case PM::MODE_DEFAULT:
-                break;
-            }
-            std::cerr << '\n';
-            getArgType(i)->dump(depth + 1);
-
-            std::cerr << ')';
-            if (i != numArgs - 1) std::cerr << '\n';
-        }
-    }
-
-    if (FunctionType *ftype = dyn_cast<FunctionType>(this)) {
-        std::cerr << '\n';
-        ftype->getReturnType()->dump(depth);
-    }
-    std::cerr << '>';
-}
-
 //===----------------------------------------------------------------------===//
 // EnumerationType
 
@@ -402,6 +349,11 @@ void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
 
 //===----------------------------------------------------------------------===//
 // TypedefType
+
+TypedefType::TypedefType(Type *baseType, Decl *decl)
+    : NamedType(AST_TypedefType, decl->getIdInfo()),
+      baseType(baseType),
+      declaration(decl) { }
 
 Decl *TypedefType::getDeclaration()
 {

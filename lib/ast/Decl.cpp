@@ -379,7 +379,7 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
 
     setDeclRegion(parent);
 
-    // Create our own copy of the parameter set.
+    // Initialize our copy of the parameter set.
     if (numParams > 0) {
         parameters = new ParamValueDecl*[numParams];
         std::copy(params, params + numParams, parameters);
@@ -388,12 +388,12 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
     // We must construct a subroutine type for this decl.  Begin by extracting
     // the domain types and associated indentifier infos from each of the
     // parameters.
-    llvm::SmallVector<Type*, 6>           paramTypes(numParams);
+    llvm::SmallVector<Type*, 6> paramTypes(numParams);
     llvm::SmallVector<IdentifierInfo*, 6> paramIds(numParams);
     for (unsigned i = 0; i < numParams; ++i) {
         ParamValueDecl *param = parameters[i];
         paramTypes[i] = param->getType();
-        paramIds[i]   = param->getIdInfo();
+        paramIds[i] = param->getIdInfo();
 
         // Since the parameters of a subroutine are created before the
         // subroutine itself, the associated declarative region of each
@@ -451,7 +451,7 @@ SubroutineDecl::SubroutineDecl(AstKind         kind,
         for (unsigned i = 0; i < numParams; ++i) {
             IdentifierInfo *formal = type->getKeyword(i);
             Type *formalType = type->getArgType(i);
-            PM::ParameterMode mode = type->getParameterMode(i);
+            PM::ParameterMode mode = type->getExplicitParameterMode(i);
             ParamValueDecl *param;
 
             // Note that as these param decls are implicitly generated we supply
@@ -510,28 +510,6 @@ const SubroutineDecl *SubroutineDecl::resolveOrigin() const
         res = res->getOrigin();
 
     return res;
-}
-
-void SubroutineDecl::dump(unsigned depth)
-{
-    dumpSpaces(depth);
-    std::cerr << '<' << getKindString()
-              << ' ' << uintptr_t(this)
-              << ' ' << getString() << '\n';
-
-    depth++;
-    getType()->dump(depth);
-
-    if (hasBody()) {
-        BlockStmt::StmtIter iter    = body->beginStatements();
-        BlockStmt::StmtIter endIter = body->endStatements();
-        for ( ; iter != endIter; ++iter) {
-            std::cerr << '\n';
-            (*iter)->dump(depth);
-        }
-    }
-
-    std::cerr << '>';
 }
 
 //===----------------------------------------------------------------------===//

@@ -47,6 +47,9 @@ public:
     // semantically valid.
     void addDecl(Decl *decl);
 
+    // Returns the number of declarations in this region.
+    unsigned countDecls() const { return declarations.size(); }
+
     // Adds the given declaration to the region using the supplied rewrite
     // rules.
     void addDeclarationUsingRewrites(const AstRewriter &rewrites,

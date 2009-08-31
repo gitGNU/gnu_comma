@@ -133,15 +133,22 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
     IdentifierInfo **keywords;
     Type *source;
     Type *target;
+    FunctionType *result;
 
     rewriteParameters(ftype, arity, params);
     keywords = ftype->getKeywordArray();
     source = ftype->getReturnType();
     target = getRewrite(source);
     if (target)
-        return new FunctionType(keywords, params, arity, target);
+        result = new FunctionType(keywords, params, arity, target);
     else
-        return new FunctionType(keywords, params, arity, source);
+        result = new FunctionType(keywords, params, arity, source);
+
+    for (unsigned i = 0; i < arity; ++i) {
+        PM::ParameterMode mode = ftype->getExplicitParameterMode(i);
+        result->setParameterMode(mode, i);
+    }
+    return result;
 }
 
 ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
@@ -159,7 +166,6 @@ ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
         PM::ParameterMode mode = ptype->getExplicitParameterMode(i);
         result->setParameterMode(mode, i);
     }
-
     return result;
 }
 

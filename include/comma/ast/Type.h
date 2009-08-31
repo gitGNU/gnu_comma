@@ -203,9 +203,6 @@ public:
     // Returns true if this type and the given type are equal.
     bool equals(const Type *type) const;
 
-    // Prints this node to stderr.
-    void dump(unsigned depth = 0);
-
     // Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -282,9 +279,6 @@ public:
     // match.  Actual argument keywords are not considered when testing for
     // equality.
     bool equals(const Type *type) const;
-
-    // Dumps this subroutine to stderr.
-    void dump(unsigned depth = 0);
 
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }
@@ -420,12 +414,9 @@ private:
 // declaration in the source code (or a programmaticly generated decl in the
 // case of primitive types).  These nodes are owned by the associated
 // declaration nodes.
-class TypedefType : public Type {
+class TypedefType : public NamedType {
 public:
-    TypedefType(Type *baseType, Decl *decl)
-        : Type(AST_TypedefType),
-          baseType(baseType),
-          declaration(decl) { }
+    TypedefType(Type *baseType, Decl *decl);
 
     /// Returns the declaration associated with this type definition.
     Decl *getDeclaration();

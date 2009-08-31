@@ -119,6 +119,9 @@ public:
     // Returns the IdentifierInfo common to all the overloads.
     IdentifierInfo *getIdInfo() const;
 
+    // Returns a C-string representing the name common to all overloads.
+    const char *getString() const { return getIdInfo()->getString(); }
+
     // Returns the number of overloaded declarations associated with this
     // overloaded name.
     unsigned numOverloads() const { return decls.size(); }
@@ -665,8 +668,6 @@ public:
 
     /// Returns the PrimitiveID of this subroutine.
     PO::PrimitiveID getPrimitiveID() const { return opID; }
-
-    void dump(unsigned depth = 0);
 
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }

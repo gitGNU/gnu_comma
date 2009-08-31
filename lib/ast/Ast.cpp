@@ -6,10 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "AstDumper.h"
 #include "comma/ast/Ast.h"
-#include <iostream>
 
 using namespace comma;
+
+using llvm::dyn_cast;
+using llvm::cast;
+using llvm::isa;
 
 const char *Ast::kindStrings[LAST_AstKind] = {
     "SignatureDecl",
@@ -61,16 +65,10 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "OverloadedDeclName"
 };
 
-void Ast::dump(unsigned depth)
+void Ast::dump()
 {
-    dumpSpaces(depth);
-    std::cerr << '<'
-              << getKindString()
-              << ' ' << std::hex << uintptr_t(this)
-              << '>';
+    AstDumper dumper(llvm::errs());
+    dumper.dump(this);
+    llvm::errs().flush();
 }
 
-void Ast::dumpSpaces(unsigned n)
-{
-    while (n--) std::cerr << "  ";
-}

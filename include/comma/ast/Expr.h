@@ -71,7 +71,7 @@ private:
 //===----------------------------------------------------------------------===//
 // Qualifier
 //
-// This little helper class used to represent qualifiers such as "D::" or
+// This little helper class is used to represent qualifiers such as "D::" or
 // "D(T)::" where D is a domain, functor, or a domain alias (such as a carrier
 // type).  Note that this class is not a member of the Expr hierarchy, it is
 // simply a common component of Expr nodes.
