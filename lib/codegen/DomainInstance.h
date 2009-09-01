@@ -27,7 +27,6 @@ public:
         Info,
         Next,
         Params,
-        Views,
         Requirements
     };
 
@@ -57,29 +56,20 @@ public:
     llvm::Value *loadParamVec(llvm::IRBuilder<> &builder,
                               llvm::Value *instance) const;
 
-    /// Loads the domain_view corresponding to a formal parameter from a
-    /// domain_instance object, where \p index identifies which parameter is
-    /// sought.
+    /// Loads the domain_instance corresponding to the formal parameter with the
+    /// given index.
     llvm::Value *loadParam(llvm::IRBuilder<> &builder,
                            llvm::Value *instance,
                            unsigned paramIdx) const;
 
-    /// Loads a pointer to the first view in the supplied domain_instance's view
-    /// vector.
-    llvm::Value *loadViewVec(llvm::IRBuilder<> &builder,
-                             llvm::Value *instance) const;
+    /// Loads a pointer to the first element of the local instance vector.
+    llvm::Value *loadLocalVec(llvm::IRBuilder<> &builder,
+                              llvm::Value *instance) const;
 
-    /// Loads the domain_view of the supplied domain_instance object
-    /// corresponding to the signature with the given index.
-    llvm::Value *loadView(llvm::IRBuilder<> &builder,
-                          llvm::Value *instance,
-                          llvm::Value *sigIndex) const;
-
-    /// Loads the domain_view of the supplied domain_instance object
-    /// corresponding to the signature with the given index.
-    llvm::Value *loadView(llvm::IRBuilder<> &builder,
-                          llvm::Value *instance,
-                          unsigned sigIndex) const;
+    /// Loads the required domain with the given index.
+    llvm::Value *loadLocalInstance(llvm::IRBuilder<> &builder,
+                                   llvm::Value *instance,
+                                   unsigned localID) const;
 
 private:
     CommaRT &CRT;
@@ -116,13 +106,6 @@ DomainInstance::FieldIdTraits<DomainInstance::Params>::FieldType *
 DomainInstance::getFieldType<DomainInstance::Params>() const {
     typedef FieldIdTraits<Params>::FieldType FTy;
     return llvm::cast<FTy>(getType()->getElementType(Params));
-}
-
-template <> inline
-DomainInstance::FieldIdTraits<DomainInstance::Views>::FieldType *
-DomainInstance::getFieldType<DomainInstance::Views>() const {
-    typedef FieldIdTraits<Views>::FieldType FTy;
-    return llvm::cast<FTy>(getType()->getElementType(Views));
 }
 
 template <> inline

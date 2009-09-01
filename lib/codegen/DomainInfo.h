@@ -37,12 +37,9 @@ public:
     /// NOTE: The enumeration ordering must match that of the actual structure.
     enum FieldId {
         Arity,       ///< Domain arity             : i32
-        NumSigs,     ///< Number of signatures     : i32
         Name,        ///< Domain name              : i8*
         Ctor,        ///< Constructor function     : void (domain_instance_t)*
         ITable,      ///< Instance table           : opaque*
-        SigOffsets,  ///< Signature offset vector  : i32*
-        Exvec        ///< Export vector            : void ()**
     };
 
     /// Returns the name of a domain_info type.
@@ -79,23 +76,6 @@ public:
     template <FieldId F>
     typename FieldIdTraits<F>::FieldType *getFieldType() const;
 
-    /// Loads an offset at the given index from a domain_info's signature offset
-    /// vector.
-    llvm::Value *indexSigOffset(llvm::IRBuilder<> &builder,
-                                llvm::Value *DInfo,
-                                llvm::Value *index) const;
-
-    /// Loads a pointer to the first element of the export vector associated
-    /// with the given domain_info object.
-    llvm::Value *loadExportVec(llvm::IRBuilder<> &builder,
-                               llvm::Value *DInfo) const;
-
-    /// Indexes into the export vector and loads a pointer to the associated
-    /// export.
-    llvm::Value *loadExportFn(llvm::IRBuilder<> &builder,
-                              llvm::Value *DInfo,
-                              llvm::Value *exportIdx) const;
-
 private:
     CommaRT &CRT;
     CodeGen &CG;
@@ -113,30 +93,11 @@ private:
     /// Generates the arity for an instance.
     llvm::Constant *genArity(CodeGenCapsule &CGC);
 
-    /// Generates the signature count for an instance.
-    llvm::Constant *genSignatureCount(CodeGenCapsule &CGC);
-
     /// Generates a constructor function for an instance.
     llvm::Constant *genConstructor(CodeGenCapsule &CGC);
 
     /// Generates a pointer to the instance table for an instance.
     llvm::Constant *genITable(CodeGenCapsule &CGC);
-
-    /// Generates the signature offset vector for an instance.
-    llvm::Constant *genSignatureOffsets(CodeGenCapsule &CGC);
-
-    /// Generates the export array for an instance.
-    llvm::Constant *genExportArray(CodeGenCapsule &CGC);
-
-    /// \brief Helper method for genSignatureOffsets.
-    ///
-    /// Populates the given vector \p offsets with constant indexes,
-    /// representing the offsets required to appear in a domain_info's
-    /// signature_offset field.  Each of the offsets is adjusted by \p index.
-    unsigned
-    getOffsetsForSignature(SignatureType *sig,
-                           unsigned index,
-                           std::vector<llvm::Constant *> &offsets);
 
     /// \brief Helper method for genConstructor.
     ///
@@ -180,11 +141,6 @@ struct DomainInfo::FieldIdTraits<DomainInfo::Arity> {
     typedef const llvm::IntegerType FieldType;
 };
 
-template <>
-struct DomainInfo::FieldIdTraits<DomainInfo::NumSigs> {
-    typedef const llvm::IntegerType FieldType;
-};
-
 //===----------------------------------------------------------------------===//
 // DomainInfo::getFieldType specializations for each field in a domain_info.
 
@@ -193,13 +149,6 @@ DomainInfo::FieldIdTraits<DomainInfo::Arity>::FieldType *
 DomainInfo::getFieldType<DomainInfo::Arity>() const {
     typedef FieldIdTraits<Arity>::FieldType FTy;
     return llvm::cast<FTy>(getType()->getElementType(Arity));
-}
-
-template <> inline
-DomainInfo::FieldIdTraits<DomainInfo::NumSigs>::FieldType *
-DomainInfo::getFieldType<DomainInfo::NumSigs>() const {
-    typedef FieldIdTraits<NumSigs>::FieldType FTy;
-    return llvm::cast<FTy>(getType()->getElementType(NumSigs));
 }
 
 template <> inline
@@ -221,20 +170,6 @@ DomainInfo::FieldIdTraits<DomainInfo::ITable>::FieldType *
 DomainInfo::getFieldType<DomainInfo::ITable>() const {
     typedef FieldIdTraits<ITable>::FieldType FTy;
     return llvm::cast<FTy>(getType()->getElementType(ITable));
-}
-
-template <> inline
-DomainInfo::FieldIdTraits<DomainInfo::SigOffsets>::FieldType *
-DomainInfo::getFieldType<DomainInfo::SigOffsets>() const {
-    typedef FieldIdTraits<SigOffsets>::FieldType FTy;
-    return llvm::cast<FTy>(getType()->getElementType(SigOffsets));
-}
-
-template <> inline
-DomainInfo::FieldIdTraits<DomainInfo::Exvec>::FieldType *
-DomainInfo::getFieldType<DomainInfo::Exvec>() const {
-    typedef FieldIdTraits<Exvec>::FieldType FTy;
-    return llvm::cast<FTy>(getType()->getElementType(Exvec));
 }
 
 }; // end comma namespace.

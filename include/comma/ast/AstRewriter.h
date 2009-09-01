@@ -37,6 +37,14 @@ public:
         rewrites[source] = target;
     }
 
+    // Adds the writes given by iterators over std::pair<Type*, Type*>.
+    template <class Iter>
+    void addRewrites(Iter I, Iter E) {
+        for ( ; I != E; ++I)
+            rewrites[I->first] = I->second;
+    }
+
+
     // Maps source to a target if a rewrite rule exists, otherwise returns
     // source.
     Type *getRewrite(Type *source) const;
@@ -92,6 +100,9 @@ public:
 private:
     typedef std::map<Type*, Type*> RewriteMap;
     RewriteMap rewrites;
+
+    // Returns a rewrite if it exists, otherwise null.
+    Type *findRewrite(Type *source) const;
 
     // Rewrites "count" parameter types of the given subroutine, placing the
     // results of the rewrite in "params".

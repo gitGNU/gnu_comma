@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeDumper.h"
+#include "comma/ast/Decl.h"
 #include "comma/ast/Type.h"
 
 #include "llvm/Support/Format.h"
@@ -62,7 +63,17 @@ void TypeDumper::visitSignatureType(SignatureType *node)
 
 void TypeDumper::visitDomainType(DomainType *node)
 {
-    printHeader(node) << '>';
+    printHeader(node);
+    if (DomainInstanceDecl *instance = node->getInstanceDecl()) {
+        indent();
+        for (unsigned i = 0; i < instance->getArity(); ++i) {
+            S << '\n';
+            printIndentation();
+            visitType(instance->getActualParameter(i));
+        }
+        dedent();
+    }
+    S << '>';
 }
 
 void TypeDumper::visitFunctionType(FunctionType *node)

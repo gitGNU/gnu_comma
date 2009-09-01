@@ -14,18 +14,17 @@
 #include "llvm/GlobalValue.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Target/TargetData.h"
 
 #include <string>
+#include <map>
 
 namespace comma {
 
 class CodeGenCapsule;
 class CodeGenTypes;
 class CommaRT;
-class ExportMap;
 
 class CodeGen {
 
@@ -37,10 +36,11 @@ public:
     /// \brief Returns the type generator used to lower Comma AST types into
     /// LLVM IR types.
     const CodeGenTypes &getTypeGenerator() const;
-
-    /// \brief Returns the type generator used to lower Comma AST types into
-    /// LLVM IR types.
     CodeGenTypes &getTypeGenerator();
+
+    /// \brief Returns the current capsule generator.
+    const CodeGenCapsule &getCapsuleGenerator() const;
+    CodeGenCapsule &getCapsuleGenerator();
 
     /// \brief Returns the interface to the runtime system.
     const CommaRT &getRuntime() const { return *CRT; }
@@ -53,6 +53,22 @@ public:
 
     /// \brief Codegens a top-level declaration.
     void emitToplevelDecl(Decl *decl);
+
+    /// \brief Inserts the given instance into the work list.
+    ///
+    /// \return true if the instance was not already present in the worklist and
+    /// false otherwise.
+    ///
+    /// The given instance must not be dependent (meaning that
+    /// DomainInstanceDecl::isDependent must return false).
+    ///
+    /// When an instance is inserted into the worklist, a few actions take
+    /// place.  First, the instance is schedualed for codegen, meaning that
+    /// specialisations of that instances subroutines will be emmited into the
+    /// current module.  Second, forward declarations are created for each of
+    /// the instances subroutines.  These declarations are accessible thru the
+    /// lookupGlobal method using the appropriately mangled name.
+    bool extendWorklist(DomainInstanceDecl *instace);
 
     /// \brief Adds a mapping between the given link name and an LLVM
     /// GlobalValue into the global table.
@@ -75,29 +91,6 @@ public:
     llvm::Constant *emitStringLiteral(const std::string &str,
                                       bool isConstant = true,
                                       const std::string &name = "");
-
-    /// \brief Returns the qualification prefix used to form LLVM IR
-    /// identifiers.
-    static std::string getLinkPrefix(const Decl *decl);
-
-    /// \brief Returns the name of the given subroutine as it should appear in
-    /// LLVM IR.
-    ///
-    /// The conventions followed by Comma model those of Ada.  In particular, a
-    /// subroutines link name is similar to its fully qualified name, except
-    /// that the double colon is replaced by an underscore, and overloaded names
-    /// are identified using a postfix number.  For example, the Comma name
-    /// "D::Foo" is translated into "D__Foo" and subsequent overloads are
-    /// translated into "D__Foo__1", "D__Foo__2", etc.  Operator names like "*"
-    /// or "+" are given names beginning with a zero followed by a spelled out
-    /// alternative.  For example, "*" translates into "0multiply" and "+"
-    /// translates into "0plus" (with appropriate qualification prefix and
-    /// overload suffix).
-    static std::string getLinkName(const SubroutineDecl *sr);
-
-    /// \brief Returns the name of the given Domoid as it should appear in LLVM
-    /// IR.
-    static std::string getLinkName(const Domoid *domoid);
 
     /// \brief Returns a null pointer constant of the specified type.
     llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
@@ -166,6 +159,9 @@ private:
     /// Interface to the runtime system.
     CommaRT *CRT;
 
+    /// The current capsule code generator.
+    CodeGenCapsule *CGCapsule;
+
     /// The type of table used to map strings to global values.
     typedef llvm::StringMap<llvm::GlobalValue *> StringGlobalMap;
 
@@ -175,22 +171,25 @@ private:
     /// A map from declaration names to LLVM global values.
     StringGlobalMap globalTable;
 
-    /// \brief Returns the index of a decl within a declarative region.
-    ///
-    /// This function scans the given region for the given decl.  For each
-    /// overloaded name matching that of the decl, the index returned is
-    /// incremented (and since DeclRegion's maintain declaration order, the
-    /// index represents the zeroth, first, second, ..., declaration of the
-    /// given name).  If no matching declaration is found in the region, -1 is
-    /// returned.
-    static int getDeclIndex(const Decl *decl, const DeclRegion *region);
+    /// The work list is represented as a std::map from DomainInstanceDecl's to
+    /// WorkEntry structures.  Currently, WorkEntry's contain a single bit of
+    /// information : a flag indicating if the associated instance has been
+    /// compiled.  This will be extended over time.
+    struct WorkEntry {
+        DomainInstanceDecl *instance;
+        bool isCompiled;
+    };
 
-    /// \brief Returns the name of a subroutine, translating binary operators
-    /// into a unique long-form.
-    ///
-    /// For example, "*" translates into "0multiply" and "+" translates into
-    /// "0plus".  This is a helper function for CodeGen::getLinkName.
-    static std::string getSubroutineName(const SubroutineDecl *srd);
+    typedef std::map<DomainInstanceDecl*, WorkEntry> WorkingSet;
+    WorkingSet workList;
+
+    /// Returns true if there exists an instance in the worklist which needs to
+    /// be compiled.
+    bool instancesPending();
+
+    /// Compiles the next instance in the worklist.  This operation could very
+    /// well expand the worklist to include more instances.
+    void emitNextInstance();
 };
 
 }; // end comma namespace

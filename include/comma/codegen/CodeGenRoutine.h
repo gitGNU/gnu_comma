@@ -65,6 +65,22 @@ public:
     void declareSubroutine(SubroutineDecl *srDecl);
     void emitSubroutine(SubroutineDecl *srDecl);
 
+    /// Returns true if the given call is "direct", meaning that the domain of
+    /// computation is staticly known.
+    static bool isDirectCall(const FunctionCallExpr *expr);
+
+    /// Returns true if the given call is "direct", meaning that the domain of
+    /// computation is staticly known.
+    static bool isDirectCall(const ProcedureCallStmt *stmt);
+
+    /// Returns true if the given call is "local", meaning that the call is to a
+    /// function defined in the current capsule.
+    static bool isLocalCall(const FunctionCallExpr *expr);
+
+    /// Returns true if the given call is "local", meaning that the call is to a
+    /// function defined in the current capsule.
+    static bool isLocalCall(const ProcedureCallStmt *stmt);
+
 private:
     // Emits the prologue for the current subroutine given a basic block
     // representing the body of the function.
@@ -120,26 +136,13 @@ private:
     llvm::Value *emitDirectCall(SubroutineDecl *srDecl,
                                 std::vector<llvm::Value *> &args);
 
+    llvm::Value *emitAbstractCall(SubroutineDecl *srDecl,
+                                  std::vector<llvm::Value *> &args);
+
     llvm::Value *emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                                   unsigned argPosition);
 
     llvm::Value *lookupDecl(Decl *decl);
-
-    /// Returns true if the given call is "direct", meaning that the domain of
-    /// computation is staticly known.
-    static bool isDirectCall(const FunctionCallExpr *expr);
-
-    /// Returns true if the given call is "direct", meaning that the domain of
-    /// computation is staticly known.
-    static bool isDirectCall(const ProcedureCallStmt *stmt);
-
-    /// Returns true if the given call is "local", meaning that the call is to a
-    /// function defined in the current capsule.
-    static bool isLocalCall(const FunctionCallExpr *expr);
-
-    /// Returns true if the given call is "local", meaning that the call is to a
-    /// function defined in the current capsule.
-    static bool isLocalCall(const ProcedureCallStmt *stmt);
 
     llvm::Function *getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl);
 

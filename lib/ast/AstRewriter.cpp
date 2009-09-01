@@ -17,12 +17,19 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-Type *AstRewriter::getRewrite(Type *source) const
+Type *AstRewriter::findRewrite(Type *source) const
 {
     RewriteMap::const_iterator iter = rewrites.find(source);
     if (iter == rewrites.end())
-        return source;
+        return 0;
     return iter->second;
+}
+
+Type *AstRewriter::getRewrite(Type *source) const
+{
+    if (Type *res = findRewrite(source))
+        return res;
+    return source;
 }
 
 void AstRewriter::installRewrites(DomainType *context)
@@ -62,10 +69,14 @@ SignatureType *AstRewriter::rewrite(SignatureType *sig) const
         SignatureType::arg_iterator iter;
         SignatureType::arg_iterator endIter = sig->endArguments();
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
-            if (Type *dom = getRewrite(*iter))
+            // FIXME: Currently it is true that all arguments are domains, but
+            // in the furture we will need to be more general than this.
+            if (Type *dom = findRewrite(*iter))
                 args.push_back(dom);
-            else
-                args.push_back(*iter);
+            else {
+                DomainType *arg = cast<DomainType>(*iter);
+                args.push_back(rewrite(arg));
+            }
         }
         // Obtain a memoized instance of this type.
         VarietyDecl *decl = sig->getVariety();
@@ -85,12 +96,14 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
             iterator iter;
             iterator endIter = instance->endArguments();
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
-                // If the argument is a member of the rewrite set, then we must
-                // create a new
-                if (DomainType *target = cast<DomainType>(getRewrite(*iter)))
+                // FIXME: Currently it is true that all arguments are domains,
+                // but in the furture we will need to be more general than this.
+                if (Type *target = findRewrite(*iter))
                     args.push_back(target);
-                else
-                    args.push_back(*iter);
+                else {
+                    DomainType *arg = cast<DomainType>(*iter);
+                    args.push_back(rewrite(arg));
+                }
             }
             // Obtain a memoized instance and return the associated type.
             instance = functor->getInstance(&args[0], args.size());
@@ -118,7 +131,7 @@ void AstRewriter::rewriteParameters(SubroutineType *srType,
 
     for (unsigned i = 0; i < count; ++i) {
         source = srType->getArgType(i);
-        target = getRewrite(source);
+        target = findRewrite(source);
         if (target)
             params[i] = target;
         else
@@ -138,7 +151,7 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
     rewriteParameters(ftype, arity, params);
     keywords = ftype->getKeywordArray();
     source = ftype->getReturnType();
-    target = getRewrite(source);
+    target = findRewrite(source);
     if (target)
         result = new FunctionType(keywords, params, arity, target);
     else

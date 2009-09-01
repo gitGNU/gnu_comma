@@ -17,6 +17,7 @@
 using namespace comma;
 
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -79,8 +80,7 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
     else if (isDirectCall(expr))
         return emitDirectCall(fdecl, args);
     else
-        // We must have an abstract call.
-        return CRT.genAbstractCall(Builder, percent, fdecl, args);
+        return emitAbstractCall(fdecl, args);
 }
 
 llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
@@ -97,11 +97,22 @@ llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
 llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
                                            std::vector<llvm::Value *> &args)
 {
+    llvm::Value *func;
+
     // Insert the implicit first parameter, which for a local call is the
     // percent handed to the current subroutine.
     args.insert(args.begin(), percent);
 
-    llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(srDecl));
+    if (CGC.generatingParameterizedInstance()) {
+        // We are generating a local call from within an instance of a
+        // parameterized capsule.  Generate the link name with respect to the
+        // current instance and build the call.
+        DomainInstanceDecl *instance = CGC.getInstance();
+        func = CG.lookupGlobal(CGC.getLinkName(instance, srDecl));
+    }
+    else
+        func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+
     assert(func && "function lookup failed!");
     return Builder.CreateCall(func, args.begin(), args.end());
 }
@@ -109,14 +120,8 @@ llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
 llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
                                             std::vector<llvm::Value *> &args)
 {
-    DomainInstanceDecl *instance;
-    Domoid *target;
-
-    // Lookup the domain info structure for the connective.
-    instance = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
-    target = instance->getDefinition();
-    llvm::GlobalValue *capsuleInfo = CG.lookupCapsuleInfo(target);
-    assert(capsuleInfo && "Could not resolve info for direct call!");
+    DomainInstanceDecl *instance
+        = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
 
     // Register the domain of computation with the capsule context.  Using the
     // ID of the instance, index into percent to obtain the appropriate
@@ -124,9 +129,42 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     unsigned instanceID = CGC.addCapsuleDependency(instance);
     args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
 
-    llvm::Value *func = CG.lookupGlobal(CodeGen::getLinkName(srDecl));
-    assert(func && "function lookup failed!");
+    AstRewriter rewriter;
+    // Always map percent nodes from the current capsule to the instance.
+    rewriter[CGC.getCapsule()->getPercent()] = CGC.getInstance()->getType();
 
+    // If the instance is dependent on formal parameters, rewrite using the
+    // current parameter map.
+    if (instance->isDependent()) {
+        const CodeGenCapsule::ParameterMap &paramMap =
+            CGC.getParameterMap();
+        rewriter.addRewrites(paramMap.begin(), paramMap.end());
+    }
+
+    DomainType *targetDomainTy = rewriter.rewrite(instance->getType());
+    DomainInstanceDecl *targetInstance = targetDomainTy->getInstanceDecl();
+    assert(!targetInstance->isDependent() &&
+           "Instance rewriting did not remove all dependencies!");
+
+    // Add the target domain to the code generators worklist.  This will
+    // generate forward declarations for the type if they do not already
+    // exist.
+    CG.extendWorklist(targetInstance);
+
+    // Extend the rewriter with rules mapping the dependent instance type to
+    // the rewritten type.  Using this extended rewriter, get the concrete
+    // type for the subroutine decl we are calling, and locate it in the
+    // target instance (this operation must not fail).
+    rewriter.addRewrite(instance->getType(), targetDomainTy);
+    SubroutineType *targetTy = rewriter.rewrite(srDecl->getType());
+    srDecl = dyn_cast_or_null<SubroutineDecl>(
+        targetInstance->findDecl(srDecl->getIdInfo(), targetTy));
+    assert(srDecl && "Failed to resolve subroutine!");
+
+    // With our fully-resolved subroutine, get the actual link name and form the
+    // call.
+    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+    assert(func && "function lookup failed!");
     return Builder.CreateCall(func, args.begin(), args.end());
 }
 
@@ -178,43 +216,69 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
     };
 }
 
+llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
+                                              std::vector<llvm::Value *> &args)
+{
+    // Resolve the region for this declaration, which is asserted to be an
+    // AbstractDomainDecl.
+    AbstractDomainDecl *abstract =
+        cast<AbstractDomainDecl>(srDecl->getDeclRegion());
+    DomainType *abstractTy = abstract->getType();
+
+    // Resolve the abstract domain to a concrete type using the parameter map
+    // provided by the capsule context.
+    DomainInstanceDecl *instance = CGC.rewriteAbstractDecl(abstract);
+    assert(instance && "Failed to resolve abstract domain!");
+
+    // Add this instance to the code generators worklist, thereby ensuring
+    // forward declarations are generated and that the implementation will be
+    // codegened.
+    CG.extendWorklist(instance);
+
+    // The instance must provide a subroutine declaration with a type matching
+    // that of the original, with the only exception being that occurrences of
+    // abstractTy are mapped to the type of the resolved instance.  Use an
+    // AstRewriter to obtain the required target type.
+    AstRewriter rewriter;
+    rewriter.addRewrite(abstractTy, instance->getType());
+    SubroutineType *targetTy = rewriter.rewrite(srDecl->getType());
+
+    // Lookup the target declaration in the instance.  This must not fail.
+    SubroutineDecl *resolvedRoutine = dyn_cast_or_null<SubroutineDecl>(
+        instance->findDecl(srDecl->getIdInfo(), targetTy));
+    assert(resolvedRoutine && "Failed to resolve abstract subroutine!");
+
+    // Index into percent to obtain the actual domain instance serving as a
+    // parameter.
+    FunctorDecl *functor = cast<FunctorDecl>(CGC.getCapsule());
+    unsigned index = functor->getFormalIndex(abstract);
+    llvm::Value *DOC = CRT.getCapsuleParameter(Builder, percent, index);
+
+    // Insert the DOC as the implicit first parameter for the call, obtain the
+    // actual llvm function representing the instances subroutine, and emit the
+    // call.
+    args.insert(args.begin(), DOC);
+    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(resolvedRoutine));
+    assert(func && "function lookup failed!");
+    return Builder.CreateCall(func, args.begin(), args.end());
+}
+
 llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
 {
-    llvm::Value *op = emitValue(expr->getOperand());
-
-    // If the result type is a scalar type, convert the incomming expression
-    // (which must be a pointer type) to a integral value of the needed size.
-    if (expr->getType()->isScalarType()) {
-        const llvm::Type *loweredTy = CGTypes.lowerType(expr->getType());
-        return Builder.CreatePtrToInt(op, loweredTy);
-    }
-
-    assert(false && "Cannot codegen inj expression yet!");
-    return 0;
+    return emitValue(expr->getOperand());
 }
 
 llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
 {
-    Expr *operand = expr->getOperand();
-    llvm::Value *val = emitValue(operand);
-
-    // If the operand is a scalar type, its width is no more than that of a
-    // pointer.  Extend it to an i8*.
-    if (operand->getType()->isScalarType()) {
-        const llvm::Type *loweredTy = CGTypes.lowerType(expr->getType());
-        return Builder.CreateIntToPtr(val, loweredTy);
-    }
-
-    assert(false && "Cannot codegen prj expression yet!");
-    return 0;
+    return emitValue(expr->getOperand());
 }
 
 llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
 {
-    assert(expr->hasType() && "Unresolve literal type!");
+    assert(expr->hasType() && "Unresolved literal type!");
 
     const llvm::IntegerType *ty =
-        cast<llvm::IntegerType>(CGTypes.lowerType(expr->getType()));
+        llvm::cast<llvm::IntegerType>(CGTypes.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
 
     // All comma integer types are represented as signed.  Sign extend the value

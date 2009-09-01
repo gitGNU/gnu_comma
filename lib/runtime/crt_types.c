@@ -15,7 +15,7 @@
 #include <string.h>
 
 static bool lookup_instance(domain_info_t info,
-                            domain_view_t *args, domain_instance_t *instance)
+                            domain_instance_t *args, domain_instance_t *instance)
 {
         if (!info->instance_table)
                 info->instance_table = alloc_itable();
@@ -30,14 +30,14 @@ domain_instance_t _comma_get_domain(domain_info_t info, ...)
 {
         domain_instance_t instance;
         unsigned i;
-        domain_view_t *args;
+        domain_instance_t *args;
 
         if (info->arity) {
-                args = malloc(sizeof(domain_view_t)*info->arity);
+                args = malloc(sizeof(domain_instance_t)*info->arity);
                 for (i = 0; i < info->arity; ++i) {
                         va_list ap;
                         va_start(ap, info);
-                        args[i] = va_arg(ap, domain_view_t);
+                        args[i] = va_arg(ap, domain_instance_t);
                 }
         }
         else
@@ -57,14 +57,6 @@ domain_instance_t _comma_get_domain(domain_info_t info, ...)
         instance->params = args;
 
         /*
-         * Create all of the views of this instance.
-         */
-        for (i = 0; i < info->num_signatures; ++i) {
-                instance->views[i].instance = instance;
-                instance->views[i].index    = i;
-        }
-
-        /*
          * If the constructor is non-null, call it.
          */
         if (info->ctor != 0)
@@ -79,9 +71,5 @@ domain_instance_t _comma_get_domain(domain_info_t info, ...)
  */
 domain_instance_t alloc_domain_instance(domain_info_t info)
 {
-        domain_instance_t instance;
-        instance         = malloc(sizeof(struct domain_instance));
-        instance->views  = malloc(sizeof(struct domain_view)
-                                  * info->num_signatures);
-        return instance;
+        return malloc(sizeof(struct domain_instance));
 }

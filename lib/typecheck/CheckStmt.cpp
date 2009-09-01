@@ -43,7 +43,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         }
 
         if (decls.empty()) {
-            report(loc, diag::NAME_NOT_VISIBLE);
+            report(loc, diag::NAME_NOT_VISIBLE) << name;
             return getInvalidNode();
         }
 

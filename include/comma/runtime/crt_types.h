@@ -13,11 +13,6 @@
 #include <inttypes.h>
 
 /*
- * The type of pointers to functions which a domain exports.
- */
-typedef void (*export_fn_t)();
-
-/*
  * Forward declaration of the instance table used to manage the construction of
  * domain instances (defined in crt_itable.h).
  */
@@ -27,9 +22,6 @@ typedef struct itable *itable_t;
 /*
  * Forward declarations for the basic types defined herein.
  */
-struct domain_view;
-typedef struct domain_view *domain_view_t;
-
 struct domain_instance;
 typedef struct domain_instance *domain_instance_t;
 
@@ -56,11 +48,6 @@ struct domain_info {
         uint32_t arity;
 
         /*
-         * The number of super signatures this domain implements.
-         */
-        uint32_t num_signatures;
-
-        /*
          * The name of this domain, as seen in the source code definition.
          */
         const char *name;
@@ -77,38 +64,6 @@ struct domain_info {
          * compiler.
          */
         itable_t instance_table;
-
-        /*
-         * An array with num_signatures entries giving offsets into the exports
-         * vector corresponding to each super signature of this domain.
-         */
-        uint64_t *sig_offsets;
-
-        /*
-         * An array of exported functions, ordered so that each index
-         * corresponds to the declaration order of the functions as given by a
-         * depth-first preorder traversal of the signature hierarchy (duplicates
-         * are not ignored here).
-         */
-        export_fn_t *exports;
-};
-
-/*
- * Represents a domain constrained to a particular signature.  These views
- * provide that portion of the implementing domains exports vector which
- * supplies the functions available thru a particular signature.
- */
-struct domain_view {
-        /*
-         * The particular domain instance implementing this view.
-         */
-        domain_instance_t instance;
-
-        /*
-         * The signature index as understood by the implementing domain (its
-         * DFPO index in the domains signature graph).
-         */
-        ptrdiff_t index;
 };
 
 /*
@@ -127,16 +82,9 @@ struct domain_instance {
         domain_instance_t next;
 
         /*
-         * Actual parameters supplied to this domain, viewed thru the signature
-         * constraint of the parameter.
+         * The actual parameters supplied to this domain.
          */
-        domain_view_t *params;
-
-        /*
-         * A view of this instance for each super signature, in DFPO of the
-         * signature graph.
-         */
-        struct domain_view *views;
+        domain_instance_t *params;
 
         /*
          * The domains required by this instance.

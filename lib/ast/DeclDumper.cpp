@@ -121,7 +121,12 @@ void DeclDumper::visitCarrierDecl(CarrierDecl *node)
 
 void DeclDumper::visitDomainValueDecl(DomainValueDecl *node)
 {
-    printHeader(node) << '>';
+    if (AbstractDomainDecl *abstract = dyn_cast<AbstractDomainDecl>(node))
+        visitAbstractDomainDecl(abstract);
+    else {
+        DomainInstanceDecl *instance = cast<DomainInstanceDecl>(node);
+        visitDomainInstanceDecl(instance);
+    }
 }
 
 void DeclDumper::visitAbstractDomainDecl(AbstractDomainDecl *node)
@@ -131,7 +136,16 @@ void DeclDumper::visitAbstractDomainDecl(AbstractDomainDecl *node)
 
 void DeclDumper::visitDomainInstanceDecl(DomainInstanceDecl *node)
 {
-    printHeader(node) << '>';
+    printHeader(node);
+
+    indent();
+    for (unsigned i = 0; i < node->getArity(); ++i) {
+        S << '\n';
+        printIndentation();
+        dumpAST(node->getActualParameter(i));
+    }
+    dedent();
+    S << '>';
 }
 
 void DeclDumper::visitParamValueDecl(ParamValueDecl *node)

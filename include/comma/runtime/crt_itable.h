@@ -38,7 +38,7 @@ struct itable *alloc_itable();
 
 bool itable_lookup(struct itable     *htab,
                    domain_info_t      info,
-                   domain_view_t     *key,
+                   domain_instance_t *key,
                    domain_instance_t *instance);
 
 #endif

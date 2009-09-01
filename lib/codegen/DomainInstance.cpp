@@ -26,19 +26,14 @@ void DomainInstance::init()
     std::vector<const llvm::Type*> members;
 
     const llvm::PointerType *InfoPtrTy;
-    const llvm::PointerType *ViewPtrTy;
-    const llvm::Type *ViewTy;
     const llvm::PointerType *InstancePtrTy;
 
     InfoPtrTy = CRT.getType<CommaRT::CRT_DomainInfo>();
-    ViewPtrTy = CRT.getType<CommaRT::CRT_DomainView>();
-    ViewTy = ViewPtrTy->getElementType();
     InstancePtrTy = llvm::PointerType::getUnqual(theType.get());
 
     members.push_back(InfoPtrTy);
     members.push_back(theType.get());
-    members.push_back(CG.getPointerType(ViewPtrTy));
-    members.push_back(CG.getPointerType(ViewTy));
+    members.push_back(CG.getPointerType(InstancePtrTy));
     members.push_back(CG.getPointerType(InstancePtrTy));
 
     llvm::StructType *InstanceTy = llvm::StructType::get(members);
@@ -96,38 +91,27 @@ llvm::Value *DomainInstance::loadParam(llvm::IRBuilder<> &builder,
     return builder.CreateLoad(viewAddr);
 }
 
-/// Loads a pointer to the first view in the supplied domain_instance's view
-/// vector.
-llvm::Value *DomainInstance::loadViewVec(llvm::IRBuilder<> &builder,
-                                         llvm::Value *instance) const
+llvm::Value *DomainInstance::loadLocalVec(llvm::IRBuilder<> &builder,
+                                          llvm::Value *instance) const
 {
-    assert(instance->getType() == getPointerTypeTo() &&
-           "Wrong type of LLVM Value!");
-
-    llvm::Value *vecAddr = builder.CreateStructGEP(instance, Views);
-    return builder.CreateLoad(vecAddr);
+    llvm::Value *localVecAddr = builder.CreateStructGEP(instance, Requirements);
+    return builder.CreateLoad(localVecAddr);
 }
 
-/// Loads the domain_view of the supplied domain_instance object corresponding
-/// to the signature with the given index.
-llvm::Value *DomainInstance::loadView(llvm::IRBuilder<> &builder,
-                                      llvm::Value *instance,
-                                      llvm::Value *sigIndex) const
+llvm::Value *DomainInstance::loadLocalInstance(llvm::IRBuilder<> &builder,
+                                               llvm::Value *instance,
+                                               unsigned ID) const
 {
     assert(instance->getType() == getPointerTypeTo() &&
-           "Wrong type of LLVM Value!");
+           "Wrong type of LLVM value!");
 
-    llvm::Value *viewArr = loadViewVec(builder, instance);
-    return builder.CreateGEP(viewArr, sigIndex);
-}
+    // Load the required capsule array.
+    llvm::Value *elt = loadLocalVec(builder, instance);
 
+    // Index into the required capsule array by the given ID.
+    llvm::Value *index = llvm::ConstantInt::get(llvm::Type::Int32Ty, ID);
+    elt = builder.CreateGEP(elt, index);
 
-/// Loads the domain_view of the supplied domain_instance object corresponding
-/// to the signature with the given index.
-llvm::Value *DomainInstance::loadView(llvm::IRBuilder<> &builder,
-                                      llvm::Value *instance,
-                                      unsigned sigIndex) const
-{
-    llvm::Value *index = llvm::ConstantInt::get(llvm::Type::Int32Ty, sigIndex);
-    return loadView(builder, instance, index);
+    // And finally load the indexed pointer, yielding the local capsule.
+    return builder.CreateLoad(elt);
 }

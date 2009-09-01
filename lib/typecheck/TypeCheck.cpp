@@ -302,6 +302,8 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
 
     if (checkingFunctor()) {
         FunctorDecl *currentFunctor = getCurrentFunctor();
+        if (currentFunctor != functor)
+            return false;
         for (unsigned i = 0; i < numArgs; ++i) {
             DomainType *formal = currentFunctor->getFormalType(i);
             if (formal != args[i])

@@ -969,6 +969,11 @@ public:
     /// Returns the SignatureSet of this instance.
     const SignatureSet &getSignatureSet() const { return sigset; }
 
+    /// Returns true if this instance represents percent or is a parameterized
+    /// instance, and in the latter case, if any of the arguments involve
+    /// abstract domain decls or percent nodes.
+    bool isDependent() const;
+
     /// Returns true if this is an instance of a functor.
     bool isParameterized() const { return getArity() != 0; }
 

@@ -45,6 +45,9 @@ public:
 
     void addStmt(Stmt *stmt) { statements.push_back(stmt); }
 
+    /// Returns the number of statements contained in this sequence.
+    unsigned size() const { return statements.size(); }
+
     typedef llvm::SmallVector<Stmt*, 16>::iterator StmtIter;
     StmtIter beginStatements() { return statements.begin(); }
     StmtIter endStatements()   { return statements.end(); }

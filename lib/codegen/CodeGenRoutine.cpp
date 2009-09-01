@@ -41,9 +41,9 @@ void CodeGenRoutine::declareSubroutine(SubroutineDecl *srDecl)
 llvm::Function *
 CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
 {
-    const llvm::FunctionType *srTy = CGTypes.lowerType(srDecl->getType());
-    std::string srName = CG.getLinkName(srDecl);
-
+    const llvm::FunctionType *srTy =
+        CGTypes.lowerSubroutineType(srDecl->getType());
+    std::string srName = CGC.getLinkName(CGC.getInstance(), srDecl);
     llvm::Function *fn =
         dyn_cast_or_null<llvm::Function>(CG.lookupGlobal(srName));
 
@@ -51,7 +51,6 @@ CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
         fn = CG.makeFunction(srTy, srName);
         CG.insertGlobal(srName, fn);
     }
-
     return fn;
 }
 

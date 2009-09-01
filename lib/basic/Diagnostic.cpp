@@ -10,6 +10,8 @@
 #include "comma/basic/TextProvider.h"
 #include <cassert>
 
+#include <iostream>
+
 using namespace comma;
 
 DiagnosticStream::DiagnosticStream(std::ostream &stream)

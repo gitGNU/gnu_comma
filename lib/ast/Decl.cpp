@@ -602,12 +602,27 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
         sigset.addDirectSignature(*I, rewriter);
 }
 
+bool DomainInstanceDecl::isDependent() const
+{
+    for (unsigned i = 0; i < getArity(); ++i) {
+        DomainType *param = cast<DomainType>(getActualParameter(i));
+        if (param->isAbstract())
+            return true;
+        if (param->denotesPercent())
+            continue;
+        if (param->getInstanceDecl()->isDependent())
+            return true;
+    }
+    return false;
+}
+
 unsigned DomainInstanceDecl::getArity() const
 {
+    if (getType()->denotesPercent())
+        return 0;
     if (FunctorDecl *functor = dyn_cast<FunctorDecl>(definition))
         return functor->getArity();
-    else
-        return 0;
+    return 0;
 }
 
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)

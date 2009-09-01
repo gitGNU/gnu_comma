@@ -184,6 +184,7 @@ public:
     /// either a DomainValueDecl or a ModelDecl.  In the latter case, this
     /// domain type represents the type of % within the context of of the model.
     Decl *getDeclaration() { return declaration; }
+    const Decl *getDeclaration() const { return declaration; }
 
     ModelDecl *getModelDecl() const;
 
@@ -351,6 +352,9 @@ public:
     Decl *getDeclaration();
 
     EnumerationDecl *getEnumerationDecl() { return correspondingDecl; }
+    const EnumerationDecl *getEnumerationDecl() const {
+        return correspondingDecl;
+    }
 
     bool equals(const Type *type) const;
 

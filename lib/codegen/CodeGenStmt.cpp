@@ -180,7 +180,7 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
     else if (isDirectCall(stmt))
         emitDirectCall(pdecl, args);
     else
-        CRT.genAbstractCall(Builder, percent, pdecl, args);
+        emitAbstractCall(pdecl, args);
 }
 
 void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)

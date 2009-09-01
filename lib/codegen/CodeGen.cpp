@@ -15,8 +15,6 @@
 
 #include "llvm/Support/Casting.h"
 
-#include <sstream>
-
 using namespace comma;
 
 using llvm::cast;
@@ -27,7 +25,8 @@ CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data)
     : M(M),
       TD(data),
       CGTypes(new CodeGenTypes(*this)),
-      CRT(new CommaRT(*this)) { }
+      CRT(new CommaRT(*this)),
+      CGCapsule(0) { }
 
 CodeGen::~CodeGen()
 {
@@ -45,15 +44,93 @@ const CodeGenTypes &CodeGen::getTypeGenerator() const
     return *CGTypes;
 }
 
+CodeGenCapsule &CodeGen::getCapsuleGenerator()
+{
+    return *CGCapsule;
+}
+
+const CodeGenCapsule &CodeGen::getCapsuleGenerator() const
+{
+    return *CGCapsule;
+}
+
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
-    if (Domoid *domoid = dyn_cast<Domoid>(decl)) {
-        CodeGenCapsule CGC(*this, domoid);
-        llvm::GlobalVariable *info = CRT->registerCapsule(CGC);
-        capsuleInfoTable[CGC.getLinkName()] = info;
+    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl))
+        CGCapsule = new CodeGenCapsule(*this, domain);
+    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl))
+        CGCapsule = new CodeGenCapsule(*this, functor);
+    else
+        return;
+
+    CGCapsule->emit();
+
+    llvm::GlobalVariable *info = CRT->registerCapsule(*CGCapsule);
+    capsuleInfoTable[CGCapsule->getLinkName()] = info;
+    delete CGCapsule;
+
+    // Continuously compile the worklist so long as there exists entries
+    // which need to be codegened.
+    while (instancesPending())
+        emitNextInstance();
+}
+
+bool CodeGen::instancesPending()
+{
+    typedef WorkingSet::const_iterator iterator;
+    iterator E = workList.end();
+    for (iterator I = workList.begin(); I != E; ++I) {
+        if (!I->second.isCompiled)
+            return true;
     }
-    else if (Sigoid *sigoid = dyn_cast<Sigoid>(decl))
-        CRT->registerSignature(sigoid);
+    return false;
+}
+
+void CodeGen::emitNextInstance()
+{
+    typedef WorkingSet::iterator iterator;
+    iterator E = workList.end();
+    for (iterator I = workList.begin(); I != E; ++I) {
+        if (I->second.isCompiled)
+            continue;
+        CGCapsule = new CodeGenCapsule(*this, I->first);
+        CGCapsule->emit();
+        I->second.isCompiled = true;
+        delete CGCapsule;
+        return;
+    }
+}
+
+bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
+{
+    assert(!instance->isDependent() &&
+           "Cannot extend the work list with dependent instances!");
+
+    if (workList.count(instance))
+        return false;
+
+    // Do not add non-parameterized instances into the worklist.
+    if (!instance->isParameterized())
+        return false;
+
+    WorkEntry &entry = workList[instance];
+
+    entry.instance = instance;
+    entry.isCompiled = false;
+
+    // Iterate over the public subroutines provided by the given instance and
+    // generate forward declarations for each of them.
+    for (DeclRegion::DeclIter I = instance->beginDecls();
+         I != instance->endDecls(); ++I) {
+        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
+            std::string name = CGCapsule->getLinkName(srDecl);
+            const llvm::FunctionType *fnTy =
+                CGTypes->lowerSubroutineType(srDecl->getType());
+            llvm::Function *fn = makeInternFunction(fnTy, name);
+            insertGlobal(name, fn);
+        }
+    }
+    return true;
 }
 
 bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
@@ -78,7 +155,7 @@ llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
 
 llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
 {
-    std::string name = getLinkName(domoid);
+    std::string name = CGCapsule->getLinkName(domoid);
     StringGlobalMap::const_iterator iter = capsuleInfoTable.find(name);
 
     if (iter != capsuleInfoTable.end())
@@ -86,7 +163,6 @@ llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
     else
         return 0;
 }
-
 
 llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
                                            bool isConstant,
@@ -96,136 +172,6 @@ llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
     return new llvm::GlobalVariable(stringConstant->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
                                     stringConstant, name, M);
-}
-
-std::string CodeGen::getLinkPrefix(const Decl *decl)
-{
-    std::string prefix;
-    const DeclRegion *region = decl->getDeclRegion();
-    const char *component;
-
-    while (region) {
-        if (isa<AddDecl>(region))
-            region = region->getParent();
-
-        component = cast<Decl>(region)->getString();
-        prefix.insert(0, "__");
-        prefix.insert(0, component);
-
-        region = region->getParent();
-    }
-
-    return prefix;
-}
-
-std::string CodeGen::getLinkName(const SubroutineDecl *sr)
-{
-    std::string name;
-    int index;
-
-    name = getLinkPrefix(sr);
-    name.append(getSubroutineName(sr));
-
-    index = getDeclIndex(sr, sr->getParent());
-    assert(index >= 0 && "getDeclIndex failed!");
-
-    if (index) {
-        std::ostringstream ss;
-        ss << "__" << index;
-        name += ss.str();
-    }
-
-    return name;
-}
-
-std::string CodeGen::getLinkName(const Domoid *domoid)
-{
-    return domoid->getString();
-}
-
-int CodeGen::getDeclIndex(const Decl *decl, const DeclRegion *region)
-{
-    IdentifierInfo *idInfo = decl->getIdInfo();
-    unsigned result = 0;
-
-    typedef DeclRegion::ConstDeclIter iterator;
-
-    for (iterator i = region->beginDecls(); i != region->endDecls(); ++i) {
-        if (idInfo == (*i)->getIdInfo()) {
-            if (decl == (*i))
-                return result;
-            else
-                result++;
-        }
-    }
-    return -1;
-}
-
-std::string CodeGen::getSubroutineName(const SubroutineDecl *srd)
-{
-    const char *name = srd->getIdInfo()->getString();
-
-    switch (strlen(name)) {
-
-    default:
-        return name;
-
-    case 1:
-        if (strncmp(name, "!", 1) == 0)
-            return "0bang";
-        else if (strncmp(name, "&", 1) == 0)
-            return "0amper";
-        else if (strncmp(name, "#", 1) == 0)
-            return "0hash";
-        else if (strncmp(name, "*", 1) == 0)
-            return "0multiply";
-        else if (strncmp(name, "+", 1) == 0)
-            return "0plus";
-        else if (strncmp(name, "-", 1) == 0)
-            return "0minus";
-        else if (strncmp(name, "<", 1) == 0)
-            return "0less";
-        else if (strncmp(name, "=", 1) == 0)
-            return "0equal";
-        else if (strncmp(name, ">", 1) == 0)
-            return "0great";
-        else if (strncmp(name, "@", 1) == 0)
-            return "0at";
-        else if (strncmp(name, "\\", 1) == 0)
-            return "0bslash";
-        else if (strncmp(name, "^", 1) == 0)
-            return "0hat";
-        else if (strncmp(name, "`", 1) == 0)
-            return "0grave";
-        else if (strncmp(name, "|", 1) == 0)
-            return "0bar";
-        else if (strncmp(name, "/", 1) == 0)
-            return "0fslash";
-        else if (strncmp(name, "~", 1) == 0)
-            return "0tilde";
-        else
-            return name;
-
-    case 2:
-        if (strncmp(name, "<=", 2) == 0)
-            return "0leq";
-        else if (strncmp(name, "<>", 2) == 0)
-            return "0diamond";
-        else if (strncmp(name, "<<", 2) == 0)
-            return "0dless";
-        else if (strncmp(name, "==", 2) == 0)
-            return "0dequal";
-        else if (strncmp(name, ">=", 2) == 0)
-            return "0geq";
-        else if (strncmp(name, ">>", 2) == 0)
-            return "0dgreat";
-        else if  (strncmp(name, "||", 2) == 0)
-            return "0dbar";
-        else if (strncmp(name, "~=", 2) == 0)
-            return "0nequal";
-        else
-            return name;
-    }
 }
 
 llvm::Constant *CodeGen::getNullPointer(const llvm::PointerType *Ty) const

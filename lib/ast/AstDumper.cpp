@@ -105,18 +105,21 @@ llvm::raw_ostream &AstDumper::dumpType(Type *node)
 
 llvm::raw_ostream &AstDumper::dump(Ast *node, unsigned level)
 {
+    unsigned savedLevel = indentLevel;
+    indentLevel = level;
     if (Decl *decl = dyn_cast<Decl>(node))
-        return dumpDecl(decl);
+        dumpDecl(decl);
     else if (Stmt *stmt = dyn_cast<Stmt>(node))
-        return dumpStmt(stmt);
+        dumpStmt(stmt);
     else if (Expr *expr = dyn_cast<Expr>(node))
-        return dumpExpr(expr);
+        dumpExpr(expr);
     else if (Type *type = dyn_cast<Type>(node))
-        return dumpType(type);
+        dumpType(type);
     else {
         // FIXME: Handle miscellaneous nodes.
         assert(false && "Cannot dump this kind of node yet!");
-        return S;
     }
+    indentLevel = savedLevel;
+    return S;
 }
 

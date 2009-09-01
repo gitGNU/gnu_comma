@@ -19,11 +19,11 @@
 #define MAX_BUCKET_SIZE     16
 
 uint32_t
-hash_parameters_fnv(domain_view_t *params, unsigned len)
+hash_parameters_fnv(domain_instance_t *params, unsigned len)
 {
         uint32_t hval = FNV_OFFSET;
         unsigned char *cursor = (unsigned char *)params;
-        unsigned char *end    = cursor + sizeof(domain_view_t) * len;
+        unsigned char *end    = cursor + sizeof(domain_instance_t) * len;
 
         while (cursor < end) {
                 hval *= FNV_PRIME;
@@ -33,7 +33,7 @@ hash_parameters_fnv(domain_view_t *params, unsigned len)
 }
 
 uint32_t
-hash_params(domain_view_t *params, unsigned len, unsigned modulus)
+hash_params(domain_instance_t *params, unsigned len, unsigned modulus)
 {
         uint32_t hash  = hash_parameters_fnv(params, len);
         uint32_t mask  = (1 << modulus) - 1;
@@ -78,7 +78,7 @@ void hash_resize(struct itable *htab, unsigned key_len)
 
 bool itable_lookup(struct itable     *htab,
                    domain_info_t      info,
-                   domain_view_t     *key,
+                   domain_instance_t *key,
                    domain_instance_t *instance)
 {
         domain_instance_t res;
@@ -91,8 +91,9 @@ bool itable_lookup(struct itable     *htab,
                  * match.
                  */
                 do {
-                        domain_view_t *params = res->params;
-                        if (!memcmp(params, key, sizeof(domain_view_t)*key_len))
+                        domain_instance_t *params = res->params;
+                        if (!memcmp(params, key,
+                                    sizeof(domain_instance_t)*key_len))
                                 return (*instance = res);
                 } while ((res = res->next));
         }
