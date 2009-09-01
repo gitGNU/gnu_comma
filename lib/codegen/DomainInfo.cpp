@@ -220,13 +220,21 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     FunctorDecl *functor = instance->getDefiningFunctor();
     assert(functor && "Cannot gen requirement for this type of instance!");
 
-    llvm::GlobalValue *info = CG.lookupCapsuleInfo(functor);
-    assert(info && "Could not resolve capsule info!");
+    const DomainInstance *DInstance = CRT.getDomainInstance();
+
+    llvm::Value *info = CG.lookupCapsuleInfo(functor);
+    if (!info) {
+        // The only case where the lookup can fail is when the functor being
+        // applied is the current capsule for which we are generating a
+        // constructor for.  Fortunately, the runtime provides this info via
+        // this instances percent node.
+        assert(functor == cast<FunctorDecl>(CGC.getCapsule()) &&
+               "Could not resolve capsule info!");
+        info = DInstance->loadInfo(builder, percent);
+    }
 
     std::vector<llvm::Value *> arguments;
     arguments.push_back(info);
-
-    const DomainInstance *DInstance = CRT.getDomainInstance();
 
     for (unsigned i = 0; i < instance->getArity(); ++i) {
         DomainType *argTy = cast<DomainType>(instance->getActualParameter(i));
