@@ -180,6 +180,13 @@ public:
     // Returns true if this node is a percent node.
     bool denotesPercent() const;
 
+    /// Returns true if this type involves a percent node.
+    ///
+    /// More precisely, this method returns true if the node itself denotes
+    /// percent, or (if this type corresponds to a parameterized instance) if
+    /// any argument involves percent (applying this definition recursively).
+    bool involvesPercent() const;
+
     /// Returns the declaration associated with this domain type.  This can be
     /// either a DomainValueDecl or a ModelDecl.  In the latter case, this
     /// domain type represents the type of % within the context of of the model.

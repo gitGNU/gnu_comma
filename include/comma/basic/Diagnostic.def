@@ -132,3 +132,5 @@ DIAGNOSTIC(BINARY_FUNCTION_ARITY_MISMATCH, ERROR,
            "Functions named \"%0\" must be defined with two arguments.")
 DIAGNOSTIC(INVALID_QUALIFIER, ERROR,
            "`%0' cannot qualify an expression.")
+DIAGNOSTIC(SELF_RECURSIVE_INSTANCE, ERROR,
+           "Cannot form self-recursive instantiations.")

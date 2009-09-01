@@ -150,6 +150,23 @@ bool DomainType::denotesPercent() const
     return isa<ModelDecl>(declaration);
 }
 
+bool DomainType::involvesPercent() const
+{
+    if (denotesPercent())
+        return true;
+
+    if (DomainInstanceDecl *instance = getInstanceDecl()) {
+        unsigned arity = instance->getArity();
+        for (unsigned i = 0; i < arity; ++i) {
+            DomainType *param = dyn_cast<DomainType>(
+                instance->getActualParameter(i));
+            if (param && param->involvesPercent())
+                return true;
+        }
+    }
+    return false;
+}
+
 ModelDecl *DomainType::getModelDecl() const
 {
     return dyn_cast<ModelDecl>(declaration);

@@ -314,6 +314,26 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
     return false;
 }
 
+/// If the given functor represents the current capsule being checked,
+/// ensure that none of the argument types directly reference %.  Returns
+/// true if the given functor and argument combination is legal, otherwise
+/// false is returned and diagnostics are posted.
+bool TypeCheck::ensureNonRecursiveInstance(FunctorDecl *decl,
+                                           Type **args, unsigned numArgs,
+                                           Location loc)
+{
+    if (!checkingFunctor() || (decl != getCurrentFunctor()))
+        return true;
+    for (unsigned i = 0; i < numArgs; ++i) {
+        DomainType *domArg = dyn_cast<DomainType>(args[i]);
+        if (domArg && domArg->involvesPercent()) {
+            report(loc, diag::SELF_RECURSIVE_INSTANCE);
+            return false;
+        }
+    }
+    return true;
+}
+
 /// Resolves the argument type of a Functor or Variety given previous actual
 /// arguments.
 ///
@@ -497,8 +517,11 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
 
-        // Cannonicalize type applications which are equivalent to `%'.
+        if (!ensureNonRecursiveInstance(functor, &arguments[0], numArgs, loc))
+            return getInvalidNode();
+
         if (denotesFunctorPercent(functor, &arguments[0], numArgs)) {
+            // Cannonicalize type applications which are equivalent to `%'.
             report(loc, diag::PERCENT_EQUIVALENT);
             node = getNode(getCurrentPercent());
         }

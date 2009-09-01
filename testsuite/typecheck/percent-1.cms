@@ -1,0 +1,14 @@
+-- MUST-FAIL:  Ensure self-recursive instances are reported.
+
+signature S with
+   procedure Foo;
+end S;
+
+domain F (X : S) with
+   S;
+add
+   procedure Foo is
+   begin
+      F(%)::Foo;
+   end Foo;
+end F;

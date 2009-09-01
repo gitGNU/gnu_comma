@@ -333,6 +333,14 @@ private:
     bool ensureDistinctTypeName(IdentifierInfo *name, Location loc,
                                 DeclRegion *region);
 
+    /// If the given functor represents the current capsule being checked,
+    /// ensure that none of the argument types directly reference %.  Returns
+    /// true if the given functor and argument combination is legal, otherwise
+    /// false is returned and diagnostics are posted.
+    bool ensureNonRecursiveInstance(FunctorDecl *decl,
+                                    Type **args, unsigned numArgs,
+                                    Location loc);
+
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
