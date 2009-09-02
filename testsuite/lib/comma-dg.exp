@@ -62,19 +62,19 @@ proc runCommaTests { test_inputs } {
             if { $retval == 0 } {
                 pass $test_input
             } else {
-                fail $errmsg
+                fail [concat $test_input $errmsg]
             }
         } elseif { $expected_result == "BUG" } {
             if { $retval == 0 } {
                 xpass $test_input
             } else {
-                xfail $errmsg
+                xfail [concat $test_input $errmsg]
             }
         } else {
             if { $retval == 0 } {
                 pass $test_input
             } else {
-                fail $errmsg
+                fail [concat $test_input $errmsg]
             }
         }
     }
