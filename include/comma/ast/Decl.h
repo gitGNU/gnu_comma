@@ -883,24 +883,24 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// DomainValueDecl
+// DomainTypeDecl
 //
 // This class represents implicit domain declarations which correspond to a
 // particular instance.  They represent the public or external view of a domain,
 // as oppossed to the internal view maintained by the decendants of ModelDecl.
 //
-// DomainValueDecl's can be thought of as the rewritten interface interface to a
-// domain where, for example, references to formal parameters are replaced by
-// the actuals for a particular instance.
-class DomainValueDecl : public ValueDecl, public DeclRegion {
+// DomainTypeDecl's can be thought of as the rewritten interface to a domain
+// where, for example, references to formal parameters are replaced by the
+// actuals for a particular instance.
+class DomainTypeDecl : public ValueDecl, public DeclRegion {
 
 protected:
-    DomainValueDecl(AstKind kind, IdentifierInfo *name, Location loc);
+    DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc);
 
 public:
-    /// Returns the SignatureSet of this DomainValueDecl.
+    /// Returns the SignatureSet of this DomainTypeDecl.
     ///
-    /// The signatures of a DomainValueDecl are a rewritten version of those
+    /// The signatures of a DomainTypeDecl are a rewritten version of those
     /// provided by the defining domoid.  In particular, references to % are
     /// replaced by references to this declarations type, and formal parameters
     /// (when the definition is a functor) are replaced by the actual
@@ -912,15 +912,15 @@ public:
         return llvm::cast<DomainType>(correspondingType);
     }
 
-    static bool classof(const DomainValueDecl *node) { return true; }
+    static bool classof(const DomainTypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->denotesDomainValue();
+        return node->denotesDomainTypeDecl();
     }
 };
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
-class AbstractDomainDecl : public DomainValueDecl {
+class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
     AbstractDomainDecl(IdentifierInfo *name,
@@ -946,7 +946,7 @@ private:
 
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
-class DomainInstanceDecl : public DomainValueDecl, public llvm::FoldingSetNode {
+class DomainInstanceDecl : public DomainTypeDecl, public llvm::FoldingSetNode {
 
 public:
     DomainInstanceDecl(DomainDecl *domain, Location loc);

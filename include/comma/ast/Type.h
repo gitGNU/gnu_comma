@@ -170,8 +170,8 @@ private:
 class DomainType : public NamedType, public llvm::FoldingSetNode {
 
 public:
-    /// Creates a domain type representing the given domain value declaration.
-    DomainType(DomainValueDecl *DVDecl);
+    /// Creates a type representing the given domain type declaration.
+    DomainType(DomainTypeDecl *DVDecl);
 
     // Creates a domain type representing the % node of the given model.
     static DomainType *getPercent(IdentifierInfo *percentInfo,
@@ -188,14 +188,14 @@ public:
     bool involvesPercent() const;
 
     /// Returns the declaration associated with this domain type.  This can be
-    /// either a DomainValueDecl or a ModelDecl.  In the latter case, this
-    /// domain type represents the type of % within the context of of the model.
+    /// either a DomainTypeDecl or a ModelDecl.  In the latter case, this domain
+    /// type represents the type of % within the context of of the model.
     Decl *getDeclaration() { return declaration; }
     const Decl *getDeclaration() const { return declaration; }
 
     ModelDecl *getModelDecl() const;
 
-    DomainValueDecl *getDomainValueDecl() const;
+    DomainTypeDecl *getDomainTypeDecl() const;
 
     // Similar to getDeclaration(), but returns non-NULL iff the underlying
     // definition is a domain instance declaration.

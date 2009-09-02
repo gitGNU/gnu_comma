@@ -128,7 +128,7 @@ void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
 void Scope::Entry::addImportDecl(DomainType *type)
 {
     typedef DeclRegion::DeclIter DeclIter;
-    DomainValueDecl *domain = type->getDomainValueDecl();
+    DomainTypeDecl *domain = type->getDomainTypeDecl();
     assert(domain && "Cannot import from the given domain!");
 
     importDeclarativeRegion(domain);
@@ -149,7 +149,7 @@ void Scope::Entry::clear()
     ImportIterator endImportIter = endImportDecls();
     for (ImportIterator importIter = beginImportDecls();
          importIter != endImportIter; ++importIter)
-        clearDeclarativeRegion((*importIter)->getDomainValueDecl());
+        clearDeclarativeRegion((*importIter)->getDomainTypeDecl());
 
     kind = DEAD_SCOPE;
     directDecls.clear();
@@ -462,7 +462,7 @@ void Scope::dump() const
                 type->dump();
                 std::cerr << '\n';
 
-                DomainValueDecl *domain = type->getDomainValueDecl();
+                DomainTypeDecl *domain = type->getDomainTypeDecl();
                 for (Domoid::DeclIter iter = domain->beginDecls();
                      iter != domain->endDecls(); ++iter) {
                     std::cerr << "      ";

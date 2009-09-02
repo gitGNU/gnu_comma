@@ -119,7 +119,7 @@ void DeclDumper::visitCarrierDecl(CarrierDecl *node)
     printHeader(node) << '>';
 }
 
-void DeclDumper::visitDomainValueDecl(DomainValueDecl *node)
+void DeclDumper::visitDomainTypeDecl(DomainTypeDecl *node)
 {
     if (AbstractDomainDecl *abstract = dyn_cast<AbstractDomainDecl>(node))
         visitAbstractDomainDecl(abstract);

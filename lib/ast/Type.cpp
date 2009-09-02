@@ -128,9 +128,9 @@ void SignatureType::Profile(llvm::FoldingSetNodeID &id,
 //===----------------------------------------------------------------------===//
 // DomainType
 
-DomainType::DomainType(DomainValueDecl *DVDecl)
-    : NamedType(AST_DomainType, DVDecl->getIdInfo()),
-      declaration(DVDecl)
+DomainType::DomainType(DomainTypeDecl *DTDecl)
+    : NamedType(AST_DomainType, DTDecl->getIdInfo()),
+      declaration(DTDecl)
 { }
 
 DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
@@ -172,9 +172,9 @@ ModelDecl *DomainType::getModelDecl() const
     return dyn_cast<ModelDecl>(declaration);
 }
 
-DomainValueDecl *DomainType::getDomainValueDecl() const
+DomainTypeDecl *DomainType::getDomainTypeDecl() const
 {
-    return dyn_cast<DomainValueDecl>(declaration);
+    return dyn_cast<DomainTypeDecl>(declaration);
 }
 
 DomainInstanceDecl *DomainType::getInstanceDecl() const

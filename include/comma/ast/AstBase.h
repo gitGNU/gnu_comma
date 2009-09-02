@@ -40,7 +40,7 @@ class DeclRefExpr;
 class DomainDecl;
 class DomainInstanceDecl;
 class DomainType;
-class DomainValueDecl;
+class DomainTypeDecl;
 class Domoid;
 class EnumerationDecl;
 class EnumLiteral;
@@ -130,7 +130,7 @@ public:
         AST_AddDecl,            ///< AddDecl
 
         AST_CarrierDecl,        ///< CarrierDecl
-        AST_DomainValueDecl,    ///< DomainValueDecl
+        AST_DomainTypeDecl,     ///< DomainTypeDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
@@ -200,11 +200,11 @@ public:
         FIRST_TypeDecl = AST_CarrierDecl,
         LAST_TypeDecl = AST_IntegerDecl,
 
-        FIRST_ValueDecl = AST_DomainValueDecl,
+        FIRST_ValueDecl = AST_DomainTypeDecl,
         LAST_ValueDecl = AST_ObjectDecl,
 
-        FIRST_DomainValue = AST_AbstractDomainDecl,
-        LAST_DomainValue = AST_DomainInstanceDecl,
+        FIRST_DomainType = AST_AbstractDomainDecl,
+        LAST_DomainType = AST_DomainInstanceDecl,
 
         FIRST_Type = AST_FunctionType,
         LAST_Type = AST_EnumerationType,
@@ -278,9 +278,9 @@ public:
         return (FIRST_ValueDecl <= kind && kind <= LAST_ValueDecl);
     }
 
-    /// Returns true if this node denotes a domain value.
-    bool denotesDomainValue() const {
-        return (FIRST_DomainValue <= kind && kind <= LAST_DomainValue);
+    /// Returns true if this node denotes a domain type decl.
+    bool denotesDomainTypeDecl() const {
+        return (FIRST_DomainType <= kind && kind <= LAST_DomainType);
     }
 
     /// Returns true if this node denotes a Type.

@@ -95,8 +95,8 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
 
 void DeclVisitor::visitValueDecl(ValueDecl *node)
 {
-    if (DomainValueDecl *domainValue = dyn_cast<DomainValueDecl>(node))
-        visitDomainValueDecl(domainValue);
+    if (DomainTypeDecl *domainTD = dyn_cast<DomainTypeDecl>(node))
+        visitDomainTypeDecl(domainTD);
     else if (ParamValueDecl *paramValue = dyn_cast<ParamValueDecl>(node))
         visitParamValueDecl(paramValue);
     else if (ObjectDecl *object = dyn_cast<ObjectDecl>(node))
@@ -128,7 +128,7 @@ void DeclVisitor::visitDomainDecl(DomainDecl *node) { }
 void DeclVisitor::visitFunctorDecl(FunctorDecl *node) { }
 void DeclVisitor::visitProcedureDecl(ProcedureDecl *node) { }
 void DeclVisitor::visitCarrierDecl(CarrierDecl *node) { }
-void DeclVisitor::visitDomainValueDecl(DomainValueDecl *node) { }
+void DeclVisitor::visitDomainTypeDecl(DomainTypeDecl *node) { }
 void DeclVisitor::visitAbstractDomainDecl(AbstractDomainDecl *node) { }
 void DeclVisitor::visitDomainInstanceDecl(DomainInstanceDecl *node) { }
 void DeclVisitor::visitParamValueDecl(ParamValueDecl *node) { }

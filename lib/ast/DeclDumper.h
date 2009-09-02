@@ -71,7 +71,7 @@ private:
     void visitFunctionDecl(FunctionDecl *node);
     void visitProcedureDecl(ProcedureDecl *node);
     void visitCarrierDecl(CarrierDecl *node);
-    void visitDomainValueDecl(DomainValueDecl *node);
+    void visitDomainTypeDecl(DomainTypeDecl *node);
     void visitAbstractDomainDecl(AbstractDomainDecl *node);
     void visitDomainInstanceDecl(DomainInstanceDecl *node);
     void visitParamValueDecl(ParamValueDecl *node);

@@ -71,7 +71,7 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
         return percentHas(model, target);
     }
 
-    DomainValueDecl *dom = source->getDomainValueDecl();
+    DomainTypeDecl *dom = source->getDomainTypeDecl();
     const SignatureSet &sigset = dom->getSignatureSet();
     SignatureSet::const_iterator iter = sigset.begin();
     SignatureSet::const_iterator endIter = sigset.end();

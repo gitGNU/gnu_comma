@@ -513,15 +513,15 @@ const SubroutineDecl *SubroutineDecl::resolveOrigin() const
 }
 
 //===----------------------------------------------------------------------===//
-// DomainValueDecl
+// DomainTypeDecl
 
 // FIXME:  Perhaps the sensible parent of the declarative region would be the
 // parent of the defining declaration.
-DomainValueDecl::DomainValueDecl(AstKind kind, IdentifierInfo *name, Location loc)
+DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
     : ValueDecl(kind, name, 0, loc),
       DeclRegion(kind)
 {
-    assert(this->denotesDomainValue());
+    assert(this->denotesDomainTypeDecl());
     // Create a new unique type to represent us.
     correspondingType = new DomainType(this);
 }
@@ -530,7 +530,7 @@ DomainValueDecl::DomainValueDecl(AstKind kind, IdentifierInfo *name, Location lo
 // AbstractDomainDecl
 AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
                                        SignatureType *sigType, Location loc)
-    : DomainValueDecl(AST_AbstractDomainDecl, name, loc)
+    : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
 {
     AstRewriter rewriter;
     Sigoid *sigoid = sigType->getSigoid();
@@ -555,7 +555,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
 DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
-    : DomainValueDecl(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
+    : DomainTypeDecl(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
       definition(domain)
 {
     // Ensure that we are notified if the declarations provided by the defining
@@ -577,7 +577,7 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
 DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
                                        Type **args, unsigned numArgs,
                                        Location loc)
-    : DomainValueDecl(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
+    : DomainTypeDecl(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
       definition(functor)
 {
     assert(functor->getArity() == numArgs &&

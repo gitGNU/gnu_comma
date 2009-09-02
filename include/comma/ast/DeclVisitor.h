@@ -71,7 +71,7 @@ public:
     virtual void visitFunctionDecl(FunctionDecl *node);
     virtual void visitProcedureDecl(ProcedureDecl *node);
     virtual void visitCarrierDecl(CarrierDecl *node);
-    virtual void visitDomainValueDecl(DomainValueDecl *node);
+    virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitAbstractDomainDecl(AbstractDomainDecl *node);
     virtual void visitDomainInstanceDecl(DomainInstanceDecl *node);
     virtual void visitParamValueDecl(ParamValueDecl *node);
