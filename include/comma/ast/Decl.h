@@ -42,11 +42,6 @@ public:
     // Returns the location associated with this decl.
     Location getLocation() const { return location; }
 
-    // Returns true if this decl is anonymous.
-    //
-    // FIXME:  This method can me removed once named decls are introduced.
-    bool isAnonymous() const { return idInfo == 0; }
-
     // Sets the declarative region for this decl.  This function can only be
     // called once to initialize the decl.
     void setDeclRegion(DeclRegion *region) {
