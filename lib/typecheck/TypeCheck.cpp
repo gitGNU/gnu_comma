@@ -362,37 +362,63 @@ TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
     return rewriter.rewrite(target);
 }
 
-Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
+Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
+                                        Location loc, DeclRegion *region)
 {
-    Decl *decl = 0;
+    Decl *result = 0;
 
-    if (!qualNode.isNull()) {
-        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = qualifier->resolve();
-        DeclRegion::PredRange range = region->findDecls(id);
-
+    if (region) {
+        DeclRegion::PredRange range = region->findDecls(name);
         // Search the region for a type of the given name.  Type names do not
         // overload so if the type exists, it is unique, and the first match is
         // accepted.
         for (DeclRegion::PredIter iter = range.first;
              iter != range.second; ++iter) {
             Decl *candidate = *iter;
-            if ((decl = dyn_cast<ModelDecl>(candidate)) or
-                (decl = dyn_cast<TypeDecl>(candidate)))
+            if ((result = dyn_cast<ModelDecl>(candidate)) or
+                (result = dyn_cast<TypeDecl>(candidate)))
                 break;
         }
     }
     else {
-        // FIXME: We should have a unified lookup method for this.
-        decl = scope->lookupModel(id);
-        if (!decl)
-            decl = scope->lookupType(id);
+        Scope::Resolver &resolver = scope->getResolver();
+        if (resolver.resolve(name)) {
+            if (resolver.hasDirectType())
+                result = resolver.getDirectType();
+            else if (resolver.hasDirectCapsule())
+                result = resolver.getDirectCapsule();
+            else if (resolver.hasIndirectTypes()) {
+                // For the lookup not to be ambiguous, there must only be one
+                // indirect type name accessible.
+                if (resolver.numIndirectTypes() > 1 ||
+                    resolver.hasIndirectOverloads() ||
+                    resolver.hasIndirectValues()) {
+                    report(loc, diag::NAME_REQUIRES_QUAL) << name;
+                    return 0;
+                }
+                result = resolver.getIndirectType(0);
+            }
+        }
+    }
+    if (result == 0)
+        report(loc, diag::TYPE_NOT_VISIBLE) << name;
+    return result;
+}
+
+Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
+{
+    Decl *decl;
+
+    if (qualNode.isNull())
+        decl = resolveTypeOrModelDecl(id, loc);
+    else {
+        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion *region = qualifier->resolve();
+        decl = resolveTypeOrModelDecl(id, loc, region);
     }
 
-    if (decl == 0) {
-        report(loc, diag::TYPE_NOT_VISIBLE) << id;
+    if (decl == 0)
         return getInvalidNode();
-    }
 
     switch (decl->getKind()) {
 
@@ -437,19 +463,18 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       unsigned         numKeywords,
                                       Location         loc)
 {
-    ModelDecl *model = scope->lookupModel(connective);
-    const char *name  = connective->getString();
-    unsigned numArgs  = argumentNodes.size();
-
-    assert(numKeywords <= numArgs && "More keywords than arguments!");
-
-    if (model == 0) {
-        report(loc, diag::TYPE_NOT_VISIBLE) << name;
+    Scope::Resolver &resolver = scope->getResolver();
+    if (!resolver.resolve(connective) || !resolver.hasDirectCapsule()) {
+        report(loc, diag::TYPE_NOT_VISIBLE) << connective;
         return getInvalidNode();
     }
 
+    ModelDecl *model = resolver.getDirectCapsule();
+    unsigned numArgs = argumentNodes.size();
+    assert(numKeywords <= numArgs && "More keywords than arguments!");
+
     if (!model->isParameterized() || model->getArity() != numArgs) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << connective;
         return getInvalidNode();
     }
 
@@ -469,7 +494,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // Ensure the given keyword exists.
         if (keywordIdx < 0) {
             report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
-                << keyword->getString() << name;
+                << keyword << connective;
             return getInvalidNode();
         }
 
@@ -477,8 +502,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // number of supplied positional parameters (otherwise it would
         // `overlap' a positional parameter).
         if ((unsigned)keywordIdx < numPositional) {
-            report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY)
-                << keyword->getString();
+            report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY) << keyword;
             return getInvalidNode();
         }
 
@@ -486,8 +510,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // keyword.
         for (unsigned j = 0; j < i; ++j) {
             if (keywords[j] == keyword) {
-                report(keywordLoc, diag::DUPLICATE_KEYWORD)
-                    << keyword->getString();
+                report(keywordLoc, diag::DUPLICATE_KEYWORD) << keyword;
                 return getInvalidNode();
             }
         }

@@ -359,6 +359,12 @@ private:
 
     Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 
+    // Returns the TypeDecl or ModelDecl corresponding to the given name.  If
+    // the name is not visible, or if the name is ambiguous, this method returns
+    // null and posts appropritate diagnostics.
+    Decl *resolveTypeOrModelDecl(IdentifierInfo *name,
+                                 Location loc, DeclRegion *region = 0);
+
     // Typechecks the given expression in the given type context.  This method
     // can update the expression (by resolving overloaded function calls, or
     // assigning a type to an integer literal, for example).  Returns true if

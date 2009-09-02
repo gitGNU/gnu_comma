@@ -191,6 +191,12 @@ public:
             return indirectValues[i];
         }
 
+        /// Returns the \p i'th indirect type.  The index must be in range.
+        TypeDecl *getIndirectType(unsigned i) const {
+            assert(i < numIndirectTypes() && "Index out of range!");
+            return indirectTypes[i];
+        }
+
         /// Returns the \p i'th indirect overload.  The index must be in range.
         Decl *getIndirectOverload(unsigned i) const {
             assert(i < numIndirectOverloads() && "Index out of range!");
@@ -200,6 +206,7 @@ public:
         typedef DeclVector::iterator direct_overload_iter;
         typedef DeclVector::iterator indirect_overload_iter;
         typedef ValueVector::iterator indirect_value_iter;
+        typedef TypeVector::iterator indirect_type_iter;
 
         direct_overload_iter begin_direct_overloads() {
             return directOverloads.begin();
@@ -221,6 +228,14 @@ public:
 
         indirect_value_iter end_indirect_values() {
             return indirectValues.end();
+        }
+
+        indirect_type_iter begin_indirect_types() {
+            return indirectTypes.begin();
+        }
+
+        indirect_type_iter end_indirect_types() {
+            return indirectTypes.end();
         }
 
     private:

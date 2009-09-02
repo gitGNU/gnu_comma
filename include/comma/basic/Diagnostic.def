@@ -136,3 +136,5 @@ DIAGNOSTIC(INVALID_QUALIFIER, ERROR,
            "`%0' cannot qualify an expression.")
 DIAGNOSTIC(SELF_RECURSIVE_INSTANCE, ERROR,
            "Cannot form self-recursive instantiations.")
+DIAGNOSTIC(NAME_REQUIRES_QUAL, ERROR,
+           "`%0' requires qualification.")
