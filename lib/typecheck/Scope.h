@@ -54,25 +54,14 @@ public:
     // Moves the scope up one level and unlinks all declarations.
     void pop();
 
+    // Unconditionally registers the given decl with the current scope.
     void addDirectDecl(Decl *decl) {
         entries.front()->addDirectDecl(decl);
     }
 
-    void addDirectModel(ModelDecl *model) {
-        entries.front()->addDirectDecl(model);
-    }
-
-    void addDirectValue(ValueDecl *value) {
-        entries.front()->addDirectDecl(value);
-    }
-
-    void addDirectSubroutine(SubroutineDecl *routine) {
-        entries.front()->addDirectDecl(routine);
-    }
-
     // Adds an import into the scope, making all of the exports from the given
-    // type visible.  Returns true if the given type has already been imported
-    // and false otherwise.
+    // type indirectly visible.  Returns true if the given type has already been
+    // imported and false otherwise.
     bool addImport(DomainType *type);
 
     TypedDecl *lookupType(const IdentifierInfo *name) const;

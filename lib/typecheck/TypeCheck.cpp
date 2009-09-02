@@ -138,7 +138,7 @@ void TypeCheck::endModelDefinition()
     assert(scope->getKind() == MODEL_SCOPE);
     ModelDecl *result = getCurrentModel();
     scope->pop();
-    scope->addDirectModel(result);
+    scope->addDirectDecl(result);
     compUnit->addDeclaration(result);
 }
 
@@ -230,7 +230,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     // Bring the model itself into scope, and release the nodes associated with
     // the given descriptor.
     currentModel = modelDecl;
-    scope->addDirectModel(modelDecl);
+    scope->addDirectDecl(modelDecl);
     desc.release();
 }
 
@@ -883,7 +883,7 @@ bool TypeCheck::acceptObjectDeclaration(Location        loc,
 
     typeNode.release();
     initializerNode.release();
-    scope->addDirectValue(decl);
+    scope->addDirectDecl(decl);
     currentDeclarativeRegion()->addDecl(decl);
     return true;
 }
@@ -1062,7 +1062,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     else {
         // Add the subroutine declaration into the current declarative region.
         region->addDecl(routineDecl);
-        scope->addDirectSubroutine(routineDecl);
+        scope->addDirectDecl(routineDecl);
     }
 
     // This is an immediate declaration.  Mark it so.
@@ -1088,7 +1088,7 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
     for (ParamIter iter = srDecl->beginParams();
          iter != srDecl->endParams(); ++iter) {
         ParamValueDecl *param = *iter;
-        scope->addDirectValue(param);
+        scope->addDirectDecl(param);
     }
 
     // Allocate a BlockStmt for the subroutines body and make this block the
