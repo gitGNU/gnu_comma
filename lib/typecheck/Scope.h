@@ -64,10 +64,6 @@ public:
     // imported and false otherwise.
     bool addImport(DomainType *type);
 
-    TypeDecl *lookupType(const IdentifierInfo *name) const;
-
-    ModelDecl *lookupModel(const IdentifierInfo *name) const;
-
     class Resolver {
         typedef llvm::SmallVector<Decl*, 4> DeclVector;
         typedef llvm::SmallVector<ValueDecl*, 4> ValueVector;
@@ -390,10 +386,6 @@ private:
 
     // Number of entries currently cached and available for reuse.
     unsigned numCachedEntries;
-
-    TypeDecl *lookupDirectType(const IdentifierInfo *name) const;
-
-    ModelDecl *lookupDirectModel(const IdentifierInfo *name) const;
 };
 
 } // End comma namespace
