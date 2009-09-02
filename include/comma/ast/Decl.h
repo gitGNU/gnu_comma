@@ -821,10 +821,23 @@ public:
     }
 
 protected:
-    TypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
-        : Decl(kind, name, loc) {
+    // Constructs a TypeDecl node when a type is immediately available.
+    TypeDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
+        : Decl(kind, name, loc),
+          correspondingType(type) {
         assert(this->denotesTypeDecl());
     }
+
+    // Constructs a TypeDecl node when a type is not immediately available.
+    // Users of this constructor must set the corresponding type.
+    TypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
+        : Decl(kind, name, loc),
+          correspondingType(0) {
+        assert(this->denotesTypeDecl());
+    }
+
+
+    Type *correspondingType;
 };
 
 //===----------------------------------------------------------------------===//
@@ -836,11 +849,16 @@ class CarrierDecl : public TypeDecl {
 public:
     CarrierDecl(IdentifierInfo *name, Type *type, Location loc)
         : TypeDecl(AST_CarrierDecl, name, loc),
-          carrierType(new CarrierType(this)),
-          representation(type) { }
+          representation(type) {
+        correspondingType = new CarrierType(this);
+    }
 
-    const CarrierType *getType() const { return carrierType; }
-    CarrierType *getType() { return carrierType; }
+    const CarrierType *getType() const {
+        return llvm::cast<CarrierType>(correspondingType);
+    }
+    CarrierType *getType() {
+        return llvm::cast<CarrierType>(correspondingType);
+    }
 
     const Type *getRepresentationType() const { return representation; }
     Type *getRepresentationType() { return representation; }
@@ -851,35 +869,57 @@ public:
     }
 
 private:
-    CarrierType *carrierType;
     Type *representation;
 };
 
 //===----------------------------------------------------------------------===//
-// ValueDecl
+// IntegerDecl
 //
-// This class is intentionally generic.  It will become a virtual base for a
-// more extensive hierarchy of value declarations later on.
-class ValueDecl : public TypeDecl {
-
-protected:
-    ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
-        : TypeDecl(kind, name, loc),
-          correspondingType(type) {
-        assert(this->denotesValueDecl());
-    }
+// These nodes represent integer type declarations.
+class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
-    const Type *getType() const { return correspondingType; }
-    Type *getType() { return correspondingType; }
+    /// Constructs an integer type declaration.
+    IntegerDecl(IdentifierInfo *name, Location loc,
+                Expr *lowRange, Expr *highRange,
+                IntegerType *baseType, DeclRegion *parent);
 
-    static bool classof(const ValueDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesValueDecl();
+    /// IntegerDecl nodes declare a new type distinct from all others.  This is
+    /// modeled by a TypedefType whose base is an IntegerType.  The following
+    /// methods return the unique TypedefType.
+    const TypedefType *getType() const {
+        return llvm::cast<TypedefType>(correspondingType);
+    }
+    TypedefType *getType() {
+        return llvm::cast<TypedefType>(correspondingType);
     }
 
-protected:
-    Type *correspondingType;
+    /// Returns the base integer type associated with this declaration.
+    const IntegerType *getBaseType() const {
+        return llvm::cast<IntegerType>(getType()->getBaseType());
+    }
+    IntegerType *getBaseType() {
+        return llvm::cast<IntegerType>(getType()->getBaseType());
+    }
+
+    /// Returns the expression forming the lower bound of this integer
+    /// declaration.
+    Expr *getLowerBoundExpr() { return lowExpr; }
+    const Expr *getLowerBoundExpr() const { return lowExpr; }
+
+    /// Returns the expression forming the upper bound of this integer
+    /// declaration.
+    Expr *getHighBoundExpr() { return highExpr; }
+    const Expr *getHighBoundExpr() const { return highExpr; }
+
+    static bool classof(const IntegerDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerDecl;
+    }
+
+private:
+    Expr *lowExpr;              // Expr forming the lower bound.
+    Expr *highExpr;             // Expr forming the high bound.
 };
 
 //===----------------------------------------------------------------------===//
@@ -892,7 +932,7 @@ protected:
 // DomainTypeDecl's can be thought of as the rewritten interface to a domain
 // where, for example, references to formal parameters are replaced by the
 // actuals for a particular instance.
-class DomainTypeDecl : public ValueDecl, public DeclRegion {
+class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
     DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc);
@@ -1019,6 +1059,33 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// ValueDecl
+//
+// This class is intentionally generic.  It will become a virtual base for a
+// more extensive hierarchy of value declarations later on.
+class ValueDecl : public Decl {
+
+protected:
+    ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
+        : Decl(kind, name, loc),
+          correspondingType(type) {
+        assert(this->denotesValueDecl());
+    }
+
+public:
+    const Type *getType() const { return correspondingType; }
+    Type *getType() { return correspondingType; }
+
+    static bool classof(const ValueDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesValueDecl();
+    }
+
+protected:
+    Type *correspondingType;
+};
+
+//===----------------------------------------------------------------------===//
 // ParamValueDecl
 //
 // Declaration nodes which represent the formal parameters of a function or
@@ -1131,9 +1198,12 @@ public:
                     Location        loc,
                     DeclRegion     *parent);
 
-    const EnumerationType *getType() const { return correspondingType; }
-
-    EnumerationType *getType() { return correspondingType; }
+    const EnumerationType *getType() const {
+        return llvm::cast<EnumerationType>(correspondingType);
+    }
+    EnumerationType *getType() {
+        return llvm::cast<EnumerationType>(correspondingType);
+    }
 
     // Returns the number of EnumLiteral's associated with this enumeration.
     unsigned getNumLiterals() const { return numLiterals; }
@@ -1151,59 +1221,8 @@ private:
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
 
-    EnumerationType *correspondingType;
-
     void notifyAddDecl(Decl *decl);
     void notifyRemoveDecl(Decl *decl);
-};
-
-//===----------------------------------------------------------------------===//
-// IntegerDecl
-//
-// These nodes represent integer type declarations.
-class IntegerDecl : public TypeDecl, public DeclRegion {
-
-public:
-    ~IntegerDecl();
-
-    /// Constructs an integer type declaration.
-    IntegerDecl(IdentifierInfo *name, Location loc,
-                Expr *lowRange, Expr *highRange,
-                IntegerType *baseType, DeclRegion *parent);
-
-    /// IntegerDecl nodes declare a new type distinct from all others.  This is
-    /// modeled by a TypedefType whose base is an IntegerType.  The following
-    /// methods return the unique TypedefType.
-    const TypedefType *getType() const { return correspondingType; }
-    TypedefType *getType() { return correspondingType; }
-
-    /// Returns the base integer type associated with this declaration.
-    const IntegerType *getBaseType() const {
-        return llvm::cast<IntegerType>(correspondingType->getBaseType());
-    }
-    IntegerType *getBaseType() {
-        return llvm::cast<IntegerType>(correspondingType->getBaseType());
-    }
-
-    /// Returns the expression forming the lower bound of this integer
-    /// declaration.
-    Expr *getLowerBoundExpr() { return lowExpr; }
-    const Expr *getLowerBoundExpr() const { return lowExpr; }
-
-    /// Returns the expression forming the upper bound of this integer
-    /// declaration.
-    Expr *getHighBoundExpr() { return highExpr; }
-    const Expr *getHighBoundExpr() const { return highExpr; }
-
-    static bool classof(const IntegerDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_IntegerDecl;
-    }
-
-private:
-    TypedefType *correspondingType;
-    Expr *lowExpr;              // Expr forming the lower bound.
-    Expr *highExpr;             // Expr forming the high bound.
 };
 
 //===----------------------------------------------------------------------===//

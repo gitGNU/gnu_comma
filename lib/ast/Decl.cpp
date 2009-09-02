@@ -518,11 +518,10 @@ const SubroutineDecl *SubroutineDecl::resolveOrigin() const
 // FIXME:  Perhaps the sensible parent of the declarative region would be the
 // parent of the defining declaration.
 DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
-    : ValueDecl(kind, name, 0, loc),
+    : TypeDecl(kind, name, loc),
       DeclRegion(kind)
 {
     assert(this->denotesDomainTypeDecl());
-    // Create a new unique type to represent us.
     correspondingType = new DomainType(this);
 }
 
@@ -692,7 +691,6 @@ EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
 {
     setDeclRegion(parent);
     correspondingType = new EnumerationType(this);
-
     // Ensure that each call to addDecl notifies us so that we can keep track of
     // each enumeration literal added to this decl.
     addObserver(this);
@@ -730,9 +728,4 @@ IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
       lowExpr(lowRange), highExpr(highRange)
 {
     correspondingType = new TypedefType(baseType, this);
-}
-
-IntegerDecl::~IntegerDecl()
-{
-    delete correspondingType;
 }

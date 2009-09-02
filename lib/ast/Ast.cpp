@@ -23,13 +23,13 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "AddDecl",
 
     "CarrierDecl",
-    "DomainValueDecl",
-    "AbstractDomainDecl",
-    "DomainInstanceDecl",
-    "ParamValueDecl",
-    "ObjectDecl",
     "EnumerationDecl",
     "IntegerDecl",
+    "AbstractDomainDecl",
+    "DomainInstanceDecl",
+
+    "ParamValueDecl",
+    "ObjectDecl",
 
     "FunctionDecl",
     "ProcedureDecl",

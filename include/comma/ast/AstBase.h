@@ -117,11 +117,11 @@ public:
         //
         //    - Model decls which denotes signatures and domains.
         //
-        //    - Typed declarations (carriers, value decls, etc).
+        //    - Type declarations (carriers, enums, etc).
         //
         //    - Subroutine decls denoting functions and procedures.
         //
-        //    - Value decls denoting elements of a domain or type.
+        //    - Value decls denoting elements of a type.
         //
         AST_SignatureDecl,      ///< SignatureDecl
         AST_DomainDecl,         ///< DomainDecl
@@ -130,13 +130,13 @@ public:
         AST_AddDecl,            ///< AddDecl
 
         AST_CarrierDecl,        ///< CarrierDecl
-        AST_DomainTypeDecl,     ///< DomainTypeDecl
-        AST_AbstractDomainDecl, ///< AbstractDomainDecl
-        AST_DomainInstanceDecl, ///< DomainInstanceDecl
-        AST_ParamValueDecl,     ///< ParamValueDecl
-        AST_ObjectDecl,         ///< ObjectDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IntegerDecl,        ///< IntegerDecl
+        AST_AbstractDomainDecl, ///< AbstractDomainDecl
+        AST_DomainInstanceDecl, ///< DomainInstanceDecl
+
+        AST_ParamValueDecl,     ///< ParamValueDecl
+        AST_ObjectDecl,         ///< ObjectDecl
 
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
@@ -198,13 +198,13 @@ public:
         LAST_ModelDecl = AST_FunctorDecl,
 
         FIRST_TypeDecl = AST_CarrierDecl,
-        LAST_TypeDecl = AST_IntegerDecl,
-
-        FIRST_ValueDecl = AST_DomainTypeDecl,
-        LAST_ValueDecl = AST_ObjectDecl,
+        LAST_TypeDecl = AST_DomainInstanceDecl,
 
         FIRST_DomainType = AST_AbstractDomainDecl,
         LAST_DomainType = AST_DomainInstanceDecl,
+
+        FIRST_ValueDecl = AST_ParamValueDecl,
+        LAST_ValueDecl = AST_ObjectDecl,
 
         FIRST_Type = AST_FunctionType,
         LAST_Type = AST_EnumerationType,
@@ -288,7 +288,7 @@ public:
         return (FIRST_Type <= kind && kind <= LAST_Type);
     }
 
-    /// Returns true of thos node denotes a named type.
+    /// Returns true of this node denotes a named type.
     bool denotesNamedType() const {
         return (FIRST_NamedType <= kind && kind <= LAST_NamedType);
     }
