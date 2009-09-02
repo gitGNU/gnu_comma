@@ -383,6 +383,10 @@ bool Lexer::scanGlyph()
             ignoreStream();
             code = TKN_LEQ;
             break;
+
+        case '>':
+            ignoreStream();
+            code = TKN_DIAMOND;
         }
         break;
 
@@ -399,22 +403,6 @@ bool Lexer::scanGlyph()
         }
         break;
 
-    case '[':
-        code = TKN_LBRACK;
-        break;
-
-    case ']':
-        code = TKN_RBRACK;
-        break;
-
-    case '{':
-        code = TKN_LBRACE;
-        break;
-
-    case '}':
-        code = TKN_RBRACE;
-        break;
-
     case '+':
         code = TKN_PLUS;
         break;
@@ -427,7 +415,7 @@ bool Lexer::scanGlyph()
         code = TKN_STAR;
         break;
 
-    case '~':
+    case '/':
         switch (peekStream()) {
         case '=':
             ignoreStream();
@@ -435,12 +423,20 @@ bool Lexer::scanGlyph()
             break;
 
         default:
-            code = TKN_TILDE;
+            code = TKN_FSLASH;
         }
         break;
+
     case '\'':
         code = TKN_QUOTE;
         break;
+
+    case '&':
+        code = TKN_AMPER;
+        break;
+
+    case '@':
+        code = TKN_AT;
     }
 
     if (code == UNUSED_ID) {
