@@ -27,6 +27,7 @@ CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC)
       CG(CGC.getCodeGen()),
       CGTypes(CG.getTypeGenerator()),
       CRT(CG.getRuntime()),
+      Builder(CG.getLLVMContext()),
       SRDecl(0),
       SRFn(0),
       entryBB(0),
@@ -75,11 +76,11 @@ void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
 void CodeGenRoutine::emitSubroutineBody()
 {
     // Create the return block.
-    returnBB = llvm::BasicBlock::Create("return", SRFn);
+    returnBB = CG.makeBasicBlock("return", SRFn);
 
     // Create the entry block and set it as the current insertion point for our
     // IRBuilder.
-    entryBB = llvm::BasicBlock::Create("entry", SRFn, returnBB);
+    entryBB = CG.makeBasicBlock("entry", SRFn, returnBB);
     Builder.SetInsertPoint(entryBB);
 
     // If we are generating a function, allocate a stack slot for the return

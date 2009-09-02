@@ -406,14 +406,14 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
 
     // Construct the type of this subroutine.
     if (kind == AST_FunctionDecl || kind == AST_EnumLiteral)
-        routineType = new FunctionType(&paramIds[0],
-                                       &paramTypes[0],
+        routineType = new FunctionType(paramIds.data(),
+                                       paramTypes.data(),
                                        numParams,
                                        returnType);
     else {
         assert(!returnType && "Procedures cannot have return types!");
-        routineType = new ProcedureType(&paramIds[0],
-                                        &paramTypes[0],
+        routineType = new ProcedureType(paramIds.data(),
+                                        paramTypes.data(),
                                         numParams);
     }
 

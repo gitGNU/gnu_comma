@@ -28,10 +28,10 @@
 
 #include "llvm/ADT/APInt.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <vector>
-#include <algorithm>
 
 using namespace comma;
 
@@ -771,9 +771,9 @@ Node Parser::parseModelApplication(Node qualNode)
         // Do not attempt to form the application unless all of the
         // arguments are valid.
         if (allOK) {
-            Location *argLocs = &argumentLocs[0];
-            IdentifierInfo **keys = &keywords[0];
-            Location *keyLocs = &keywordLocs[0];
+            Location *argLocs = argumentLocs.data();
+            IdentifierInfo **keys = keywords.data();
+            Location *keyLocs = keywordLocs.data();
             unsigned numKeys = keywords.size();
             return client.acceptTypeApplication(
                 info, arguments, argLocs,
@@ -1277,8 +1277,7 @@ bool Parser::parseTopLevelDeclaration()
 void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
                                    llvm::APInt &value)
 {
-    llvm::SmallVector<char, 8> digits;
-
+    std::string digits;
     for (const char *cursor = start; cursor != start + length; ++cursor) {
         char ch = *cursor;
         if (ch != '_')
@@ -1290,13 +1289,13 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
     // APInt's constructors will assert using that value.  IMHO, this is a bug
     // in APInt's API.  For now, use code similar to getBitsNeeded to avoid the
     // assertion and retain an accurate bit width.
-
+    //
     // Compute a generous number of bits for the value.
     unsigned numDigits = digits.size();
     unsigned numBits = numDigits * 64 / 18;
 
     // Get the binary value and adjust the number of bits to an accurate width.
-    value = llvm::APInt(numBits, &digits[0], numDigits, 10);
+    value = llvm::APInt(numBits, digits, 10);
     if (value == 0)
         numBits = 1;
     else

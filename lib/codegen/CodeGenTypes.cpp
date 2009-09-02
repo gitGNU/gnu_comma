@@ -173,7 +173,7 @@ CodeGenTypes::lowerSubroutineType(const SubroutineType *type)
         result = llvm::FunctionType::get(retTy, args, false);
     }
     else
-        result = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+        result = llvm::FunctionType::get(CG.getVoidTy(), args, false);
 
     return result;
 }
@@ -194,15 +194,15 @@ const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
 {
     // Promote the bit width to a power of two.
     if (numBits <= 1)
-        return llvm::Type::Int1Ty;
+        return CG.getInt1Ty();
     if (numBits <= 8)
-        return llvm::Type::Int8Ty;
+        return CG.getInt8Ty();
     else if (numBits <= 16)
-        return llvm::Type::Int16Ty;
+        return CG.getInt16Ty();
     else if (numBits <= 32)
-        return llvm::Type::Int32Ty;
+        return CG.getInt32Ty();
     else if (numBits <= 64)
-        return llvm::Type::Int64Ty;
+        return CG.getInt64Ty();
     else {
         // FIXME: This should be a fatal error, not an assert.
         assert(false && "Enumeration type too large to codegen!");

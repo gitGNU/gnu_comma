@@ -19,7 +19,7 @@ DomainInstance::DomainInstance(CommaRT &CRT)
     : CRT(CRT),
       CG(CRT.getCodeGen()),
       TD(CG.getTargetData()),
-      theType(llvm::OpaqueType::get()) { }
+      theType(CG.getOpaqueTy()) { }
 
 void DomainInstance::init()
 {
@@ -36,7 +36,7 @@ void DomainInstance::init()
     members.push_back(CG.getPointerType(InstancePtrTy));
     members.push_back(CG.getPointerType(InstancePtrTy));
 
-    llvm::StructType *InstanceTy = llvm::StructType::get(members);
+    llvm::StructType *InstanceTy = CG.getStructTy(members);
     cast<llvm::OpaqueType>(theType.get())->refineAbstractTypeTo(InstanceTy);
 }
 
@@ -84,7 +84,7 @@ llvm::Value *DomainInstance::loadParam(llvm::IRBuilder<> &builder,
     assert(instance->getType() == getPointerTypeTo() &&
            "Wrong type of LLVM Value!");
 
-    llvm::Value *index = llvm::ConstantInt::get(llvm::Type::Int32Ty, paramIdx);
+    llvm::Value *index = llvm::ConstantInt::get(CG.getInt32Ty(), paramIdx);
 
     llvm::Value *paramVec = loadParamVec(builder, instance);
     llvm::Value *viewAddr = builder.CreateGEP(paramVec, index);
@@ -109,7 +109,7 @@ llvm::Value *DomainInstance::loadLocalInstance(llvm::IRBuilder<> &builder,
     llvm::Value *elt = loadLocalVec(builder, instance);
 
     // Index into the required capsule array by the given ID.
-    llvm::Value *index = llvm::ConstantInt::get(llvm::Type::Int32Ty, ID);
+    llvm::Value *index = llvm::ConstantInt::get(CG.getInt32Ty(), ID);
     elt = builder.CreateGEP(elt, index);
 
     // And finally load the indexed pointer, yielding the local capsule.

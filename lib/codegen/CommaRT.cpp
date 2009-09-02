@@ -93,13 +93,14 @@ const llvm::PointerType *CommaRT::getDomainCtorPtrTy()
 
     args.push_back(DomainInstancePtrTy);
 
-    const llvm::Type *ctorTy = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    const llvm::Type *ctorTy
+        = llvm::FunctionType::get(CG.getVoidTy(), args, false);
     return CG.getPointerType(ctorTy);
 }
 
 const llvm::PointerType *CommaRT::getITablePtrTy()
 {
-    return CG.getPointerType(llvm::Type::Int8Ty);
+    return CG.getPointerType(CG.getInt8Ty());
 }
 
 void CommaRT::generateRuntimeFunctions()

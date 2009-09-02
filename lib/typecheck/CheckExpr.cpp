@@ -352,7 +352,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
         args.push_back(cast_node<Expr>(argNodes[i]));
 
     if (decls.size() == 1) {
-        Node call = checkSubroutineCall(decls[0], loc, &args[0], numArgs);
+        Node call = checkSubroutineCall(decls[0], loc, args.data(), numArgs);
         if (call.isValid()) argNodes.release();
         return call;
     }
@@ -482,7 +482,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     if (declFilter.count() == 1) {
         argNodes.release();
         SubroutineDecl *decl = decls[declFilter.find_first()];
-        Node result = checkSubroutineCall(decl, loc, &args[0], numArgs);
+        Node result = checkSubroutineCall(decl, loc, args.data(), numArgs);
         if (result.isValid()) argNodes.release();
         return result;
     }
@@ -497,7 +497,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                 connectives.push_back(cast<FunctionDecl>(decls[i]));
         FunctionCallExpr *call =
             new FunctionCallExpr(&connectives[0], connectives.size(),
-                                 &args[0], numArgs, loc);
+                                 args.data(), numArgs, loc);
         argNodes.release();
         return getNode(call);
     }
@@ -563,18 +563,18 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
         }
     }
 
-    if (!checkSubroutineArguments(decl, &sortedArgs[0], numArgs))
+    if (!checkSubroutineArguments(decl, sortedArgs.data(), numArgs))
         return getInvalidNode();
 
     if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
         FunctionCallExpr *call =
-            new FunctionCallExpr(fdecl, &sortedArgs[0], numArgs, loc);
+            new FunctionCallExpr(fdecl, sortedArgs.data(), numArgs, loc);
         return getNode(call);
     }
     else {
         ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
         ProcedureCallStmt *call =
-            new ProcedureCallStmt(pdecl, &sortedArgs[0], numArgs, loc);
+            new ProcedureCallStmt(pdecl, sortedArgs.data(), numArgs, loc);
         return getNode(call);
     }
 }

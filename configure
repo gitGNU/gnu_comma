@@ -3781,7 +3781,7 @@ $as_echo "no" >&6; }
     fi
 
 
-    llvm_version_req=2.4
+    llvm_version_req=2.6
 
     if test "$found_llvm" = "yes" -a -n "$llvm_version_req"; then
 

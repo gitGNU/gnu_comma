@@ -89,7 +89,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
-    llvm::BasicBlock *BB = llvm::BasicBlock::Create(label, SRFn);
+    llvm::BasicBlock *BB = CG.makeBasicBlock(label, SRFn);
 
     if (predecessor == 0) {
         // If we are not supplied a predecessor, terminate the current
@@ -117,14 +117,14 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 {
     llvm::Value *condition = emitExpr(ite->getCondition());
-    llvm::BasicBlock *thenBB = llvm::BasicBlock::Create("then", SRFn);
-    llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create("merge", SRFn);
+    llvm::BasicBlock *thenBB = CG.makeBasicBlock("then", SRFn);
+    llvm::BasicBlock *mergeBB = CG.makeBasicBlock("merge", SRFn);
     llvm::BasicBlock *elseBB;
 
     if (ite->hasElsif())
-        elseBB = llvm::BasicBlock::Create("elsif", SRFn);
+        elseBB = CG.makeBasicBlock("elsif", SRFn);
     else if (ite->hasAlternate())
-        elseBB = llvm::BasicBlock::Create("else", SRFn);
+        elseBB = CG.makeBasicBlock("else", SRFn);
     else
         elseBB = mergeBB;
 
@@ -141,12 +141,12 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         Builder.SetInsertPoint(elseBB);
         IfStmt::iterator J = I;
         if (++J != ite->endElsif())
-            elseBB = llvm::BasicBlock::Create("elsif", SRFn);
+            elseBB = CG.makeBasicBlock("elsif", SRFn);
         else if (ite->hasAlternate())
-            elseBB = llvm::BasicBlock::Create("else", SRFn);
+            elseBB = CG.makeBasicBlock("else", SRFn);
         else
             elseBB = mergeBB;
-        llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create("body", SRFn);
+        llvm::BasicBlock *bodyBB = CG.makeBasicBlock("body", SRFn);
         llvm::Value *pred = emitExpr(I->getCondition());
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
@@ -193,9 +193,9 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 {
-    llvm::BasicBlock *entryBB = llvm::BasicBlock::Create("while.top", SRFn);
-    llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create("while.entry", SRFn);
-    llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create("while.merge", SRFn);
+    llvm::BasicBlock *entryBB = CG.makeBasicBlock("while.top", SRFn);
+    llvm::BasicBlock *bodyBB = CG.makeBasicBlock("while.entry", SRFn);
+    llvm::BasicBlock *mergeBB = CG.makeBasicBlock("while.merge", SRFn);
 
     // Branch unconditionally from the current insertion point to the entry
     // block and set up our new context.  Emit the loop condition into the entry

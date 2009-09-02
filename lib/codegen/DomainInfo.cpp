@@ -26,18 +26,18 @@ DomainInfo::DomainInfo(CommaRT &CRT)
     : CRT(CRT),
       CG(CRT.getCodeGen()),
       TD(CG.getTargetData()),
-      theType(llvm::OpaqueType::get()) { }
+      theType(CG.getOpaqueTy()) { }
 
 void DomainInfo::init()
 {
     std::vector<const llvm::Type*> members;
 
-    members.push_back(llvm::Type::Int32Ty);
-    members.push_back(CG.getPointerType(llvm::Type::Int8Ty));
+    members.push_back(CG.getInt32Ty());
+    members.push_back(CG.getPointerType(CG.getInt8Ty()));
     members.push_back(CRT.getType<CommaRT::CRT_DomainCtor>());
     members.push_back(CRT.getType<CommaRT::CRT_ITable>());
 
-    llvm::StructType *InfoTy = llvm::StructType::get(members);
+    llvm::StructType *InfoTy = CG.getStructTy(members);
     cast<llvm::OpaqueType>(theType.get())->refineAbstractTypeTo(InfoTy);
 }
 
@@ -60,7 +60,7 @@ const llvm::PointerType *DomainInfo::getCtorPtrType() const
 
     args.push_back(CRT.getType<CommaRT::CRT_DomainInstance>());
 
-    ctorTy = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    ctorTy = llvm::FunctionType::get(CG.getVoidTy(), args, false);
     return CG.getPointerType(ctorTy);
 }
 
@@ -127,8 +127,8 @@ llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
     // populates the "required capsules" vector with the needed instances.  Once
     // we have generated this block, we will generate code to allocate an
     // appropriately sized array.
-    llvm::BasicBlock *constructBB = llvm::BasicBlock::Create("construct", ctor);
-    llvm::IRBuilder<> builder;
+    llvm::BasicBlock *constructBB = CG.makeBasicBlock("construct", ctor);
+    llvm::IRBuilder<> builder(CG.getLLVMContext());
     builder.SetInsertPoint(constructBB);
 
     // The first (and only) argument of the constructor is a domain_instance_t.
@@ -146,11 +146,11 @@ llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
 
     // Now that we have the full size of the vector, allocate an array of
     // sufficient size to accommodate all the required instances.
-    llvm::BasicBlock *initBB = llvm::BasicBlock::Create("init", ctor, constructBB);
+    llvm::BasicBlock *initBB = CG.makeBasicBlock("init", ctor, constructBB);
     builder.SetInsertPoint(initBB);
 
     llvm::Value *size =
-        llvm::ConstantInt::get(llvm::Type::Int32Ty, numDependents);
+        llvm::ConstantInt::get(CG.getInt32Ty(), numDependents);
     capsules = builder.CreateMalloc(CRT.getType<CommaRT::CRT_DomainInstance>(), size);
     llvm::Value *dst = builder.CreateStructGEP(instance, 3);
     builder.CreateStore(capsules, dst);
@@ -202,7 +202,7 @@ void DomainInfo::genDomainRequirement(llvm::IRBuilder<> &builder,
     assert(info && "Could not resolve capsule info!");
 
     llvm::Value *ptr = CRT.getDomain(builder, info);
-    llvm::Value *slotIndex = llvm::ConstantInt::get(llvm::Type::Int32Ty, ID - 1);
+    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID - 1);
     builder.CreateStore(ptr, builder.CreateGEP(destVector, slotIndex));
 }
 
@@ -253,7 +253,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
             // Load the instance from the destination vector and push it onto
             // the argument list.
             llvm::Value *instanceSlot =
-                llvm::ConstantInt::get(llvm::Type::Int32Ty, argIndex);
+                llvm::ConstantInt::get(CG.getInt32Ty(), argIndex);
             llvm::Value *argInstance =
                 builder.CreateLoad(builder.CreateGEP(destVector, instanceSlot));
             arguments.push_back(argInstance);
@@ -270,7 +270,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     }
 
     llvm::Value *theInstance = CRT.getDomain(builder, arguments);
-    llvm::Value *slotIndex = llvm::ConstantInt::get(llvm::Type::Int32Ty, ID - 1);
+    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID - 1);
     builder.CreateStore(theInstance, builder.CreateGEP(destVector, slotIndex));
 }
 

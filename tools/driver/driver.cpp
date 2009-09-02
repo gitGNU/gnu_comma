@@ -14,8 +14,10 @@
 #include "llvm/Module.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Target/TargetRegistry.h"
+#include "llvm/Target/TargetSelect.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/System/Host.h"
 #include "llvm/System/Path.h"
 
 #include <iostream>
@@ -54,32 +56,33 @@ int main(int argc, char **argv)
     while (p.parseTopLevelDeclaration());
     status = !p.parseSuccessful() || !tc.checkSuccessful();
 
-    if (!status && !SyntaxOnly) {
 
-        llvm::Module M("test_module");
+    if (!status && !SyntaxOnly) {
+        llvm::InitializeAllTargets();
+
+        // FIXME: CodeGen should handle all of this.
+        llvm::Module *M =
+            new llvm::Module("test_module", llvm::getGlobalContext());
         std::string message;
-        const llvm::TargetMachineRegistry::entry *arch;
-        llvm::TargetMachine *target;
+        const llvm::Target *target;
+        const llvm::TargetMachine *machine;
         const llvm::TargetData *data;
 
-        // FIXME: There are several ways to get the target triple.  We could try
-        // and derive it directly, use the result of config.guess, or call
-        // llvm::sys::getHostTriple.  The latter option is probably the best
-        // path, but requires recent 2.6svn.
-        M.setTargetTriple("x86_64-unknown-linux-gnu");
-
-        arch = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(M, message);
-        if (!arch) {
-            std::cerr << "Could not auto-select target architecture.\n   : "
+        std::string triple = llvm::sys::getHostTriple();
+        M->setTargetTriple(triple);
+        target = llvm::TargetRegistry::lookupTarget(triple, message);
+        if (!target) {
+            std::cerr << "Could not auto-select target architecture for "
+                      << triple << ".\n   : "
                       << message << std::endl;
             return 1;
         }
 
-        target = arch->CtorFn(M, "");
-        data   = target->getTargetData();
-        M.setDataLayout(data->getStringRepresentation());
+        machine = target->createTargetMachine(triple, "");
+        data = machine->getTargetData();
+        M->setDataLayout(data->getStringRepresentation());
 
-        CodeGen CG(&M, *data);
+        CodeGen CG(M, *data);
 
         typedef CompilationUnit::decl_iterator iterator;
 
@@ -88,7 +91,7 @@ int main(int argc, char **argv)
             CG.emitToplevelDecl(*iter);
         }
 
-        M.print(std::cout, 0);
+        M->print(llvm::outs(),0);
     }
 
     return status;

@@ -290,5 +290,5 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     if (valWidth < tyWidth)
         val.sext(tyWidth);
 
-    return llvm::ConstantInt::get(val);
+    return llvm::ConstantInt::get(CG.getLLVMContext(), val);
 }

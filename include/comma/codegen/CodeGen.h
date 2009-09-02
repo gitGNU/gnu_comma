@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 
+#include "llvm/DerivedTypes.h"
 #include "llvm/GlobalValue.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
@@ -50,6 +51,11 @@ public:
 
     /// \brief Returns the llvm::TargetData used to generate code.
     const llvm::TargetData &getTargetData() const { return TD; }
+
+    /// \brief Returns the LLVMContext associated with this code generator.
+    llvm::LLVMContext &getLLVMContext() const {
+        return llvm::getGlobalContext();
+    }
 
     /// \brief Codegens a top-level declaration.
     void emitToplevelDecl(Decl *decl);
@@ -94,6 +100,53 @@ public:
 
     /// \brief Returns a null pointer constant of the specified type.
     llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
+
+    /// \brief Returns an llvm "opaque" type.
+    const llvm::OpaqueType *getOpaqueTy() const {
+        return llvm::OpaqueType::get(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "void".
+    const llvm::Type *getVoidTy() const {
+        return llvm::Type::getVoidTy(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i1".
+    const llvm::IntegerType *getInt1Ty() const {
+        return llvm::Type::getInt1Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i8".
+    const llvm::IntegerType *getInt8Ty() const {
+        return llvm::Type::getInt8Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i16".
+    const llvm::IntegerType *getInt16Ty() const {
+        return llvm::Type::getInt16Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i32".
+    const llvm::IntegerType *getInt32Ty() const {
+        return llvm::Type::getInt32Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i64".
+    const llvm::IntegerType *getInt64Ty() const {
+        return llvm::Type::getInt64Ty(getLLVMContext());
+    }
+
+
+    /// \breif Returns an llvm basic block.
+    llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
+                                     llvm::Function *parent = 0,
+                                     llvm::BasicBlock *insertBefore = 0) const;
+
+    /// \breif Returns an llvm structure type.
+    llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &params,
+                                  bool isPacked = false) {
+        return llvm::StructType::get(getLLVMContext(), params, isPacked);
+    }
 
     /// \brief Returns a global variable with external linkage embedded in the
     /// current module.

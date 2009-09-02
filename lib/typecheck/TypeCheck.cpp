@@ -504,7 +504,8 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     for (unsigned i = 0; i < numArgs; ++i) {
         Type *argument = arguments[i];
         Location argLoc = argumentLocs[i];
-        SignatureType *target = resolveFormalSignature(model, &arguments[0], i);
+        SignatureType *target =
+            resolveFormalSignature(model, arguments.data(), i);
         if (!checkType(argument, target, argLoc))
             return getInvalidNode();
     }
@@ -512,22 +513,24 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     // Obtain a memoized type node for this particular argument set.
     Node node = getInvalidNode();
     if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
-        node = getNode(variety->getCorrespondingType(&arguments[0], numArgs));
+        node = getNode(
+            variety->getCorrespondingType(arguments.data(), numArgs));
     }
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
 
-        if (!ensureNonRecursiveInstance(functor, &arguments[0], numArgs, loc))
+        if (!ensureNonRecursiveInstance(
+                functor, arguments.data(), numArgs, loc))
             return getInvalidNode();
 
-        if (denotesFunctorPercent(functor, &arguments[0], numArgs)) {
+        if (denotesFunctorPercent(functor, arguments.data(), numArgs)) {
             // Cannonicalize type applications which are equivalent to `%'.
             report(loc, diag::PERCENT_EQUIVALENT);
             node = getNode(getCurrentPercent());
         }
         else {
             DomainInstanceDecl *instance =
-                functor->getInstance(&arguments[0], numArgs);
+                functor->getInstance(arguments.data(), numArgs);
             node = getNode(instance->getType());
         }
     }
@@ -1022,7 +1025,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
             routineDecl = new FunctionDecl(name,
                                            location,
-                                           &parameters[0],
+                                           parameters.data(),
                                            parameters.size(),
                                            returnType,
                                            region);
@@ -1031,7 +1034,7 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     else {
         routineDecl = new ProcedureDecl(name,
                                         location,
-                                        &parameters[0],
+                                        parameters.data(),
                                         parameters.size(),
                                         region);
     }

@@ -168,15 +168,24 @@ llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
                                            bool isConstant,
                                            const std::string &name)
 {
-    llvm::Constant *stringConstant = llvm::ConstantArray::get(str, true);
-    return new llvm::GlobalVariable(stringConstant->getType(), isConstant,
+    llvm::LLVMContext &ctx = getLLVMContext();
+    llvm::Constant *stringConstant = llvm::ConstantArray::get(ctx, str, true);
+    return new llvm::GlobalVariable(*M, stringConstant->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
-                                    stringConstant, name, M);
+                                    stringConstant, name);
 }
 
 llvm::Constant *CodeGen::getNullPointer(const llvm::PointerType *Ty) const
 {
     return llvm::ConstantPointerNull::get(Ty);
+}
+
+llvm::BasicBlock *CodeGen::makeBasicBlock(const std::string &name,
+                                          llvm::Function *parent,
+                                          llvm::BasicBlock *insertBefore) const
+{
+    llvm::LLVMContext &ctx = getLLVMContext();
+    return llvm::BasicBlock::Create(ctx, name, parent, insertBefore);
 }
 
 llvm::PointerType *CodeGen::getPointerType(const llvm::Type *Ty) const
@@ -189,9 +198,9 @@ llvm::GlobalVariable *CodeGen::makeExternGlobal(llvm::Constant *init,
                                                 const std::string &name)
 
 {
-    return new llvm::GlobalVariable(init->getType(), isConstant,
+    return new llvm::GlobalVariable(*M, init->getType(), isConstant,
                                     llvm::GlobalValue::ExternalLinkage,
-                                    init, name, M);
+                                    init, name);
 }
 
 llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
@@ -199,9 +208,9 @@ llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
                                                 const std::string &name)
 
 {
-    return new llvm::GlobalVariable(init->getType(), isConstant,
+    return new llvm::GlobalVariable(*M, init->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
-                                    init, name, M);
+                                    init, name);
 }
 
 llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
