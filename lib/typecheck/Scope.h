@@ -66,13 +66,7 @@ public:
 
     TypedDecl *lookupType(const IdentifierInfo *name) const;
 
-    TypedDecl *lookupDirectType(const IdentifierInfo *name,
-                                bool traverse = true) const;
-
     ModelDecl *lookupModel(const IdentifierInfo *name) const;
-
-    ModelDecl *lookupDirectModel(const IdentifierInfo *name,
-                                 bool traverse = true) const;
 
     class Resolver {
         typedef llvm::SmallVector<Decl*, 4>      DeclVector;
@@ -339,6 +333,10 @@ private:
 
     // Number of entries currently cached and available for reuse.
     unsigned numCachedEntries;
+
+    TypedDecl *lookupDirectType(const IdentifierInfo *name) const;
+
+    ModelDecl *lookupDirectModel(const IdentifierInfo *name) const;
 };
 
 } // End comma namespace

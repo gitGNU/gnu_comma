@@ -358,32 +358,15 @@ TypedDecl *Scope::lookupType(const IdentifierInfo *name) const
 }
 
 // FIXME: Rename to lookupDirectTypedDecl.
-TypedDecl *Scope::lookupDirectType(const IdentifierInfo *name,
-                                   bool traverse) const
+TypedDecl *Scope::lookupDirectType(const IdentifierInfo *name) const
 {
     if (name->hasMetadata()) {
-        if (traverse) {
-            Homonym *homonym = name->getMetadata<Homonym>();
-            for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-                 iter != homonym->endDirectDecls(); ++iter) {
-                Decl *candidate = *iter;
-                if (isa<TypedDecl>(candidate))
-                    return cast<TypedDecl>(candidate);
-            }
-        }
-        else {
-            // Otherwise, scan the direct bindings associated with the current
-            // Entry.  We should never have more than one TypedDecl associated
-            // with an entry, so we need not concern ourselves with the order of
-            // the search.
-            Entry *entry = entries.front();
-            Entry::DirectIterator iter = entry->beginDirectDecls();
-            Entry::DirectIterator endIter = entry->endDirectDecls();
-            for ( ; iter != endIter; ++iter) {
-                Decl *candidate = *iter;
-                if (candidate->getIdInfo() == name && isa<TypedDecl>(candidate))
-                    return cast<TypedDecl>(candidate);
-            }
+        Homonym *homonym = name->getMetadata<Homonym>();
+        for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+             iter != homonym->endDirectDecls(); ++iter) {
+            Decl *candidate = *iter;
+            if (isa<TypedDecl>(candidate))
+                return cast<TypedDecl>(candidate);
         }
     }
     return 0;
@@ -414,32 +397,15 @@ ModelDecl *Scope::lookupModel(const IdentifierInfo *name) const
     return result;
 }
 
-ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
-                                    bool traverse) const
+ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name) const
 {
     if (name->hasMetadata()) {
-        if (traverse) {
-            Homonym *homonym = name->getMetadata<Homonym>();
-            for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-                 iter != homonym->endDirectDecls(); ++iter) {
-                Decl *candidate = *iter;
-                if (isa<ModelDecl>(candidate))
-                    return cast<ModelDecl>(candidate);
-            }
-        }
-        else {
-            // Otherwise, scan the direct bindings associated with the current
-            // Entry.  We should never have more than one model associated with
-            // an entry, so we need not concern ourselves with the order of the
-            // search.
-            Entry *entry = entries.front();
-            Entry::DirectIterator iter = entry->beginDirectDecls();
-            Entry::DirectIterator endIter = entry->endDirectDecls();
-            for ( ; iter != endIter; ++iter) {
-                Decl *candidate = *iter;
-                if (candidate->getIdInfo() == name && isa<ModelDecl>(candidate))
-                    return cast<ModelDecl>(candidate);
-            }
+        Homonym *homonym = name->getMetadata<Homonym>();
+        for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
+             iter != homonym->endDirectDecls(); ++iter) {
+            Decl *candidate = *iter;
+            if (isa<ModelDecl>(candidate))
+                return cast<ModelDecl>(candidate);
         }
     }
     return 0;
