@@ -129,6 +129,7 @@ public:
         }
     }
 
+
     // Returns a static string representation of the given token code, or NULL
     // if no such representation is available.
     static const char *tokenString(Code code);
@@ -200,6 +201,10 @@ private:
         SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
+
+    // If c1 and c2 are both '_' characters, report a consecutive underscore
+    // error and drive the stream to consume all remaining '_' characters.
+    void diagnoseConsecutiveUnderscores(unsigned c1, unsigned c2);
 
     DiagnosticStream &report(SourceLocation sloc, diag::Kind kind)  {
         ++errorCount;

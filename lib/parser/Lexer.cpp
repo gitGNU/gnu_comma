@@ -285,19 +285,29 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
     return code;
 }
 
+void Lexer::diagnoseConsecutiveUnderscores(unsigned c1, unsigned c2)
+{
+    if (c1 == '_' && c2 == '_') {
+        report(diag::CONSECUTIVE_UNDERSCORE);
+        do {
+            ignoreStream();
+        } while ((c2 = peekStream()) == '_');
+    }
+}
+
 bool Lexer::scanWord()
 {
     TextIterator start = currentIter;
-    unsigned c = peekStream();
+    unsigned c1, c2;
 
-    if (isInitialIdentifierChar(c)) {
-        Code code;
-
+    if (isInitialIdentifierChar(c1 = peekStream())) {
         do {
             ignoreStream();
-        } while (isInnerIdentifierChar(c = peekStream()));
+            c2 = peekStream();
+            diagnoseConsecutiveUnderscores(c1, c2);
+        } while (isInnerIdentifierChar(c1 = c2));
 
-        code = getTokenCode(start, currentIter);
+        Code code = getTokenCode(start, currentIter);
 
         if (code == UNUSED_ID)
             emitIdentifierToken(start, currentIter);

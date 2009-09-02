@@ -19,6 +19,8 @@ DIAGNOSTIC(LEADING_ZERO_IN_INTEGER_LIT, ERROR,
            "Invalid integer literal (leading zero).")
 DIAGNOSTIC(INVALID_CHARACTER, ERROR,
            "Invalid character `%0'.")
+DIAGNOSTIC(CONSECUTIVE_UNDERSCORE, ERROR,
+           "Consecutive underscore in identifier.")
 
 //
 // Parser diagnostics.
