@@ -245,8 +245,6 @@ bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
             }
             if (!duplicated) directOverloads.push_back(sdecl);
         }
-        else if (EnumLiteral *elit = dyn_cast<EnumLiteral>(candidate))
-            directOverloads.push_back(elit);
         else if (ValueDecl *vdecl = dyn_cast<ValueDecl>(candidate)) {
             if (directOverloads.empty()) {
                 directValue = vdecl;
@@ -264,8 +262,6 @@ bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
         Decl *candidate = *iter;
         if (SubroutineDecl *sdecl = dyn_cast<SubroutineDecl>(candidate))
             indirectOverloads.push_back(sdecl);
-        else if (EnumLiteral *elit = dyn_cast<EnumLiteral>(candidate))
-            indirectOverloads.push_back(elit);
         else if (ValueDecl *vdecl = dyn_cast<ValueDecl>(candidate))
             indirectValues.push_back(vdecl);
     }
