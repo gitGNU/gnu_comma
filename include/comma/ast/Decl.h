@@ -55,14 +55,13 @@ public:
     DeclRegion *getDeclRegion() { return context; }
     const DeclRegion *getDeclRegion() const { return context; }
 
-
     // Returns true if this decl was declared in the given region.
     bool isDeclaredIn(const DeclRegion *region) const {
         return region == context;
     }
 
-    /// Returns this cast to a DeclRegion, or NULL if this model does not
-    /// support declarations.
+    /// Returns this cast to a DeclRegion, or null if this decl is not also a
+    /// declarative region.
     DeclRegion *asDeclRegion();
 
     // Support isa and dyn_cast.
