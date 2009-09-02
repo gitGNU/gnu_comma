@@ -85,8 +85,6 @@ public:
     ModelDecl *lookupDirectModel(const IdentifierInfo *name,
                                  bool traverse = true) const;
 
-    ValueDecl *lookupDirectValue(const IdentifierInfo *name) const;
-
     class Resolver {
         typedef llvm::SmallVector<Decl*, 4>      DeclVector;
         typedef llvm::SmallVector<ValueDecl*, 4> ValueVector;

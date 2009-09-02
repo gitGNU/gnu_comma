@@ -445,21 +445,6 @@ ModelDecl *Scope::lookupDirectModel(const IdentifierInfo *name,
     return 0;
 }
 
-ValueDecl *Scope::lookupDirectValue(const IdentifierInfo *info) const
-{
-    if (info->hasMetadata()) {
-        Homonym *homonym = info->getMetadata<Homonym>();
-
-        for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
-             iter != homonym->endDirectDecls(); ++iter) {
-            Decl *candidate = *iter;
-            if (isa<ValueDecl>(candidate))
-                return cast<ValueDecl>(candidate);
-        }
-    }
-    return 0;
-}
-
 void Scope::dump() const
 {
     std::cerr << "**** Scope trace for <"
