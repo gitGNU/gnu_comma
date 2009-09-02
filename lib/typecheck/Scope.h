@@ -56,14 +56,15 @@ public:
 
     // Registers the given decl with the current scope.
     //
-    // There is only one kind of declaration node which is inadmissible, namely
-    // DomainInstanceDecls.  For these declarations the corresponding
-    // DomoidDecl's are used for lookup.
-    void addDirectDecl(Decl *decl) {
-        assert(!llvm::isa<DomainInstanceDecl>(decl) &&
-               "Cannot add domain instance declarations to a scope!");
-        entries.front()->addDirectDecl(decl);
-    }
+    // There is only one kind of declaration node which is inadmissible to a
+    // Scope, namely DomainInstanceDecls.  For these declarations the
+    // corresponding DomoidDecl's are used for lookup.
+    //
+    // This method looks for any extant direct declarations which conflict with
+    // the given decl.  If such a declaration is found, it is returned and the
+    // given node is not inserted into the scope.  Otherwise, null is returned
+    // and the decl is registered.
+    Decl *addDirectDecl(Decl *decl);
 
     // Adds an import into the scope, making all of the exports from the given
     // type indirectly visible.  Returns true if the given type has already been
@@ -392,6 +393,14 @@ private:
 
     // Number of entries currently cached and available for reuse.
     unsigned numCachedEntries;
+
+    // If the given declaration conflicts with another declaration in the
+    // current entry, return the declaration with which it conflicts.
+    // Otherwise, return null.
+    Decl *findConflictingDirectDecl(Decl *decl) const;
+
+    // Returns true if the given declarations conflict.
+    bool directDeclsConflict(Decl *X, Decl *Y) const;
 };
 
 } // End comma namespace

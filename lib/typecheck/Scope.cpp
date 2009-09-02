@@ -352,6 +352,74 @@ bool Scope::addImport(DomainType *type)
     return false;
 }
 
+Decl *Scope::addDirectDecl(Decl *decl) {
+    assert(!llvm::isa<DomainInstanceDecl>(decl) &&
+           "Cannot add domain instance declarations to a scope!");
+    if (Decl *conflict = findConflictingDirectDecl(decl))
+        return conflict;
+    entries.front()->addDirectDecl(decl);
+    return 0;
+}
+
+bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
+{
+    if (X->getIdInfo() != Y->getIdInfo())
+        return false;
+
+    // If X denotes a type, model, or value declaration, there is an conflict
+    // independent of the type of Y.
+    if (isa<ValueDecl>(X) || isa<TypeDecl>(X) || isa<ModelDecl>(X))
+        return true;
+
+    // Otherwise, decl X must denote a subroutine declaration.
+    assert(isa<SubroutineDecl>(X) && "Unexpected type of decl!");
+
+    // Similarly, if Y denotes a type, model or value declaration, there is a
+    // conflict with X.
+    if (isa<ValueDecl>(Y) || isa<TypeDecl>(Y) || isa<ModelDecl>(Y))
+        return true;
+
+    // Otherwise, decl Y must denote a subroutine declaration.
+    assert(isa<SubroutineDecl>(Y) && "Unexpected kind of decl!");
+
+    if (isa<ProcedureDecl>(X)) {
+        // If both declarations are procedures there is a conflict since
+        // procedures do not overload.
+        if (isa<ProcedureDecl>(Y))
+            return true;
+
+        // Otherwise, decl Y is a function decl.  Function decls do not conflict
+        // with procedures.
+        return false;
+    }
+
+    // X is a function decl.  If decl Y is a procedure there is no conflict.
+    if (isa<ProcedureDecl>(Y))
+        return false;
+
+    // Otherwise, both declarations are functions.  There is a conflict iff both
+    // declarations have the same type.
+    FunctionDecl *XFDecl = cast<FunctionDecl>(X);
+    FunctionDecl *YFDecl = cast<FunctionDecl>(Y);
+    if (XFDecl->getType()->equals(YFDecl->getType()))
+        return true;
+    return false;
+}
+
+Decl *Scope::findConflictingDirectDecl(Decl *candidate) const
+{
+    Entry *currentEntry = entries.front();
+
+    typedef Entry::DirectIterator iterator;
+    iterator E = currentEntry->endDirectDecls();
+    for (iterator I = currentEntry->beginDirectDecls(); I != E; ++I) {
+        Decl *extant = *I;
+        if (directDeclsConflict(extant, candidate))
+            return extant;
+    }
+    return 0;
+}
+
 void Scope::dump() const
 {
     std::cerr << "**** Scope trace for <"
