@@ -804,7 +804,7 @@ public:
 //===----------------------------------------------------------------------===//
 // TypedDecl
 //
-// Nodes which inherit from this class have a unique type associated with type.
+// Nodes which inherit from this class have a unique type associated with them.
 class TypedDecl : public Decl {
 
 public:
