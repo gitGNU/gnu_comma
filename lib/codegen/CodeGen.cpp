@@ -126,7 +126,7 @@ bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
             std::string name = CGCapsule->getLinkName(srDecl);
             const llvm::FunctionType *fnTy =
                 CGTypes->lowerSubroutineType(srDecl->getType());
-            llvm::Function *fn = makeInternFunction(fnTy, name);
+            llvm::Function *fn = makeFunction(fnTy, name);
             insertGlobal(name, fn);
         }
     }
