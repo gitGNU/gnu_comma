@@ -438,6 +438,9 @@ bool Lexer::scanGlyph()
             code = TKN_TILDE;
         }
         break;
+    case '\'':
+        code = TKN_QUOTE;
+        break;
     }
 
     if (code == UNUSED_ID) {

@@ -83,6 +83,7 @@ GLYPH(AT,      "@")
 GLYPH(BSLASH,  "\\")
 GLYPH(HAT,     "^")
 GLYPH(GRAVE,   "`")
+GLYPH(QUOTE,   "'")
 GLYPH(BAR,     "|")
 GLYPH(FSLASH,  "/")
 
