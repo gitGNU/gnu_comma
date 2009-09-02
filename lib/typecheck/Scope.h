@@ -69,15 +69,16 @@ public:
     ModelDecl *lookupModel(const IdentifierInfo *name) const;
 
     class Resolver {
-        typedef llvm::SmallVector<Decl*, 4>      DeclVector;
+        typedef llvm::SmallVector<Decl*, 4> DeclVector;
         typedef llvm::SmallVector<ValueDecl*, 4> ValueVector;
+        typedef llvm::SmallVector<TypeDecl*, 4> TypeVector;
 
         // Do not implement.
         Resolver(const Resolver &);
         Resolver &operator=(const Resolver &);
 
         // Private constructor for use by Scope.
-        Resolver() : directValue(0) { };
+        Resolver() : directDecl(0) { };
 
         /// Resets this Resolver into its default (empty) state, for use by
         /// Scope.
@@ -115,6 +116,9 @@ public:
         /// Returns the number of indirect values.
         unsigned numIndirectValues() const { return indirectValues.size(); }
 
+        /// Returns the number of indirect types.
+        unsigned numIndirectTypes() const { return indirectTypes.size(); }
+
         /// Returns the number of indirect overloads.
         unsigned numIndirectOverloads() const {
             return indirectOverloads.size();
@@ -129,13 +133,28 @@ public:
         }
 
         /// Returns true if a direct value has been resolved.
-        bool hasDirectValue() const { return directValue != 0; }
+        bool hasDirectValue() const {
+            return directDecl && llvm::isa<ValueDecl>(directDecl);
+        }
+
+        /// Returns true if a direct type has been resolved.
+        bool hasDirectType() const {
+            return directDecl && llvm::isa<TypeDecl>(directDecl);
+        }
+
+        /// Returns true if a direct capsule has been resolved.
+        bool hasDirectCapsule() const {
+            return directDecl && llvm::isa<ModelDecl>(directDecl);
+        }
 
         /// Returns true if direct overloads have been resolved.
         bool hasDirectOverloads() const { return numDirectOverloads() != 0; }
 
         /// Returns true if indirect values have been resolved.
         bool hasIndirectValues() const { return numIndirectValues() != 0; }
+
+        /// Returns true if indirect types have been resolved.
+        bool hasIndirectTypes() const { return numIndirectTypes() != 0; }
 
         /// Returns true if indirect overloads have been resolved.
         bool hasIndirectOverloads() const {
@@ -144,7 +163,21 @@ public:
 
         /// Returns the direct value associated with this resolver, or 0 if no
         /// such declaration could be resolved.
-        ValueDecl *getDirectValue() const { return directValue; }
+        ValueDecl *getDirectValue() const {
+            return hasDirectValue() ? llvm::cast<ValueDecl>(directDecl) : 0;
+        }
+
+        /// Returns the direct type associated with this resolver, or 0 if no
+        /// such declaration could be resolved.
+        TypeDecl *getDirectType() const {
+            return hasDirectType() ? llvm::cast<TypeDecl>(directDecl) : 0;
+        }
+
+        /// Returns the direct capsule associated with this resolver, or 0 if no
+        /// such declaration could be resolved.
+        ModelDecl *getDirectCapsule() const {
+            return hasDirectCapsule() ? llvm::cast<ModelDecl>(directDecl) : 0;
+        }
 
         /// Returns the \p i'th direct overload.  The index must be in range.
         Decl *getDirectOverload(unsigned i) const {
@@ -191,10 +224,19 @@ public:
         }
 
     private:
-        ValueDecl *directValue;
+        Decl *directDecl;
         DeclVector directOverloads;
         ValueVector indirectValues;
+        TypeVector indirectTypes;
         DeclVector indirectOverloads;
+
+        /// Resolves the direct decls provided by the given homonym.  Returns
+        /// true if any decls were resolved.
+        bool resolveDirectDecls(Homonym *homonym);
+
+        /// Resolves the indirect decls provided by the given homonym.  Returns
+        /// true if any decls were resolved.
+        bool resolveIndirectDecls(Homonym *homonym);
 
         struct ArityPred {
             unsigned arity;

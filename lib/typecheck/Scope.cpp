@@ -172,9 +172,10 @@ Homonym *Scope::Entry::getOrCreateHomonym(IdentifierInfo *info)
 
 void Scope::Resolver::clear()
 {
-    directValue = 0;
+    directDecl = 0;
     directOverloads.clear();
     indirectValues.clear();
+    indirectTypes.clear();
     indirectOverloads.clear();
 }
 
@@ -195,8 +196,10 @@ bool Scope::Resolver::NullaryPred::operator()(const Decl* decl) const {
 unsigned Scope::Resolver::numResolvedDecls() const {
     unsigned result = 0;
     result += hasDirectValue();
+    result += hasDirectType();
     result += numDirectOverloads();
     result += numIndirectValues();
+    result += numIndirectTypes();
     result += numIndirectOverloads();
     return result;
 }
@@ -223,12 +226,8 @@ bool Scope::Resolver::filterNullaryOverloads()
     return filterOverloads(NullaryPred());
 }
 
-bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
+bool Scope::Resolver::resolveDirectDecls(Homonym *homonym)
 {
-    Homonym *homonym = idInfo->getMetadata<Homonym>();
-    if (!homonym || homonym->empty())
-        return false;
-
     for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
          iter != homonym->endDirectDecls(); ++iter) {
         Decl *candidate = *iter;
@@ -245,18 +244,29 @@ bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
             }
             if (!duplicated) directOverloads.push_back(sdecl);
         }
-        else if (ValueDecl *vdecl = dyn_cast<ValueDecl>(candidate)) {
+        else {
+            assert((isa<ValueDecl>(candidate) ||
+                    isa<TypeDecl>(candidate)  ||
+                    isa<ModelDecl>(candidate)) &&
+                   "Bad type of direct declaration!");
             if (directOverloads.empty()) {
-                directValue = vdecl;
+                directDecl = candidate;
                 return true;
             }
             break;
         }
     }
+    return !directOverloads.empty();
+}
 
-    // Scan the full set of imported declarations, and partition the
-    // import decls into two sets:  one containing all value declarations, the
-    // other containing all nullary function declarations.
+bool Scope::Resolver::resolveIndirectDecls(Homonym *homonym)
+{
+    if (!homonym->hasImportDecls())
+        return false;
+
+    // Scan the set of indirect declarations associcated with the homonym and
+    // partition them into three sets corresponding to the accessible values,
+    // subroutines, and types.
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
         Decl *candidate = *iter;
@@ -264,9 +274,20 @@ bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
             indirectOverloads.push_back(sdecl);
         else if (ValueDecl *vdecl = dyn_cast<ValueDecl>(candidate))
             indirectValues.push_back(vdecl);
+        else if (TypeDecl *tdecl = dyn_cast<TypeDecl>(candidate))
+            indirectTypes.push_back(tdecl);
+        else
+            assert(false && "Bad type of indirect declaration!");
     }
+    return true;
+}
 
-    return numResolvedDecls() != 0;
+bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
+{
+    Homonym *homonym = idInfo->getMetadata<Homonym>();
+    if (!homonym || homonym->empty())
+        return false;
+    return resolveDirectDecls(homonym) | resolveIndirectDecls(homonym);
 }
 
 //===----------------------------------------------------------------------===//
