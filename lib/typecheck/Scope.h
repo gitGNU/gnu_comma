@@ -54,8 +54,14 @@ public:
     // Moves the scope up one level and unlinks all declarations.
     void pop();
 
-    // Unconditionally registers the given decl with the current scope.
+    // Registers the given decl with the current scope.
+    //
+    // There is only one kind of declaration node which is inadmissible, namely
+    // DomainInstanceDecls.  For these declarations the corresponding
+    // DomoidDecl's are used for lookup.
     void addDirectDecl(Decl *decl) {
+        assert(!llvm::isa<DomainInstanceDecl>(decl) &&
+               "Cannot add domain instance declarations to a scope!");
         entries.front()->addDirectDecl(decl);
     }
 
