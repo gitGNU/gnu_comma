@@ -202,7 +202,7 @@ bool Parser::seekCloseParen()
 
 bool Parser::seekSemi()
 {
-    while (seekTokens(Lexer::TKN_LBRACE, Lexer::TKN_SEMI)) {
+    while (seekTokens(Lexer::TKN_LPAREN, Lexer::TKN_SEMI)) {
 
         if (currentTokenIs(Lexer::TKN_SEMI))
             return true;
