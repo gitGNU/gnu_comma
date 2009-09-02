@@ -77,7 +77,7 @@ class StmtSequence;
 class SubroutineDecl;
 class SubroutineType;
 class Type;
-class TypedDecl;
+class TypeDecl;
 class TypedefType;
 class ValueDecl;
 class VarietyDecl;
@@ -197,8 +197,8 @@ public:
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl = AST_FunctorDecl,
 
-        FIRST_TypedDecl = AST_CarrierDecl,
-        LAST_TypedDecl = AST_IntegerDecl,
+        FIRST_TypeDecl = AST_CarrierDecl,
+        LAST_TypeDecl = AST_IntegerDecl,
 
         FIRST_ValueDecl = AST_DomainValueDecl,
         LAST_ValueDecl = AST_ObjectDecl,
@@ -260,9 +260,9 @@ public:
         return (FIRST_ModelDecl <= kind && kind <= LAST_ModelDecl);
     }
 
-    /// Returns true if this node denotes a typed declaration.
-    bool denotesTypedDecl() const {
-        return (FIRST_TypedDecl <= kind && kind <= LAST_TypedDecl);
+    /// Returns true if this node denotes a type declaration.
+    bool denotesTypeDecl() const {
+        return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
     }
 
     /// Returns true if this node denotes a subroutine decl (i.e. either

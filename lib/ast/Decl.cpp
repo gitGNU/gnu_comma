@@ -686,7 +686,7 @@ EnumLiteral::EnumLiteral(EnumerationDecl *decl,
 EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
                                  Location        loc,
                                  DeclRegion     *parent)
-    : TypedDecl(AST_EnumerationDecl, name, loc),
+    : TypeDecl(AST_EnumerationDecl, name, loc),
       DeclRegion(AST_EnumerationDecl, parent),
       numLiterals(0)
 {
@@ -725,7 +725,7 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
                          Expr *lowRange, Expr *highRange,
                          IntegerType *baseType, DeclRegion *parent)
-    : TypedDecl(AST_IntegerDecl, name, loc),
+    : TypeDecl(AST_IntegerDecl, name, loc),
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lowRange), highExpr(highRange)
 {

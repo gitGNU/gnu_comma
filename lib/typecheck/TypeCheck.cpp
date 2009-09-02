@@ -378,7 +378,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
              iter != range.second; ++iter) {
             Decl *candidate = *iter;
             if ((decl = dyn_cast<ModelDecl>(candidate)) or
-                (decl = dyn_cast<TypedDecl>(candidate)))
+                (decl = dyn_cast<TypeDecl>(candidate)))
                 break;
         }
     }
@@ -418,7 +418,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
     case Ast::AST_IntegerDecl: {
-        TypedDecl *tyDecl = cast<TypedDecl>(decl);
+        TypeDecl *tyDecl = cast<TypeDecl>(decl);
         return getNode(tyDecl->getType());
     }
 
@@ -754,7 +754,7 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
     DeclRegion::DeclIter endIter = sigdecl->endDecls();
 
     for ( ; iter != endIter; ++iter) {
-        if (TypedDecl *tyDecl = dyn_cast<TypedDecl>(*iter)) {
+        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
             IdentifierInfo *name = tyDecl->getIdInfo();
             Location loc = tyDecl->getLocation();
             if (ensureDistinctTypeName(name, loc, model)) {
@@ -784,7 +784,7 @@ bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
 
     if (range.first != range.second) {
         for (PredIter &iter = range.first; iter != range.second; ++iter) {
-            TypedDecl *conflict = dyn_cast<TypedDecl>(*iter);
+            TypeDecl *conflict = dyn_cast<TypeDecl>(*iter);
             if (conflict) {
                 SourceLocation sloc = getSourceLoc(conflict->getLocation());
                 report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;

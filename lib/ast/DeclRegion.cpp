@@ -82,7 +82,7 @@ Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)
         Decl *decl = *iter;
         if (decl->getIdInfo() == name) {
             Type *candidate = 0;
-            if (TypedDecl *TD = dyn_cast<TypedDecl>(decl))
+            if (TypeDecl *TD = dyn_cast<TypeDecl>(decl))
                 candidate = TD->getType();
             else if (SubroutineDecl *SD = dyn_cast<SubroutineDecl>(decl))
                 candidate = SD->getType();

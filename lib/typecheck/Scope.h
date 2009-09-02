@@ -64,7 +64,7 @@ public:
     // imported and false otherwise.
     bool addImport(DomainType *type);
 
-    TypedDecl *lookupType(const IdentifierInfo *name) const;
+    TypeDecl *lookupType(const IdentifierInfo *name) const;
 
     ModelDecl *lookupModel(const IdentifierInfo *name) const;
 
@@ -334,7 +334,7 @@ private:
     // Number of entries currently cached and available for reuse.
     unsigned numCachedEntries;
 
-    TypedDecl *lookupDirectType(const IdentifierInfo *name) const;
+    TypeDecl *lookupDirectType(const IdentifierInfo *name) const;
 
     ModelDecl *lookupDirectModel(const IdentifierInfo *name) const;
 };

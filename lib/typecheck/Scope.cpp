@@ -331,10 +331,10 @@ bool Scope::addImport(DomainType *type)
     return false;
 }
 
-// FIXME: Rename to lookupTypedDecl.
-TypedDecl *Scope::lookupType(const IdentifierInfo *name) const
+// FIXME: Rename to lookupTypeDecl.
+TypeDecl *Scope::lookupType(const IdentifierInfo *name) const
 {
-    TypedDecl *result = lookupDirectType(name);
+    TypeDecl *result = lookupDirectType(name);
 
     if (result)
         return result;
@@ -347,9 +347,9 @@ TypedDecl *Scope::lookupType(const IdentifierInfo *name) const
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
         Decl *candidate = *iter;
-        if (isa<TypedDecl>(candidate)) {
+        if (isa<TypeDecl>(candidate)) {
             if (!result)
-                result = cast<TypedDecl>(candidate);
+                result = cast<TypeDecl>(candidate);
             else
                 return 0;
         }
@@ -357,16 +357,16 @@ TypedDecl *Scope::lookupType(const IdentifierInfo *name) const
     return result;
 }
 
-// FIXME: Rename to lookupDirectTypedDecl.
-TypedDecl *Scope::lookupDirectType(const IdentifierInfo *name) const
+// FIXME: Rename to lookupDirectTypeDecl.
+TypeDecl *Scope::lookupDirectType(const IdentifierInfo *name) const
 {
     if (name->hasMetadata()) {
         Homonym *homonym = name->getMetadata<Homonym>();
         for (Homonym::DirectIterator iter = homonym->beginDirectDecls();
              iter != homonym->endDirectDecls(); ++iter) {
             Decl *candidate = *iter;
-            if (isa<TypedDecl>(candidate))
-                return cast<TypedDecl>(candidate);
+            if (isa<TypeDecl>(candidate))
+                return cast<TypeDecl>(candidate);
         }
     }
     return 0;

@@ -46,7 +46,7 @@ public:
     virtual void visitSigoid(Sigoid *node);
     virtual void visitDomoid(Domoid *node);
     virtual void visitSubroutineDecl(SubroutineDecl *node);
-    virtual void visitTypedDecl(TypedDecl *node);
+    virtual void visitTypeDecl(TypeDecl *node);
     virtual void visitValueDecl(ValueDecl *node);
     ///@}
 

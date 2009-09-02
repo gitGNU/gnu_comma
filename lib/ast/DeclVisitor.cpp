@@ -33,8 +33,8 @@ void DeclVisitor::visitDecl(Decl *node)
         visitModelDecl(model);
     else if (SubroutineDecl *routine = dyn_cast<SubroutineDecl>(node))
         visitSubroutineDecl(routine);
-    else if (TypedDecl *typed = dyn_cast<TypedDecl>(node))
-        visitTypedDecl(typed);
+    else if (TypeDecl *typed = dyn_cast<TypeDecl>(node))
+        visitTypeDecl(typed);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -79,7 +79,7 @@ void DeclVisitor::visitSubroutineDecl(SubroutineDecl *node)
         assert(false && "Cannot visit this kind of node!");
 }
 
-void DeclVisitor::visitTypedDecl(TypedDecl *node)
+void DeclVisitor::visitTypeDecl(TypeDecl *node)
 {
     if (ValueDecl *value = dyn_cast<ValueDecl>(node))
         visitValueDecl(value);

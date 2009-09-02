@@ -802,28 +802,28 @@ public:
 
 
 //===----------------------------------------------------------------------===//
-// TypedDecl
+// TypeDecl
 //
-// Nodes which inherit from this class have a unique type associated with them.
-class TypedDecl : public Decl {
+// All nodes which declare types inherit from this class.
+class TypeDecl : public Decl {
 
 public:
     virtual const Type *getType() const = 0;
 
     Type *getType() {
         return const_cast<Type*>(
-            const_cast<const TypedDecl*>(this)->getType());
+            const_cast<const TypeDecl*>(this)->getType());
     }
 
-    static bool classof(const TypedDecl *node) { return true; }
+    static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->denotesTypedDecl();
+        return node->denotesTypeDecl();
     }
 
 protected:
-    TypedDecl(AstKind kind, IdentifierInfo *name, Location loc)
+    TypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
         : Decl(kind, name, loc) {
-        assert(this->denotesTypedDecl());
+        assert(this->denotesTypeDecl());
     }
 };
 
@@ -831,11 +831,11 @@ protected:
 // CarrierDecl
 //
 // Declaration of a domains carrier type.
-class CarrierDecl : public TypedDecl {
+class CarrierDecl : public TypeDecl {
 
 public:
     CarrierDecl(IdentifierInfo *name, Type *type, Location loc)
-        : TypedDecl(AST_CarrierDecl, name, loc),
+        : TypeDecl(AST_CarrierDecl, name, loc),
           carrierType(new CarrierType(this)),
           representation(type) { }
 
@@ -860,11 +860,11 @@ private:
 //
 // This class is intentionally generic.  It will become a virtual base for a
 // more extensive hierarchy of value declarations later on.
-class ValueDecl : public TypedDecl {
+class ValueDecl : public TypeDecl {
 
 protected:
     ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
-        : TypedDecl(kind, name, loc),
+        : TypeDecl(kind, name, loc),
           correspondingType(type) {
         assert(this->denotesValueDecl());
     }
@@ -1124,7 +1124,7 @@ private:
 
 //===----------------------------------------------------------------------===//
 // EnumerationDecl
-class EnumerationDecl : public TypedDecl, public DeclRegion {
+class EnumerationDecl : public TypeDecl, public DeclRegion {
 
 public:
     EnumerationDecl(IdentifierInfo *name,
@@ -1161,7 +1161,7 @@ private:
 // IntegerDecl
 //
 // These nodes represent integer type declarations.
-class IntegerDecl : public TypedDecl, public DeclRegion {
+class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
     ~IntegerDecl();
