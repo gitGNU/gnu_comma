@@ -47,6 +47,8 @@ DeclRegion *Decl::asDeclRegion()
         return static_cast<FunctionDecl*>(this);
     case AST_ProcedureDecl:
         return static_cast<ProcedureDecl*>(this);
+    case AST_IntegerDecl:
+        return static_cast<IntegerDecl*>(this);
     }
 }
 
