@@ -171,9 +171,13 @@ void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
 }
 
 FunctionDecl *
-DeclProducer::createPredicate(PredicateKind kind, Type *paramType,
-                              DeclRegion *parent)
+DeclProducer::createPredicate(PredicateKind kind,
+                              Type *paramType, Decl *context)
 {
+    Location loc = context->getLocation();
+    DeclRegion *region = context->asDeclRegion();
+    assert(region && "Decl context not a declarative region!");
+
     IdentifierInfo *name = getPredicateName(kind);
     IdentifierInfo *paramX = resource->getIdentifierInfo("X");
     IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
@@ -184,8 +188,7 @@ DeclProducer::createPredicate(PredicateKind kind, Type *paramType,
     };
 
     FunctionDecl *pred =
-        new FunctionDecl(name, 0, params, 2, theBoolDecl->getType(),
-                         parent);
+        new FunctionDecl(name, loc, params, 2, theBoolDecl->getType(), region);
     pred->setAsPrimitive(getPredicatePrimitive(kind));
     return pred;
 }
@@ -217,8 +220,12 @@ PO::PrimitiveID DeclProducer::getArithPrimitive(ArithKind kind)
 }
 
 FunctionDecl *
-DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, DeclRegion *parent)
+DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context)
 {
+    Location loc = context->getLocation();
+    DeclRegion *region = context->asDeclRegion();
+    assert(region && "Decl context not a declarative region!");
+
     IdentifierInfo *name = getArithName(kind);
     IdentifierInfo *paramX = resource->getIdentifierInfo("X");
     IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
@@ -228,7 +235,7 @@ DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, DeclRegion *parent)
         new ParamValueDecl(paramY, Ty, PM::MODE_DEFAULT, 0)
     };
 
-    FunctionDecl *op = new FunctionDecl(name, 0, params, 2, Ty, parent);
+    FunctionDecl *op = new FunctionDecl(name, loc, params, 2, Ty, region);
     op->setAsPrimitive(getArithPrimitive(kind));
     return op;
 }

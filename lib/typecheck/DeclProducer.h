@@ -98,10 +98,11 @@ private:
     /// predicate.  For example, \c EQ_pred results in a function named "=",
     /// while LTEQ_pred results in a function named "<=".  All predicate
     /// functions have argument selectors named "X" and "Y".  And, obviously,
-    /// the return type is Bool.  The parent declarative region of the resulting
-    /// function decl is set to \p region.
-    FunctionDecl *createPredicate(PredicateKind kind, Type *paramType,
-                                  DeclRegion *parent);
+    /// the return type is Bool.  The given decl must be convertable to a
+    /// DeclRegion, and is used as the declaration context for the resulting
+    /// function.
+    FunctionDecl *createPredicate(PredicateKind kind,
+                                  Type *paramType, Decl *context);
 
     /// An enumeration itemizing the various types of arithmetic functions we
     /// can produce.
@@ -121,11 +122,10 @@ private:
     /// The function is named after the Comma operator for the given binary
     /// arithmetic kind.  For example, \c PLUS_arith results in a function named
     /// "+".  All such functions have argument selectors named "X" and "Y".
-    /// Both argument types and return type are given by \p Ty.  The parent
-    /// declarative region of the resulting decl is set to \p region.
-    FunctionDecl *createBinaryArithOp(ArithKind kind, Type *Ty,
-                                      DeclRegion *parent);
-
+    /// Both argument types and return type are given by \p Ty.  The given decl
+    /// must be convertable to a DeclRegion, and is used as the declaration
+    /// context for the resulting function.
+    FunctionDecl *createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context);
 };
 
 } // end comma namespace.
