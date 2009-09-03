@@ -347,7 +347,8 @@ unsigned FunctorDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
 }
 
 /// Returns the type of of the i'th formal parameter.
-DomainType *FunctorDecl::getFormalType(unsigned i) const {
+DomainType *FunctorDecl::getFormalType(unsigned i) const
+{
     return getFormalDecl(i)->getType();
 }
 
@@ -365,13 +366,9 @@ IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
 //===----------------------------------------------------------------------===//
 // SubroutineDecl
 
-SubroutineDecl::SubroutineDecl(AstKind          kind,
-                               IdentifierInfo  *name,
-                               Location         loc,
-                               ParamValueDecl **params,
-                               unsigned         numParams,
-                               Type            *returnType,
-                               DeclRegion      *parent)
+SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                               ParamValueDecl **params, unsigned numParams,
+                               Type *returnType, DeclRegion *parent)
     : Decl(kind, name, loc),
       DeclRegion(kind, parent),
       immediate(false),
@@ -431,11 +428,8 @@ SubroutineDecl::SubroutineDecl(AstKind          kind,
     }
 }
 
-SubroutineDecl::SubroutineDecl(AstKind         kind,
-                               IdentifierInfo *name,
-                               Location        loc,
-                               SubroutineType *type,
-                               DeclRegion     *parent)
+SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                               SubroutineType *type, DeclRegion *parent)
     : Decl(kind, name, loc),
       DeclRegion(kind, parent),
       immediate(false),
@@ -681,8 +675,7 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
 //===----------------------------------------------------------------------===//
 // EnumLiteral
 EnumLiteral::EnumLiteral(EnumerationDecl *decl,
-                         IdentifierInfo  *name,
-                         Location         loc)
+                         IdentifierInfo *name, Location loc)
     : FunctionDecl(AST_EnumLiteral, name, loc, 0, 0, decl->getType(), decl)
 {
     // Add ourselves to the enclosing EnumerationDecl, and mark this new
@@ -695,8 +688,7 @@ EnumLiteral::EnumLiteral(EnumerationDecl *decl,
 //===----------------------------------------------------------------------===//
 // EnumerationDecl
 EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
-                                 Location        loc,
-                                 DeclRegion     *parent)
+                                 Location loc, DeclRegion *parent)
     : TypeDecl(AST_EnumerationDecl, name, loc),
       DeclRegion(AST_EnumerationDecl, parent),
       numLiterals(0)
