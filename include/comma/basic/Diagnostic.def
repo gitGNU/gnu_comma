@@ -69,6 +69,8 @@ DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
            "Wrong number of arguments for type `%0'.")
 DIAGNOSTIC(SUBROUTINE_REDECLARATION, ERROR,
            "Redeclaration of subroutine `%0' originally defined at `%1'.")
+DIAGNOSTIC(CONFLICTING_DECLARATION, ERROR,
+           "`%0' conflicts with declaration defined at `%1'.")
 DIAGNOSTIC(MISSING_REDECLARATION, ERROR,
            "Multiple ambiguous declarations of `%0' "
            "(inherited from `%1' and `%2'). "

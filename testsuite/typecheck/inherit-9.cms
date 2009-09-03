@@ -1,0 +1,17 @@
+-- MUST-FAIL: Ensure subroutine declarations with disjoint keyword sets are
+-- detected.
+
+signature S with
+   procedure P (X : %);
+   function F (X : %) return %;
+end S;
+
+signature T with
+   procedure P (Y : %);
+   function F (Y : %) return %;
+end T;
+
+signature U with
+   S;
+   T;
+end U;

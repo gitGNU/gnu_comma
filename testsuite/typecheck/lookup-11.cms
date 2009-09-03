@@ -1,0 +1,14 @@
+-- Ensure nested object declarations can shadow outer decls.
+
+domain D add
+   carrier Rep is Bool;
+   procedure P (X : %) is
+      Y : Bool := false;
+   begin
+      Nested : declare
+         X : Bool := true;
+         Y : Bool := true;
+      begin end Nested;
+   end P;
+end D;
+

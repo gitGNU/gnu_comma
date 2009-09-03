@@ -1,0 +1,16 @@
+-- MUST-FAIL: Ensure conflicting type declarations are not combined thru
+-- inheritance.
+
+signature S with
+   type E is (A);
+end S;
+
+signature T with
+   type E is (B);
+end T;
+
+signature U with
+   S;
+   T;
+end U;
+

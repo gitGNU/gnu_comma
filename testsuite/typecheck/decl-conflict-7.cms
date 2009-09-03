@@ -1,0 +1,8 @@
+-- MUST-FAIL: Ensure direct decls cannot shadow formal parameters.
+
+domain D add
+   carrer Rep is Bool;
+   procedure P (X : Bool) is
+      X : Bool := true;
+   begin end P;
+end D;

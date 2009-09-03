@@ -361,6 +361,15 @@ Decl *Scope::addDirectDecl(Decl *decl) {
     return 0;
 }
 
+void Scope::addDirectDeclNoConflicts(Decl *decl)
+{
+    assert(!llvm::isa<DomainInstanceDecl>(decl) &&
+           "Cannot add domain instance declarations to a scope!");
+    assert(findConflictingDirectDecl(decl) == 0 &&
+           "Conflicting decl found when there should be none!");
+    entries.front()->addDirectDecl(decl);
+}
+
 bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
 {
     if (X->getIdInfo() != Y->getIdInfo())
@@ -371,37 +380,16 @@ bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
     if (isa<ValueDecl>(X) || isa<TypeDecl>(X) || isa<ModelDecl>(X))
         return true;
 
-    // Otherwise, decl X must denote a subroutine declaration.
-    assert(isa<SubroutineDecl>(X) && "Unexpected type of decl!");
-
     // Similarly, if Y denotes a type, model or value declaration, there is a
     // conflict with X.
     if (isa<ValueDecl>(Y) || isa<TypeDecl>(Y) || isa<ModelDecl>(Y))
         return true;
 
-    // Otherwise, decl Y must denote a subroutine declaration.
-    assert(isa<SubroutineDecl>(Y) && "Unexpected kind of decl!");
-
-    if (isa<ProcedureDecl>(X)) {
-        // If both declarations are procedures there is a conflict since
-        // procedures do not overload.
-        if (isa<ProcedureDecl>(Y))
-            return true;
-
-        // Otherwise, decl Y is a function decl.  Function decls do not conflict
-        // with procedures.
-        return false;
-    }
-
-    // X is a function decl.  If decl Y is a procedure there is no conflict.
-    if (isa<ProcedureDecl>(Y))
-        return false;
-
-    // Otherwise, both declarations are functions.  There is a conflict iff both
-    // declarations have the same type.
-    FunctionDecl *XFDecl = cast<FunctionDecl>(X);
-    FunctionDecl *YFDecl = cast<FunctionDecl>(Y);
-    if (XFDecl->getType()->equals(YFDecl->getType()))
+    // Otherwise, X and Y must both denote a subroutine declaration. There is a
+    // conflict iff both declarations have the same type.
+    SubroutineDecl *XSDecl = cast<SubroutineDecl>(X);
+    SubroutineDecl *YSDecl = cast<SubroutineDecl>(Y);
+    if (XSDecl->getType()->equals(YSDecl->getType()))
         return true;
     return false;
 }

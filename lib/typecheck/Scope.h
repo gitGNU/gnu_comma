@@ -66,6 +66,10 @@ public:
     // and the decl is registered.
     Decl *addDirectDecl(Decl *decl);
 
+    // Adds the given decl to the scope unconditionally.  This method will
+    // assert in debug builds if a conflict is found.
+    void addDirectDeclNoConflicts(Decl *decl);
+
     // Adds an import into the scope, making all of the exports from the given
     // type indirectly visible.  Returns true if the given type has already been
     // imported and false otherwise.

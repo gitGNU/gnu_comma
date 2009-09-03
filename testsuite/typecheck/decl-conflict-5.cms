@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure direct names cannot conflict with capsule parameters.
+
+signature S end S;
+
+signature T (X : S) with
+  type X is (A);
+  procedure X;
+  function X return %;
+end T;

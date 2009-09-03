@@ -327,12 +327,6 @@ private:
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
 
-    /// Returns true if the given identifier can be used to name a new type
-    /// within the context of the given declarative region.  Otherwise, false is
-    /// returned and diagnostics are posted with respect to the given location.
-    bool ensureDistinctTypeName(IdentifierInfo *name, Location loc,
-                                DeclRegion *region);
-
     /// If the given functor represents the current capsule being checked,
     /// ensure that none of the argument types directly reference %.  Returns
     /// true if the given functor and argument combination is legal, otherwise
@@ -342,6 +336,8 @@ private:
                                     Location loc);
 
     void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
+
+    void aquireSignatureImplicitDeclarations(ModelDecl *model, Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
     DomainType *ensureDomainType(Type *type, Location loc, bool report = true);
@@ -495,13 +491,6 @@ private:
         for ( ; I != E; ++I)
             vec.push_back(cast_node<T>(*I));
     }
-
-    // Search all declarations present in the given declarative region for a
-    // match with respect to the given rewrites.  Returns a matching delcaration
-    // node or null.
-    static SubroutineDecl *findDecl(const AstRewriter &rewrites,
-                                    DeclRegion        *region,
-                                    SubroutineDecl    *decl);
 
     /// Imports the given declarative region into the current scope.
     void importDeclRegion(DeclRegion *region);

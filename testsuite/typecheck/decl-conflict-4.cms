@@ -1,0 +1,6 @@
+-- Ensure equally named functions and procedures can coexist.
+
+signature S with
+   procedure F;
+   function F return %;
+end S;

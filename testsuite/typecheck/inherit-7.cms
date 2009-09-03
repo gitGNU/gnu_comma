@@ -1,0 +1,19 @@
+-- Ensure matching subroutines are joined without conflict.
+
+signature S with
+   procedure P1;
+   procedure P2 (X : %);
+   function F (X : %) return %;
+end S;
+
+signature T with
+   procedure P1;
+   procedure P2 (X : %);
+   function F (X : %) return %;
+end T;
+
+signature U with
+   S;
+   T;
+end U;
+

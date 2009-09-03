@@ -1,0 +1,7 @@
+-- MUST-FAIL: Ensure type names and subroutine names conflict.
+
+signature S with
+   type T is (A);
+   procedure T;
+   function T return %;
+end S;

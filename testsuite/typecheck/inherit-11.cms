@@ -1,0 +1,10 @@
+-- MUST-FAIL: Ensure direct type declarations cannot override inherited ones.
+
+signature S1 with
+   type T is (A);
+end S1;
+
+signature S2 with
+   S1;
+   type T is (B);
+end S2;

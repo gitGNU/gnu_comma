@@ -136,10 +136,16 @@ void TypeCheck::beginModelDeclaration(Descriptor &desc)
 void TypeCheck::endModelDefinition()
 {
     assert(scope->getKind() == MODEL_SCOPE);
-    ModelDecl *result = getCurrentModel();
     scope->pop();
-    scope->addDirectDecl(result);
-    compUnit->addDeclaration(result);
+
+    ModelDecl *result = getCurrentModel();
+    if (Decl *conflict = scope->addDirectDecl(result)) {
+        // NOTE: The result model could be freed here.
+        report(result->getLocation(), diag::CONFLICTING_DECLARATION)
+            << result->getIdInfo() << getSourceLoc(conflict->getLocation());
+    }
+    else
+        compUnit->addDeclaration(result);
 }
 
 Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
@@ -154,19 +160,22 @@ Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
     // type into the current scope so that it may participate in upcomming
     // parameter types.
     if (SignatureType *sig = dyn_cast<SignatureType>(type)) {
-        // Check that the formal does not duplicate any previous parameters and
-        // does not shadow the model being defined.
+        // Check that the formal does not match the name of the model being
+        // analyzed.  We need to do this check here since the model declaration
+        // itself has yet to be brought into scope.
         if (formal == desc.getIdInfo()) {
             report(loc, diag::MODEL_FORMAL_SHADOW) << formal;
             return getInvalidNode();
         }
 
-        if (!checkDescriptorDuplicateParams(desc, formal, loc))
-            return getInvalidNode();
-
-        typeNode.release();
         AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
-        scope->addDirectDecl(dom);
+        if (Decl *conflict = scope->addDirectDecl(dom)) {
+            // The only conflict possible is with a previous formal parameter.
+            assert(isa<AbstractDomainDecl>(conflict));
+            report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
+            return getInvalidNode();
+        }
+        typeNode.release();
         return getNode(dom);
     }
     else {
@@ -227,18 +236,17 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
         domain->setDeclRegion(declarativeRegion);
     }
 
-    // Bring the model itself into scope, and release the nodes associated with
-    // the given descriptor.
+    // Bring the model itself into the current scope.  This should never result
+    // in a confict.
     currentModel = modelDecl;
-    scope->addDirectDecl(modelDecl);
+    scope->addDirectDeclNoConflicts(modelDecl);
     desc.release();
 }
 
-void TypeCheck::acceptWithSupersignature(Node     typeNode,
-                                         Location loc)
+void TypeCheck::acceptWithSupersignature(Node typeNode, Location loc)
 {
-    ModelDecl     *model = getCurrentModel();
-    Type          *type  = cast_node<Type>(typeNode);
+    ModelDecl *model = getCurrentModel();
+    Type *type  = cast_node<Type>(typeNode);
     SignatureType *superSig;
 
     // Check that the node denotes a signature.
@@ -252,9 +260,16 @@ void TypeCheck::acceptWithSupersignature(Node     typeNode,
     typeNode.release();
     model->addDirectSignature(superSig);
 
-    // Check that this signature does not introduce any conflicting type names
-    // and bring all non-conflicting types into the current region.
+    // Bring all types defined by this super signature into scope (so that they
+    // can participate in upcomming type expressions) and add them to the
+    // current model .
     aquireSignatureTypeDeclarations(model, superSig->getSigoid());
+
+    // Bring all implicit declarations defined by the super signature types into
+    // scope.  This allows us to detect conflicting declarations as we process
+    // the body.  All other subroutine declarations are processed after in
+    // ensureNecessaryRedeclarations.
+    aquireSignatureImplicitDeclarations(model, superSig->getSigoid());
 }
 
 Node TypeCheck::acceptPercent(Location loc)
@@ -409,8 +424,10 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
 {
     Decl *decl;
 
-    if (qualNode.isNull())
+    if (qualNode.isNull()) {
+        // FIXME:  Use a Scope::Resolver here.
         decl = resolveTypeOrModelDecl(id, loc);
+    }
     else {
         Qualifier *qualifier = cast_node<Qualifier>(qualNode);
         DeclRegion *region = qualifier->resolve();
@@ -563,8 +580,8 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
 void TypeCheck::beginWithExpression()
 {
-    // Nothing to do.  The declarative region of the current model is the
-    // destination of all declarations in a with expression.
+    // Nothing to do.  The declarative region and scope of the current model is
+    // the destination of all declarations in a with expression.
 }
 
 void TypeCheck::endWithExpression()
@@ -649,29 +666,6 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
     }
 }
 
-// Search all declarations present in the given declarative region for a match
-// with respect to the given rewrites.  Returns a matching delcaration node or
-// null.
-SubroutineDecl *TypeCheck::findDecl(const AstRewriter &rewrites,
-                                    DeclRegion        *region,
-                                    SubroutineDecl    *decl)
-{
-    typedef DeclRegion::PredIter  PredIter;
-    typedef DeclRegion::PredRange PredRange;
-    IdentifierInfo *name       = decl->getIdInfo();
-    SubroutineType *targetType = decl->getType();
-    PredRange       range      = region->findDecls(name);
-
-    for (PredIter &iter = range.first; iter != range.second; ++iter) {
-        if (SubroutineDecl *source = dyn_cast<SubroutineDecl>(*iter)) {
-            SubroutineType *sourceType = source->getType();
-            if (compareTypesUsingRewrites(rewrites, sourceType, targetType))
-                return source;
-        }
-    }
-    return 0;
-}
-
 void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 {
     // We scan the set of declarations for each direct signature of the given
@@ -694,13 +688,13 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     typedef llvm::DenseMap<SubroutineDecl*, SubroutineDecl*> IndirectDeclMap;
     IndirectDeclMap indirectDecls;
 
-    SignatureSet          &sigset       = model->getSignatureSet();
-    SignatureSet::iterator superIter    = sigset.beginDirect();
+    SignatureSet &sigset = model->getSignatureSet();
+    SignatureSet::iterator superIter = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
-        SignatureType *super   = *superIter;
-        Sigoid        *sigdecl = super->getSigoid();
-        AstRewriter    rewrites;
+        SignatureType *super = *superIter;
+        Sigoid *sigdecl = super->getSigoid();
+        AstRewriter rewrites;
 
         rewrites[sigdecl->getPercent()] = model->getPercent();
         rewrites.installRewrites(super);
@@ -708,52 +702,75 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         Sigoid::DeclIter iter    = sigdecl->beginDecls();
         Sigoid::DeclIter endIter = sigdecl->endDecls();
         for ( ; iter != endIter; ++iter) {
-            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*iter)) {
-                IdentifierInfo *name   = srDecl->getIdInfo();
-                SubroutineType *srType = srDecl->getType();
-                SubroutineDecl *decl   = findDecl(rewrites, model, srDecl);
+            // Only subroutine declarations need to be redeclared.
+            SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*iter);
+            if (!srDecl)
+                continue;
 
-                // If a matching declaration was not found, apply the rewrites
-                // and construct a new indirect declaration node for this
-                // model.  Also, set the origin of this new decl to point at the
-                // node from which it was derived.
-                if (!decl) {
-                    SubroutineType *rewriteType = rewrites.rewrite(srType);
-                    SubroutineDecl *rewriteDecl;
+            // Rewrite the declaration to match the current models context.
+            IdentifierInfo *name = srDecl->getIdInfo();
+            SubroutineType *srType = srDecl->getType();
+            SubroutineType *rewriteType = rewrites.rewrite(srType);
+            SubroutineDecl *rewriteDecl =
+                makeSubroutineDecl(name, 0, rewriteType, model);
 
-                    rewriteDecl = makeSubroutineDecl(name, 0, rewriteType, model);
-                    rewriteDecl->setOrigin(srDecl);
-                    model->addDecl(rewriteDecl);
-                    indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
-                } else if (indirectDecls.count(decl)) {
-                    // An indirect declaration was found.  Since there is no
-                    // overriding declaration in this case ensure that the
-                    // keywords match.
-                    SubroutineType *declType = decl->getType();
+            Decl *conflict = scope->addDirectDecl(rewriteDecl);
 
-                    if (!declType->keywordsMatch(srType)) {
-                        Location        modelLoc = model->getLocation();
-                        SubroutineDecl *baseDecl = indirectDecls.lookup(decl);
-                        SourceLocation     sloc1 =
-                            getSourceLoc(baseDecl->getLocation());
-                        SourceLocation     sloc2 =
-                            getSourceLoc(srDecl->getLocation());
-                        report(modelLoc, diag::MISSING_REDECLARATION)
-                            << decl->getString() << sloc1 << sloc2;
-                        badDecls.insert(decl);
-                    }
+            if (!conflict) {
+                // Set the origin to point at the signature which originally
+                // declared it.
+                rewriteDecl->setOrigin(srDecl);
+                model->addDecl(rewriteDecl);
+                indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
+                continue;
+            }
+
+            // If the conflict is with respect to a TypeDecl, it must be a type
+            // declared locally within the current model (since the set of types
+            // provided by the super signatures have already been verified
+            // consistent in aquireSignatureTypeDeclarations).  This is an
+            // error.
+            //
+            // FIXME: assert that this is local to the current model.
+            if (isa<TypeDecl>(conflict)) {
+                SourceLocation sloc = getSourceLoc(srDecl->getLocation());
+                report(conflict->getLocation(), diag::DECLARATION_CONFLICTS)
+                    << name << sloc;
+                badDecls.insert(rewriteDecl);
+            }
+
+            // We currently do not support ValueDecls in models.  Therefore, the
+            // conflict must denote a subroutine.
+            SubroutineDecl *conflictRoutine = cast<SubroutineDecl>(conflict);
+            SubroutineType *conflictType = conflictRoutine->getType();
+            if (conflictType->keywordsMatch(rewriteType)) {
+                // If the conflicting declaration does not have an origin
+                // (meaning that is was explicitly declared by the model)
+                // map its origin to the to that of the original subroutine
+                // provided by the signature.
+                if (!conflictRoutine->hasOrigin()) {
+                    // FIXME: We should warn here that the "conflict"
+                    // declaration is simply redundant.
+                    conflictRoutine->setOrigin(srDecl);
                 }
-                else {
-                    // A declaration provided by a supersignature was found to
-                    // exactly match one provided by the current model.  Set the
-                    // origin to point at this decl if it has not been set
-                    // already.
-                    //
-                    // FIXME: We should warn here that the declaration is
-                    // redundant.
-                    if (!decl->hasOrigin())
-                        decl->setOrigin(srDecl);
-                }
+                continue;
+            }
+
+            // Otherwise, the keywords do not match.  If the conflicting
+            // decl is a member of the indirect set, post a diagnostic.
+            // Otherwise, the conflicting decl was declared by this model
+            // and hense overrides the conflict.
+            if (indirectDecls.count(conflictRoutine)) {
+                Location modelLoc = model->getLocation();
+                SubroutineDecl *baseDecl =
+                    indirectDecls.lookup(conflictRoutine);
+                SourceLocation sloc1 =
+                    getSourceLoc(baseDecl->getLocation());
+                SourceLocation sloc2 =
+                    getSourceLoc(srDecl->getLocation());
+                report(modelLoc, diag::MISSING_REDECLARATION)
+                    << name << sloc1 << sloc2;
+                badDecls.insert(rewriteDecl);
             }
         }
 
@@ -768,145 +785,79 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     }
 }
 
+// Bring all type declarations provided by the signature into the given model.
 void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
-                                                Sigoid    *sigdecl)
+                                                Sigoid *sigdecl)
 {
-    // Bring all type declarations provided by the signature into the given
-    // model.
-    DeclRegion::DeclIter iter    = sigdecl->beginDecls();
-    DeclRegion::DeclIter endIter = sigdecl->endDecls();
-
-    for ( ; iter != endIter; ++iter) {
-        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*iter)) {
-            IdentifierInfo *name = tyDecl->getIdInfo();
-            Location loc = tyDecl->getLocation();
-            if (ensureDistinctTypeName(name, loc, model)) {
-                model->addDecl(tyDecl);
-                scope->addDirectDecl(tyDecl);
-
-                if (EnumerationDecl *decl = dyn_cast<EnumerationDecl>(tyDecl)) {
-                    DeclRegion::DeclIter litIter = decl->beginDecls();
-                    DeclRegion::DeclIter litEnd  = decl->endDecls();
-                    for ( ; litIter != litEnd; ++litIter)
-                        scope->addDirectDecl(*litIter);
-                }
-            }
-        }
-    }
-}
-
-/// Returns true if the given identifier can be used to name a new type within
-/// the context of the given declarative region.  Otherwise, false is returned
-/// and diagnostics are posted with respect to the given location.
-bool TypeCheck::ensureDistinctTypeName(IdentifierInfo *name, Location loc,
-                                       DeclRegion *region)
-{
-    typedef DeclRegion::PredRange PredRange;
-    typedef DeclRegion::PredIter  PredIter;
-    PredRange range = region->findDecls(name);
-
-    if (range.first != range.second) {
-        for (PredIter &iter = range.first; iter != range.second; ++iter) {
-            TypeDecl *conflict = dyn_cast<TypeDecl>(*iter);
-            if (conflict) {
+    DeclRegion::DeclIter I = sigdecl->beginDecls();
+    DeclRegion::DeclIter E = sigdecl->endDecls();
+    for ( ; I != E; ++I) {
+        if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*I)) {
+            if (Decl *conflict = scope->addDirectDecl(tyDecl)) {
+                // FIXME: We should not error if conflict is an equivalent type
+                // decl, but we do have support such a concept yet.
+                //
+                // FIXME: We need a better diagnostic which reports context.
                 SourceLocation sloc = getSourceLoc(conflict->getLocation());
-                report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
-                return false;
+                report(tyDecl->getLocation(), diag::DECLARATION_CONFLICTS)
+                    << tyDecl->getIdInfo() << sloc;
             }
+            else
+                model->addDecl(tyDecl);
         }
     }
-
-    // If the declarative region denotes a model or an AddDecl, check to ensure
-    // that the name does not conflict with the model name or any model
-    // parameters.  We do not need to check declarations inherited from super
-    // signatures as they are injected into the models declarative region.
-    Ast *ast = region->asAst();
-    if (AddDecl *add = dyn_cast<AddDecl>(ast)) {
-        // Recursively check the declarations present in this AddDecls
-        // associated model.
-        ModelDecl *model = add->getImplementedDomoid();
-        return ensureDistinctTypeName(name, loc, model);
-    }
-
-    if (ModelDecl *model = dyn_cast<ModelDecl>(ast)) {
-        if (name == model->getIdInfo()) {
-            SourceLocation sloc = getSourceLoc(model->getLocation());
-            report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
-            return false;
-        }
-
-        if (model->isParameterized()) {
-            for (unsigned i = 0; i < model->getArity(); ++i) {
-                IdentifierInfo *id = model->getFormalIdInfo(i);
-                if (name == id) {
-                    AbstractDomainDecl *formal =
-                        model->getFormalType(i)->getAbstractDecl();
-                    SourceLocation sloc = getSourceLoc(formal->getLocation());
-                    report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
-                    return false;
-                }
-            }
-        }
-    }
-    return true;
 }
 
-bool TypeCheck::acceptObjectDeclaration(Location        loc,
-                                        IdentifierInfo *name,
-                                        Node            typeNode,
-                                        Node            initializerNode)
+void TypeCheck::aquireSignatureImplicitDeclarations(ModelDecl *model,
+                                                    Sigoid *sigdecl)
 {
+    DeclRegion::DeclIter I = sigdecl->beginDecls();
+    DeclRegion::DeclIter E = sigdecl->endDecls();
+    for ( ; I != E; ++I) {
+        TypeDecl *tyDecl = dyn_cast<TypeDecl>(*I);
+
+        if (!tyDecl)
+            continue;
+
+        // Currently, only enumeration and integer decls supply implicit
+        // declarations.  Bringing these declarations into scope should never
+        // result in a conflict since that should all involve unique types.
+        DeclRegion *region;
+        if (EnumerationDecl *eDecl = dyn_cast<EnumerationDecl>(tyDecl))
+            region = eDecl;
+        else if (IntegerDecl *iDecl = dyn_cast<IntegerDecl>(tyDecl))
+            region = iDecl;
+
+        DeclRegion::DeclIter II = region->beginDecls();
+        DeclRegion::DeclIter EE = region->endDecls();
+        for ( ; II != EE; ++II)
+            scope->addDirectDeclNoConflicts(*II);
+    }
+}
+
+bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
+                                        Node typeNode, Node initializerNode)
+{
+    Expr *init = 0;
     Type *type = ensureValueType(typeNode, loc);
 
     if (!type) return false;
 
-    // Check that this declaration does not conflict.
-    for (DeclRegion *region = currentDeclarativeRegion();
-         region != 0; region = region->getParent()) {
-        DeclRegion::PredRange range = region->findDecls(name);
-        if (range.first != range.second) {
-            Decl *decl = *range.first;
-            SourceLocation sloc = getSourceLoc(decl->getLocation());
-            report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
-            return false;
-        }
-
-        Ast *ast = region->asAst();
-        if (SubroutineDecl *decl = dyn_cast<SubroutineDecl>(ast)) {
-            // Check that the name does not conflict with the formal parameters
-            // of the subroutine.
-            for (SubroutineDecl::ParamDeclIterator iter = decl->beginParams();
-                 iter != decl->endParams(); ++iter) {
-                ParamValueDecl *param = *iter;
-                if (name == param->getIdInfo()) {
-                    SourceLocation sloc = getSourceLoc(param->getLocation());
-                    report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
-                    return false;
-                }
-            }
-            break;
-        }
-
-        if (isa<ModelDecl>(ast))
-            break;
-    }
-
-    ObjectDecl *decl;
-    if (initializerNode.isNull())
-        decl = new ObjectDecl(name, type, loc);
-    else {
-        Expr *expr = cast_node<Expr>(initializerNode);
-        if (checkExprInContext(expr, type)) {
-            decl = new ObjectDecl(name, type, loc);
-            decl->setInitializer(expr);
-        }
-        else
+    if (!initializerNode.isNull()) {
+        init = cast_node<Expr>(initializerNode);
+        if (!checkExprInContext(init, type))
             return false;
     }
+    ObjectDecl *decl = new ObjectDecl(name, type, loc, init);
 
     typeNode.release();
     initializerNode.release();
-    scope->addDirectDecl(decl);
+
+    if (Decl *conflict = scope->addDirectDecl(decl)) {
+        SourceLocation sloc = getSourceLoc(conflict->getLocation());
+        report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+        return false;
+    }
     currentDeclarativeRegion()->addDecl(decl);
     return true;
 }
@@ -972,8 +923,12 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
     if (Type *type = ensureValueType(typeNode, loc)) {
         typeNode.release();
         CarrierDecl *carrier = new CarrierDecl(name, type, loc);
+        if (Decl *conflict = scope->addDirectDecl(carrier)) {
+            report(loc, diag::CONFLICTING_DECLARATION)
+                << name << getSourceLoc(conflict->getLocation());
+            return;
+        }
         add->setCarrier(carrier);
-        scope->addDirectDecl(carrier);
     }
 }
 
@@ -1002,7 +957,7 @@ Node TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
 }
 
 Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
-                                            bool        definitionFollows)
+                                            bool definitionFollows)
 {
     assert((desc.isFunctionDescriptor() || desc.isProcedureDescriptor()) &&
            "Descriptor does not denote a subroutine!");
@@ -1030,7 +985,6 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
         for (paramVec::iterator I = parameters.begin();
              I != parameters.end(); ++I)
             paramsOK = checkFunctionParameter(*I);
-
         if (parameters.size() != 2 and namesBinaryFunction(desc.getIdInfo())) {
             report(location, diag::BINARY_FUNCTION_ARITY_MISMATCH) << name;
             paramsOK = false;
@@ -1043,7 +997,6 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion *region = currentDeclarativeRegion();
-
     if (desc.isFunctionDescriptor()) {
         if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
             routineDecl = new FunctionDecl(name,
@@ -1061,34 +1014,19 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
                                         parameters.size(),
                                         region);
     }
-
     if (!routineDecl) return getInvalidNode();
 
-    // Check that this declaration does not conflict with any other in the
-    // current region.  If we find a decl with the same name and type, it must
-    // be a forward decl (detected by checking that there no associated body).
-    // When a forward decl is present, and a definition follows, set the
-    // defining declaration link in the forward decl.
-    if (Decl *extantDecl = region->findDecl(name, routineDecl->getType())) {
-        SubroutineDecl *sdecl = cast<SubroutineDecl>(extantDecl);
-        SourceLocation sloc = getSourceLoc(extantDecl->getLocation());
-
-        if (!sdecl->hasBody() && definitionFollows)
-            sdecl->setDefiningDeclaration(routineDecl);
-        else {
-            report(location, diag::SUBROUTINE_REDECLARATION)
-                << routineDecl->getString()
-                << sloc;
-            return getInvalidNode();
-        }
-    }
-    else {
-        // Add the subroutine declaration into the current declarative region.
-        region->addDecl(routineDecl);
-        scope->addDirectDecl(routineDecl);
+    // Ensure this new declaration does not conflict with any other currently in
+    // scope.
+    if (Decl *conflict = scope->addDirectDecl(routineDecl)) {
+        report(location, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return getInvalidNode();
     }
 
-    // This is an immediate declaration.  Mark it so.
+    // Add the subroutine to the current declarative region and mark it as
+    // immediate (e.g. not inherited).
+    region->addDecl(routineDecl);
     routineDecl->setImmediate();
 
     // Since the declaration has been added permanently to the environment,
@@ -1104,14 +1042,16 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
     SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
     declarationNode.release();
 
-    // Enter a scope for the subroutine definition and populate it with the
-    // formal parmeter bindings.
+    // Enter a scope for the subroutine definition.  Add the subroutine itself
+    // as an element of the new scope and add the formal parameters.  This
+    // should never result in conflicts.
     scope->push(FUNCTION_SCOPE);
+    scope->addDirectDeclNoConflicts(srDecl);
     typedef SubroutineDecl::ParamDeclIterator ParamIter;
     for (ParamIter iter = srDecl->beginParams();
          iter != srDecl->endParams(); ++iter) {
         ParamValueDecl *param = *iter;
-        scope->addDirectDecl(param);
+        scope->addDirectDeclNoConflicts(param);
     }
 
     // Allocate a BlockStmt for the subroutines body and make this block the
@@ -1159,17 +1099,17 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key, Location loc,
 Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
 {
     DeclRegion *region = currentDeclarativeRegion();
-
-    if (!ensureDistinctTypeName(name, loc, region))
-        return getInvalidNode();
-
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
+    if (Decl *conflict = scope->addDirectDecl(enumeration)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return getInvalidNode();
+    }
     return getNode(enumeration);
 }
 
-void TypeCheck::acceptEnumerationLiteral(Node            enumerationNode,
-                                         IdentifierInfo *name,
-                                         Location        loc)
+void TypeCheck::acceptEnumerationLiteral(Node enumerationNode,
+                                         IdentifierInfo *name, Location loc)
 {
     EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
 
@@ -1189,7 +1129,6 @@ void TypeCheck::endEnumerationType(Node enumerationNode)
     declProducer->createImplicitDecls(enumeration);
     region->addDecl(enumeration);
     importDeclRegion(enumeration);
-    scope->addDirectDecl(enumeration);
 }
 
 /// Called to process integer type definitions.
@@ -1202,10 +1141,6 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
                                      Node lowNode, Node highNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
-
-    if (!ensureDistinctTypeName(name, loc, region))
-        return;
-
     Expr *lowExpr = cast_node<Expr>(lowNode);
     Expr *highExpr = cast_node<Expr>(highNode);
 
@@ -1232,10 +1167,14 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     IntegerDecl *Idecl =
         new IntegerDecl(name, loc, lowExpr, highExpr, intTy, region);
 
-    declProducer->createImplicitDecls(Idecl);
+    if (Decl *conflict = scope->addDirectDecl(Idecl)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
     region->addDecl(Idecl);
+    declProducer->createImplicitDecls(Idecl);
     importDeclRegion(Idecl);
-    scope->addDirectDecl(Idecl);
 }
 
 bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
@@ -1296,8 +1235,7 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
         // reporting which signature(s) demand the missing export.  However, the
         // current organization makes this difficult.  One solution is to link
         // declaration nodes with those provided by the original signature
-        // definition.  Another is to perform a search thru the signature
-        // hierarchy using TypeCheck::findDecl.
+        // definition.
         if (target) {
             Decl *candidate = add->findDecl(decl->getIdInfo(), target);
             SubroutineDecl *srDecl = dyn_cast_or_null<SubroutineDecl>(candidate);
@@ -1318,8 +1256,13 @@ void TypeCheck::importDeclRegion(DeclRegion *region)
     // scope API's yet.
     typedef DeclRegion::DeclIter iterator;
 
-    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
-        scope->addDirectDecl(*I);
+    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
+        Decl *decl = *I;
+        if (Decl *conflict = scope->addDirectDecl(decl)) {
+            report(decl->getLocation(), diag::CONFLICTING_DECLARATION)
+                << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
+        }
+    }
 }
 
 /// Returns true if the given parameter is of mode "in", and thus capatable with

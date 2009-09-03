@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure multiple subroutine declarations are caught, independent of
+-- keyword names.
+
+signature S with
+   procedure P (X : %);
+   procedure P (Y : %);
+   function F (X : %) return %;
+   function F (Y : %) return %;
+end S;
