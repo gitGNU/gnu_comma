@@ -167,17 +167,25 @@ private:
 
 //===----------------------------------------------------------------------===//
 // DomainType
-class DomainType : public NamedType, public llvm::FoldingSetNode {
+class DomainType : public NamedType {
+
+private:
+    /// Domain types are created and owned by a unique associated decl. Sigoids
+    /// and Domoids create a unique domain type to represent % nodes, whic
+    /// DomainTypeDecls create a unique type to represent themselves.
+    friend class ModelDecl;
+    friend class DomainTypeDecl;
+
+    /// For use by Sigoids and Domoids.  Creates a domain type representing a
+    /// % node.
+    DomainType(IdentifierInfo *percentId, ModelDecl *model);
+
+    /// For use by DomainTypeDecls.  Creates a type representing the given
+    /// domain type declaration.
+    DomainType(DomainTypeDecl *DTDecl);
 
 public:
-    /// Creates a type representing the given domain type declaration.
-    DomainType(DomainTypeDecl *DVDecl);
-
-    // Creates a domain type representing the % node of the given model.
-    static DomainType *getPercent(IdentifierInfo *percentInfo,
-                                  ModelDecl *model);
-
-    // Returns true if this node is a percent node.
+    /// Returns true if this node is a percent node.
     bool denotesPercent() const;
 
     /// Returns true if this type involves a percent node.
@@ -193,33 +201,37 @@ public:
     Decl *getDeclaration() { return declaration; }
     const Decl *getDeclaration() const { return declaration; }
 
+    /// If this node represents %, return the associated ModelDecl, else null.
     ModelDecl *getModelDecl() const;
 
+    /// If this is not a percent node, return the associated DomainTypeDecl,
+    /// else null.
     DomainTypeDecl *getDomainTypeDecl() const;
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is a domain instance declaration.
+    /// Returns true if the underlying declaration is an DomainInstanceDecl.
+    bool isConcrete() const { return getInstanceDecl() != 0; }
+
+    /// If this node is concrete, return the underlying DomainInstanceDecl, else
+    /// null.
     DomainInstanceDecl *getInstanceDecl() const;
 
-    // Similar to getDeclaration(), but returns non-NULL iff the underlying
-    // definition is an abstract domain.
-    AbstractDomainDecl *getAbstractDecl() const;
-
-    // Returns true if the underlying declaration is an AbstractDomainDecl.
+    /// Returns true if the underlying declaration is an AbstractDomainDecl.
     bool isAbstract() const { return getAbstractDecl() != 0; }
 
-    // Returns true if this type and the given type are equal.
+    /// If this node is abstract, return underlying AbstractDomainDecl, else
+    /// null.
+    AbstractDomainDecl *getAbstractDecl() const;
+
+    /// Returns true if this type and the given type are equal.
     bool equals(const Type *type) const;
 
-    // Support isa and dyn_cast.
+    /// Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_DomainType;
     }
 
 private:
-    // This constructor is called by getPercent() to create a percent node.
-    DomainType(IdentifierInfo *percentId, ModelDecl *model);
 
     Decl *declaration;
 };

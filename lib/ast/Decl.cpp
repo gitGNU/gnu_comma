@@ -79,7 +79,12 @@ ModelDecl::ModelDecl(AstResource &resource,
       percent(0)
 {
     IdentifierInfo *percentId = resource.getIdentifierInfo("%");
-    percent =  DomainType::getPercent(percentId, this);
+    percent =  new DomainType(percentId, this);
+}
+
+ModelDecl::~ModelDecl()
+{
+    delete percent;
 }
 
 bool ModelDecl::addDirectSignature(SignatureType *signature)
@@ -525,6 +530,11 @@ DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
 {
     assert(this->denotesDomainTypeDecl());
     correspondingType = new DomainType(this);
+}
+
+DomainTypeDecl::~DomainTypeDecl()
+{
+    delete correspondingType;
 }
 
 //===----------------------------------------------------------------------===//

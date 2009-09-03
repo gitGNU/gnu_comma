@@ -138,11 +138,6 @@ DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
       declaration(model)
 { }
 
-DomainType *DomainType::getPercent(IdentifierInfo *percentId, ModelDecl *decl)
-{
-    return new DomainType(percentId, decl);
-}
-
 bool DomainType::denotesPercent() const
 {
     // When our defining declaration is a model, this type represents the % node

@@ -177,7 +177,7 @@ private:
 class ModelDecl : public Decl, public DeclRegion {
 
 public:
-    virtual ~ModelDecl() { }
+    virtual ~ModelDecl();
 
     /// Returns true if this model is parameterized.
     bool isParameterized() const {
@@ -932,6 +932,8 @@ protected:
     DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc);
 
 public:
+    virtual ~DomainTypeDecl();
+
     /// Returns the SignatureSet of this DomainTypeDecl.
     ///
     /// The signatures of a DomainTypeDecl are a rewritten version of those
