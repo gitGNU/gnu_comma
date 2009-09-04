@@ -33,7 +33,7 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
       compUnit(cunit),
       scope(new Scope),
       errorCount(0),
-      declProducer(new DeclProducer(&resource))
+      declProducer(new DeclProducer(resource))
 {
     populateInitialEnvironment();
 }
@@ -363,7 +363,7 @@ TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
     assert(parameterizedModel->isParameterized());
     assert(numArguments < parameterizedModel->getArity());
 
-    AstRewriter rewriter;
+    AstRewriter rewriter(resource);
 
     // For each actual argument, establish a map from the formal parameter to
     // the actual.
@@ -594,16 +594,23 @@ void TypeCheck::endWithExpression()
 
 // Creates a procedure or function decl depending on the kind of the
 // supplied type.
-SubroutineDecl *TypeCheck::makeSubroutineDecl(IdentifierInfo *name,
-                                              Location        loc,
-                                              SubroutineType *type,
-                                              DeclRegion     *region)
+SubroutineDecl *
+TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
+                              const AstRewriter &rewrites, DeclRegion *region)
 {
-    if (FunctionType *ftype = dyn_cast<FunctionType>(type))
-        return new FunctionDecl(name, loc, ftype, region);
+    IdentifierInfo *name = SRDecl->getIdInfo();
+    SubroutineType *SRType = rewrites.rewrite(SRDecl->getType());
+    unsigned arity = SRDecl->getArity();
 
-    ProcedureType *ptype = cast<ProcedureType>(type);
-    return new ProcedureDecl(name, loc, ptype, region);
+    llvm::SmallVector<IdentifierInfo*, 8> keys;
+    for (unsigned i = 0; i < arity; ++i)
+        keys.push_back(SRDecl->getParamKeyword(i));
+
+    if (FunctionType *ftype = dyn_cast<FunctionType>(SRType))
+        return new FunctionDecl(name, 0, keys.data(), ftype, region);
+
+    ProcedureType *ptype = cast<ProcedureType>(SRType);
+    return new ProcedureDecl(name, 0, keys.data(), ptype, region);
 }
 
 DomainType *TypeCheck::ensureDomainType(Node node,
@@ -694,7 +701,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     for ( ; superIter != endSuperIter; ++superIter) {
         SignatureType *super = *superIter;
         Sigoid *sigdecl = super->getSigoid();
-        AstRewriter rewrites;
+        AstRewriter rewrites(resource);
 
         rewrites[sigdecl->getPercent()] = model->getPercent();
         rewrites.installRewrites(super);
@@ -708,12 +715,8 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
                 continue;
 
             // Rewrite the declaration to match the current models context.
-            IdentifierInfo *name = srDecl->getIdInfo();
-            SubroutineType *srType = srDecl->getType();
-            SubroutineType *rewriteType = rewrites.rewrite(srType);
             SubroutineDecl *rewriteDecl =
-                makeSubroutineDecl(name, 0, rewriteType, model);
-
+                makeSubroutineDecl(srDecl, rewrites, model);
             Decl *conflict = scope->addDirectDecl(rewriteDecl);
 
             if (!conflict) {
@@ -735,15 +738,14 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
             if (isa<TypeDecl>(conflict)) {
                 SourceLocation sloc = getSourceLoc(srDecl->getLocation());
                 report(conflict->getLocation(), diag::DECLARATION_CONFLICTS)
-                    << name << sloc;
+                    << srDecl->getIdInfo() << sloc;
                 badDecls.insert(rewriteDecl);
             }
 
             // We currently do not support ValueDecls in models.  Therefore, the
             // conflict must denote a subroutine.
             SubroutineDecl *conflictRoutine = cast<SubroutineDecl>(conflict);
-            SubroutineType *conflictType = conflictRoutine->getType();
-            if (conflictType->keywordsMatch(rewriteType)) {
+            if (conflictRoutine->keywordsMatch(rewriteDecl)) {
                 // If the conflicting declaration does not have an origin
                 // (meaning that is was explicitly declared by the model)
                 // map its origin to the to that of the original subroutine
@@ -769,7 +771,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
                 SourceLocation sloc2 =
                     getSourceLoc(srDecl->getLocation());
                 report(modelLoc, diag::MISSING_REDECLARATION)
-                    << name << sloc1 << sloc2;
+                    << srDecl->getIdInfo() << sloc1 << sloc2;
                 badDecls.insert(rewriteDecl);
             }
         }
@@ -999,19 +1001,14 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     DeclRegion *region = currentDeclarativeRegion();
     if (desc.isFunctionDescriptor()) {
         if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
-            routineDecl = new FunctionDecl(name,
-                                           location,
-                                           parameters.data(),
-                                           parameters.size(),
-                                           returnType,
-                                           region);
+            routineDecl = new FunctionDecl(resource, name, location,
+                                           parameters.data(), parameters.size(),
+                                           returnType, region);
         }
     }
     else {
-        routineDecl = new ProcedureDecl(name,
-                                        location,
-                                        parameters.data(),
-                                        parameters.size(),
+        routineDecl = new ProcedureDecl(resource, name, location,
+                                        parameters.data(), parameters.size(),
                                         region);
     }
     if (!routineDecl) return getInvalidNode();
@@ -1047,12 +1044,10 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
     // should never result in conflicts.
     scope->push(FUNCTION_SCOPE);
     scope->addDirectDeclNoConflicts(srDecl);
-    typedef SubroutineDecl::ParamDeclIterator ParamIter;
-    for (ParamIter iter = srDecl->beginParams();
-         iter != srDecl->endParams(); ++iter) {
-        ParamValueDecl *param = *iter;
-        scope->addDirectDeclNoConflicts(param);
-    }
+    typedef SubroutineDecl::param_iterator param_iterator;
+    for (param_iterator I = srDecl->begin_params();
+         I != srDecl->end_params(); ++I)
+        scope->addDirectDeclNoConflicts(*I);
 
     // Allocate a BlockStmt for the subroutines body and make this block the
     // current declarative region.
@@ -1117,7 +1112,7 @@ void TypeCheck::acceptEnumerationLiteral(Node enumerationNode,
         report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
         return;
     }
-    new EnumLiteral(enumeration, name, loc);
+    new EnumLiteral(resource, name, loc, enumeration);
 }
 
 void TypeCheck::endEnumerationType(Node enumerationNode)

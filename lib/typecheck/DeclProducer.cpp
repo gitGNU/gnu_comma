@@ -23,7 +23,7 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-DeclProducer::DeclProducer(AstResource *resource)
+DeclProducer::DeclProducer(AstResource &resource)
     : resource(resource),
       theBoolDecl(0),
       theIntegerDecl(0)
@@ -40,29 +40,29 @@ DeclProducer::DeclProducer(AstResource *resource)
 /// False are produced.
 void DeclProducer::createTheBoolDecl()
 {
-    IdentifierInfo *boolId = resource->getIdentifierInfo("Bool");
-    IdentifierInfo *trueId = resource->getIdentifierInfo("true");
-    IdentifierInfo *falseId = resource->getIdentifierInfo("false");
+    IdentifierInfo *boolId = resource.getIdentifierInfo("Bool");
+    IdentifierInfo *trueId = resource.getIdentifierInfo("true");
+    IdentifierInfo *falseId = resource.getIdentifierInfo("false");
 
     // Declaration order of the True and False enumeration literals is critical.
     // We need False defined first so that it codegens to 0.
     theBoolDecl = new EnumerationDecl(boolId, 0, 0);
-    new EnumLiteral(theBoolDecl, falseId, 0);
-    new EnumLiteral(theBoolDecl, trueId, 0);
+    new EnumLiteral(resource, falseId, 0, theBoolDecl);
+    new EnumLiteral(resource, trueId, 0, theBoolDecl);
 }
 
 /// Constructor method for producing a raw Integer decl.  This function does not
 /// generate the associated implicit functions.
 void DeclProducer::createTheIntegerDecl()
 {
-    IdentifierInfo *integerId = resource->getIdentifierInfo("Integer");
+    IdentifierInfo *integerId = resource.getIdentifierInfo("Integer");
 
     // Define Integer as a signed 32 bit type.
     llvm::APInt lowVal(32, 1UL << 31);
     llvm::APInt highVal(32, ~(1UL << 31));
     IntegerLiteral *lowExpr = new IntegerLiteral(lowVal, 0);
     IntegerLiteral *highExpr = new IntegerLiteral(highVal, 0);
-    IntegerType *intTy = resource->getIntegerType(lowVal, highVal);
+    IntegerType *intTy = resource.getIntegerType(lowVal, highVal);
 
     theIntegerDecl = new IntegerDecl(integerId, 0, lowExpr, highExpr, intTy, 0);
 }
@@ -100,15 +100,15 @@ IdentifierInfo *DeclProducer::getPredicateName(PredicateKind kind)
         assert(false && "Bad kind of predicate!");
         return 0;
     case EQ_pred:
-        return resource->getIdentifierInfo("=");
+        return resource.getIdentifierInfo("=");
     case LT_pred:
-        return resource->getIdentifierInfo("<");
+        return resource.getIdentifierInfo("<");
     case GT_pred:
-        return resource->getIdentifierInfo(">");
+        return resource.getIdentifierInfo(">");
     case LTEQ_pred:
-        return resource->getIdentifierInfo("<=");
+        return resource.getIdentifierInfo("<=");
     case GTEQ_pred:
-        return resource->getIdentifierInfo(">=");
+        return resource.getIdentifierInfo(">=");
     }
 }
 
@@ -179,8 +179,8 @@ DeclProducer::createPredicate(PredicateKind kind,
     assert(region && "Decl context not a declarative region!");
 
     IdentifierInfo *name = getPredicateName(kind);
-    IdentifierInfo *paramX = resource->getIdentifierInfo("X");
-    IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
+    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
+    IdentifierInfo *paramY = resource.getIdentifierInfo("Y");
 
     ParamValueDecl *params[] = {
         new ParamValueDecl(paramX, paramType, PM::MODE_DEFAULT, 0),
@@ -188,7 +188,8 @@ DeclProducer::createPredicate(PredicateKind kind,
     };
 
     FunctionDecl *pred =
-        new FunctionDecl(name, loc, params, 2, theBoolDecl->getType(), region);
+        new FunctionDecl(resource, name, loc, params, 2,
+                         theBoolDecl->getType(), region);
     pred->setAsPrimitive(getPredicatePrimitive(kind));
     return pred;
 }
@@ -200,9 +201,9 @@ IdentifierInfo *DeclProducer::getArithName(ArithKind kind)
         assert(false && "Bad arithmetic kind!");
         return 0;
     case PLUS_arith:
-        return resource->getIdentifierInfo("+");
+        return resource.getIdentifierInfo("+");
     case MINUS_arith:
-        return resource->getIdentifierInfo("-");
+        return resource.getIdentifierInfo("-");
     }
 }
 
@@ -227,15 +228,16 @@ DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context)
     assert(region && "Decl context not a declarative region!");
 
     IdentifierInfo *name = getArithName(kind);
-    IdentifierInfo *paramX = resource->getIdentifierInfo("X");
-    IdentifierInfo *paramY = resource->getIdentifierInfo("Y");
+    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
+    IdentifierInfo *paramY = resource.getIdentifierInfo("Y");
 
     ParamValueDecl *params[] = {
         new ParamValueDecl(paramX, Ty, PM::MODE_DEFAULT, 0),
         new ParamValueDecl(paramY, Ty, PM::MODE_DEFAULT, 0)
     };
 
-    FunctionDecl *op = new FunctionDecl(name, loc, params, 2, Ty, region);
+    FunctionDecl *op =
+        new FunctionDecl(resource, name, loc, params, 2, Ty, region);
     op->setAsPrimitive(getArithPrimitive(kind));
     return op;
 }

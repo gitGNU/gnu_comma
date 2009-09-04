@@ -35,7 +35,7 @@ class AstResource;
 class DeclProducer {
 
 public:
-    DeclProducer(AstResource *resource);
+    DeclProducer(AstResource &resource);
 
     /// Returns the unique enumeration decl representing Bool.
     EnumerationDecl *getBoolDecl() const;
@@ -59,7 +59,7 @@ public:
 
 private:
     /// The resource we obtain AST's thru.
-    AstResource *resource;
+    AstResource &resource;
 
     /// The primitive Bool declaration node.
     EnumerationDecl *theBoolDecl;

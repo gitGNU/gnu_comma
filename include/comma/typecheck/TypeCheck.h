@@ -318,12 +318,13 @@ private:
     // primitive types like Bool, for example).
     void populateInitialEnvironment();
 
-    // Creates a procedure or function decl depending on the kind of the
-    // supplied type.
-    static SubroutineDecl *makeSubroutineDecl(IdentifierInfo *name,
-                                              Location        loc,
-                                              SubroutineType *type,
-                                              DeclRegion     *region);
+    // Creates a new procedure or function declaration.
+    ///
+    // Given a subroutine decl, rewrite its type using the supplied rewrites and
+    // create a new declaration within the given region.
+    static SubroutineDecl *
+    makeSubroutineDecl(SubroutineDecl *SRDecl, const AstRewriter &rewrites,
+                       DeclRegion *region);
 
     void ensureNecessaryRedeclarations(ModelDecl *model);
 

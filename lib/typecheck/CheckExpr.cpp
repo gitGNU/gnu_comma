@@ -399,7 +399,7 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                 targetIndex = decl->getKeywordIndex(selector->getKeyword());
             }
 
-            Type *targetType = decl->getArgType(targetIndex);
+            Type *targetType = decl->getParamType(targetIndex);
 
             // FIXME: This is a hack.  The type equality predicates should perform
             // this reduction.
@@ -592,7 +592,7 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
 {
     // Check each argument types wrt this decl.
     for (unsigned i = 0; i < numArgs; ++i) {
-        Type *targetType = decl->getArgType(i);
+        Type *targetType = decl->getParamType(i);
         Expr *arg = args[i];
         Location argLoc = arg->getLocation();
         PM::ParameterMode targetMode = decl->getParamMode(i);
@@ -805,7 +805,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
             sortedArgs[argIndex] = arg;
 
         status = status and
-            checkExprInContext(arg, fdecl->getArgType(argIndex));
+            checkExprInContext(arg, fdecl->getParamType(argIndex));
     }
 
     return status;
