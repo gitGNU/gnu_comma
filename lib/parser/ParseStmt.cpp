@@ -126,7 +126,7 @@ Node Parser::parseIfStmt()
              !currentTokenIs(Lexer::TKN_ELSIF) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    Node result = client.acceptIfStmt(loc, condition, &stmts[0], stmts.size());
+    Node result = client.acceptIfStmt(loc, condition, stmts);
     if (result.isInvalid()) {
         seekEndIf();
         return getInvalidNode();
@@ -150,8 +150,7 @@ Node Parser::parseIfStmt()
                  !currentTokenIs(Lexer::TKN_ELSIF) &&
                  !currentTokenIs(Lexer::TKN_EOT));
 
-        result = client.acceptElsifStmt(loc, result, condition,
-                                        &stmts[0], stmts.size());
+        result = client.acceptElsifStmt(loc, result, condition, stmts);
 
         if (result.isInvalid()) {
             seekEndIf();
@@ -169,7 +168,7 @@ Node Parser::parseIfStmt()
         } while (!currentTokenIs(Lexer::TKN_END)  &&
                  !currentTokenIs(Lexer::TKN_EOT));
 
-        result = client.acceptElseStmt(loc, result, &stmts[0], stmts.size());
+        result = client.acceptElseStmt(loc, result, stmts);
     }
 
     if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_IF))

@@ -154,14 +154,13 @@ public:
     virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
 
     virtual Node acceptIfStmt(Location loc, Node condition,
-                              Node *consequents, unsigned numConsequents) = 0;
+                              NodeVector &consequents) = 0;
 
     virtual Node acceptElseStmt(Location loc, Node ifNode,
-                                Node *alternates, unsigned numAlternates) = 0;
+                                NodeVector &alternates) = 0;
 
-    virtual Node acceptElsifStmt(Location loc,
-                                 Node ifNode, Node condition,
-                                 Node *consequents, unsigned numConsequents) = 0;
+    virtual Node acceptElsifStmt(Location loc, Node ifNode, Node condition,
+                                 NodeVector &consequents) = 0;
 
     virtual Node acceptEmptyReturnStmt(Location loc) = 0;
 

@@ -215,60 +215,58 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
     return getInvalidNode();
 }
 
-Node TypeCheck::acceptIfStmt(Location loc,
-                             Node     conditionNode,
-                             Node    *consequentNodes,
-                             unsigned numConsequents)
+Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
+                             NodeVector &consequentNodes)
 {
     Expr *condition = cast_node<Expr>(conditionNode);
 
     if (checkExprInContext(condition, declProducer->getBoolType())) {
+        unsigned numConsequents = consequentNodes.size();
         StmtSequence *consequents = new StmtSequence();
 
-        for (unsigned i = 0; i < numConsequents; ++i) {
+        for (unsigned i = 0; i < numConsequents; ++i)
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
-            consequentNodes[i].release();
-        }
+
         conditionNode.release();
+        consequentNodes.release();
         return getNode(new IfStmt(loc, condition, consequents));
     }
     return getInvalidNode();
 }
 
 Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
-                               Node *alternateNodes, unsigned numAlternates)
+                               NodeVector &alternateNodes)
 {
-    IfStmt       *cond       = cast_node<IfStmt>(ifNode);
+    IfStmt *cond = cast_node<IfStmt>(ifNode);
     StmtSequence *alternates = new StmtSequence();
+    unsigned numAlternates = alternateNodes.size();
 
     assert(!cond->hasAlternate() && "Multiple else component in IfStmt!");
 
-    for (unsigned i = 0; i < numAlternates; ++i) {
+    for (unsigned i = 0; i < numAlternates; ++i)
         alternates->addStmt(cast_node<Stmt>(alternateNodes[i]));
-        alternateNodes[i].release();
-    }
 
     cond->setAlternate(loc, alternates);
+    alternateNodes.release();
     return ifNode;
 }
 
-Node TypeCheck::acceptElsifStmt(Location loc,
-                                Node     ifNode,
-                                Node     conditionNode,
-                                Node    *consequentNodes,
-                                unsigned numConsequents)
+Node TypeCheck::acceptElsifStmt(Location loc, Node ifNode, Node conditionNode,
+                                NodeVector &consequentNodes)
 {
-    IfStmt *cond        = cast_node<IfStmt>(ifNode);
-    Expr   *condition   = cast_node<Expr>(conditionNode);
+    IfStmt *cond = cast_node<IfStmt>(ifNode);
+    Expr *condition = cast_node<Expr>(conditionNode);
 
     if (checkExprInContext(condition, declProducer->getBoolType())) {
         StmtSequence *consequents = new StmtSequence();
-        for (unsigned i = 0; i < numConsequents; ++i) {
+        unsigned numConsequents = consequentNodes.size();
+
+        for (unsigned i = 0; i < numConsequents; ++i)
             consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
-            consequentNodes[i].release();
-        }
-        conditionNode.release();
+
         cond->addElsif(loc, condition, consequents);
+        conditionNode.release();
+        consequentNodes.release();
         return ifNode;
     }
     return getInvalidNode();

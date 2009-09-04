@@ -151,14 +151,12 @@ public:
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
 
-    Node acceptIfStmt(Location loc, Node condition,
-                      Node *consequents, unsigned numConsequents);
+    Node acceptIfStmt(Location loc, Node condition, NodeVector &consequents);
 
-    Node acceptElseStmt(Location loc, Node ifNode,
-                        Node *alternates, unsigned numAlternates);
+    Node acceptElseStmt(Location loc, Node ifNode, NodeVector &alternates);
 
     Node acceptElsifStmt(Location loc, Node ifNode, Node condition,
-                         Node *consequents, unsigned numConsequents);
+                         NodeVector &consequents);
 
     Node acceptEmptyReturnStmt(Location loc);
 
