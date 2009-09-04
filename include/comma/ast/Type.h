@@ -240,65 +240,20 @@ private:
 // SubroutineType
 class SubroutineType : public Type {
 
-protected:
-    // This constructor produces a subroutine type where the parameter modes are
-    // set to MODE_DEFAULT.
-    SubroutineType(AstKind kind,
-                   IdentifierInfo **formals,
-                   Type **argTypes,
-                   unsigned numArgs);
-
-    // Constructor where each parameter mode can be specified.
-    SubroutineType(AstKind kind,
-                   IdentifierInfo **formals,
-                   Type **argTypes,
-                   PM::ParameterMode *modes,
-                   unsigned numArgs);
-
 public:
-    // Returns the number of arguments accepted by this type.
-    unsigned getArity() const { return numArgs; }
+    virtual ~SubroutineType() { delete[] argumentTypes; }
 
-    // Returns the type of the i'th parameter.
-    Type *getArgType(unsigned i) const;
+    /// Returns the number of arguments accepted by this type.
+    unsigned getArity() const { return numArguments; }
 
-    // Returns the i'th keyword for this type.
-    IdentifierInfo *getKeyword(unsigned i) const {
-        assert(i < getArity() && "Index out of range!");
-        return keywords[i];
-    }
+    /// Returns the type of the i'th parameter.
+    Type *getArgType(unsigned i) const { return argumentTypes[i]; }
 
-    int getKeywordIndex(IdentifierInfo *key) const;
-
-    // Returns the i'th parameter mode for this type.  Parameters with
-    // MODE_DEFAULT are automatically converted to MODE_IN (if this conversion
-    // is undesierable use getExplicitParameterMode instead).
-    PM::ParameterMode getParameterMode(unsigned i) const;
-
-    // Returns the i'th parameter mode for this type.
-    PM::ParameterMode getExplicitParameterMode(unsigned i) const;
-
-    // Sets the i'th parameter mode.  This method will assert if this subroutine
-    // denotes a function type and the mode is `out' or `in out'.
-    void setParameterMode(PM::ParameterMode mode, unsigned i);
-
-    // Returns an array of IdentifierInfo's corresponding to the keyword set for
-    // this type, or 0 if there are no parameters.  This function is intended to
-    // be used to simplify construction of new SubroutineType nodes, not as
-    // general purpose accessor.
-    IdentifierInfo **getKeywordArray() const;
-
-    // Returns true if the keywords of the given type match exactly those of
-    // this type.  The arity of both subroutine types must match for this
-    // function to return true.
-    bool keywordsMatch(const SubroutineType *routineType) const;
-
-    // Returns true if this type is equal to the given subroutine type.  Both
-    // this type and the target must both be function or procedure types, the
-    // arity, argument, and (in the case of functions) the return types must
-    // match.  Actual argument keywords are not considered when testing for
-    // equality.
-    bool equals(const Type *type) const;
+    /// Iterators over the argument types.
+    typedef Type **arg_type_iterator;
+    arg_type_iterator begin() const { return argumentTypes; }
+    arg_type_iterator end() const {
+        return argumentTypes + numArguments; }
 
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }
@@ -306,30 +261,35 @@ public:
         return node->denotesSubroutineType();
     }
 
-private:
-    // We munge the supplied parameter type pointers and store the mode
-    // associations in the lower two bits.
-    typedef llvm::PointerIntPair<Type*, 2> ParamInfo;
+protected:
+    SubroutineType(AstKind kind,
+                   Type **argTypes, unsigned numArgs)
+        : Type(kind),
+          argumentTypes(0),
+          numArguments(numArgs) {
+        assert(this->denotesSubroutineType());
+        if (numArgs > 0) {
+            argumentTypes = new Type*[numArgs];
+            std::copy(argTypes, argTypes + numArgs, argumentTypes);
+        }
+    }
 
-    IdentifierInfo **keywords;
-    ParamInfo       *parameterInfo;
-    unsigned         numArgs;
+    Type **argumentTypes;
+    unsigned numArguments;
 };
 
 //===----------------------------------------------------------------------===//
 // FunctionType
-class FunctionType : public SubroutineType {
+class FunctionType : public SubroutineType, public llvm::FoldingSetNode {
 
 public:
-    FunctionType(IdentifierInfo **formals,
-                 Type           **argTypes,
-                 unsigned         numArgs,
-                 Type            *returnType)
-        : SubroutineType(AST_FunctionType, formals, argTypes, numArgs),
-          returnType(returnType) { }
-
-    // Returns the result type of this function.
+    /// Returns the result type of this function.
     Type *getReturnType() const { return returnType; }
+
+    /// Profile implementation for use by llvm::FoldingSet.
+    void Profile(llvm::FoldingSetNodeID &ID) {
+        Profile(ID, argumentTypes, numArguments, returnType);
+    }
 
     // Support isa and dyn_cast.
     static bool classof(const FunctionType *node) { return true; }
@@ -339,22 +299,56 @@ public:
 
 private:
     Type *returnType;
+
+    /// Function types are constructed thru an AstResource.
+    friend class AstResource;
+
+    FunctionType(Type **argTypes, unsigned numArgs,
+                 Type *returnType)
+        : SubroutineType(AST_FunctionType, argTypes, numArgs),
+          returnType(returnType) { }
+
+    /// Profiler used by AstResource to unique function type nodes.
+    static void Profile(llvm::FoldingSetNodeID &ID,
+                        Type **argTypes, unsigned numArgs,
+                        Type *returnType) {
+        for (unsigned i = 0; i < numArgs; ++i)
+            ID.AddPointer(argTypes[i]);
+        ID.AddPointer(returnType);
+    }
 };
 
 //===----------------------------------------------------------------------===//
 // ProcedureType
-class ProcedureType : public SubroutineType {
+class ProcedureType : public SubroutineType, public llvm::FoldingSetNode {
 
 public:
-    ProcedureType(IdentifierInfo **formals,
-                  Type           **argTypes,
-                  unsigned         numArgs)
-        : SubroutineType(AST_ProcedureType, formals, argTypes, numArgs) { }
+    /// Profile implementation for use by llvm::FoldingSet.
+    void Profile(llvm::FoldingSetNodeID &ID) {
+        Profile(ID, argumentTypes, numArguments);
+    }
 
     // Support isa and dyn_cast.
     static bool classof(const ProcedureType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ProcedureType;
+    }
+
+private:
+    /// ProcedureTypes are constructed thru AstResource.
+    friend class AstResource;
+
+    ProcedureType(Type **argTypes, unsigned numArgs)
+        : SubroutineType(AST_ProcedureType, argTypes, numArgs) { }
+
+    /// Profiler used by AstResource to unique procedure type nodes.
+    static void Profile(llvm::FoldingSetNodeID &ID,
+                        Type **argTypes, unsigned numArgs) {
+        if (numArgs)
+            for (unsigned i = 0; i < numArgs; ++i)
+                ID.AddPointer(argTypes[i]);
+        else
+            ID.AddPointer(0);
     }
 };
 

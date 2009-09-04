@@ -6,14 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AstResource.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Type.h"
+
 #include "llvm/Support/Casting.h"
 #include "llvm/ADT/SmallVector.h"
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -62,6 +65,23 @@ void AstRewriter::installRewrites(SignatureType *context)
     }
 }
 
+Type *AstRewriter::rewrite(Type *type) const
+{
+    switch(type->getKind()) {
+
+    default: return type;
+
+    case Ast::AST_SignatureType:
+        return rewrite(cast<SignatureType>(type));
+    case Ast::AST_DomainType:
+        return rewrite(cast<DomainType>(type));
+    case Ast::AST_FunctionType:
+        return rewrite(cast<FunctionType>(type));
+    case Ast::AST_ProcedureType:
+        return rewrite(cast<ProcedureType>(type));
+    }
+}
+
 SignatureType *AstRewriter::rewrite(SignatureType *sig) const
 {
     if (sig->isParameterized()) {
@@ -88,6 +108,9 @@ SignatureType *AstRewriter::rewrite(SignatureType *sig) const
 
 DomainType *AstRewriter::rewrite(DomainType *dom) const
 {
+    if (DomainType *rewrite = dyn_cast_or_null<DomainType>(findRewrite(dom)))
+        return rewrite;
+
     if (DomainInstanceDecl *instance = dom->getInstanceDecl()) {
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             typedef DomainInstanceDecl::arg_iterator iterator;
@@ -126,59 +149,26 @@ SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
 void AstRewriter::rewriteParameters(SubroutineType *srType,
                                     unsigned count, Type **params) const
 {
-    Type *source;
-    Type *target;
-
-    for (unsigned i = 0; i < count; ++i) {
-        source = srType->getArgType(i);
-        target = findRewrite(source);
-        if (target)
-            params[i] = target;
-        else
-            params[i] = source;
-    }
+    for (unsigned i = 0; i < count; ++i)
+        params[i] = getRewrite(srType->getArgType(i));
 }
 
 FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
 {
     unsigned arity = ftype->getArity();
-    Type *params[arity];
-    IdentifierInfo **keywords;
-    Type *source;
-    Type *target;
-    FunctionType *result;
+    Type *returnType = getRewrite(ftype->getReturnType());
+    Type *paramTypes[arity];
 
-    rewriteParameters(ftype, arity, params);
-    keywords = ftype->getKeywordArray();
-    source = ftype->getReturnType();
-    target = findRewrite(source);
-    if (target)
-        result = new FunctionType(keywords, params, arity, target);
-    else
-        result = new FunctionType(keywords, params, arity, source);
-
-    for (unsigned i = 0; i < arity; ++i) {
-        PM::ParameterMode mode = ftype->getExplicitParameterMode(i);
-        result->setParameterMode(mode, i);
-    }
-    return result;
+    rewriteParameters(ftype, arity, paramTypes);
+    return resource.getFunctionType(paramTypes, arity, returnType);
 }
 
 ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
 {
     unsigned arity = ptype->getArity();
-    Type *params[arity];
-    IdentifierInfo **keywords;
-    ProcedureType *result;
+    Type *paramTypes[arity];
 
-    rewriteParameters(ptype, arity, params);
-    keywords = ptype->getKeywordArray();
-    result = new ProcedureType(keywords, &params[0], arity);
-
-    for (unsigned i = 0; i < arity; ++i) {
-        PM::ParameterMode mode = ptype->getExplicitParameterMode(i);
-        result->setParameterMode(mode, i);
-    }
-    return result;
+    rewriteParameters(ptype, arity, paramTypes);
+    return resource.getProcedureType(paramTypes, arity);
 }
 

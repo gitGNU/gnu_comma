@@ -28,6 +28,8 @@ namespace comma {
 class AstRewriter {
 
 public:
+    AstRewriter(AstResource &resource) : resource(resource) { }
+
     // Adds a rewrite rule from the source to target.  If a mapping from the
     // given source already exists, this method will unconditionally re-target
     // the rule to the given source -- it is the responsibility of the
@@ -43,7 +45,6 @@ public:
         for ( ; I != E; ++I)
             rewrites[I->first] = I->second;
     }
-
 
     // Maps source to a target if a rewrite rule exists, otherwise returns
     // source.
@@ -77,6 +78,9 @@ public:
     // Remove all rewrite rules.
     void clear() { rewrites.clear(); }
 
+    // Rewrites the given type according to the installed rules.
+    Type *rewrite(Type *type) const;
+
     // Rewrites the given signature type according to the installed rules.
     SignatureType *rewrite(SignatureType *sig) const;
 
@@ -97,7 +101,12 @@ public:
     // Rewrites the given procedure type according to the installed rules.
     ProcedureType *rewrite(ProcedureType *ftype) const;
 
+    // Returns the AstResource used to construct rewritten nodes.
+    AstResource &getAstResource() const { return resource; }
+
 private:
+    AstResource &resource;
+
     typedef std::map<Type*, Type*> RewriteMap;
     RewriteMap rewrites;
 

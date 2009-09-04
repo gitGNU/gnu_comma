@@ -10,7 +10,10 @@
 #include "comma/ast/DeclRegion.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Stmt.h"
+#include "comma/ast/Type.h"
+
 #include "llvm/Support/Casting.h"
+
 #include <algorithm>
 #include <cstring>
 #include <cassert>
@@ -36,23 +39,13 @@ void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
         assert(false && "Bad type of declaration!");
         break;
 
-    case Ast::AST_FunctionDecl: {
-        FunctionDecl *fdecl = cast<FunctionDecl>(decl);
-        FunctionType *ftype = rewrites.rewrite(fdecl->getType());
-        FunctionDecl *p = new FunctionDecl(decl->getIdInfo(), 0, ftype, this);
-        p->setOrigin(fdecl);
-        newDecl = p;
+    case Ast::AST_FunctionDecl:
+        newDecl = rewriteFunctionDecl(cast<FunctionDecl>(decl), rewrites);
         break;
-    }
 
-    case Ast::AST_ProcedureDecl: {
-        ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
-        ProcedureType *ptype = rewrites.rewrite(pdecl->getType());
-        ProcedureDecl *p = new ProcedureDecl(decl->getIdInfo(), 0, ptype, this);
-        p->setOrigin(pdecl);
-        newDecl = p;
+    case Ast::AST_ProcedureDecl:
+        newDecl = rewriteProcedureDecl(cast<ProcedureDecl>(decl), rewrites);
         break;
-    }
 
     case Ast::AST_EnumerationDecl:
         // Nothing to do for an enumeration since there are never free variables
@@ -60,9 +53,56 @@ void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
         newDecl = decl;
         break;
     }
+
     if (newDecl)
         this->addDecl(newDecl);
 }
+
+FunctionDecl *DeclRegion::rewriteFunctionDecl(FunctionDecl *fdecl,
+                                              const AstRewriter &rewrites)
+{
+    llvm::SmallVector<ParamValueDecl*, 8> params;
+    unsigned arity = fdecl->getArity();
+
+    for (unsigned i = 0; i < arity; ++i) {
+        ParamValueDecl *origParam = fdecl->getParam(i);
+        Type *rewriteType = rewrites.rewrite(origParam->getType());
+        ParamValueDecl *newParam =
+            new ParamValueDecl(origParam->getIdInfo(), rewriteType,
+                               origParam->getExplicitParameterMode(), 0);
+        params.push_back(newParam);
+    }
+
+    FunctionDecl *result =
+        new FunctionDecl(rewrites.getAstResource(),
+                         fdecl->getIdInfo(), 0, params.data(), arity,
+                         rewrites.rewrite(fdecl->getReturnType()), this);
+    result->setOrigin(fdecl);
+    return result;
+}
+
+ProcedureDecl *DeclRegion::rewriteProcedureDecl(ProcedureDecl *pdecl,
+                                                const AstRewriter &rewrites)
+{
+    llvm::SmallVector<ParamValueDecl*, 8> params;
+    unsigned arity = pdecl->getArity();
+
+    for (unsigned i = 0; i < arity; ++i) {
+        ParamValueDecl *origParam = pdecl->getParam(i);
+        Type *newType = rewrites.rewrite(origParam->getType());
+        ParamValueDecl *newParam =
+            new ParamValueDecl(origParam->getIdInfo(), newType,
+                               origParam->getExplicitParameterMode(), 0);
+        params.push_back(newParam);
+    }
+
+    ProcedureDecl *result =
+        new ProcedureDecl(rewrites.getAstResource(),
+                          pdecl->getIdInfo(), 0, params.data(), arity, this);
+    result->setOrigin(pdecl);
+    return result;
+}
+
 
 void
 DeclRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,

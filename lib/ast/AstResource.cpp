@@ -12,10 +12,41 @@
 
 using namespace comma;
 
-AstResource::AstResource(TextProvider   &txtProvider,
-                         IdentifierPool &idPool)
+AstResource::AstResource(TextProvider &txtProvider, IdentifierPool &idPool)
     : txtProvider(txtProvider),
       idPool(idPool) { }
+
+
+/// Returns a uniqued FunctionType.
+FunctionType *AstResource::getFunctionType(Type **argTypes, unsigned numArgs,
+                                           Type *returnType)
+{
+    llvm::FoldingSetNodeID ID;
+    FunctionType::Profile(ID, argTypes, numArgs, returnType);
+
+    void *pos = 0;
+    if (FunctionType *uniqued = functionTypes.FindNodeOrInsertPos(ID, pos))
+        return uniqued;
+
+    FunctionType *res = new FunctionType(argTypes, numArgs, returnType);
+    functionTypes.InsertNode(res, pos);
+    return res;
+}
+
+/// Returns a uniqued ProcedureType.
+ProcedureType *AstResource::getProcedureType(Type **argTypes, unsigned numArgs)
+{
+    llvm::FoldingSetNodeID ID;
+    ProcedureType::Profile(ID, argTypes, numArgs);
+
+    void *pos = 0;
+    if (ProcedureType *uniqued = procedureTypes.FindNodeOrInsertPos(ID, pos))
+        return uniqued;
+
+    ProcedureType *res = new ProcedureType(argTypes, numArgs);
+    procedureTypes.InsertNode(res, pos);
+    return res;
+}
 
 IntegerType *AstResource::getIntegerType(const llvm::APInt &low,
                                          const llvm::APInt &high)
@@ -24,8 +55,8 @@ IntegerType *AstResource::getIntegerType(const llvm::APInt &low,
     IntegerType::Profile(ID, low, high);
 
     void *pos = 0;
-    if (IntegerType *IT = integerTypes.FindNodeOrInsertPos(ID, pos))
-        return IT;
+    if (IntegerType *uniqued = integerTypes.FindNodeOrInsertPos(ID, pos))
+        return uniqued;
 
     IntegerType *res = new IntegerType(low, high);
     integerTypes.InsertNode(res, pos);

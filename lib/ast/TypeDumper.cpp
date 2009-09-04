@@ -42,8 +42,6 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
 
     S << "(";
     while (argIndex < arity) {
-        S << node->getKeyword(argIndex)->getString() << " : ";
-        dumpParamMode(node->getExplicitParameterMode(argIndex)) << ' ';
         visitType(node->getArgType(argIndex));
         if (++argIndex < arity)
             S << "; ";

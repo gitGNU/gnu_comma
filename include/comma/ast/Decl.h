@@ -214,23 +214,31 @@ public:
     /// declaration is not parameterized.
     int getKeywordIndex(IdentifierInfo *keyword) const;
 
-    // Returns the DomainType representing the percent node associated with this
-    // decl.
-    //
-    // For signatures, domains and functors, the DomainType representing % is a
-    // unique node owned by the underlying model declaration.  For abstract
-    // domains and domain instances, the % node returned is that of the defining
-    // declaration (a signature for abstract domains, a domain or functor for
-    // instances).  In the latter case, getPercent is simply a forwarding
-    // function.
+    /// Returns the DomainType representing the percent node associated with
+    /// this decl.
+    ///
+    /// For signatures, domains and functors, the DomainType representing % is a
+    /// unique node owned by the underlying model declaration.  For abstract
+    /// domains and domain instances, the % node returned is that of the
+    /// defining declaration (a signature for abstract domains, a domain or
+    /// functor for instances).  In the latter case, getPercent is simply a
+    /// forwarding function.
     DomainType *getPercent() const { return percent; }
 
-    // Accessors to the SignatureSet.
+    /// \name SignatureSet accessors.
+    ///@{
     SignatureSet& getSignatureSet() { return sigset; }
     const SignatureSet &getSignatureSet() const { return sigset; }
+    ///@}
 
-    // Adds a direct signature to the underlying signature set.
+    /// Adds a direct signature to the underlying signature set.
     bool addDirectSignature(SignatureType *signature);
+
+    /// Returns the AstResource object associated with this model.
+    ///
+    /// This method is intended for use by other nodes in the AST, not by
+    /// clients of the AST itself.
+    AstResource &getAstResource() { return resource; }
 
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
@@ -247,6 +255,9 @@ protected:
 
     // The unique DomainType representing the % node of this model.
     DomainType *percent;
+
+    // The AstResource we use to construct sub-nodes.
+    AstResource &resource;
 };
 
 //===----------------------------------------------------------------------===//
@@ -543,68 +554,185 @@ private:
     AddDecl *implementation;          ///< Body of this functor.
 };
 
+
+//===----------------------------------------------------------------------===//
+// ValueDecl
+//
+// This class is intentionally generic.  It will become a virtual base for a
+// more extensive hierarchy of value declarations later on.
+class ValueDecl : public Decl {
+
+protected:
+    ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
+        : Decl(kind, name, loc),
+          correspondingType(type) {
+        assert(this->denotesValueDecl());
+    }
+
+public:
+    const Type *getType() const { return correspondingType; }
+    Type *getType() { return correspondingType; }
+
+    static bool classof(const ValueDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesValueDecl();
+    }
+
+protected:
+    Type *correspondingType;
+};
+
+//===----------------------------------------------------------------------===//
+// ParamValueDecl
+//
+// Declaration nodes which represent the formal parameters of a function or
+// procedure.  These nodes are owned by the function declaration to which they
+// are attached.
+class ParamValueDecl : public ValueDecl {
+
+public:
+    ParamValueDecl(IdentifierInfo *name,
+                   Type *type,
+                   PM::ParameterMode mode,
+                   Location loc)
+        : ValueDecl(AST_ParamValueDecl, name, type, loc) {
+        // Store the mode for this decl in the bit field provided by our
+        // base Ast instance.
+        //
+        // FIXME: This is bad practice, really.  But the bits are available so
+        // we use them.  Eventually, a better interface/convention should be
+        // established to help protect against the bit field being trashed, or
+        // this data should be moved into the class itself.
+        bits = mode;
+    }
+
+    /// Returns true if the parameter mode was explicitly specified for this
+    /// parameter.  This predicate is used to distinguish between the default
+    /// parameter mode of "in" and the case where "in" was explicitly given.
+    bool parameterModeSpecified() const;
+
+    /// Returns the parameter mode associated with this decl.  This function
+    /// never returns MODE_DEFAULT, only MODE_IN.  To check if the mode was
+    /// implicitly defined as "in" use parameterModeSpecified, or call
+    /// getExplicitParameterMode.
+    PM::ParameterMode getParameterMode() const;
+
+    /// \brief Returns the parameter mdoe associated with this decl.
+    PM::ParameterMode getExplicitParameterMode() const;
+
+    static bool classof(const ParamValueDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ParamValueDecl;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// ObjectDecl
+//
+// Object declarations denote objects of a given type.  They may optionally be
+// associated with an initial value given by an expression.
+class ObjectDecl : public ValueDecl {
+
+public:
+    ObjectDecl(IdentifierInfo *name,
+               Type           *type,
+               Location        loc,
+               Expr           *init = 0)
+        : ValueDecl(AST_ObjectDecl, name, type, loc),
+          initialization(init) { }
+
+    // Returns true if this object declaration is associated with an
+    // initialization expression.
+    bool hasInitializer() const { return initialization != 0; }
+
+    // Returns the initialization expression associated with this object decl,
+    // or NULL if there is no such association.
+    Expr *getInitializer() const { return initialization; }
+
+    // Sets the initialization expression for this declaration.  Owership of the
+    // expression is passed to the declaration.
+    void setInitializer(Expr *init) { initialization = init; }
+
+    // Support isa and dyn_cast.
+    static bool classof(const ObjectDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ObjectDecl;
+    }
+
+private:
+    Expr *initialization;
+};
+
 //===----------------------------------------------------------------------===//
 // SubroutineDecl
 //
 // Base class for representing procedures and functions.
 class SubroutineDecl : public Decl, public DeclRegion {
 
-protected:
-    // When this constructor is invoked, a new type is generated to represent
-    // the subroutine.  In addition, the parameter decls are updated so that
-    // their associated declarative regions point to the newly constructed decl.
-    SubroutineDecl(AstKind          kind,
-                   IdentifierInfo  *name,
-                   Location         loc,
-                   ParamValueDecl **params,
-                   unsigned         numParams,
-                   Type            *returnType,
-                   DeclRegion      *parent);
-
-    // This constructor is provided when we need to construct a decl given a
-    // type.  In this case, a set of ParamValueDecls are implicitly constructed
-    // according to the type provided.
-    SubroutineDecl(AstKind         kind,
-                   IdentifierInfo *name,
-                   Location        loc,
-                   SubroutineType *type,
-                   DeclRegion     *parent);
-
 public:
-    const SubroutineType *getType() const { return routineType; }
-    SubroutineType *getType() { return routineType; }
+    virtual ~SubroutineDecl();
 
-    unsigned getArity() const { return routineType->getArity(); }
+    /// Returns the type of this declaration.
+    virtual SubroutineType *getType() const = 0;
 
-    IdentifierInfo *getKeyword(unsigned i) const {
-        return routineType->getKeyword(i);
-    }
+    /// Returns the number of parameters this subroutine accepts.
+    unsigned getArity() const { return numParameters; }
 
-    int getKeywordIndex(IdentifierInfo *key) const {
-        return routineType->getKeywordIndex(key);
-    }
-
-    Type *getArgType(unsigned i) const {
-        return routineType->getArgType(i);
-    }
-
+    /// Returns the i'th parameters declaration node.
     ParamValueDecl *getParam(unsigned i) {
         assert(i < getArity() && "Index out of range!");
         return parameters[i];
     }
 
-    typedef ParamValueDecl **ParamDeclIterator;
+    /// Returns the i'th parameters declaration node.
+    const ParamValueDecl *getParam(unsigned i) const {
+        assert(i < getArity() && "Index out of range!");
+        return parameters[i];
+    }
 
-    ParamDeclIterator beginParams() { return parameters; }
-    ParamDeclIterator endParams()   { return parameters + getArity(); }
+    /// Returns the type of the i'th parameter.
+    Type *getParamType(unsigned i) const {
+        return getType()->getArgType(i);
+    }
 
-    /// Returns the parameter mode of the parameter with the given index.
+    /// Returns the i'th parameter mode.
     ///
-    /// This method is analogous to ParamValueDecl::getParameterMode in that it
-    /// returns either MODE_IN, MODE_OUT, or MODE_IN_OUT.  If one needs to know
-    /// if the parameter was explicitly supplied with a mode or not
-    /// (MODE_DEFAULT), one must interrogate the parameter directly.
-    PM::ParameterMode getParamMode(unsigned i);
+    /// Parameters with MODE_DEFAULT are automatically converted to MODE_IN (if
+    /// this conversion is undesirable use getExplicitParameterMode instead).
+    PM::ParameterMode getParamMode(unsigned i) const {
+        return getParam(i)->getParameterMode();
+    }
+
+    /// Returns the i'th parameter mode for this type.
+    PM::ParameterMode getExplicitParamMode(unsigned i) const {
+        return getParam(i)->getExplicitParameterMode();
+    }
+
+    /// Returns the i'th argument keyword.
+    IdentifierInfo *getParamKeyword(unsigned i) const {
+        return getParam(i)->getIdInfo();
+    }
+
+    /// If \p key names an argument keyword, return its associated index, else
+    /// return -1.
+    int getKeywordIndex(IdentifierInfo *key) const;
+
+    /// Returns true if the keywords of the declaration match exactly those of
+    /// this one.  The arity of both subroutines must match for this function to
+    /// return true.
+    bool keywordsMatch(const SubroutineDecl *SRDecl) const;
+
+    /// \name Parameter Iterators
+    ///
+    ///@{
+    typedef ParamValueDecl **param_iterator;
+    param_iterator begin_params() { return parameters; }
+    param_iterator end_params() { return parameters + getArity(); }
+
+    typedef ParamValueDecl **const_param_iterator;
+    const_param_iterator begin_params() const { return parameters; }
+    const_param_iterator end_params() const { return parameters + getArity(); }
+    ///@}
 
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
     SubroutineDecl *getDefiningDeclaration() { return definingDeclaration; }
@@ -614,9 +742,7 @@ public:
 
     bool hasBody() const;
     void setBody(BlockStmt *block) { body = block; }
-
     BlockStmt *getBody();
-
     const BlockStmt *getBody() const {
         return const_cast<SubroutineDecl*>(this)->getBody();
     }
@@ -652,7 +778,9 @@ public:
 
     /// Walks the chain of origins returning the final non-null declaration;
     SubroutineDecl *resolveOrigin();
-    const SubroutineDecl *resolveOrigin() const;
+    const SubroutineDecl *resolveOrigin() const {
+        return const_cast<SubroutineDecl*>(this)->resolveOrigin();
+    }
 
     /// Returns true if this subroutine represents a primitive operation.
     bool isPrimitive() const { return opID != PO::NotPrimitive; }
@@ -669,87 +797,25 @@ public:
         return node->denotesSubroutineDecl();
     }
 
-private:
+protected:
+    // Subroutine decls take ownership of any ParamValueDecls supplied (but not
+    // the array they are passed in).
+    SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                   ParamValueDecl **params, unsigned numParams,
+                   DeclRegion *parent);
+
+    SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                   IdentifierInfo **keywords, SubroutineType *type,
+                   DeclRegion *parent);
+
     bool immediate       : 1;   ///< Set if the declaration is immediate.
     PO::PrimitiveID opID : 7;   ///< Identifies the type of operation.
 
-protected:
-    SubroutineType  *routineType;
+    unsigned numParameters;
     ParamValueDecl **parameters;
-    BlockStmt       *body;
-    SubroutineDecl  *definingDeclaration;
-    SubroutineDecl  *origin;
-};
-
-//===----------------------------------------------------------------------===//
-// FunctionDecl
-//
-// Representation of function declarations.
-class FunctionDecl : public SubroutineDecl {
-
-public:
-    FunctionDecl(IdentifierInfo  *name,
-                 Location         loc,
-                 ParamValueDecl **params,
-                 unsigned         numParams,
-                 Type            *returnType,
-                 DeclRegion      *parent)
-        : SubroutineDecl(AST_FunctionDecl,
-                         name, loc,
-                         params, numParams,
-                         returnType,
-                         parent) { }
-
-    FunctionDecl(IdentifierInfo *name,
-                 Location        loc,
-                 FunctionType   *type,
-                 DeclRegion     *parent)
-        : SubroutineDecl(AST_FunctionDecl,
-                         name, loc,
-                         type, parent) { }
-
-    const FunctionType *getType() const {
-        return const_cast<const FunctionType*>(
-            const_cast<FunctionDecl*>(this)->getType());
-    }
-
-    FunctionType *getType() {
-        return llvm::cast<FunctionType>(routineType);
-    }
-
-    FunctionDecl *getDefiningDeclaration() {
-        return llvm::cast_or_null<FunctionDecl>(definingDeclaration);
-    }
-
-    const FunctionDecl *getDefiningDeclaration() const {
-        return const_cast<FunctionDecl*>(this)->getDefiningDeclaration();
-    }
-
-    Type *getReturnType() const {
-        return getType()->getReturnType();
-    }
-
-    // Support for isa and dyn_cast.
-    static bool classof(const FunctionDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return (node->getKind() == AST_FunctionDecl ||
-                node->getKind() == AST_EnumLiteral);
-    }
-
-protected:
-    // Constructor used by derived function-like declarations (EnumLiteral, for
-    // example).
-    FunctionDecl(AstKind          kind,
-                 IdentifierInfo  *name,
-                 Location         loc,
-                 ParamValueDecl **params,
-                 unsigned         numParams,
-                 Type            *returnType,
-                 DeclRegion      *parent)
-        : SubroutineDecl(kind, name, loc,
-                         params, numParams,
-                         returnType,
-                         parent) { }
+    BlockStmt *body;
+    SubroutineDecl *definingDeclaration;
+    SubroutineDecl *origin;
 };
 
 //===----------------------------------------------------------------------===//
@@ -759,32 +825,36 @@ protected:
 class ProcedureDecl : public SubroutineDecl {
 
 public:
-    ProcedureDecl(IdentifierInfo  *name,
-                  Location         loc,
-                  ParamValueDecl **params,
-                  unsigned         numParams,
-                  DeclRegion      *parent)
-        : SubroutineDecl(AST_ProcedureDecl,
-                         name, loc,
-                         params, numParams,
-                         0,     // Null return type for procedures.
-                         parent) { }
+    ProcedureDecl(AstResource &resource,
+                  IdentifierInfo *name, Location loc,
+                  ParamValueDecl **params, unsigned numParams,
+                  DeclRegion *parent);
 
-    ProcedureDecl(IdentifierInfo *name,
-                  Location        loc,
-                  ProcedureType  *type,
-                  DeclRegion     *parent)
-        : SubroutineDecl(AST_ProcedureDecl,
-                         name, loc,
-                         type, parent) { }
+    /// Constructs a Procedure given a ProcedureType and set of keywords.
+    ///
+    /// This constructor is most useful for generating implicit declarations,
+    /// typically using a rewritten type.  ParamValue decls are generated using
+    /// the supplied array of keywords (which must be long enough to match the
+    /// arity of the supplied type, or 0 if this is a nullary procedure).  The
+    /// resulting parameter decls all have default modes, and so one must set
+    /// each by hand if need be afterwords.
+    ProcedureDecl(IdentifierInfo *name, Location loc,
+                  IdentifierInfo **keywords, ProcedureType *type,
+                  DeclRegion *parent)
+        : SubroutineDecl(AST_ProcedureDecl, name, loc, keywords, type, parent),
+          correspondingType(type) { }
 
-    const ProcedureType *getType() const {
-        return const_cast<const ProcedureType*>(
-            const_cast<ProcedureDecl*>(this)->getType());
+    ProcedureDecl(IdentifierInfo *name, Location loc,
+                  ProcedureType *type, DeclRegion *parent);
+
+    ProcedureType *getType() const { return correspondingType; }
+
+    ProcedureDecl *getDefiningDeclaration() {
+        return llvm::cast_or_null<ProcedureDecl>(definingDeclaration);
     }
 
-    ProcedureType *getType() {
-        return llvm::cast<ProcedureType>(routineType);
+    const ProcedureDecl *getDefiningDeclaration() const {
+        return const_cast<ProcedureDecl*>(this)->getDefiningDeclaration();
     }
 
     // Support for isa and dyn_cast.
@@ -792,6 +862,91 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ProcedureDecl;
     }
+
+private:
+    ProcedureType *correspondingType;
+};
+
+//===----------------------------------------------------------------------===//
+// FunctionDecl
+//
+// Representation of function declarations.
+class FunctionDecl : public SubroutineDecl {
+
+public:
+    FunctionDecl(AstResource &resource,
+                 IdentifierInfo *name, Location loc,
+                 ParamValueDecl **params, unsigned numParams,
+                 Type *returnType, DeclRegion *parent);
+
+    /// Constructs a FunctionDecl given a FunctionType and set of keywords.
+    ///
+    /// This constructor is most useful for generating implicit declarations,
+    /// typically using a rewritten type.  ParamValue decls are generated using
+    /// the supplied array of keywords (which must be long enough to match the
+    /// arity of the supplied type, or 0 if this is a nullary function).  The
+    /// resulting parameter decls all have default modes, and so one must set
+    /// each by hand if need be afterwords.
+    FunctionDecl(IdentifierInfo *name, Location loc,
+                 IdentifierInfo **keywords, FunctionType *type,
+                 DeclRegion *parent)
+        : SubroutineDecl(AST_FunctionDecl, name, loc, keywords, type, parent),
+          correspondingType(type) { }
+
+    FunctionType *getType() const { return correspondingType; }
+
+    FunctionDecl *getDefiningDeclaration() {
+        return llvm::cast_or_null<FunctionDecl>(definingDeclaration);
+    }
+
+    const FunctionDecl *getDefiningDeclaration() const {
+        return const_cast<FunctionDecl*>(this)->getDefiningDeclaration();
+    }
+
+    Type *getReturnType() const { return getType()->getReturnType(); }
+
+    // Support for isa and dyn_cast.
+    static bool classof(const FunctionDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return (node->getKind() == AST_FunctionDecl ||
+                node->getKind() == AST_EnumLiteral);
+    }
+
+protected:
+    // Constructor used by derived function-like declarations (EnumLiteral, in
+    // particular).
+    FunctionDecl(AstKind kind, AstResource &resource,
+                 IdentifierInfo *name, Location loc,
+                 ParamValueDecl **params, unsigned numParams,
+                 Type *returnType, DeclRegion *parent);
+
+private:
+    FunctionType *correspondingType;
+
+    void initializeCorrespondingType(AstResource &resource, Type *returnType);
+};
+
+//===----------------------------------------------------------------------===//
+// EnumLiteral
+//
+// Instances of this class represent the elements of an EnumerationDecl.
+class EnumLiteral : public FunctionDecl {
+
+public:
+    EnumLiteral(AstResource &resource,
+                IdentifierInfo *name, Location loc,
+                EnumerationDecl *parent);
+
+    /// Returns the index (or value) of this EnumLiteral.
+    unsigned getIndex() const { return index; }
+
+    static bool classof(const EnumLiteral *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumLiteral;
+    }
+
+private:
+    unsigned index;
 };
 
 
@@ -864,6 +1019,42 @@ public:
 
 private:
     Type *representation;
+};
+
+//===----------------------------------------------------------------------===//
+// EnumerationDecl
+class EnumerationDecl : public TypeDecl, public DeclRegion {
+
+public:
+    EnumerationDecl(IdentifierInfo *name,
+                    Location        loc,
+                    DeclRegion     *parent);
+
+    const EnumerationType *getType() const {
+        return llvm::cast<EnumerationType>(correspondingType);
+    }
+    EnumerationType *getType() {
+        return llvm::cast<EnumerationType>(correspondingType);
+    }
+
+    // Returns the number of EnumLiteral's associated with this enumeration.
+    unsigned getNumLiterals() const { return numLiterals; }
+
+    // Returns the literal with the given name, or null if no such literal is a
+    // member of this enumeration.
+    EnumLiteral *findLiteral(IdentifierInfo *name);
+
+    static bool classof(const EnumerationDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumerationDecl;
+    }
+
+private:
+    // The number of EnumLiteral's associated with this enumeration.
+    uint32_t numLiterals;
+
+    void notifyAddDecl(Decl *decl);
+    void notifyRemoveDecl(Decl *decl);
 };
 
 //===----------------------------------------------------------------------===//
@@ -978,6 +1169,10 @@ public:
 
 private:
     SignatureSet sigset;
+
+    AstResource &getAstResource() {
+        return getSignatureType()->getSigoid()->getAstResource();
+    }
 };
 
 //===----------------------------------------------------------------------===//
@@ -1050,173 +1245,6 @@ private:
 
     // The following call-backs are invoked when the declarative region of the
     // defining declaration changes.
-    void notifyAddDecl(Decl *decl);
-    void notifyRemoveDecl(Decl *decl);
-};
-
-//===----------------------------------------------------------------------===//
-// ValueDecl
-//
-// This class is intentionally generic.  It will become a virtual base for a
-// more extensive hierarchy of value declarations later on.
-class ValueDecl : public Decl {
-
-protected:
-    ValueDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
-        : Decl(kind, name, loc),
-          correspondingType(type) {
-        assert(this->denotesValueDecl());
-    }
-
-public:
-    const Type *getType() const { return correspondingType; }
-    Type *getType() { return correspondingType; }
-
-    static bool classof(const ValueDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesValueDecl();
-    }
-
-protected:
-    Type *correspondingType;
-};
-
-//===----------------------------------------------------------------------===//
-// ParamValueDecl
-//
-// Declaration nodes which represent the formal parameters of a function or
-// procedure.  These nodes are owned by the function declaration to which they
-// are attached.
-class ParamValueDecl : public ValueDecl {
-
-public:
-    ParamValueDecl(IdentifierInfo *name,
-                   Type *type,
-                   PM::ParameterMode mode,
-                   Location loc)
-        : ValueDecl(AST_ParamValueDecl, name, type, loc) {
-        // Store the mode for this decl in the bit field provided by our
-        // base Ast instance.
-        //
-        // FIXME: This is bad practice, really.  But the bits are available so
-        // we use them.  Eventually, a better interface/convention should be
-        // established to help protect against the bit field being trashed, or
-        // this data should be moved into the class itself.
-        bits = mode;
-    }
-
-    /// Returns true if the parameter mode was explicitly specified for this
-    /// parameter.  This predicate is used to distinguish between the default
-    /// parameter mode of "in" and the case where "in" was explicitly given.
-    bool parameterModeSpecified() const;
-
-    /// Returns the parameter mode associated with this decl.  This function
-    /// never returns MODE_DEFAULT, only MODE_IN.  To check if the mode was
-    /// implicitly defined as "in" use parameterModeSpecified, or call
-    /// getExplicitParameterMode.
-    PM::ParameterMode getParameterMode() const;
-
-    /// \brief Returns the parameter mdoe associated with this decl.
-    PM::ParameterMode getExplicitParameterMode() const;
-
-    static bool classof(const ParamValueDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_ParamValueDecl;
-    }
-};
-
-//===----------------------------------------------------------------------===//
-// ObjectDecl
-//
-// Object declarations denote objects of a given type.  They may optionally be
-// associated with an initial value given by an expression.
-class ObjectDecl : public ValueDecl {
-
-public:
-    ObjectDecl(IdentifierInfo *name,
-               Type           *type,
-               Location        loc,
-               Expr           *init = 0)
-        : ValueDecl(AST_ObjectDecl, name, type, loc),
-          initialization(init) { }
-
-    // Returns true if this object declaration is associated with an
-    // initialization expression.
-    bool hasInitializer() const { return initialization != 0; }
-
-    // Returns the initialization expression associated with this object decl,
-    // or NULL if there is no such association.
-    Expr *getInitializer() const { return initialization; }
-
-    // Sets the initialization expression for this declaration.  Owership of the
-    // expression is passed to the declaration.
-    void setInitializer(Expr *init) { initialization = init; }
-
-    // Support isa and dyn_cast.
-    static bool classof(const ObjectDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_ObjectDecl;
-    }
-
-private:
-    Expr *initialization;
-};
-
-//===----------------------------------------------------------------------===//
-// EnumLiteral
-//
-// Instances of this class represent the elements of an EnumerationDecl.
-class EnumLiteral : public FunctionDecl {
-
-public:
-    EnumLiteral(EnumerationDecl *decl,
-                IdentifierInfo  *name,
-                Location         loc);
-
-    /// Returns the index (or value) of this EnumLiteral.
-    unsigned getIndex() const { return index; }
-
-    static bool classof(const EnumLiteral *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_EnumLiteral;
-    }
-
-private:
-    unsigned index;
-};
-
-//===----------------------------------------------------------------------===//
-// EnumerationDecl
-class EnumerationDecl : public TypeDecl, public DeclRegion {
-
-public:
-    EnumerationDecl(IdentifierInfo *name,
-                    Location        loc,
-                    DeclRegion     *parent);
-
-    const EnumerationType *getType() const {
-        return llvm::cast<EnumerationType>(correspondingType);
-    }
-    EnumerationType *getType() {
-        return llvm::cast<EnumerationType>(correspondingType);
-    }
-
-    // Returns the number of EnumLiteral's associated with this enumeration.
-    unsigned getNumLiterals() const { return numLiterals; }
-
-    // Returns the literal with the given name, or null if no such literal is a
-    // member of this enumeration.
-    EnumLiteral *findLiteral(IdentifierInfo *name);
-
-    static bool classof(const EnumerationDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_EnumerationDecl;
-    }
-
-private:
-    // The number of EnumLiteral's associated with this enumeration.
-    uint32_t numLiterals;
-
     void notifyAddDecl(Decl *decl);
     void notifyRemoveDecl(Decl *decl);
 };

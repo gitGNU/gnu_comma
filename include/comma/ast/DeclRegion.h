@@ -237,6 +237,12 @@ private:
 
     void notifyObserversOfAddition(Decl *decl);
     void notifyObserversOfRemoval(Decl *decl);
+
+    FunctionDecl *rewriteFunctionDecl(FunctionDecl *fdecl,
+                                      const AstRewriter &rewrites);
+
+    ProcedureDecl *rewriteProcedureDecl(ProcedureDecl *pdecl,
+                                        const AstRewriter &rewrites);
 };
 
 } // End comma namespace.

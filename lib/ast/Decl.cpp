@@ -76,10 +76,11 @@ ModelDecl::ModelDecl(AstResource &resource,
                      AstKind kind, IdentifierInfo *name, Location loc)
     : Decl(kind, name, loc),
       DeclRegion(kind),
-      percent(0)
+      percent(0),
+      resource(resource)
 {
     IdentifierInfo *percentId = resource.getIdentifierInfo("%");
-    percent =  new DomainType(percentId, this);
+    percent = new DomainType(percentId, this);
 }
 
 ModelDecl::~ModelDecl()
@@ -91,7 +92,7 @@ bool ModelDecl::addDirectSignature(SignatureType *signature)
 {
     // Rewrite % nodes of the signature to the % nodes of this model and map any
     // formal arguments to the actuals.
-    AstRewriter rewrites;
+    AstRewriter rewrites(resource);
     rewrites.addRewrite(signature->getSigoid()->getPercent(),
                         getPercent());
     rewrites.installRewrites(signature);
@@ -368,12 +369,12 @@ IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
 
 SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
                                ParamValueDecl **params, unsigned numParams,
-                               Type *returnType, DeclRegion *parent)
+                               DeclRegion *parent)
     : Decl(kind, name, loc),
       DeclRegion(kind, parent),
       immediate(false),
       opID(PO::NotPrimitive),
-      routineType(0),
+      numParameters(numParams),
       parameters(0),
       body(0),
       definingDeclaration(0),
@@ -381,60 +382,25 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
 {
     assert(this->denotesSubroutineDecl());
 
-    setDeclRegion(parent);
-
-    // Initialize our copy of the parameter set.
-    if (numParams > 0) {
+    if (numParams > 0)
         parameters = new ParamValueDecl*[numParams];
-        std::copy(params, params + numParams, parameters);
-    }
+    llvm::SmallVector<const Type*, 8> paramTypes;
 
-    // We must construct a subroutine type for this decl.  Begin by extracting
-    // the domain types and associated indentifier infos from each of the
-    // parameters.
-    llvm::SmallVector<Type*, 6> paramTypes(numParams);
-    llvm::SmallVector<IdentifierInfo*, 6> paramIds(numParams);
     for (unsigned i = 0; i < numParams; ++i) {
-        ParamValueDecl *param = parameters[i];
-        paramTypes[i] = param->getType();
-        paramIds[i] = param->getIdInfo();
-
-        // Since the parameters of a subroutine are created before the
-        // subroutine itself, the associated declarative region of each
-        // parameter should be null.  Assert this invarient and update each
-        // param to point to the new context.
-        assert(!param->getDeclRegion() &&
-               "Parameter associated with invalid region!");
-        param->setDeclRegion(this);
-    }
-
-    // Construct the type of this subroutine.
-    if (kind == AST_FunctionDecl || kind == AST_EnumLiteral)
-        routineType = new FunctionType(paramIds.data(),
-                                       paramTypes.data(),
-                                       numParams,
-                                       returnType);
-    else {
-        assert(!returnType && "Procedures cannot have return types!");
-        routineType = new ProcedureType(paramIds.data(),
-                                        paramTypes.data(),
-                                        numParams);
-    }
-
-    // Set the parameter modes for the type.
-    for (unsigned i = 0; i < numParams; ++i) {
-        PM::ParameterMode mode = params[i]->getExplicitParameterMode();
-        routineType->setParameterMode(mode, i);
+        ParamValueDecl *paramDecl = params[i];
+        parameters[i] = paramDecl;
+        paramTypes.push_back(paramDecl->getType());
     }
 }
 
 SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
-                               SubroutineType *type, DeclRegion *parent)
+                               IdentifierInfo **keywords, SubroutineType *type,
+                               DeclRegion *parent)
     : Decl(kind, name, loc),
       DeclRegion(kind, parent),
       immediate(false),
       opID(PO::NotPrimitive),
-      routineType(type),
+      numParameters(type->getArity()),
       parameters(0),
       body(0),
       definingDeclaration(0),
@@ -442,26 +408,46 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
 {
     assert(this->denotesSubroutineDecl());
 
-    setDeclRegion(parent);
+    if (numParameters == 0)
+        return;
 
-    // In this constructor, we need to create a set of ParamValueDecl nodes
-    // which correspond to the supplied type.
-    unsigned numParams = type->getArity();
-    if (numParams > 0) {
-        parameters = new ParamValueDecl*[numParams];
-        for (unsigned i = 0; i < numParams; ++i) {
-            IdentifierInfo *formal = type->getKeyword(i);
-            Type *formalType = type->getArgType(i);
-            PM::ParameterMode mode = type->getExplicitParameterMode(i);
-            ParamValueDecl *param;
-
-            // Note that as these param decls are implicitly generated we supply
-            // an invalid location for each node.
-            param = new ParamValueDecl(formal, formalType, mode, 0);
-            param->setDeclRegion(this);
-            parameters[i] = param;
-        }
+    parameters = new ParamValueDecl*[numParameters];
+    for (unsigned i = 0; i < numParameters; ++i) {
+        Type *paramType = type->getArgType(i);
+        ParamValueDecl *param =
+            new ParamValueDecl(keywords[i], paramType, PM::MODE_DEFAULT, 0);
+        parameters[i] = param;
     }
+}
+
+SubroutineDecl::~SubroutineDecl()
+{
+    if (parameters) {
+        for (unsigned i = 0; i < numParameters; ++i)
+            delete parameters[i];
+        delete[] parameters;
+    }
+}
+
+int SubroutineDecl::getKeywordIndex(IdentifierInfo *key) const
+{
+    for (unsigned i = 0; i < getArity(); ++i) {
+        if (parameters[i]->getIdInfo() == key)
+            return i;
+    }
+    return -1;
+}
+
+bool SubroutineDecl::keywordsMatch(const SubroutineDecl *SRDecl) const
+{
+    unsigned arity = getArity();
+    if (SRDecl->getArity() == arity) {
+        for (unsigned i = 0; i < arity; ++i)
+            if (getParamKeyword(i) != SRDecl->getParamKeyword(i))
+                return false;
+        return true;
+    }
+    return false;
 }
 
 void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
@@ -471,10 +457,6 @@ void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
            "Defining declarations must be of the same kind as the parent!");
     definingDeclaration = routineDecl;
-}
-
-PM::ParameterMode SubroutineDecl::getParamMode(unsigned i) {
-    return getParam(i)->getParameterMode();
 }
 
 bool SubroutineDecl::hasBody() const
@@ -503,14 +485,54 @@ SubroutineDecl *SubroutineDecl::resolveOrigin()
     return res;
 }
 
-const SubroutineDecl *SubroutineDecl::resolveOrigin() const
+//===----------------------------------------------------------------------===//
+// ProcedureDecl
+
+ProcedureDecl::ProcedureDecl(AstResource &resource,
+                             IdentifierInfo *name, Location loc,
+                             ParamValueDecl **params, unsigned numParams,
+                             DeclRegion *parent)
+    : SubroutineDecl(AST_ProcedureDecl, name, loc,
+                     params, numParams, parent)
 {
-    const SubroutineDecl *res = this;
+    // Construct our type.
+    llvm::SmallVector<Type*, 8> paramTypes;
+    for (unsigned i = 0; i < numParams; ++i)
+        paramTypes.push_back(params[i]->getType());
+    correspondingType =
+        resource.getProcedureType(paramTypes.data(), numParams);
+}
 
-    while (res->hasOrigin())
-        res = res->getOrigin();
+//===----------------------------------------------------------------------===//
+// FunctionDecl
 
-    return res;
+FunctionDecl::FunctionDecl(AstResource &resource,
+                           IdentifierInfo *name, Location loc,
+                           ParamValueDecl **params, unsigned numParams,
+                           Type *returnType, DeclRegion *parent)
+    : SubroutineDecl(AST_FunctionDecl, name, loc,
+                     params, numParams, parent)
+{
+    initializeCorrespondingType(resource, returnType);
+}
+
+FunctionDecl::FunctionDecl(AstKind kind, AstResource &resource,
+                           IdentifierInfo *name, Location loc,
+                           ParamValueDecl **params, unsigned numParams,
+                           Type *returnType, DeclRegion *parent)
+    : SubroutineDecl(kind, name, loc, params, numParams, parent)
+{
+    initializeCorrespondingType(resource, returnType);
+}
+
+void FunctionDecl::initializeCorrespondingType(AstResource &resource,
+                                               Type *returnType)
+{
+    llvm::SmallVector<Type*, 8> paramTypes;
+    for (unsigned i = 0; i < numParameters; ++i)
+        paramTypes.push_back(parameters[i]->getType());
+    correspondingType =
+        resource.getFunctionType(paramTypes.data(), numParameters, returnType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -537,8 +559,8 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
                                        SignatureType *sigType, Location loc)
     : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
 {
-    AstRewriter rewriter;
     Sigoid *sigoid = sigType->getSigoid();
+    AstRewriter rewriter(sigoid->getAstResource());
 
     // Establish a mapping from the % node of the signature to the type of this
     // abstract domain.
@@ -567,7 +589,7 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
     // domoid change.
     domain->addObserver(this);
 
-    AstRewriter rewriter;
+    AstRewriter rewriter(domain->getAstResource());
     rewriter.addRewrite(domain->getPercent(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, domain);
@@ -595,7 +617,7 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
     // functor change.
     functor->addObserver(this);
 
-    AstRewriter rewriter;
+    AstRewriter rewriter(functor->getAstResource());
     rewriter.addRewrite(functor->getPercent(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, functor);
@@ -632,7 +654,7 @@ unsigned DomainInstanceDecl::getArity() const
 
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
-    AstRewriter rewriter;
+    AstRewriter rewriter(getDefinition()->getAstResource());
     rewriter.addRewrite(getDefinition()->getPercent(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);
@@ -674,14 +696,16 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
 
 //===----------------------------------------------------------------------===//
 // EnumLiteral
-EnumLiteral::EnumLiteral(EnumerationDecl *decl,
-                         IdentifierInfo *name, Location loc)
-    : FunctionDecl(AST_EnumLiteral, name, loc, 0, 0, decl->getType(), decl)
+EnumLiteral::EnumLiteral(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         EnumerationDecl *parent)
+    : FunctionDecl(AST_EnumLiteral, resource,
+                   name, loc, 0, 0, parent->getType(), parent)
 {
     // Add ourselves to the enclosing EnumerationDecl, and mark this new
     // function-like declaration as primitive.
-    index = decl->getNumLiterals();
-    decl->addDecl(this);
+    index = parent->getNumLiterals();
+    parent->addDecl(this);
     setAsPrimitive(PO::EnumFunction);
 }
 
