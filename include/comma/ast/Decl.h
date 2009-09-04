@@ -70,12 +70,14 @@ public:
         return node->denotesDecl();
     }
 
+
 protected:
-    Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = 0)
+    Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = 0,
+         DeclRegion *region = 0)
         : Ast(kind),
           idInfo(info),
           location(loc),
-          context(0) {
+          context(region) {
         assert(this->denotesDecl());
     }
 

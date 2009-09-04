@@ -370,7 +370,7 @@ IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
 SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
                                ParamValueDecl **params, unsigned numParams,
                                DeclRegion *parent)
-    : Decl(kind, name, loc),
+    : Decl(kind, name, loc, parent),
       DeclRegion(kind, parent),
       immediate(false),
       opID(PO::NotPrimitive),
@@ -396,7 +396,7 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
 SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
                                IdentifierInfo **keywords, SubroutineType *type,
                                DeclRegion *parent)
-    : Decl(kind, name, loc),
+    : Decl(kind, name, loc, parent),
       DeclRegion(kind, parent),
       immediate(false),
       opID(PO::NotPrimitive),
