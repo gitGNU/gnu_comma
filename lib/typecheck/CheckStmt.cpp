@@ -14,6 +14,8 @@
 #include "comma/ast/Type.h"
 #include "comma/typecheck/TypeCheck.h"
 
+#include "llvm/ADT/STLExtras.h"
+
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
@@ -218,14 +220,15 @@ Node TypeCheck::acceptAssignmentStmt(Location        loc,
 Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
                              NodeVector &consequentNodes)
 {
+    typedef NodeCaster<Stmt> caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+
     Expr *condition = cast_node<Expr>(conditionNode);
 
     if (checkExprInContext(condition, declProducer->getBoolType())) {
-        unsigned numConsequents = consequentNodes.size();
-        StmtSequence *consequents = new StmtSequence();
-
-        for (unsigned i = 0; i < numConsequents; ++i)
-            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+        iterator I(consequentNodes.begin(), caster());
+        iterator E(consequentNodes.end(), caster());
+        StmtSequence *consequents = new StmtSequence(I, E);
 
         conditionNode.release();
         consequentNodes.release();
@@ -237,14 +240,15 @@ Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
 Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
                                NodeVector &alternateNodes)
 {
-    IfStmt *cond = cast_node<IfStmt>(ifNode);
-    StmtSequence *alternates = new StmtSequence();
-    unsigned numAlternates = alternateNodes.size();
+    typedef NodeCaster<Stmt> caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
 
+    IfStmt *cond = cast_node<IfStmt>(ifNode);
     assert(!cond->hasAlternate() && "Multiple else component in IfStmt!");
 
-    for (unsigned i = 0; i < numAlternates; ++i)
-        alternates->addStmt(cast_node<Stmt>(alternateNodes[i]));
+    iterator I(alternateNodes.begin(), caster());
+    iterator E(alternateNodes.end(), caster());
+    StmtSequence *alternates = new StmtSequence(I, E);
 
     cond->setAlternate(loc, alternates);
     alternateNodes.release();
@@ -254,15 +258,16 @@ Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
 Node TypeCheck::acceptElsifStmt(Location loc, Node ifNode, Node conditionNode,
                                 NodeVector &consequentNodes)
 {
+    typedef NodeCaster<Stmt> caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+
     IfStmt *cond = cast_node<IfStmt>(ifNode);
     Expr *condition = cast_node<Expr>(conditionNode);
 
     if (checkExprInContext(condition, declProducer->getBoolType())) {
-        StmtSequence *consequents = new StmtSequence();
-        unsigned numConsequents = consequentNodes.size();
-
-        for (unsigned i = 0; i < numConsequents; ++i)
-            consequents->addStmt(cast_node<Stmt>(consequentNodes[i]));
+        iterator I(consequentNodes.begin(), caster());
+        iterator E(consequentNodes.end(), caster());
+        StmtSequence *consequents = new StmtSequence(I, E);
 
         cond->addElsif(loc, condition, consequents);
         conditionNode.release();
@@ -305,17 +310,18 @@ void TypeCheck::endBlockStmt(Node blockNode)
 Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
                                 NodeVector &stmtNodes)
 {
+    typedef NodeCaster<Stmt> caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+
     Expr *condition = cast_node<Expr>(conditionNode);
 
     if (!checkExprInContext(condition, declProducer->getBoolType()))
         return getInvalidNode();
 
-    StmtSequence *body = new StmtSequence();
-    for (NodeVector::iterator I = stmtNodes.begin();
-         I != stmtNodes.end(); ++I) {
-        Stmt *stmt = cast_node<Stmt>(*I);
-        body->addStmt(stmt);
-    }
+    iterator I(stmtNodes.begin(), caster());
+    iterator E(stmtNodes.end(), caster());
+    StmtSequence *body = new StmtSequence(I, E);
+
     conditionNode.release();
     stmtNodes.release();
     return getNode(new WhileStmt(loc, condition, body));

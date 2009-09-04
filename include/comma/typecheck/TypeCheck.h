@@ -244,6 +244,18 @@ private:
         return llvm::cast<T>(Node::lift<Ast>(node));
     }
 
+    // A function object version of lift_node.
+    template <class T>
+    struct NodeLifter : public std::unary_function<Node&, T*> {
+        T* operator ()(Node &node) const { return lift_node<T>(node); }
+    };
+
+    // A function object version of cast_node.
+    template <class T>
+    struct NodeCaster : public std::unary_function<Node&, T*> {
+        T* operator ()(Node &node) const { return cast_node<T>(node); }
+    };
+
     DeclRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
     }

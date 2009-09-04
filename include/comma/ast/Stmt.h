@@ -43,7 +43,19 @@ protected:
 public:
     StmtSequence() : Stmt(AST_StmtSequence) { }
 
+    /// Construct a statement sequence given a pair of Stmt producing iterators.
+    template <class Iter>
+    StmtSequence(Iter I, Iter E)
+        : Stmt(AST_StmtSequence),
+          statements(I, E) { }
+
     void addStmt(Stmt *stmt) { statements.push_back(stmt); }
+
+    template <class Iter>
+    void addStmts(Iter I, Iter E) {
+        for ( ; I != E; ++I)
+            statements.push_back(*I);
+    }
 
     /// Returns the number of statements contained in this sequence.
     unsigned size() const { return statements.size(); }
