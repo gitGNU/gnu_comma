@@ -41,10 +41,6 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_TypedefType:
         return lowerTypedefType(cast<TypedefType>(type));
-
-    case Ast::AST_FunctionType:
-    case Ast::AST_ProcedureType:
-        return lowerSubroutineType(cast<SubroutineType>(type));
     }
 }
 
@@ -149,7 +145,7 @@ CodeGenTypes::lowerEnumType(const EnumerationType *type)
 }
 
 const llvm::FunctionType *
-CodeGenTypes::lowerSubroutineType(const SubroutineType *type)
+CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
 {
     std::vector<const llvm::Type*> args;
     const llvm::FunctionType *result;
@@ -157,19 +153,19 @@ CodeGenTypes::lowerSubroutineType(const SubroutineType *type)
     // Emit the implicit first "%" argument.
     args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
 
-    for (unsigned i = 0; i < type->getArity(); ++i) {
-        const llvm::Type *argTy = lowerType(type->getArgType(i));
+    for (unsigned i = 0; i < decl->getArity(); ++i) {
+        const llvm::Type *argTy = lowerType(decl->getParamType(i));
 
         // If the argument mode is "out" or "in out", make the argument a
         // pointer-to type.
-        PM::ParameterMode mode = type->getParameterMode(i);
+        PM::ParameterMode mode = decl->getParamMode(i);
         if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
             argTy = CG.getPointerType(argTy);
         args.push_back(argTy);
     }
 
-    if (const FunctionType *ftype = dyn_cast<FunctionType>(type)) {
-        const llvm::Type *retTy = lowerType(ftype->getReturnType());
+    if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
+        const llvm::Type *retTy = lowerType(fdecl->getReturnType());
         result = llvm::FunctionType::get(retTy, args, false);
     }
     else

@@ -129,7 +129,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     unsigned instanceID = CGC.addCapsuleDependency(instance);
     args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
 
-    AstRewriter rewriter;
+    AstRewriter rewriter(CG.getAstResource());
     // Always map percent nodes from the current capsule to the instance.
     rewriter[CGC.getCapsule()->getPercent()] = CGC.getInstance()->getType();
 
@@ -239,7 +239,7 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     // that of the original, with the only exception being that occurrences of
     // abstractTy are mapped to the type of the resolved instance.  Use an
     // AstRewriter to obtain the required target type.
-    AstRewriter rewriter;
+    AstRewriter rewriter(CG.getAstResource());
     rewriter.addRewrite(abstractTy, instance->getType());
     SubroutineType *targetTy = rewriter.rewrite(srDecl->getType());
 

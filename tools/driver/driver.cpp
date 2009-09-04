@@ -82,7 +82,7 @@ int main(int argc, char **argv)
         data = machine->getTargetData();
         M->setDataLayout(data->getStringRepresentation());
 
-        CodeGen CG(M, *data);
+        CodeGen CG(M, *data, resource);
 
         typedef CompilationUnit::decl_iterator iterator;
 

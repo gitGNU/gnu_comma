@@ -32,7 +32,8 @@ class CodeGen {
 public:
     ~CodeGen();
 
-    CodeGen(llvm::Module *M, const llvm::TargetData &data);
+    CodeGen(llvm::Module *M, const llvm::TargetData &data,
+            AstResource &resource);
 
     /// \brief Returns the type generator used to lower Comma AST types into
     /// LLVM IR types.
@@ -51,6 +52,9 @@ public:
 
     /// \brief Returns the llvm::TargetData used to generate code.
     const llvm::TargetData &getTargetData() const { return TD; }
+
+    /// \brief Returns the AstResource used to generate new AST nodes.
+    AstResource &getAstResource() const { return Resource; }
 
     /// \brief Returns the LLVMContext associated with this code generator.
     llvm::LLVMContext &getLLVMContext() const {
@@ -205,6 +209,9 @@ private:
 
     /// The TargetData describing our target,
     const llvm::TargetData &TD;
+
+    /// The AstResource used for generating new types.
+    AstResource &Resource;
 
     /// The type generator used to lower Comma AST Types into LLVM IR types.
     CodeGenTypes *CGTypes;

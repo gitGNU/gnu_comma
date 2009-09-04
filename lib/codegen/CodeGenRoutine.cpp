@@ -42,8 +42,7 @@ void CodeGenRoutine::declareSubroutine(SubroutineDecl *srDecl)
 llvm::Function *
 CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
 {
-    const llvm::FunctionType *srTy =
-        CGTypes.lowerSubroutineType(srDecl->getType());
+    const llvm::FunctionType *srTy = CGTypes.lowerSubroutine(srDecl);
     std::string srName = CGC.getLinkName(CGC.getInstance(), srDecl);
     llvm::Function *fn =
         dyn_cast_or_null<llvm::Function>(CG.lookupGlobal(srName));

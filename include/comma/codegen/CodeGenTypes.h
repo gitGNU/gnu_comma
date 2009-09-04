@@ -18,8 +18,12 @@ namespace comma {
 
 class CodeGen;
 
-/// This class is responsible for lowering Comma AST types to LLVM IR
-/// types.
+/// Lowers various Comma AST nodes to LLVM types.
+///
+/// As a rule, Comma type nodes need not in and of themselves provide enough
+/// information to lower them directly to LLVM IR.  Thus, declaration nodes
+/// are often needed so that the necessary information can be extracted from the
+/// AST.
 class CodeGenTypes {
 
 public:
@@ -33,7 +37,7 @@ public:
 
     const llvm::IntegerType * lowerEnumType(const EnumerationType *type);
 
-    const llvm::FunctionType *lowerSubroutineType(const SubroutineType *type);
+    const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
     const llvm::IntegerType *lowerTypedefType(const TypedefType *type);
 

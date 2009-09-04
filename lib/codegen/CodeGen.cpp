@@ -21,9 +21,11 @@ using llvm::cast;
 using llvm::dyn_cast;
 using llvm::isa;
 
-CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data)
+CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
+                 AstResource &resource)
     : M(M),
       TD(data),
+      Resource(resource),
       CGTypes(new CodeGenTypes(*this)),
       CRT(new CommaRT(*this)),
       CGCapsule(0) { }
@@ -125,7 +127,7 @@ bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
             std::string name = CGCapsule->getLinkName(srDecl);
             const llvm::FunctionType *fnTy =
-                CGTypes->lowerSubroutineType(srDecl->getType());
+                CGTypes->lowerSubroutine(srDecl);
             llvm::Function *fn = makeFunction(fnTy, name);
             insertGlobal(name, fn);
         }
