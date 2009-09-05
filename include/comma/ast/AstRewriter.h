@@ -67,7 +67,7 @@ public:
     // the underlying signature declaration to the actual arguments provided by
     // the type.  This method is a no-op when the supplied type is not
     // parameterized.
-    void installRewrites(SignatureType *context);
+    void installRewrites(SigInstanceDecl *context);
 
     // Returns true if the given type is rewritten to a distinct node using the
     // established rules.
@@ -81,8 +81,8 @@ public:
     // Rewrites the given type according to the installed rules.
     Type *rewrite(Type *type) const;
 
-    // Rewrites the given signature type according to the installed rules.
-    SignatureType *rewrite(SignatureType *sig) const;
+    // Rewrites the given signature instance according to the installed rules.
+    SigInstanceDecl *rewrite(SigInstanceDecl *sig) const;
 
     // Rewrites the given domain type according to the installed rules.
     DomainType *rewrite(DomainType *dom) const;

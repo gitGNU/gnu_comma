@@ -65,6 +65,7 @@ public:
     virtual void visitImportDecl(ImportDecl *node);
     virtual void visitSignatureDecl(SignatureDecl *node);
     virtual void visitVarietyDecl(VarietyDecl *node);
+    virtual void visitSigInstanceDecl(SigInstanceDecl *node);
     virtual void visitAddDecl(AddDecl *node);
     virtual void visitDomainDecl(DomainDecl *node);
     virtual void visitFunctorDecl(FunctorDecl *node);

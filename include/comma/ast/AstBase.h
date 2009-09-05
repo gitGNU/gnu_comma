@@ -71,7 +71,7 @@ class Qualifier;
 class ReturnStmt;
 class Sigoid;
 class SignatureDecl;
-class SignatureType;
+class SigInstanceDecl;
 class Stmt;
 class StmtSequence;
 class SubroutineDecl;
@@ -135,6 +135,8 @@ public:
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
 
+        AST_SigInstanceDecl,    ///< SigInstanceDecl
+
         AST_ParamValueDecl,     ///< ParamValueDecl
         AST_ObjectDecl,         ///< ObjectDecl
 
@@ -153,7 +155,6 @@ public:
         //
         // NamedType nodes.
         //
-        AST_SignatureType,      ///< SignatureType
         AST_DomainType,         ///< DomainType
         AST_CarrierType,        ///< CarrierType
         AST_TypedefType,        ///< TypedefType
@@ -209,7 +210,7 @@ public:
         FIRST_Type = AST_FunctionType,
         LAST_Type = AST_EnumerationType,
 
-        FIRST_NamedType = AST_SignatureType,
+        FIRST_NamedType = AST_DomainType,
         LAST_NamedType = AST_EnumerationType,
 
         FIRST_Expr = AST_DeclRefExpr,

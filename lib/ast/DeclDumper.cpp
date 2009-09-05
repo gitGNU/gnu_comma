@@ -74,6 +74,11 @@ void DeclDumper::visitVarietyDecl(VarietyDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitSigInstanceDecl(SigInstanceDecl *node)
+{
+    printHeader(node) << '>';
+}
+
 void DeclDumper::visitAddDecl(AddDecl *node)
 {
     printHeader(node) << '>';

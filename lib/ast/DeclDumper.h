@@ -64,6 +64,7 @@ private:
     void visitImportDecl(ImportDecl *node);
     void visitSignatureDecl(SignatureDecl *node);
     void visitVarietyDecl(VarietyDecl *node);
+    void visitSigInstanceDecl(SigInstanceDecl *node);
     void visitAddDecl(AddDecl *node);
     void visitDomainDecl(DomainDecl *node);
     void visitFunctorDecl(FunctorDecl *node);

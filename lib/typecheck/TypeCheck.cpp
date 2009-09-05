@@ -8,7 +8,6 @@
 
 #include "DeclProducer.h"
 #include "Scope.h"
-#include "TypeEqual.h"
 
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
@@ -153,13 +152,10 @@ Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
 {
     assert(scope->getKind() == MODEL_SCOPE);
 
-    Type *type = cast_node<Type>(typeNode);
-
-    // Check that the parameter type denotes a signature.  For each parameter,
-    // we create an AbstractDomainType to represent the formal, and add that
-    // type into the current scope so that it may participate in upcomming
-    // parameter types.
-    if (SignatureType *sig = dyn_cast<SignatureType>(type)) {
+    // Check that the parameter denotes a signature.  For each parameter, we
+    // create an AbstractDomainDecl to represent the formal and add it into the
+    // current scope so that it may participate in upcomming parameter types.
+    if (SigInstanceDecl *sig = lift_node<SigInstanceDecl>(typeNode)) {
         // Check that the formal does not match the name of the model being
         // analyzed.  We need to do this check here since the model declaration
         // itself has yet to be brought into scope.
@@ -246,11 +242,9 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
 void TypeCheck::acceptWithSupersignature(Node typeNode, Location loc)
 {
     ModelDecl *model = getCurrentModel();
-    Type *type  = cast_node<Type>(typeNode);
-    SignatureType *superSig;
+    SigInstanceDecl *superSig = lift_node<SigInstanceDecl>(typeNode);
 
     // Check that the node denotes a signature.
-    superSig = dyn_cast<SignatureType>(type);
     if (!superSig) {
         report(loc, diag::NOT_A_SIGNATURE);
         return;
@@ -356,7 +350,7 @@ bool TypeCheck::ensureNonRecursiveInstance(FunctorDecl *decl,
 /// function resolves the type of \c U(X) given an actual parameter for \c X.
 /// It is assumed that the actual arguments provided are compatable with the
 /// given model.
-SignatureType *
+SigInstanceDecl *
 TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
                                   Type **arguments, unsigned numArguments)
 {
@@ -373,7 +367,7 @@ TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
         rewriter.addRewrite(formal, actual);
     }
 
-    SignatureType *target = parameterizedModel->getFormalSignature(numArguments);
+    SigInstanceDecl *target = parameterizedModel->getFormalSignature(numArguments);
     return rewriter.rewrite(target);
 }
 
@@ -454,7 +448,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
 
     case Ast::AST_SignatureDecl: {
         SignatureDecl *sigDecl = cast<SignatureDecl>(decl);
-        return getNode(sigDecl->getCorrespondingType());
+        return getNode(sigDecl->getInstance());
     }
 
     case Ast::AST_AbstractDomainDecl:
@@ -544,7 +538,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     for (unsigned i = 0; i < numArgs; ++i) {
         Type *argument = arguments[i];
         Location argLoc = argumentLocs[i];
-        SignatureType *target =
+        SigInstanceDecl *target =
             resolveFormalSignature(model, arguments.data(), i);
         if (!checkType(argument, target, argLoc))
             return getInvalidNode();
@@ -552,10 +546,8 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     // Obtain a memoized type node for this particular argument set.
     Node node = getInvalidNode();
-    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
-        node = getNode(
-            variety->getCorrespondingType(arguments.data(), numArgs));
-    }
+    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model))
+        node = getNode(variety->getInstance(arguments.data(), numArgs));
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
 
@@ -699,7 +691,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     SignatureSet::iterator superIter = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
-        SignatureType *super = *superIter;
+        SigInstanceDecl *super = *superIter;
         Sigoid *sigdecl = super->getSigoid();
         AstRewriter rewrites(resource);
 
@@ -1172,7 +1164,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     importDeclRegion(Idecl);
 }
 
-bool TypeCheck::checkType(Type *source, SignatureType *target, Location loc)
+bool TypeCheck::checkType(Type *source, SigInstanceDecl *target, Location loc)
 {
     if (DomainType *domain = dyn_cast<DomainType>(source)) {
         if (!has(domain, target)) {

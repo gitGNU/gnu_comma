@@ -76,56 +76,6 @@ bool CarrierType::equals(const Type *type) const
 }
 
 //===----------------------------------------------------------------------===//
-// SignatureType
-
-SignatureType::SignatureType(SignatureDecl *decl)
-    : NamedType(AST_SignatureType, decl->getIdInfo()),
-      declaration(decl)
-{ }
-
-SignatureType::SignatureType(VarietyDecl *decl,
-                             Type **args, unsigned numArgs)
-    : NamedType(AST_SignatureType, decl->getIdInfo()),
-      declaration(decl)
-{
-    arguments = new Type*[numArgs];
-    std::copy(args, args + numArgs, arguments);
-}
-
-SignatureDecl *SignatureType::getSignature() const
-{
-    return dyn_cast<SignatureDecl>(declaration);
-}
-
-VarietyDecl *SignatureType::getVariety() const
-{
-    return dyn_cast<VarietyDecl>(declaration);
-}
-
-unsigned SignatureType::getArity() const
-{
-    VarietyDecl *variety = getVariety();
-    if (variety)
-        return variety->getArity();
-    return 0;
-}
-
-Type *SignatureType::getActualParameter(unsigned n) const
-{
-    assert(isParameterized() &&
-           "Cannot fetch parameter from non-parameterized type!");
-    assert(n < getArity() && "Parameter index out of range!");
-    return arguments[n];
-}
-
-void SignatureType::Profile(llvm::FoldingSetNodeID &id,
-                            Type **args, unsigned numArgs)
-{
-    for (unsigned i = 0; i < numArgs; ++i)
-        id.AddPointer(args[i]);
-}
-
-//===----------------------------------------------------------------------===//
 // DomainType
 
 DomainType::DomainType(DomainTypeDecl *DTDecl)

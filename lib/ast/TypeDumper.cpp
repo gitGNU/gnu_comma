@@ -54,11 +54,6 @@ void TypeDumper::visitCarrierType(CarrierType *node)
     printHeader(node) << '>';
 }
 
-void TypeDumper::visitSignatureType(SignatureType *node)
-{
-    printHeader(node) << '>';
-}
-
 void TypeDumper::visitDomainType(DomainType *node)
 {
     printHeader(node);

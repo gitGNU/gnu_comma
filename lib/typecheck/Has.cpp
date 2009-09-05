@@ -9,7 +9,6 @@
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Type.h"
 #include "comma/ast/Decl.h"
-#include "TypeEqual.h"
 #include <map>
 
 using namespace comma;
@@ -19,7 +18,7 @@ using llvm::isa;
 
 namespace {
 
-bool percentHas(ModelDecl *source, SignatureType *target)
+bool percentHas(ModelDecl *source, SigInstanceDecl *target)
 {
     if (Sigoid *sigoid = dyn_cast<Sigoid>(source)) {
         // This % node corresponds to a signature declaration.  If the
@@ -64,7 +63,7 @@ bool percentHas(ModelDecl *source, SignatureType *target)
 
 } // End anonymous namespace.
 
-bool TypeCheck::has(DomainType *source, SignatureType *target)
+bool TypeCheck::has(DomainType *source, SigInstanceDecl *target)
 {
     if (source->denotesPercent()) {
         ModelDecl *model = cast<ModelDecl>(source->getDeclaration());
@@ -77,8 +76,8 @@ bool TypeCheck::has(DomainType *source, SignatureType *target)
     SignatureSet::const_iterator endIter = sigset.end();
 
     for ( ; iter != endIter; ++iter) {
-        SignatureType *candidate = *iter;
-        if (candidate->equals(target))
+        SigInstanceDecl *candidate = *iter;
+        if (candidate == target)
             return true;
     }
     return false;

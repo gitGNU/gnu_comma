@@ -48,7 +48,6 @@ public:
     ///
     ///@{
     virtual void visitCarrierType(CarrierType *node);
-    virtual void visitSignatureType(SignatureType *node);
     virtual void visitDomainType(DomainType *node);
     virtual void visitFunctionType(FunctionType *node);
     virtual void visitProcedureType(ProcedureType *node);

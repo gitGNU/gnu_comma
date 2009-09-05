@@ -51,7 +51,7 @@ void AstRewriter::installRewrites(DomainType *context)
     }
 }
 
-void AstRewriter::installRewrites(SignatureType *context)
+void AstRewriter::installRewrites(SigInstanceDecl *context)
 {
     VarietyDecl *variety = context->getVariety();
 
@@ -71,8 +71,6 @@ Type *AstRewriter::rewrite(Type *type) const
 
     default: return type;
 
-    case Ast::AST_SignatureType:
-        return rewrite(cast<SignatureType>(type));
     case Ast::AST_DomainType:
         return rewrite(cast<DomainType>(type));
     case Ast::AST_FunctionType:
@@ -82,12 +80,12 @@ Type *AstRewriter::rewrite(Type *type) const
     }
 }
 
-SignatureType *AstRewriter::rewrite(SignatureType *sig) const
+SigInstanceDecl *AstRewriter::rewrite(SigInstanceDecl *sig) const
 {
     if (sig->isParameterized()) {
         llvm::SmallVector<Type*, 4> args;
-        SignatureType::arg_iterator iter;
-        SignatureType::arg_iterator endIter = sig->endArguments();
+        SigInstanceDecl::arg_iterator iter;
+        SigInstanceDecl::arg_iterator endIter = sig->endArguments();
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
             // FIXME: Currently it is true that all arguments are domains, but
             // in the furture we will need to be more general than this.
@@ -98,13 +96,12 @@ SignatureType *AstRewriter::rewrite(SignatureType *sig) const
                 args.push_back(rewrite(arg));
             }
         }
-        // Obtain a memoized instance of this type.
+        // Obtain a memoized instance.
         VarietyDecl *decl = sig->getVariety();
-        return decl->getCorrespondingType(&args[0], args.size());
+        return decl->getInstance(&args[0], args.size());
     }
     return sig;
 }
-
 
 DomainType *AstRewriter::rewrite(DomainType *dom) const
 {

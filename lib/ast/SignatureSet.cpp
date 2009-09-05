@@ -13,7 +13,7 @@
 
 using namespace comma;
 
-bool SignatureSet::addDirectSignature(SignatureType *signature,
+bool SignatureSet::addDirectSignature(SigInstanceDecl *signature,
                                       const AstRewriter &rewriter)
 {
     if (directSignatures.insert(signature)) {
@@ -21,7 +21,7 @@ bool SignatureSet::addDirectSignature(SignatureType *signature,
         const SignatureSet& sigset = sigDecl->getSignatureSet();
         allSignatures.insert(signature);
         for (iterator iter = sigset.begin(); iter != sigset.end(); ++iter) {
-            SignatureType *rewrite = rewriter.rewrite(*iter);
+            SigInstanceDecl *rewrite = rewriter.rewrite(*iter);
             allSignatures.insert(rewrite);
         }
         return true;

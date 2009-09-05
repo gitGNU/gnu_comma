@@ -35,6 +35,8 @@ void DeclVisitor::visitDecl(Decl *node)
         visitSubroutineDecl(routine);
     else if (TypeDecl *typed = dyn_cast<TypeDecl>(node))
         visitTypeDecl(typed);
+    else if (SigInstanceDecl *instance = dyn_cast<SigInstanceDecl>(node))
+        visitSigInstanceDecl(instance);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -123,6 +125,7 @@ void DeclVisitor::visitOverloadedDeclName(OverloadedDeclName *node) { }
 void DeclVisitor::visitImportDecl(ImportDecl *node) { }
 void DeclVisitor::visitSignatureDecl(SignatureDecl *node) { }
 void DeclVisitor::visitVarietyDecl(VarietyDecl *node) { }
+void DeclVisitor::visitSigInstanceDecl(SigInstanceDecl *node) { }
 void DeclVisitor::visitAddDecl(AddDecl *node) { }
 void DeclVisitor::visitDomainDecl(DomainDecl *node) { }
 void DeclVisitor::visitFunctorDecl(FunctorDecl *node) { }

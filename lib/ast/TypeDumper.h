@@ -58,7 +58,6 @@ private:
     /// '>'.  The indentation level can change while a node is being printed,
     /// but the level is always restored once the printing is complete.
     void visitCarrierType(CarrierType *node);
-    void visitSignatureType(SignatureType *node);
     void visitDomainType(DomainType *node);
     void visitFunctionType(FunctionType *node);
     void visitProcedureType(ProcedureType *node);

@@ -429,11 +429,11 @@ private:
                                      DeclRegion     *region,
                                      std::vector<FunctionDecl*> dst);
 
-    // Returns true if the source type is compatible with the target type.  In
-    // this case the target denotes a signature, and so the source must be a
-    // domain which satisfies the signature constraint.  The supplied location
+    // Returns true if the source type is compatible with the target.  In this
+    // case the target denotes a signature, and so the source must be a domain
+    // which satisfies the signature constraint.  The supplied location
     // indicates the position of the source type.
-    bool checkType(Type *source, SignatureType *target, Location loc);
+    bool checkType(Type *source, SigInstanceDecl *target, Location loc);
 
     // Verifies that the given AddDecl satisfies the constraints imposed by its
     // signature.  Returns true if the constraints are satisfied.  Otherwise,
@@ -471,7 +471,7 @@ private:
     /// this function resolves the type of \c U(X) given an actual parameter for
     /// \c X.  It is assumed that the actual arguments provided are compatable
     /// with the given model.
-    SignatureType *
+    SigInstanceDecl *
     resolveFormalSignature(ModelDecl *parameterizedModel,
                            Type **arguments, unsigned numArguments);
 
@@ -506,7 +506,7 @@ private:
     /// Imports the given declarative region into the current scope.
     void importDeclRegion(DeclRegion *region);
 
-    bool has(DomainType *source, SignatureType *target);
+    bool has(DomainType *source, SigInstanceDecl *target);
 
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);

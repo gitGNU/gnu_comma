@@ -108,64 +108,6 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// SignatureType
-
-class SignatureType : public NamedType, public llvm::FoldingSetNode {
-
-public:
-    Sigoid *getSigoid() { return declaration; }
-    const Sigoid *getSigoid() const { return declaration; }
-
-    SignatureDecl *getSignature() const;
-
-    VarietyDecl *getVariety() const;
-
-    /// Returns true if this type represents an instance of some variety.
-    bool isParameterized() const { return getVariety() != 0; }
-
-    /// Returns the number of arguments used to define this type.  When the
-    /// supporting declaration is a signature, the arity is zero.
-    unsigned getArity() const;
-
-    /// Returns the i'th actual parameter.  This method asserts if its argument
-    /// is out of range.
-    Type *getActualParameter(unsigned n) const;
-
-    typedef Type **arg_iterator;
-    arg_iterator beginArguments() const { return arguments; }
-    arg_iterator endArguments() const { return &arguments[getArity()]; }
-
-    /// For use by llvm::FoldingSet.
-    void Profile(llvm::FoldingSetNodeID &id) {
-        Profile(id, &arguments[0], getArity());
-    }
-
-    static bool classof(const SignatureType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_SignatureType;
-    }
-
-private:
-    friend class SignatureDecl;
-    friend class VarietyDecl;
-
-    SignatureType(SignatureDecl *decl);
-
-    SignatureType(VarietyDecl *decl, Type **args, unsigned numArgs);
-
-    // Called by VarietyDecl when memoizing.
-    static void
-    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
-
-    // The declaration supporing this type.
-    Sigoid *declaration;
-
-    // If the supporting declaration is a variety, then this array contains the
-    // actual arguments defining this instance.
-    Type **arguments;
-};
-
-//===----------------------------------------------------------------------===//
 // DomainType
 class DomainType : public NamedType {
 

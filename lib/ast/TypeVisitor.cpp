@@ -35,8 +35,6 @@ void TypeVisitor::visitNamedType(NamedType *node)
 {
     if (CarrierType *carrierTy = dyn_cast<CarrierType>(node))
         visitCarrierType(carrierTy);
-    else if (SignatureType *sigTy = dyn_cast<SignatureType>(node))
-        visitSignatureType(sigTy);
     else if (DomainType *domTy = dyn_cast<DomainType>(node))
         visitDomainType(domTy);
     else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(node))
@@ -61,7 +59,6 @@ void TypeVisitor::visitSubroutineType(SubroutineType *node)
 // Non-virtual visitors, with empty out-of-line implementations.
 
 void TypeVisitor::visitCarrierType(CarrierType *node) { }
-void TypeVisitor::visitSignatureType(SignatureType *node) { }
 void TypeVisitor::visitDomainType(DomainType *node) { }
 void TypeVisitor::visitFunctionType(FunctionType *node) { }
 void TypeVisitor::visitProcedureType(ProcedureType *node) { }

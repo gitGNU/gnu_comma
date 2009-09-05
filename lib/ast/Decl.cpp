@@ -88,7 +88,7 @@ ModelDecl::~ModelDecl()
     delete percent;
 }
 
-bool ModelDecl::addDirectSignature(SignatureType *signature)
+bool ModelDecl::addDirectSignature(SigInstanceDecl *signature)
 {
     // Rewrite % nodes of the signature to the % nodes of this model and map any
     // formal arguments to the actuals.
@@ -136,9 +136,9 @@ DomainType *ModelDecl::getFormalType(unsigned i) const
            "Cannot retrieve formal type from a non-parameterized model!");
 }
 
-/// Returns the SignatureType which the i'th actual parameter must satisfy.
+/// Returns the SigInstanceDecl which the i'th actual parameter must satisfy.
 /// This method will assert if this declaration is not parameterized.
-SignatureType *ModelDecl::getFormalSignature(unsigned i) const
+SigInstanceDecl *ModelDecl::getFormalSignature(unsigned i) const
 {
     assert(!isParameterized() &&
            "Parameterized decls must implement this method!");
@@ -174,7 +174,7 @@ SignatureDecl::SignatureDecl(AstResource &resource,
                              IdentifierInfo *info, const Location &loc)
     : Sigoid(resource, AST_SignatureDecl, info, loc)
 {
-    canonicalType = new SignatureType(this);
+    theInstance = new SigInstanceDecl(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -190,20 +190,21 @@ VarietyDecl::VarietyDecl(AstResource &resource,
     std::copy(formals, formals + arity, formalDecls);
 }
 
-SignatureType *
-VarietyDecl::getCorrespondingType(Type **args, unsigned numArgs)
+SigInstanceDecl *
+VarietyDecl::getInstance(Type **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
-    SignatureType *type;
+    SigInstanceDecl *instance;
 
-    SignatureType::Profile(id, args, numArgs);
-    type = types.FindNodeOrInsertPos(id, insertPos);
-    if (type) return type;
+    SigInstanceDecl::Profile(id, args, numArgs);
+    instance = instances.FindNodeOrInsertPos(id, insertPos);
+    if (instance)
+        return instance;
 
-    type = new SignatureType(this, args, numArgs);
-    types.InsertNode(type, insertPos);
-    return type;
+    instance = new SigInstanceDecl(this, args, numArgs);
+    instances.InsertNode(instance, insertPos);
+    return instance;
 }
 
 /// Returns the index of the given AbstractDomainDecl (which must be a
@@ -224,10 +225,10 @@ DomainType *VarietyDecl::getFormalType(unsigned i) const {
     return getFormalDecl(i)->getType();
 }
 
-/// Returns the SignatureType which the i'th actual parameter must satisfy.
-SignatureType *VarietyDecl::getFormalSignature(unsigned i) const
+/// Returns the signature instance which the i'th actual parameter must satisfy.
+SigInstanceDecl *VarietyDecl::getFormalSignature(unsigned i) const
 {
-    return getFormalDecl(i)->getSignatureType();
+    return getFormalDecl(i)->getPrincipleSignature();
 }
 
 /// Returns the IdentifierInfo which labels the i'th formal parameter.
@@ -353,15 +354,70 @@ DomainType *FunctorDecl::getFormalType(unsigned i) const
     return getFormalDecl(i)->getType();
 }
 
-/// Returns the SignatureType which the i'th actual parameter must satisfy.
-SignatureType *FunctorDecl::getFormalSignature(unsigned i) const
+/// Returns the signature instance which the i'th actual parameter must satisfy.
+SigInstanceDecl *FunctorDecl::getFormalSignature(unsigned i) const
 {
-    return getFormalDecl(i)->getSignatureType();
+    return getFormalDecl(i)->getPrincipleSignature();
 }
 
 /// Returns the IdentifierInfo which labels the i'th formal parameter.
 IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
     return getFormalDecl(i)->getIdInfo();
+}
+
+
+//===----------------------------------------------------------------------===//
+// SigInstanceDecl
+
+SigInstanceDecl::SigInstanceDecl(SignatureDecl *decl)
+    : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
+      underlyingSigoid(decl)
+{ }
+
+SigInstanceDecl::SigInstanceDecl(VarietyDecl *decl,
+                                 Type **args, unsigned numArgs)
+    : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
+      underlyingSigoid(decl)
+{
+    arguments = new Type*[numArgs];
+    std::copy(args, args + numArgs, arguments);
+}
+
+SignatureDecl *SigInstanceDecl::getSignature() const
+{
+    return dyn_cast<SignatureDecl>(underlyingSigoid);
+}
+
+VarietyDecl *SigInstanceDecl::getVariety() const
+{
+    return dyn_cast<VarietyDecl>(underlyingSigoid);
+}
+
+unsigned SigInstanceDecl::getArity() const
+{
+    VarietyDecl *variety = getVariety();
+    if (variety)
+        return variety->getArity();
+    return 0;
+}
+
+Type *SigInstanceDecl::getActualParameter(unsigned n) const
+{
+    assert(isParameterized() &&
+           "Cannot fetch parameter from non-parameterized type!");
+    assert(n < getArity() && "Parameter index out of range!");
+    return arguments[n];
+}
+
+void SigInstanceDecl::Profile(llvm::FoldingSetNodeID &ID,
+                              Type **args, unsigned numArgs)
+{
+    if (numArgs == 0)
+        ID.AddPointer(0);
+    else {
+        for (unsigned i = 0; i < numArgs; ++i)
+            ID.AddPointer(args[i]);
+    }
 }
 
 //===----------------------------------------------------------------------===//
@@ -556,10 +612,10 @@ DomainTypeDecl::~DomainTypeDecl()
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
 AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
-                                       SignatureType *sigType, Location loc)
+                                       SigInstanceDecl *sig, Location loc)
     : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
 {
-    Sigoid *sigoid = sigType->getSigoid();
+    Sigoid *sigoid = sig->getSigoid();
     AstRewriter rewriter(sigoid->getAstResource());
 
     // Establish a mapping from the % node of the signature to the type of this
@@ -576,7 +632,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
     addDeclarationsUsingRewrites(rewriter, sigoid);
 
     // Add our rewritten signature hierarchy.
-    sigset.addDirectSignature(sigType, rewriter);
+    sigset.addDirectSignature(sig, rewriter);
 }
 
 //===----------------------------------------------------------------------===//

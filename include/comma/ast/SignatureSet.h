@@ -26,12 +26,9 @@
 
 namespace comma {
 
-class SignatureType;
-
 class SignatureSet {
 
-    typedef llvm::SetVector<SignatureType*> SignatureTable;
-
+    typedef llvm::SetVector<SigInstanceDecl*> SignatureTable;
     SignatureTable directSignatures;
     SignatureTable allSignatures;
 
@@ -40,27 +37,27 @@ public:
     ///
     /// This method adds \p signature to the direct signature set.  Then, using
     /// the supplied rewrite rules, inserts all super-signatures of \p signature
-    /// into the set of indirect signatures, rewriting each in turm.  Returns
+    /// into the set of indirect signatures, rewriting each in turn.  Returns
     /// true if the signature did not previously exist in this set and false
     /// otherwise.
-    bool addDirectSignature(SignatureType *signature,
+    bool addDirectSignature(SigInstanceDecl *signature,
                             const AstRewriter &rewriter);
 
-    /// \brief Returns true is the given signature type is already contained in
-    /// this set.
-    bool contains(SignatureType *signature) const {
+    /// \brief Returns true is the given signature is already contained in this
+    /// set.
+    bool contains(SigInstanceDecl *signature) const {
         return allSignatures.count(signature);
     }
 
-    /// \brief Returns true if the given signature type is a direct signature of
-    /// this set.
-    bool isDirect(SignatureType *signature) const {
+    /// \brief Returns true if the given signature is a direct signature of this
+    /// set.
+    bool isDirect(SigInstanceDecl *signature) const {
         return directSignatures.count(signature);
     }
 
-    /// \brief Returns true if the given signature type is an indirect signature
-    /// of this set.
-    bool isIndirect(SignatureType *signature) const {
+    /// \brief Returns true if the given signature is an indirect signature of
+    /// this set.
+    bool isIndirect(SigInstanceDecl *signature) const {
         return contains(signature) && !isDirect(signature);
     }
 

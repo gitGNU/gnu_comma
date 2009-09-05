@@ -28,6 +28,8 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "AbstractDomainDecl",
     "DomainInstanceDecl",
 
+    "SigInstanceDecl",
+
     "ParamValueDecl",
     "ObjectDecl",
 
@@ -40,7 +42,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerType",
     "ProcedureType",
 
-    "SignatureType",
     "DomainType",
     "CarrierType",
     "TypedefType",

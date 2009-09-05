@@ -203,9 +203,10 @@ public:
     /// assert if this declaration is not parameterized.
     virtual DomainType *getFormalType(unsigned i) const;
 
-    /// Returns the SignatureType which the i'th actual parameter must satisfy.
-    /// This method will assert if this declaration is not parameterized.
-    virtual SignatureType *getFormalSignature(unsigned i) const;
+    /// Returns the SigInstanceDecl which the i'th actual parameter must
+    /// satisfy.  This method will assert if this declaration is not
+    /// parameterized.
+    virtual SigInstanceDecl *getFormalSignature(unsigned i) const;
 
     /// Returns the IdentifierInfo which labels the i'th formal parameter.  This
     /// method will assert if this declaration is not parameterized.
@@ -234,7 +235,7 @@ public:
     ///@}
 
     /// Adds a direct signature to the underlying signature set.
-    bool addDirectSignature(SignatureType *signature);
+    bool addDirectSignature(SigInstanceDecl *signature);
 
     /// Returns the AstResource object associated with this model.
     ///
@@ -303,7 +304,7 @@ public:
     SignatureDecl(AstResource &resource,
                   IdentifierInfo *name, const Location &loc);
 
-    SignatureType *getCorrespondingType() { return canonicalType; }
+    SigInstanceDecl *getInstance() { return theInstance; }
 
     // Support for isa and dyn_cast.
     static bool classof(const SignatureDecl *node) { return true; }
@@ -312,9 +313,8 @@ public:
     }
 
 private:
-    // The unique type representing this signature (accessible via
-    // getCorrespondingType()).
-    SignatureType *canonicalType;
+    // The unique instance decl representing this signature.
+    SigInstanceDecl *theInstance;
 };
 
 //===----------------------------------------------------------------------===//
@@ -330,9 +330,9 @@ public:
                 IdentifierInfo *name, Location loc,
                 AbstractDomainDecl **formals, unsigned arity);
 
-    /// Returns the type node corresponding to this variety applied over the
+    /// Returns the instance decl corresponding to this variety applied over the
     /// given arguments.
-    SignatureType *getCorrespondingType(Type **args, unsigned numArgs);
+    SigInstanceDecl *getInstance(Type **args, unsigned numArgs);
 
     /// Returns the number of arguments accepted by this variety.
     unsigned getArity() const { return arity; }
@@ -350,17 +350,18 @@ public:
     /// Returns the type of of the i'th formal parameter.
     DomainType *getFormalType(unsigned i) const;
 
-    /// Returns the SignatureType which the i'th actual parameter must satisfy.
-    SignatureType *getFormalSignature(unsigned i) const;
+    /// Returns the signature instance which the i'th actual parameter must
+    /// satisfy.
+    SigInstanceDecl *getFormalSignature(unsigned i) const;
 
     /// Returns the IdentifierInfo which labels the i'th formal parameter.
     IdentifierInfo *getFormalIdInfo(unsigned i) const;
 
-    /// Iterator over the all of the signature types which represent specific
-    /// parameterizations of this variety.
-    typedef llvm::FoldingSet<SignatureType>::iterator type_iterator;
-    type_iterator beginTypes() { return types.begin(); }
-    type_iterator endTypes() { return types.end(); }
+    /// Iterator over the all of the signature instances which represent
+    /// specific parameterizations of this variety.
+    typedef llvm::FoldingSet<SigInstanceDecl>::iterator instance_iterator;
+    instance_iterator begin_instances() { return instances.begin(); }
+    instance_iterator end_instances() { return instances.end(); }
 
     // Support for isa and dyn_cast.
     static bool classof(const VarietyDecl *node) { return true; }
@@ -369,9 +370,9 @@ public:
     }
 
 private:
-    /// A FoldingSet of all signature types which represent specific
+    /// A FoldingSet of all signature instances representing specific
     /// parameterizations of this variety.
-    mutable llvm::FoldingSet<SignatureType>  types;
+    mutable llvm::FoldingSet<SigInstanceDecl>  instances;
 
     unsigned arity;                   ///< The number of formal parameters.
     AbstractDomainDecl **formalDecls; ///< The formal parameter declarations.
@@ -534,8 +535,9 @@ public:
     /// Returns the type of of the i'th formal parameter.
     DomainType *getFormalType(unsigned i) const;
 
-    /// Returns the SignatureType which the i'th actual parameter must satisfy.
-    SignatureType *getFormalSignature(unsigned i) const;
+    /// Returns the signature instance which the i'th actual parameter must
+    /// satisfy.
+    SigInstanceDecl *getFormalSignature(unsigned i) const;
 
     /// Returns the IdentifierInfo which labels the i'th formal parameter.
     IdentifierInfo *getFormalIdInfo(unsigned i) const;
@@ -556,6 +558,63 @@ private:
     AddDecl *implementation;          ///< Body of this functor.
 };
 
+//===----------------------------------------------------------------------===//
+// SigInstanceDecl
+
+class SigInstanceDecl : public Decl, public llvm::FoldingSetNode {
+
+public:
+    Sigoid *getSigoid() { return underlyingSigoid; }
+    const Sigoid *getSigoid() const { return underlyingSigoid; }
+
+    SignatureDecl *getSignature() const;
+
+    VarietyDecl *getVariety() const;
+
+    /// Returns true if this type represents an instance of some variety.
+    bool isParameterized() const { return getVariety() != 0; }
+
+    /// Returns the number of actual arguments supplied.  When the underlying
+    /// model is a signature, the arity is zero.
+    unsigned getArity() const;
+
+    /// Returns the i'th actual parameter.  This method asserts if its argument
+    /// is out of range.
+    Type *getActualParameter(unsigned n) const;
+
+    typedef Type **arg_iterator;
+    arg_iterator beginArguments() const { return arguments; }
+    arg_iterator endArguments() const { return &arguments[getArity()]; }
+
+    /// For use by llvm::FoldingSet.
+    void Profile(llvm::FoldingSetNodeID &id) {
+        Profile(id, &arguments[0], getArity());
+    }
+
+    static bool classof(const SigInstanceDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_SigInstanceDecl;
+    }
+
+private:
+    friend class SignatureDecl;
+    friend class VarietyDecl;
+
+    SigInstanceDecl(SignatureDecl *decl);
+
+    SigInstanceDecl(VarietyDecl *decl, Type **args, unsigned numArgs);
+
+    // Called by VarietyDecl when memoizing.
+    static void
+    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
+
+    // The Sigoid supporing this type.
+    Sigoid *underlyingSigoid;
+
+    // If the supporting declaration is a variety, then this array contains the
+    // actual arguments defining this instance.
+    Type **arguments;
+};
 
 //===----------------------------------------------------------------------===//
 // ValueDecl
@@ -1153,14 +1212,14 @@ class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
     AbstractDomainDecl(IdentifierInfo *name,
-                       SignatureType *type, Location loc);
+                       SigInstanceDecl *sig, Location loc);
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
 
     /// Returns the principle signature type which this abstract domain
     /// implements.
-    SignatureType *getSignatureType() const {
+    SigInstanceDecl *getPrincipleSignature() const {
         return *sigset.beginDirect();
     }
 
@@ -1173,7 +1232,7 @@ private:
     SignatureSet sigset;
 
     AstResource &getAstResource() {
-        return getSignatureType()->getSigoid()->getAstResource();
+        return getPrincipleSignature()->getSigoid()->getAstResource();
     }
 };
 
