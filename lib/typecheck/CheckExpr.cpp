@@ -212,57 +212,30 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
     return getNode(new DeclRefExpr(resolver.getIndirectValue(0), loc));
 }
 
-Node TypeCheck::acceptFunctionName(IdentifierInfo *name,
-                                   Location loc,
+Node TypeCheck::acceptFunctionName(IdentifierInfo *name, Location loc,
                                    Node qualNode)
 {
-    if (!qualNode.isNull()) {
-        Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region    = qualifier->resolve();
-
-        // Collect all of the function declarations in the region with the given
-        // name.  If the name does not resolve uniquely, return an
-        // OverloadedDeclName, otherwise the decl itself.
-        typedef DeclRegion::PredRange PredRange;
-        typedef DeclRegion::PredIter  PredIter;
-        PredRange range = region->findDecls(name);
-        llvm::SmallVector<SubroutineDecl*, 8> decls;
-
-        // Collect all function decls.
-        for (PredIter iter = range.first; iter != range.second; ++iter) {
-            FunctionDecl *candidate = dyn_cast<FunctionDecl>(*iter);
-            if (candidate)
-                decls.push_back(candidate);
-        }
-
-        if (decls.empty()) {
-            report(loc, diag::NAME_NOT_VISIBLE) << name;
-            return getInvalidNode();
-        }
-
-        if (decls.size() == 1)
-            return getNode(decls.front());
-
-        return getNode(new OverloadedDeclName(&decls[0], decls.size()));
-    }
-
     llvm::SmallVector<SubroutineDecl*, 8> overloads;
-    Scope::Resolver &resolver = scope->getResolver();
 
-    resolver.resolve(name);
-    resolver.filterProcedures();
-    resolver.filterNullaryOverloads();
-    resolver.getVisibleSubroutines(overloads);
-
-    unsigned numOverloads = overloads.size();
-    if (numOverloads == 1)
+    if (!qualNode.isNull()) {
+        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
+        DeclRegion *region = qualifier->resolve();
+        region->collectFunctionDecls(name, overloads);
+    }
+    else {
+        Scope::Resolver &resolver = scope->getResolver();
+        resolver.resolve(name);
+        resolver.filterProcedures();
+        resolver.filterNullaryOverloads();
+        resolver.getVisibleSubroutines(overloads);
+    }
+   if (overloads.empty()) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return getInvalidNode();
+    }
+    if (overloads.size() == 1)
         return getNode(overloads.front());
-    else if (numOverloads > 1)
-        return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
-
-    // Otherwise, we cannot resolve the name.
-    report(loc, diag::NAME_NOT_VISIBLE) << name;
-    return getInvalidNode();
+    return getNode(new OverloadedDeclName(&overloads[0], overloads.size()));
 }
 
 Node TypeCheck::acceptFunctionCall(Node connective,

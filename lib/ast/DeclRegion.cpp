@@ -162,34 +162,28 @@ bool DeclRegion::removeDecl(Decl *decl)
     return false;
 }
 
-bool DeclRegion::collectFunctionDecls(IdentifierInfo *name,
-                                      unsigned        arity,
-                                      std::vector<SubroutineDecl*> &dst)
+bool DeclRegion::collectFunctionDecls(
+    IdentifierInfo *name, llvm::SmallVectorImpl<SubroutineDecl*> &dst)
 {
     PredRange range = findDecls(name);
-    size_t    size  = dst.size();
+    size_t size = dst.size();
 
     for (PredIter iter = range.first; iter != range.second; ++iter) {
-        if (FunctionDecl *decl = dyn_cast<FunctionDecl>(*iter)) {
-            if (decl->getArity() == arity)
-                dst.push_back(decl);
-        }
+        if (FunctionDecl *decl = dyn_cast<FunctionDecl>(*iter))
+            dst.push_back(decl);
     }
     return size != dst.size();
 }
 
-bool DeclRegion::collectProcedureDecls(IdentifierInfo *name,
-                                       unsigned        arity,
-                                       std::vector<SubroutineDecl*> &dst)
+bool DeclRegion::collectProcedureDecls(
+    IdentifierInfo *name, llvm::SmallVectorImpl<SubroutineDecl*> &dst)
 {
     PredRange range = findDecls(name);
-    size_t    size  = dst.size();
+    size_t size = dst.size();
 
     for (PredIter iter = range.first; iter != range.second; ++iter) {
-        if (ProcedureDecl *decl = dyn_cast<ProcedureDecl>(*iter)) {
-            if (decl->getArity() == arity)
-                dst.push_back(decl);
-        }
+        if (ProcedureDecl *decl = dyn_cast<ProcedureDecl>(*iter))
+            dst.push_back(decl);
     }
     return size != dst.size();
 }

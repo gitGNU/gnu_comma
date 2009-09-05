@@ -10,7 +10,10 @@
 #define COMMA_AST_DECLREGION_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/SmallVector.h"
+
 #include <list>
 #include <vector>
 
@@ -171,19 +174,16 @@ public:
     bool removeDecl(Decl *decl);
 
     // Looks up all function declaration nodes in this region with the given
-    // name and arity, pushing the results onto the supplied vector.  Returns
-    // true if any declarations were found and false otherwise.
+    // name, pushing the results onto the supplied vector.  Returns true if any
+    // declarations were found and false otherwise.
     bool collectFunctionDecls(IdentifierInfo *name,
-                              unsigned        arity,
-                              std::vector<SubroutineDecl*> &dst);
-
+                              llvm::SmallVectorImpl<SubroutineDecl*> &dst);
 
     // Looks up all procedure declaration nodes in this region with the given
-    // name and arity, pushing the results onto the supplied vector.  Returns
-    // true if any declarations were found and false otherwise.
+    // name, pushing the results onto the supplied vector.  Returns true if any
+    // declarations were found and false otherwise.
     bool collectProcedureDecls(IdentifierInfo *name,
-                               unsigned        arity,
-                               std::vector<SubroutineDecl*> &dst);
+                               llvm::SmallVectorImpl<SubroutineDecl*> &dst);
 
     // Converts this DeclRegion into a raw Ast node.
     Ast *asAst();

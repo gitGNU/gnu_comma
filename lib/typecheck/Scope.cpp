@@ -307,7 +307,7 @@ bool Scope::Resolver::getVisibleSubroutines(
 
     // If there are any indirect values, we are done.
     if (hasIndirectValues())
-        return (numEntries - srDecls.size()) != 0;
+        return numEntries != srDecls.size();
 
     // Resolve all indirect subroutines.
     indirect_overload_iter IE = end_indirect_overloads();
@@ -315,7 +315,7 @@ bool Scope::Resolver::getVisibleSubroutines(
         if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*I))
             srDecls.push_back(SR);
 
-    return (numEntries - srDecls.size()) != 0;
+    return numEntries != srDecls.size();
 }
 
 //===----------------------------------------------------------------------===//
