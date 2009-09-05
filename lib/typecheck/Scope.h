@@ -210,6 +210,11 @@ public:
             return indirectOverloads[i];
         }
 
+        /// Returns a vector of all visible subroutine declarations.  Returns
+        /// true if any visible subroutines were found.
+        bool getVisibleSubroutines(
+            llvm::SmallVectorImpl<SubroutineDecl*> &srDecls);
+
         typedef DeclVector::iterator direct_overload_iter;
         typedef DeclVector::iterator indirect_overload_iter;
         typedef ValueVector::iterator indirect_value_iter;

@@ -55,46 +55,14 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo  *name,
         return getNode(new OverloadedDeclName(&decls[0], decls.size()));
     }
 
+    llvm::SmallVector<SubroutineDecl*, 8> overloads;
     Scope::Resolver &resolver = scope->getResolver();
 
-    if (!resolver.resolve(name) || resolver.hasDirectValue()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    llvm::SmallVector<SubroutineDecl *, 8> overloads;
-    unsigned numOverloads = 0;
+    resolver.resolve(name);
     resolver.filterFunctionals();
+    resolver.getVisibleSubroutines(overloads);
 
-    // Collect any direct overloads.
-    {
-        typedef Scope::Resolver::direct_overload_iter iterator;
-        iterator E = resolver.end_direct_overloads();
-        for (iterator I = resolver.begin_direct_overloads(); I != E; ++I)
-            overloads.push_back(cast<ProcedureDecl>(*I));
-    }
-
-    // Continue populating the call with indirect overloads if there are no
-    // indirect values visible and return the result.
-    if (!resolver.hasIndirectValues()) {
-        typedef Scope::Resolver::indirect_overload_iter iterator;
-        iterator E = resolver.end_indirect_overloads();
-        for (iterator I = resolver.begin_indirect_overloads(); I != E; ++I)
-            overloads.push_back(cast<ProcedureDecl>(*I));
-        numOverloads = overloads.size();
-        if (numOverloads == 1)
-            return getNode(overloads.front());
-        else if (numOverloads > 1)
-            return getNode(new OverloadedDeclName(&overloads[0], numOverloads));
-        else {
-            report(loc, diag::NAME_NOT_VISIBLE) << name;
-            return getInvalidNode();
-        }
-    }
-
-    // There are indirect values which shadow all indirect procedures.  If we
-    // have any direct decls, return a node for them.
-    numOverloads = overloads.size();
+    unsigned numOverloads = overloads.size();
     if (numOverloads == 1)
         return getNode(overloads.front());
     else if (numOverloads > 1)

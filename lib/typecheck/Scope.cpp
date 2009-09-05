@@ -290,6 +290,34 @@ bool Scope::Resolver::resolve(IdentifierInfo *idInfo)
     return resolveDirectDecls(homonym) | resolveIndirectDecls(homonym);
 }
 
+bool Scope::Resolver::getVisibleSubroutines(
+    llvm::SmallVectorImpl<SubroutineDecl*> &srDecls)
+{
+    // If there are any direct values, no subroutines are visible.
+    if (hasDirectValue())
+        return false;
+
+    unsigned numEntries = srDecls.size();
+
+    // Resolve all direct subroutines.
+    direct_overload_iter DE = end_direct_overloads();
+    for (direct_overload_iter I = begin_direct_overloads(); I != DE; ++I)
+        if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*I))
+            srDecls.push_back(SR);
+
+    // If there are any indirect values, we are done.
+    if (hasIndirectValues())
+        return (numEntries - srDecls.size()) != 0;
+
+    // Resolve all indirect subroutines.
+    indirect_overload_iter IE = end_indirect_overloads();
+    for (indirect_overload_iter I = begin_indirect_overloads(); I != IE; ++I)
+        if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*I))
+            srDecls.push_back(SR);
+
+    return (numEntries - srDecls.size()) != 0;
+}
+
 //===----------------------------------------------------------------------===//
 // Scope methods.
 
