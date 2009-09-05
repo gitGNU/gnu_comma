@@ -197,16 +197,16 @@ public:
     /// Returns the index of the given AbstractDomainDecl which must be a formal
     /// parameter of this model.  This method will assert if this declaration is not
     /// parameterized.
-    virtual unsigned getFormalIndex(const AbstractDomainDecl *ADDecl) const;
+    unsigned getFormalIndex(const AbstractDomainDecl *ADDecl) const;
 
     /// Returns the type of the i'th formal formal parameter.  This method will
     /// assert if this declaration is not parameterized.
-    virtual DomainType *getFormalType(unsigned i) const;
+    DomainType *getFormalType(unsigned i) const;
 
     /// Returns the SigInstanceDecl which the i'th actual parameter must
     /// satisfy.  This method will assert if this declaration is not
     /// parameterized.
-    virtual SigInstanceDecl *getFormalSignature(unsigned i) const;
+    SigInstanceDecl *getFormalSignature(unsigned i) const;
 
     /// Returns the IdentifierInfo which labels the i'th formal parameter.  This
     /// method will assert if this declaration is not parameterized.
@@ -342,20 +342,6 @@ public:
         assert(i < arity && "Index out of range!");
         return formalDecls[i];
     }
-
-    /// Returns the index of the given AbstractDomainDecl (which must be a
-    /// formal parameter of this variety).
-    unsigned getFormalIndex(const AbstractDomainDecl *ADDecl) const;
-
-    /// Returns the type of of the i'th formal parameter.
-    DomainType *getFormalType(unsigned i) const;
-
-    /// Returns the signature instance which the i'th actual parameter must
-    /// satisfy.
-    SigInstanceDecl *getFormalSignature(unsigned i) const;
-
-    /// Returns the IdentifierInfo which labels the i'th formal parameter.
-    IdentifierInfo *getFormalIdInfo(unsigned i) const;
 
     /// Iterator over the all of the signature instances which represent
     /// specific parameterizations of this variety.
@@ -524,20 +510,6 @@ public:
         assert(i < arity && "Index out of range!");
         return formalDecls[i];
     }
-
-    /// Returns the index of the given AbstractDomainDecl (which must be a
-    /// formal parameter of this functor).
-    unsigned getFormalIndex(const AbstractDomainDecl *ADDecl) const;
-
-    /// Returns the type of of the i'th formal parameter.
-    DomainType *getFormalType(unsigned i) const;
-
-    /// Returns the signature instance which the i'th actual parameter must
-    /// satisfy.
-    SigInstanceDecl *getFormalSignature(unsigned i) const;
-
-    /// Returns the IdentifierInfo which labels the i'th formal parameter.
-    IdentifierInfo *getFormalIdInfo(unsigned i) const;
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }

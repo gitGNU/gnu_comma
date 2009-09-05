@@ -120,40 +120,43 @@ AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i) const
 /// parameterized.
 unsigned ModelDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
 {
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
+    assert(isParameterized() &&
            "Cannot retrieve formal index from a non-parameterized model!");
+    unsigned arity = getArity();
+    for (unsigned i = 0; i < arity; ++i) {
+        AbstractDomainDecl *candidate = getFormalDecl(i);
+        if (candidate == ADDecl)
+            return i;
+    }
+    assert(false && "Not a formal parameter decl!");
+    return -1U;
 }
 
 /// Returns the type of the i'th formal formal parameter.  This method will
 /// assert if this declaration is not parameterized.
 DomainType *ModelDecl::getFormalType(unsigned i) const
 {
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
+    assert(isParameterized() &&
            "Cannot retrieve formal type from a non-parameterized model!");
+    return getFormalDecl(i)->getType();
 }
 
 /// Returns the SigInstanceDecl which the i'th actual parameter must satisfy.
 /// This method will assert if this declaration is not parameterized.
 SigInstanceDecl *ModelDecl::getFormalSignature(unsigned i) const
 {
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
+    assert(isParameterized() &&
            "Cannot retrieve formal signature from a non-parameterized model!");
+    return getFormalDecl(i)->getPrincipleSignature();
 }
 
 /// Returns the IdentifierInfo which labels the i'th formal parameter.  This
 /// method will assert if this declaration is not parameterized.
 IdentifierInfo *ModelDecl::getFormalIdInfo(unsigned i) const
 {
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
+    assert(isParameterized() &&
            "Cannot retrieve formal identifier from a non-parameterized model!");
+    return getFormalDecl(i)->getIdInfo();
 }
 
 /// Returns the index of the parameter corresponding to the given keyword,
@@ -205,35 +208,6 @@ VarietyDecl::getInstance(Type **args, unsigned numArgs)
     instance = new SigInstanceDecl(this, args, numArgs);
     instances.InsertNode(instance, insertPos);
     return instance;
-}
-
-/// Returns the index of the given AbstractDomainDecl (which must be a
-/// formal parameter of this variety).
-unsigned VarietyDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
-{
-    for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainDecl *candidate = formalDecls[i];
-        if (candidate == ADDecl)
-            return i;
-    }
-    assert(false && "Domain decl is not a formal parameter of this variety!");
-    return -1U;
-}
-
-/// Returns the type of of the i'th formal parameter.
-DomainType *VarietyDecl::getFormalType(unsigned i) const {
-    return getFormalDecl(i)->getType();
-}
-
-/// Returns the signature instance which the i'th actual parameter must satisfy.
-SigInstanceDecl *VarietyDecl::getFormalSignature(unsigned i) const
-{
-    return getFormalDecl(i)->getPrincipleSignature();
-}
-
-/// Returns the IdentifierInfo which labels the i'th formal parameter.
-IdentifierInfo *VarietyDecl::getFormalIdInfo(unsigned i) const {
-    return getFormalDecl(i)->getIdInfo();
 }
 
 //===----------------------------------------------------------------------===//
@@ -334,37 +308,6 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs)
     instances.InsertNode(instance, insertPos);
     return instance;
 }
-
-/// Returns the index of the given AbstractDomainDecl (which must be a
-/// formal parameter of this functor).
-unsigned FunctorDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
-{
-    for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainDecl *candidate = formalDecls[i];
-        if (candidate == ADDecl)
-            return i;
-    }
-    assert(false && "Domain decl is not a formal parameter of this variety!");
-    return -1U;
-}
-
-/// Returns the type of of the i'th formal parameter.
-DomainType *FunctorDecl::getFormalType(unsigned i) const
-{
-    return getFormalDecl(i)->getType();
-}
-
-/// Returns the signature instance which the i'th actual parameter must satisfy.
-SigInstanceDecl *FunctorDecl::getFormalSignature(unsigned i) const
-{
-    return getFormalDecl(i)->getPrincipleSignature();
-}
-
-/// Returns the IdentifierInfo which labels the i'th formal parameter.
-IdentifierInfo *FunctorDecl::getFormalIdInfo(unsigned i) const {
-    return getFormalDecl(i)->getIdInfo();
-}
-
 
 //===----------------------------------------------------------------------===//
 // SigInstanceDecl
