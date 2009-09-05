@@ -510,11 +510,8 @@ public:
     // Returns an instance declaration corresponding to this functor applied
     // over the given set of arguments.  Such instance declarations are
     // memoized, and for a given set of arguments this method always returns the
-    // same declaration node.  As a consequence, the location associated with
-    // any given DomainInstanceDecl corresponds to the first location the
-    // instance was processed.
-    DomainInstanceDecl *getInstance(Type **args, unsigned numArgs,
-                                    Location loc = 0);
+    // same declaration node.
+    DomainInstanceDecl *getInstance(Type **args, unsigned numArgs);
 
     // Returns the AddDecl which implements this functor.
     const AddDecl *getImplementation() const { return implementation; }
@@ -1181,7 +1178,7 @@ private:
 class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
-    DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc);
+    DomainTypeDecl(AstKind kind, IdentifierInfo *name);
 
 public:
     virtual ~DomainTypeDecl();
@@ -1211,8 +1208,7 @@ public:
 class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
-    AbstractDomainDecl(IdentifierInfo *name,
-                       SigInstanceDecl *sig, Location loc);
+    AbstractDomainDecl(IdentifierInfo *name, SigInstanceDecl *sig);
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
@@ -1241,10 +1237,9 @@ private:
 class DomainInstanceDecl : public DomainTypeDecl, public llvm::FoldingSetNode {
 
 public:
-    DomainInstanceDecl(DomainDecl *domain, Location loc);
+    DomainInstanceDecl(DomainDecl *domain);
 
-    DomainInstanceDecl(FunctorDecl *functor,
-                       Type **args, unsigned numArgs, Location loc);
+    DomainInstanceDecl(FunctorDecl *functor, Type **args, unsigned numArgs);
 
     /// Returns the Domoid defining this instance.
     Domoid *getDefinition() { return definition; }

@@ -300,7 +300,7 @@ DomainDecl::DomainDecl(AstResource &resource,
 DomainInstanceDecl *DomainDecl::getInstance()
 {
     if (instance == 0)
-        instance = new DomainInstanceDecl(this, getLocation());
+        instance = new DomainInstanceDecl(this);
     return instance;
 }
 
@@ -320,7 +320,7 @@ FunctorDecl::FunctorDecl(AstResource &resource,
 }
 
 DomainInstanceDecl *
-FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
+FunctorDecl::getInstance(Type **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
@@ -330,7 +330,7 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs, Location loc)
     instance = instances.FindNodeOrInsertPos(id, insertPos);
     if (instance) return instance;
 
-    instance = new DomainInstanceDecl(this, args, numArgs, loc);
+    instance = new DomainInstanceDecl(this, args, numArgs);
     instances.InsertNode(instance, insertPos);
     return instance;
 }
@@ -594,10 +594,8 @@ void FunctionDecl::initializeCorrespondingType(AstResource &resource,
 //===----------------------------------------------------------------------===//
 // DomainTypeDecl
 
-// FIXME:  Perhaps the sensible parent of the declarative region would be the
-// parent of the defining declaration.
-DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
-    : TypeDecl(kind, name, loc),
+DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name)
+    : TypeDecl(kind, name, 0),
       DeclRegion(kind)
 {
     assert(this->denotesDomainTypeDecl());
@@ -612,8 +610,8 @@ DomainTypeDecl::~DomainTypeDecl()
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
 AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
-                                       SigInstanceDecl *sig, Location loc)
-    : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
+                                       SigInstanceDecl *sig)
+    : DomainTypeDecl(AST_AbstractDomainDecl, name)
 {
     Sigoid *sigoid = sig->getSigoid();
     AstRewriter rewriter(sigoid->getAstResource());
@@ -637,8 +635,8 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
-DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
-    : DomainTypeDecl(AST_DomainInstanceDecl, domain->getIdInfo(), loc),
+DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
+    : DomainTypeDecl(AST_DomainInstanceDecl, domain->getIdInfo()),
       definition(domain)
 {
     // Ensure that we are notified if the declarations provided by the defining
@@ -658,9 +656,8 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain, Location loc)
 }
 
 DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
-                                       Type **args, unsigned numArgs,
-                                       Location loc)
-    : DomainTypeDecl(AST_DomainInstanceDecl, functor->getIdInfo(), loc),
+                                       Type **args, unsigned numArgs)
+    : DomainTypeDecl(AST_DomainInstanceDecl, functor->getIdInfo()),
       definition(functor)
 {
     assert(functor->getArity() == numArgs &&

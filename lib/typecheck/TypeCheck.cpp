@@ -164,7 +164,7 @@ Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
             return getInvalidNode();
         }
 
-        AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig, loc);
+        AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig);
         if (Decl *conflict = scope->addDirectDecl(dom)) {
             // The only conflict possible is with a previous formal parameter.
             assert(isa<AbstractDomainDecl>(conflict));
