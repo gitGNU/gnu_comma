@@ -61,11 +61,11 @@ public:
     /// parameterization).
     virtual void acceptModelDeclaration(Descriptor &desc) = 0;
 
-    virtual void beginWithExpression() = 0;
-    virtual void endWithExpression() = 0;
+    virtual void beginSignatureProfile() = 0;
+    virtual void endSignatureProfile() = 0;
 
-    /// Called for each super signature of a with expression.
-    virtual void acceptWithSupersignature(Node typeNode, Location loc) = 0;
+    /// Called for each super signature defined in a signature profile.
+    virtual void acceptSupersignature(Node typeNode, Location loc) = 0;
 
     /// Invoked when the parser consumes a carrier declaration.
     virtual void acceptCarrier(IdentifierInfo *name, Node typeNode,

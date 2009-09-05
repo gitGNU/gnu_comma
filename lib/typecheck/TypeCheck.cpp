@@ -244,7 +244,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
     desc.release();
 }
 
-void TypeCheck::acceptWithSupersignature(Node typeNode, Location loc)
+void TypeCheck::acceptSupersignature(Node typeNode, Location loc)
 {
     ModelDecl *model = getCurrentModel();
     SigInstanceDecl *superSig = lift_node<SigInstanceDecl>(typeNode);
@@ -575,13 +575,13 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     return node;
 }
 
-void TypeCheck::beginWithExpression()
+void TypeCheck::beginSignatureProfile()
 {
     // Nothing to do.  The declarative region and scope of the current model is
     // the destination of all declarations in a with expression.
 }
 
-void TypeCheck::endWithExpression()
+void TypeCheck::endSignatureProfile()
 {
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument keyword sets.

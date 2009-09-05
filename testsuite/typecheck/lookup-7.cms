@@ -4,7 +4,7 @@ signature S with
    type T1 is (E1);
 end S;
 
-domain D with
+domain D is
   S;
 end D;
 

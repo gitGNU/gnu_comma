@@ -8,7 +8,7 @@ add
    procedure Foo (x : X) is begin end Foo;
 end F;
 
-domain D1 with S; end D1;
+domain D1 is S; end D1;
 
 domain D2 add
    -- Ensure qualified calls resolve.

@@ -12,7 +12,7 @@ signature T with
    function F (X : %) return %;
 end T;
 
-signature U with
+signature U is
    S;
    T;
 end U;

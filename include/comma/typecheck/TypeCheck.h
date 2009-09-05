@@ -57,11 +57,11 @@ public:
     // parameterization).
     void acceptModelDeclaration(Descriptor &desc);
 
-    void beginWithExpression();
-    void endWithExpression();
+    void beginSignatureProfile();
+    void endSignatureProfile();
 
-    // Called for each supersignature in a with expression.
-    void acceptWithSupersignature(Node typeNode, Location loc);
+    // Called for each supersignature defined in a signature profile.
+    void acceptSupersignature(Node typeNode, Location loc);
 
     void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
 

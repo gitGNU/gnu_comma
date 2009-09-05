@@ -533,26 +533,31 @@ void Parser::parseModelParameterization(Descriptor &desc)
     requireToken(Lexer::TKN_RPAREN);
 }
 
-void Parser::parseWithExpression()
+void Parser::parseSignatureProfile()
 {
-    assert(currentTokenIs(Lexer::TKN_WITH));
-    ignoreToken();
+    client.beginSignatureProfile();
 
-    client.beginWithExpression();
-    parseWithSupersignatures();
-    parseWithDeclarations();
-    client.endWithExpression();
+    if (currentTokenIs(Lexer::TKN_IS))
+        parseSupersignatureProfile();
+
+    if (currentTokenIs(Lexer::TKN_WITH))
+        parseWithProfile();
+
+    client.endSignatureProfile();
 }
 
 // Parses a sequence of super-signatures in a 'with' expression.
-void Parser::parseWithSupersignatures()
+void Parser::parseSupersignatureProfile()
 {
+    assert(currentTokenIs(Lexer::TKN_IS));
+    ignoreToken();
+
     while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         Location loc = currentLocation();
         Node super = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
-            client.acceptWithSupersignature(super, loc);
+            client.acceptSupersignature(super, loc);
         }
         else {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
@@ -564,8 +569,11 @@ void Parser::parseWithSupersignatures()
     }
 }
 
-void Parser::parseWithDeclarations()
+void Parser::parseWithProfile()
 {
+    assert(currentTokenIs(Lexer::TKN_WITH));
+    ignoreToken();
+
     bool status = false;
 
     for (;;) {
@@ -705,8 +713,8 @@ void Parser::parseModel()
 
     parseModelDeclaration(desc);
 
-    if (currentTokenIs(Lexer::TKN_WITH))
-        parseWithExpression();
+    if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
+        parseSignatureProfile();
 
     if (desc.isDomainDescriptor() && reduceToken(Lexer::TKN_ADD))
         parseAddComponents();

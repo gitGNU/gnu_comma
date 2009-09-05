@@ -4,7 +4,7 @@ signature S1 end S1;
 
 signature S2 (X : S1) end S2;
 
-signature S3 (X : S1) with
+signature S3 (X : S1) is
   S2(X);
 end S3;
 

@@ -45,11 +45,9 @@ public:
     void parseModelParameter(Descriptor &desc);
     void parseModelParameterization(Descriptor &desc);
 
-    void parseWithExpression();
-    void parseWithSupersignatures();
-    void parseWithDeclarations();
-
-    void parseSignatureDecls();
+    void parseSignatureProfile();
+    void parseSupersignatureProfile();
+    void parseWithProfile();
 
     Node parseModelApplication(Node qualNode);
     Node parseModelInstantiation();
