@@ -423,12 +423,6 @@ private:
                               Location                      loc,
                               NodeVector                   &args);
 
-    // Looks up all function declarations in the given decl
-    static void collectFunctionDecls(IdentifierInfo *name,
-                                     unsigned        arity,
-                                     DeclRegion     *region,
-                                     std::vector<FunctionDecl*> dst);
-
     // Returns true if the source type is compatible with the target.  In this
     // case the target denotes a signature, and so the source must be a domain
     // which satisfies the signature constraint.  The supplied location
