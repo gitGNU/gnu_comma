@@ -736,6 +736,11 @@ public:
     /// return true.
     bool keywordsMatch(const SubroutineDecl *SRDecl) const;
 
+    /// Returns true if the parameter modes of the given declaration match those
+    /// of this one.  The arity of both subroutines must match of this function
+    /// to return true.
+    bool paramModesMatch(const SubroutineDecl *SRDecl) const;
+
     /// \name Parameter Iterators
     ///
     ///@{
@@ -1176,10 +1181,17 @@ public:
 class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
-    AbstractDomainDecl(IdentifierInfo *name, SigInstanceDecl *sig);
+    AbstractDomainDecl(IdentifierInfo *name)
+        : DomainTypeDecl(AST_AbstractDomainDecl, name) { }
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
+
+    /// Adds a direct super signature to this decl.
+    ///
+    /// Returns true if the given signature was added to the set, or false if it
+    /// was already registered with this declaration.
+    bool addSuperSignature(SigInstanceDecl *sig);
 
     /// Returns the principle signature type which this abstract domain
     /// implements.

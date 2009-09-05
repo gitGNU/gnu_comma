@@ -169,7 +169,8 @@ Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
             return getInvalidNode();
         }
 
-        AbstractDomainDecl *dom = new AbstractDomainDecl(formal, sig);
+        AbstractDomainDecl *dom = new AbstractDomainDecl(formal);
+        dom->addSuperSignature(sig);
         if (Decl *conflict = scope->addDirectDecl(dom)) {
             // The only conflict possible is with a previous formal parameter.
             assert(isa<AbstractDomainDecl>(conflict));
@@ -540,12 +541,23 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
 
     // Check each argument type.
+    //
+    // FIXME:  Factor this out.
     for (unsigned i = 0; i < numArgs; ++i) {
         Type *argument = arguments[i];
         Location argLoc = argumentLocs[i];
-        SigInstanceDecl *target =
-            resolveFormalSignature(model, arguments.data(), i);
-        if (!checkType(argument, target, argLoc))
+        AbstractDomainDecl *target = model->getFormalDecl(i);
+
+        // Establish a rewriter mapping all previous formals to the given
+        // actuals, and from the target to the argument (abstract domain decls
+        // have % rewritten to denote themselves, which in this case we want to
+        // map to the type of the actual).
+        AstRewriter rewrites(resource);
+        rewrites[target->getType()] = arguments[i];
+        for (unsigned j = 0; j < i; ++j)
+            rewrites[model->getFormalType(j)] = arguments[j];
+
+        if (!checkSignatureProfile(rewrites, argument, target, argLoc))
             return getInvalidNode();
     }
 
@@ -1200,6 +1212,30 @@ bool TypeCheck::checkType(Type *source, SigInstanceDecl *target, Location loc)
             return false;
         }
         return true;
+    }
+
+    // Otherwise, the source does not denote a domain, and so cannot satisfy the
+    // signature constraint.
+    report(loc, diag::NOT_A_DOMAIN);
+    return false;
+}
+
+bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
+                                      Type *source, AbstractDomainDecl *target,
+                                      Location loc)
+{
+    if (DomainType *domain = dyn_cast<DomainType>(source)) {
+        if (!has(rewrites, domain, target)) {
+            report(loc, diag::DOES_NOT_SATISFY)
+                << domain->getString()  << target->getString();
+            return false;
+        }
+        return true;
+    }
+
+    if (CarrierType *carrier = dyn_cast<CarrierType>(source)) {
+        Type *rep = dyn_cast<DomainType>(carrier->getRepresentationType());
+        return checkSignatureProfile(rewrites, rep, target, loc);
     }
 
     // Otherwise, the source does not denote a domain, and so cannot satisfy the

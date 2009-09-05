@@ -433,6 +433,15 @@ private:
     // indicates the position of the source type.
     bool checkType(Type *source, SigInstanceDecl *target, Location loc);
 
+    // Returns true if the given type is compatible with the given abstract
+    // domain decl in the environment established by the given rewrites.
+    //
+    // In this case, the source must denote a domain which satisfies the entire
+    // signature profile of the target.  The supplied location indicates the
+    // position of the source type.
+    bool checkSignatureProfile(const AstRewriter &rewrites, Type *source,
+                               AbstractDomainDecl *target, Location loc);
+
     // Verifies that the given AddDecl satisfies the constraints imposed by its
     // signature.  Returns true if the constraints are satisfied.  Otherwise,
     // false is returned and diagnostics are posted.
@@ -505,6 +514,8 @@ private:
     void importDeclRegion(DeclRegion *region);
 
     bool has(DomainType *source, SigInstanceDecl *target);
+    bool has(const AstRewriter &rewrites,
+             DomainType *source, AbstractDomainDecl *target);
 
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);

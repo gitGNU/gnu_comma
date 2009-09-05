@@ -452,6 +452,18 @@ bool SubroutineDecl::keywordsMatch(const SubroutineDecl *SRDecl) const
     return false;
 }
 
+bool SubroutineDecl::paramModesMatch(const SubroutineDecl *SRDecl) const
+{
+    unsigned arity = getArity();
+    if (SRDecl->getArity() == arity) {
+        for (unsigned i = 0; i < arity; ++i)
+            if (getParamMode(i) != SRDecl->getParamMode(i))
+                return false;
+        return true;
+    }
+    return false;
+}
+
 void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
 {
     assert(definingDeclaration == 0 && "Cannot reset base declaration!");
@@ -555,9 +567,8 @@ DomainTypeDecl::~DomainTypeDecl()
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
-AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
-                                       SigInstanceDecl *sig)
-    : DomainTypeDecl(AST_AbstractDomainDecl, name)
+
+bool AbstractDomainDecl::addSuperSignature(SigInstanceDecl *sig)
 {
     Sigoid *sigoid = sig->getSigoid();
     AstRewriter rewriter(sigoid->getAstResource());
@@ -576,7 +587,7 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
     addDeclarationsUsingRewrites(rewriter, sigoid->getPercent());
 
     // Add our rewritten signature hierarchy.
-    sigset.addDirectSignature(sig, rewriter);
+    return sigset.addDirectSignature(sig, rewriter);
 }
 
 //===----------------------------------------------------------------------===//

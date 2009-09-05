@@ -13,14 +13,15 @@
 
 using namespace comma;
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
 namespace {
 
-bool percentHas(ModelDecl *source, SigInstanceDecl *target)
+bool percentHas(PercentDecl *source, SigInstanceDecl *target)
 {
-    if (Sigoid *sigoid = dyn_cast<Sigoid>(source)) {
+    if (Sigoid *sigoid = dyn_cast<Sigoid>(source->getDefinition())) {
         // This % node corresponds to a signature declaration.  If the
         // declaration is not parameterized, check if the target matches the
         // source declaration.  That is to say, in the context of some signature
@@ -37,7 +38,7 @@ bool percentHas(ModelDecl *source, SigInstanceDecl *target)
                 bool matchFound = true;
                 unsigned arity = variety->getArity();
                 for (unsigned i = 0; i < arity; ++i) {
-                    Type       *actual = target->getActualParameter(i);
+                    Type *actual = target->getActualParameter(i);
                     DomainType *formal = variety->getFormalType(i);
                     if (actual != formal) {
                         matchFound = false;
@@ -57,7 +58,7 @@ bool percentHas(ModelDecl *source, SigInstanceDecl *target)
     // asking if % has the given signature, we are working with the 'internal
     // view' of the domain and the super signature set does not require a
     // rewrite.
-    Domoid *domoid = cast<Domoid>(source);
+    Domoid *domoid = cast<Domoid>(source->getDefinition());
     return domoid->getSignatureSet().contains(target);
 }
 
@@ -66,7 +67,7 @@ bool percentHas(ModelDecl *source, SigInstanceDecl *target)
 bool TypeCheck::has(DomainType *source, SigInstanceDecl *target)
 {
     if (PercentDecl *percent = source->getPercentDecl()) {
-        return percentHas(percent->getDefinition(), target);
+        return percentHas(percent, target);
     }
 
     DomainTypeDecl *dom = source->getDomainTypeDecl();
@@ -80,4 +81,60 @@ bool TypeCheck::has(DomainType *source, SigInstanceDecl *target)
             return true;
     }
     return false;
+}
+
+bool TypeCheck::has(const AstRewriter &rewrites,
+                    DomainType *source, AbstractDomainDecl *target)
+{
+    // Ensure each named signature required by the target is present in the
+    // source.
+    const SignatureSet &targetSigs = target->getSignatureSet();
+    for (SignatureSet::const_iterator I = targetSigs.begin();
+         I != targetSigs.end(); ++I) {
+        SigInstanceDecl *targetSig = *I;
+        if (!has(source, targetSig))
+            return false;
+    }
+
+    // Traverse the set of declarations provided by the target and ensure each
+    // exists in source.
+    //
+    // FIXME: We only need to perform this against the immediate declarations of
+    // target.
+    DeclRegion *sourceRegion = source->getDomainTypeDecl();
+    for (DeclRegion::DeclIter I = target->beginDecls();
+         I != target->endDecls(); ++I) {
+        Decl *targetDecl = *I;
+        IdentifierInfo *targetName = targetDecl->getIdInfo();
+
+        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(targetDecl)) {
+            Type *targetType = rewrites.rewrite(srDecl->getType());
+            SubroutineDecl *sourceDecl = dyn_cast_or_null<SubroutineDecl>(
+                sourceRegion->findDecl(targetName, targetType));
+            if (!sourceDecl)
+                return false;
+
+            // Ensure the parameter models of booth the source and target decls
+            // match.
+            if (!sourceDecl->paramModesMatch(srDecl))
+                return false;
+
+            continue;
+        }
+
+        if (IntegerDecl *intDecl = dyn_cast<IntegerDecl>(targetDecl)) {
+            // No need to rewrite, as integer types no not capture formal
+            // variables.
+            Type *targetType = intDecl->getType();
+            if (!sourceRegion->findDecl(targetName, targetType))
+                return false;
+            continue;
+        }
+
+        // FIXME:
+        // EnumDecls need to be compared for equivalence.
+        assert(false && "Cannot handle this kind of declaration yet!");
+        return false;
+    }
+    return true;
 }
