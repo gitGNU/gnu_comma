@@ -239,8 +239,8 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     for (unsigned i = 0; i < instance->getArity(); ++i) {
         DomainType *argTy = cast<DomainType>(instance->getActualParameter(i));
 
-        if (argTy->denotesPercent()) {
-            assert(argTy->getModelDecl() == CGC.getCapsule() &&
+        if (PercentDecl *pdecl = argTy->getPercentDecl()) {
+            assert(pdecl->getDefinition() == CGC.getCapsule() &&
                    "Percent node does not represent the current domain!");
 
             // The argument to this functor is %. Simply push the given percent

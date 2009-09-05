@@ -112,23 +112,18 @@ private:
 class DomainType : public NamedType {
 
 private:
-    /// Domain types are created and owned by a unique associated decl. Sigoids
-    /// and Domoids create a unique domain type to represent % nodes, whic
-    /// DomainTypeDecls create a unique type to represent themselves.
-    friend class ModelDecl;
+    /// Domain types are created and owned by a unique DomainTypeDecl.
     friend class DomainTypeDecl;
 
-    /// For use by Sigoids and Domoids.  Creates a domain type representing a
-    /// % node.
-    DomainType(IdentifierInfo *percentId, ModelDecl *model);
-
-    /// For use by DomainTypeDecls.  Creates a type representing the given
-    /// domain type declaration.
+    /// Creates a type representing the given domain type declaration.
     DomainType(DomainTypeDecl *DTDecl);
 
 public:
+    /// Return the associated DomainTypeDecl.
+    DomainTypeDecl *getDomainTypeDecl() const;
+
     /// Returns true if this node is a percent node.
-    bool denotesPercent() const;
+    bool denotesPercent() const { return getPercentDecl() != 0; }
 
     /// Returns true if this type involves a percent node.
     ///
@@ -137,18 +132,8 @@ public:
     /// any argument involves percent (applying this definition recursively).
     bool involvesPercent() const;
 
-    /// Returns the declaration associated with this domain type.  This can be
-    /// either a DomainTypeDecl or a ModelDecl.  In the latter case, this domain
-    /// type represents the type of % within the context of of the model.
-    Decl *getDeclaration() { return declaration; }
-    const Decl *getDeclaration() const { return declaration; }
-
-    /// If this node represents %, return the associated ModelDecl, else null.
-    ModelDecl *getModelDecl() const;
-
-    /// If this is not a percent node, return the associated DomainTypeDecl,
-    /// else null.
-    DomainTypeDecl *getDomainTypeDecl() const;
+    /// If this node represents %, return the associated PercentDecl, else null.
+    PercentDecl *getPercentDecl() const;
 
     /// Returns true if the underlying declaration is an DomainInstanceDecl.
     bool isConcrete() const { return getInstanceDecl() != 0; }

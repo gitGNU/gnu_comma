@@ -65,9 +65,8 @@ bool percentHas(ModelDecl *source, SigInstanceDecl *target)
 
 bool TypeCheck::has(DomainType *source, SigInstanceDecl *target)
 {
-    if (source->denotesPercent()) {
-        ModelDecl *model = cast<ModelDecl>(source->getDeclaration());
-        return percentHas(model, target);
+    if (PercentDecl *percent = source->getPercentDecl()) {
+        return percentHas(percent->getDefinition(), target);
     }
 
     DomainTypeDecl *dom = source->getDomainTypeDecl();

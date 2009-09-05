@@ -301,9 +301,13 @@ private:
     // If we are processing a function, return the current FunctionDecl, else 0.
     FunctionDecl *getCurrentFunction() const;
 
+    // Returns the type of % for the current model, or 0 if we are not currently
+    // processing a model.
+    DomainType *getCurrentPercentType() const;
+
     // Returns the % node for the current model, or 0 if we are not currently
     // processing a model.
-    DomainType *getCurrentPercent() const;
+    PercentDecl *getCurrentPercent() const;
 
     // Returns true if we are currently checking a domain.
     bool checkingDomain() const { return getCurrentDomain() != 0; }

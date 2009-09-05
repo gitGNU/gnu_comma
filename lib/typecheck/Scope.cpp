@@ -488,7 +488,7 @@ void Scope::dump() const
                 std::cerr << '\n';
 
                 DomainTypeDecl *domain = type->getDomainTypeDecl();
-                for (Domoid::DeclIter iter = domain->beginDecls();
+                for (DeclRegion::DeclIter iter = domain->beginDecls();
                      iter != domain->endDecls(); ++iter) {
                     std::cerr << "      ";
                     (*iter)->dump();

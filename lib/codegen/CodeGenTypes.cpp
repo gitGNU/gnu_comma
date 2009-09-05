@@ -105,8 +105,8 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
     if (type->isAbstract())
         type = rewriteAbstractDecl(type->getAbstractDecl());
 
-    if (type->denotesPercent()) {
-        const Domoid *domoid = cast<Domoid>(type->getDeclaration());
+    if (PercentDecl *percent = type->getPercentDecl()) {
+        const Domoid *domoid = cast<Domoid>(percent->getDefinition());
         return lowerDomoidCarrier(domoid);
     }
     else {

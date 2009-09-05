@@ -31,7 +31,7 @@ Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
         return getInvalidNode();
 
     case Ast::AST_DomainType:
-        region = cast<DomainType>(type)->getDeclaration()->asDeclRegion();
+        region = cast<DomainType>(type)->getDomainTypeDecl()->asDeclRegion();
         break;
 
     case Ast::AST_EnumerationType:
@@ -65,7 +65,7 @@ Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
         return getInvalidNode();
 
     case Ast::AST_DomainType:
-        region = cast<DomainType>(type)->getDeclaration()->asDeclRegion();
+        region = cast<DomainType>(type)->getDomainTypeDecl()->asDeclRegion();
         break;
 
     case Ast::AST_EnumerationType:
@@ -762,7 +762,7 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
     }
 
     // Check that the given expression is of the current domain type.
-    DomainType *domTy = domoid->getPercent();
+    DomainType *domTy = domoid->getPercentType();
     Expr *expr = cast_node<Expr>(exprNode);
     if (!checkExprInContext(expr, domTy))
         return getInvalidNode();
@@ -800,7 +800,7 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
         return getInvalidNode();
 
     exprNode.release();
-    return getNode(new PrjExpr(expr, domoid->getPercent(), loc));
+    return getNode(new PrjExpr(expr, domoid->getPercentType(), loc));
 }
 
 Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)

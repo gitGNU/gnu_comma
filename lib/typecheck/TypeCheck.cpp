@@ -116,12 +116,17 @@ FunctionDecl *TypeCheck::getCurrentFunction() const
     return dyn_cast_or_null<FunctionDecl>(getCurrentSubroutine());
 }
 
-// Returns the % node for the current model, or 0 if we are not currently
-// processing a model.
-DomainType *TypeCheck::getCurrentPercent() const
+PercentDecl *TypeCheck::getCurrentPercent() const
 {
     if (ModelDecl *model = getCurrentModel())
         return model->getPercent();
+    return 0;
+}
+
+DomainType *TypeCheck::getCurrentPercentType() const
+{
+    if (ModelDecl *model = getCurrentModel())
+        return model->getPercentType();
     return 0;
 }
 
@@ -222,7 +227,7 @@ void TypeCheck::acceptModelDeclaration(Descriptor &desc)
         }
     }
 
-    declarativeRegion = modelDecl->asDeclRegion();
+    declarativeRegion = modelDecl->getPercent();
 
     // For each parameter node, set its declarative region to be that of the
     // newly constructed model.
@@ -275,7 +280,7 @@ Node TypeCheck::acceptPercent(Location loc)
         return getInvalidNode();
     }
 
-    return getNode(model->getPercent());
+    return getNode(model->getPercentType());
 }
 
 // Returns true if the given decl is equivalent to % in the context of the
@@ -440,7 +445,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     case Ast::AST_DomainDecl: {
         if (denotesDomainPercent(decl)) {
             report(loc, diag::PERCENT_EQUIVALENT);
-            return getNode(getCurrentPercent());
+            return getNode(getCurrentPercentType());
         }
         DomainDecl *domDecl = cast<DomainDecl>(decl);
         return getNode(domDecl->getInstance()->getType());
@@ -558,7 +563,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         if (denotesFunctorPercent(functor, arguments.data(), numArgs)) {
             // Cannonicalize type applications which are equivalent to `%'.
             report(loc, diag::PERCENT_EQUIVALENT);
-            node = getNode(getCurrentPercent());
+            node = getNode(getCurrentPercentType());
         }
         else {
             DomainInstanceDecl *instance =
@@ -687,19 +692,20 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     typedef llvm::DenseMap<SubroutineDecl*, SubroutineDecl*> IndirectDeclMap;
     IndirectDeclMap indirectDecls;
 
-    SignatureSet &sigset = model->getSignatureSet();
+    const SignatureSet &sigset = model->getSignatureSet();
     SignatureSet::iterator superIter = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
         SigInstanceDecl *super = *superIter;
         Sigoid *sigdecl = super->getSigoid();
+        PercentDecl *sigPercent = sigdecl->getPercent();
         AstRewriter rewrites(resource);
 
-        rewrites[sigdecl->getPercent()] = model->getPercent();
+        rewrites[sigdecl->getPercentType()] = model->getPercentType();
         rewrites.installRewrites(super);
 
-        Sigoid::DeclIter iter    = sigdecl->beginDecls();
-        Sigoid::DeclIter endIter = sigdecl->endDecls();
+        DeclRegion::DeclIter iter    = sigPercent->beginDecls();
+        DeclRegion::DeclIter endIter = sigPercent->endDecls();
         for ( ; iter != endIter; ++iter) {
             // Only subroutine declarations need to be redeclared.
             SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*iter);
@@ -708,14 +714,14 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 
             // Rewrite the declaration to match the current models context.
             SubroutineDecl *rewriteDecl =
-                makeSubroutineDecl(srDecl, rewrites, model);
+                makeSubroutineDecl(srDecl, rewrites, model->getPercent());
             Decl *conflict = scope->addDirectDecl(rewriteDecl);
 
             if (!conflict) {
                 // Set the origin to point at the signature which originally
                 // declared it.
                 rewriteDecl->setOrigin(srDecl);
-                model->addDecl(rewriteDecl);
+                model->getPercent()->addDecl(rewriteDecl);
                 indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
                 continue;
             }
@@ -773,7 +779,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         for (BadDeclSet::iterator iter = badDecls.begin();
              iter != badDecls.end(); ++iter) {
             SubroutineDecl *badDecl = *iter;
-            model->removeDecl(badDecl);
+            model->getPercent()->removeDecl(badDecl);
             delete badDecl;
         }
     }
@@ -783,8 +789,11 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
                                                 Sigoid *sigdecl)
 {
-    DeclRegion::DeclIter I = sigdecl->beginDecls();
-    DeclRegion::DeclIter E = sigdecl->endDecls();
+    PercentDecl *modelPercent = model->getPercent();
+    PercentDecl *sigPercent = sigdecl->getPercent();
+
+    DeclRegion::DeclIter I = sigPercent->beginDecls();
+    DeclRegion::DeclIter E = sigPercent->endDecls();
     for ( ; I != E; ++I) {
         if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*I)) {
             if (Decl *conflict = scope->addDirectDecl(tyDecl)) {
@@ -797,16 +806,19 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
                     << tyDecl->getIdInfo() << sloc;
             }
             else
-                model->addDecl(tyDecl);
+                modelPercent->addDecl(tyDecl);
         }
     }
 }
 
+// FIXME:  The model parameter is not used.  Remove.
 void TypeCheck::aquireSignatureImplicitDeclarations(ModelDecl *model,
                                                     Sigoid *sigdecl)
 {
-    DeclRegion::DeclIter I = sigdecl->beginDecls();
-    DeclRegion::DeclIter E = sigdecl->endDecls();
+    PercentDecl *sigPercent = sigdecl->getPercent();
+
+    DeclRegion::DeclIter I = sigPercent->beginDecls();
+    DeclRegion::DeclIter E = sigPercent->endDecls();
     for ( ; I != E; ++I) {
         TypeDecl *tyDecl = dyn_cast<TypeDecl>(*I);
 
@@ -898,9 +910,9 @@ void TypeCheck::endAddExpression()
     ensureExportConstraints(getCurrentDomoid()->getImplementation());
 
     // Leave the scope corresponding to the add expression and switch back to
-    // the declarative region of the defining domain.
+    // the declarative region of the defining domains percent node.
     declarativeRegion = declarativeRegion->getParent();
-    assert(declarativeRegion == getCurrentModel()->asDeclRegion());
+    assert(declarativeRegion == getCurrentPercent()->asDeclRegion());
     scope->pop();
 }
 
@@ -1200,6 +1212,7 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
 {
     Domoid *domoid = add->getImplementedDomoid();
     IdentifierInfo *domainName = domoid->getIdInfo();
+    PercentDecl *percent = domoid->getPercent();
     Location domainLoc = domoid->getLocation();
 
     bool allOK = true;
@@ -1207,9 +1220,9 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
     // The domoid contains all of the declarations inherited from the super
     // signatures and any associated with expression.  Traverse the set of
     // declarations and ensure that the AddDecl provides a definition.
-    for (Domoid::ConstDeclIter iter = domoid->beginDecls();
-         iter != domoid->endDecls(); ++iter) {
-        Decl *decl   = *iter;
+    for (DeclRegion::ConstDeclIter iter = percent->beginDecls();
+         iter != percent->endDecls(); ++iter) {
+        Decl *decl = *iter;
         Type *target = 0;
 
         // Extract the associated type from this decl.

@@ -63,6 +63,7 @@ class NamedType;
 class ObjectDecl;
 class OverloadedDeclName;
 class ParamValueDecl;
+class PercentDecl;
 class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
@@ -134,6 +135,7 @@ public:
         AST_IntegerDecl,        ///< IntegerDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
+        AST_PercentDecl,        ///< PercentDecl
 
         AST_SigInstanceDecl,    ///< SigInstanceDecl
 
@@ -199,10 +201,10 @@ public:
         LAST_ModelDecl = AST_FunctorDecl,
 
         FIRST_TypeDecl = AST_CarrierDecl,
-        LAST_TypeDecl = AST_DomainInstanceDecl,
+        LAST_TypeDecl = AST_PercentDecl,
 
         FIRST_DomainType = AST_AbstractDomainDecl,
-        LAST_DomainType = AST_DomainInstanceDecl,
+        LAST_DomainType = AST_PercentDecl,
 
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl = AST_ObjectDecl,

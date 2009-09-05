@@ -195,12 +195,9 @@ public:
         switch (node->getKind()) {
         default:
             return false;
-        case Ast::AST_DomainDecl:
-        case Ast::AST_SignatureDecl:
-        case Ast::AST_VarietyDecl:
-        case Ast::AST_FunctorDecl:
         case Ast::AST_DomainInstanceDecl:
         case Ast::AST_AbstractDomainDecl:
+        case Ast::AST_PercentDecl:
         case Ast::AST_AddDecl:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
@@ -211,15 +208,12 @@ public:
         }
     }
 
-    static bool classof(const DomainDecl    *node) { return true; }
-    static bool classof(const SignatureDecl *node) { return true; }
-    static bool classof(const VarietyDecl   *node) { return true; }
-    static bool classof(const FunctorDecl   *node) { return true; }
     static bool classof(const AddDecl       *node) { return true; }
     static bool classof(const ProcedureDecl *node) { return true; }
     static bool classof(const FunctionDecl  *node) { return true; }
     static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const IntegerDecl   *node) { return true; }
+    static bool classof(const PercentDecl   *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }

@@ -194,14 +194,8 @@ const Ast *DeclRegion::asAst() const
     default:
         assert(false && "Unknown delcarative region kind!");
         return 0;
-    case Ast::AST_SignatureDecl:
-        return static_cast<const SignatureDecl*>(this);
-    case Ast::AST_VarietyDecl:
-        return static_cast<const VarietyDecl*>(this);
-    case Ast::AST_DomainDecl:
-        return static_cast<const DomainDecl*>(this);
-    case Ast::AST_FunctorDecl:
-        return static_cast<const FunctorDecl*>(this);
+    case Ast::AST_PercentDecl:
+        return static_cast<const PercentDecl*>(this);
     case Ast::AST_FunctionDecl:
         return static_cast<const FunctionDecl*>(this);
     case Ast::AST_ProcedureDecl:

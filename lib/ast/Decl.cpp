@@ -29,18 +29,12 @@ DeclRegion *Decl::asDeclRegion()
         return 0;
     case AST_DomainInstanceDecl:
         return static_cast<DomainInstanceDecl*>(this);
-    case AST_DomainDecl:
-        return static_cast<DomainDecl*>(this);
     case AST_AbstractDomainDecl:
         return static_cast<AbstractDomainDecl*>(this);
+    case AST_PercentDecl:
+        return static_cast<PercentDecl*>(this);
     case AST_EnumerationDecl:
         return static_cast<EnumerationDecl*>(this);
-    case AST_SignatureDecl:
-        return static_cast<SignatureDecl*>(this);
-    case AST_VarietyDecl:
-        return static_cast<VarietyDecl*>(this);
-    case AST_FunctorDecl:
-        return static_cast<FunctorDecl*>(this);
     case AST_AddDecl:
         return static_cast<AddDecl*>(this);
     case AST_FunctionDecl:
@@ -75,12 +69,10 @@ void OverloadedDeclName::verify()
 ModelDecl::ModelDecl(AstResource &resource,
                      AstKind kind, IdentifierInfo *name, Location loc)
     : Decl(kind, name, loc),
-      DeclRegion(kind),
       percent(0),
       resource(resource)
 {
-    IdentifierInfo *percentId = resource.getIdentifierInfo("%");
-    percent = new DomainType(percentId, this);
+    percent = new PercentDecl(resource, this);
 }
 
 ModelDecl::~ModelDecl()
@@ -88,15 +80,20 @@ ModelDecl::~ModelDecl()
     delete percent;
 }
 
+const SignatureSet &ModelDecl::getSignatureSet() const
+{
+    return percent->getSignatureSet();
+}
+
 bool ModelDecl::addDirectSignature(SigInstanceDecl *signature)
 {
     // Rewrite % nodes of the signature to the % nodes of this model and map any
     // formal arguments to the actuals.
     AstRewriter rewrites(resource);
-    rewrites.addRewrite(signature->getSigoid()->getPercent(),
-                        getPercent());
+    rewrites.addRewrite(signature->getSigoid()->getPercentType(),
+                        getPercentType());
     rewrites.installRewrites(signature);
-    return sigset.addDirectSignature(signature, rewrites);
+    return percent->sigset.addDirectSignature(signature, rewrites);
 }
 
 unsigned ModelDecl::getArity() const
@@ -220,40 +217,46 @@ Domoid::Domoid(AstResource &resource,
 //===----------------------------------------------------------------------===//
 // AddDecl
 
-// An AddDecl's declarative region is a sub-region of its parent domain decl.
+// An AddDecl's declarative region is a sub-region of its parent domains percent
+// node.
 AddDecl::AddDecl(DomainDecl *domain)
     : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, domain),
+      DeclRegion(AST_AddDecl, domain->getPercent()),
       carrier(0) { }
 
 AddDecl::AddDecl(FunctorDecl *functor)
     : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, functor),
+      DeclRegion(AST_AddDecl, functor->getPercent()),
       carrier(0) { }
-
-bool AddDecl::implementsDomain() const
-{
-    return isa<DomainDecl>(getParent()->asAst());
-}
-
-bool AddDecl::implementsFunctor() const
-{
-    return isa<FunctorDecl>(getParent()->asAst());
-}
 
 Domoid *AddDecl::getImplementedDomoid()
 {
-    return cast<Domoid>(getParent()->asAst());
+    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
+    return cast<Domoid>(percent->getDefinition());
 }
 
 DomainDecl *AddDecl::getImplementedDomain()
 {
-    return dyn_cast<DomainDecl>(getParent()->asAst());
+    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
+    return dyn_cast<DomainDecl>(percent->getDefinition());
 }
 
 FunctorDecl *AddDecl::getImplementedFunctor()
 {
-    return dyn_cast<FunctorDecl>(getParent()->asAst());
+    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
+    return dyn_cast<FunctorDecl>(percent->getDefinition());
+}
+
+bool AddDecl::implementsDomain() const
+{
+    const PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
+    return isa<DomainDecl>(percent->getDefinition());
+}
+
+bool AddDecl::implementsFunctor() const
+{
+    const PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
+    return isa<FunctorDecl>(percent->getDefinition());
 }
 
 //===----------------------------------------------------------------------===//
@@ -561,16 +564,16 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name,
 
     // Establish a mapping from the % node of the signature to the type of this
     // abstract domain.
-    rewriter.addRewrite(sigoid->getPercent(), getType());
+    rewriter.addRewrite(sigoid->getPercentType(), getType());
 
     // Establish mappings from the formal parameters of the signature to the
     // actual parameters of the type (this is a no-op if the signature is not
     // parametrized).
     rewriter.installRewrites(getType());
 
-    // Rewrite the declarations proided by the signature and populated our
-    // region with the results.
-    addDeclarationsUsingRewrites(rewriter, sigoid);
+    // Rewrite the declarations proided by the signatures percent node and
+    // populated our region with the results.
+    addDeclarationsUsingRewrites(rewriter, sigoid->getPercent());
 
     // Add our rewritten signature hierarchy.
     sigset.addDirectSignature(sig, rewriter);
@@ -582,14 +585,16 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
     : DomainTypeDecl(AST_DomainInstanceDecl, domain->getIdInfo()),
       definition(domain)
 {
-    // Ensure that we are notified if the declarations provided by the defining
-    // domoid change.
-    domain->addObserver(this);
+    PercentDecl *percent = domain->getPercent();
+
+    // Ensure that we are notified if the declarations provided by the percent
+    // node of the defining domoid change.
+    percent->addObserver(this);
 
     AstRewriter rewriter(domain->getAstResource());
-    rewriter.addRewrite(domain->getPercent(), getType());
+    rewriter.addRewrite(domain->getPercentType(), getType());
     rewriter.installRewrites(getType());
-    addDeclarationsUsingRewrites(rewriter, domain);
+    addDeclarationsUsingRewrites(rewriter, percent);
 
     // Populate our signature set with a rewritten version of our defining
     // domain.
@@ -609,14 +614,15 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
     arguments = new Type*[numArgs];
     std::copy(args, args + numArgs, arguments);
 
-    // Ensure that we are notified if the declarations provided by the defining
-    // functor change.
-    functor->addObserver(this);
+    // Ensure that we are notified if the declarations provided by percent
+    // change.
+    PercentDecl *percent = functor->getPercent();
+    percent->addObserver(this);
 
     AstRewriter rewriter(functor->getAstResource());
-    rewriter.addRewrite(functor->getPercent(), getType());
+    rewriter.addRewrite(functor->getPercentType(), getType());
     rewriter.installRewrites(getType());
-    addDeclarationsUsingRewrites(rewriter, functor);
+    addDeclarationsUsingRewrites(rewriter, percent);
 
     // Populate our signature set with a rewritten version of our defining
     // functor.
@@ -651,7 +657,7 @@ unsigned DomainInstanceDecl::getArity() const
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
     AstRewriter rewriter(getDefinition()->getAstResource());
-    rewriter.addRewrite(getDefinition()->getPercent(), getType());
+    rewriter.addRewrite(getDefinition()->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);
 }
@@ -667,6 +673,13 @@ void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);
 }
+
+//===----------------------------------------------------------------------===//
+// PercentDecl
+
+PercentDecl::PercentDecl(AstResource &resource, ModelDecl *model)
+    : DomainTypeDecl(AST_PercentDecl, resource.getIdentifierInfo("%")),
+      underlyingModel(model) { }
 
 //===----------------------------------------------------------------------===//
 // ParamValueDecl

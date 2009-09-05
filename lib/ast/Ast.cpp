@@ -27,6 +27,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerDecl",
     "AbstractDomainDecl",
     "DomainInstanceDecl",
+    "PercentDecl",
 
     "SigInstanceDecl",
 

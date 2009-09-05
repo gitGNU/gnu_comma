@@ -170,13 +170,7 @@ private:
 //
 // Models represent those attributes and characteristics which both signatures
 // and domains share.
-//
-// The constructors of a ModelDecl (and of all sub-classes) take an
-// IdentifierInfo node as a parameter which is asserted to resolve to "%".  This
-// additional parameter is necessary since the Ast classes cannot create
-// IdentifierInfo's on their own -- we do not have access to a global
-// IdentifierPool with which to create them.
-class ModelDecl : public Decl, public DeclRegion {
+class ModelDecl : public Decl {
 
 public:
     virtual ~ModelDecl();
@@ -217,24 +211,17 @@ public:
     /// declaration is not parameterized.
     int getKeywordIndex(IdentifierInfo *keyword) const;
 
-    /// Returns the DomainType representing the percent node associated with
-    /// this decl.
-    ///
-    /// For signatures, domains and functors, the DomainType representing % is a
-    /// unique node owned by the underlying model declaration.  For abstract
-    /// domains and domain instances, the % node returned is that of the
-    /// defining declaration (a signature for abstract domains, a domain or
-    /// functor for instances).  In the latter case, getPercent is simply a
-    /// forwarding function.
-    DomainType *getPercent() const { return percent; }
+    /// Returns the PercentDecl representing this Model.
+    PercentDecl *getPercent() const { return percent; }
 
-    /// \name SignatureSet accessors.
-    ///@{
-    SignatureSet& getSignatureSet() { return sigset; }
-    const SignatureSet &getSignatureSet() const { return sigset; }
-    ///@}
+    /// Returns the DomainType representing percent.
+    DomainType *getPercentType() const;
 
-    /// Adds a direct signature to the underlying signature set.
+    /// Returns the signature set of the assoiated percent node.
+    const SignatureSet &getSignatureSet() const;
+
+    /// Adds a direct signature to the signature set or this models percent
+    /// node.
     bool addDirectSignature(SigInstanceDecl *signature);
 
     /// Returns the AstResource object associated with this model.
@@ -253,11 +240,8 @@ protected:
     ModelDecl(AstResource &resource,
               AstKind kind, IdentifierInfo *name, Location loc);
 
-    // The set of signatures which this model satisfies.
-    SignatureSet sigset;
-
-    // The unique DomainType representing the % node of this model.
-    DomainType *percent;
+    // The unique PercentDecl representing this model.
+    PercentDecl *percent;
 
     // The AstResource we use to construct sub-nodes.
     AstResource &resource;
@@ -1141,12 +1125,24 @@ private:
 // DomainTypeDecl
 //
 // This class represents implicit domain declarations which correspond to a
-// particular instance.  They represent the public or external view of a domain,
-// as oppossed to the internal view maintained by the decendants of ModelDecl.
+// particular instance.  There are three main subclasses:
 //
-// DomainTypeDecl's can be thought of as the rewritten interface to a domain
-// where, for example, references to formal parameters are replaced by the
-// actuals for a particular instance.
+//   - DomainInstanceDecl's represent the public or external view of a domain.
+//     All references to formal parameters are replaced by the actuals for a
+//     particular instance, and all percent nodes are mapped to the type of this
+//     instance.
+//
+//   - AbstractDomainDecl's represent the formal parameters of a model.  They
+//     provide a view of a domain as restricted by their principle signature.
+//     These types of declarations are only visible in the bodies of generic
+//     models.  Such domains provide a rewritten interface to the principle
+//     signature where the signatures percent node is replaced by references to
+//     this type, and where the formal arguments of a variety are replaced by
+//     the actuals.
+//
+//   - PercentDecl's are the nodes which encapsulate the internal view of a
+//     model.
+//
 class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
@@ -1278,7 +1274,39 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// PercentDecl
+
+class PercentDecl : public DomainTypeDecl {
+
+public:
+    /// Returns the model this PercentDecl represents.
+    ModelDecl *getDefinition() { return underlyingModel; }
+    const ModelDecl *getDefinition() const { return underlyingModel; }
+
+    /// Returns the SignatureSet of this instance.
+    const SignatureSet &getSignatureSet() const { return sigset; }
+
+    static bool classof(const PercentDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PercentDecl;
+    }
+
+private:
+    friend class ModelDecl;
+
+    PercentDecl(AstResource &resource, ModelDecl *model);
+
+    ModelDecl *underlyingModel;
+    SignatureSet sigset;
+};
+
+//===----------------------------------------------------------------------===//
 // Inline methods, now that the decl hierarchy is in place.
+
+inline DomainType *ModelDecl::getPercentType() const
+{
+    return percent->getType();
+}
 
 inline SignatureDecl *Sigoid::getSignature()
 {

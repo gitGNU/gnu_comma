@@ -172,13 +172,6 @@ CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance) const
     assert(!instance->isDependent() &&
            "Cannot form link names for dependent instance declarations!");
 
-    if (instance->getType()->denotesPercent()) {
-        // Mangle percent nodes to the name of the current instance.
-        assert(getCapsule()->getPercent() == instance->getType() &&
-               "Inconsistent context for a percent node!");
-        return getLinkName(getInstance());
-    }
-
     std::string name = instance->getString();
     for (unsigned i = 0; i < instance->getArity(); ++i) {
         DomainType *param =
@@ -187,7 +180,7 @@ CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance) const
 
         if (param->denotesPercent()) {
             // Mangle percent nodes to the name of the current instance.
-            assert(getCapsule()->getPercent() == param &&
+            assert(getCapsule()->getPercentType() == param &&
                    "Inconsistent context for a percent node!");
             ss << "__" << i <<  getLinkName(getInstance());
         }
@@ -314,5 +307,5 @@ CodeGenCapsule::rewriteAbstractDecl(AbstractDomainDecl *abstract) const {
     if (I == paramMap.end())
         return 0;
     DomainType *domTy = cast<DomainType>(I->second);
-    return cast<DomainInstanceDecl>(domTy->getDeclaration());
+    return cast<DomainInstanceDecl>(domTy->getDomainTypeDecl());
 }

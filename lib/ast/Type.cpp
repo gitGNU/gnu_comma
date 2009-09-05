@@ -83,18 +83,6 @@ DomainType::DomainType(DomainTypeDecl *DTDecl)
       declaration(DTDecl)
 { }
 
-DomainType::DomainType(IdentifierInfo *percentId, ModelDecl *model)
-    : NamedType(AST_DomainType, percentId),
-      declaration(model)
-{ }
-
-bool DomainType::denotesPercent() const
-{
-    // When our defining declaration is a model, this type represents the % node
-    // of that model.
-    return isa<ModelDecl>(declaration);
-}
-
 bool DomainType::involvesPercent() const
 {
     if (denotesPercent())
@@ -112,14 +100,14 @@ bool DomainType::involvesPercent() const
     return false;
 }
 
-ModelDecl *DomainType::getModelDecl() const
-{
-    return dyn_cast<ModelDecl>(declaration);
-}
-
 DomainTypeDecl *DomainType::getDomainTypeDecl() const
 {
     return dyn_cast<DomainTypeDecl>(declaration);
+}
+
+PercentDecl *DomainType::getPercentDecl() const
+{
+    return dyn_cast<PercentDecl>(declaration);
 }
 
 DomainInstanceDecl *DomainType::getInstanceDecl() const

@@ -131,7 +131,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
 
     AstRewriter rewriter(CG.getAstResource());
     // Always map percent nodes from the current capsule to the instance.
-    rewriter[CGC.getCapsule()->getPercent()] = CGC.getInstance()->getType();
+    rewriter[CGC.getCapsule()->getPercentType()] = CGC.getInstance()->getType();
 
     // If the instance is dependent on formal parameters, rewrite using the
     // current parameter map.
