@@ -43,7 +43,7 @@ public:
     ScopeKind getKind() const;
 
     // Returns the current nesting level, zero based.
-    unsigned getLevel() const;
+    unsigned getLevel() const { return entries.size() - 1; }
 
     // Returns the number of ScopeEntries currently being managed.
     unsigned numEntries() const { return entries.size(); }
