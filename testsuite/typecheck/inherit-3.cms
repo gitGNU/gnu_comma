@@ -2,7 +2,11 @@
 
 signature S1 end S1;
 
-signature S2 (X : S1) end S2;
+generic
+   abstract domain X is
+      S1;
+   end X;
+signature S2 end S2;
 
 domain D is S1; end D;
 

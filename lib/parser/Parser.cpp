@@ -490,47 +490,69 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
     return false;
 }
 
-// Parses a formal parameter of a model: "id : type".  Passes the parsed type
-// off to the type checker.
-void Parser::parseModelParameter(Descriptor &desc)
+void Parser::parseGenericFormalParams()
 {
-    IdentifierInfo *formal;
-    Location loc;
+    assert(currentTokenIs(Lexer::TKN_GENERIC));
+    ignoreToken();
 
-    loc = currentLocation();
-    formal = parseIdentifierInfo();
+    client.beginGenericFormals();
+    for ( ;; ) {
+        switch (currentTokenCode()) {
 
-    if (formal && requireToken(Lexer::TKN_COLON)) {
-        Node type = parseModelInstantiation();
-        if (type.isValid()) {
-            Node param = client.acceptModelParameter(desc, formal, type, loc);
-            if (param.isValid())
-                desc.addParam(param);
+        default:
+            report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+            if (seekTokens(Lexer::TKN_ABSTRACT,
+                           Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE)) {
+                if (currentTokenIs(Lexer::TKN_ABSTRACT))
+                    continue;
+            }
+            client.endGenericFormals();
+            return;
+
+        case Lexer::TKN_ABSTRACT:
+            parseGenericFormalDomain();
+            break;
+
+        case Lexer::TKN_DOMAIN:
+        case Lexer::TKN_SIGNATURE:
+            client.endGenericFormals();
             return;
         }
     }
-    seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
-    return;
 }
 
-// Assumes the current token is a left paren begining a model parameter list.
-// Parses the list and serves it to the type checker.
-void Parser::parseModelParameterization(Descriptor &desc)
+void Parser::parseGenericFormalDomain()
 {
-    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    assert(currentTokenIs(Lexer::TKN_ABSTRACT));
     ignoreToken();
 
-    // We do not permit empty parameter lists.
-    if (reduceToken(Lexer::TKN_RPAREN)) {
-        report(diag::EMPTY_PARAMS);
+    if (!requireToken(Lexer::TKN_DOMAIN)) {
+        // Try and forward to the next formal or to the end of the generic
+        // declaration.
+        seekTokens(Lexer::TKN_ABSTRACT,
+                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
         return;
     }
 
-    do {
-        parseModelParameter(desc);
-    } while (reduceToken(Lexer::TKN_SEMI));
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
 
-    requireToken(Lexer::TKN_RPAREN);
+    if (!name) {
+        seekTokens(Lexer::TKN_ABSTRACT,
+                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+        return;
+    }
+
+    client.beginFormalDomainDecl(name, loc);
+    if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
+        parseSignatureProfile();
+    client.endFormalDomainDecl();
+
+    if (!parseEndTag(name))
+        seekTokens(Lexer::TKN_ABSTRACT,
+                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+    else
+        requireToken(Lexer::TKN_SEMI);
 }
 
 void Parser::parseSignatureProfile()
@@ -668,63 +690,47 @@ void Parser::parseAddComponents()
     }
 }
 
-void Parser::parseModelDeclaration(Descriptor &desc)
-{
-    IdentifierInfo *name;
-    Location location;
-
-    assert(currentTokenIs(Lexer::TKN_SIGNATURE) ||
-           currentTokenIs(Lexer::TKN_DOMAIN));
-
-    switch (currentTokenCode()) {
-    default:
-        assert(false);
-        break;
-
-    case Lexer::TKN_SIGNATURE:
-        ignoreToken();
-        desc.initialize(Descriptor::DESC_Signature);
-        break;
-
-    case Lexer::TKN_DOMAIN:
-        ignoreToken();
-        desc.initialize(Descriptor::DESC_Domain);
-    }
-
-    location = currentLocation();
-    name = parseIdentifierInfo();
-
-    // If we cannot even parse the models name, we do not even attempt a
-    // recovery sice we would not even know what end tag to look for.
-    if (!name) return;
-
-    desc.setIdentifier(name, location);
-    client.beginModelDeclaration(desc);
-
-    if (currentTokenIs(Lexer::TKN_LPAREN))
-        parseModelParameterization(desc);
-
-    client.acceptModelDeclaration(desc);
-}
-
 void Parser::parseModel()
 {
-    Descriptor desc(&client);
+    bool parsingDomain = false;
+    IdentifierInfo *name = 0;
 
-    parseModelDeclaration(desc);
+    client.beginCapsule();
+
+    if (currentTokenIs(Lexer::TKN_GENERIC))
+        parseGenericFormalParams();
+
+    if (reduceToken(Lexer::TKN_DOMAIN)) {
+        Location loc = currentLocation();
+        if (!(name = parseIdentifierInfo()))
+            return;
+        client.beginDomainDecl(name, loc);
+        parsingDomain = true;
+    }
+    else if (reduceToken(Lexer::TKN_SIGNATURE)) {
+        Location loc = currentLocation();
+        if (!(name = parseIdentifierInfo()))
+            return;
+        client.beginSignatureDecl(name, loc);
+    }
+    else {
+        assert(false && "Bad token for this production!");
+        return;
+    }
 
     if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
         parseSignatureProfile();
 
-    if (desc.isDomainDescriptor() && reduceToken(Lexer::TKN_ADD))
+    if (parsingDomain && reduceToken(Lexer::TKN_ADD))
         parseAddComponents();
 
-    // Consume and verify the end tag.  On failure seek the next top level form.
-    if (!parseEndTag(desc.getIdInfo()))
-        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
+    client.endCapsule();
 
-    requireToken(Lexer::TKN_SEMI);
-    client.endModelDefinition();
+    // Consume and verify the end tag.  On failure seek the next top level form.
+    if (!parseEndTag(name))
+        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
+    else
+        requireToken(Lexer::TKN_SEMI);
 }
 
 Node Parser::parseModelApplication(Node qualNode)
@@ -1263,6 +1269,7 @@ bool Parser::parseTopLevelDeclaration()
         switch (currentTokenCode()) {
         case Lexer::TKN_SIGNATURE:
         case Lexer::TKN_DOMAIN:
+        case Lexer::TKN_GENERIC:
             parseModel();
             return true;
 
@@ -1271,10 +1278,9 @@ bool Parser::parseTopLevelDeclaration()
             break;
 
         default:
-            // In invalid token was found. Skip past any more garbage and try
-            // again.
+            // An invalid token was found at top level. Do not try to recover.
             report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
-            seekTokens(Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+            return false;
         }
     }
 }

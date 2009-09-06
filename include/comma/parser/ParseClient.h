@@ -42,34 +42,81 @@ public:
     /// might choose to cache it, for instance.
     virtual void deleteNode(Node &node) = 0;
 
-    /// Starts the processing of a model.  The supplied Descriptor contains the
-    /// name and location of the declaration, as is either of kind
-    /// desc::Signature or desc::Domain.
-    virtual void beginModelDeclaration(Descriptor &desc) = 0;
+    /// \name Initial Callbacks.
+    ///
+    /// When a top-level capsule is about to be parsed, beginCapsule is invoked
+    /// to notify the client of the processing to come.  This is the first
+    /// callback the parser ever invokes on its client.  Once the capsule has
+    /// been parsed (successfully or not), endCapsule is called.
+    ///
+    ///@{
+    virtual void beginCapsule() = 0;
+    virtual void endCapsule() = 0;
+    ///@}
 
-    virtual void endModelDefinition() = 0;
+    /// \name Generic Formal Callbacks.
+    ///
+    /// The following callbacks are invoked when processing generic formal
+    /// parameters.
+    ///
+    ///@{
+    ///
+    /// \name Generic Formal Delimiters.
+    ///
+    /// Processing of a generic formal part begins with a call to
+    /// beginGenericFormals and completes with a call to endGenericFormals.
+    /// These calls delimit the scope of a generic formal part to the client.
+    ///
+    /// @{
+    virtual void beginGenericFormals() = 0;
+    virtual void endGenericFormals() = 0;
+    ///@}
 
-    /// Called immediately after a model declaration has been registered.  This
-    /// call defines a formal parameter of a model.  The parser collects the
-    /// results of this call into the given descriptor object (and hense, the
-    /// supplied descriptor contains all previously accumulated arguments) to be
-    /// finalized in a call to acceptModelDeclaration.
-    virtual Node acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
-                                      Node typeNode, Location loc) = 0;
+    /// \name Formal Domain Declarations.
+    ///
+    /// The client is notified of the start of a formal domain declaration with
+    /// a call to beginFormalDomainDecl, giving the name and location of the
+    /// declaration.  The super signatures and component declarations are then
+    /// processed.  The end of a formal domain declaration is announced with a
+    /// call to endFormalDomainDecl.
+    ///
+    ///@{
+    virtual void beginFormalDomainDecl(IdentifierInfo *name, Location loc) = 0;
+    virtual void endFormalDomainDecl() = 0;
+    ///@}
+    ///@}
 
-    /// This call completes the declaration of a model (name and
-    /// parameterization).
-    virtual void acceptModelDeclaration(Descriptor &desc) = 0;
+    /// \name Capsule Callbacks.
+    ///
+    /// Once the generic formal part has been processed (if present at all), one
+    /// following callbacks is invoked to inform the client of the type and name
+    /// of the upcomming capsule.  The context established by these callbacks is
+    /// terminated when endCapsule is called.
+    ///
+    ///@{
+    virtual void beginDomainDecl(IdentifierInfo *name, Location loc) = 0;
+    virtual void beginSignatureDecl(IdentifierInfo *name, Location loc) = 0;
+    ///@}
 
+    /// \name Signature Profile Callbacks.
+    ///
+    ///@{
+    ///
+    /// \name Signature Profile Delimiters
+    ///
+    /// When the signature profile of a top-level capsule or generic formal
+    /// domain is about to be processed, beginSignatureProfile is called.  Once
+    /// the processing of the profile is finished (regarless of whether the
+    /// parse was successful or not) endSignatureProfile is called.
+    ///
+    ///@{
     virtual void beginSignatureProfile() = 0;
     virtual void endSignatureProfile() = 0;
+    ///@}
 
     /// Called for each super signature defined in a signature profile.
     virtual void acceptSupersignature(Node typeNode, Location loc) = 0;
-
-    /// Invoked when the parser consumes a carrier declaration.
-    virtual void acceptCarrier(IdentifierInfo *name, Node typeNode,
-                               Location loc) = 0;
+    ///@}
 
     /// Called at the begining of an add expression.  The client accepts
     /// components of an add expression after this call until endAddExpression
@@ -78,6 +125,10 @@ public:
 
     /// Completes an add expression.
     virtual void endAddExpression() = 0;
+
+    /// Invoked when the parser consumes a carrier declaration.
+    virtual void acceptCarrier(IdentifierInfo *name, Node typeNode,
+                               Location loc) = 0;
 
     virtual void beginSubroutineDeclaration(Descriptor &desc) = 0;
 

@@ -2,7 +2,11 @@
 
 signature S end S;
 
-domain F (X : S) with
+generic
+   abstract domain X is
+     S;
+   end X;
+domain F with
    procedure Foo (x : X);
 add
    procedure Foo (x : X) is begin end Foo;

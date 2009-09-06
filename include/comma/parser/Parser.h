@@ -39,11 +39,10 @@ public:
     // Generic pointer to a parse method returning a Node.
     typedef Node (Parser::*parseNodeFn)();
 
-    void parseModelDeclaration(Descriptor &desc);
     void parseModel();
 
-    void parseModelParameter(Descriptor &desc);
-    void parseModelParameterization(Descriptor &desc);
+    void parseGenericFormalParams();
+    void parseGenericFormalDomain();
 
     void parseSignatureProfile();
     void parseSupersignatureProfile();

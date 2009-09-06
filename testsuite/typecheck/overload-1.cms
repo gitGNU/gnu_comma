@@ -6,7 +6,11 @@ signature S with
   procedure P (X : T);
 end S;
 
-domain D (X : S) add
+generic
+   abstract domain X is
+      S;
+   end X;
+domain D add
    import X;
    procedure Test is
    begin

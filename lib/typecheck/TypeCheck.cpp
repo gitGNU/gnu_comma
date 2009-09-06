@@ -130,14 +130,18 @@ DomainType *TypeCheck::getCurrentPercentType() const
     return 0;
 }
 
-void TypeCheck::beginModelDeclaration(Descriptor &desc)
+void TypeCheck::beginCapsule()
 {
-    assert((desc.isSignatureDescriptor() || desc.isDomainDescriptor()) &&
-           "Beginning a model which is neither a signature or domain?");
+    assert(scope->getLevel() == 0 && "Cannot typecheck nested capsules!");
+
+    // Push a scope for the upcoming capsule and reset our per-capsule state.
     scope->push(MODEL_SCOPE);
+    GenericFormalDecls.clear();
+    declarativeRegion = 0;
+    currentModel = 0;
 }
 
-void TypeCheck::endModelDefinition()
+void TypeCheck::endCapsule()
 {
     assert(scope->getKind() == MODEL_SCOPE);
     scope->pop();
@@ -152,136 +156,143 @@ void TypeCheck::endModelDefinition()
         compUnit->addDeclaration(result);
 }
 
-Node TypeCheck::acceptModelParameter(Descriptor &desc, IdentifierInfo *formal,
-                                     Node typeNode, Location loc)
+void TypeCheck::beginGenericFormals()
 {
+    assert(GenericFormalDecls.empty() && "Formal decls already present!");
+}
+
+void TypeCheck::endGenericFormals() { }
+
+void TypeCheck::beginFormalDomainDecl(IdentifierInfo *name, Location loc)
+{
+    // Create an abstract domain declaration to represent this formal.
+    AbstractDomainDecl *formal = new AbstractDomainDecl(name, loc);
+
+    // Set the current declarative region to be that of the formal.
+    declarativeRegion = formal;
+
+    // Push a scope for the declaration and add the formal itself.
+    scope->push();
+    scope->addDirectDeclNoConflicts(formal);
+    GenericFormalDecls.push_back(formal);
+}
+
+void TypeCheck::endFormalDomainDecl()
+{
+    // Pop the scope for the formal decl.  We sould be back in the scope of the
+    // capsule being defined.
+    scope->pop();
     assert(scope->getKind() == MODEL_SCOPE);
 
-    // Check that the parameter denotes a signature.  For each parameter, we
-    // create an AbstractDomainDecl to represent the formal and add it into the
-    // current scope so that it may participate in upcomming parameter types.
-    if (SigInstanceDecl *sig = lift_node<SigInstanceDecl>(typeNode)) {
-        // Check that the formal does not match the name of the model being
-        // analyzed.  We need to do this check here since the model declaration
-        // itself has yet to be brought into scope.
-        if (formal == desc.getIdInfo()) {
-            report(loc, diag::MODEL_FORMAL_SHADOW) << formal;
-            return getInvalidNode();
-        }
-
-        AbstractDomainDecl *dom = new AbstractDomainDecl(formal);
-        dom->addSuperSignature(sig);
-        if (Decl *conflict = scope->addDirectDecl(dom)) {
-            // The only conflict possible is with a previous formal parameter.
-            assert(isa<AbstractDomainDecl>(conflict));
-            report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
-            return getInvalidNode();
-        }
-        typeNode.release();
-        return getNode(dom);
-    }
-    else {
-        report(loc, diag::NOT_A_SIGNATURE);
-        return getInvalidNode();
+    // Add the most recent generic declaration into the scope for the model,
+    // checking for conflicts.
+    if (Decl *conflict = scope->addDirectDecl(GenericFormalDecls.back())) {
+        // The only conflict possible is with a pervious formal parameter.
+        AbstractDomainDecl *dom = cast<AbstractDomainDecl>(conflict);
+        report(dom->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
+            << dom->getIdInfo();
+        GenericFormalDecls.pop_back();
     }
 }
 
-void TypeCheck::acceptModelDeclaration(Descriptor &desc)
+void TypeCheck::beginDomainDecl(IdentifierInfo *name, Location loc)
 {
-    // Create the appropriate type of model.
-    ModelDecl *modelDecl;
-    IdentifierInfo *name = desc.getIdInfo();
-    Location loc = desc.getLocation();
-    if (desc.hasParams()) {
-        // Convert each parameter node into an AbstractDomainDecl.
-        llvm::SmallVector<AbstractDomainDecl*, 4> domains;
-        convertDescriptorParams<AbstractDomainDecl>(desc, domains);
-        AbstractDomainDecl **formals = &domains[0];
-        unsigned arity = domains.size();
-        switch (desc.getKind()) {
+    // If we have processed generic arguments, construct a functor, else a
+    // domain.
+    unsigned arity = GenericFormalDecls.size();
 
-        case Descriptor::DESC_Signature:
-            modelDecl = new VarietyDecl(resource, name, loc, formals, arity);
-            break;
+    if (arity == 0)
+        currentModel = new DomainDecl(resource, name, loc);
+    else
+        currentModel = new FunctorDecl(resource, name, loc,
+                                       &GenericFormalDecls[0], arity);
+    initializeForModelDeclaration();
+}
 
-        case Descriptor::DESC_Domain:
-            modelDecl = new FunctorDecl(resource, name, loc, formals, arity);
-            break;
+void TypeCheck::beginSignatureDecl(IdentifierInfo *name, Location loc)
+{
+    // If we have processed generic arguments, construct a variety, else a
+    // signature.
+    unsigned arity = GenericFormalDecls.size();
 
-        default:
-            assert(false && "Corruption of currentModelInfo->kind!");
-        }
-    }
-    else {
-        switch (desc.getKind()) {
+    if (arity == 0)
+        currentModel = new SignatureDecl(resource, name, loc);
+    else
+        currentModel = new VarietyDecl(resource, name, loc,
+                                       &GenericFormalDecls[0], arity);
+    initializeForModelDeclaration();
+}
 
-        case Descriptor::DESC_Signature:
-            modelDecl = new SignatureDecl(resource, name, loc);
-            break;
+void TypeCheck::initializeForModelDeclaration()
+{
+    assert(scope->getKind() == MODEL_SCOPE);
 
-        case Descriptor::DESC_Domain:
-            modelDecl = new DomainDecl(resource, name, loc);
-            break;
+    // Set the current declarative region to be the percent node of the current
+    // model.
+    declarativeRegion = currentModel->getPercent();
 
-        default:
-            assert(false && "Corruption of currentModelInfo->kind!");
-        }
-    }
-
-    declarativeRegion = modelDecl->getPercent();
-
-    // For each parameter node, set its declarative region to be that of the
-    // newly constructed model.
-    for (Descriptor::paramIterator iter = desc.beginParams();
-         iter != desc.endParams(); ++iter) {
-        AbstractDomainDecl *domain = cast_node<AbstractDomainDecl>(*iter);
-        domain->setDeclRegion(declarativeRegion);
+    // For each generic formal, set its declarative region to be that the new
+    // models percent node.
+    unsigned arity = currentModel->getArity();
+    for (unsigned i = 0; i < arity; ++i) {
+        AbstractDomainDecl *formal = currentModel->getFormalDecl(i);
+        formal->setDeclRegion(declarativeRegion);
     }
 
     // Bring the model itself into the current scope.  This should never result
-    // in a confict.
-    currentModel = modelDecl;
-    scope->addDirectDeclNoConflicts(modelDecl);
-    desc.release();
+    // in a conflict.
+    scope->addDirectDeclNoConflicts(currentModel);
 }
 
 void TypeCheck::acceptSupersignature(Node typeNode, Location loc)
 {
-    ModelDecl *model = getCurrentModel();
     SigInstanceDecl *superSig = lift_node<SigInstanceDecl>(typeNode);
+    Sigoid *sigoid = superSig->getSigoid();
 
     // Check that the node denotes a signature.
     if (!superSig) {
         report(loc, diag::NOT_A_SIGNATURE);
         return;
     }
-
-    // Register the signature.
     typeNode.release();
-    model->addDirectSignature(superSig);
+
+    // We are either processing a model or a generic formal domain.  Add the
+    // signature.
+    if (ModelDecl *model = getCurrentModel()) {
+        model->addDirectSignature(superSig);
+    }
+    else {
+        // FIXME: Use a cleaner interface when available.
+        AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
+        decl->addSuperSignature(superSig);
+    }
 
     // Bring all types defined by this super signature into scope (so that they
     // can participate in upcomming type expressions) and add them to the
-    // current model .
-    aquireSignatureTypeDeclarations(model, superSig->getSigoid());
+    // current model.
+    aquireSignatureTypeDeclarations(declarativeRegion, sigoid);
 
     // Bring all implicit declarations defined by the super signature types into
     // scope.  This allows us to detect conflicting declarations as we process
     // the body.  All other subroutine declarations are processed after in
     // ensureNecessaryRedeclarations.
-    aquireSignatureImplicitDeclarations(model, superSig->getSigoid());
+    aquireSignatureImplicitDeclarations(sigoid);
 }
 
 Node TypeCheck::acceptPercent(Location loc)
 {
-    ModelDecl *model = getCurrentModel();
-
-    if (model == 0) {
-        report(loc, diag::TYPE_NOT_VISIBLE) << "%";
-        return getInvalidNode();
+    // We are either processing a model or a generic formal domain.
+    //
+    // When processing a model, return the associated percent decl.  When
+    // processing a generic formal domain, return the AbstractDomainDecl.
+    if (ModelDecl *model = getCurrentModel()) {
+        return getNode(model->getPercentType());
     }
-
-    return getNode(model->getPercentType());
+    else {
+        // FIXME: Use a cleaner interface when available.
+        AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
+        return getNode(decl->getType());
+    }
 }
 
 // Returns true if the given decl is equivalent to % in the context of the
@@ -589,16 +600,23 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
 void TypeCheck::beginSignatureProfile()
 {
-    // Nothing to do.  The declarative region and scope of the current model is
-    // the destination of all declarations in a with expression.
+    // Nothing to do.  The declarative region and scope of the current model or
+    // formal domain is the destination of all declarations in a with
+    // expression.
 }
 
 void TypeCheck::endSignatureProfile()
 {
+    DomainTypeDecl *domain;
+
     // Ensure that all ambiguous declarations are redeclared.  For now, the only
     // ambiguity that can arise is wrt conflicting argument keyword sets.
-    ModelDecl *model = getCurrentModel();
-    ensureNecessaryRedeclarations(model);
+    if (ModelDecl *model = getCurrentModel())
+        domain = model->getPercent();
+    else
+        domain = cast<AbstractDomainDecl>(declarativeRegion);
+
+    ensureNecessaryRedeclarations(domain);
 }
 
 // Creates a procedure or function decl depending on the kind of the
@@ -682,15 +700,17 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
     }
 }
 
-void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
+void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
 {
+    assert(isa<PercentDecl>(domain) || isa<AbstractDomainDecl>(domain));
+
     // We scan the set of declarations for each direct signature of the given
-    // model.  When a declaration is found which has not already been declared
+    // domain.  When a declaration is found which has not already been declared
     // we add it on good faith that all upcoming declarations will not conflict.
     //
     // When a conflict occurs (that is, when two declarations exists with the
     // same name and type but have disjoint keyword sets) we remember which
-    // (non-direct) declarations in the model need an explicit redeclaration
+    // (non-direct) declarations in the domain need an explicit redeclaration
     // using the badDecls set.  Once all the declarations are processed, we
     // remove those declarations found to be in conflict.
     typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
@@ -704,7 +724,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
     typedef llvm::DenseMap<SubroutineDecl*, SubroutineDecl*> IndirectDeclMap;
     IndirectDeclMap indirectDecls;
 
-    const SignatureSet &sigset = model->getSignatureSet();
+    const SignatureSet &sigset = domain->getSignatureSet();
     SignatureSet::iterator superIter = sigset.beginDirect();
     SignatureSet::iterator endSuperIter = sigset.endDirect();
     for ( ; superIter != endSuperIter; ++superIter) {
@@ -713,7 +733,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         PercentDecl *sigPercent = sigdecl->getPercent();
         AstRewriter rewrites(resource);
 
-        rewrites[sigdecl->getPercentType()] = model->getPercentType();
+        rewrites[sigdecl->getPercentType()] = domain->getType();
         rewrites.installRewrites(super);
 
         DeclRegion::DeclIter iter    = sigPercent->beginDecls();
@@ -726,14 +746,14 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
 
             // Rewrite the declaration to match the current models context.
             SubroutineDecl *rewriteDecl =
-                makeSubroutineDecl(srDecl, rewrites, model->getPercent());
+                makeSubroutineDecl(srDecl, rewrites, domain);
             Decl *conflict = scope->addDirectDecl(rewriteDecl);
 
             if (!conflict) {
                 // Set the origin to point at the signature which originally
                 // declared it.
                 rewriteDecl->setOrigin(srDecl);
-                model->getPercent()->addDecl(rewriteDecl);
+                domain->addDecl(rewriteDecl);
                 indirectDecls.insert(IndirectPair(rewriteDecl, srDecl));
                 continue;
             }
@@ -773,7 +793,7 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
             // Otherwise, the conflicting decl was declared by this model
             // and hense overrides the conflict.
             if (indirectDecls.count(conflictRoutine)) {
-                Location modelLoc = model->getLocation();
+                Location modelLoc = domain->getLocation();
                 SubroutineDecl *baseDecl =
                     indirectDecls.lookup(conflictRoutine);
                 SourceLocation sloc1 =
@@ -791,17 +811,15 @@ void TypeCheck::ensureNecessaryRedeclarations(ModelDecl *model)
         for (BadDeclSet::iterator iter = badDecls.begin();
              iter != badDecls.end(); ++iter) {
             SubroutineDecl *badDecl = *iter;
-            model->getPercent()->removeDecl(badDecl);
+            domain->removeDecl(badDecl);
             delete badDecl;
         }
     }
 }
 
-// Bring all type declarations provided by the signature into the given model.
-void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
+void TypeCheck::aquireSignatureTypeDeclarations(DeclRegion *region,
                                                 Sigoid *sigdecl)
 {
-    PercentDecl *modelPercent = model->getPercent();
     PercentDecl *sigPercent = sigdecl->getPercent();
 
     DeclRegion::DeclIter I = sigPercent->beginDecls();
@@ -810,7 +828,7 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
         if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(*I)) {
             if (Decl *conflict = scope->addDirectDecl(tyDecl)) {
                 // FIXME: We should not error if conflict is an equivalent type
-                // decl, but we do have support such a concept yet.
+                // decl, but we do not have support for such a concept yet.
                 //
                 // FIXME: We need a better diagnostic which reports context.
                 SourceLocation sloc = getSourceLoc(conflict->getLocation());
@@ -818,14 +836,12 @@ void TypeCheck::aquireSignatureTypeDeclarations(ModelDecl *model,
                     << tyDecl->getIdInfo() << sloc;
             }
             else
-                modelPercent->addDecl(tyDecl);
+                region->addDecl(tyDecl);
         }
     }
 }
 
-// FIXME:  The model parameter is not used.  Remove.
-void TypeCheck::aquireSignatureImplicitDeclarations(ModelDecl *model,
-                                                    Sigoid *sigdecl)
+void TypeCheck::aquireSignatureImplicitDeclarations(Sigoid *sigdecl)
 {
     PercentDecl *sigPercent = sigdecl->getPercent();
 
@@ -839,7 +855,7 @@ void TypeCheck::aquireSignatureImplicitDeclarations(ModelDecl *model,
 
         // Currently, only enumeration and integer decls supply implicit
         // declarations.  Bringing these declarations into scope should never
-        // result in a conflict since that should all involve unique types.
+        // result in a conflict since they should all involve unique types.
         DeclRegion *region;
         if (EnumerationDecl *eDecl = dyn_cast<EnumerationDecl>(tyDecl))
             region = eDecl;

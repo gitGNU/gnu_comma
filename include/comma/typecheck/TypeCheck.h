@@ -40,33 +40,27 @@ public:
 
     ~TypeCheck();
 
-    void beginModelDeclaration(Descriptor &desc);
-    void endModelDefinition();
+    void beginCapsule();
+    void endCapsule();
 
-    // Called immediately after a model declaration has been registered.  This
-    // call defines a formal parameter of a model.  The parser collects the
-    // results of this call into the given descriptor object (and hense, the
-    // supplied descriptor contains all previously accumulated arguments) to be
-    // finalized in a call to acceptModelDeclaration.
-    Node acceptModelParameter(Descriptor     &desc,
-                              IdentifierInfo *formal,
-                              Node            type,
-                              Location        loc);
+    void beginGenericFormals();
+    void endGenericFormals();
 
-    // This call completes the declaration of a model (name and
-    // parameterization).
-    void acceptModelDeclaration(Descriptor &desc);
+    void beginFormalDomainDecl(IdentifierInfo *name, Location loc);
+    void endFormalDomainDecl();
+
+    void beginDomainDecl(IdentifierInfo *name, Location loc);
+    void beginSignatureDecl(IdentifierInfo *name, Location loc);
 
     void beginSignatureProfile();
     void endSignatureProfile();
 
-    // Called for each supersignature defined in a signature profile.
     void acceptSupersignature(Node typeNode, Location loc);
-
-    void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
 
     void beginAddExpression();
     void endAddExpression();
+
+    void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
 
     bool acceptObjectDeclaration(Location        loc,
                                  IdentifierInfo *name,
@@ -226,6 +220,10 @@ private:
     /// implicit operations.
     DeclProducer *declProducer;
 
+    /// The set of AbstractDomainDecls serving as parameters to the current
+    /// capsule.
+    llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
+
     //===------------------------------------------------------------------===//
     // Utility functions.
     //===------------------------------------------------------------------===//
@@ -340,7 +338,13 @@ private:
     makeSubroutineDecl(SubroutineDecl *SRDecl, const AstRewriter &rewrites,
                        DeclRegion *region);
 
-    void ensureNecessaryRedeclarations(ModelDecl *model);
+    /// Helper to beginDomainDecl and beginSignatureDecl.
+    ///
+    /// Assumes the current model has been set.  Performs the common actions
+    /// necessary to begin processing both signature and domain declarations.
+    void initializeForModelDeclaration();
+
+    void ensureNecessaryRedeclarations(DomainTypeDecl *model);
 
     /// If the given functor represents the current capsule being checked,
     /// ensure that none of the argument types directly reference %.  Returns
@@ -350,9 +354,15 @@ private:
                                     Type **args, unsigned numArgs,
                                     Location loc);
 
-    void aquireSignatureTypeDeclarations(ModelDecl *model, Sigoid *sigdecl);
+    /// Bring all type declarations provided by the signature into the given
+    /// declarative region, and register them with the current scope.  If by
+    /// bringing any such types into scope results in a name conflict, post a
+    /// diagnostic and skip the type.
+    void aquireSignatureTypeDeclarations(DeclRegion *region, Sigoid *sigdecl);
 
-    void aquireSignatureImplicitDeclarations(ModelDecl *model, Sigoid *sigdecl);
+    /// Brings the implicit declarations provided by all types supplied by the
+    /// given signature into scope.
+    void aquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
     DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
     DomainType *ensureDomainType(Type *type, Location loc, bool report = true);

@@ -552,8 +552,8 @@ void FunctionDecl::initializeCorrespondingType(AstResource &resource,
 //===----------------------------------------------------------------------===//
 // DomainTypeDecl
 
-DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name)
-    : TypeDecl(kind, name, 0),
+DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
+    : TypeDecl(kind, name, loc),
       DeclRegion(kind)
 {
     assert(this->denotesDomainTypeDecl());
@@ -581,10 +581,6 @@ bool AbstractDomainDecl::addSuperSignature(SigInstanceDecl *sig)
     // actual parameters of the type (this is a no-op if the signature is not
     // parametrized).
     rewriter.installRewrites(getType());
-
-    // Rewrite the declarations proided by the signatures percent node and
-    // populated our region with the results.
-    addDeclarationsUsingRewrites(rewriter, sigoid->getPercent());
 
     // Add our rewritten signature hierarchy.
     return sigset.addDirectSignature(sig, rewriter);
@@ -689,7 +685,8 @@ void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
 // PercentDecl
 
 PercentDecl::PercentDecl(AstResource &resource, ModelDecl *model)
-    : DomainTypeDecl(AST_PercentDecl, resource.getIdentifierInfo("%")),
+    : DomainTypeDecl(AST_PercentDecl,
+                     resource.getIdentifierInfo("%"), model->getLocation()),
       underlyingModel(model) { }
 
 //===----------------------------------------------------------------------===//

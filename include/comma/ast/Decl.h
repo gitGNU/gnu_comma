@@ -1151,7 +1151,7 @@ private:
 class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
-    DomainTypeDecl(AstKind kind, IdentifierInfo *name);
+    DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc = 0);
 
 public:
     virtual ~DomainTypeDecl();
@@ -1181,8 +1181,8 @@ public:
 class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
-    AbstractDomainDecl(IdentifierInfo *name)
-        : DomainTypeDecl(AST_AbstractDomainDecl, name) { }
+    AbstractDomainDecl(IdentifierInfo *name, Location loc)
+        : DomainTypeDecl(AST_AbstractDomainDecl, name, loc) { }
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
