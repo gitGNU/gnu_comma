@@ -268,11 +268,15 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_CARRIER;
         else if (strncmp(str, "declare", length) == 0)
             code = TKN_DECLARE;
+        else if (strncmp(str, "generic", length) == 0)
+            code = TKN_GENERIC;
         break;
 
     case 8:
         if (strncmp(str, "function", length) == 0)
             code = TKN_FUNCTION;
+        else if (strncmp(str, "abstract", length) == 0)
+            code = TKN_ABSTRACT;
         break;
 
     case 9:

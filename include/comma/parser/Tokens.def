@@ -38,6 +38,7 @@
   #define TOKENS_DEF_TKN_DEFINED
 #endif
 
+RESERVED(ABSTRACT,  "abstract")
 RESERVED(ADD,       "add")
 RESERVED(CARRIER,   "carrier")
 RESERVED(BEGIN,     "begin")
@@ -48,6 +49,7 @@ RESERVED(ELSIF,     "elsif")
 RESERVED(END,       "end")
 RESERVED(FOR,       "for")
 RESERVED(FUNCTION,  "function")
+RESERVED(GENERIC,   "generic")
 RESERVED(IF,        "if")
 RESERVED(IMPORT,    "import")
 RESERVED(IN,        "in")
