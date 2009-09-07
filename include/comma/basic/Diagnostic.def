@@ -145,3 +145,6 @@ DIAGNOSTIC(INCOMPATABLE_MODE_REDECLARATION, ERROR,
 DIAGNOSTIC(SIGNATURE_AS_TYPE_PARAM, ERROR,
            "`%0' denotes a signature, which cannot be used to "
            "parameterize a type.")
+DIAGNOSTIC(INVALID_SIGNATURE_QUALIFICATION, ERROR,
+           "`%0' denotes a signature, and cannot be used as a qualifier "
+           "in this context.")

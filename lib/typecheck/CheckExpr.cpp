@@ -25,7 +25,8 @@ DeclRegion *TypeCheck::resolveVisibleQualifiedRegion(Qualifier *qual)
 {
     if (SigInstanceDecl *sig = qual->resolve<SigInstanceDecl>()) {
         Location loc = qual->getBaseLocation();
-        report(0, diag::NAME_NOT_VISIBLE) << sig->getIdInfo();
+        report(loc, diag::INVALID_SIGNATURE_QUALIFICATION)
+            << sig->getIdInfo();
         return 0;
     }
     return qual->resolveRegion();
@@ -51,6 +52,10 @@ Node TypeCheck::acceptQualifier(Node declNode, Location loc)
     case Ast::AST_EnumerationDecl:
         qual = new Qualifier(cast<EnumerationDecl>(decl), loc);
         break;
+
+    case Ast::AST_SigInstanceDecl:
+        qual = new Qualifier(cast<SigInstanceDecl>(decl), loc);
+        break;
     }
 
     declNode.release();
@@ -63,7 +68,11 @@ Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
 {
     Qualifier *qual = cast_node<Qualifier>(qualifierNode);
     TypeDecl *decl = ensureTypeDecl(cast_node<Decl>(declNode), loc);
-    DeclRegion *region = qual->resolveRegion();
+    DeclRegion *region = resolveVisibleQualifiedRegion(qual);
+
+    // Nested qualifiers must always resolve to visible regions.
+    if (!region)
+        return getInvalidNode();
 
     if (!region->findDecl(decl->getIdInfo(), decl->getType())) {
         report(loc, diag::NAME_NOT_VISIBLE) << decl->getIdInfo();
