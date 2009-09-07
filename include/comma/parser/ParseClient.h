@@ -139,6 +139,24 @@ public:
     virtual Node acceptSubroutineDeclaration(Descriptor &desc,
                                              bool definitionFollows) = 0;
 
+    /// Called to notify the client that a subroutine was declared as an
+    /// overriding declaration.
+    ///
+    /// \param qualNode A node resulting from a call to acceptQualifier or
+    /// acceptNestedQualifier, representing the qualification of \p name, or a
+    /// null Node if there was no qualification.
+    ///
+    /// \param name An IdentifierInfo naming the target of the override.
+    ///
+    /// \param loc The location of \p name.
+    ///
+    /// \param declarationNode The result of a call to
+    /// acceptSubroutineDeclaration.
+    virtual void acceptOverrideTarget(Node qualNode,
+                                      IdentifierInfo *name, Location loc,
+                                      Node declarationNode) = 0;
+
+
     /// Begin a subroutine definition, where \p declarationNode is a valid node
     /// returned from ParseClient::acceptSubroutineDeclaration.
     virtual void beginSubroutineDefinition(Node declarationNode) = 0;

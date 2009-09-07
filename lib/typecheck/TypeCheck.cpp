@@ -1102,6 +1102,91 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     return routine;
 }
 
+void TypeCheck::acceptOverrideTarget(Node qualNode,
+                                     IdentifierInfo *name, Location loc,
+                                     Node declarationNode)
+{
+    // The grammer does not enforce that the name to override must be
+    // qualified.
+    if (qualNode.isNull()) {
+        report(loc, diag::EXPECTING_SIGNATURE_QUALIFIER) << name;
+        return;
+    }
+
+    // Ensure that the qualifier resolves to a signature.
+    Qualifier *qual = cast_node<Qualifier>(qualNode);
+    SigInstanceDecl *sig = qual->resolve<SigInstanceDecl>();
+    Location sigLoc = qual->getBaseLocation();
+
+    if (!sig) {
+        Decl *base = qual->getBaseDecl();
+        report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << base->getIdInfo();
+        return;
+    }
+    PercentDecl *sigPercent = sig->getSigoid()->getPercent();
+
+    // Resolve the current context and ensure the given instance denotes a super
+    // signature.
+    DomainTypeDecl *context;
+    if (PercentDecl *percent = getCurrentPercent())
+        context = percent;
+    else {
+        // FIXME: Use a cleaner interface when available.
+        context = cast<AbstractDomainDecl>(declarativeRegion);
+    }
+
+    if (!context->getSignatureSet().contains(sig)) {
+        report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << sig->getIdInfo();
+        return;
+    }
+
+    // Depending on the kind of declaration we were supplied with, collect all
+    // subroutine declarations with the given name.
+    SubroutineDecl *overridingDecl =
+        cast_node<SubroutineDecl>(declarationNode);
+    typedef llvm::SmallVector<SubroutineDecl*, 8> TargetVector;
+    TargetVector targets;
+    if (isa<FunctionDecl>(overridingDecl))
+        sigPercent->collectFunctionDecls(name, targets);
+    else {
+        assert(isa<ProcedureDecl>(overridingDecl));
+        sigPercent->collectProcedureDecls(name, targets);
+    }
+
+    // If we did not resolve a single name, diagnose and return.
+    if (targets.empty()) {
+        report(loc, diag::NOT_A_COMPONENT_OF) << name << sig->getIdInfo();
+        return;
+    }
+
+    // Create a set of rewrite rules compatable with the given signature
+    // instance.
+    AstRewriter rewrites(resource);
+    rewrites.installRewrites(sig);
+    rewrites[sigPercent->getType()] = context->getType();
+
+    // Iterate over the set of targets.  Compare the rewritten version of each
+    // target type with the type of our overriding decl.  If we find a match,
+    // the construct is valid.
+    SubroutineType *overridingType = overridingDecl->getType();
+    for (TargetVector::iterator I = targets.begin(); I != targets.end(); ++I) {
+        SubroutineDecl *targetDecl = *I;
+        SubroutineType *targetType = targetDecl->getType();
+        SubroutineType *rewriteType = rewrites.rewrite(targetType);
+        if ((overridingType == rewriteType) &&
+            overridingDecl->paramModesMatch(targetDecl)) {
+            overridingDecl->setOverriddenDecl(targetDecl);
+            return;
+        }
+    }
+
+    // Otherwise, no match was found.
+    report(loc, diag::INCOMPATABLE_OVERRIDE)
+        << overridingDecl->getIdInfo() << name;
+    return;
+}
+
+
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
     SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);

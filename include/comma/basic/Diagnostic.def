@@ -148,3 +148,11 @@ DIAGNOSTIC(SIGNATURE_AS_TYPE_PARAM, ERROR,
 DIAGNOSTIC(INVALID_SIGNATURE_QUALIFICATION, ERROR,
            "`%0' denotes a signature, and cannot be used as a qualifier "
            "in this context.")
+DIAGNOSTIC(EXPECTING_SIGNATURE_QUALIFIER, ERROR,
+           "`%0' must be explicitly qualified by its corresponding signature.")
+DIAGNOSTIC(NOT_A_SUPERSIGNATURE, ERROR,
+           "`%0' does not name a visible supersignature.")
+DIAGNOSTIC(NOT_A_COMPONENT_OF, ERROR,
+           "`%0' is not a component of `%0'.")
+DIAGNOSTIC(INCOMPATABLE_OVERRIDE, ERROR,
+           "`%0' is not compatible with the override target `%0'.")

@@ -61,6 +61,9 @@ public:
         return qualifiers[n];
     }
 
+    /// Returns the base (most specific) declaration of this qualifier.
+    Decl *getBaseDecl() { return qualifiers.back().first; }
+
     /// Returns the location of the most specific component of this qualifier.
     ///
     /// This location corresponds to the components provided by the resolve

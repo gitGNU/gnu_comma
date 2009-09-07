@@ -94,6 +94,10 @@ public:
     Node acceptSubroutineDeclaration(Descriptor &desc,
                                      bool        definitionFollows);
 
+    void acceptOverrideTarget(Node qualNode,
+                              IdentifierInfo *name, Location loc,
+                              Node declarationNode);
+
     // Begin a subroutine definition, using a valid node returned from
     // acceptSubroutineDeclaration to establish context.
     void beginSubroutineDefinition(Node declarationNode);
