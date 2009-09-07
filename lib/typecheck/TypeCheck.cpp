@@ -786,13 +786,18 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
             // We currently do not support ValueDecls in models.  Therefore, the
             // conflict must denote a subroutine.
             SubroutineDecl *conflictRoutine = cast<SubroutineDecl>(conflict);
-            if (conflictRoutine->keywordsMatch(rewriteDecl)) {
-                // Ensure that the parameter modes match as well.  Note we pass
-                // the original subroutine declaration node so that we may
-                // reference it in the diagnostics.
-                if (!ensureMatchingParameterModes(conflictRoutine, srDecl))
-                    badDecls.insert(rewriteDecl);
 
+            // FIXME: All declarations with the same name and type must
+            // currently have idential mode profiles.  Awaiting support for
+            // renaming declarations.
+            //
+            // Ensure that the parameter modes match as well.  Note we pass
+            // the original subroutine declaration node so that we may
+            // reference it in the diagnostics.
+            if (!ensureMatchingParameterModes(conflictRoutine, srDecl))
+                badDecls.insert(rewriteDecl);
+
+            if (conflictRoutine->keywordsMatch(rewriteDecl)) {
                 // If the conflicting declaration does not have an origin
                 // (meaning that is was explicitly declared by the model) map
                 // its origin to that of the original subroutine provided by the

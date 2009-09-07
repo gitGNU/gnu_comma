@@ -2,10 +2,12 @@
 
 signature S with
    procedure P (X : in out %);
+   procedure Q (X : in out %);
 end S;
 
 signature T is
    S;
 with
    procedure P (X : %);
+   procedure Q (Y : %);
 end T;
