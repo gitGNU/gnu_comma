@@ -284,6 +284,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_PROCEDURE;
         else if (strncmp(str, "signature", length) == 0)
             code = TKN_SIGNATURE;
+        else if (strncmp(str, "overrides", length) == 0)
+            code = TKN_OVERRIDES;
         break;
     }
     return code;
