@@ -1,0 +1,5 @@
+-- MUST-FAIL: Ensure overrides cannot be parsed outside a signature profile.
+
+domain D add
+   procedure P overrides Q;
+end D;

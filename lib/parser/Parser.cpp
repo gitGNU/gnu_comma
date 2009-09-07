@@ -603,13 +603,21 @@ void Parser::parseWithProfile()
         default:
             return;
 
-        case Lexer::TKN_FUNCTION:
-            status = parseFunctionDeclaration().isValid();
+        case Lexer::TKN_FUNCTION: {
+            Node declNode = parseFunctionDeclaration();
+            status = declNode.isValid();
+            if (currentTokenIs(Lexer::TKN_OVERRIDES))
+                parseOverrideTarget(declNode);
             break;
+        }
 
-        case Lexer::TKN_PROCEDURE:
-            status = parseProcedureDeclaration().isValid();
+        case Lexer::TKN_PROCEDURE: {
+            Node declNode = parseProcedureDeclaration();
+            status = declNode.isValid();
+            if (currentTokenIs(Lexer::TKN_OVERRIDES))
+                parseOverrideTarget(declNode);
             break;
+        }
 
         case Lexer::TKN_TYPE:
             status = parseType();
@@ -1000,11 +1008,7 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
-    Node declNode = client.acceptSubroutineDeclaration(desc, bodyFollows);
-
-    if (!bodyFollows && currentTokenIs(Lexer::TKN_OVERRIDES))
-        parseOverrideTarget(declNode);
-    return declNode;
+    return client.acceptSubroutineDeclaration(desc, bodyFollows);
 }
 
 void Parser::parseOverrideTarget(Node declarationNode)
