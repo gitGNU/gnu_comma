@@ -1000,7 +1000,31 @@ Node Parser::parseSubroutineDeclaration(Descriptor &desc)
     }
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
-    return client.acceptSubroutineDeclaration(desc, bodyFollows);
+    Node declNode = client.acceptSubroutineDeclaration(desc, bodyFollows);
+
+    if (!bodyFollows && currentTokenIs(Lexer::TKN_OVERRIDES))
+        parseOverrideTarget(declNode);
+    return declNode;
+}
+
+void Parser::parseOverrideTarget(Node declarationNode)
+{
+    assert(currentTokenIs(Lexer::TKN_OVERRIDES));
+    ignoreToken();
+
+    Node qual = getNullNode();
+    if (qualifierFollows()) {
+        qual = parseQualifier();
+        if (qual.isInvalid())
+            return;
+    }
+
+    Location loc = currentLocation();
+    IdentifierInfo *target = parseFunctionIdentifierInfo();
+    if (!target)
+        return;
+
+    client.acceptOverrideTarget(qual, target, loc, declarationNode);
 }
 
 void Parser::parseSubroutineBody(Node declarationNode)
