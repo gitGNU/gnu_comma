@@ -38,7 +38,7 @@ bool percentHas(PercentDecl *source, SigInstanceDecl *target)
                 bool matchFound = true;
                 unsigned arity = variety->getArity();
                 for (unsigned i = 0; i < arity; ++i) {
-                    Type *actual = target->getActualParameter(i);
+                    Type *actual = target->getActualParamType(i);
                     DomainType *formal = variety->getFormalType(i);
                     if (actual != formal) {
                         matchFound = false;

@@ -55,7 +55,7 @@ void CodeGenTypes::addInstanceRewrites(DomainInstanceDecl *instance)
     for (unsigned i = 0; i < arity; ++i) {
         KeyVal &KV = rewrites.FindAndConstruct(functor->getFormalType(i));
         RewriteVal &RV = KV.second;
-        RV.first = instance->getActualParameter(i);
+        RV.first = instance->getActualParamType(i);
         RV.second++;
     }
 }

@@ -31,64 +31,64 @@ DeclRegion *TypeCheck::resolveVisibleQualifiedRegion(Qualifier *qual)
     return qual->resolveRegion();
 }
 
-Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
+Node TypeCheck::acceptQualifier(Node declNode, Location loc)
 {
-    NamedType *type = cast_node<NamedType>(typeNode);
+    Decl *decl = cast_node<Decl>(declNode);
     Qualifier *qual = 0;
 
-    switch (type->getKind()) {
+    switch (decl->getKind()) {
     default:
-        // The given type cannot serve as a qualifier.
-        report(loc, diag::INVALID_QUALIFIER) << type->getIdInfo();
+        // The given decl cannot serve as a qualifier.
+        report(loc, diag::INVALID_QUALIFIER) << decl->getIdInfo();
         return getInvalidNode();
 
-    case Ast::AST_DomainType:
-        qual = new Qualifier(
-            cast<DomainType>(type)->getDomainTypeDecl(), loc);
+    case Ast::AST_DomainInstanceDecl:
+    case Ast::AST_AbstractDomainDecl:
+    case Ast::AST_PercentDecl:
+        qual = new Qualifier(cast<DomainTypeDecl>(decl), loc);
         break;
 
-    case Ast::AST_EnumerationType:
-        qual = new Qualifier(
-            cast<EnumerationType>(type)->getEnumerationDecl(), loc);
+    case Ast::AST_EnumerationDecl:
+        qual = new Qualifier(cast<EnumerationDecl>(decl), loc);
         break;
     }
 
-    typeNode.release();
+    declNode.release();
     return getNode(qual);
 }
 
 Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
-                                      Node typeNode,
+                                      Node declNode,
                                       Location loc)
 {
     Qualifier *qual = cast_node<Qualifier>(qualifierNode);
-    NamedType *type = cast_node<NamedType>(typeNode);
+    TypeDecl *decl = ensureTypeDecl(cast_node<Decl>(declNode), loc);
     DeclRegion *region = qual->resolveRegion();
 
-    if (!region->findDecl(type->getIdInfo(), type)) {
-        report(loc, diag::NAME_NOT_VISIBLE) << type->getIdInfo();
+    if (!region->findDecl(decl->getIdInfo(), decl->getType())) {
+        report(loc, diag::NAME_NOT_VISIBLE) << decl->getIdInfo();
         return getInvalidNode();
     }
 
     // Add in the sub-qualifier.
-    switch (type->getKind()) {
+    switch (decl->getKind()) {
     default:
-        // The given type cannot serve as a qualifier.
-        report(loc, diag::INVALID_QUALIFIER) << type->getIdInfo();
+        // The given decl cannot serve as a qualifier.
+        report(loc, diag::INVALID_QUALIFIER) << decl->getIdInfo();
         return getInvalidNode();
 
-    case Ast::AST_DomainType:
-        qual->addQualifier(
-            cast<DomainType>(type)->getDomainTypeDecl(), loc);
+    case Ast::AST_DomainInstanceDecl:
+    case Ast::AST_AbstractDomainDecl:
+    case Ast::AST_PercentDecl:
+        qual->addQualifier(cast<DomainTypeDecl>(decl), loc);
         break;
 
-    case Ast::AST_EnumerationType:
-        qual->addQualifier(
-            cast<EnumerationType>(type)->getEnumerationDecl(), loc);
+    case Ast::AST_EnumerationDecl:
+        qual->addQualifier(cast<EnumerationDecl>(decl), loc);
         break;
     }
 
-    typeNode.release();
+    declNode.release();
     return qualifierNode;
 }
 

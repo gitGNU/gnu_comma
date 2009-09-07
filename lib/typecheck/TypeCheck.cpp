@@ -286,12 +286,12 @@ Node TypeCheck::acceptPercent(Location loc)
     // When processing a model, return the associated percent decl.  When
     // processing a generic formal domain, return the AbstractDomainDecl.
     if (ModelDecl *model = getCurrentModel()) {
-        return getNode(model->getPercentType());
+        return getNode(model->getPercent());
     }
     else {
         // FIXME: Use a cleaner interface when available.
         AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
-        return getNode(decl->getType());
+        return getNode(decl);
     }
 }
 
@@ -324,7 +324,7 @@ bool TypeCheck::denotesDomainPercent(const Decl *decl)
 // This function assumes that the number and types of the supplied arguments are
 // compatible with the given functor.
 bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
-                                      Type **args, unsigned numArgs)
+                                      DomainTypeDecl **args, unsigned numArgs)
 {
     assert(functor->getArity() == numArgs);
 
@@ -334,7 +334,7 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
             return false;
         for (unsigned i = 0; i < numArgs; ++i) {
             DomainType *formal = currentFunctor->getFormalType(i);
-            if (formal != args[i])
+            if (formal != args[i]->getType())
                 return false;
         }
         return true;
@@ -342,19 +342,15 @@ bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
     return false;
 }
 
-/// If the given functor represents the current capsule being checked,
-/// ensure that none of the argument types directly reference %.  Returns
-/// true if the given functor and argument combination is legal, otherwise
-/// false is returned and diagnostics are posted.
-bool TypeCheck::ensureNonRecursiveInstance(FunctorDecl *decl,
-                                           Type **args, unsigned numArgs,
-                                           Location loc)
+bool TypeCheck::ensureNonRecursiveInstance(
+    FunctorDecl *decl, DomainTypeDecl **args, unsigned numArgs, Location loc)
 {
     if (!checkingFunctor() || (decl != getCurrentFunctor()))
         return true;
     for (unsigned i = 0; i < numArgs; ++i) {
-        DomainType *domArg = dyn_cast<DomainType>(args[i]);
-        if (domArg && domArg->involvesPercent()) {
+        // FIXME: DomainTypeDecls should provide the involvesPercent method.
+        DomainType *argTy = args[i]->getType();
+        if (argTy->involvesPercent()) {
             report(loc, diag::SELF_RECURSIVE_INSTANCE);
             return false;
         }
@@ -459,10 +455,10 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     case Ast::AST_DomainDecl: {
         if (denotesDomainPercent(decl)) {
             report(loc, diag::PERCENT_EQUIVALENT);
-            return getNode(getCurrentPercentType());
+            return getNode(getCurrentPercent());
         }
         DomainDecl *domDecl = cast<DomainDecl>(decl);
-        return getNode(domDecl->getInstance()->getType());
+        return getNode(domDecl->getInstance());
     }
 
     case Ast::AST_SignatureDecl: {
@@ -473,10 +469,8 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
-    case Ast::AST_IntegerDecl: {
-        TypeDecl *tyDecl = cast<TypeDecl>(decl);
-        return getNode(tyDecl->getType());
-    }
+    case Ast::AST_IntegerDecl:
+        return getNode(decl);
 
     case Ast::AST_FunctorDecl:
     case Ast::AST_VarietyDecl:
@@ -509,11 +503,24 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
 
     unsigned numPositional = numArgs - numKeywords;
-    llvm::SmallVector<Type*, 4> arguments(numArgs);
+    llvm::SmallVector<DomainTypeDecl*, 4> arguments(numArgs);
 
     // First, populate the argument vector with any positional parameters.
-    for (unsigned i = 0; i < numPositional; ++i)
-        arguments[i] = cast_node<Type>(argumentNodes[i]);
+    //
+    // FIXME: Currently only DomainTypeDecls and SigInstanceDecls propagate as
+    // arguments to a type application.  We should factor this out into a
+    // seperate pass over the argument vector.
+    for (unsigned i = 0; i < numPositional; ++i) {
+        DomainTypeDecl *arg = lift_node<DomainTypeDecl>(argumentNodes[i]);
+        if (!arg) {
+            SigInstanceDecl *sig =
+                cast_node<SigInstanceDecl>(argumentNodes[i]);
+            Location loc = argumentLocs[i];
+            report(loc, diag::SIGNATURE_AS_TYPE_PARAM) << sig->getIdInfo();
+            return getInvalidNode();
+        }
+        arguments[i] = arg;
+    }
 
     // Process any keywords provided.
     for (unsigned i = 0; i < numKeywords; ++i) {
@@ -547,8 +554,21 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
         // Lift the argument node and add it to the set of arguments in its
         // proper position.
-        Type *argument =
-            cast_node<Type>(argumentNodes[i + numPositional]);
+        unsigned argIdx = i + numPositional;
+        DomainTypeDecl *argument =
+            lift_node<DomainTypeDecl>(argumentNodes[argIdx]);
+
+        // FIXME: Currently only DomainTypeDecls and SigInstanceDecls propagate
+        // as arguments to a type application.  We should factor this out into a
+        // seperate pass over the argument vector.
+        if (!argument) {
+            SigInstanceDecl *sig =
+                cast_node<SigInstanceDecl>(argumentNodes[argIdx]);
+            Location loc = argumentLocs[argIdx];
+            report(loc, diag::SIGNATURE_AS_TYPE_PARAM) << sig->getIdInfo();
+            return getInvalidNode();
+        }
+
         argumentNodes[i + numPositional].release();
         arguments[keywordIdx] = argument;
     }
@@ -557,7 +577,7 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     //
     // FIXME:  Factor this out.
     for (unsigned i = 0; i < numArgs; ++i) {
-        Type *argument = arguments[i];
+        DomainType *argTy = arguments[i]->getType();
         Location argLoc = argumentLocs[i];
         AbstractDomainDecl *target = model->getFormalDecl(i);
 
@@ -566,11 +586,11 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // have % rewritten to denote themselves, which in this case we want to
         // map to the type of the actual).
         AstRewriter rewrites(resource);
-        rewrites[target->getType()] = arguments[i];
+        rewrites[target->getType()] = arguments[i]->getType();
         for (unsigned j = 0; j < i; ++j)
-            rewrites[model->getFormalType(j)] = arguments[j];
+            rewrites[model->getFormalType(j)] = arguments[j]->getType();
 
-        if (!checkSignatureProfile(rewrites, argument, target, argLoc))
+        if (!checkSignatureProfile(rewrites, argTy, target, argLoc))
             return getInvalidNode();
     }
 
@@ -588,12 +608,12 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         if (denotesFunctorPercent(functor, arguments.data(), numArgs)) {
             // Cannonicalize type applications which are equivalent to `%'.
             report(loc, diag::PERCENT_EQUIVALENT);
-            node = getNode(getCurrentPercentType());
+            node = getNode(getCurrentPercent());
         }
         else {
             DomainInstanceDecl *instance =
                 functor->getInstance(arguments.data(), numArgs);
-            node = getNode(instance->getType());
+            node = getNode(instance);
         }
     }
     argumentNodes.release();
@@ -653,47 +673,19 @@ TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
     return result;
 }
 
-DomainType *TypeCheck::ensureDomainType(Node node,
-                                        Location loc,
-                                        bool report)
+TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
 {
-    Type *type = cast_node<Type>(node);
-    return ensureDomainType(type, loc);
-}
-
-DomainType *TypeCheck::ensureDomainType(Type *type,
-                                        Location loc,
-                                        bool report)
-{
-    if (DomainType *dom = dyn_cast<DomainType>(type))
-        return dom;
-    else if (CarrierType *carrier = dyn_cast<CarrierType>(type))
-        return ensureDomainType(carrier->getRepresentationType(), loc);
-    if (report)
-        this->report(loc, diag::NOT_A_DOMAIN);
-    return 0;
-}
-
-Type *TypeCheck::ensureValueType(Type *type,
-                                 Location loc,
-                                 bool report)
-{
-    if (isa<TypedefType>(type) ||
-        isa<EnumerationType>(type) ||
-        isa<CarrierType>(type) ||
-        ensureDomainType(type, loc, false))
-        return type;
+    if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(decl))
+        return tyDecl;
     if (report)
         this->report(loc, diag::TYPE_CANNOT_DENOTE_VALUE);
     return 0;
 }
 
-Type *TypeCheck::ensureValueType(Node node,
-                                 Location loc,
-                                 bool report)
+TypeDecl *TypeCheck::ensureTypeDecl(Node node, Location loc, bool report)
 {
-    Type *type = cast_node<Type>(node);
-    return ensureValueType(type, loc, report);
+    Decl *decl = cast_node<Decl>(node);
+    return ensureTypeDecl(decl, loc, report);
 }
 
 /// Returns true if \p expr is a static integer expression.  If so, initializes
@@ -911,21 +903,21 @@ void TypeCheck::aquireSignatureImplicitDeclarations(Sigoid *sigdecl)
 }
 
 bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
-                                        Node typeNode, Node initializerNode)
+                                        Node declNode, Node initializerNode)
 {
     Expr *init = 0;
-    Type *type = ensureValueType(typeNode, loc);
+    TypeDecl *tyDecl = ensureTypeDecl(declNode, loc);
 
-    if (!type) return false;
+    if (!tyDecl) return false;
 
     if (!initializerNode.isNull()) {
         init = cast_node<Expr>(initializerNode);
-        if (!checkExprInContext(init, type))
+        if (!checkExprInContext(init, tyDecl->getType()))
             return false;
     }
-    ObjectDecl *decl = new ObjectDecl(name, type, loc, init);
+    ObjectDecl *decl = new ObjectDecl(name, tyDecl->getType(), loc, init);
 
-    typeNode.release();
+    declNode.release();
     initializerNode.release();
 
     if (Decl *conflict = scope->addDirectDecl(decl)) {
@@ -939,13 +931,13 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 
 bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
 {
-    Type         *type = cast_node<Type>(importedNode);
-    DomainType   *domain;
+    Decl *decl = cast_node<Decl>(importedNode);
+    DomainType *domain;
 
-    if (CarrierType *carrier = dyn_cast<CarrierType>(type))
+    if (CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl))
         domain = dyn_cast<DomainType>(carrier->getRepresentationType());
     else
-        domain = dyn_cast<DomainType>(type);
+        domain = dyn_cast<DomainTypeDecl>(decl)->getType();
 
     if (!domain) {
         report(loc, diag::IMPORT_FROM_NON_DOMAIN);
@@ -985,7 +977,7 @@ void TypeCheck::endAddExpression()
     scope->pop();
 }
 
-void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
+void TypeCheck::acceptCarrier(IdentifierInfo *name, Node declNode, Location loc)
 {
     // We should always be in an add declaration.
     AddDecl *add = cast<AddDecl>(declarativeRegion);
@@ -995,9 +987,10 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc)
         return;
     }
 
-    if (Type *type = ensureValueType(typeNode, loc)) {
-        typeNode.release();
-        CarrierDecl *carrier = new CarrierDecl(name, type, loc);
+    if (TypeDecl *tyDecl = ensureTypeDecl(declNode, loc)) {
+        declNode.release();
+        Type *carrierTy = tyDecl->getType();
+        CarrierDecl *carrier = new CarrierDecl(name, carrierTy, loc);
         if (Decl *conflict = scope->addDirectDecl(carrier)) {
             report(loc, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());
@@ -1017,17 +1010,18 @@ void TypeCheck::beginSubroutineDeclaration(Descriptor &desc)
 }
 
 Node TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
-                                          Node typeNode, PM::ParameterMode mode)
+                                          Node declNode, PM::ParameterMode mode)
 {
     // FIXME: The location provided here is the location of the formal, not the
-    // location of the type.  The type node here should be a ModelRef or similar
+    // location of the type.  The decl node here should be a ModelRef or similar
     // which encapsulates the needed location information.
-    Type *dom = ensureValueType(typeNode, loc);
+    TypeDecl *tyDecl = ensureTypeDecl(declNode, loc);
 
-    if (!dom) return getInvalidNode();
+    if (!tyDecl) return getInvalidNode();
 
-    typeNode.release();
-    ParamValueDecl *paramDecl = new ParamValueDecl(formal, dom, mode, loc);
+    declNode.release();
+    Type *paramTy = tyDecl->getType();
+    ParamValueDecl *paramDecl = new ParamValueDecl(formal, paramTy, mode, loc);
     return getNode(paramDecl);
 }
 
@@ -1073,7 +1067,8 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     SubroutineDecl *routineDecl = 0;
     DeclRegion *region = currentDeclarativeRegion();
     if (desc.isFunctionDescriptor()) {
-        if (Type *returnType = ensureValueType(desc.getReturnType(), 0)) {
+        if (TypeDecl *returnDecl = ensureTypeDecl(desc.getReturnType(), 0)) {
+            Type *returnType = returnDecl->getType();
             routineDecl = new FunctionDecl(resource, name, location,
                                            parameters.data(), parameters.size(),
                                            returnType, region);

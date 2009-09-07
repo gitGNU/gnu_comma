@@ -62,7 +62,7 @@ void TypeDumper::visitDomainType(DomainType *node)
         for (unsigned i = 0; i < instance->getArity(); ++i) {
             S << '\n';
             printIndentation();
-            visitType(instance->getActualParameter(i));
+            visitType(instance->getActualParamType(i));
         }
         dedent();
     }

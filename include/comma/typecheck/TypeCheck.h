@@ -361,7 +361,7 @@ private:
     /// true if the given functor and argument combination is legal, otherwise
     /// false is returned and diagnostics are posted.
     bool ensureNonRecursiveInstance(FunctorDecl *decl,
-                                    Type **args, unsigned numArgs,
+                                    DomainTypeDecl **args, unsigned numArgs,
                                     Location loc);
 
     /// Bring all type declarations provided by the signature into the given
@@ -374,10 +374,8 @@ private:
     /// given signature into scope.
     void aquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
-    DomainType *ensureDomainType(Node typeNode, Location loc, bool report = true);
-    DomainType *ensureDomainType(Type *type, Location loc, bool report = true);
-    Type *ensureValueType(Node typeNode, Location loc, bool report = true);
-    Type *ensureValueType(Type *type, Location loc, bool report = true);
+    TypeDecl *ensureTypeDecl(Node declNode, Location loc, bool report = true);
+    TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
     /// Returns true if \p expr is a static integer expression.  If so,
     /// initializes \p result to a signed value which can accommodate the given
@@ -495,7 +493,7 @@ private:
     // This function assumes that the number and types of the supplied arguments
     // are compatible with the given functor.
     bool denotesFunctorPercent(const FunctorDecl *functor,
-                               Type **args, unsigned numArgs);
+                               DomainTypeDecl **args, unsigned numArgs);
 
     /// Resolves the argument type of a Functor or Variety given previous actual
     /// arguments.

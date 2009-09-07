@@ -147,7 +147,7 @@ void DeclDumper::visitDomainInstanceDecl(DomainInstanceDecl *node)
     for (unsigned i = 0; i < node->getArity(); ++i) {
         S << '\n';
         printIndentation();
-        dumpAST(node->getActualParameter(i));
+        visitDomainTypeDecl(node->getActualParam(i));
     }
     dedent();
     S << '>';

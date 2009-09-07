@@ -92,7 +92,7 @@ bool DomainType::involvesPercent() const
         unsigned arity = instance->getArity();
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *param = dyn_cast<DomainType>(
-                instance->getActualParameter(i));
+                instance->getActualParamType(i));
             if (param && param->involvesPercent())
                 return true;
         }

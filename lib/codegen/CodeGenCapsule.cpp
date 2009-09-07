@@ -50,7 +50,8 @@ void CodeGenCapsule::emit()
     if (generatingParameterizedInstance()) {
         FunctorDecl *functor = cast<FunctorDecl>(capsule);
         for (unsigned i = 0; i < theInstance->getArity(); ++i)
-            paramMap[functor->getFormalType(i)] = theInstance->getActualParameter(i);
+            paramMap[functor->getFormalType(i)] =
+                theInstance->getActualParamType(i);
     }
 
     // Declare every subroutine in the add.
@@ -175,7 +176,7 @@ CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance) const
     std::string name = instance->getString();
     for (unsigned i = 0; i < instance->getArity(); ++i) {
         DomainType *param =
-            cast<DomainType>(instance->getActualParameter(i));
+            cast<DomainType>(instance->getActualParamType(i));
         std::ostringstream ss;
 
         if (param->denotesPercent()) {
@@ -289,7 +290,7 @@ unsigned CodeGenCapsule::addCapsuleDependency(DomainInstanceDecl *instance)
         typedef DomainInstanceDecl::arg_iterator iterator;
         for (iterator iter = instance->beginArguments();
              iter != instance->endArguments(); ++iter) {
-            DomainType *argTy = cast<DomainType>(*iter);
+            DomainType *argTy = (*iter)->getType();
             if (!(argTy->isAbstract() or argTy->denotesPercent())) {
                 DomainInstanceDecl *argInstance = argTy->getInstanceDecl();
                 assert(argInstance && "Bad domain type!");

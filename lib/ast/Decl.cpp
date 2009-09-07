@@ -191,7 +191,7 @@ VarietyDecl::VarietyDecl(AstResource &resource,
 }
 
 SigInstanceDecl *
-VarietyDecl::getInstance(Type **args, unsigned numArgs)
+VarietyDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
@@ -290,14 +290,15 @@ FunctorDecl::FunctorDecl(AstResource &resource,
     : Domoid(resource, AST_FunctorDecl, name, loc),
       arity(arity)
 {
+    assert(arity && "Cannot construct functors with no arguments!");
+
     formalDecls = new AbstractDomainDecl*[arity];
     std::copy(formals, formals + arity, formalDecls);
-
     implementation = new AddDecl(this);
 }
 
 DomainInstanceDecl *
-FunctorDecl::getInstance(Type **args, unsigned numArgs)
+FunctorDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
 {
     llvm::FoldingSetNodeID id;
     void *insertPos = 0;
@@ -317,15 +318,17 @@ FunctorDecl::getInstance(Type **args, unsigned numArgs)
 
 SigInstanceDecl::SigInstanceDecl(SignatureDecl *decl)
     : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
-      underlyingSigoid(decl)
+      underlyingSigoid(decl),
+      arguments(0)
 { }
 
 SigInstanceDecl::SigInstanceDecl(VarietyDecl *decl,
-                                 Type **args, unsigned numArgs)
+                                 DomainTypeDecl **args, unsigned numArgs)
     : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
       underlyingSigoid(decl)
 {
-    arguments = new Type*[numArgs];
+    assert(numArgs && "No arguments given to parameterized instance!");
+    arguments = new DomainTypeDecl*[numArgs];
     std::copy(args, args + numArgs, arguments);
 }
 
@@ -347,16 +350,8 @@ unsigned SigInstanceDecl::getArity() const
     return 0;
 }
 
-Type *SigInstanceDecl::getActualParameter(unsigned n) const
-{
-    assert(isParameterized() &&
-           "Cannot fetch parameter from non-parameterized type!");
-    assert(n < getArity() && "Parameter index out of range!");
-    return arguments[n];
-}
-
 void SigInstanceDecl::Profile(llvm::FoldingSetNodeID &ID,
-                              Type **args, unsigned numArgs)
+                              DomainTypeDecl **args, unsigned numArgs)
 {
     if (numArgs == 0)
         ID.AddPointer(0);
@@ -611,14 +606,14 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
 }
 
 DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
-                                       Type **args, unsigned numArgs)
+                                       DomainTypeDecl **args, unsigned numArgs)
     : DomainTypeDecl(AST_DomainInstanceDecl, functor->getIdInfo()),
       definition(functor)
 {
     assert(functor->getArity() == numArgs &&
            "Wrong number of arguments for domain instance!");
 
-    arguments = new Type*[numArgs];
+    arguments = new DomainTypeDecl*[numArgs];
     std::copy(args, args + numArgs, arguments);
 
     // Ensure that we are notified if the declarations provided by percent
@@ -641,7 +636,7 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
 bool DomainInstanceDecl::isDependent() const
 {
     for (unsigned i = 0; i < getArity(); ++i) {
-        DomainType *param = cast<DomainType>(getActualParameter(i));
+        DomainType *param = cast<DomainType>(getActualParamType(i));
         if (param->isAbstract())
             return true;
         if (param->denotesPercent())
@@ -675,7 +670,7 @@ void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
 }
 
 void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
-                                 Type **args, unsigned numArgs)
+                                 DomainTypeDecl **args, unsigned numArgs)
 {
     for (unsigned i = 0; i < numArgs; ++i)
         id.AddPointer(args[i]);

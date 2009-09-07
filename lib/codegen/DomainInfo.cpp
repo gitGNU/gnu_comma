@@ -237,7 +237,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     arguments.push_back(info);
 
     for (unsigned i = 0; i < instance->getArity(); ++i) {
-        DomainType *argTy = cast<DomainType>(instance->getActualParameter(i));
+        DomainType *argTy = cast<DomainType>(instance->getActualParamType(i));
 
         if (PercentDecl *pdecl = argTy->getPercentDecl()) {
             assert(pdecl->getDefinition() == CGC.getCapsule() &&

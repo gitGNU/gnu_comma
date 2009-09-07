@@ -142,3 +142,6 @@ DIAGNOSTIC(NAME_REQUIRES_QUAL, ERROR,
            "`%0' requires qualification.")
 DIAGNOSTIC(INCOMPATABLE_MODE_REDECLARATION, ERROR,
            "Parameter mode conflicts with previous definition at `%0'")
+DIAGNOSTIC(SIGNATURE_AS_TYPE_PARAM, ERROR,
+           "`%0' denotes a signature, which cannot be used to "
+           "parameterize a type.")

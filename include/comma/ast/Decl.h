@@ -316,7 +316,7 @@ public:
 
     /// Returns the instance decl corresponding to this variety applied over the
     /// given arguments.
-    SigInstanceDecl *getInstance(Type **args, unsigned numArgs);
+    SigInstanceDecl *getInstance(DomainTypeDecl **args, unsigned numArgs);
 
     /// Returns the number of arguments accepted by this variety.
     unsigned getArity() const { return arity; }
@@ -481,7 +481,7 @@ public:
     // over the given set of arguments.  Such instance declarations are
     // memoized, and for a given set of arguments this method always returns the
     // same declaration node.
-    DomainInstanceDecl *getInstance(Type **args, unsigned numArgs);
+    DomainInstanceDecl *getInstance(DomainTypeDecl **args, unsigned numArgs);
 
     // Returns the AddDecl which implements this functor.
     const AddDecl *getImplementation() const { return implementation; }
@@ -533,9 +533,17 @@ public:
 
     /// Returns the i'th actual parameter.  This method asserts if its argument
     /// is out of range.
-    Type *getActualParameter(unsigned n) const;
+    DomainTypeDecl *getActualParam(unsigned n) const {
+        assert(isParameterized() &&
+               "Cannot fetch parameter from non-parameterized type!");
+        assert(n < getArity() && "Parameter index out of range!");
+        return arguments[n];
+    }
 
-    typedef Type **arg_iterator;
+    /// Returns the type of the i'th actual parameter.
+    DomainType *getActualParamType(unsigned n) const;
+
+    typedef DomainTypeDecl **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
@@ -555,18 +563,19 @@ private:
 
     SigInstanceDecl(SignatureDecl *decl);
 
-    SigInstanceDecl(VarietyDecl *decl, Type **args, unsigned numArgs);
+    SigInstanceDecl(VarietyDecl *decl, DomainTypeDecl **args, unsigned numArgs);
 
     // Called by VarietyDecl when memoizing.
     static void
-    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
+    Profile(llvm::FoldingSetNodeID &id,
+            DomainTypeDecl **args, unsigned numArgs);
 
     // The Sigoid supporing this type.
     Sigoid *underlyingSigoid;
 
     // If the supporting declaration is a variety, then this array contains the
     // actual arguments defining this instance.
-    Type **arguments;
+    DomainTypeDecl **arguments;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1222,7 +1231,8 @@ class DomainInstanceDecl : public DomainTypeDecl, public llvm::FoldingSetNode {
 public:
     DomainInstanceDecl(DomainDecl *domain);
 
-    DomainInstanceDecl(FunctorDecl *functor, Type **args, unsigned numArgs);
+    DomainInstanceDecl(FunctorDecl *functor,
+                       DomainTypeDecl **args, unsigned numArgs);
 
     /// Returns the Domoid defining this instance.
     Domoid *getDefinition() { return definition; }
@@ -1250,16 +1260,23 @@ public:
     /// Returns the arity of the underlying declaration.
     unsigned getArity() const;
 
-    /// Returns the i'th actual parameter.  This function asserts if its argument
+    /// Returns the i'th actual parameter.  This method asserts if its argument
     /// is out of range, or if this is not an instance of a functor.
-    Type *getActualParameter(unsigned n) const {
+    DomainTypeDecl *getActualParam(unsigned n) const {
         assert(isParameterized() && "Not a parameterized instance!");
         assert(n < getArity() && "Index out of range!");
         return arguments[n];
     }
 
+    /// Returns the type of the i'th actual parameter.  This method asserts if
+    /// its argument is out of range, or if this is not an instance of a
+    /// functor.
+    DomainType *getActualParamType(unsigned n) const {
+        return getActualParam(n)->getType();
+    }
+
     /// Iterators over the arguments supplied to this instance.
-    typedef Type **arg_iterator;
+    typedef DomainTypeDecl **arg_iterator;
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
@@ -1270,7 +1287,8 @@ public:
 
     /// Called by FunctorDecl when memoizing.
     static void
-    Profile(llvm::FoldingSetNodeID &id, Type **args, unsigned numArgs);
+    Profile(llvm::FoldingSetNodeID &id,
+            DomainTypeDecl **args, unsigned numArgs);
 
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1279,7 +1297,7 @@ public:
 
 private:
     Domoid *definition;
-    Type **arguments;
+    DomainTypeDecl **arguments;
     SignatureSet sigset;
 
     // The following call-backs are invoked when the declarative region of the
@@ -1351,6 +1369,10 @@ inline DomainDecl *DomainInstanceDecl::getDefiningDomain() const
 inline FunctorDecl *DomainInstanceDecl::getDefiningFunctor() const
 {
     return llvm::dyn_cast<FunctorDecl>(definition);
+}
+
+inline DomainType *SigInstanceDecl::getActualParamType(unsigned n) const {
+    return getActualParam(n)->getType();
 }
 
 } // End comma namespace

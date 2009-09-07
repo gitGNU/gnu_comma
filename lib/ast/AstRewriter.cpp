@@ -44,7 +44,7 @@ void AstRewriter::installRewrites(DomainType *context)
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
                 DomainType *formal = functor->getFormalType(i);
-                Type *actual = instance->getActualParameter(i);
+                Type *actual = instance->getActualParamType(i);
                 rewrites[formal] = actual;
             }
         }
@@ -59,7 +59,7 @@ void AstRewriter::installRewrites(SigInstanceDecl *context)
         unsigned arity = variety->getArity();
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *formal = variety->getFormalType(i);
-            Type *actual = context->getActualParameter(i);
+            Type *actual = context->getActualParamType(i);
             addRewrite(formal, actual);
         }
     }
@@ -83,18 +83,14 @@ Type *AstRewriter::rewrite(Type *type) const
 SigInstanceDecl *AstRewriter::rewrite(SigInstanceDecl *sig) const
 {
     if (sig->isParameterized()) {
-        llvm::SmallVector<Type*, 4> args;
+        llvm::SmallVector<DomainTypeDecl*, 4> args;
         SigInstanceDecl::arg_iterator iter;
         SigInstanceDecl::arg_iterator endIter = sig->endArguments();
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
             // FIXME: Currently it is true that all arguments are domains, but
             // in the furture we will need to be more general than this.
-            if (Type *dom = findRewrite(*iter))
-                args.push_back(dom);
-            else {
-                DomainType *arg = cast<DomainType>(*iter);
-                args.push_back(rewrite(arg));
-            }
+            DomainType *argTy = rewrite((*iter)->getType());
+            args.push_back(argTy->getDomainTypeDecl());
         }
         // Obtain a memoized instance.
         VarietyDecl *decl = sig->getVariety();
@@ -111,19 +107,14 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
     if (DomainInstanceDecl *instance = dom->getInstanceDecl()) {
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
             typedef DomainInstanceDecl::arg_iterator iterator;
-            llvm::SmallVector<Type*, 4> args;
-
+            llvm::SmallVector<DomainTypeDecl*, 4> args;
             iterator iter;
             iterator endIter = instance->endArguments();
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
                 // FIXME: Currently it is true that all arguments are domains,
                 // but in the furture we will need to be more general than this.
-                if (Type *target = findRewrite(*iter))
-                    args.push_back(target);
-                else {
-                    DomainType *arg = cast<DomainType>(*iter);
-                    args.push_back(rewrite(arg));
-                }
+                DomainType *argTy = rewrite((*iter)->getType());
+                args.push_back(argTy->getDomainTypeDecl());
             }
             // Obtain a memoized instance and return the associated type.
             instance = functor->getInstance(&args[0], args.size());
