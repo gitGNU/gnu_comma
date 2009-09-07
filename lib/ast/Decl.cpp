@@ -697,9 +697,14 @@ PM::ParameterMode ParamValueDecl::getExplicitParameterMode() const
     return static_cast<PM::ParameterMode>(bits);
 }
 
+void ParamValueDecl::setParameterMode(PM::ParameterMode mode)
+{
+    bits = mode;
+}
+
 bool ParamValueDecl::parameterModeSpecified() const
 {
-    return getExplicitParameterMode() == PM::MODE_DEFAULT;
+    return getExplicitParameterMode() != PM::MODE_DEFAULT;
 }
 
 PM::ParameterMode ParamValueDecl::getParameterMode() const
@@ -710,6 +715,9 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
     else
         return mode;
 }
+
+
+
 
 //===----------------------------------------------------------------------===//
 // EnumLiteral

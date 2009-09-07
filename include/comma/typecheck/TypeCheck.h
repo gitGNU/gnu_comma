@@ -346,6 +346,16 @@ private:
 
     void ensureNecessaryRedeclarations(DomainTypeDecl *model);
 
+    /// Checks that subroutines \p X and \p Y have identical parameter mode
+    /// profiles.
+    ///
+    /// Returns true if the modes match, otherwise false is returned and
+    /// diagnostics are posted.  Both arguments must have the same arity.
+    ///
+    /// The generated diagnostics use the location of \p X's parameter as the
+    /// context, and the location \p Y as a reference.
+    bool ensureMatchingParameterModes(SubroutineDecl *X, SubroutineDecl *Y);
+
     /// If the given functor represents the current capsule being checked,
     /// ensure that none of the argument types directly reference %.  Returns
     /// true if the given functor and argument combination is legal, otherwise

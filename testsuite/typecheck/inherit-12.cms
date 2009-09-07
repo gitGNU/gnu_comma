@@ -1,0 +1,11 @@
+-- MUST-FAIL: Ensure overriding declarations match wrt parameter modes.
+
+signature S with
+   procedure P (X : in out %);
+end S;
+
+signature T is
+   S;
+with
+   procedure P (X : %);
+end T;

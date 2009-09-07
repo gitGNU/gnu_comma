@@ -634,6 +634,9 @@ public:
     /// \brief Returns the parameter mdoe associated with this decl.
     PM::ParameterMode getExplicitParameterMode() const;
 
+    /// \brief Sets the parameter mode of this decl.
+    void setParameterMode(PM::ParameterMode mode);
+
     static bool classof(const ParamValueDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ParamValueDecl;

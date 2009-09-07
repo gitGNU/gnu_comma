@@ -633,11 +633,22 @@ TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
     for (unsigned i = 0; i < arity; ++i)
         keys.push_back(SRDecl->getParamKeyword(i));
 
+    SubroutineDecl *result;
     if (FunctionType *ftype = dyn_cast<FunctionType>(SRType))
-        return new FunctionDecl(name, 0, keys.data(), ftype, region);
+        result =  new FunctionDecl(name, 0, keys.data(), ftype, region);
+    else {
+        ProcedureType *ptype = cast<ProcedureType>(SRType);
+        result = new ProcedureDecl(name, 0, keys.data(), ptype, region);
+    }
 
-    ProcedureType *ptype = cast<ProcedureType>(SRType);
-    return new ProcedureDecl(name, 0, keys.data(), ptype, region);
+    // Ensure the result declaration has the same parameter modes as the
+    // original;
+    for (unsigned i = 0; i < arity; ++i) {
+        ParamValueDecl *param = result->getParam(i);
+        param->setParameterMode(SRDecl->getExplicitParamMode(i));
+    }
+
+    return result;
 }
 
 DomainType *TypeCheck::ensureDomainType(Node node,
@@ -776,10 +787,16 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
             // conflict must denote a subroutine.
             SubroutineDecl *conflictRoutine = cast<SubroutineDecl>(conflict);
             if (conflictRoutine->keywordsMatch(rewriteDecl)) {
+                // Ensure that the parameter modes match as well.  Note we pass
+                // the original subroutine declaration node so that we may
+                // reference it in the diagnostics.
+                if (!ensureMatchingParameterModes(conflictRoutine, srDecl))
+                    badDecls.insert(rewriteDecl);
+
                 // If the conflicting declaration does not have an origin
-                // (meaning that is was explicitly declared by the model)
-                // map its origin to the to that of the original subroutine
-                // provided by the signature.
+                // (meaning that is was explicitly declared by the model) map
+                // its origin to that of the original subroutine provided by the
+                // signature.
                 if (!conflictRoutine->hasOrigin()) {
                     // FIXME: We should warn here that the "conflict"
                     // declaration is simply redundant.
@@ -815,6 +832,23 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
             delete badDecl;
         }
     }
+}
+
+bool TypeCheck::ensureMatchingParameterModes(SubroutineDecl *X,
+                                             SubroutineDecl *Y)
+{
+    unsigned arity = X->getArity();
+    assert(arity == Y->getArity() && "Arity mismatch!");
+
+    for (unsigned i = 0; i < arity; ++i) {
+        if (X->getParamMode(i) != Y->getParamMode(i)) {
+            ParamValueDecl *param = X->getParam(i);
+            report(param->getLocation(), diag::INCOMPATABLE_MODE_REDECLARATION)
+                << getSourceLoc(Y->getLocation());
+            return false;
+        }
+    }
+    return true;
 }
 
 void TypeCheck::aquireSignatureTypeDeclarations(DeclRegion *region,
