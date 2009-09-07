@@ -297,6 +297,8 @@ Node TypeCheck::acceptPercent(Location loc)
 
 // Returns true if the given decl is equivalent to % in the context of the
 // current domain.
+//
+// FIXME: This does not work when processing a formal domain.
 bool TypeCheck::denotesDomainPercent(const Decl *decl)
 {
     if (checkingDomain()) {
