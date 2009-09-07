@@ -375,7 +375,8 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       parameters(0),
       body(0),
       definingDeclaration(0),
-      origin(0)
+      origin(0),
+      overriddenDecl(0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -401,7 +402,8 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       parameters(0),
       body(0),
       definingDeclaration(0),
-      origin(0)
+      origin(0),
+      overriddenDecl(0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -492,6 +494,13 @@ SubroutineDecl *SubroutineDecl::resolveOrigin()
         res = res->getOrigin();
 
     return res;
+}
+
+void SubroutineDecl::setOverriddenDecl(SubroutineDecl *decl) {
+    assert(overriddenDecl == 0 && "Cannot reset overridden decl!");
+    assert(this->getKind() == decl->getKind() &&
+           "Kind mismatch for overriding decl!");
+    overriddenDecl = decl;
 }
 
 //===----------------------------------------------------------------------===//

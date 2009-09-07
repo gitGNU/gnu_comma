@@ -822,6 +822,16 @@ public:
     /// Returns the PrimitiveID of this subroutine.
     PO::PrimitiveID getPrimitiveID() const { return opID; }
 
+    /// Returns true if this subroutine is an overriding declaration.
+    bool isOverriding() const { return overriddenDecl != 0; }
+
+    /// Returns the declaration this one overrides, or null if this is not an
+    /// overriding declaration.
+    const SubroutineDecl *getOverriddenDecl() const { return overriddenDecl; }
+
+    /// Sets this declaration as overriding the given subroutine.
+    void setOverriddenDecl(SubroutineDecl *decl);
+
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -847,6 +857,7 @@ protected:
     BlockStmt *body;
     SubroutineDecl *definingDeclaration;
     SubroutineDecl *origin;
+    SubroutineDecl *overriddenDecl;
 };
 
 //===----------------------------------------------------------------------===//
@@ -886,6 +897,12 @@ public:
 
     const ProcedureDecl *getDefiningDeclaration() const {
         return const_cast<ProcedureDecl*>(this)->getDefiningDeclaration();
+    }
+
+    /// Returns the declaration this one overrides, or null if this is not an
+    /// overriding declaration.
+    const ProcedureDecl *getOverriddenDecl() const {
+        return llvm::dyn_cast_or_null<ProcedureDecl>(overriddenDecl);
     }
 
     // Support for isa and dyn_cast.
@@ -932,6 +949,12 @@ public:
 
     const FunctionDecl *getDefiningDeclaration() const {
         return const_cast<FunctionDecl*>(this)->getDefiningDeclaration();
+    }
+
+    /// Returns the declaration this one overrides, or null if this is not an
+    /// overriding declaration.
+    const FunctionDecl *getOverriddenDecl() const {
+        return llvm::dyn_cast_or_null<FunctionDecl>(overriddenDecl);
     }
 
     Type *getReturnType() const { return getType()->getReturnType(); }
