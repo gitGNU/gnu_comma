@@ -28,7 +28,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo *name, Location loc,
 
     if (!qualNode.isNull()) {
         Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = qualifier->resolve();
+        DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
         region->collectProcedureDecls(name, overloads);
     }
     else {

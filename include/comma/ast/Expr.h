@@ -78,32 +78,65 @@ private:
 class Qualifier : public Ast {
 
 public:
-    Qualifier(DeclRegion *qualifier,  Location loc)
+    Qualifier(DomainTypeDecl *qualifier,  Location loc)
         : Ast(AST_Qualifier) {
         qualifiers.push_back(QualPair(qualifier, loc));
     }
 
-    void addQualifier(DeclRegion *qualifier, Location loc) {
+    Qualifier(SigInstanceDecl *qualifier, Location loc)
+        : Ast(AST_Qualifier) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    Qualifier(EnumerationDecl *qualifier, Location loc)
+        : Ast(AST_Qualifier) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    void addQualifier(DomainTypeDecl *qualifier, Location loc) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    void addQualifier(SigInstanceDecl *qualifier, Location loc) {
+        qualifiers.push_back(QualPair(qualifier, loc));
+    }
+
+    void addQualifier(EnumerationDecl *qualifier, Location loc) {
         qualifiers.push_back(QualPair(qualifier, loc));
     }
 
     unsigned numQualifiers() const { return qualifiers.size(); }
 
-    typedef std::pair<DeclRegion*, Location> QualPair;
+    typedef std::pair<Decl*, Location> QualPair;
 
     QualPair getQualifier(unsigned n) const {
         assert(n < numQualifiers() && "Index out of range!");
         return qualifiers[n];
     }
 
-    // Returns the base (most specific) declarative region of this qualifier.
-    DeclRegion *resolve() {
-        return qualifiers.back().first;
-    }
+    /// Returns the location of the most specific component of this qualifier.
+    ///
+    /// This location corresponds to the components provided by the resolve
+    /// methods.
+    Location getBaseLocation() const { return qualifiers.back().second; }
+
+    /// Returns the base (most specific) declaration of this qualifier, casted
+    /// to the given type, or 0 if the base declaration is not of the requested
+    /// type.
+    template <class T>
+    T *resolve() { return llvm::dyn_cast<T>(qualifiers.back().first); }
+
+    /// Returns the declarative region which this qualifier denotes.
+    ///
+    /// If the base declaration of this qualifier is a DomainTypeDecl or
+    /// EnumerationDecl, the result is just the decl downcast to a region.  Then
+    /// the qualifier denotes a SigInstanceDecl, the region is the PercentDecl
+    /// of the underlying sigoid.
+    DeclRegion *resolveRegion();
 
 private:
     typedef llvm::SmallVector<QualPair, 2> QualVector;
-    QualVector  qualifiers;
+    QualVector qualifiers;
 
 public:
     typedef QualVector::iterator iterator;

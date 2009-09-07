@@ -441,7 +441,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     }
     else {
         Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = qualifier->resolve();
+        DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
         decl = resolveTypeOrModelDecl(id, loc, region);
     }
 

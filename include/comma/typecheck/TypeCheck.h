@@ -384,9 +384,15 @@ private:
     /// static expression.
     bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
 
-    Node acceptQualifiedName(Node            qualNode,
-                             IdentifierInfo *name,
-                             Location        loc);
+    Node acceptQualifiedName(Node qualNode, IdentifierInfo *name, Location loc);
+
+    /// Resolves a visible declarative region associated with a qualifier.
+    ///
+    /// Qualifiers can name signature components, but such qualifiers are
+    /// permitted in certain contexts -- such qualifiers do not denote ordinary
+    /// visible names.  Posts a diagnostic when the qualifier names a signature
+    /// and returns null.
+    DeclRegion *resolveVisibleQualifiedRegion(Qualifier *qual);
 
     Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 

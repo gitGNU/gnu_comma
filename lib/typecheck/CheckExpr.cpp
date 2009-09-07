@@ -19,10 +19,20 @@ using llvm::cast;
 using llvm::isa;
 
 
+DeclRegion *TypeCheck::resolveVisibleQualifiedRegion(Qualifier *qual)
+{
+    if (SigInstanceDecl *sig = qual->resolve<SigInstanceDecl>()) {
+        Location loc = qual->getBaseLocation();
+        report(0, diag::NAME_NOT_VISIBLE) << sig->getIdInfo();
+        return 0;
+    }
+    return qual->resolveRegion();
+}
+
 Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
 {
     NamedType *type = cast_node<NamedType>(typeNode);
-    DeclRegion *region = 0;
+    Qualifier *qual = 0;
 
     switch (type->getKind()) {
     default:
@@ -31,33 +41,34 @@ Node TypeCheck::acceptQualifier(Node typeNode, Location loc)
         return getInvalidNode();
 
     case Ast::AST_DomainType:
-        region = cast<DomainType>(type)->getDomainTypeDecl()->asDeclRegion();
+        qual = new Qualifier(
+            cast<DomainType>(type)->getDomainTypeDecl(), loc);
         break;
 
     case Ast::AST_EnumerationType:
-        region = cast<EnumerationType>(type)->getEnumerationDecl();
+        qual = new Qualifier(
+            cast<EnumerationType>(type)->getEnumerationDecl(), loc);
         break;
     }
 
     typeNode.release();
-    return getNode(new Qualifier(region, loc));
+    return getNode(qual);
 }
 
 Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
                                       Node typeNode,
                                       Location loc)
 {
-    Qualifier *qualifier = cast_node<Qualifier>(qualifierNode);
+    Qualifier *qual = cast_node<Qualifier>(qualifierNode);
     NamedType *type = cast_node<NamedType>(typeNode);
-    DeclRegion *region = 0;
+    DeclRegion *region = qual->resolveRegion();
 
-    if (!qualifier->resolve()->findDecl(type->getIdInfo(), type)) {
+    if (!region->findDecl(type->getIdInfo(), type)) {
         report(loc, diag::NAME_NOT_VISIBLE) << type->getIdInfo();
         return getInvalidNode();
     }
 
-    // FIXME: We should combine the following logic with that in
-    // acceptQualifier.
+    // Add in the sub-qualifier.
     switch (type->getKind()) {
     default:
         // The given type cannot serve as a qualifier.
@@ -65,16 +76,17 @@ Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
         return getInvalidNode();
 
     case Ast::AST_DomainType:
-        region = cast<DomainType>(type)->getDomainTypeDecl()->asDeclRegion();
+        qual->addQualifier(
+            cast<DomainType>(type)->getDomainTypeDecl(), loc);
         break;
 
     case Ast::AST_EnumerationType:
-        region = cast<EnumerationType>(type)->getEnumerationDecl();
+        qual->addQualifier(
+            cast<EnumerationType>(type)->getEnumerationDecl(), loc);
         break;
     }
 
     typeNode.release();
-    qualifier->addQualifier(region, loc);
     return qualifierNode;
 }
 
@@ -84,9 +96,12 @@ Node TypeCheck::acceptQualifiedName(Node qualNode,
                                     IdentifierInfo *name,
                                     Location loc)
 {
-    Qualifier  *qualifier = cast_node<Qualifier>(qualNode);
-    DeclRegion *region    = qualifier->resolve();
+    Qualifier *qualifier = cast_node<Qualifier>(qualNode);
     llvm::SmallVector<FunctionDecl*, 8> decls;
+    DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
+
+    if (!region)
+        return getInvalidNode();
 
     // Scan the entire set of declaration nodes, matching nullary function decls
     // of the given name.  In addition, look for enumeration declarations which
@@ -218,8 +233,10 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name, Location loc,
     llvm::SmallVector<SubroutineDecl*, 8> overloads;
 
     if (!qualNode.isNull()) {
-        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = qualifier->resolve();
+        Qualifier *qual = cast_node<Qualifier>(qualNode);
+        DeclRegion *region = resolveVisibleQualifiedRegion(qual);
+        if (!region)
+            return getInvalidNode();
         region->collectFunctionDecls(name, overloads);
     }
     else {
