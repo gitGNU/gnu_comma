@@ -8,8 +8,10 @@
 
 #include "Scope.h"
 #include "comma/ast/Expr.h"
+#include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/typecheck/TypeCheck.h"
+
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Casting.h"
 

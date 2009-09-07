@@ -8,6 +8,7 @@
 
 #include "AstDumper.h"
 #include "comma/ast/Ast.h"
+#include "comma/ast/Qualifier.h"
 
 using namespace comma;
 
@@ -72,5 +73,27 @@ void Ast::dump()
     AstDumper dumper(llvm::errs());
     dumper.dump(this);
     llvm::errs().flush();
+}
+
+//===----------------------------------------------------------------------===//
+// Nodes which do not belong to any of the major branches in the AST hierarchy
+// (Type, Decl, Expr) have their out or line members define below.
+
+//===----------------------------------------------------------------------===//
+// Qualifier
+DeclRegion *Qualifier::resolveRegion() {
+    DeclRegion *region;
+
+    if (DomainTypeDecl *dom = resolve<DomainTypeDecl>())
+        region = dom;
+    else if (EnumerationDecl *enumDecl = resolve<EnumerationDecl>())
+        region = enumDecl;
+    else {
+        SigInstanceDecl *sig = resolve<SigInstanceDecl>();
+        assert(sig && "Unexpected component in qualifier!");
+        region = sig->getSigoid()->getPercent();
+    }
+
+    return region;
 }
 

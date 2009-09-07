@@ -8,10 +8,10 @@
 
 #include "DeclProducer.h"
 #include "Scope.h"
-
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 
 #include "llvm/ADT/DenseMap.h"

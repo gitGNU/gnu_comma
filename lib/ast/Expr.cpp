@@ -7,30 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/Expr.h"
+#include "comma/ast/Qualifier.h"
+
 #include "llvm/Support/Casting.h"
 
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
-
-//===----------------------------------------------------------------------===//
-// Qualifier
-DeclRegion *Qualifier::resolveRegion() {
-    DeclRegion *region;
-
-    if (DomainTypeDecl *dom = resolve<DomainTypeDecl>())
-        region = dom;
-    else if (EnumerationDecl *enumDecl = resolve<EnumerationDecl>())
-        region = enumDecl;
-    else {
-        SigInstanceDecl *sig = resolve<SigInstanceDecl>();
-        assert(sig && "Unexpected component in qualifier!");
-        region = sig->getSigoid()->getPercent();
-    }
-
-    return region;
-}
 
 
 //===----------------------------------------------------------------------===//
