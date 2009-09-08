@@ -1,0 +1,12 @@
+-- MUST-FAIL:  Ensure export implementations match the public parameter mode
+-- profile.
+
+domain D with
+   procedure P (X : in out %);
+add
+   carrier Rep is Integer;
+
+   procedure P (X : in %) is begin end P;
+end D;
+
+

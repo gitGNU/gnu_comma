@@ -354,10 +354,16 @@ private:
     /// profiles, or that an overriding declaration exists in the given region.
     ///
     /// Returns true if the modes match or an override was found, otherwise
-    /// false is returned and diagnostics are posted.  Both arguments must have
-    /// the same arity.
+    /// false is returned and diagnostics are posted.
     bool ensureMatchingParameterModes(SubroutineDecl *X, SubroutineDecl *Y,
                                       DeclRegion *region);
+
+    /// Checks that the subroutines \p X and \p Y have identical parameter mode
+    /// profiles.
+    ///
+    /// Returns true if the modes match, otherwise false is returned and
+    /// diagnostics are posted.
+    bool ensureMatchingParameterModes(SubroutineDecl *X, SubroutineDecl *Y);
 
     /// If the given functor represents the current capsule being checked,
     /// ensure that none of the argument types directly reference %.  Returns

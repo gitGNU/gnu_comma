@@ -835,6 +835,24 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
     }
 }
 
+bool TypeCheck::ensureMatchingParameterModes(SubroutineDecl *X,
+                                             SubroutineDecl *Y)
+{
+    unsigned arity = X->getArity();
+    assert(arity == Y->getArity() && "Arity mismatch!");
+
+    for (unsigned i = 0; i < arity; ++i) {
+        if (X->getParamMode(i) != Y->getParamMode(i)) {
+            ParamValueDecl *param = X->getParam(i);
+            report(param->getLocation(),
+                   diag::INCOMPATABLE_MODE_REDECLARATION)
+                << getSourceLoc(Y->resolveOrigin()->getLocation());
+            return false;
+        }
+    }
+    return true;
+}
+
 bool TypeCheck::ensureMatchingParameterModes(
     SubroutineDecl *X, SubroutineDecl *Y, DeclRegion *region)
 {
@@ -1447,6 +1465,13 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
                 report(domainLoc, diag::MISSING_EXPORT)
                     << domainName << decl->getIdInfo();
                 allOK = false;
+            }
+            // Check that the parameter mode profiles match in the case of a
+            // subroutine.
+            if (srDecl) {
+                SubroutineDecl *targetRoutine = cast<SubroutineDecl>(decl);
+                if (!ensureMatchingParameterModes(srDecl, targetRoutine))
+                    allOK = false;
             }
         }
     }
