@@ -98,9 +98,6 @@ bool TypeCheck::has(const AstRewriter &rewrites,
 
     // Traverse the set of declarations provided by the target and ensure each
     // exists in source.
-    //
-    // FIXME: We only need to perform this against the immediate declarations of
-    // target.
     DeclRegion *sourceRegion = source->getDomainTypeDecl();
     for (DeclRegion::DeclIter I = target->beginDecls();
          I != target->endDecls(); ++I) {
@@ -108,6 +105,11 @@ bool TypeCheck::has(const AstRewriter &rewrites,
         IdentifierInfo *targetName = targetDecl->getIdInfo();
 
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(targetDecl)) {
+            // FIXME: All declarations should have an immediate bit we can
+            // test.  Not just subroutines.
+            if (!srDecl->isImmediate())
+                continue;
+
             Type *targetType = rewrites.rewrite(srDecl->getType());
             SubroutineDecl *sourceDecl = dyn_cast_or_null<SubroutineDecl>(
                 sourceRegion->findDecl(targetName, targetType));

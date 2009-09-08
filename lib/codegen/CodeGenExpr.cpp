@@ -223,7 +223,6 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     // AbstractDomainDecl.
     AbstractDomainDecl *abstract =
         cast<AbstractDomainDecl>(srDecl->getDeclRegion());
-    DomainType *abstractTy = abstract->getType();
 
     // Resolve the abstract domain to a concrete type using the parameter map
     // provided by the capsule context.
@@ -235,17 +234,9 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     // codegened.
     CG.extendWorklist(instance);
 
-    // The instance must provide a subroutine declaration with a type matching
-    // that of the original, with the only exception being that occurrences of
-    // abstractTy are mapped to the type of the resolved instance.  Use an
-    // AstRewriter to obtain the required target type.
-    AstRewriter rewriter(CG.getAstResource());
-    rewriter.addRewrite(abstractTy, instance->getType());
-    SubroutineType *targetTy = rewriter.rewrite(srDecl->getType());
-
-    // Lookup the target declaration in the instance.  This must not fail.
-    SubroutineDecl *resolvedRoutine = dyn_cast_or_null<SubroutineDecl>(
-        instance->findDecl(srDecl->getIdInfo(), targetTy));
+    // Resolve the needed routine.  This must not fail.
+    SubroutineDecl *resolvedRoutine
+        = resolveAbstractSubroutine(instance, abstract, srDecl);
     assert(resolvedRoutine && "Failed to resolve abstract subroutine!");
 
     // Index into percent to obtain the actual domain instance serving as a
@@ -261,6 +252,74 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(resolvedRoutine));
     assert(func && "function lookup failed!");
     return Builder.CreateCall(func, args.begin(), args.end());
+}
+
+SubroutineDecl *
+CodeGenRoutine::resolveAbstractSubroutine(DomainInstanceDecl *instance,
+                                          AbstractDomainDecl *abstract,
+                                          SubroutineDecl *target)
+{
+    DomainType *abstractTy = abstract->getType();
+
+    // Check if there exists an overriding declaration matching the target
+    // subroutine.
+    SubroutineDecl *resolvedRoutine =
+        resolveAbstractOverride(instance, target);
+
+    if (resolvedRoutine)
+        return resolvedRoutine;
+
+    // Otherwise, the instance must provide a subroutine declaration with a type
+    // matching that of the original, with the only exception being that
+    // occurrences of abstractTy are mapped to the type of the given instance.
+    // Use an AstRewriter to obtain the required target type.
+    AstRewriter rewriter(CG.getAstResource());
+    rewriter.addRewrite(abstractTy, instance->getType());
+    SubroutineType *targetTy = rewriter.rewrite(target->getType());
+
+    // Lookup the target declaration directly in the instance.
+    return dyn_cast_or_null<SubroutineDecl>(
+        instance->findDecl(target->getIdInfo(), targetTy));
+}
+
+SubroutineDecl *
+CodeGenRoutine::resolveAbstractOverride(DomainInstanceDecl *instance,
+                                        SubroutineDecl *target)
+{
+    // FIXME: This algorithm is quadradic.  At the very least, we should cache
+    // the results of this function (in CGC) for use in latter calls.
+    typedef DeclRegion::DeclIter iterator;
+    for (iterator I = instance->beginDecls(); I != instance->endDecls(); ++I) {
+        SubroutineDecl *sdecl = dyn_cast<SubroutineDecl>(*I);
+
+        if (!sdecl)
+            continue;
+
+        if (sdecl->isOverriding() && (sdecl->getOverriddenDecl() == target))
+            return sdecl;
+
+        // Resolve each origin to see if it overrides.
+        SubroutineDecl *origin = sdecl->getOrigin();
+        for ( ; origin; origin = origin->getOrigin()) {
+
+            if (!origin->isOverriding())
+                continue;
+
+            // Walk the origin chain of the abstract declaration,
+            // searching for a matching declaration.
+            const SubroutineDecl *overridden = origin->getOverriddenDecl();
+            SubroutineDecl *candidate = target;
+            do {
+                if (overridden == candidate) {
+                    return sdecl;
+                    break;
+                }
+                candidate = candidate->getOrigin();
+            } while (candidate);
+        }
+    }
+    // No override was found.
+    return 0;
 }
 
 llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)

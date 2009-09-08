@@ -711,14 +711,14 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
 
     // We scan the set of declarations for each direct signature of the given
     // domain.  When a declaration is found which has not already been declared
-    // we add it on good faith that all upcoming declarations will not conflict.
+    // and is not overriden, we add it on good faith that all upcoming
+    // declarations will not conflict.
     //
     // When a conflict occurs (that is, when two declarations exists with the
-    // same name and type but have disjoint keyword sets) we remember which
-    // (non-direct) declarations in the domain need an explicit redeclaration
-    // using the badDecls set.  Once all the declarations are processed, we
-    // remove those declarations found to be in conflict.
-    typedef llvm::SmallPtrSet<SubroutineDecl*, 4> BadDeclSet;
+    // same name and type) we remember which immediate declarations in the
+    // domain are invalid.  Once all the declarations are processed, we remove
+    // those declarations found to be in conflict.
+    typedef llvm::SmallPtrSet<Decl*, 4> BadDeclSet;
     BadDeclSet badDecls;
 
     // An "indirect decl", in this context, is a subroutine decl which is
@@ -749,6 +749,10 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
             if (!srDecl)
                 continue;
 
+            // If the routine is overriden, ignore it.
+            if (domain->findOverridingDeclaration(srDecl))
+                continue;
+
             // Rewrite the declaration to match the current models context.
             SubroutineDecl *rewriteDecl =
                 makeSubroutineDecl(srDecl, rewrites, domain);
@@ -774,22 +778,20 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
                 SourceLocation sloc = getSourceLoc(srDecl->getLocation());
                 report(conflict->getLocation(), diag::DECLARATION_CONFLICTS)
                     << srDecl->getIdInfo() << sloc;
-                badDecls.insert(rewriteDecl);
+                badDecls.insert(conflict);
             }
 
             // We currently do not support ValueDecls in models.  Therefore, the
             // conflict must denote a subroutine.
             SubroutineDecl *conflictRoutine = cast<SubroutineDecl>(conflict);
 
-            // FIXME: All declarations with the same name and type must
-            // currently have idential mode profiles.  Awaiting support for
-            // renaming declarations.
-            //
-            // Ensure that the parameter modes match as well.  Note we pass
-            // the original subroutine declaration node so that we may
-            // reference it in the diagnostics.
-            if (!ensureMatchingParameterModes(conflictRoutine, srDecl))
-                badDecls.insert(rewriteDecl);
+            // Ensure the parameter modes match, accounting for any overriding
+            // declarations.
+            if (!ensureMatchingParameterModes(conflictRoutine,
+                                              srDecl, domain)) {
+                badDecls.insert(conflictRoutine);
+                continue;
+            }
 
             if (conflictRoutine->keywordsMatch(rewriteDecl)) {
                 // If the conflicting declaration does not have an origin
@@ -818,32 +820,61 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
                     getSourceLoc(srDecl->getLocation());
                 report(modelLoc, diag::MISSING_REDECLARATION)
                     << srDecl->getIdInfo() << sloc1 << sloc2;
-                badDecls.insert(rewriteDecl);
+                badDecls.insert(conflictRoutine);
             }
         }
+    }
 
-        // Remove and clean up memory for each inherited node found to require a
-        // redeclaration.
-        for (BadDeclSet::iterator iter = badDecls.begin();
-             iter != badDecls.end(); ++iter) {
-            SubroutineDecl *badDecl = *iter;
-            domain->removeDecl(badDecl);
-            delete badDecl;
-        }
+    // Remove and clean up memory for each inherited node found to require a
+    // redeclaration.
+    for (BadDeclSet::iterator iter = badDecls.begin();
+         iter != badDecls.end(); ++iter) {
+        Decl *badDecl = *iter;
+        domain->removeDecl(badDecl);
+        delete badDecl;
     }
 }
 
-bool TypeCheck::ensureMatchingParameterModes(SubroutineDecl *X,
-                                             SubroutineDecl *Y)
+bool TypeCheck::ensureMatchingParameterModes(
+    SubroutineDecl *X, SubroutineDecl *Y, DeclRegion *region)
 {
     unsigned arity = X->getArity();
     assert(arity == Y->getArity() && "Arity mismatch!");
 
     for (unsigned i = 0; i < arity; ++i) {
         if (X->getParamMode(i) != Y->getParamMode(i)) {
-            ParamValueDecl *param = X->getParam(i);
-            report(param->getLocation(), diag::INCOMPATABLE_MODE_REDECLARATION)
-                << getSourceLoc(Y->getLocation());
+            // The parameter modes do not match.  Using the supplied declarative
+            // region, check if any overriding declarations are in effect.
+            if (region->findOverridingDeclaration(Y))
+                return false;
+
+            // None were found.
+            if (X->isImmediate()) {
+                // X is an immediate decl.  Use the location of the offending
+                // parameter as a context.
+                ParamValueDecl *param = X->getParam(i);
+                report(param->getLocation(),
+                       diag::INCOMPATABLE_MODE_REDECLARATION)
+                    << getSourceLoc(Y->getLocation());
+            }
+            else {
+                // Otherwise, resolve the declarative region to a PercentDecl or
+                // AbstractDomainDecl and use the corresponding model as
+                // context.  Form a cross reference diagnostic involving the
+                // origin of X.
+                Location contextLoc;
+                if (PercentDecl *context = dyn_cast<PercentDecl>(region))
+                    contextLoc = context->getDefinition()->getLocation();
+                else {
+                    AbstractDomainDecl *context =
+                        cast<AbstractDomainDecl>(region);
+                    contextLoc = context->getLocation();
+                }
+                report(contextLoc, diag::SUBROUTINE_OVERRIDE_REQUIRED)
+                    << X->getIdInfo()
+                    << getSourceLoc(X->getOrigin()->getLocation())
+                    << getSourceLoc(Y->getLocation());
+            }
             return false;
         }
     }

@@ -139,6 +139,7 @@ private:
     llvm::Value *emitAbstractCall(SubroutineDecl *srDecl,
                                   std::vector<llvm::Value *> &args);
 
+
     llvm::Value *emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                                   unsigned argPosition);
 
@@ -157,6 +158,23 @@ private:
     llvm::Value *createStackSlot(Decl *decl);
 
     llvm::Value *getOrCreateStackSlot(Decl *decl);
+
+    /// Helper method for emitAbstractCall.
+    ///
+    /// Resolves the target subroutine for an abstract call, given an instance
+    /// serving as a formal parameter to a functor, an AbstractDomainDecl \p
+    /// abstract and a target subroutine (assumed to be an export of the
+    /// abstract domain).
+    SubroutineDecl *resolveAbstractSubroutine(DomainInstanceDecl *instance,
+                                              AbstractDomainDecl *abstract,
+                                              SubroutineDecl *target);
+
+    /// Helper method for resolveAbstractSubroutine.
+    ///
+    /// Given an instance serving as a formal parameter to a functor, find an
+    /// overriding declaration which matches \p target.
+    SubroutineDecl *resolveAbstractOverride(DomainInstanceDecl *instance,
+                                            SubroutineDecl *target);
 };
 
 } // end comma namespace

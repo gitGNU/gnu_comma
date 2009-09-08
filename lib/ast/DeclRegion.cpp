@@ -39,13 +39,21 @@ void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
         assert(false && "Bad type of declaration!");
         break;
 
-    case Ast::AST_FunctionDecl:
-        newDecl = rewriteFunctionDecl(cast<FunctionDecl>(decl), rewrites);
+    case Ast::AST_FunctionDecl: {
+        FunctionDecl *fdecl = cast<FunctionDecl>(decl);
+        FunctionDecl *rewrite = rewriteFunctionDecl(fdecl, rewrites);
+        rewrite->setOrigin(fdecl);
+        newDecl = rewrite;
         break;
+    }
 
-    case Ast::AST_ProcedureDecl:
-        newDecl = rewriteProcedureDecl(cast<ProcedureDecl>(decl), rewrites);
+    case Ast::AST_ProcedureDecl: {
+        ProcedureDecl *sdecl = cast<ProcedureDecl>(decl);
+        ProcedureDecl *rewrite = rewriteProcedureDecl(sdecl, rewrites);
+        rewrite->setOrigin(sdecl);
+        newDecl = rewrite;
         break;
+    }
 
     case Ast::AST_EnumerationDecl:
         // Nothing to do for an enumeration since there are never free variables
@@ -160,6 +168,18 @@ bool DeclRegion::removeDecl(Decl *decl)
         return true;
     }
     return false;
+}
+
+const SubroutineDecl *
+DeclRegion::findOverridingDeclaration(const SubroutineDecl *srDecl) const
+{
+    for (ConstDeclIter I = beginDecls(); I != endDecls(); ++I) {
+        if (const SubroutineDecl *decl = dyn_cast<SubroutineDecl>(*I)) {
+            if (decl->isOverriding() && (decl->getOverriddenDecl() == srDecl))
+                return decl;
+        }
+    }
+    return 0;
 }
 
 bool DeclRegion::collectFunctionDecls(

@@ -114,7 +114,7 @@ DIAGNOSTIC(INVALID_PRJ_CONTEXT, ERROR,
 DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
            "Missing carrier definition before call to `inj' or `prj'.")
 DIAGNOSTIC(CONFLICTING_TYPE_DECLS, ERROR,
-           "Multiple declarations of type `%0' (inherited from `%1' and `%2').")
+           "Multiple declarations of type `%0'.\n   (inherited from `%1' and `%2')")
 DIAGNOSTIC(PERCENT_EQUIVALENT, NOTE,
            "Type expression equivalent to `%%'.")
 DIAGNOSTIC(MODEL_FORMAL_SHADOW, ERROR,
@@ -156,3 +156,6 @@ DIAGNOSTIC(NOT_A_COMPONENT_OF, ERROR,
            "`%0' is not a component of `%0'.")
 DIAGNOSTIC(INCOMPATABLE_OVERRIDE, ERROR,
            "`%0' is not compatible with the override target `%0'.")
+DIAGNOSTIC(SUBROUTINE_OVERRIDE_REQUIRED, ERROR,
+           "Inherited subroutine `%0' requires override due to mode "
+           "conflicts.\n   (inherited from `%1' and `%2')")
