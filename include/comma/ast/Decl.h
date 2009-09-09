@@ -70,7 +70,6 @@ public:
         return node->denotesDecl();
     }
 
-
 protected:
     Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = 0,
          DeclRegion *region = 0)
@@ -79,6 +78,7 @@ protected:
           location(loc),
           context(region) {
         assert(this->denotesDecl());
+        deletable = false;
     }
 
     IdentifierInfo *idInfo;
