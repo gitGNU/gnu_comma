@@ -92,7 +92,7 @@ public:
     // Saves the current "position" of the lexer.  Further calls to Lexer::scan
     // will remember the resulting tokens.  The token stream can be restored to
     // the state before saveExcursion was called with a call to
-    // Lexer::endExcursion.   Alternatively, the excursion can be forgotten with
+    // Lexer::endExcursion.  Alternatively, the excursion can be forgotten with
     // a call to Lexer::forgetExcursion.
     void beginExcursion();
 
@@ -148,6 +148,8 @@ private:
 
     bool scanGlyph();
 
+    bool scanCharacter();
+
     bool scanString();
 
     bool scanNumeric();
@@ -195,6 +197,8 @@ private:
 
     void emitIdentifierToken(const TextIterator &start,
                              const TextIterator &end);
+
+    void emitCharacterToken(const TextIterator &start, const TextIterator &end);
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
         ++errorCount;

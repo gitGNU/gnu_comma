@@ -449,20 +449,59 @@ public:
     virtual Node acceptWhileStmt(Location loc, Node condition,
                                  NodeVector &stmtNodes) = 0;
 
-    /// Called when an enumeration type is about to be parsed, supplying the
-    /// name of the type and its location.  For each literal composing the
-    /// enumeration, acceptEnumerationLiteral is called with the result of this
-    /// function.
-    virtual Node beginEnumerationType(IdentifierInfo *name, Location loc) = 0;
+    /// \name Enumeration Callbacks.
+    ///
+    /// Enumerations are processed by first establishing a context with a call
+    /// to beginEnumeration.  For each defining enumeration literal, either
+    /// acceptEnumerationIdentifier or acceptEnumerationCharacter is called.
+    /// Once all elements of the type have been processed, endEnumeration is
+    /// called.
+    ///
+    ///@{
+    ///
+    /// Establishes a context begining an enumeration type declaration.
+    ///
+    /// \param name The name of this enumeration type declaration.
+    ///
+    /// \param loc The location of the enumerations name.
+    ///
+    virtual Node beginEnumeration(IdentifierInfo *name, Location loc) = 0;
 
-    /// Called for each literal composing an enumeration type, where the first
-    /// argument is a valid node as returned by acceptEnumerationType.
-    virtual void acceptEnumerationLiteral(Node enumeration, IdentifierInfo *name,
-                                          Location loc) = 0;
+    /// Called to introduce an enumeration component which was defined using
+    /// identifier syntax.
+    ///
+    /// \param enumeration A Node as returned from beginEnumeration.
+    ///
+    /// \param name The defining identifier for this component.
+    ///
+    /// \param loc The location of the defining identifier.
+    virtual void acceptEnumerationIdentifier(Node enumeration,
+                                             IdentifierInfo *name,
+                                             Location loc) = 0;
+
+    /// Called to introduce an enumeration component which was defined using
+    /// character syntax.
+    ///
+    /// \param enumeration A Node as returned from beginEnumeration.
+    ///
+    /// \param name The name of the character literal defining this component.
+    /// This is always the full name of the literal.  For example, the character
+    /// literal for \c X is named using the string \c "'X'" (note that the
+    /// quotes are included).
+    ///
+    /// \param loc The location of the defining character literal.
+    ///
+    virtual void acceptEnumerationCharacter(Node enumeration,
+                                            IdentifierInfo *name,
+                                            Location loc) = 0;
 
     /// Called when all of the enumeration literals have been processed, thus
     /// completing the definition of the enumeration.
-    virtual void endEnumerationType(Node enumeration) = 0;
+    ///
+    /// \param enumeration A Node as returned from the matching call to
+    /// beginEnumeration.
+    virtual void endEnumeration(Node enumeration) = 0;
+    ///@}
 
     /// Called to process integer type definitions.
     ///

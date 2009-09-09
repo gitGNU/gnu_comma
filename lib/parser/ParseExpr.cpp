@@ -241,8 +241,8 @@ Node Parser::parsePrimaryExpr()
            return getInvalidNode();
     }
 
-    Location        loc  = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierOrCharacter();
 
     if (!name)
         return getInvalidNode();

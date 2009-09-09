@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -56,6 +56,7 @@ std::string Lexer::tokenString(const Token &token)
     case TKN_IDENTIFIER:
     case TKN_INTEGER:
     case TKN_STRING:
+    case TKN_CHARACTER:
         return std::string(token.getRep(), token.getLength());
     }
 }
@@ -194,6 +195,11 @@ void Lexer::emitIntegerToken(const TextIterator &start, const TextIterator &end)
 void Lexer::emitIdentifierToken(const TextIterator &start, const TextIterator &end)
 {
     emitToken(TKN_IDENTIFIER, start, end);
+}
+
+void Lexer::emitCharacterToken(const TextIterator &start, const TextIterator &end)
+{
+    emitToken(TKN_CHARACTER, start, end);
 }
 
 Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
@@ -443,10 +449,6 @@ bool Lexer::scanGlyph()
         }
         break;
 
-    case '\'':
-        code = TKN_QUOTE;
-        break;
-
     case '&':
         code = TKN_AMPER;
         break;
@@ -490,6 +492,64 @@ bool Lexer::scanEscape()
         return false;
     }
     return true;
+}
+
+bool Lexer::scanCharacter()
+{
+    TextIterator start = currentIter;
+    Location loc = currentLocation();
+    unsigned c;
+
+    if (peekStream() == '\'') {
+        ignoreStream();
+
+        switch (c = readStream()) {
+
+        default:
+            // FIXME:  Ensure the character belongs to the standard character
+            // set.
+
+            if (readStream() != '\'') {
+                // If the character is not terminated, this must be an attribute
+                // selector.  Unget the current character and return a quote
+                // token.
+                ungetStream();
+                emitToken(TKN_QUOTE, loc);
+            }
+            else
+                emitCharacterToken(start, currentIter);
+            break;
+
+        case '\\':
+            // This character must denote an escape sequence.  If the sequence
+            // is invalid continue scanning until a matching quote is found and
+            // ignore the character.
+            if (!scanEscape()) {
+                c = peekStream();
+                while (c != '\'' && c != 0)
+                    c = readStream();
+                return false;
+            }
+
+            // If the escape is not terminated properly, treat the literal as
+            // scanned and continue.
+            if (readStream() != '\'')
+                report(loc, diag::UNTERMINATED_CHARACTER_LITERAL);
+
+            emitCharacterToken(start, currentIter);
+            break;
+
+        case '\'':
+            // Empty enumeration literal.  This is not valid.  Consume and
+            // report.
+            report(loc, diag::EMPTY_CHARACTER_LITERAL);
+
+            emitCharacterToken(start, currentIter);
+            break;
+        }
+        return true;
+    }
+    return false;
 }
 
 bool Lexer::scanString()
@@ -653,13 +713,14 @@ void Lexer::scanToken()
             return;
         }
 
-        if (scanWord())    return;
-        if (scanGlyph())   return;
-        if (scanString())  return;
-        if (scanNumeric()) return;
+        if (scanWord())      return;
+        if (scanGlyph())     return;
+        if (scanString())    return;
+        if (scanNumeric())   return;
+        if (scanCharacter()) return;
 
-        // For invalid character data, simply emit a diagnostic and continue to
-        // scan for a token.
+        // For invalid data, simply emit a diagnostic and continue to scan for a
+        // token.
         report(diag::INVALID_CHARACTER) << static_cast<char>(peekStream());
         ignoreStream();
         continue;

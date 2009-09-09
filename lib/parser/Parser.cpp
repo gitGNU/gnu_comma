@@ -459,6 +459,27 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
     return info;
 }
 
+IdentifierInfo *Parser::parseCharacter()
+{
+    if (currentTokenIs(Lexer::TKN_CHARACTER)) {
+        IdentifierInfo *info = getIdentifierInfo(currentToken());
+        ignoreToken();
+        return info;
+    }
+    else {
+        report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
+        return 0;
+    }
+}
+
+IdentifierInfo *Parser::parseIdentifierOrCharacter()
+{
+    if (currentTokenIs(Lexer::TKN_IDENTIFIER))
+        return parseIdentifierInfo();
+    else
+        return parseCharacter();
+}
+
 // Parses an end tag.  If expectedTag is non-null, parse "end <tag>", otherwise
 // parse "end".  Returns true if tokens were consumed (which can happen when the
 // parse fails due to a missing or unexpected end tag) and false otherwise.
@@ -1163,10 +1184,10 @@ bool Parser::parseType()
     if (currentTokenIs(Lexer::TKN_LPAREN)) {
         // We must have an enumeration type.  Always call endEnumerationType if
         // beginEnumerationType returns a valid node.
-        Node enumeration = client.beginEnumerationType(name, loc);
+        Node enumeration = client.beginEnumeration(name, loc);
         if (enumeration.isValid()) {
             parseEnumerationList(enumeration);
-            client.endEnumerationType(enumeration);
+            client.endEnumeration(enumeration);
             return true;
         }
         else {
@@ -1194,14 +1215,19 @@ void Parser::parseEnumerationList(Node enumeration)
 
     do {
         Location loc = currentLocation();
-        IdentifierInfo *name = parseIdentifierInfo();
-
-        if (!name) {
-            seekCloseParen();
-            return;
+        if (currentTokenIs(Lexer::TKN_CHARACTER)) {
+            IdentifierInfo *name = parseCharacter();
+            client.acceptEnumerationCharacter(enumeration, name, loc);
         }
+        else {
+            IdentifierInfo *name = parseIdentifierInfo();
 
-        client.acceptEnumerationLiteral(enumeration, name, loc);
+            if (!name) {
+                seekCloseParen();
+                return;
+            }
+            client.acceptEnumerationIdentifier(enumeration, name, loc);
+        }
     } while (reduceToken(Lexer::TKN_COMMA));
 
     requireToken(Lexer::TKN_RPAREN);

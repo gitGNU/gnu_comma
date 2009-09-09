@@ -567,7 +567,7 @@ Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key, Location loc,
     return getNode(new KeywordSelector(key, loc, expr));
 }
 
-Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
+Node TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
 {
     DeclRegion *region = currentDeclarativeRegion();
     EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
@@ -579,11 +579,23 @@ Node TypeCheck::beginEnumerationType(IdentifierInfo *name, Location loc)
     return getNode(enumeration);
 }
 
-void TypeCheck::acceptEnumerationLiteral(Node enumerationNode,
-                                         IdentifierInfo *name, Location loc)
+void TypeCheck::acceptEnumerationIdentifier(Node enumerationNode,
+                                            IdentifierInfo *name, Location loc)
 {
     EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+    acceptEnumerationLiteral(enumeration, name, loc);
+}
 
+void TypeCheck::acceptEnumerationCharacter(Node enumerationNode,
+                                           IdentifierInfo *name, Location loc)
+{
+    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+    acceptEnumerationLiteral(enumeration, name, loc);
+}
+
+void TypeCheck::acceptEnumerationLiteral(EnumerationDecl *enumeration,
+                                         IdentifierInfo *name, Location loc)
+{
     if (enumeration->containsDecl(name)) {
         report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
         return;
@@ -591,7 +603,7 @@ void TypeCheck::acceptEnumerationLiteral(Node enumerationNode,
     new EnumLiteral(resource, name, loc, enumeration);
 }
 
-void TypeCheck::endEnumerationType(Node enumerationNode)
+void TypeCheck::endEnumeration(Node enumerationNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
     EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);

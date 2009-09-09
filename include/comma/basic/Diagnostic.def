@@ -21,6 +21,10 @@ DIAGNOSTIC(INVALID_CHARACTER, ERROR,
            "Invalid character `%0'.")
 DIAGNOSTIC(CONSECUTIVE_UNDERSCORE, ERROR,
            "Consecutive underscore in identifier.")
+DIAGNOSTIC(UNTERMINATED_CHARACTER_LITERAL, ERROR,
+           "Character literal not terminated.")
+DIAGNOSTIC(EMPTY_CHARACTER_LITERAL, ERROR,
+           "Empty character literal.")
 
 //
 // Parser diagnostics.

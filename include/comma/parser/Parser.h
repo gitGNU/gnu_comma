@@ -238,6 +238,8 @@ private:
 
     IdentifierInfo *parseIdentifierInfo();
     IdentifierInfo *parseFunctionIdentifierInfo();
+    IdentifierInfo *parseCharacter();
+    IdentifierInfo *parseIdentifierOrCharacter();
 
     PM::ParameterMode parseParameterMode();
 
