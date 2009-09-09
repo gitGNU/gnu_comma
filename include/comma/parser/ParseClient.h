@@ -130,17 +130,50 @@ public:
     virtual void acceptCarrier(IdentifierInfo *name, Node typeNode,
                                Location loc) = 0;
 
-    virtual void beginSubroutineDeclaration(Descriptor &desc) = 0;
 
-    virtual Node acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
+    /// \name Subroutine Declaration Callbacks.
+    ///
+    /// When a subroutine declaration is about to be parsed, either
+    /// beginFunctionDeclaration or beginProcedureDeclaration is invoked to
+    /// inform the client of the kind and name of the upcomming subroutine.
+    /// Once the declaration has been processed, the context is terminated with
+    /// a call to endSubroutineDeclaration.
+    ///
+    ///@{
+    virtual void beginFunctionDeclaration(IdentifierInfo *name,
+                                          Location loc) = 0;
+    virtual void beginProcedureDeclaration(IdentifierInfo *name,
+                                           Location loc) = 0;
+
+    /// When parsing a function declaration, this callback is invoked to notify
+    /// the client of the declarations return type.
+    ///
+    /// If the function declaration was missing a return type, or the node
+    /// returned by the client representing the type is invalid, this callback
+    /// is passed a null node as argument.  Note that the parser posts a
+    /// diagnostic for the case of a missing return.
+    virtual void acceptFunctionReturnType(Node typeNode) = 0;
+
+    /// For each subroutine parameter, acceptSubroutineParameter is called
+    /// providing:
+    ///
+    /// \param formal The name of the formal parameter.
+    ///
+    /// \param loc The location of the formal parameter name.
+    ///
+    /// \param typeNode A node describing the type of the parameter (the result
+    ///  of a call to acceptTypeName or acceptTypeApplication, for example).
+    ///
+    /// \param mode The parameter mode, wher PM::MODE_DEFAULT is supplied if
+    ///  an explicit mode was not parsed.
+    ///
+    virtual void acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
                                            Node typeNode,
                                            PM::ParameterMode mode) = 0;
 
-    virtual Node acceptSubroutineDeclaration(Descriptor &desc,
-                                             bool definitionFollows) = 0;
-
     /// Called to notify the client that a subroutine was declared as an
-    /// overriding declaration.
+    /// overriding declaration.  The only time this callback is invoked by the
+    /// parser is when it is processing a signature profile.
     ///
     /// \param qualNode A node resulting from a call to acceptQualifier or
     /// acceptNestedQualifier, representing the qualification of \p name, or a
@@ -149,25 +182,40 @@ public:
     /// \param name An IdentifierInfo naming the target of the override.
     ///
     /// \param loc The location of \p name.
-    ///
-    /// \param declarationNode The result of a call to
-    /// acceptSubroutineDeclaration.
     virtual void acceptOverrideTarget(Node qualNode,
-                                      IdentifierInfo *name, Location loc,
-                                      Node declarationNode) = 0;
+                                      IdentifierInfo *name, Location loc) = 0;
 
+    /// Called to terminate the context of a subroutine declaration.
+    ///
+    /// \param definitionFollows Set to true if the parser sees a \c is token
+    /// following the declaration and thus expects a definition to follow.
+    ///
+    /// \return A node associated with the declaration.  Exclusively used by the
+    /// parser as an argument to beginSubroutineDefinition.
+    virtual Node endSubroutineDeclaration(bool definitionFollows) = 0;
+    ///@}
 
-    /// Begin a subroutine definition, where \p declarationNode is a valid node
-    /// returned from ParseClient::acceptSubroutineDeclaration.
+    /// \name Subroutine Definition Callbacks.
+    ///
+    ///@{
+    ///
+    /// Once a declaration has been parsed, a context for a definition is
+    /// introduced with a call to beginSubroutineDefinition (assuming the
+    /// declaration has a definition), passing in the node returned from
+    /// endSubroutineDeclaration.
     virtual void beginSubroutineDefinition(Node declarationNode) = 0;
 
-    /// Called for each valid statement constituting the body of the current
-    /// subroutine (as established by a call to beginSubroutineDefinition).
+    /// For each statement consituting the body of a definition
+    /// acceptSubroutineStmt is invoked with the node provided by any one of the
+    /// statement callbacks (acceptIfStmt, acceptReturnStmt, etc) provided that
+    /// the Node is valid.  Otherwise, the Node is dropped and this callback is
+    /// not invoked.
     virtual void acceptSubroutineStmt(Node stmt) = 0;
 
     /// Once the body of a subroutine has been parsed, this callback is invoked
     /// to singnal the completion of the definition.
     virtual void endSubroutineDefinition() = 0;
+    /// @}
 
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;

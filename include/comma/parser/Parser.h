@@ -51,16 +51,14 @@ public:
     Node parseModelApplication(Node qualNode);
     Node parseModelInstantiation();
 
-    bool parseSubroutineParameter(Descriptor &desc);
-    void parseSubroutineParameters(Descriptor &desc);
+    bool parseSubroutineParameter();
+    void parseSubroutineParameters();
 
-    Node parseFunctionDeclaration();
-    Node parseProcedureDeclaration();
-    Node parseFunctionDeclaration(Descriptor &desc);
-    Node parseProcedureDeclaration(Descriptor &desc);
+    Node parseFunctionDeclaration(bool parsingSignatureProfile = false);
+    Node parseProcedureDeclaration(bool parsingSignatureProfile = false);
     void parseFunctionDeclOrDefinition();
     void parseProcedureDeclOrDefinition();
-    void parseOverrideTarget(Node declarationNode);
+    void parseOverrideTarget();
 
     /// This parser is called just after the 'is' token beginning a function or
     /// procedure definition.  The argument \p declarationNode is a valid Node

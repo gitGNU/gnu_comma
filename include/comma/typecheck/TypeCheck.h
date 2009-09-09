@@ -62,6 +62,27 @@ public:
 
     void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
 
+    void beginFunctionDeclaration(IdentifierInfo *name, Location loc);
+    void beginProcedureDeclaration(IdentifierInfo *name, Location loc);
+
+
+    void acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
+                                   Node typeNode, PM::ParameterMode mode);
+
+    void acceptFunctionReturnType(Node typeNode);
+
+    void acceptOverrideTarget(Node qualNode,
+                              IdentifierInfo *name, Location loc);
+
+    Node endSubroutineDeclaration(bool definitionFollows);
+
+
+    void beginSubroutineDefinition(Node declarationNode);
+
+    void acceptSubroutineStmt(Node stmt);
+
+    void endSubroutineDefinition();
+
     bool acceptObjectDeclaration(Location        loc,
                                  IdentifierInfo *name,
                                  Node            type,
@@ -84,27 +105,6 @@ public:
                                unsigned         numKeys,
                                Location         loc);
 
-    void beginSubroutineDeclaration(Descriptor &desc);
-
-    Node acceptSubroutineParameter(IdentifierInfo *formal,
-                                   Location loc,
-                                   Node typeNode,
-                                   PM::ParameterMode mode);
-
-    Node acceptSubroutineDeclaration(Descriptor &desc,
-                                     bool        definitionFollows);
-
-    void acceptOverrideTarget(Node qualNode,
-                              IdentifierInfo *name, Location loc,
-                              Node declarationNode);
-
-    // Begin a subroutine definition, using a valid node returned from
-    // acceptSubroutineDeclaration to establish context.
-    void beginSubroutineDefinition(Node declarationNode);
-
-    void acceptSubroutineStmt(Node stmt);
-
-    void endSubroutineDefinition();
 
     bool acceptImportDeclaration(Node importedType, Location loc);
 
@@ -227,6 +227,88 @@ private:
     /// The set of AbstractDomainDecls serving as parameters to the current
     /// capsule.
     llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
+
+    /// A simple struct used for accumulating information during the processing
+    /// of a subroutine declaration.
+    struct SubroutineProfileInfo {
+
+        typedef llvm::SmallVector<ParamValueDecl*, 8> ParamVec;
+
+        enum ProfileKind {
+            EMPTY_PROFILE,             ///< Marks an uninitialized profile.
+            FUNCTION_PROFILE,          ///< Marks a function profile.
+            PROCEDURE_PROFILE,         ///< Marks a procedure profile.
+            INVALID_FUNCTION_PROFILE,  ///< Marks an invalid function profile.
+            INVALID_PROCEDURE_PROFILE, ///< Marks an invalid procedure profile.
+        };
+
+        ProfileKind kind;             ///< The kind of this profile.
+        IdentifierInfo *name;         ///< The name of the subroutine.
+        Location loc;                 ///< The location of name.
+        ParamVec params;              ///< Parameter declarations.
+        TypeDecl *returnTy;           ///< The return type or null.
+        Qualifier *overrideQual;      ///< Qualifier for an override, or null.
+        IdentifierInfo *overrideName; ///< Name of the override target, or null.
+        Location overrideLoc;         ///< Location of the override target.
+
+        /// Sets this back to the initial state.
+        void reset() {
+            kind = EMPTY_PROFILE;
+            name = 0;
+            loc  = 0;
+            params.clear();
+            returnTy = 0;
+            overrideQual = 0;
+            overrideName = 0;
+            overrideLoc = 0;
+        }
+
+        SubroutineProfileInfo() { reset(); }
+
+        /// Returns true if this profile is invalid.
+        bool isInvalid() {
+            return ((kind == INVALID_FUNCTION_PROFILE) ||
+                    (kind == INVALID_PROCEDURE_PROFILE));
+        }
+
+        /// Marks this as invalid.  The kind cannot be EMPTY_PROFILE.
+        void markInvalid() {
+            assert(kind != EMPTY_PROFILE &&
+                   "Cannot mark empty subroutine profiles invalid!");
+
+            if (isInvalid())
+                return;
+            if (kind == FUNCTION_PROFILE)
+                kind = INVALID_FUNCTION_PROFILE;
+            else
+                kind = INVALID_PROCEDURE_PROFILE;
+        }
+
+        /// Returns true if this is a function profile.
+        bool denotesFunction() {
+            return ((kind == FUNCTION_PROFILE) ||
+                    (kind == INVALID_FUNCTION_PROFILE));
+        }
+
+        /// Returns true if this is a procedure profile.
+        bool denotesProcedure() {
+            return ((kind == PROCEDURE_PROFILE) ||
+                    (kind == INVALID_PROCEDURE_PROFILE));
+        }
+    };
+
+    /// This little structure ensures that when its destructor runs the given
+    /// SubroutineProfileInfo is reset.
+    struct SubroutineProfileInfoReseter {
+        SubroutineProfileInfoReseter(SubroutineProfileInfo &SPI)
+            : SPI(SPI) { }
+        ~SubroutineProfileInfoReseter() { SPI.reset(); }
+    private:
+        SubroutineProfileInfo &SPI;
+    };
+
+    /// Staging area for subroutine declarations.
+    SubroutineProfileInfo srProfileInfo;
 
     //===------------------------------------------------------------------===//
     // Utility functions.
@@ -542,6 +624,12 @@ private:
         for ( ; I != E; ++I)
             vec.push_back(cast_node<T>(*I));
     }
+
+    /// Using the data in srProfileInfo, validates the target of an overriding
+    /// declaration.  Returns true if the validation succeeded and updates the
+    /// supplied decl to point at its override.  Otherwise false is returned and
+    /// diagnostics are posted.
+    bool validateOverrideTarget(SubroutineDecl *overridingDecl);
 
     /// Imports the given declarative region into the current scope.
     void importDeclRegion(DeclRegion *region);

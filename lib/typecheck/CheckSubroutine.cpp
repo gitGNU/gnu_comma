@@ -25,39 +25,6 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-// Creates a procedure or function decl depending on the kind of the
-// supplied type.
-SubroutineDecl *
-TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
-                              const AstRewriter &rewrites, DeclRegion *region)
-{
-    IdentifierInfo *name = SRDecl->getIdInfo();
-    SubroutineType *SRType = rewrites.rewrite(SRDecl->getType());
-    unsigned arity = SRDecl->getArity();
-
-    llvm::SmallVector<IdentifierInfo*, 8> keys;
-    for (unsigned i = 0; i < arity; ++i)
-        keys.push_back(SRDecl->getParamKeyword(i));
-
-    SubroutineDecl *result;
-    if (FunctionType *ftype = dyn_cast<FunctionType>(SRType))
-        result =  new FunctionDecl(name, 0, keys.data(), ftype, region);
-    else {
-        ProcedureType *ptype = cast<ProcedureType>(SRType);
-        result = new ProcedureDecl(name, 0, keys.data(), ptype, region);
-    }
-
-    // Ensure the result declaration has the same parameter modes as the
-    // original;
-    for (unsigned i = 0; i < arity; ++i) {
-        ParamValueDecl *param = result->getParam(i);
-        param->setParameterMode(SRDecl->getExplicitParamMode(i));
-    }
-
-    return result;
-}
-
-
 bool TypeCheck::ensureMatchingParameterModes(SubroutineDecl *X,
                                              SubroutineDecl *Y)
 {
@@ -122,86 +89,152 @@ bool TypeCheck::ensureMatchingParameterModes(
     return true;
 }
 
-// There is nothing for us to do at the start of a subroutine declaration.
-// Creation of the declaration itself is deferred until
-// acceptSubroutineDeclaration is called.
-void TypeCheck::beginSubroutineDeclaration(Descriptor &desc)
+void TypeCheck::beginFunctionDeclaration(IdentifierInfo *name, Location loc)
 {
-    assert((desc.isFunctionDescriptor() || desc.isProcedureDescriptor()) &&
-           "Beginning a subroutine which is neither a function or procedure?");
+    assert(srProfileInfo.kind == SubroutineProfileInfo::EMPTY_PROFILE &&
+           "Subroutine profile info already initialized!");
+
+    srProfileInfo.kind = SubroutineProfileInfo::FUNCTION_PROFILE;
+    srProfileInfo.name = name;
+    srProfileInfo.loc = loc;
 }
 
-Node TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
+void TypeCheck::beginProcedureDeclaration(IdentifierInfo *name, Location loc)
+{
+    assert(srProfileInfo.kind == SubroutineProfileInfo::EMPTY_PROFILE &&
+           "Subroutine profile info already initialized!");
+
+    srProfileInfo.kind = SubroutineProfileInfo::PROCEDURE_PROFILE;
+    srProfileInfo.name = name;
+    srProfileInfo.loc = loc;
+}
+
+void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
                                           Node declNode, PM::ParameterMode mode)
 {
+    assert(srProfileInfo.kind != SubroutineProfileInfo::EMPTY_PROFILE &&
+           "Subroutine profile not initialized!");
+
     // FIXME: The location provided here is the location of the formal, not the
     // location of the type.  The decl node here should be a ModelRef or similar
     // which encapsulates the needed location information.
     TypeDecl *tyDecl = ensureTypeDecl(declNode, loc);
 
-    if (!tyDecl) return getInvalidNode();
+    if (!tyDecl) {
+        srProfileInfo.markInvalid();
+        return;
+    }
+
+    // If we are building a function declaration, ensure that the parameter is
+    // of mode "in".
+    if (srProfileInfo.denotesFunction() &&
+        (mode != PM::MODE_IN) && (mode != PM::MODE_DEFAULT)) {
+        report(loc, diag::OUT_MODE_IN_FUNCTION);
+        srProfileInfo.markInvalid();
+        return;
+    }
+
+    // Check that this parameters name does not conflict with any previous
+    // parameters.
+    typedef SubroutineProfileInfo::ParamVec::iterator iterator;
+    for (iterator I = srProfileInfo.params.begin();
+         I != srProfileInfo.params.end(); ++I) {
+        ParamValueDecl *previousParam = *I;
+        if (previousParam->getIdInfo() == formal) {
+            report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
+            srProfileInfo.markInvalid();
+            return;
+        }
+    }
+
+    // Check that the parameter name does not conflict with the subroutine
+    // declaration itself.
+    if (formal == srProfileInfo.name) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << formal << getSourceLoc(srProfileInfo.loc);
+        srProfileInfo.markInvalid();
+        return;
+    }
 
     declNode.release();
     Type *paramTy = tyDecl->getType();
     ParamValueDecl *paramDecl = new ParamValueDecl(formal, paramTy, mode, loc);
-    return getNode(paramDecl);
+    srProfileInfo.params.push_back(paramDecl);
 }
 
-Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
-                                            bool definitionFollows)
+void TypeCheck::acceptFunctionReturnType(Node typeNode)
 {
-    assert((desc.isFunctionDescriptor() || desc.isProcedureDescriptor()) &&
-           "Descriptor does not denote a subroutine!");
+    assert(srProfileInfo.denotesFunction() &&
+           "Inconsitent state for function returns!");
 
-    // If we uncover a problem with the subroutines parameters, the following
-    // flag is set to false.  Note that we do not create a declaration for the
-    // subroutine unless it checks out 100%.
-    //
-    // Start by ensuring all parameters are distinct.
-    bool paramsOK = checkDescriptorDuplicateParams(desc);
-    IdentifierInfo *name = desc.getIdInfo();
-    Location location = desc.getLocation();
-
-    // Every parameter of this descriptor should be a ParamValueDecl.  As we
-    // validate the type of each node, test that no duplicate formal parameters
-    // are accumulated.  Any duplicates found are discarded.
-    typedef llvm::SmallVector<ParamValueDecl*, 6> paramVec;
-    paramVec parameters;
-    convertDescriptorParams<ParamValueDecl>(desc, parameters);
-
-    // If this is a function descriptor, ensure that every parameter is of mode
-    // "in".  Also, ensure that if this function names a binary operator it has
-    // arity 2.
-    if (desc.isFunctionDescriptor()) {
-        for (paramVec::iterator I = parameters.begin();
-             I != parameters.end(); ++I)
-            paramsOK = checkFunctionParameter(*I);
-        if (parameters.size() != 2 and namesBinaryFunction(desc.getIdInfo())) {
-            report(location, diag::BINARY_FUNCTION_ARITY_MISMATCH) << name;
-            paramsOK = false;
-        }
+    if (typeNode.isNull()) {
+        srProfileInfo.markInvalid();
+        return;
     }
 
-    // If the parameters did not check, stop.
-    if (!paramsOK)
+    TypeDecl *returnDecl = ensureTypeDecl(typeNode, 0);
+    if (!returnDecl) {
+        srProfileInfo.markInvalid();
+        return;
+    }
+
+    typeNode.release();
+    srProfileInfo.returnTy = returnDecl;
+}
+
+void TypeCheck::acceptOverrideTarget(Node qualNode,
+                                     IdentifierInfo *name, Location loc)
+{
+    // Simply store the given info into the current profile info.  We check
+    // overrides once the declaration node has been built.
+    if (qualNode.isNull())
+        srProfileInfo.overrideQual = 0;
+    else
+        srProfileInfo.overrideQual = cast_node<Qualifier>(qualNode);
+
+    srProfileInfo.overrideName = name;
+    srProfileInfo.overrideLoc = loc;
+}
+
+Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
+{
+    IdentifierInfo *name = srProfileInfo.name;
+    Location location = srProfileInfo.loc;
+    SubroutineProfileInfo::ParamVec &params = srProfileInfo.params;
+
+    // Ensure the profile info is reset once this method returns.
+    SubroutineProfileInfoReseter reseter(srProfileInfo);
+
+    // If the subroutine profile has not checked out thus far, do not construct
+    // a subroutine declaration for it.
+    if (srProfileInfo.isInvalid())
         return getInvalidNode();
+
+    // Ensure that if this function names a binary operator it has arity 2.
+    if (srProfileInfo.denotesFunction() && namesBinaryFunction(name)) {
+        if (params.size() != 2) {
+            report(location, diag::BINARY_FUNCTION_ARITY_MISMATCH) << name;
+            return getInvalidNode();
+        }
+    }
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion *region = currentDeclarativeRegion();
-    if (desc.isFunctionDescriptor()) {
-        if (TypeDecl *returnDecl = ensureTypeDecl(desc.getReturnType(), 0)) {
-            Type *returnType = returnDecl->getType();
-            routineDecl = new FunctionDecl(resource, name, location,
-                                           parameters.data(), parameters.size(),
-                                           returnType, region);
-        }
+    if (srProfileInfo.denotesFunction()) {
+        Type *returnType = srProfileInfo.returnTy->getType();
+        routineDecl = new FunctionDecl(resource, name, location,
+                                       params.data(), params.size(),
+                                       returnType, region);
     }
-    else {
+    else
         routineDecl = new ProcedureDecl(resource, name, location,
-                                        parameters.data(), parameters.size(),
+                                        params.data(), params.size(),
                                         region);
-    }
-    if (!routineDecl) return getInvalidNode();
+
+    // If this declaration overrides, validate it using the data in
+    // srProfileInfo.
+    if (!validateOverrideTarget(routineDecl))
+        return getInvalidNode();
 
     // Ensure this new declaration does not conflict with any other currently in
     // scope.
@@ -220,30 +253,34 @@ Node TypeCheck::acceptSubroutineDeclaration(Descriptor &desc,
     // ensure the returned Node does not reclaim the decl.
     Node routine = getNode(routineDecl);
     routine.release();
-    desc.release();
     return routine;
 }
 
-void TypeCheck::acceptOverrideTarget(Node qualNode,
-                                     IdentifierInfo *name, Location loc,
-                                     Node declarationNode)
+bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
 {
-    // The grammer does not enforce that the name to override must be
-    // qualified.
-    if (qualNode.isNull()) {
-        report(loc, diag::EXPECTING_SIGNATURE_QUALIFIER) << name;
-        return;
+    Qualifier *targetQual = srProfileInfo.overrideQual;
+    IdentifierInfo *targetName = srProfileInfo.overrideName;
+    Location targetLoc = srProfileInfo.overrideLoc;
+
+    // If the current profile information does not name a target, there is no
+    // overriding decl to check.
+    if (targetName == 0)
+        return true;
+
+    // The grammer does not enforce that the name to override must be qualified.
+    if (targetQual == 0) {
+        report(targetLoc, diag::EXPECTING_SIGNATURE_QUALIFIER) << targetName;
+        return false;
     }
 
     // Ensure that the qualifier resolves to a signature.
-    Qualifier *qual = cast_node<Qualifier>(qualNode);
-    SigInstanceDecl *sig = qual->resolve<SigInstanceDecl>();
-    Location sigLoc = qual->getBaseLocation();
+    SigInstanceDecl *sig = targetQual->resolve<SigInstanceDecl>();
+    Location sigLoc = targetQual->getBaseLocation();
 
     if (!sig) {
-        Decl *base = qual->getBaseDecl();
+        Decl *base = targetQual->getBaseDecl();
         report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << base->getIdInfo();
-        return;
+        return false;
     }
     PercentDecl *sigPercent = sig->getSigoid()->getPercent();
 
@@ -259,26 +296,25 @@ void TypeCheck::acceptOverrideTarget(Node qualNode,
 
     if (!context->getSignatureSet().contains(sig)) {
         report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << sig->getIdInfo();
-        return;
+        return false;
     }
 
-    // Depending on the kind of declaration we were supplied with, collect all
-    // subroutine declarations with the given name.
-    SubroutineDecl *overridingDecl =
-        cast_node<SubroutineDecl>(declarationNode);
+    // Collect all subroutine declarations of the appropriate kind with the
+    // given name.
     typedef llvm::SmallVector<SubroutineDecl*, 8> TargetVector;
     TargetVector targets;
-    if (isa<FunctionDecl>(overridingDecl))
-        sigPercent->collectFunctionDecls(name, targets);
+    if (srProfileInfo.denotesFunction())
+        sigPercent->collectFunctionDecls(targetName, targets);
     else {
-        assert(isa<ProcedureDecl>(overridingDecl));
-        sigPercent->collectProcedureDecls(name, targets);
+        assert(srProfileInfo.denotesProcedure());
+        sigPercent->collectProcedureDecls(targetName, targets);
     }
 
     // If we did not resolve a single name, diagnose and return.
     if (targets.empty()) {
-        report(loc, diag::NOT_A_COMPONENT_OF) << name << sig->getIdInfo();
-        return;
+        report(targetLoc, diag::NOT_A_COMPONENT_OF)
+            << targetName << sig->getIdInfo();
+        return false;
     }
 
     // Create a set of rewrite rules compatable with the given signature
@@ -288,7 +324,7 @@ void TypeCheck::acceptOverrideTarget(Node qualNode,
     rewrites[sigPercent->getType()] = context->getType();
 
     // Iterate over the set of targets.  Compare the rewritten version of each
-    // target type with the type of our overriding decl.  If we find a match,
+    // target type with the type of the overriding decl.  If we find a match,
     // the construct is valid.
     SubroutineType *overridingType = overridingDecl->getType();
     for (TargetVector::iterator I = targets.begin(); I != targets.end(); ++I) {
@@ -298,14 +334,14 @@ void TypeCheck::acceptOverrideTarget(Node qualNode,
         if ((overridingType == rewriteType) &&
             overridingDecl->paramModesMatch(targetDecl)) {
             overridingDecl->setOverriddenDecl(targetDecl);
-            return;
+            return true;
         }
     }
 
     // Otherwise, no match was found.
-    report(loc, diag::INCOMPATABLE_OVERRIDE)
-        << overridingDecl->getIdInfo() << name;
-    return;
+    report(targetLoc, diag::INCOMPATABLE_OVERRIDE)
+        << overridingDecl->getIdInfo() << targetName;
+    return false;
 }
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)
@@ -362,4 +398,37 @@ bool TypeCheck::checkFunctionParameter(ParamValueDecl *param)
         return true;
     report(param->getLocation(), diag::OUT_MODE_IN_FUNCTION);
     return false;
+}
+
+
+// Creates a procedure or function decl depending on the kind of the
+// supplied type.
+SubroutineDecl *
+TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
+                              const AstRewriter &rewrites, DeclRegion *region)
+{
+    IdentifierInfo *name = SRDecl->getIdInfo();
+    SubroutineType *SRType = rewrites.rewrite(SRDecl->getType());
+    unsigned arity = SRDecl->getArity();
+
+    llvm::SmallVector<IdentifierInfo*, 8> keys;
+    for (unsigned i = 0; i < arity; ++i)
+        keys.push_back(SRDecl->getParamKeyword(i));
+
+    SubroutineDecl *result;
+    if (FunctionType *ftype = dyn_cast<FunctionType>(SRType))
+        result =  new FunctionDecl(name, 0, keys.data(), ftype, region);
+    else {
+        ProcedureType *ptype = cast<ProcedureType>(SRType);
+        result = new ProcedureDecl(name, 0, keys.data(), ptype, region);
+    }
+
+    // Ensure the result declaration has the same parameter modes as the
+    // original;
+    for (unsigned i = 0; i < arity; ++i) {
+        ParamValueDecl *param = result->getParam(i);
+        param->setParameterMode(SRDecl->getExplicitParamMode(i));
+    }
+
+    return result;
 }

@@ -603,21 +603,13 @@ void Parser::parseWithProfile()
         default:
             return;
 
-        case Lexer::TKN_FUNCTION: {
-            Node declNode = parseFunctionDeclaration();
-            status = declNode.isValid();
-            if (currentTokenIs(Lexer::TKN_OVERRIDES))
-                parseOverrideTarget(declNode);
+        case Lexer::TKN_FUNCTION:
+            status = parseFunctionDeclaration(true).isValid();
             break;
-        }
 
-        case Lexer::TKN_PROCEDURE: {
-            Node declNode = parseProcedureDeclaration();
-            status = declNode.isValid();
-            if (currentTokenIs(Lexer::TKN_OVERRIDES))
-                parseOverrideTarget(declNode);
+        case Lexer::TKN_PROCEDURE:
+            status = parseProcedureDeclaration(true).isValid();
             break;
-        }
 
         case Lexer::TKN_TYPE:
             status = parseType();
@@ -853,7 +845,7 @@ PM::ParameterMode Parser::parseParameterMode()
     return mode;
 }
 
-bool Parser::parseSubroutineParameter(Descriptor &desc)
+bool Parser::parseSubroutineParameter()
 {
     IdentifierInfo *formal;
     Location location;
@@ -870,14 +862,11 @@ bool Parser::parseSubroutineParameter(Descriptor &desc)
     Node type = parseModelInstantiation();
     if (type.isInvalid()) return false;
 
-    Node param = client.acceptSubroutineParameter(formal, location, type, mode);
-    if (param.isInvalid()) return false;
-
-    desc.addParam(param);
+    client.acceptSubroutineParameter(formal, location, type, mode);
     return true;
 }
 
-void Parser::parseSubroutineParameters(Descriptor &desc)
+void Parser::parseSubroutineParameters()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
 
@@ -895,7 +884,7 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
     ignoreToken();
 
     for (;;) {
-        if (!parseSubroutineParameter(desc))
+        if (!parseSubroutineParameter())
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_RPAREN);
 
         switch (currentTokenCode()) {
@@ -920,25 +909,16 @@ void Parser::parseSubroutineParameters(Descriptor &desc)
             break;
 
         case Lexer::TKN_RPAREN:
-            // The parameter list is complete.  Consume the paren and return our
-            // status.
+            // The parameter list is complete.  Consume the paren and return.
             ignoreToken();
             return;
         }
     }
 }
 
-Node Parser::parseFunctionDeclaration()
-{
-    Descriptor desc(&client);
-    return parseFunctionDeclaration(desc);
-}
-
-Node Parser::parseFunctionDeclaration(Descriptor &desc)
+Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
 {
     assert(currentTokenIs(Lexer::TKN_FUNCTION));
-
-    desc.initialize(Descriptor::DESC_Function);
     ignoreToken();
 
     Location location = currentLocation();
@@ -946,23 +926,40 @@ Node Parser::parseFunctionDeclaration(Descriptor &desc)
 
     if (!name)
         return getInvalidNode();
+
+    client.beginFunctionDeclaration(name, location);
+
+    if (currentTokenIs(Lexer::TKN_LPAREN))
+        parseSubroutineParameters();
+
+    Node returnNode = getNullNode();
+    if (reduceToken(Lexer::TKN_RETURN)) {
+        returnNode = parseModelInstantiation();
+        if (returnNode.isInvalid()) {
+            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+            returnNode = getNullNode();
+        }
+    }
     else
-        desc.setIdentifier(name, location);
+        report(diag::MISSING_RETURN_AFTER_FUNCTION);
 
-    return parseSubroutineDeclaration(desc);
+    client.acceptFunctionReturnType(returnNode);
+
+    if (parsingSignatureProfile && currentTokenIs(Lexer::TKN_OVERRIDES))
+        parseOverrideTarget();
+
+    bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
+
+    // FIXME: We should model the parser state with more than a tag stack.
+    if (bodyFollows)
+        endTagStack.push(EndTagEntry(NAMED_TAG, location, name));
+
+    return client.endSubroutineDeclaration(bodyFollows);
 }
 
-Node Parser::parseProcedureDeclaration()
-{
-    Descriptor desc(&client);
-    return parseProcedureDeclaration(desc);
-}
-
-Node Parser::parseProcedureDeclaration(Descriptor &desc)
+Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
 {
     assert(currentTokenIs(Lexer::TKN_PROCEDURE));
-
-    desc.initialize(Descriptor::DESC_Procedure);
     ignoreToken();
 
     Location location = currentLocation();
@@ -970,48 +967,30 @@ Node Parser::parseProcedureDeclaration(Descriptor &desc)
 
     if (!name)
         return getInvalidNode();
-    else
-        desc.setIdentifier(name, location);
 
-    return parseSubroutineDeclaration(desc);
-}
-
-Node Parser::parseSubroutineDeclaration(Descriptor &desc)
-{
-    client.beginSubroutineDeclaration(desc);
+    client.beginProcedureDeclaration(name, location);
 
     if (currentTokenIs(Lexer::TKN_LPAREN))
-        parseSubroutineParameters(desc);
+        parseSubroutineParameters();
 
-    if (desc.isFunctionDescriptor()) {
-        if (reduceToken(Lexer::TKN_RETURN)) {
-            Node returnType = parseModelInstantiation();
-            if (returnType.isInvalid()) {
-                seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-                return getInvalidNode();
-            }
-            desc.setReturnType(returnType);
-        }
-        else {
-            report(diag::MISSING_RETURN_AFTER_FUNCTION);
-            return getInvalidNode();
-        }
+    if (currentTokenIs(Lexer::TKN_RETURN)) {
+        report(diag::RETURN_AFTER_PROCEDURE);
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
     }
-    else {
-        // We are parsing a procedure.  Check for "return" and post a
-        // descriptive message.
-        if (currentTokenIs(Lexer::TKN_RETURN)) {
-            report(diag::RETURN_AFTER_PROCEDURE);
-            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-            return getInvalidNode();
-        }
-    }
+
+    if (parsingSignatureProfile && currentTokenIs(Lexer::TKN_OVERRIDES))
+        parseOverrideTarget();
 
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
-    return client.acceptSubroutineDeclaration(desc, bodyFollows);
+
+    // FIXME: We should model the parser state with more than a tag stack.
+    if (bodyFollows)
+        endTagStack.push(EndTagEntry(NAMED_TAG, location, name));
+
+    return client.endSubroutineDeclaration(bodyFollows);
 }
 
-void Parser::parseOverrideTarget(Node declarationNode)
+void Parser::parseOverrideTarget()
 {
     assert(currentTokenIs(Lexer::TKN_OVERRIDES));
     ignoreToken();
@@ -1019,16 +998,20 @@ void Parser::parseOverrideTarget(Node declarationNode)
     Node qual = getNullNode();
     if (qualifierFollows()) {
         qual = parseQualifier();
-        if (qual.isInvalid())
+        if (qual.isInvalid()) {
+            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
             return;
+        }
     }
 
     Location loc = currentLocation();
     IdentifierInfo *target = parseFunctionIdentifierInfo();
-    if (!target)
+    if (!target) {
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
         return;
+    }
 
-    client.acceptOverrideTarget(qual, target, loc, declarationNode);
+    client.acceptOverrideTarget(qual, target, loc);
 }
 
 void Parser::parseSubroutineBody(Node declarationNode)
@@ -1060,43 +1043,41 @@ void Parser::parseSubroutineBody(Node declarationNode)
 
 void Parser::parseFunctionDeclOrDefinition()
 {
-    Descriptor desc(&client);
-    Node decl = parseFunctionDeclaration(desc);
+    Node decl = parseFunctionDeclaration();
 
     if (decl.isInvalid()) {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-        if (currentTokenIs(Lexer::TKN_IS))
-            seekAndConsumeEndTag(desc.getIdInfo());
+        if (currentTokenIs(Lexer::TKN_IS)) {
+            EndTagEntry tagEntry = endTagStack.top();
+            assert(tagEntry.kind == NAMED_TAG && "Inconsistent end tag stack!");
+            endTagStack.pop();
+            seekAndConsumeEndTag(tagEntry.tag);
+        }
         return;
     }
 
-    if (reduceToken(Lexer::TKN_IS)) {
-        endTagStack.push(EndTagEntry(NAMED_TAG,
-                                     desc.getLocation(),
-                                     desc.getIdInfo()));
+    if (reduceToken(Lexer::TKN_IS))
         parseSubroutineBody(decl);
-    }
     return;
 }
 
 void Parser::parseProcedureDeclOrDefinition()
 {
-    Descriptor desc(&client);
-    Node decl = parseProcedureDeclaration(desc);
+    Node decl = parseProcedureDeclaration();
 
     if (decl.isInvalid()) {
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-        if (currentTokenIs(Lexer::TKN_IS))
-            seekAndConsumeEndTag(desc.getIdInfo());
+        if (currentTokenIs(Lexer::TKN_IS)) {
+            EndTagEntry tagEntry = endTagStack.top();
+            assert(tagEntry.kind == NAMED_TAG && "Inconsistent end tag stack!");
+            endTagStack.pop();
+            seekAndConsumeEndTag(tagEntry.tag);
+        }
         return;
     }
 
-    if (reduceToken(Lexer::TKN_IS)) {
-        endTagStack.push(EndTagEntry(NAMED_TAG,
-                                     desc.getLocation(),
-                                     desc.getIdInfo()));
+    if (reduceToken(Lexer::TKN_IS))
         parseSubroutineBody(decl);
-    }
     return;
 }
 
