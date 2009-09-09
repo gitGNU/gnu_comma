@@ -135,9 +135,9 @@ std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr) const
     if (isa<AddDecl>(region)) {
         // If the region is an AddDecl.  Ensure this subroutine is not in a
         // generic context.
-        const DomainDecl *domain = dyn_cast<DomainDecl>(region->getParent());
-        assert(domain && "Cannot mangle generic subroutine declarations!");
-        name = getLinkName(domain);
+        const PercentDecl *percent = dyn_cast<PercentDecl>(region->getParent());
+        assert(percent && "Cannot mangle generic subroutine declarations!");
+        name = getLinkName(cast<DomainDecl>(percent->getDefinition()));
     }
     else {
         // Otherwise, the region must be a DomainInstanceDecl.  Mangle the
