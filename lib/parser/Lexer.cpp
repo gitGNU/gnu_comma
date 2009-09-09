@@ -221,6 +221,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_IF;
         else if (strncmp(str, "in", length) == 0)
             code = TKN_IN;
+        else if (strncmp(str, "of", length) == 0)
+            code = TKN_OF;
         break;
 
     case 3:
@@ -258,6 +260,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_WHILE;
         else if (strncmp(str, "range", length) == 0)
             code = TKN_RANGE;
+        else if (strncmp(str, "array", length) == 0)
+            code = TKN_ARRAY;
         break;
 
     case 6:
