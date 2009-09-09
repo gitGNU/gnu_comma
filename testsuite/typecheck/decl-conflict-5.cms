@@ -2,7 +2,9 @@
 
 signature S end S;
 
-signature T (X : S) with
+generic
+   abstract domain X is S; end X;
+signature T with
   type X is (A);
   procedure X;
   function X return %;

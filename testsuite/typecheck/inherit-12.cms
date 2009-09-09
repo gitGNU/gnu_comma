@@ -1,4 +1,4 @@
--- MUST-FAIL: Ensure overriding declarations match wrt parameter modes.
+-- MUST-FAIL: Ensure redundant declarations match wrt parameter modes.
 
 signature S with
    procedure P (X : in out %);

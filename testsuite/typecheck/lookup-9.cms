@@ -9,12 +9,18 @@ generic
 domain F with
    procedure Foo (x : X);
 add
+   carrier Rep is Bool;
+
    procedure Foo (x : X) is begin end Foo;
 end F;
 
-domain D1 is S; end D1;
+domain D1 is S; add
+   carrier Rep is Bool;
+end D1;
 
 domain D2 add
+   carrier Rep is Bool;
+
    -- Ensure qualified calls resolve.
    procedure Test1 (x : D1) is
    begin

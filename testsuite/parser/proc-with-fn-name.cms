@@ -1,6 +1,6 @@
 -- MUST-FAIL: Ensure procedures cannot have function names.
 
-sigature S with
+signature S with
 
    procedure * (X : Integer; Y : Integer);
 

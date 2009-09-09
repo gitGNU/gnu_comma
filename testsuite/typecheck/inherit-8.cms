@@ -5,7 +5,8 @@ signature S1 with
    type T is (A);
 end S1;
 
-signature S2 with
+signature S2 is
    S1;
+with
    function = (X : T; Y : T) return Bool;
 end S2;

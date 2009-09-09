@@ -4,7 +4,9 @@ signature S with
    procedure Foo;
 end S;
 
-domain F (X : S) with
+generic
+   abstract domain X is S; end X;
+domain F is
    S;
 add
    procedure Foo is
