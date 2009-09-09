@@ -720,51 +720,6 @@ void TypeCheck::importDeclRegion(DeclRegion *region)
     }
 }
 
-/// Returns true if the given descriptor does not contain any duplicate formal
-/// parameters.  Otherwise false is returned and the appropriate diagnostic is
-/// posted.
-bool TypeCheck::checkDescriptorDuplicateParams(Descriptor &desc)
-{
-    typedef Descriptor::paramIterator iterator;
-
-    bool status = true;
-    iterator I = desc.beginParams();
-    iterator E = desc.endParams();
-    while (I != E) {
-        Decl *p1 = cast_node<Decl>(*I);
-        for (iterator J = ++I; J != E; ++J) {
-            Decl *p2 = cast_node<Decl>(*J);
-            if (p1->getIdInfo() == p2->getIdInfo()) {
-                report(p2->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
-                    << p2->getString();
-                status = false;
-            }
-        }
-    }
-    return status;
-}
-
-/// Returns true if the descriptor does not contain any parameters with the
-/// given name.  Otherwise false is returned and the appropriate diagnostic is
-/// posted.
-bool TypeCheck::checkDescriptorDuplicateParams(Descriptor &desc,
-                                               IdentifierInfo *idInfo,
-                                               Location loc)
-{
-    typedef Descriptor::paramIterator iterator;
-
-    iterator I = desc.beginParams();
-    iterator E = desc.endParams();
-    for ( ; I != E; ++I) {
-        Decl *param = cast_node<Decl>(*I);
-        if (param->getIdInfo() == idInfo) {
-            report(loc, diag::DUPLICATE_FORMAL_PARAM) << idInfo;
-            return false;
-        }
-    }
-    return true;
-}
-
 /// Returns true if the IdentifierInfo \p info can name a binary function.
 bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
 {

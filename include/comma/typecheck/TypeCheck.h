@@ -602,29 +602,6 @@ private:
     /// diagnostic is posted.
     bool checkFunctionParameter(ParamValueDecl *param);
 
-    /// Returns true if the given descriptor does not contain any duplicate
-    /// formal parameters.  Otherwise false is returned and the appropriate
-    /// diagnostic is posted.
-    bool checkDescriptorDuplicateParams(Descriptor &desc);
-
-    /// Returns true if the descriptor does not contain any parameters with the
-    /// given name.  Otherwise false is returned and the appropriate diagnostic
-    /// is posted.
-    bool checkDescriptorDuplicateParams(Descriptor &desc,
-                                        IdentifierInfo *idInfo, Location loc);
-
-    /// Given a container type \p V with a push_back method, this function
-    /// converts the parameters of the descriptor to type T and appends them to
-    /// \p vec.
-    template <class T, class V>
-    void convertDescriptorParams(Descriptor &desc, V &vec) {
-        typedef Descriptor::paramIterator iterator;
-        iterator I = desc.beginParams();
-        iterator E = desc.endParams();
-        for ( ; I != E; ++I)
-            vec.push_back(cast_node<T>(*I));
-    }
-
     /// Using the data in srProfileInfo, validates the target of an overriding
     /// declaration.  Returns true if the validation succeeded and updates the
     /// supplied decl to point at its override.  Otherwise false is returned and

@@ -248,8 +248,6 @@ private:
     // argument list has been consumed.
     bool parseSubroutineArgumentList(NodeVector &dst);
 
-    Node parseSubroutineDeclaration(Descriptor &desc);
-
     bool seekEndTag(IdentifierInfo *tag);
 
     bool seekAndConsumeEndTag(IdentifierInfo *tag);
