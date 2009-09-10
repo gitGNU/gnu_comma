@@ -203,6 +203,11 @@ public:
     void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
                               Node low, Node high);
 
+    void beginArray(IdentifierInfo *name, Location loc);
+    void acceptArrayIndex(Node indexNode);
+    void acceptArrayComponent(Node componentNode);
+    void endArray();
+
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 
@@ -311,6 +316,62 @@ private:
 
     /// Staging area for subroutine declarations.
     SubroutineProfileInfo srProfileInfo;
+
+
+    /// A little struct for accumulating information about array type
+    /// declarations.
+    struct ArrayProfileInfo {
+
+        enum ProfileKind {
+            EMPTY_PROFILE,        ///< Marks an uninitialized profile.
+            VALID_ARRAY_PROFILE,  ///< Marks an error free array profile.
+            INVALID_ARRAY_PROFILE ///< Marks an invalid array profile.
+        };
+
+        typedef llvm::SmallVector<TypeDecl*, 8> IndexVec;
+
+        ProfileKind kind;       ///< The kind of this profile.
+        IdentifierInfo *name;   ///< The name of this array profile.
+        Location loc;           ///< The location of name.
+        IndexVec indices;       ///< Index declaration nodes.
+        TypeDecl *component;    ///< Component declaration node.
+
+        /// Sets this back to the initial state.
+        void reset() {
+            kind = EMPTY_PROFILE;
+            name = 0;
+            loc = 0;
+            indices.clear();
+            component = 0;
+        }
+
+        ArrayProfileInfo() { reset(); }
+
+        /// Returns true if this profile is initialized.
+        bool isInitialized() const { return kind != EMPTY_PROFILE; }
+
+        /// Returns true if this profile is invalid.
+        bool isInvalid() const { return kind == INVALID_ARRAY_PROFILE; }
+
+        /// Marks this as invalid.  The kind cannot be EMPTY_PROFILE.
+        void markInvalid() {
+            assert(kind != EMPTY_PROFILE &&
+                   "Cannot mark empty array profiles invalid!");
+            kind = INVALID_ARRAY_PROFILE;
+        }
+    };
+
+    /// This little strucutre ensures that when its destructor runs, the given
+    /// ArrayProfileInfo is rest.
+    struct ArrayProfileInfoReseter {
+        ArrayProfileInfoReseter(ArrayProfileInfo &API) : API(API) { }
+        ~ArrayProfileInfoReseter() { API.reset(); }
+    private:
+        ArrayProfileInfo &API;
+    };
+
+    /// Staging area for array type declarations.
+    ArrayProfileInfo arrProfileInfo;
 
     //===------------------------------------------------------------------===//
     // Utility functions.

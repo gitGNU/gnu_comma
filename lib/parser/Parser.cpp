@@ -1181,7 +1181,14 @@ bool Parser::parseType()
     if (!name || !requireToken(Lexer::TKN_IS))
         return false;
 
-    if (currentTokenIs(Lexer::TKN_LPAREN)) {
+    switch (currentTokenCode()) {
+
+    default:
+        report(diag::UNEXPECTED_TOKEN_WANTED)
+            << currentTokenString() << "(" << "range" << "array";
+        break;
+
+    case Lexer::TKN_LPAREN: {
         // We must have an enumeration type.  Always call endEnumerationType if
         // beginEnumerationType returns a valid node.
         Node enumeration = client.beginEnumeration(name, loc);
@@ -1194,9 +1201,15 @@ bool Parser::parseType()
             ignoreToken();
             seekCloseParen();
         }
+        break;
     }
-    else if (currentTokenIs(Lexer::TKN_RANGE))
+
+    case Lexer::TKN_RANGE:
         return parseIntegerRange(name, loc);
+
+    case Lexer::TKN_ARRAY:
+        return parseArrayTypeDecl(name, loc);
+    }
 
     return false;
 }
@@ -1252,6 +1265,57 @@ bool Parser::parseIntegerRange(IdentifierInfo *name, Location loc)
 
     client.acceptIntegerTypedef(name, loc, low, high);
     return true;
+}
+
+void Parser::parseArrayIndexProfile()
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    ignoreToken();
+
+    // Diagnose empty index profiles.
+    if (reduceToken(Lexer::TKN_RPAREN)) {
+        report(diag::EMPTY_ARRAY_TYPE_INDICES);
+        return;
+    }
+
+    do {
+        Node index = parseModelInstantiation();
+        if (index.isValid())
+            client.acceptArrayIndex(index);
+    } while (reduceToken(Lexer::TKN_COMMA));
+
+    if (!requireToken(Lexer::TKN_RPAREN))
+        seekCloseParen();
+}
+
+bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
+{
+    assert(currentTokenIs(Lexer::TKN_ARRAY));
+    ignoreToken();
+
+    client.beginArray(name, loc);
+
+    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
+        client.endArray();
+        return false;
+    }
+
+    parseArrayIndexProfile();
+
+    if (!reduceToken(Lexer::TKN_OF)) {
+        client.endArray();
+        return false;
+    }
+
+    Node component = parseModelInstantiation();
+    if (component.isValid()) {
+        client.acceptArrayComponent(component);
+        client.endArray();
+        return true;
+    }
+
+    client.endArray();
+    return false;
 }
 
 bool Parser::parseSubroutineArgumentList(NodeVector &dst)

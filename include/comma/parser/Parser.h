@@ -95,6 +95,9 @@ public:
     void parseEnumerationList(Node enumeration);
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
 
+    void parseArrayIndexProfile();
+    bool parseArrayTypeDecl(IdentifierInfo *name, Location loc);
+
     /// \brief Parses a top level construct.  Returns false once all tokens have
     /// been consumed.
     bool parseTopLevelDeclaration();

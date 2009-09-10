@@ -459,7 +459,7 @@ public:
     ///
     ///@{
     ///
-    /// Establishes a context begining an enumeration type declaration.
+    /// Establishes a context beginning an enumeration type declaration.
     ///
     /// \param name The name of this enumeration type declaration.
     ///
@@ -511,6 +511,39 @@ public:
     /// expression \c X, and \p high set to the expression \c Y.
     virtual void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
                                       Node low, Node high) = 0;
+
+    /// \name Array Callbacks.
+    ///
+    /// Array type declarations are processed by first establishing a context
+    /// with a call to beginArray.  For each index definition, acceptArrayIndex
+    /// is called.  Once the index profile has been processed,
+    /// acceptArrayComponent is invoked.  Finally, a call to endArray signals
+    /// the end of the array type definition.
+    ///
+    ///@{
+    ///
+    /// Establishes a context beginning an array type declaration.
+    ///
+    /// \param name The name of this array type declaration.
+    ///
+    /// \param loc the location of the arrays name.
+    virtual void beginArray(IdentifierInfo *name, Location loc) = 0;
+
+    /// Called to introduce an array index definition.
+    ///
+    /// \param indexNode A Node describing the type of the index (as returned by
+    /// acceptTypeName, for example).
+    virtual void acceptArrayIndex(Node indexNode) = 0;
+
+    /// Called to define an arrays component type.
+    ///
+    /// \param componentNode A Node describing the type of the arrays
+    /// components.
+    virtual void acceptArrayComponent(Node componentNode) = 0;
+
+    /// Finishes the context of an array type declaration.
+    virtual void endArray() = 0;
+    ///@}
 
 protected:
     /// Allow sub-classes to construct arbitrary nodes.

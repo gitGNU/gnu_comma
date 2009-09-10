@@ -321,6 +321,7 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
     case Ast::AST_IntegerDecl:
+    case Ast::AST_ArrayDecl:
         return getNode(decl);
 
     case Ast::AST_FunctorDecl:
@@ -658,6 +659,97 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     region->addDecl(Idecl);
     declProducer->createImplicitDecls(Idecl);
     importDeclRegion(Idecl);
+}
+
+//===----------------------------------------------------------------------===//
+// Array type definition callbacks.
+
+void TypeCheck::beginArray(IdentifierInfo *name, Location loc)
+{
+    assert(!arrProfileInfo.isInitialized() &&
+           "Array profile info is already initialized!");
+
+    arrProfileInfo.kind = ArrayProfileInfo::VALID_ARRAY_PROFILE;
+    arrProfileInfo.name = name;
+    arrProfileInfo.loc = loc;
+}
+
+void TypeCheck::acceptArrayIndex(Node indexNode)
+{
+    assert(arrProfileInfo.isInitialized() &&
+           "Array profile is not yet initialized!");
+
+    // FIXME:  We need proper location info here.
+    TypeDecl *indexTy = ensureTypeDecl(indexNode, 0);
+
+    if (!indexTy) {
+        arrProfileInfo.markInvalid();
+        return;
+    }
+    arrProfileInfo.indices.push_back(indexTy);
+}
+
+void TypeCheck::acceptArrayComponent(Node componentNode)
+{
+    assert(arrProfileInfo.isInitialized() &&
+           "Array profile is not yet initialized!");
+    assert(arrProfileInfo.component == 0 &&
+           "Array component type already initialized!");
+
+    // FIXME:  We need proper location info here.
+    TypeDecl *indexTy = ensureTypeDecl(componentNode, 0);
+
+    if (!indexTy) {
+        arrProfileInfo.markInvalid();
+        return;
+    }
+    arrProfileInfo.component = indexTy;
+}
+
+void TypeCheck::endArray()
+{
+    assert(arrProfileInfo.isInitialized() &&
+           "Array profile is not yet initialized!");
+
+    // Ensure that the profile info is reset upon return.
+    ArrayProfileInfoReseter reseter(arrProfileInfo);
+
+    // If the profile info is invalid, do not construct the declaration.
+    if (arrProfileInfo.isInvalid())
+        return;
+
+    // Ensure that at least one index has been associated with this profile.  It
+    // is possible that the parser could not parse the index components.  Just
+    // return in this case, since the parser would have already posted a
+    // diagnostic.
+    if (arrProfileInfo.indices.empty())
+        return;
+
+    // Likewise, it is possible that the parser could not complete the component
+    // type declaration.
+    if (arrProfileInfo.component == 0)
+        return;
+
+    // Create the array declaration.
+    IdentifierInfo *name = arrProfileInfo.name;
+    Location loc = arrProfileInfo.loc;
+    ArrayProfileInfo::IndexVec &indices = arrProfileInfo.indices;
+    TypeDecl *component = arrProfileInfo.component;
+    DeclRegion *region = currentDeclarativeRegion();
+    ArrayDecl *array = new ArrayDecl(resource, name, loc,
+                                     indices.size(), &indices[0],
+                                     component, region);
+
+    // Check for conflicts.
+    if (Decl *conflict = scope->addDirectDecl(array)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
+
+    // FIXME: We need to introduce the implicit operations for this type.
+    region->addDecl(array);
+    importDeclRegion(array);
 }
 
 bool TypeCheck::checkType(Type *source, SigInstanceDecl *target, Location loc)
