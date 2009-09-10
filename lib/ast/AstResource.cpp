@@ -62,3 +62,18 @@ IntegerType *AstResource::getIntegerType(const llvm::APInt &low,
     integerTypes.InsertNode(res, pos);
     return res;
 }
+
+ArrayType *AstResource::getArrayType(unsigned rank,
+                                     Type **indices, Type *component)
+{
+    llvm::FoldingSetNodeID ID;
+    ArrayType::Profile(ID, rank, indices, component);
+
+    void *pos = 0;
+    if (ArrayType *uniqued = arrayTypes.FindNodeOrInsertPos(ID, pos))
+        return uniqued;
+
+    ArrayType *res = new ArrayType(rank, indices, component);
+    arrayTypes.InsertNode(res, pos);
+    return res;
+}

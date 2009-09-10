@@ -62,6 +62,10 @@ public:
     IntegerType *getIntegerType(const llvm::APInt &low,
                                 const llvm::APInt &high);
 
+    /// Returns a uniqued ArrayType node with the given index and component
+    /// types.
+    ArrayType *getArrayType(unsigned rank, Type **indices, Type *component);
+
 private:
     TextProvider &txtProvider;
     IdentifierPool &idPool;
@@ -69,6 +73,7 @@ private:
     llvm::FoldingSet<FunctionType> functionTypes;
     llvm::FoldingSet<ProcedureType> procedureTypes;
     llvm::FoldingSet<IntegerType> integerTypes;
+    llvm::FoldingSet<ArrayType> arrayTypes;
 };
 
 } // End comma namespace.
