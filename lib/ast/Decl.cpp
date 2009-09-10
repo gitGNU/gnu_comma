@@ -786,3 +786,31 @@ IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
 {
     correspondingType = new TypedefType(baseType, this);
 }
+
+
+//===----------------------------------------------------------------------===//
+// ArrayDecl
+ArrayDecl::ArrayDecl(AstResource &resource,
+                     IdentifierInfo *name, Location loc,
+                     unsigned rank, TypeDecl **indices,
+                     TypeDecl *componentDecl, DeclRegion *parent)
+    : TypeDecl(AST_ArrayDecl, name, loc),
+      DeclRegion(AST_ArrayDecl, parent),
+      rank(rank), componentDecl(componentDecl)
+{
+    assert(rank != 0 && "Missing indices!");
+
+    indexDecls = new TypeDecl*[rank];
+    std::copy(indices, indices + rank, indexDecls);
+
+    llvm::SmallVector<Type *, 8> indexTypes;
+    for (unsigned i = 0; i < rank; ++i) {
+        Type *indexTy = indexDecls[i]->getType();
+        assert(indexTy->isScalarType());
+        indexTypes.push_back(indexTy);
+    }
+    Type *componentTy = componentDecl->getType();
+    ArrayType *baseType =
+        resource.getArrayType(rank, &indexTypes[0], componentTy);
+    correspondingType = new TypedefType(baseType, this);
+}

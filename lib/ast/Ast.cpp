@@ -26,6 +26,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "CarrierDecl",
     "EnumerationDecl",
     "IntegerDecl",
+    "ArrayDecl",
     "AbstractDomainDecl",
     "DomainInstanceDecl",
     "PercentDecl",

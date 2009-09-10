@@ -80,6 +80,7 @@ private:
     void visitEnumLiteral(EnumLiteral *node);
     void visitEnumerationDecl(EnumerationDecl *node);
     void visitIntegerDecl(IntegerDecl *node);
+    void visitArrayDecl(ArrayDecl *node);
 };
 
 } // end comma namespace.

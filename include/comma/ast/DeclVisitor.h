@@ -80,6 +80,7 @@ public:
     virtual void visitEnumLiteral(EnumLiteral *node);
     virtual void visitEnumerationDecl(EnumerationDecl *node);
     virtual void visitIntegerDecl(IntegerDecl *node);
+    virtual void visitArrayDecl(ArrayDecl *node);
     ///@}
 };
 

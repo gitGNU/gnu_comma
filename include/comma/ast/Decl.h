@@ -760,7 +760,7 @@ public:
     param_iterator begin_params() { return parameters; }
     param_iterator end_params() { return parameters + getArity(); }
 
-    typedef ParamValueDecl **const_param_iterator;
+    typedef ParamValueDecl *const *const_param_iterator;
     const_param_iterator begin_params() const { return parameters; }
     const_param_iterator end_params() const { return parameters + getArity(); }
     ///@}
@@ -1011,12 +1011,7 @@ private:
 class TypeDecl : public Decl {
 
 public:
-    virtual const Type *getType() const = 0;
-
-    Type *getType() {
-        return const_cast<Type*>(
-            const_cast<const TypeDecl*>(this)->getType());
-    }
+    virtual Type *getType() const = 0;
 
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1056,10 +1051,7 @@ public:
         correspondingType = new CarrierType(this);
     }
 
-    const CarrierType *getType() const {
-        return llvm::cast<CarrierType>(correspondingType);
-    }
-    CarrierType *getType() {
+    CarrierType *getType() const {
         return llvm::cast<CarrierType>(correspondingType);
     }
 
@@ -1084,10 +1076,7 @@ public:
                     Location        loc,
                     DeclRegion     *parent);
 
-    const EnumerationType *getType() const {
-        return llvm::cast<EnumerationType>(correspondingType);
-    }
-    EnumerationType *getType() {
+    EnumerationType *getType() const {
         return llvm::cast<EnumerationType>(correspondingType);
     }
 
@@ -1125,19 +1114,13 @@ public:
 
     /// IntegerDecl nodes declare a new type distinct from all others.  This is
     /// modeled by a TypedefType whose base is an IntegerType.  The following
-    /// methods return the unique TypedefType.
-    const TypedefType *getType() const {
-        return llvm::cast<TypedefType>(correspondingType);
-    }
-    TypedefType *getType() {
+    /// method return the unique TypedefType.
+    TypedefType *getType() const {
         return llvm::cast<TypedefType>(correspondingType);
     }
 
     /// Returns the base integer type associated with this declaration.
-    const IntegerType *getBaseType() const {
-        return llvm::cast<IntegerType>(getType()->getBaseType());
-    }
-    IntegerType *getBaseType() {
+    IntegerType *getBaseType() const {
         return llvm::cast<IntegerType>(getType()->getBaseType());
     }
 
@@ -1159,6 +1142,76 @@ public:
 private:
     Expr *lowExpr;              // Expr forming the lower bound.
     Expr *highExpr;             // Expr forming the high bound.
+};
+
+//===----------------------------------------------------------------------===//
+// ArrayDecl
+//
+// This node represents array type declarations.
+class ArrayDecl : public TypeDecl, public DeclRegion {
+
+public:
+    /// Constructs an Array type declaration.
+    ArrayDecl(AstResource &resource,
+              IdentifierInfo *name, Location loc,
+              unsigned rank, TypeDecl **indices,
+              TypeDecl *component, DeclRegion *parent);
+
+    /// ArrayDecl nodes declare a new type distinct from all others.  This is
+    /// modeled by a TypedefType whose base is an ArrayType.  The following
+    /// method returns the unique TypedefType.
+    TypedefType *getType() const {
+        return llvm::cast<TypedefType>(correspondingType);
+    }
+
+    /// Returns the base array type associated with this declaration.
+    ArrayType *getBaseType() const {
+        return llvm::cast<ArrayType>(getType()->getBaseType());
+    }
+
+    /// Returns the rank of this array declaration.
+    unsigned getRank() const { return rank; }
+
+    ///@{
+    /// Returns the declaration node describing the i'th index of this array.
+    TypeDecl *getIndexDecl(unsigned i) {
+        assert(i < rank && "Index out of bounds!");
+        return indexDecls[i];
+    }
+
+    const TypeDecl *getIndexDecl(unsigned i) const {
+        assert(i < rank && "Index out of bounds!");
+        return indexDecls[i];
+    }
+    ///@}
+
+    ///@{
+    /// Iterators over the index declarations.
+    typedef TypeDecl **index_iterator;
+    index_iterator begin_indices() { return &indexDecls[0]; }
+    index_iterator end_indices() { return &indexDecls[rank]; }
+
+    typedef const TypeDecl *const *const_index_iterator;
+    const_index_iterator begin_indices() const { return &indexDecls[0]; }
+    const_index_iterator end_indices() const { return &indexDecls[rank]; }
+    ///@}
+
+    ///@{
+    /// Returns the declaration node describing the components of this array.
+    TypeDecl *getComponentDecl() { return componentDecl; }
+    const TypeDecl *getComponentDecl() const { return componentDecl; }
+    ///@}
+
+    // Support isa and dyn_cast.
+    static bool classof(const ArrayDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ArrayDecl;
+    }
+
+private:
+    unsigned rank;
+    TypeDecl **indexDecls;
+    TypeDecl *componentDecl;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1200,8 +1253,7 @@ public:
     /// parameters.
     virtual const SignatureSet &getSignatureSet() const = 0;
 
-    DomainType *getType() { return llvm::cast<DomainType>(correspondingType); }
-    const DomainType *getType() const {
+    DomainType *getType() const {
         return llvm::cast<DomainType>(correspondingType);
     }
 

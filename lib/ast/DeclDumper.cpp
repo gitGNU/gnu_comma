@@ -186,3 +186,9 @@ void DeclDumper::visitIntegerDecl(IntegerDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitArrayDecl(ArrayDecl *node)
+{
+    printHeader(node) << '>';
+}
+
+

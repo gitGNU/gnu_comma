@@ -91,6 +91,8 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
         visitEnumerationDecl(enumeration);
     else if (IntegerDecl *integer = dyn_cast<IntegerDecl>(node))
         visitIntegerDecl(integer);
+    else if (ArrayDecl *array = dyn_cast<ArrayDecl>(node))
+        visitArrayDecl(array);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -139,3 +141,4 @@ void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }
 void DeclVisitor::visitEnumLiteral(EnumLiteral *node) { }
 void DeclVisitor::visitEnumerationDecl(EnumerationDecl *node) { }
 void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
+void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }

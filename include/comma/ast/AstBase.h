@@ -26,6 +26,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class ArrayDecl;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -134,6 +135,7 @@ public:
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IntegerDecl,        ///< IntegerDecl
+        AST_ArrayDecl,          ///< ArrayDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_PercentDecl,        ///< PercentDecl
