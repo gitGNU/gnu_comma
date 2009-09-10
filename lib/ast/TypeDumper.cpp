@@ -93,6 +93,11 @@ void TypeDumper::visitIntegerType(IntegerType *node)
     printHeader(node) << '>';
 }
 
+void TypeDumper::visitArrayType(ArrayType *node)
+{
+    printHeader(node) << '>';
+}
+
 void TypeDumper::visitTypedefType(TypedefType *node)
 {
     printHeader(node) << '>';

@@ -27,6 +27,8 @@ void TypeVisitor::visitType(Type *node)
         visitSubroutineType(srTy);
     else if (IntegerType *intTy = dyn_cast<IntegerType>(node))
         visitIntegerType(intTy);
+    else if (ArrayType *arrTy = dyn_cast<ArrayType>(node))
+        visitArrayType(arrTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -64,5 +66,6 @@ void TypeVisitor::visitFunctionType(FunctionType *node) { }
 void TypeVisitor::visitProcedureType(ProcedureType *node) { }
 void TypeVisitor::visitEnumerationType(EnumerationType *node) { }
 void TypeVisitor::visitIntegerType(IntegerType *node) { }
+void TypeVisitor::visitArrayType(ArrayType *node) { }
 void TypeVisitor::visitTypedefType(TypedefType *node) { }
 

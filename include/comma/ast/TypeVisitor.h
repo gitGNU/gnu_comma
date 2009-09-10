@@ -53,6 +53,7 @@ public:
     virtual void visitProcedureType(ProcedureType *node);
     virtual void visitEnumerationType(EnumerationType *node);
     virtual void visitIntegerType(IntegerType *node);
+    virtual void visitArrayType(ArrayType *node);
     virtual void visitTypedefType(TypedefType *node);
     ///@}
 

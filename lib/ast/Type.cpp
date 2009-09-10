@@ -170,6 +170,29 @@ void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
 }
 
 //===----------------------------------------------------------------------===//
+// ArrayType
+
+ArrayType::ArrayType(unsigned rank, Type **indices, Type *component)
+    : Type(AST_ArrayType),
+      rank(rank),
+      componentType(component)
+{
+    assert(rank != 0 && "Missing index types!");
+
+    indexTypes = new Type*[rank];
+    std::copy(indices, indices + rank, indexTypes);
+}
+
+void ArrayType::Profile(llvm::FoldingSetNodeID &ID,
+                        unsigned rank, Type **indexTypes, Type *componentType)
+{
+    assert(rank != 0 && "Missing index types!");
+    for (unsigned i = 0; i < rank; ++i)
+        ID.AddPointer(indexTypes[i]);
+    ID.AddPointer(componentType);
+}
+
+//===----------------------------------------------------------------------===//
 // TypedefType
 
 TypedefType::TypedefType(Type *baseType, Decl *decl)

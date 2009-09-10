@@ -63,6 +63,7 @@ private:
     void visitProcedureType(ProcedureType *node);
     void visitEnumerationType(EnumerationType *node);
     void visitIntegerType(IntegerType *node);
+    void visitArrayType(ArrayType *node);
     void visitTypedefType(TypedefType *node);
 };
 

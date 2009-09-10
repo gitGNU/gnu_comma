@@ -26,6 +26,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class ArrayType;
 class AssignmentStmt;
 class Ast;
 class AstRewriter;
@@ -152,6 +153,7 @@ public:
         //
         AST_FunctionType,       ///< FunctionType
         AST_IntegerType,        ///< IntegerType
+        AST_ArrayType,          ///< ArrayType
         AST_ProcedureType,      ///< ProcedureType
 
         //

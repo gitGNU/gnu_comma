@@ -316,8 +316,8 @@ private:
 // NOTE: IntegerType's are constructed with respect to a range, represented by
 // llvm::APInt's.  These values must be of identical width, as the bounds of an
 // IntegerType must be compatable with the type itself.
-class IntegerType : public Type, public llvm::FoldingSetNode
-{
+class IntegerType : public Type, public llvm::FoldingSetNode {
+
 public:
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
@@ -349,6 +349,61 @@ private:
     // Lower and upper bounds for this type.
     llvm::APInt low;
     llvm::APInt high;
+};
+
+//===----------------------------------------------------------------------===//
+// ArrayType
+//
+// These nodes describe the index profile and component type of an array type.
+// They are allocated, owned, and uniqued by an AstResource instance.
+class ArrayType : public Type, public llvm::FoldingSetNode {
+
+public:
+    /// Returns the rank (dimensionality) of this array type.
+    unsigned getRank() const { return rank; }
+
+    /// Returns the i'th index type of this array.
+    Type *getIndexType(unsigned i) const {
+        assert(i < rank && "Index is out of bounds!");
+        return indexTypes[i];
+    }
+
+    /// \name Index Type Iterators.
+    ///
+    /// Iterators over the index types of this array.
+    ///@{
+    typedef Type** index_iterator;
+    index_iterator begin_indices() const { return &indexTypes[0]; }
+    index_iterator end_indices() const { return &indexTypes[rank]; }
+    ///@}
+
+    /// Returns the component type of this array.
+    Type *getComponentType() const { return componentType; }
+
+    /// Profile implementation for use by llvm::FoldingSet.
+    void Profile(llvm::FoldingSetNodeID &ID) {
+        return Profile(ID, rank, indexTypes, componentType);
+    }
+
+    // Support isa and dyn_cast.
+    static bool classof(const ArrayType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ArrayType;
+    }
+
+private:
+    unsigned rank;              ///< The dimensionality of this array.
+    Type **indexTypes;          ///< The index types of this array.
+    Type *componentType;        ///< The component type of this array.
+
+    // Private constructor used by AstResource to allocate array types.
+    ArrayType(unsigned rank, Type **indices, Type *component);
+
+    /// Profile method used by AstResource to unique array type nodes.
+    static void Profile(llvm::FoldingSetNodeID &ID,
+                        unsigned rank, Type **indexTypes, Type *componentType);
+
+    friend class AstResource;
 };
 
 //===----------------------------------------------------------------------===//
