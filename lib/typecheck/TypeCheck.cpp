@@ -850,3 +850,22 @@ bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
         return (std::strncmp(name, "<=", 2) or
                 std::strncmp(name, ">=", 2));
 }
+
+bool TypeCheck::namesUnaryFunction(IdentifierInfo *info)
+{
+    const char* name = info->getString();
+    size_t length = std::strlen(name);
+
+    if (length == 1) {
+        switch (*name) {
+        default:
+            return false;
+        case '+':
+        case '-':
+            return true;
+        }
+    }
+    else
+        return false;
+}
+

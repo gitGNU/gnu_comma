@@ -210,11 +210,18 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     if (srProfileInfo.isInvalid())
         return getInvalidNode();
 
-    // Ensure that if this function names a binary operator it has arity 2.
-    if (srProfileInfo.denotesFunction() && namesBinaryFunction(name)) {
-        if (params.size() != 2) {
-            report(location, diag::BINARY_FUNCTION_ARITY_MISMATCH) << name;
-            return getInvalidNode();
+    // Ensure that if this function names a binary or unary operator it has the
+    // required arity.
+    if (srProfileInfo.denotesFunction()) {
+        if (namesUnaryFunction(name)) {
+            if (params.size() != 1 && !namesBinaryFunction(name))
+                report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
+        }
+        if (namesBinaryFunction(name)) {
+            if (params.size() != 2) {
+                report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
+                return getInvalidNode();
+            }
         }
     }
 

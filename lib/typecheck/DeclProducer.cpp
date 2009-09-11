@@ -160,6 +160,10 @@ void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
         createBinaryArithOp(PLUS_arith, intDecl->getType(), intDecl);
     FunctionDecl *minus =
         createBinaryArithOp(MINUS_arith, intDecl->getType(), intDecl);
+    FunctionDecl *neg =
+        createUnaryArithOp(NEG_arith, intDecl->getType(), intDecl);
+    FunctionDecl *pos =
+        createUnaryArithOp(POS_arith, intDecl->getType(), intDecl);
 
     intDecl->addDecl(equals);
     intDecl->addDecl(lt);
@@ -168,6 +172,8 @@ void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
     intDecl->addDecl(gteq);
     intDecl->addDecl(plus);
     intDecl->addDecl(minus);
+    intDecl->addDecl(neg);
+    intDecl->addDecl(pos);
 }
 
 FunctionDecl *
@@ -201,8 +207,10 @@ IdentifierInfo *DeclProducer::getArithName(ArithKind kind)
         assert(false && "Bad arithmetic kind!");
         return 0;
     case PLUS_arith:
+    case POS_arith:
         return resource.getIdentifierInfo("+");
     case MINUS_arith:
+    case NEG_arith:
         return resource.getIdentifierInfo("-");
     }
 }
@@ -217,12 +225,18 @@ PO::PrimitiveID DeclProducer::getArithPrimitive(ArithKind kind)
         return PO::Plus;
     case MINUS_arith:
         return PO::Minus;
+    case NEG_arith:
+        return PO::Neg;
+    case POS_arith:
+        return PO::Pos;
     }
 }
 
 FunctionDecl *
 DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context)
 {
+    assert(denotesBinaryOp(kind) && "Not a binary arithmetic kind!");
+
     Location loc = context->getLocation();
     DeclRegion *region = context->asDeclRegion();
     assert(region && "Decl context not a declarative region!");
@@ -238,6 +252,27 @@ DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context)
 
     FunctionDecl *op =
         new FunctionDecl(resource, name, loc, params, 2, Ty, region);
+    op->setAsPrimitive(getArithPrimitive(kind));
+    return op;
+}
+
+FunctionDecl *
+DeclProducer::createUnaryArithOp(ArithKind kind, Type *Ty, Decl *context)
+{
+    assert(denotesUnaryOp(kind) && "Not a unary arithmetic kind!");
+
+    Location loc = context->getLocation();
+    DeclRegion *region = context->asDeclRegion();
+    assert(region && "Decl context not a declarative region!");
+
+    IdentifierInfo *name = getArithName(kind);
+    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
+
+    ParamValueDecl *params[] = {
+        new ParamValueDecl(paramX, Ty, PM::MODE_DEFAULT, 0)
+    };
+    FunctionDecl *op =
+        new FunctionDecl(resource, name, loc, params, 1, Ty, region);
     op->setAsPrimitive(getArithPrimitive(kind));
     return op;
 }

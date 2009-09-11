@@ -296,6 +296,7 @@ private:
 
     Node parseExponentialOperator();
     Node parseMultiplicativeOperator();
+    Node parseBinaryAdditiveOperator(Node lhs);
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
 

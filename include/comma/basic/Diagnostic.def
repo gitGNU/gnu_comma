@@ -138,8 +138,8 @@ DIAGNOSTIC(IN_PARAMETER_NOT_MODE_COMPATABLE, ERROR,
            "context.")
 DIAGNOSTIC(EXPRESSION_NOT_MODE_COMPATABLE, ERROR,
            "Expression cannot be used as an \"%0\" parameter.")
-DIAGNOSTIC(BINARY_FUNCTION_ARITY_MISMATCH, ERROR,
-           "Functions named \"%0\" must be defined with two arguments.")
+DIAGNOSTIC(OPERATOR_ARITY_MISMATCH, ERROR,
+           "Wrong number of arguments for operator `%0'.")
 DIAGNOSTIC(INVALID_QUALIFIER, ERROR,
            "`%0' cannot qualify an expression.")
 DIAGNOSTIC(SELF_RECURSIVE_INSTANCE, ERROR,

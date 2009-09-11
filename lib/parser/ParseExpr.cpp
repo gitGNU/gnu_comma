@@ -147,9 +147,34 @@ Node Parser::parseMultiplicativeOperator()
 
 Node Parser::parseAdditiveOperator()
 {
+    Node lhs = getNullNode();
+
+    if (currentTokenIs(Lexer::TKN_PLUS) || currentTokenIs(Lexer::TKN_MINUS)) {
+        Location loc = currentLocation();
+        IdentifierInfo *opInfo = parseFunctionIdentifierInfo();
+
+        lhs = parseMultiplicativeOperator();
+
+        if (!lhs.isValid())
+            return getInvalidNode();
+
+        Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
+        if (fname.isValid()) {
+            NodeVector args;
+            args.push_back(lhs);
+            lhs = client.acceptFunctionCall(fname, loc, args);
+        }
+    }
+    else
+        lhs = parseMultiplicativeOperator();
+
+    return parseBinaryAdditiveOperator(lhs);
+}
+
+Node Parser::parseBinaryAdditiveOperator(Node lhs)
+{
     IdentifierInfo *opInfo;
     Location loc;
-    Node lhs = parseMultiplicativeOperator();
 
     while (lhs.isValid()) {
         switch (currentTokenCode()) {

@@ -108,8 +108,19 @@ private:
     /// can produce.
     enum ArithKind {
         PLUS_arith,
-        MINUS_arith
+        MINUS_arith,
+        NEG_arith,
+        POS_arith
     };
+
+    /// Returns true if the arithmentic kind dentos a unary operation.
+    bool denotesUnaryOp(ArithKind kind) {
+        return kind == NEG_arith || kind == POS_arith;
+    }
+
+    /// Returns true if the arithmetic kind denotes a binary operation.
+    bool denotesBinaryOp(ArithKind kind) { return !denotesUnaryOp(kind); }
+
 
     /// Returns an IdentifierInfo naming the given binary arithmetic operator.
     IdentifierInfo *getArithName(ArithKind kind);
@@ -126,6 +137,9 @@ private:
     /// must be convertable to a DeclRegion, and is used as the declaration
     /// context for the resulting function.
     FunctionDecl *createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context);
+
+    /// Generates a unary arithmentic operation.
+    FunctionDecl *createUnaryArithOp(ArithKind kind, Type *Ty, Decl *context);
 };
 
 } // end comma namespace.
