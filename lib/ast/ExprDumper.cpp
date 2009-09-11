@@ -71,6 +71,11 @@ void ExprDumper::visitFunctionCallExpr(FunctionCallExpr *node)
     S << '>';
 }
 
+void ExprDumper::visitIndexedArrayExpr(IndexedArrayExpr *node)
+{
+    printHeader(node) << '>';
+}
+
 void ExprDumper::visitInjExpr(InjExpr *node)
 {
     printHeader(node) << '>';

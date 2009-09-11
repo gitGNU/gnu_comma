@@ -120,3 +120,22 @@ bool FunctionCallExpr::containsConnective(FunctionType *ftype) const
     }
     return false;
 }
+
+//===----------------------------------------------------------------------===//
+// IndexedArrayExpr
+
+IndexedArrayExpr::IndexedArrayExpr(DeclRefExpr *arrExpr,
+                                   Expr **indices, unsigned numIndices)
+    : Expr(AST_IndexedArrayExpr, arrExpr->getLocation()),
+      indexedArray(arrExpr),
+      numIndices(numIndices)
+{
+    assert(numIndices != 0 && "Missing indices!");
+
+    TypedefType *defTy = cast<TypedefType>(arrExpr->getType());
+    ArrayType *arrTy = cast<ArrayType>(defTy->getBaseType());
+    setType(arrTy->getComponentType());
+
+    indexExprs = new Expr*[numIndices];
+    std::copy(indices, indices + numIndices, indexExprs);
+}

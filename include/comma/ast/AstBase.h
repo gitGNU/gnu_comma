@@ -55,6 +55,7 @@ class FunctorDecl;
 class FunctorType;
 class IfStmt;
 class ImportDecl;
+class IndexedArrayExpr;
 class IntegerDecl;
 class InjExpr;
 class IntegerLiteral;
@@ -171,6 +172,7 @@ public:
         //
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
+        AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
         AST_KeywordSelector,    ///< KeywordSelector

@@ -280,6 +280,64 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// IndexedArrayExpr
+//
+// Represents the indexing into an array expression.
+class IndexedArrayExpr : public Expr {
+
+public:
+    IndexedArrayExpr(DeclRefExpr *arrExpr, Expr **indices, unsigned numIndices);
+
+    ///@{
+    /// Returns the expression denoting the array to index.
+    DeclRefExpr *getArrayExpr() { return indexedArray; }
+    const DeclRefExpr *getArrayExpr() const { return indexedArray; }
+    ///@}
+
+    /// Returns the number of indicies serving as subscripts.
+    unsigned getNumIndices() const { return numIndices; }
+
+    ///@{
+    /// Returns the i'th index expression.
+    Expr *getIndex(unsigned i) {
+        assert(i < numIndices && "Index out of range!");
+        return indexExprs[i];
+    }
+
+    const Expr *getIndex(unsigned i) const {
+        assert(i < numIndices && "Index out of range!");
+        return indexExprs[i];
+    }
+    ///@}
+
+    ///@{
+    ///
+    /// Iterators over the index expressions.
+    typedef Expr **index_iterator;
+    index_iterator begin_indices() { return &indexExprs[0]; }
+    index_iterator end_indices() { return &indexExprs[numIndices]; }
+
+    typedef Expr *const *const_index_iterator;
+    const_index_iterator begin_indices() const { return &indexExprs[0]; }
+    const_index_iterator end_indices() const { return &indexExprs[numIndices]; }
+    ///@}
+
+    // Support isa and dyn_cast.
+    static bool classof(const IndexedArrayExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IndexedArrayExpr;
+    }
+
+private:
+    /// FIXME: The overwhelming majority of array index expressions will involve
+    /// only a single dimension.  The representation should be optimized for
+    /// this case.
+    DeclRefExpr *indexedArray;
+    unsigned numIndices;
+    Expr **indexExprs;
+};
+
+//===----------------------------------------------------------------------===//
 // InjExpr
 //
 // Represents "inj" expressions, mapping domain types to their carrier types.
