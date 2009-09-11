@@ -208,6 +208,13 @@ public:
     void acceptArrayComponent(Node componentNode);
     void endArray();
 
+    /// Given a ValueDecl having an array type, ensure that the given nodes form
+    /// a proper set of subscripts for indexing into the array.  Returns a Node
+    /// encapsulating an IndexedArrayExpr if the checks succeed, or an invalid
+    /// Node if the checks fail.
+    Node acceptIndexedArray(ValueDecl *arrayDecl, Location loc,
+                            NodeVector &indexNodes);
+
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 

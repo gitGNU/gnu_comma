@@ -53,6 +53,8 @@ DIAGNOSTIC(EMPTY_ENUMERATION, ERROR,
            "Empty enumerations are not permitted.")
 DIAGNOSTIC(NON_STATIC_EXPRESSION, ERROR,
            "Static expression required.")
+DIAGNOSTIC(EMPTY_ARRAY_TYPE_INDICES, ERROR,
+           "Empty array index profiles are not permitted.")
 
 //
 // Semantic Diagnostics.
@@ -163,3 +165,5 @@ DIAGNOSTIC(INCOMPATABLE_OVERRIDE, ERROR,
 DIAGNOSTIC(SUBROUTINE_OVERRIDE_REQUIRED, ERROR,
            "Inherited subroutine `%0' requires override due to mode "
            "conflicts.\n   (inherited from `%1' and `%2')")
+DIAGNOSTIC(WRONG_NUM_SUBSCRIPTS_FOR_ARRAY, ERROR,
+           "Wrong number of subscripts for array index.")

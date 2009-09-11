@@ -253,11 +253,21 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name, Location loc,
     else {
         Scope::Resolver &resolver = scope->getResolver();
         resolver.resolve(name);
+
+        // If a direct value was resolved, check if it denotes an array type.
+        if (resolver.hasDirectValue()) {
+            ValueDecl *value = resolver.getDirectValue();
+            TypedefType *tyDef = dyn_cast<TypedefType>(value->getType());
+            if (isa<ArrayType>(tyDef->getBaseType()))
+                return getNode(value);
+        }
+
+        // Otherwise, collect all visible functions.
         resolver.filterProcedures();
         resolver.filterNullaryOverloads();
         resolver.getVisibleSubroutines(overloads);
     }
-   if (overloads.empty()) {
+    if (overloads.empty()) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
@@ -276,6 +286,9 @@ Node TypeCheck::acceptFunctionCall(Node connective,
     assert(targetArity > 0 && "Cannot accept nullary function calls!");
 
     connective.release();
+
+    if (ValueDecl *vdecl = lift_node<ValueDecl>(connective))
+        return acceptIndexedArray(vdecl, loc, argNodes);
 
     if (FunctionDecl *fdecl = lift_node<FunctionDecl>(connective)) {
         if (fdecl->getArity() == targetArity)
@@ -600,6 +613,42 @@ bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
         }
     }
     return true;
+}
+
+Node TypeCheck::acceptIndexedArray(ValueDecl *vdecl, Location loc,
+                                   NodeVector &indexNodes)
+{
+    Type *type = vdecl->getType();
+    ArrayType *arrTy = cast<ArrayType>(cast<TypedefType>(type)->getBaseType());
+
+    llvm::SmallVector<Expr*, 8> indices;
+    unsigned numIndices = indexNodes.size();
+
+    // Check that the number of indices matches the rank of the array type.
+    if (numIndices != arrTy->getRank()) {
+        report(loc, diag::WRONG_NUM_SUBSCRIPTS_FOR_ARRAY);
+        return getInvalidNode();
+    }
+
+    // Convert the argument nodes to Expr's and check that each index is
+    // compatible with the arrays type.  If an index does not check, continue
+    // checking each remaining index.
+    for (unsigned i = 0; i < numIndices; ++i) {
+        Expr *index = cast_node<Expr>(indexNodes[i]);
+        if (checkExprInContext(index, arrTy->getIndexType(i)))
+            indices.push_back(index);
+    }
+
+    // If the number of checked indices does not match the number of nodes
+    // given, one or more of the indices did not check.
+    if (indices.size() != numIndices)
+        return getInvalidNode();
+
+    // Create a DeclRefExpr to represent the array value and return a fresh
+    // expression.
+    indexNodes.release();
+    DeclRefExpr *arrExpr = new DeclRefExpr(vdecl, loc);
+    return getNode(new IndexedArrayExpr(arrExpr, &indices[0], numIndices));
 }
 
 // Typechecks the given expression in the given type context.  This method can
