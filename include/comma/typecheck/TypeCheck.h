@@ -543,6 +543,18 @@ private:
     /// static expression.
     bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
 
+    /// If the given expression is a static integer expression, evaluate it,
+    /// place its value in \p result, and return true.  Otherwise, false is
+    /// returned.
+    bool evaluateStaticIntegerExpr(Expr *expr, llvm::APInt &result);
+
+    /// If the given function call expression is a primitive integer-valued
+    /// operation, and if its arguments are all static integer expressions,
+    /// evaluate the call, place the computed value in \p result, and return
+    /// true.  Otherwise, false is returned.
+    bool evaluateStaticIntegerOperation(FunctionCallExpr *expr,
+                                        llvm::APInt &result);
+
     Node acceptQualifiedName(Node qualNode, IdentifierInfo *name, Location loc);
 
     /// Resolves a visible declarative region associated with a qualifier.
