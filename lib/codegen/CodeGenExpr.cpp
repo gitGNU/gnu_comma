@@ -51,6 +51,10 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
     case Ast::AST_IntegerLiteral:
         val = emitIntegerLiteral(cast<IntegerLiteral>(expr));
         break;
+
+    case Ast::AST_IndexedArrayExpr:
+        val = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
+        break;
     }
 
     return val;
@@ -350,4 +354,28 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
         val.sext(tyWidth);
 
     return llvm::ConstantInt::get(CG.getLLVMContext(), val);
+}
+
+llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
+{
+    assert(expr->getNumIndices() == 1 &&
+           "Multidimensional arrays are not yet supported!");
+
+    DeclRefExpr *arrRefExpr = expr->getArrayExpr();
+    Expr *idxExpr = expr->getIndex(0);
+    llvm::Value *arrValue = lookupDecl(arrRefExpr->getDeclaration());
+    llvm::Value *idxValue = emitValue(idxExpr);
+
+    // Arrays are always represented as pointers to the aggregate. GEP the
+    // component.
+    llvm::SmallVector<llvm::Value *, 8> indices;
+    indices.push_back(llvm::ConstantInt::get(CG.getInt32Ty(), (uint64_t)0));
+    indices.push_back(idxValue);
+    return Builder.CreateGEP(arrValue, indices.begin(), indices.end());
+}
+
+llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
+{
+    llvm::Value *component = emitIndexedArrayRef(expr);
+    return Builder.CreateLoad(component);
 }

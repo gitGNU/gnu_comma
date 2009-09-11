@@ -124,7 +124,8 @@ private:
     llvm::Value *emitPrjExpr(PrjExpr *expr);
     llvm::Value *emitInjExpr(InjExpr *expr);
     llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
-
+    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
+    llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
 
     llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,

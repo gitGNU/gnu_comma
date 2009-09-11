@@ -39,9 +39,11 @@ public:
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
-    const llvm::IntegerType *lowerTypedefType(const TypedefType *type);
+    const llvm::Type *lowerTypedefType(const TypedefType *type);
 
     const llvm::IntegerType *lowerIntegerType(const IntegerType *type);
+
+    const llvm::ArrayType *lowerArrayType(const ArrayType *type);
 
 private:
     const CodeGen &CG;

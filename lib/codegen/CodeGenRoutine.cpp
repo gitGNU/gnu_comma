@@ -248,29 +248,29 @@ llvm::Value *CodeGenRoutine::getOrCreateStackSlot(Decl *decl)
 
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
 {
-    // FIXME: All variable references must be DeclRefExpressions for now.  This
-    // will not always be the case.
-    DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
-    Decl *refDecl = refExpr->getDeclaration();
+    if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
+        Decl *refDecl = refExpr->getDeclaration();
 
-    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-        PM::ParameterMode paramMode = pvDecl->getParameterMode();
-
-        // Enusure that the parameter has a mode consistent with reference
-        // emission.
-        assert((paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT) &&
-               "Cannot take reference to a parameter with mode IN!");
-
-        return lookupDecl(pvDecl);
+        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+            PM::ParameterMode paramMode = pvDecl->getParameterMode();
+            // Enusure that the parameter has a mode consistent with reference
+            // emission.
+            assert((paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
+                   && "Cannot take reference to a parameter with mode IN!");
+            return lookupDecl(pvDecl);
+        }
+        if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(refDecl)) {
+            // Local object declarations are always generated with repect to a
+            // stack slot.
+            return getStackSlot(objDecl);
+        }
+        assert(false && "Cannot codegen reference for expression!");
     }
-
-    if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(refDecl)) {
-        // Local object declarations are always generated with repect to a stack
-        // slot.
-        return getStackSlot(objDecl);
+    else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
+        return emitIndexedArrayRef(idxExpr);
+    else {
+        assert(false && "Cannot codegen reference for expression!");
     }
-
-    assert(false && "Cannot codegen reference for expression!");
 }
 
 llvm::Value *CodeGenRoutine::emitValue(Expr *expr)

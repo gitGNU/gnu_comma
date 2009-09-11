@@ -41,9 +41,14 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_TypedefType:
         return lowerTypedefType(cast<TypedefType>(type));
+
+    case Ast::AST_IntegerType:
+        return lowerIntegerType(cast<IntegerType>(type));
+
+    case Ast::AST_ArrayType:
+        return lowerArrayType(cast<ArrayType>(type));
     }
 }
-
 
 void CodeGenTypes::addInstanceRewrites(DomainInstanceDecl *instance)
 {
@@ -174,16 +179,57 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     return result;
 }
 
-const llvm::IntegerType *CodeGenTypes::lowerTypedefType(const TypedefType *type)
+const llvm::Type *CodeGenTypes::lowerTypedefType(const TypedefType *type)
 {
-    // Currently, all TypedefType's are Integer types.
-    const IntegerType *baseType = cast<IntegerType>(type->getBaseType());
-    return lowerIntegerType(baseType);
+    return lowerType(type->getBaseType());
 }
 
 const llvm::IntegerType *CodeGenTypes::lowerIntegerType(const IntegerType *type)
 {
     return getTypeForWidth(type->getBitWidth());
+}
+
+const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
+{
+    assert(type->getRank() == 1 &&
+           "Cannot codegen multidimensional arrays yet!");
+
+    Type *indexType = type->getIndexType(0);
+    uint64_t numElems = 0;
+
+    // Compute the number of elements.
+    if (TypedefType *defTy = dyn_cast<TypedefType>(indexType))
+        indexType = defTy->getBaseType();
+
+    if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
+        llvm::APInt lower(intTy->getLowerBound());
+        llvm::APInt upper(intTy->getUpperBound());
+
+        // FIXME: Empty ranges are possible.  Should we accept them as indices?
+        assert(lower.slt(upper) && "Invalid range for array index!");
+
+        // Compute 'upper - lower + 1' to determine the number of elements in
+        // this type.
+        unsigned width = intTy->getBitWidth() + 1;
+        lower.sext(width);
+        upper.sext(width);
+        llvm::APInt range(upper);
+        range -= lower;
+        range++;
+
+        // If the range cannot fit in 64 bits, do not construct the type.
+        assert(range.getActiveBits() <= 64 &&
+               "Index type too wide for array type!");
+
+        numElems = range.getZExtValue();
+    }
+    else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(indexType)) {
+        const EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
+        numElems = enumDecl->getNumLiterals();
+    }
+
+    const llvm::Type *elementTy = lowerType(type->getComponentType());
+    return llvm::ArrayType::get(elementTy, numElems);
 }
 
 const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
