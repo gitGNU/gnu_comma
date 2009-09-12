@@ -251,7 +251,7 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
         // completion.
         SubroutineDecl *fwdDecl = dyn_cast<SubroutineDecl>(conflict);
         if (!(fwdDecl && definitionFollows &&
-              compatibleDeclarations(fwdDecl, routineDecl))) {
+              compatibleSubroutineDecls(fwdDecl, routineDecl))) {
             report(location, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());
             return getInvalidNode();
@@ -448,7 +448,7 @@ TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
 }
 
 bool
-TypeCheck::compatibleDeclarations(SubroutineDecl *X, SubroutineDecl *Y)
+TypeCheck::compatibleSubroutineDecls(SubroutineDecl *X, SubroutineDecl *Y)
 {
     if (X->getIdInfo() != Y->getIdInfo())
         return false;

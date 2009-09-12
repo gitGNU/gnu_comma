@@ -514,7 +514,7 @@ private:
     ///    - they both have the same parameter mode profile, and,
     ///
     ///    - they both have the same keywords.
-    bool compatibleDeclarations(SubroutineDecl *X, SubroutineDecl *Y);
+    bool compatibleSubroutineDecls(SubroutineDecl *X, SubroutineDecl *Y);
 
     /// Checks that subroutines \p X and \p Y have identical parameter mode
     /// profiles, or that an overriding declaration exists in the given region.
