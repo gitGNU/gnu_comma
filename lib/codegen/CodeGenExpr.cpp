@@ -375,6 +375,41 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
     llvm::Value *arrValue = lookupDecl(arrRefExpr->getDeclaration());
     llvm::Value *idxValue = emitValue(idxExpr);
 
+    // Resolve the index type of the array (not the type of the index
+    // expression).
+    ArrayType *arrType = cast<ArrayType>(arrRefExpr->getType()->getBaseType());
+    Type *indexType = arrType->getIndexType(0)->getBaseType();
+
+    // If the index type is an integer type with a lower bound not equal to
+    // zero, adjust the index expression.
+    if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
+
+        // The index type of the array is always larger than or equal to the
+        // type of the actual index value.  Lower the type and determine if the
+        // index needs to be adjusted using this width for our operations.
+        const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerType(intTy);
+        unsigned indexWidth = loweredTy->getBitWidth();
+
+        // Get the lower bound and promote to the width of the index type.
+        llvm::APInt lower(intTy->getLowerBound());
+        lower.sextOrTrunc(indexWidth);
+
+        if (lower != 0) {
+            // Check if we need to sign extend the width of the index expression
+            // so it matches the width of the array index type.
+            const llvm::IntegerType *idxExprType =
+                cast<llvm::IntegerType>(idxValue->getType());
+            if (idxExprType->getBitWidth() < indexWidth)
+                idxValue = Builder.CreateSExt(idxValue, loweredTy);
+            else
+                assert(idxExprType->getBitWidth() == indexWidth);
+
+            // Subtract the lower bound from the index expression.
+            llvm::Value *adjust = llvm::ConstantInt::get(loweredTy, lower);
+            idxValue = Builder.CreateSub(idxValue, adjust);
+        }
+    }
+
     // Arrays are always represented as pointers to the aggregate. GEP the
     // component.
     llvm::SmallVector<llvm::Value *, 8> indices;

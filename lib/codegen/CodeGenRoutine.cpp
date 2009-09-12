@@ -277,24 +277,28 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
         Decl *refDecl = refExpr->getDeclaration();
+        llvm::Value *exprValue = lookupDecl(refDecl);
+
+        // If the expression denotes an array type, just return the associated
+        // value.  All arrays are manipulated by reference.
+        if (isa<ArrayType>(expr->getType()->getBaseType()))
+            return exprValue;
 
         if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
             // If the parameter mode is either "out" or "in out" then load the
             // actual value.
-            llvm::Value *param = lookupDecl(pvDecl);
             PM::ParameterMode paramMode = pvDecl->getParameterMode();
 
             if (paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT)
-                return Builder.CreateLoad(param);
+                return Builder.CreateLoad(exprValue);
             else
-                return param;
+                return exprValue;
         }
 
         // Otherwise, we must have an ObjectDecl.  Just load from the alloca'd
         // stack slot.
-        ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
-        llvm::Value *stackSlot = lookupDecl(objDecl);
-        return Builder.CreateLoad(stackSlot);
+        assert(isa<ObjectDecl>(refDecl) && "Unexpected decl kind!");
+        return Builder.CreateLoad(exprValue);
     }
 
     // FIXME:  This is not precise enough, but works for the remaining cases.

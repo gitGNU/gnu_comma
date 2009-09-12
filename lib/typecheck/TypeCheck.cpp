@@ -539,12 +539,7 @@ bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
             assert(false && "Bad primitive ID for a unary operator!");
             return false;
         case PO::Neg:
-            llvm::errs() << "EVAL: -";
-            result.print(llvm::errs(), true);
             result = -result;
-            llvm::errs() << " = ";
-            result.print(llvm::errs(), true);
-            llvm::errs() << '\n';
             break;
         case PO::Pos:
             break;
@@ -576,16 +571,12 @@ bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
 
     case PO::Plus:
         result = LHS + RHS;
-        llvm::errs() << "EVAL: " << LHS << " + " << RHS << " = " << result << '\n';
         break;
 
     case PO::Minus:
         result = LHS - RHS;
-        llvm::errs() << "EVAL: " << LHS << " - " << RHS << " = " << result << '\n';
         break;
     }
-
-
     return true;
 }
 

@@ -35,6 +35,12 @@ public:
     /// Returns true if this type denotes an integer type.
     bool isIntegerType() const;
 
+    /// Returns the base type of this type.
+    ///
+    /// For example, returns the base type of a carrier type, or the base type
+    /// of a typedef type.
+    Type *getBaseType() const;
+
     virtual bool equals(const Type *type) const;
 
     static bool classof(const Type *node) { return true; }

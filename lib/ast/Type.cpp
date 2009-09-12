@@ -46,6 +46,16 @@ bool Type::isIntegerType() const
     return isa<IntegerType>(this);
 }
 
+Type *Type::getBaseType() const
+{
+    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
+        return carrier->getRepresentationType()->getBaseType();
+
+    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
+        return TyDef->getBaseType()->getBaseType();
+
+    return const_cast<Type*>(this);
+}
 
 //===----------------------------------------------------------------------===//
 // CarrierType

@@ -166,6 +166,11 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         PM::ParameterMode mode = decl->getParamMode(i);
         if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
             argTy = CG.getPointerType(argTy);
+
+        // We do not pass arrays by value, always by reference.
+        if (isa<llvm::ArrayType>(argTy))
+            argTy = CG.getPointerType(argTy);
+
         args.push_back(argTy);
     }
 
