@@ -385,20 +385,16 @@ void TypeCheck::beginAddExpression()
     // Switch to the declarative region which this domains AddDecl provides.
     declarativeRegion = domoid->getImplementation();
     assert(declarativeRegion && "Domain missing Add declaration node!");
-
-    // Enter a new scope for the add expression.
-    scope->push();
 }
 
 void TypeCheck::endAddExpression()
 {
     ensureExportConstraints(getCurrentDomoid()->getImplementation());
 
-    // Leave the scope corresponding to the add expression and switch back to
-    // the declarative region of the defining domains percent node.
+    // Switch back to the declarative region of the defining domains percent
+    // node.
     declarativeRegion = declarativeRegion->getParent();
     assert(declarativeRegion == getCurrentPercent()->asDeclRegion());
-    scope->pop();
 }
 
 void TypeCheck::acceptCarrier(IdentifierInfo *name, Node declNode, Location loc)

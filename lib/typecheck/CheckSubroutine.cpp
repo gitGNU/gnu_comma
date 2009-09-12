@@ -246,9 +246,16 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     // Ensure this new declaration does not conflict with any other currently in
     // scope.
     if (Decl *conflict = scope->addDirectDecl(routineDecl)) {
-        report(location, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return getInvalidNode();
+
+        // If the conflict is a subroutine, ensure the current decl forms its
+        // completion.
+        SubroutineDecl *fwdDecl = dyn_cast<SubroutineDecl>(conflict);
+        if (!(fwdDecl && definitionFollows &&
+              compatibleDeclarations(fwdDecl, routineDecl))) {
+            report(location, diag::CONFLICTING_DECLARATION)
+                << name << getSourceLoc(conflict->getLocation());
+            return getInvalidNode();
+        }
     }
 
     // Add the subroutine to the current declarative region and mark it as
@@ -438,4 +445,22 @@ TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
     }
 
     return result;
+}
+
+bool
+TypeCheck::compatibleDeclarations(SubroutineDecl *X, SubroutineDecl *Y)
+{
+    if (X->getIdInfo() != Y->getIdInfo())
+        return false;
+
+    if (X->getType() != Y->getType())
+        return false;
+
+    if (!X->paramModesMatch(Y))
+        return false;
+
+    if (!X->keywordsMatch(Y))
+        return false;
+
+    return true;
 }
