@@ -32,11 +32,9 @@ KeywordSelector::KeywordSelector(IdentifierInfo *key, Location loc, Expr *expr)
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr
 
-FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective,
-                                   Expr **args,
-                                   unsigned numArgs,
-                                   Location loc)
-    : Expr(AST_FunctionCallExpr, loc),
+FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective,
+                                   Expr **args, unsigned numArgs)
+    : Expr(AST_FunctionCallExpr, connective->getLocation()),
       connective(connective),
       numArgs(numArgs),
       qualifier(0)
@@ -48,77 +46,51 @@ FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective,
 
 FunctionCallExpr::FunctionCallExpr(FunctionDecl **connectives,
                                    unsigned numConnectives,
-                                   Expr **args,
-                                   unsigned numArgs,
+                                   Expr **args, unsigned numArgs,
                                    Location loc)
     : Expr(AST_FunctionCallExpr, loc),
+      connective(0),
       numArgs(numArgs),
       qualifier(0)
 {
-    if (numConnectives > 1)
-        connective = new OverloadedDeclName(connectives,
-                                            connectives + numConnectives);
-    else {
-        connective = connectives[0];
-        setTypeForConnective();
-    }
-
+    connective = new SubroutineRef(loc, connectives,
+                                   connectives + numConnectives);
     arguments = new Expr*[numArgs];
     std::copy(args, args + numArgs, arguments);
+    setTypeForConnective();
+}
+
+FunctionCallExpr::FunctionCallExpr(FunctionDecl *fdecl,
+                                   Expr **args, unsigned numArgs,
+                                   Location loc)
+    : Expr(AST_FunctionCallExpr, loc),
+      connective(new SubroutineRef(loc, fdecl)),
+      numArgs(numArgs),
+      qualifier(0)
+{
+    arguments = new Expr*[numArgs];
+    std::copy(args, args + numArgs, arguments);
+    setType(fdecl->getReturnType());
 }
 
 void FunctionCallExpr::setTypeForConnective()
 {
-    FunctionDecl *fdecl = cast<FunctionDecl>(connective);
-    setType(fdecl->getReturnType());
+    if (numConnectives() == 1) {
+        FunctionDecl *fdecl = getConnective(0);
+        setType(fdecl->getReturnType());
+    }
 }
 
 FunctionCallExpr::~FunctionCallExpr()
 {
     delete[] arguments;
-
-    if (OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective))
-        delete odn;
-}
-
-unsigned FunctionCallExpr::numConnectives() const
-{
-    if (OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective))
-        return odn->numOverloads();
-    else
-        return 1;
-}
-
-FunctionDecl *FunctionCallExpr::getConnective(unsigned i) const
-{
-    assert(i < numConnectives() && "Connective index out of range!");
-
-    if (OverloadedDeclName *odn = dyn_cast<OverloadedDeclName>(connective))
-        return cast<FunctionDecl>(odn->getOverload(i));
-    else
-        return cast<FunctionDecl>(connective);
+    delete connective;
 }
 
 void FunctionCallExpr::resolveConnective(FunctionDecl *decl)
 {
-    OverloadedDeclName *odn = cast<OverloadedDeclName>(connective);
-
-    connective = decl;
+    connective->resolve(decl);
     setType(decl->getReturnType());
-    delete odn;
-}
-
-bool FunctionCallExpr::containsConnective(FunctionType *ftype) const
-{
-    for (unsigned i = 0; i < numConnectives(); ++i) {
-        FunctionDecl *connective = dyn_cast<FunctionDecl>(getConnective(i));
-        if (connective) {
-            FunctionType *connectiveType = connective->getType();
-            if (connectiveType->equals(ftype))
-                return true;
-        }
-    }
-    return false;
 }
 
 //===----------------------------------------------------------------------===//

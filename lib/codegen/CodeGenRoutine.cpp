@@ -154,7 +154,7 @@ llvm::Value *CodeGenRoutine::lookupDecl(Decl *decl)
 
 bool CodeGenRoutine::isDirectCall(const FunctionCallExpr *expr)
 {
-    const FunctionDecl *decl = dyn_cast<FunctionDecl>(expr->getConnective());
+    const FunctionDecl *decl = expr->getConnective(0);
     if (decl) {
         const DeclRegion *region = decl->getDeclRegion();
         return isa<DomainInstanceDecl>(region);
@@ -171,7 +171,7 @@ bool CodeGenRoutine::isDirectCall(const ProcedureCallStmt *stmt)
 
 bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
 {
-    const FunctionDecl *decl = dyn_cast<FunctionDecl>(expr->getConnective());
+    const FunctionDecl *decl = expr->getConnective(0);
     if (decl) {
         // FIXME: This is a hack.  We rely here on the esoteric property that a
         // local decl is declared in an "add" context.  Rather, check that the

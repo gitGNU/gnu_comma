@@ -141,7 +141,7 @@ void DependentScanner::visitFunctionCallExpr(FunctionCallExpr *node)
 {
     /// Add the connective as a dependency iff the call is direct.
     if (CodeGenRoutine::isDirectCall(node)) {
-        FunctionDecl *fn = cast<FunctionDecl>(node->getConnective());
+        FunctionDecl *fn = node->getConnective(0);
         DomainInstanceDecl *instance =
             cast<DomainInstanceDecl>(fn->getDeclRegion());
         CGC.addCapsuleDependency(instance);

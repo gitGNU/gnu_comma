@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/SubroutineRef.h"
 #include "comma/ast/Type.h"
 
 #include "llvm/ADT/APInt.h"
@@ -134,146 +135,136 @@ private:
 class FunctionCallExpr : public Expr {
 
 public:
-    FunctionCallExpr(FunctionDecl *connective,
-                     Expr **arguments,
-                     unsigned numArgs,
-                     Location loc);
+    /// Creates a function call expression using the given SubroutineRef as a
+    /// connective.  The resulting FunctionCallExpr takes ownership of \p
+    /// connective, and infers its location from same.
+    ///
+    /// The given SubroutineRef must reference a set of FunctionDecl's.  If more
+    /// than one declaration is associated with the ref, then the function call
+    /// is said to be ambiguous.
+    FunctionCallExpr(SubroutineRef *connective,
+                     Expr **arguments, unsigned numArgs);
 
-    FunctionCallExpr(FunctionDecl **connectives,
-                     unsigned numConnectives,
-                     Expr **arguments,
-                     unsigned numArgs,
-                     Location loc);
+    /// Creates a function call expression over the given set of function
+    /// declarations.
+    ///
+    /// The given declarations must all have the same name, and otherwise we
+    /// compatible with the construction of a SubroutineRef.
+    FunctionCallExpr(FunctionDecl **connectives, unsigned numConnectives,
+                     Expr **arguments, unsigned numArgs, Location loc);
+
+    /// Creates a function call expression over a single unique function
+    /// declaration.  The resulting call expression is unambiguous.
+    FunctionCallExpr(FunctionDecl *fdecl,
+                     Expr **arguments, unsigned numArgs, Location loc);
 
     ~FunctionCallExpr();
 
-    // Sets the qualifier to this call node, describing the source context of
-    // its invocation.
+    /// Sets the qualifier to this call node, describing the source context of
+    /// its invocation.
     void setQualifier(Qualifier *qualifier) { this->qualifier = qualifier; }
 
-    // Returns true if this function call is qualified.
+    /// Returns true if this function call is qualified.
     bool isQualified() const { return qualifier != 0; }
 
-    // Returns the qualifier associated with this node, or NULL if no qualifier
-    // has been set.
+    /// Returns the qualifier associated with this node, or NULL if no qualifier
+    /// has been set.
     Qualifier *getQualifier() { return qualifier; }
 
-    // Returns the qualifier associated with this node, or NULL if no qualifier
-    // has been set.
+    /// Returns the qualifier associated with this node, or NULL if no qualifier
+    /// has been set.
     const Qualifier *getQualifier() const { return qualifier; }
 
-    // Returns the connective associcated with this call.  The resulting node is
-    // either a FunctionDecl or OverloadedDeclName.
-    Ast *getConnective() { return connective; }
-    const Ast *getConnective() const { return connective; }
+    //@{
+    /// Returns the connective associcated with this call.  The resulting node
+    /// is either a FunctionDecl or OverloadedDeclName.
+    SubroutineRef *getConnective() { return connective; }
+    const SubroutineRef *getConnective() const { return connective; }
+    //@}
 
-    // Resolved the connective for this call.  This method can only be called
-    // when the call is currently ambiguous.
+    /// Resolved the connective for this call.  This method can only be called
+    /// when the call is currently ambiguous.
     void resolveConnective(FunctionDecl *connective);
 
-    // Returns true if this call is ambiguous.
-    bool isAmbiguous() const {
-        return llvm::isa<OverloadedDeclName>(connective);
+    /// Returns true if this call is ambiguous.
+    bool isAmbiguous() const { return connective->isOverloaded(); }
+
+    /// Returns true if this call is unambiguous.
+    bool isUnambiguous() const { return !isAmbiguous(); }
+
+    /// Returns true if this call contains a connective with the given type.
+    bool containsConnective(FunctionType *fnTy) const {
+        return connective->contains(fnTy);
     }
 
-    // Returns true if this call is unambiguous.
-    bool isUnambiguous() const {
-        return !isAmbiguous();
+    /// Returns the number of connectives associated with this call.  The result
+    /// is always greater than or equal to one.
+    unsigned numConnectives() const { return connective->numDeclarations(); }
+
+    //@{
+    /// Returns the \p i'th connective associated with this call.  The returned
+    /// node is either an EnumLiteral or a regular FunctionDecl.
+    const FunctionDecl *getConnective(unsigned i) const {
+        return llvm::cast<FunctionDecl>(connective->getDeclaration(i));
+    }
+    FunctionDecl *getConnective(unsigned i) {
+        return llvm::cast<FunctionDecl>(connective->getDeclaration(i));
+    }
+    //@}
+
+
+    //@{
+    /// Iterators over the set of connectives associcated with this function
+    /// call expression.
+    typedef SubroutineRef::fun_iterator connective_iterator;
+    connective_iterator begin_connectives() {
+        return connective->begin_functions();
+    }
+    connective_iterator end_connectives() {
+        return connective->end_functions();
     }
 
-    // Returns true if this call contains a connective with the given type.
-    bool containsConnective(FunctionType *) const;
-
-    // Returns the number of connectives associated with this call.  The result
-    // is always greater than or equal to one.
-    unsigned numConnectives() const;
-
-    // Returns the \p i'th connective associated with this call.  The returned
-    // node is either an EnumLiteral or FunctionDecl.
-    FunctionDecl *getConnective(unsigned i) const;
-
-    // Forward iterator over the set of connectives associated with a function
-    // call expression.
-    class ConnectiveIterator {
-
-        const FunctionCallExpr *callExpr;
-        unsigned index;
-
-    public:
-        // Creates a sentinal iterator.
-        ConnectiveIterator() :
-            callExpr(0),
-            index(0) { }
-
-        // Creates an iterator over the connectives of the given call
-        // expression.
-        ConnectiveIterator(const FunctionCallExpr *callExpr)
-            : callExpr(callExpr),
-              index(0) { }
-
-        ConnectiveIterator(const ConnectiveIterator &iter)
-            : callExpr(iter.callExpr),
-              index(iter.index) { }
-
-        FunctionDecl *operator *() {
-            assert(callExpr && "Cannot dereference an empty iterator!");
-            return callExpr->getConnective(index);
-        }
-
-        bool operator ==(const ConnectiveIterator &iter) const {
-            return (this->callExpr == iter.callExpr &&
-                    this->index == iter.index);
-        }
-
-        bool operator !=(const ConnectiveIterator &iter) const {
-            return !this->operator==(iter);
-        }
-
-        ConnectiveIterator &operator ++() {
-            if (++index == callExpr->numConnectives()) {
-                callExpr = 0;
-                index    = 0;
-            }
-            return *this;
-        }
-
-        ConnectiveIterator operator ++(int) {
-            ConnectiveIterator tmp = *this;
-            this->operator++();
-            return tmp;
-        }
-    };
-
-    ConnectiveIterator beginConnectives() {
-        return ConnectiveIterator(this);
+    typedef SubroutineRef::const_fun_iterator const_connective_iterator;
+    const_connective_iterator begin_connectives() const {
+        return connective->begin_functions();
     }
-
-    ConnectiveIterator endConnectives() {
-        return ConnectiveIterator();
+    const_connective_iterator end_connectives() const {
+        return connective->end_functions();
     }
+    //@}
 
-    // Returns the number of arguments supplied to this call expression.
+    /// Returns the number of arguments supplied to this call expression.
     unsigned getNumArgs() const { return numArgs; }
 
+    //@{
+    /// Returns the \p i'th argument of this call.
     Expr *getArg(unsigned i) {
         assert(i < numArgs && "Index out of range!");
         return arguments[i];
     }
 
+    const Expr *getArg(unsigned i) const {
+        assert(i < numArgs && "Index out of range!");
+        return arguments[i];
+    }
+    //@}
+
+    /// Sets the \p i'th argument to the given expression.
     void setArg(Expr *expr, unsigned i) {
         assert(i < numArgs && "Index out of range!");
         arguments[i] = expr;
     }
 
+    // Support isa and dyn_cast.
     static bool classof(const FunctionCallExpr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_FunctionCallExpr;
     }
 
 private:
-    Ast       *connective;
-    Expr     **arguments;
-    unsigned   numArgs;
+    SubroutineRef *connective;
+    Expr **arguments;
+    unsigned numArgs;
     Qualifier *qualifier;
 
     void setTypeForConnective();

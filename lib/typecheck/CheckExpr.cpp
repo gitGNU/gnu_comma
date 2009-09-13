@@ -428,14 +428,14 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                 continue;
             }
 
-            typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
+            typedef FunctionCallExpr::connective_iterator ConnectiveIter;
             bool applicableArgument = false;
             FunctionCallExpr *argCall = cast<FunctionCallExpr>(arg);
 
             // Check if at least one interpretation of the argument satisfies
             // the current target type.
-            for (ConnectiveIter iter = argCall->beginConnectives();
-                 iter != argCall->endConnectives(); ++iter) {
+            for (ConnectiveIter iter = argCall->begin_connectives();
+                 iter != argCall->end_connectives(); ++iter) {
                 FunctionDecl *connective = cast<FunctionDecl>(*iter);
                 Type *returnType = connective->getReturnType();
                 if (targetType->equals(returnType)) {
@@ -722,9 +722,9 @@ bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
     assert(call->getNumArgs() == 0 &&
            "Call expression has too many arguments!");
 
-    typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
-    ConnectiveIter iter    = call->beginConnectives();
-    ConnectiveIter endIter = call->endConnectives();
+    typedef FunctionCallExpr::connective_iterator connective_iter;
+    connective_iter iter    = call->begin_connectives();
+    connective_iter endIter = call->end_connectives();
     FunctionDecl *connective = 0;
 
     for ( ; iter != endIter; ++iter) {
@@ -772,10 +772,10 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     if (call->getNumArgs() == 0)
         return resolveNullaryFunctionCall(call, targetType);
 
-    typedef FunctionCallExpr::ConnectiveIterator ConnectiveIter;
-    ConnectiveIter iter    = call->beginConnectives();
-    ConnectiveIter endIter = call->endConnectives();
-    FunctionDecl  *fdecl   = 0;
+    typedef FunctionCallExpr::connective_iterator connective_iter;
+    connective_iter iter = call->begin_connectives();
+    connective_iter endIter = call->end_connectives();
+    FunctionDecl *fdecl = 0;
 
     for ( ; iter != endIter; ++iter) {
         FunctionDecl *candidate  = cast<FunctionDecl>(*iter);

@@ -69,7 +69,8 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 {
-    FunctionDecl *fdecl = cast<FunctionDecl>(expr->getConnective());
+    assert(expr->isUnambiguous() && "Function call not fully resolved!");
+    FunctionDecl *fdecl = expr->getConnective(0);
     std::vector<llvm::Value *> args;
 
     for (unsigned i = 0; i < expr->getNumArgs(); ++i) {
@@ -175,7 +176,8 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
 llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
                                                std::vector<llvm::Value *> &args)
 {
-    FunctionDecl *decl = cast<FunctionDecl>(expr->getConnective());
+    assert(expr->isUnambiguous() && "Function call not fully resolved!");
+    FunctionDecl *decl = expr->getConnective(0);
 
     switch (decl->getPrimitiveID()) {
 
