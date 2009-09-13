@@ -43,9 +43,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo *name, Location loc,
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
-    if (overloads.size() == 1)
-        return getNode(overloads.front());
-    return getNode(new OverloadedDeclName(&overloads[0], overloads.size()));
+    return getNode(new SubroutineRef(loc, &overloads[0], overloads.size()));
 }
 
 Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
@@ -54,37 +52,20 @@ Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
     std::vector<SubroutineDecl*> decls;
     unsigned targetArity = args.size();
 
-    connective.release();
+    SubroutineRef *ref = cast_node<SubroutineRef>(connective);
+    SubroutineRef::proc_iterator I = ref->begin_procedures();
+    SubroutineRef::proc_iterator E = ref->end_procedures();
 
-    if (ProcedureDecl *pdecl = lift_node<ProcedureDecl>(connective)) {
+    for ( ; I != E; ++I) {
+        ProcedureDecl *pdecl = *I;
         if (pdecl->getArity() == targetArity)
             decls.push_back(pdecl);
-        else {
-            report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
-                << pdecl->getIdInfo();
-            return getInvalidNode();
-        }
-    }
-    else {
-        OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
-        for (OverloadedDeclName::iterator iter = odn->begin();
-             iter != odn->end(); ++iter) {
-            if (ProcedureDecl *pdecl = dyn_cast<ProcedureDecl>(*iter)) {
-                if (pdecl->getArity() == targetArity)
-                    decls.push_back(pdecl);
-            }
-        }
-
-        delete odn;
-
-        // FIXME: Report that there are no procedures visible with the required
-        // arity.
-        if (decls.empty()) {
-            report(loc, diag::NAME_NOT_VISIBLE) << odn->getIdInfo();
-            return getInvalidNode();
-        }
     }
 
+    if (decls.empty()) {
+        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
+        return getInvalidNode();
+    }
     return acceptSubroutineCall(decls, loc, args);
 }
 

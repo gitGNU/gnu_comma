@@ -272,9 +272,7 @@ Node TypeCheck::acceptFunctionName(IdentifierInfo *name, Location loc,
         report(loc, diag::NAME_NOT_VISIBLE) << name;
         return getInvalidNode();
     }
-    if (overloads.size() == 1)
-        return getNode(overloads.front());
-    return getNode(new OverloadedDeclName(&overloads[0], overloads.size()));
+    return getNode(new SubroutineRef(loc, &overloads[0], overloads.size()));
 }
 
 Node TypeCheck::acceptFunctionCall(Node connective,
@@ -291,34 +289,19 @@ Node TypeCheck::acceptFunctionCall(Node connective,
     if (ValueDecl *vdecl = lift_node<ValueDecl>(connective))
         return acceptIndexedArray(vdecl, loc, argNodes);
 
-    if (FunctionDecl *fdecl = lift_node<FunctionDecl>(connective)) {
+    SubroutineRef *ref = cast_node<SubroutineRef>(connective);
+    SubroutineRef::fun_iterator I = ref->begin_functions();
+    SubroutineRef::fun_iterator E = ref->end_functions();
+    for ( ; I != E; ++ I) {
+        FunctionDecl *fdecl = *I;
         if (fdecl->getArity() == targetArity)
             decls.push_back(fdecl);
-        else {
-            report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
-                << fdecl->getIdInfo();
-            return getInvalidNode();
-        }
-    }
-    else {
-        OverloadedDeclName *odn = cast_node<OverloadedDeclName>(connective);
-        for (OverloadedDeclName::iterator iter = odn->begin();
-             iter != odn->end(); ++iter) {
-            FunctionDecl *fdecl = cast<FunctionDecl>(*iter);
-            if (fdecl->getArity() == targetArity)
-                decls.push_back(fdecl);
-        }
-
-        delete odn;
-
-        // FIXME: Report that there are no functions with the required arity
-        // visible.
-        if (decls.empty()) {
-            report(loc, diag::NAME_NOT_VISIBLE) << odn->getIdInfo();
-            return getInvalidNode();
-        }
     }
 
+    if (decls.empty()) {
+        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
+        return getInvalidNode();
+    }
     return acceptSubroutineCall(decls, loc, argNodes);
 }
 

@@ -30,34 +30,13 @@ llvm::raw_ostream &DeclDumper::dump(Decl *decl, unsigned level)
 
 llvm::raw_ostream &DeclDumper::printHeader(Ast *node)
 {
-    const char *nameString;
-
-    // OverloadedDeclName is not a Decl, just a helper class, so we have to jump
-    // thru a hoop to get at the name of such a node.
-    if (Decl *decl = dyn_cast<Decl>(node))
-        nameString = decl->getString();
-    else
-        nameString = cast<OverloadedDeclName>(node)->getString();
-
+    const char *nameString = cast<Decl>(node)->getString();;
     AstDumperBase::printHeader(node) << llvm::format(" '%s'", nameString);
     return S;
 }
 
 //===----------------------------------------------------------------------===//
 // Visitor implementations.
-
-void DeclDumper::visitOverloadedDeclName(OverloadedDeclName *node)
-{
-    printHeader(node);
-    indent();
-    for (unsigned i = 0; i < node->numOverloads(); ++i) {
-        S << '\n';
-        printIndentation();
-        DeclVisitor::visitSubroutineDecl(node->getOverload(i));
-    }
-    dedent();
-    S << '>';
-}
 
 void DeclDumper::visitImportDecl(ImportDecl *node)
 {

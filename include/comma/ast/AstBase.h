@@ -64,7 +64,6 @@ class KeywordSelector;
 class ModelDecl;
 class NamedType;
 class ObjectDecl;
-class OverloadedDeclName;
 class ParamValueDecl;
 class PercentDecl;
 class PrjExpr;
@@ -195,7 +194,6 @@ public:
         // Miscellaneous helper nodes.
         //
         AST_Qualifier,          ///< Qualifier
-        AST_OverloadedDeclName, ///< OverloadedDeclName
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
 

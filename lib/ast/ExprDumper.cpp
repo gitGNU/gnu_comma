@@ -47,15 +47,8 @@ void ExprDumper::visitFunctionCallExpr(FunctionCallExpr *node)
 {
     printHeader(node);
 
-    // Print the connective.  Currently either a FunctionDecl or OverloadedDecl
-    // name.
-    Ast *connective = node->getConnective();
-    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(connective))
-        S << llvm::format(" '%s'", FD->getString());
-    else {
-        OverloadedDeclName *ODN = cast<OverloadedDeclName>(connective);
-        S << llvm::format(" '%s'", ODN->getString());
-    }
+    SubroutineRef *connective = node->getConnective();
+    S << llvm::format(" '%s'", connective->getString());
 
     unsigned numArgs = node->getNumArgs();
     unsigned index = 0;

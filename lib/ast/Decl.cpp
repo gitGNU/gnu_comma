@@ -47,23 +47,6 @@ DeclRegion *Decl::asDeclRegion()
 }
 
 //===----------------------------------------------------------------------===//
-// OverloadedDeclName
-
-IdentifierInfo *OverloadedDeclName::getIdInfo() const {
-    return decls[0]->getIdInfo();
-}
-
-void OverloadedDeclName::verify()
-{
-    assert(decls.size() > 1 && "OverloadedDeclName's must be overloaded!");
-    IdentifierInfo *idInfo = decls[0]->getIdInfo();
-    for (unsigned i = 1; i < decls.size(); ++i) {
-        assert(decls[i]->getIdInfo() == idInfo &&
-               "All overloads must have the same identifier!");
-    }
-}
-
-//===----------------------------------------------------------------------===//
 // ModelDecl
 
 ModelDecl::ModelDecl(AstResource &resource,

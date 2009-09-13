@@ -23,8 +23,6 @@ void DeclVisitor::visitAst(Ast *node)
 {
     if (Decl *decl = dyn_cast<Decl>(node))
         visitDecl(decl);
-    else if (OverloadedDeclName *declName = dyn_cast<OverloadedDeclName>(node))
-        visitOverloadedDeclName(declName);
 }
 
 void DeclVisitor::visitDecl(Decl *node)
@@ -123,7 +121,6 @@ void DeclVisitor::visitFunctionDecl(FunctionDecl *node)
 // Leaf visitors.
 //===----------------------------------------------------------------------===//
 
-void DeclVisitor::visitOverloadedDeclName(OverloadedDeclName *node) { }
 void DeclVisitor::visitImportDecl(ImportDecl *node) { }
 void DeclVisitor::visitSignatureDecl(SignatureDecl *node) { }
 void DeclVisitor::visitVarietyDecl(VarietyDecl *node) { }

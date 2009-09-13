@@ -87,62 +87,6 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// OverloadedDeclName
-//
-// This class represents a set of declaration nodes all of which have the same
-// name.  Members of this set are either procedure decls or function decls.
-//
-// Note that this class is not a member of the Decl hierarchy, it is mearly a
-// wrapper/helper node used to encapsulate intermediate results.
-class OverloadedDeclName : public Ast {
-
-    typedef llvm::SmallVector<SubroutineDecl*, 4> DeclVector;
-
-public:
-    OverloadedDeclName(SubroutineDecl **decls, unsigned numDecls)
-        : Ast(AST_OverloadedDeclName),
-          decls(decls, decls + numDecls) {
-        verify();
-    }
-
-    template <class I>
-    OverloadedDeclName(I begin, I end)
-        : Ast(AST_OverloadedDeclName),
-          decls(begin, end) {
-        verify();
-    }
-
-    // Returns the IdentifierInfo common to all the overloads.
-    IdentifierInfo *getIdInfo() const;
-
-    // Returns a C-string representing the name common to all overloads.
-    const char *getString() const { return getIdInfo()->getString(); }
-
-    // Returns the number of overloaded declarations associated with this
-    // overloaded name.
-    unsigned numOverloads() const { return decls.size(); }
-
-    SubroutineDecl *getOverload(unsigned i) const {
-        assert(i < numOverloads() && "Index out of range!");
-        return decls[i];
-    }
-
-    typedef DeclVector::const_iterator iterator;
-    iterator begin() { return decls.begin(); }
-    iterator end() { return decls.end(); }
-
-    static bool classof(const OverloadedDeclName *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_OverloadedDeclName;
-    }
-
-private:
-    DeclVector decls;
-
-    void verify();
-};
-
-//===----------------------------------------------------------------------===//
 // ImportDecl
 //
 // Represents import declarations.

@@ -71,7 +71,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "WhileStmt",
 
     "Qualifier",
-    "OverloadedDeclName",
     "SubroutineRef",
     "TypeRef"
 };

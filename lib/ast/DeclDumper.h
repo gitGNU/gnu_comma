@@ -60,7 +60,6 @@ private:
     /// are delimited with '<' and '>', the last character printed is always
     /// '>'.  The indentation level can change while a node is being printed,
     /// but the level is always restored once the printing is complete.
-    void visitOverloadedDeclName(OverloadedDeclName *node);
     void visitImportDecl(ImportDecl *node);
     void visitSignatureDecl(SignatureDecl *node);
     void visitVarietyDecl(VarietyDecl *node);
