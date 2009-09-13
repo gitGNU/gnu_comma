@@ -761,7 +761,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     FunctionDecl *fdecl = 0;
 
     for ( ; iter != endIter; ++iter) {
-        FunctionDecl *candidate  = cast<FunctionDecl>(*iter);
+        FunctionDecl *candidate  = *iter;
         Type         *returnType = candidate->getReturnType();
         if (targetType->equals(returnType)) {
             if (fdecl) {
