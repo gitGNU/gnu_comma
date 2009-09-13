@@ -79,6 +79,7 @@ class SigInstanceDecl;
 class Stmt;
 class StmtSequence;
 class SubroutineDecl;
+class SubroutineRef;
 class SubroutineType;
 class Type;
 class TypeDecl;
@@ -195,6 +196,7 @@ public:
         //
         AST_Qualifier,          ///< Qualifier
         AST_OverloadedDeclName, ///< OverloadedDeclName
+        AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
 
         //
