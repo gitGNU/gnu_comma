@@ -16,8 +16,8 @@ add
 end F;
 
 domain Test add
-   procedure Test (x : D) is
+   procedure Run (x : D) is
    begin
       F(D)::Foo(x);
-   end Test;
+   end Run;
 end Test;
