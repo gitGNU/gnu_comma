@@ -83,6 +83,7 @@ class SubroutineType;
 class Type;
 class TypeDecl;
 class TypedefType;
+class TypeRef;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
@@ -194,6 +195,7 @@ public:
         //
         AST_Qualifier,          ///< Qualifier
         AST_OverloadedDeclName, ///< OverloadedDeclName
+        AST_TypeRef,            ///< TypeRef
 
         //
         // Delimitiers providing classification of the above codes.
