@@ -792,7 +792,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     unsigned numArgs = call->getNumArgs();
     llvm::SmallVector<Expr*, 8> sortedArgs(numArgs);
 
-    for (unsigned i = 0; i < call->getNumArgs(); ++i) {
+    for (unsigned i = 0; i < numArgs; ++i) {
         unsigned argIndex = i;
         Expr *arg = call->getArg(i);
 
@@ -809,6 +809,10 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
         status = status and
             checkExprInContext(arg, fdecl->getParamType(argIndex));
     }
+
+    // Patch up the call itself to respect the new ordering.
+    for (unsigned i = 0; i < numArgs; ++i)
+        call->setArg(sortedArgs[i], i);
 
     return status;
 }

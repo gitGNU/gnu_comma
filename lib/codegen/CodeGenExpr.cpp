@@ -55,6 +55,10 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
     case Ast::AST_IndexedArrayExpr:
         val = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
         break;
+
+    case Ast::AST_KeywordSelector:
+        val = emitExpr(cast<KeywordSelector>(expr)->getExpression());
+        break;
     }
 
     return val;
