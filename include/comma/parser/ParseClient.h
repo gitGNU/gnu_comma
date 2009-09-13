@@ -263,7 +263,7 @@ public:
     ///@}
 
     /// Called for each super signature defined in a signature profile.
-    virtual void acceptSupersignature(Node typeNode, Location loc) = 0;
+    virtual void acceptSupersignature(Node typeNode) = 0;
     ///@}
 
     /// Called at the begining of an add expression.  The client accepts
@@ -275,9 +275,8 @@ public:
     virtual void endAddExpression() = 0;
 
     /// Invoked when the parser consumes a carrier declaration.
-    virtual void acceptCarrier(IdentifierInfo *name, Node typeNode,
-                               Location loc) = 0;
-
+    virtual void acceptCarrier(IdentifierInfo *name, Location loc,
+                               Node typeNode) = 0;
 
     /// \name Subroutine Declaration Callbacks.
     ///
@@ -375,7 +374,6 @@ public:
 
     virtual Node acceptTypeApplication(IdentifierInfo *connective,
                                        NodeVector &argumentNodes,
-                                       Location *argumentLocs,
                                        IdentifierInfo **keys,
                                        Location *keyLocs,
                                        unsigned numKeys,
@@ -407,16 +405,14 @@ public:
     /// expr is its argument.
     virtual Node acceptPrj(Location loc, Node expr) = 0;
 
-    virtual Node acceptQualifier(Node qualifierType, Location loc) = 0;
+    virtual Node acceptQualifier(Node qualifierType) = 0;
 
-    virtual Node acceptNestedQualifier(Node qualifier, Node qualifierType,
-                                       Location loc) = 0;
+    virtual Node acceptNestedQualifier(Node qualifier, Node qualifierType) = 0;
 
     virtual Node acceptIntegerLiteral(llvm::APInt &value, Location loc) = 0;
 
-    /// Submits an import from the given type node, and the location of the
-    /// import reserved word.
-    virtual bool acceptImportDeclaration(Node importedType, Location loc) = 0;
+    /// Submits an import from the given type node.
+    virtual bool acceptImportDeclaration(Node importedType) = 0;
 
     virtual Node acceptIfStmt(Location loc, Node condition,
                               NodeVector &consequents) = 0;

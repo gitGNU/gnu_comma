@@ -13,6 +13,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
+#include "comma/ast/TypeRef.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -135,18 +136,20 @@ DomainType *TypeCheck::getCurrentPercentType() const
 
 Node TypeCheck::acceptPercent(Location loc)
 {
+    TypeRef *ref = 0;
+
     // We are either processing a model or a generic formal domain.
     //
     // When processing a model, return the associated percent decl.  When
     // processing a generic formal domain, return the AbstractDomainDecl.
-    if (ModelDecl *model = getCurrentModel()) {
-        return getNode(model->getPercent());
-    }
+    if (ModelDecl *model = getCurrentModel())
+        ref = new TypeRef(loc, model->getPercent());
     else {
         // FIXME: Use a cleaner interface when available.
         AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
-        return getNode(decl);
+        ref = new TypeRef(loc, decl);
     }
+    return getNode(ref);
 }
 
 // Returns true if the given decl is equivalent to % in the context of the
@@ -312,20 +315,24 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
             return getNode(getCurrentPercent());
         }
         DomainDecl *domDecl = cast<DomainDecl>(decl);
-        return getNode(domDecl->getInstance());
+        TypeRef *ref = new TypeRef(loc, domDecl->getInstance());
+        return getNode(ref);
     }
 
     case Ast::AST_SignatureDecl: {
         SignatureDecl *sigDecl = cast<SignatureDecl>(decl);
-        return getNode(sigDecl->getInstance());
+        TypeRef *ref = new TypeRef(loc, sigDecl->getInstance());
+        return getNode(ref);
     }
 
     case Ast::AST_AbstractDomainDecl:
     case Ast::AST_CarrierDecl:
     case Ast::AST_EnumerationDecl:
     case Ast::AST_IntegerDecl:
-    case Ast::AST_ArrayDecl:
-        return getNode(decl);
+    case Ast::AST_ArrayDecl: {
+        TypeRef *ref = new TypeRef(loc, cast<TypeDecl>(decl));
+        return getNode(ref);
+    }
 
     case Ast::AST_FunctorDecl:
     case Ast::AST_VarietyDecl:
@@ -336,7 +343,6 @@ Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
 
 Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
                                       NodeVector      &argumentNodes,
-                                      Location        *argumentLocs,
                                       IdentifierInfo **keywords,
                                       Location        *keywordLocs,
                                       unsigned         numKeywords,
@@ -359,22 +365,22 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
 
     unsigned numPositional = numArgs - numKeywords;
     llvm::SmallVector<DomainTypeDecl*, 4> arguments(numArgs);
+    llvm::SmallVector<Location, 4> argumentLocs(numArgs);
 
     // First, populate the argument vector with any positional parameters.
     //
-    // FIXME: Currently only DomainTypeDecls and SigInstanceDecls propagate as
-    // arguments to a type application.  We should factor this out into a
-    // seperate pass over the argument vector.
+    // FIXME: We should factor this out into a seperate pass over the argument
+    // vector.
     for (unsigned i = 0; i < numPositional; ++i) {
-        DomainTypeDecl *arg = lift_node<DomainTypeDecl>(argumentNodes[i]);
+        TypeRef *ref = cast_node<TypeRef>(argumentNodes[i]);
+        DomainTypeDecl *arg = dyn_cast<DomainTypeDecl>(ref->getDecl());
         if (!arg) {
-            SigInstanceDecl *sig =
-                cast_node<SigInstanceDecl>(argumentNodes[i]);
-            Location loc = argumentLocs[i];
-            report(loc, diag::SIGNATURE_AS_TYPE_PARAM) << sig->getIdInfo();
+            Location loc = ref->getLocation();
+            report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
             return getInvalidNode();
         }
         arguments[i] = arg;
+        argumentLocs[i] = ref->getLocation();
     }
 
     // Process any keywords provided.
@@ -410,22 +416,21 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // Lift the argument node and add it to the set of arguments in its
         // proper position.
         unsigned argIdx = i + numPositional;
-        DomainTypeDecl *argument =
-            lift_node<DomainTypeDecl>(argumentNodes[argIdx]);
+        TypeRef *ref = cast_node<TypeRef>(argumentNodes[argIdx]);
+        DomainTypeDecl *argument = dyn_cast<DomainTypeDecl>(ref->getDecl());
 
         // FIXME: Currently only DomainTypeDecls and SigInstanceDecls propagate
         // as arguments to a type application.  We should factor this out into a
         // seperate pass over the argument vector.
         if (!argument) {
-            SigInstanceDecl *sig =
-                cast_node<SigInstanceDecl>(argumentNodes[argIdx]);
-            Location loc = argumentLocs[argIdx];
-            report(loc, diag::SIGNATURE_AS_TYPE_PARAM) << sig->getIdInfo();
+            Location loc = ref->getLocation();
+            report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
             return getInvalidNode();
         }
 
         argumentNodes[i + numPositional].release();
         arguments[keywordIdx] = argument;
+        argumentLocs[keywordIdx] = ref->getLocation();
     }
 
     // Check each argument type.
@@ -450,9 +455,12 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
     }
 
     // Obtain a memoized type node for this particular argument set.
-    Node node = getInvalidNode();
-    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model))
-        node = getNode(variety->getInstance(arguments.data(), numArgs));
+    TypeRef *ref = 0;
+    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
+        SigInstanceDecl *instance =
+            variety->getInstance(arguments.data(), numArgs);
+        ref = new TypeRef(loc, instance);
+    }
     else {
         FunctorDecl *functor = cast<FunctorDecl>(model);
 
@@ -463,16 +471,18 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         if (denotesFunctorPercent(functor, arguments.data(), numArgs)) {
             // Cannonicalize type applications which are equivalent to `%'.
             report(loc, diag::PERCENT_EQUIVALENT);
-            node = getNode(getCurrentPercent());
+            ref = new TypeRef(loc, getCurrentPercent());
         }
         else {
             DomainInstanceDecl *instance =
                 functor->getInstance(arguments.data(), numArgs);
-            node = getNode(instance);
+            ref = new TypeRef(loc, instance);
         }
     }
-    argumentNodes.release();
-    return node;
+
+    // Note that we do not release the argument node vector since it consisted
+    // only of TypeRefs which are no longer needed.
+    return getNode(ref);
 }
 
 TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
@@ -484,10 +494,10 @@ TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
     return 0;
 }
 
-TypeDecl *TypeCheck::ensureTypeDecl(Node node, Location loc, bool report)
+TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 {
-    Decl *decl = cast_node<Decl>(node);
-    return ensureTypeDecl(decl, loc, report);
+    TypeRef *ref = cast_node<TypeRef>(node);
+    return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
 }
 
 /// Returns true if \p expr is a static integer expression.  If so, initializes
@@ -581,10 +591,10 @@ bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
 }
 
 bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
-                                        Node declNode, Node initializerNode)
+                                        Node refNode, Node initializerNode)
 {
     Expr *init = 0;
-    TypeDecl *tyDecl = ensureTypeDecl(declNode, loc);
+    TypeDecl *tyDecl = ensureTypeDecl(refNode);
 
     if (!tyDecl) return false;
 
@@ -595,7 +605,6 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
     }
     ObjectDecl *decl = new ObjectDecl(name, tyDecl->getType(), loc, init);
 
-    declNode.release();
     initializerNode.release();
 
     if (Decl *conflict = scope->addDirectDecl(decl)) {
@@ -607,9 +616,11 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
     return true;
 }
 
-bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
+bool TypeCheck::acceptImportDeclaration(Node importedNode)
 {
-    Decl *decl = cast_node<Decl>(importedNode);
+    TypeRef *ref = cast_node<TypeRef>(importedNode);
+    Decl *decl = ref->getDecl();
+    Location loc = ref->getLocation();
     DomainType *domain;
 
     if (CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl))
@@ -622,7 +633,6 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode, Location loc)
         return false;
     }
 
-    importedNode.release();
     scope->addImport(domain);
 
     // FIXME:  We need to stitch this import declaration into the current
@@ -653,20 +663,23 @@ Node TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
             << name << getSourceLoc(conflict->getLocation());
         return getInvalidNode();
     }
-    return getNode(enumeration);
+    TypeRef *ref = new TypeRef(loc, enumeration);
+    return getNode(ref);
 }
 
 void TypeCheck::acceptEnumerationIdentifier(Node enumerationNode,
                                             IdentifierInfo *name, Location loc)
 {
-    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
+    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
     acceptEnumerationLiteral(enumeration, name, loc);
 }
 
 void TypeCheck::acceptEnumerationCharacter(Node enumerationNode,
                                            IdentifierInfo *name, Location loc)
 {
-    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
+    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
     acceptEnumerationLiteral(enumeration, name, loc);
 }
 
@@ -683,9 +696,9 @@ void TypeCheck::acceptEnumerationLiteral(EnumerationDecl *enumeration,
 void TypeCheck::endEnumeration(Node enumerationNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
-    EnumerationDecl *enumeration = cast_node<EnumerationDecl>(enumerationNode);
+    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
+    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
 
-    enumerationNode.release();
     declProducer->createImplicitDecls(enumeration);
     region->addDecl(enumeration);
     importDeclRegion(enumeration);
@@ -755,8 +768,7 @@ void TypeCheck::acceptArrayIndex(Node indexNode)
     assert(arrProfileInfo.isInitialized() &&
            "Array profile is not yet initialized!");
 
-    // FIXME:  We need proper location info here.
-    TypeDecl *indexTy = ensureTypeDecl(indexNode, 0);
+    TypeDecl *indexTy = ensureTypeDecl(indexNode);
 
     if (!indexTy) {
         arrProfileInfo.markInvalid();
@@ -772,8 +784,7 @@ void TypeCheck::acceptArrayComponent(Node componentNode)
     assert(arrProfileInfo.component == 0 &&
            "Array component type already initialized!");
 
-    // FIXME:  We need proper location info here.
-    TypeDecl *indexTy = ensureTypeDecl(componentNode, 0);
+    TypeDecl *indexTy = ensureTypeDecl(componentNode);
 
     if (!indexTy) {
         arrProfileInfo.markInvalid();

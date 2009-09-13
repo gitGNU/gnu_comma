@@ -10,6 +10,7 @@
 #include "comma/ast/Expr.h"
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
+#include "comma/ast/TypeRef.h"
 #include "comma/typecheck/TypeCheck.h"
 
 #include "llvm/ADT/BitVector.h"
@@ -32,9 +33,11 @@ DeclRegion *TypeCheck::resolveVisibleQualifiedRegion(Qualifier *qual)
     return qual->resolveRegion();
 }
 
-Node TypeCheck::acceptQualifier(Node declNode, Location loc)
+Node TypeCheck::acceptQualifier(Node declNode)
 {
-    Decl *decl = cast_node<Decl>(declNode);
+    TypeRef *ref = cast_node<TypeRef>(declNode);
+    Location loc = ref->getLocation();
+    Decl *decl = ref->getDecl();
     Qualifier *qual = 0;
 
     switch (decl->getKind()) {
@@ -58,20 +61,18 @@ Node TypeCheck::acceptQualifier(Node declNode, Location loc)
         break;
     }
 
-    declNode.release();
     return getNode(qual);
 }
 
-Node TypeCheck::acceptNestedQualifier(Node qualifierNode,
-                                      Node declNode,
-                                      Location loc)
+Node TypeCheck::acceptNestedQualifier(Node qualifierNode, Node declNode)
 {
     Qualifier *qual = cast_node<Qualifier>(qualifierNode);
-    TypeDecl *decl = ensureTypeDecl(cast_node<Decl>(declNode), loc);
+    Location loc = cast_node<TypeRef>(declNode)->getLocation();
+    TypeDecl *decl = ensureTypeDecl(declNode);
     DeclRegion *region = resolveVisibleQualifiedRegion(qual);
 
     // Nested qualifiers must always resolve to visible regions.
-    if (!region)
+    if (!region || !decl)
         return getInvalidNode();
 
     if (!region->findDecl(decl->getIdInfo(), decl->getType())) {

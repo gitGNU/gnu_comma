@@ -48,8 +48,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo *name, Location loc,
     return getNode(new OverloadedDeclName(&overloads[0], overloads.size()));
 }
 
-Node TypeCheck::acceptProcedureCall(Node        connective,
-                                    Location    loc,
+Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
                                     NodeVector &args)
 {
     std::vector<SubroutineDecl*> decls;
@@ -122,9 +121,9 @@ Node TypeCheck::acceptEmptyReturnStmt(Location loc)
     return getInvalidNode();
 }
 
-Node TypeCheck::acceptAssignmentStmt(Location        loc,
+Node TypeCheck::acceptAssignmentStmt(Location loc,
                                      IdentifierInfo *name,
-                                     Node            valueNode)
+                                     Node valueNode)
 {
     Expr *value = cast_node<Expr>(valueNode);
     Scope::Resolver &resolver = scope->getResolver();

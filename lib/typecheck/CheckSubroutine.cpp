@@ -115,10 +115,7 @@ void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
     assert(srProfileInfo.kind != SubroutineProfileInfo::EMPTY_PROFILE &&
            "Subroutine profile not initialized!");
 
-    // FIXME: The location provided here is the location of the formal, not the
-    // location of the type.  The decl node here should be a ModelRef or similar
-    // which encapsulates the needed location information.
-    TypeDecl *tyDecl = ensureTypeDecl(declNode, loc);
+    TypeDecl *tyDecl = ensureTypeDecl(declNode);
 
     if (!tyDecl) {
         srProfileInfo.markInvalid();
@@ -156,7 +153,6 @@ void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
         return;
     }
 
-    declNode.release();
     Type *paramTy = tyDecl->getType();
     ParamValueDecl *paramDecl = new ParamValueDecl(formal, paramTy, mode, loc);
     srProfileInfo.params.push_back(paramDecl);
@@ -172,13 +168,12 @@ void TypeCheck::acceptFunctionReturnType(Node typeNode)
         return;
     }
 
-    TypeDecl *returnDecl = ensureTypeDecl(typeNode, 0);
+    TypeDecl *returnDecl = ensureTypeDecl(typeNode);
     if (!returnDecl) {
         srProfileInfo.markInvalid();
         return;
     }
 
-    typeNode.release();
     srProfileInfo.returnTy = returnDecl;
 }
 

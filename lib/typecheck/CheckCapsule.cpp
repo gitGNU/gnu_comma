@@ -15,6 +15,7 @@
 #include "Scope.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/TypeRef.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -138,17 +139,17 @@ void TypeCheck::initializeForModelDeclaration()
     scope->addDirectDeclNoConflicts(currentModel);
 }
 
-void TypeCheck::acceptSupersignature(Node typeNode, Location loc)
+void TypeCheck::acceptSupersignature(Node typeNode)
 {
-    SigInstanceDecl *superSig = lift_node<SigInstanceDecl>(typeNode);
-    Sigoid *sigoid = superSig->getSigoid();
+    TypeRef *ref = cast_node<TypeRef>(typeNode);
+    Location loc = ref->getLocation();
+    SigInstanceDecl *superSig = ref->getSigInstanceDecl();
 
     // Check that the node denotes a signature.
     if (!superSig) {
         report(loc, diag::NOT_A_SIGNATURE);
         return;
     }
-    typeNode.release();
 
     // We are either processing a model or a generic formal domain.  Add the
     // signature.
@@ -164,6 +165,7 @@ void TypeCheck::acceptSupersignature(Node typeNode, Location loc)
     // Bring all types defined by this super signature into scope (so that they
     // can participate in upcomming type expressions) and add them to the
     // current model.
+    Sigoid *sigoid = superSig->getSigoid();
     aquireSignatureTypeDeclarations(declarativeRegion, sigoid);
 
     // Bring all implicit declarations defined by the super signature types into
@@ -397,7 +399,7 @@ void TypeCheck::endAddExpression()
     assert(declarativeRegion == getCurrentPercent()->asDeclRegion());
 }
 
-void TypeCheck::acceptCarrier(IdentifierInfo *name, Node declNode, Location loc)
+void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
 {
     // We should always be in an add declaration.
     AddDecl *add = cast<AddDecl>(declarativeRegion);
@@ -407,8 +409,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Node declNode, Location loc)
         return;
     }
 
-    if (TypeDecl *tyDecl = ensureTypeDecl(declNode, loc)) {
-        declNode.release();
+    if (TypeDecl *tyDecl = ensureTypeDecl(typeNode)) {
         Type *carrierTy = tyDecl->getType();
         CarrierDecl *carrier = new CarrierDecl(name, carrierTy, loc);
         if (Decl *conflict = scope->addDirectDecl(carrier)) {

@@ -370,7 +370,6 @@ bool Parser::qualifierFollows()
 Node Parser::parseQualifier()
 {
     Node qualifier = getNullNode();
-    Location location = currentLocation();
     Node qualifierType = parseModelApplication(qualifier);
 
     if (qualifierType.isInvalid()) {
@@ -382,10 +381,9 @@ Node Parser::parseQualifier()
 
     if (reduceToken(Lexer::TKN_DCOLON)) {
 
-        qualifier = client.acceptQualifier(qualifierType, location);
+        qualifier = client.acceptQualifier(qualifierType);
 
         while (qualifierFollows()) {
-            location = currentLocation();
             qualifierType = parseModelApplication(qualifier);
 
             if (qualifierType.isInvalid()) {
@@ -397,9 +395,8 @@ Node Parser::parseQualifier()
             else if (qualifier.isValid()) {
                 assert(currentTokenIs(Lexer::TKN_DCOLON));
                 ignoreToken();
-                qualifier = client.acceptNestedQualifier(qualifier,
-                                                         qualifierType,
-                                                         location);
+                qualifier =
+                    client.acceptNestedQualifier(qualifier, qualifierType);
             }
         }
         return qualifier;
@@ -596,11 +593,10 @@ void Parser::parseSupersignatureProfile()
     ignoreToken();
 
     while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        Location loc = currentLocation();
         Node super = parseModelInstantiation();
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
-            client.acceptSupersignature(super, loc);
+            client.acceptSupersignature(super);
         }
         else {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
@@ -648,13 +644,10 @@ void Parser::parseWithProfile()
 
 void Parser::parseCarrier()
 {
-    IdentifierInfo *name;
-    Location loc;
-
     assert(currentTokenIs(Lexer::TKN_CARRIER));
 
-    loc = ignoreToken();
-    name = parseIdentifierInfo();
+    Location loc = ignoreToken();
+    IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name) {
         seekToken(Lexer::TKN_SEMI);
@@ -673,7 +666,7 @@ void Parser::parseCarrier()
         return;
     }
 
-    client.acceptCarrier(name, type, loc);
+    client.acceptCarrier(name, loc, type);
 }
 
 void Parser::parseAddComponents()
@@ -773,7 +766,6 @@ Node Parser::parseModelApplication(Node qualNode)
 
     if (reduceToken(Lexer::TKN_LPAREN)) {
         NodeVector arguments;
-        LocationVector argumentLocs;
         IdInfoVector keywords;
         LocationVector keywordLocs;
         bool allOK = true;
@@ -793,10 +785,8 @@ Node Parser::parseModelApplication(Node qualNode)
             }
 
             Node argument = parseModelInstantiation();
-            if (argument.isValid()) {
+            if (argument.isValid())
                 arguments.push_back(argument);
-                argumentLocs.push_back(loc);
-            }
             else
                 allOK = false;
 
@@ -806,13 +796,11 @@ Node Parser::parseModelApplication(Node qualNode)
         // Do not attempt to form the application unless all of the
         // arguments are valid.
         if (allOK) {
-            Location *argLocs = argumentLocs.data();
             IdentifierInfo **keys = keywords.data();
             Location *keyLocs = keywordLocs.data();
             unsigned numKeys = keywords.size();
             return client.acceptTypeApplication(
-                info, arguments, argLocs,
-                keys, keyLocs, numKeys, loc);
+                info, arguments, keys, keyLocs, numKeys, loc);
         }
         else
             return getInvalidNode();
@@ -1156,15 +1144,13 @@ bool Parser::parseObjectDeclaration()
 
 bool Parser::parseImportDeclaration()
 {
-    Location location = currentLocation();
-
     assert(currentTokenIs(Lexer::TKN_IMPORT));
     ignoreToken();
 
     Node importedType = parseModelInstantiation();
 
     if (importedType.isValid()) {
-        client.acceptImportDeclaration(importedType, location);
+        client.acceptImportDeclaration(importedType);
         return true;
     }
     return false;

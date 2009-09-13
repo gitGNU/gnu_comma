@@ -55,12 +55,12 @@ public:
     void beginSignatureProfile();
     void endSignatureProfile();
 
-    void acceptSupersignature(Node typeNode, Location loc);
+    void acceptSupersignature(Node typeNode);
 
     void beginAddExpression();
     void endAddExpression();
 
-    void acceptCarrier(IdentifierInfo *name, Node typeNode, Location loc);
+    void acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode);
 
     void beginFunctionDeclaration(IdentifierInfo *name, Location loc);
     void beginProcedureDeclaration(IdentifierInfo *name, Location loc);
@@ -83,10 +83,8 @@ public:
 
     void endSubroutineDefinition();
 
-    bool acceptObjectDeclaration(Location        loc,
-                                 IdentifierInfo *name,
-                                 Node            type,
-                                 Node            initializer);
+    bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
+                                 Node type, Node initializer);
 
 
     void acceptDeclarationInitializer(Node declNode, Node initializer);
@@ -99,14 +97,13 @@ public:
 
     Node acceptTypeApplication(IdentifierInfo  *connective,
                                NodeVector      &arguments,
-                               Location        *argumentLocs,
                                IdentifierInfo **keys,
                                Location        *keyLocs,
                                unsigned         numKeys,
                                Location         loc);
 
 
-    bool acceptImportDeclaration(Node importedType, Location loc);
+    bool acceptImportDeclaration(Node importedType);
 
     Node acceptKeywordSelector(IdentifierInfo *key,
                                Location        loc,
@@ -142,10 +139,9 @@ public:
     // expr is its argument.
     Node acceptPrj(Location loc, Node expr);
 
-    Node acceptQualifier(Node qualifierType, Location loc);
+    Node acceptQualifier(Node qualifierType);
 
-    Node acceptNestedQualifier(Node qualifier, Node qualifierType,
-                               Location loc);
+    Node acceptNestedQualifier(Node qualifier, Node qualifierType);
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
 
@@ -549,7 +545,7 @@ private:
     /// given signature into scope.
     void aquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
-    TypeDecl *ensureTypeDecl(Node declNode, Location loc, bool report = true);
+    TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
     /// Returns true if \p expr is a static integer expression.  If so,
