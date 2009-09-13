@@ -30,10 +30,8 @@ using llvm::isa;
 llvm::raw_ostream &AstDumperBase::printHeader(Ast *node)
 {
     const char *kindString = node->getKindString();
-
-    // FIXME: when we migrate to llvm-2.6, use raw_ostreams write_hex method to
-    // print the nodes address.
-    S << llvm::format("<%s %llx", kindString, uintptr_t(node));
+    S << llvm::format("<%s ", kindString);
+    S.write_hex(uintptr_t(node));
     return S;
 }
 
