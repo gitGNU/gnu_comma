@@ -197,17 +197,17 @@ public:
     /// callback the parser ever invokes on its client.  Once the capsule has
     /// been parsed (successfully or not), endCapsule is called.
     ///
-    ///@{
+    //@{
     virtual void beginCapsule() = 0;
     virtual void endCapsule() = 0;
-    ///@}
+    //@}
 
     /// \name Generic Formal Callbacks.
     ///
     /// The following callbacks are invoked when processing generic formal
     /// parameters.
     ///
-    ///@{
+    //@{
     ///
     /// \name Generic Formal Delimiters.
     ///
@@ -215,10 +215,10 @@ public:
     /// beginGenericFormals and completes with a call to endGenericFormals.
     /// These calls delimit the scope of a generic formal part to the client.
     ///
-    /// @{
+    //@{
     virtual void beginGenericFormals() = 0;
     virtual void endGenericFormals() = 0;
-    ///@}
+    //@}
 
     /// \name Formal Domain Declarations.
     ///
@@ -228,11 +228,11 @@ public:
     /// processed.  The end of a formal domain declaration is announced with a
     /// call to endFormalDomainDecl.
     ///
-    ///@{
+    //@{
     virtual void beginFormalDomainDecl(IdentifierInfo *name, Location loc) = 0;
     virtual void endFormalDomainDecl() = 0;
-    ///@}
-    ///@}
+    //@}
+    //@}
 
     /// \name Capsule Callbacks.
     ///
@@ -241,14 +241,14 @@ public:
     /// of the upcomming capsule.  The context established by these callbacks is
     /// terminated when endCapsule is called.
     ///
-    ///@{
+    //@{
     virtual void beginDomainDecl(IdentifierInfo *name, Location loc) = 0;
     virtual void beginSignatureDecl(IdentifierInfo *name, Location loc) = 0;
-    ///@}
+    //@}
 
     /// \name Signature Profile Callbacks.
     ///
-    ///@{
+    //@{
     ///
     /// \name Signature Profile Delimiters
     ///
@@ -257,14 +257,14 @@ public:
     /// the processing of the profile is finished (regarless of whether the
     /// parse was successful or not) endSignatureProfile is called.
     ///
-    ///@{
+    //@{
     virtual void beginSignatureProfile() = 0;
     virtual void endSignatureProfile() = 0;
-    ///@}
+    //@}
 
     /// Called for each super signature defined in a signature profile.
     virtual void acceptSupersignature(Node typeNode) = 0;
-    ///@}
+    //@}
 
     /// Called at the begining of an add expression.  The client accepts
     /// components of an add expression after this call until endAddExpression
@@ -286,7 +286,7 @@ public:
     /// Once the declaration has been processed, the context is terminated with
     /// a call to endSubroutineDeclaration.
     ///
-    ///@{
+    //@{
     virtual void beginFunctionDeclaration(IdentifierInfo *name,
                                           Location loc) = 0;
     virtual void beginProcedureDeclaration(IdentifierInfo *name,
@@ -340,11 +340,11 @@ public:
     /// \return A node associated with the declaration.  Exclusively used by the
     /// parser as an argument to beginSubroutineDefinition.
     virtual Node endSubroutineDeclaration(bool definitionFollows) = 0;
-    ///@}
+    //@}
 
     /// \name Subroutine Definition Callbacks.
     ///
-    ///@{
+    //@{
     ///
     /// Once a declaration has been parsed, a context for a definition is
     /// introduced with a call to beginSubroutineDefinition (assuming the
@@ -362,7 +362,7 @@ public:
     /// Once the body of a subroutine has been parsed, this callback is invoked
     /// to singnal the completion of the definition.
     virtual void endSubroutineDefinition() = 0;
-    /// @}
+    //@}
 
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;
@@ -453,7 +453,7 @@ public:
     /// Once all elements of the type have been processed, endEnumeration is
     /// called.
     ///
-    ///@{
+    //@{
     ///
     /// Establishes a context beginning an enumeration type declaration.
     ///
@@ -497,7 +497,7 @@ public:
     /// \param enumeration A Node as returned from the matching call to
     /// beginEnumeration.
     virtual void endEnumeration(Node enumeration) = 0;
-    ///@}
+    //@}
 
     /// Called to process integer type definitions.
     ///
@@ -516,7 +516,7 @@ public:
     /// acceptArrayComponent is invoked.  Finally, a call to endArray signals
     /// the end of the array type definition.
     ///
-    ///@{
+    //@{
     ///
     /// Establishes a context beginning an array type declaration.
     ///
@@ -539,7 +539,7 @@ public:
 
     /// Finishes the context of an array type declaration.
     virtual void endArray() = 0;
-    ///@}
+    //@}
 
 protected:
     /// Allow sub-classes to construct arbitrary nodes.
