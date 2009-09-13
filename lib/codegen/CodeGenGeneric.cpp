@@ -47,7 +47,6 @@ private:
     ///@}
 
     /// \name Expression visitors.
-    void visitKeywordSelector(KeywordSelector *node);
     void visitFunctionCallExpr(FunctionCallExpr *node);
     void visitInjExpr(InjExpr *node);
     void visitPrjExpr(PrjExpr *node);
@@ -133,11 +132,6 @@ void DependentScanner::visitWhileStmt(WhileStmt *node)
 {
     visitExpr(node->getCondition());
     visitStmtSequence(node->getBody());
-}
-
-void DependentScanner::visitKeywordSelector(KeywordSelector *node)
-{
-    visitExpr(node->getExpression());
 }
 
 void DependentScanner::visitFunctionCallExpr(FunctionCallExpr *node)

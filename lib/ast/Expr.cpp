@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/Expr.h"
+#include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Qualifier.h"
 
 #include "llvm/Support/Casting.h"
@@ -16,18 +17,6 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-
-//===----------------------------------------------------------------------===//
-// KeywordSelector
-
-KeywordSelector::KeywordSelector(IdentifierInfo *key, Location loc, Expr *expr)
-    : Expr(AST_KeywordSelector, loc),
-      keyword(key),
-      expression(expr)
-{
-    if (expression->hasType())
-        this->setType(expression->getType());
-}
 
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr

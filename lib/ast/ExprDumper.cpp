@@ -32,17 +32,6 @@ void ExprDumper::visitDeclRefExpr(DeclRefExpr *node)
         llvm::format(" '%s'>", node->getString());
 }
 
-void ExprDumper::visitKeywordSelector(KeywordSelector *node)
-{
-    printHeader(node)
-        << llvm::format(" '%s'\n", node->getKeyword()->getString());
-    indent();
-    printIndentation();
-    visitExpr(node->getExpression());
-    dedent();
-    S << '>';
-}
-
 void ExprDumper::visitFunctionCallExpr(FunctionCallExpr *node)
 {
     printHeader(node);

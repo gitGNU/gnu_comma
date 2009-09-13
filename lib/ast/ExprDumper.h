@@ -57,7 +57,6 @@ private:
     /// '>'.  The indentation level can change while a node is being printed,
     /// but the level is always restored once the printing is complete.
     void visitDeclRefExpr(DeclRefExpr *node);
-    void visitKeywordSelector(KeywordSelector *node);
     void visitFunctionCallExpr(FunctionCallExpr *node);
     void visitIndexedArrayExpr(IndexedArrayExpr *node);
     void visitInjExpr(InjExpr *node);

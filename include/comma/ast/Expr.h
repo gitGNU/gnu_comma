@@ -97,39 +97,6 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// KeywordSelector
-//
-// Nodes which represent the selection of a keyword in a subroutine call.
-class KeywordSelector : public Expr {
-
-public:
-    /// Construct a keyword selection node.
-    ///
-    /// \param key  The argument keyword to be selected.
-    ///
-    /// \param loc  The location of \p key.
-    ///
-    /// \param expr The expression associated with \p key.
-    KeywordSelector(IdentifierInfo *key, Location loc, Expr *expr);
-
-    IdentifierInfo *getKeyword() const { return keyword; }
-    void setKeyword(IdentifierInfo *key) { keyword = key; }
-
-    Expr *getExpression() { return expression; }
-    const Expr *getExpression() const { return expression; }
-    void setExpression(Expr *expr) { expression = expr; }
-
-    static bool classof(const KeywordSelector *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_KeywordSelector;
-    }
-
-private:
-    IdentifierInfo *keyword;
-    Expr           *expression;
-};
-
-//===----------------------------------------------------------------------===//
 // FunctionCallExpr
 
 class FunctionCallExpr : public Expr {

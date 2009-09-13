@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/Expr.h"
+#include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
 #include <iostream>
 

@@ -59,7 +59,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IndexedArrayExpr",
     "InjExpr",
     "IntegerLiteral",
-    "KeywordSelector",
     "PrjExpr",
 
     "AssignmentStmt",
@@ -70,6 +69,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "StmtSequence",
     "WhileStmt",
 
+    "KeywordSelector",
     "Qualifier",
     "SubroutineRef",
     "TypeRef"

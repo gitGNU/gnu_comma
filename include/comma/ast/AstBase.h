@@ -176,7 +176,6 @@ public:
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
-        AST_KeywordSelector,    ///< KeywordSelector
         AST_PrjExpr,            ///< PrjExpr
 
         //
@@ -193,6 +192,7 @@ public:
         //
         // Miscellaneous helper nodes.
         //
+        AST_KeywordSelector,    ///< KeywordSelector
         AST_Qualifier,          ///< Qualifier
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef

@@ -29,7 +29,6 @@ public:
     virtual void visitAst(Ast *node);
     virtual void visitExpr(Expr *node);
     virtual void visitDeclRefExpr(DeclRefExpr *node);
-    virtual void visitKeywordSelector(KeywordSelector *node);
     virtual void visitFunctionCallExpr(FunctionCallExpr *node);
     virtual void visitIndexedArrayExpr(IndexedArrayExpr *node);
     virtual void visitInjExpr(InjExpr *node);

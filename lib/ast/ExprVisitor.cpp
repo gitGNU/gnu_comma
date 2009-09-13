@@ -35,7 +35,6 @@ void ExprVisitor::visitExpr(Expr *node)
         assert(false && "Cannot visit this kind of node!");
         break;
     case DISPATCH(DeclRefExpr, node);
-    case DISPATCH(KeywordSelector, node);
     case DISPATCH(FunctionCallExpr, node);
     case DISPATCH(IndexedArrayExpr, node);
     case DISPATCH(InjExpr, node);
@@ -48,7 +47,6 @@ void ExprVisitor::visitExpr(Expr *node)
 // Leaf nodes.  Default implementations do nothing.
 
 void ExprVisitor::visitDeclRefExpr(DeclRefExpr *node) { }
-void ExprVisitor::visitKeywordSelector(KeywordSelector *node) { }
 void ExprVisitor::visitFunctionCallExpr(FunctionCallExpr *node) { }
 void ExprVisitor::visitIndexedArrayExpr(IndexedArrayExpr *node) { }
 void ExprVisitor::visitInjExpr(InjExpr *node) { }
