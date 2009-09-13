@@ -46,22 +46,8 @@ void ExprDumper::visitKeywordSelector(KeywordSelector *node)
 void ExprDumper::visitFunctionCallExpr(FunctionCallExpr *node)
 {
     printHeader(node);
-
-    SubroutineRef *connective = node->getConnective();
-    S << llvm::format(" '%s'", connective->getString());
-
-    unsigned numArgs = node->getNumArgs();
-    unsigned index = 0;
-    indent();
-    while (index < numArgs) {
-        S << '\n';
-        printIndentation();
-        visitExpr(node->getArg(index));
-        if (++index < numArgs)
-            S << "; ";
-    }
-    dedent();
-    S << '>';
+    FunctionDecl *decl = node->getConnective(0);
+    S << llvm::format(" '%s'>", decl->getString());
 }
 
 void ExprDumper::visitIndexedArrayExpr(IndexedArrayExpr *node)

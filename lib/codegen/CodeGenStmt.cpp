@@ -170,10 +170,11 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
     ProcedureDecl *pdecl = stmt->getConnective();
     std::vector<llvm::Value *> args;
 
-    for (unsigned i = 0; i < stmt->getNumArgs(); ++i) {
-        Expr *arg = stmt->getArg(i);
-        args.push_back(emitCallArgument(pdecl, arg, i));
-    }
+    typedef ProcedureCallStmt::arg_iterator iterator;
+    iterator I = stmt->begin_arguments();
+    iterator E = stmt->end_arguments();
+    for (unsigned i = 0; I != E; ++I, ++i)
+        args.push_back(emitCallArgument(pdecl, *I, i));
 
     if (isLocalCall(stmt))
         emitLocalCall(pdecl, args);

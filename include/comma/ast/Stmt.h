@@ -118,22 +118,103 @@ class ProcedureCallStmt : public Stmt {
 
 public:
     ProcedureCallStmt(ProcedureDecl *connective,
-                      Expr         **arguments,
-                      unsigned       numArgs,
-                      Location       loc);
+                      Expr **positionalArgs, unsigned numPositional,
+                      KeywordSelector **keyedArgs, unsigned numKeys,
+                      Location loc);
 
     ~ProcedureCallStmt();
 
+    /// Returns the location of this procedure call.
+    Location getLocation() const { return location; }
+
+    /// Returns the procedure declaration underlying this call.
     ProcedureDecl *getConnective() const { return connective; }
 
+    /// Returns the total number of arguments (positional and keyed) supplied to
+    /// this procedure call.
     unsigned getNumArgs() const { return numArgs; }
 
-    Expr *getArg(unsigned i) {
-        assert(i < numArgs && "Index out of range!");
-        return arguments[i];
+    /// Returns the number of positional arguments supplied to this procedure
+    /// call.
+    unsigned getNumPositionalArgs() const {
+        return getNumArgs() - getNumKeyedArgs();
     }
 
-    Location getLocation() const { return location; }
+    /// Returns the number of keyed arguments supplied to this procedure call.
+    unsigned getNumKeyedArgs() const { return numKeys; }
+
+    /// \name Argument Iterators.
+    ///
+    /// \brief Iterators over all arguments of a procedure call.
+    ///
+    /// An arg_iterator is used to tarverse the full set of argument expressions
+    /// in the order expected by the calls connective.  In other words, any
+    /// keyed argument expressions are presented in an order consistent with the
+    /// underlying connective, not in the order as originally supplied to the
+    /// call.
+    ///
+    /// Unlike the argument iterators of a FunctionCallExpr, procedure calls are
+    /// never ambiguous (they are always fully resolved based on their argument
+    /// types).
+    //@{
+    typedef Expr **arg_iterator;
+    arg_iterator begin_arguments() {
+        return arguments ? &arguments[0] : 0;
+    }
+    arg_iterator end_arguments() {
+        return arguments ? &arguments[numArgs] : 0;
+    }
+
+    typedef const Expr *const *const_arg_iterator;
+    const_arg_iterator begin_arguments() const {
+        return arguments ? &arguments[0] : 0;
+    }
+    const_arg_iterator end_arguments() const {
+        return arguments ? &arguments[numArgs] : 0;
+    }
+    //@}
+
+    /// \name Positional Argument Iterators.
+    ///
+    /// \brief Iterators over the positional arguments of a procedure call
+    /// expression.
+    //@{
+    typedef Expr **pos_iterator;
+    pos_iterator begin_positional() {
+        return arguments ? &arguments[0] : 0;
+    }
+    pos_iterator end_positional() {
+        return arguments ? &arguments[getNumPositionalArgs()] : 0;
+    }
+
+    typedef Expr *const *const_pos_iterator;
+    const_pos_iterator begin_positional() const {
+        return arguments ? &arguments[0] : 0;
+    }
+    const_pos_iterator end_positional() const {
+        return arguments ? &arguments[getNumPositionalArgs()] : 0;
+    }
+    //@}
+
+    /// \name KeywordSelector Iterators.
+    ///
+    /// \brief Iterators over the keyword selectors of this call expression.
+    ///
+    /// These iterators provide the keyword selectors in the order as they were
+    /// originally supplied to the constructor.
+    //@{
+    typedef KeywordSelector **key_iterator;
+    key_iterator begin_keys() { return keyedArgs ? &keyedArgs[0] : 0; }
+    key_iterator end_keys() { return keyedArgs ? &keyedArgs[numKeys] : 0; }
+
+    typedef KeywordSelector *const *const_key_iterator;
+    const_key_iterator begin_keys() const {
+        return keyedArgs ? &keyedArgs[0] : 0;
+    }
+    const_key_iterator end_keys() const {
+        return keyedArgs ? &keyedArgs[numKeys] : 0;
+    }
+    //@}
 
     static bool classof(const ProcedureCallStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -142,9 +223,11 @@ public:
 
 private:
     ProcedureDecl *connective;
-    Expr         **arguments;
-    unsigned       numArgs;
-    Location       location;
+    Expr **arguments;
+    KeywordSelector **keyedArgs;
+    unsigned numArgs;
+    unsigned numKeys;
+    Location location;
 };
 
 //===----------------------------------------------------------------------===//

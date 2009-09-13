@@ -94,8 +94,11 @@ void DependentScanner::visitProcedureCallStmt(ProcedureCallStmt *node)
         CGC.addCapsuleDependency(instance);
     }
 
-    for (unsigned i = 0; i < node->getNumArgs(); ++i)
-        visitExpr(node->getArg(i));
+    typedef ProcedureCallStmt::arg_iterator iterator;
+    iterator I = node->begin_arguments();
+    iterator E = node->end_arguments();
+    for ( ; I != E; ++I)
+        visitExpr(*I);
 }
 
 void DependentScanner::visitReturnStmt(ReturnStmt *node)
@@ -147,8 +150,11 @@ void DependentScanner::visitFunctionCallExpr(FunctionCallExpr *node)
         CGC.addCapsuleDependency(instance);
     }
 
-    for (unsigned i = 0; i < node->getNumArgs(); ++i)
-        visitExpr(node->getArg(i));
+    typedef FunctionCallExpr::arg_iterator iterator;
+    iterator I = node->begin_arguments();
+    iterator E = node->end_arguments();
+    for ( ; I != E; ++I)
+        visitExpr(*I);
 }
 
 void DependentScanner::visitInjExpr(InjExpr *node)

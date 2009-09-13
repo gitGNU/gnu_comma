@@ -146,17 +146,21 @@ public:
                      Expr **arguments, unsigned numArgs);
 
     /// Creates a function call expression over the given set of function
-    /// declarations.
+    /// declarations and arguments.
     ///
-    /// The given declarations must all have the same name, and otherwise we
+    /// The given declarations must all have the same name, and otherwise be
     /// compatible with the construction of a SubroutineRef.
     FunctionCallExpr(FunctionDecl **connectives, unsigned numConnectives,
-                     Expr **arguments, unsigned numArgs, Location loc);
+                     Expr **positionalArgs, unsigned numPositional,
+                     KeywordSelector **keyedArgs, unsigned numKeys,
+                     Location loc);
 
     /// Creates a function call expression over a single unique function
     /// declaration.  The resulting call expression is unambiguous.
     FunctionCallExpr(FunctionDecl *fdecl,
-                     Expr **arguments, unsigned numArgs, Location loc);
+                     Expr **positionalArgs, unsigned numPositional,
+                     KeywordSelector **keyedArgs, unsigned numKeys,
+                     Location loc);
 
     ~FunctionCallExpr();
 
@@ -176,14 +180,39 @@ public:
     const Qualifier *getQualifier() const { return qualifier; }
 
     //@{
-    /// Returns the connective associcated with this call.  The resulting node
-    /// is either a FunctionDecl or OverloadedDeclName.
-    SubroutineRef *getConnective() { return connective; }
-    const SubroutineRef *getConnective() const { return connective; }
+    /// If this call is unambiguous, returns the unique function declaration
+    /// serving as the connective for this call, otherwise returns null.
+    FunctionDecl *getConnective() {
+        if (isUnambiguous()) {
+            return llvm::cast<FunctionDecl>(connective->getDeclaration(0));
+        }
+        return 0;
+    };
+
+    const FunctionDecl *getConnective() const {
+        if (isUnambiguous()) {
+            return llvm::cast<FunctionDecl>(connective->getDeclaration(0));
+        }
+        return 0;
+    }
     //@}
 
-    /// Resolved the connective for this call.  This method can only be called
-    /// when the call is currently ambiguous.
+    /// Resolved the connective for this call.
+    ///
+    /// The supplied function declaration must accept the exact number of
+    /// arguments this call supplies.  Furthermore, if this call was made with
+    /// keyed arguments, the supplied declaration must accept the format of this
+    /// call.  In particular:
+    ///
+    ///   - For each keyword argument supplied to this call, the declaration
+    ///     must provide a matching keyword.
+    ///
+    ///   - The position of a keyed argument must be greater than the number of
+    ///     positional parameters supplied to this call.
+    ///
+    /// Provided that the supplied connective meets these constraints, this call
+    /// becomes unambiguous, and the full set of arguments becomes available
+    /// thru the arg_iterator interface.
     void resolveConnective(FunctionDecl *connective);
 
     /// Returns true if this call is ambiguous.
@@ -233,27 +262,100 @@ public:
     }
     //@}
 
-    /// Returns the number of arguments supplied to this call expression.
-    unsigned getNumArgs() const { return numArgs; }
+    /// Returns total the number of arguments supplied to this call expression.
+    /// This is the sum of all positional and keyed arguments.
+    unsigned getNumArgs() const { return numPositional + numKeys; }
 
+    /// Returns the number of positional arguments supplied to this call
+    /// expression.
+    unsigned getNumPositionalArgs() const { return numPositional; }
+
+    /// Returns the number of keyed arguments supplied to this call expression.
+    unsigned getNumKeyedArgs() const { return numKeys; }
+
+    /// \name Argument Iterators.
+    ///
+    /// \brief Iterators over the arguments of an unambiguous call expression.
+    ///
+    /// These iterators can be accessed only when this call expression is
+    /// unambiguous, otherwise an assertion will be raised.
+    ///
+    /// An arg_iterator is used to traverse the full set of argument expressions
+    /// in the order expected by the calls connective.  In other words, any
+    /// keyed argument expressions are presented in an order consistent with the
+    /// underlying connective, not in the order as originally supplied to
+    /// call.
     //@{
-    /// Returns the \p i'th argument of this call.
-    Expr *getArg(unsigned i) {
-        assert(i < numArgs && "Index out of range!");
-        return arguments[i];
+    typedef Expr **arg_iterator;
+    arg_iterator begin_arguments() {
+        assert(isUnambiguous() &&
+               "Cannot iterate over the arguments of an ambiguous call expr!");
+        return arguments ? &arguments[0] : 0;
+    }
+    arg_iterator end_arguments() {
+        assert(isUnambiguous() &&
+               "Cannot iterate over the arguments of an ambiguous call expr!");
+        return arguments ? &arguments[getNumArgs()] : 0;
     }
 
-    const Expr *getArg(unsigned i) const {
-        assert(i < numArgs && "Index out of range!");
-        return arguments[i];
+    typedef const Expr *const *const_arg_iterator;
+    const_arg_iterator begin_arguments() const {
+        assert(isUnambiguous() &&
+               "Cannot iterate over the arguments of an ambiguous call expr!");
+        return arguments ? &arguments[0] : 0;
+    }
+    const_arg_iterator end_arguments() const {
+        assert(isUnambiguous() &&
+               "Cannot iterate over the arguments of an ambiguous call expr!");
+        return arguments ? &arguments[getNumArgs()] : 0;
+    }
+
+    //@}
+
+    /// \name Positional Argument Iterators.
+    ///
+    /// \brief Iterators over the positional arguments of a call expression.
+    ///
+    /// Unlike the more specific arg_iterator, positional iterators are valid
+    /// even when the call is ambiguous.
+    //@{
+    typedef Expr **pos_iterator;
+    pos_iterator begin_positional() {
+        return numPositional ? &arguments[0] : 0;
+    }
+    pos_iterator end_positional() {
+        return numPositional ? &arguments[numPositional] : 0;
+    }
+
+    typedef Expr *const *const_pos_iterator;
+    const_pos_iterator begin_positional() const {
+        return numPositional ? &arguments[0] : 0;
+    }
+    const_pos_iterator end_positional() const {
+        return numPositional ? &arguments[numPositional] : 0;
     }
     //@}
 
-    /// Sets the \p i'th argument to the given expression.
-    void setArg(Expr *expr, unsigned i) {
-        assert(i < numArgs && "Index out of range!");
-        arguments[i] = expr;
+    /// \name KeywordSelector Iterators.
+    ///
+    /// \brief Iterators over the keyword selectors of this call expression.
+    ///
+    /// These iterators are valid even for ambiguous call expressions.  They
+    /// provide the keyword selectors in the order as they were originally
+    /// supplied to the constructor.
+    //@{
+    typedef KeywordSelector **key_iterator;
+    key_iterator begin_keys() { return numKeys ? &keyedArgs[0] : 0; }
+    key_iterator end_keys() { return numKeys ? &keyedArgs[numKeys] : 0; }
+
+    typedef KeywordSelector *const *const_key_iterator;
+    const_key_iterator begin_keys() const {
+        return numKeys ? &keyedArgs[0] : 0;
     }
+    const_key_iterator end_keys() const {
+        return numKeys ? &keyedArgs[numKeys] : 0;
+    }
+    //@}
 
     // Support isa and dyn_cast.
     static bool classof(const FunctionCallExpr *node) { return true; }
@@ -264,10 +366,14 @@ public:
 private:
     SubroutineRef *connective;
     Expr **arguments;
-    unsigned numArgs;
+    KeywordSelector **keyedArgs;
+    unsigned numPositional;
+    unsigned numKeys;
     Qualifier *qualifier;
 
     void setTypeForConnective();
+    void setArguments(Expr **posArgs, unsigned numPos,
+                      KeywordSelector **keyArgs, unsigned numKeys);
 };
 
 //===----------------------------------------------------------------------===//

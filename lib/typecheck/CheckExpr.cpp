@@ -152,7 +152,7 @@ Node TypeCheck::acceptQualifiedName(Node qualNode,
     // Form the function call node and populate with any additional connectives
     // (to be resolved by the type context of this call).
     FunctionCallExpr *call
-        = new FunctionCallExpr(&decls[0], decls.size(), 0, 0, loc);
+        = new FunctionCallExpr(&decls[0], decls.size(), 0, 0, 0, 0, loc);
     call->setQualifier(qualifier);
     qualNode.release();
     return getNode(call);
@@ -201,7 +201,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
                 connectives.push_back(cast<FunctionDecl>(overloads[i]));
 
             FunctionCallExpr *call =
-                new FunctionCallExpr(&connectives[0], size, 0, 0, loc);
+                new FunctionCallExpr(&connectives[0], size, 0, 0, 0, 0, loc);
             return getNode(call);
         }
         report(loc, diag::NAME_NOT_VISIBLE) << name;
@@ -218,7 +218,7 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name,
             connectives.push_back(cast<FunctionDecl>(overloads[i]));
 
         FunctionCallExpr *call =
-            new FunctionCallExpr(&connectives[0], size, 0, 0, loc);
+            new FunctionCallExpr(&connectives[0], size, 0, 0, 0, 0, loc);
         return getNode(call);
     }
 
@@ -279,16 +279,19 @@ Node TypeCheck::acceptFunctionCall(Node connective,
                                    Location loc,
                                    NodeVector &argNodes)
 {
-    std::vector<SubroutineDecl*> decls;
+    llvm::SmallVector<SubroutineDecl*, 8> decls;
     unsigned targetArity = argNodes.size();
 
     assert(targetArity > 0 && "Cannot accept nullary function calls!");
 
     connective.release();
 
+    // If the connective is a value decl, this must be an IndexedArray
+    // expression.
     if (ValueDecl *vdecl = lift_node<ValueDecl>(connective))
         return acceptIndexedArray(vdecl, loc, argNodes);
 
+    // Reduce the set of declarations to match the required arity.
     SubroutineRef *ref = cast_node<SubroutineRef>(connective);
     SubroutineRef::fun_iterator I = ref->begin_functions();
     SubroutineRef::fun_iterator E = ref->end_functions();
@@ -302,26 +305,86 @@ Node TypeCheck::acceptFunctionCall(Node connective,
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
         return getInvalidNode();
     }
-    return acceptSubroutineCall(decls, loc, argNodes);
+
+    // Seperate the arguments into positional and keyed sets.
+    llvm::SmallVector<Expr *, 8> positionalArgs;
+    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
+
+    for (unsigned i = 0; i < targetArity; ++i) {
+        if (KeywordSelector *selector = lift_node<KeywordSelector>(argNodes[i]))
+            keyedArgs.push_back(selector);
+        else
+            positionalArgs.push_back(cast_node<Expr>(argNodes[i]));
+    }
+
+    Node res = acceptSubroutineCall(decls, loc, positionalArgs, keyedArgs);
+    if (res.isValid())
+        argNodes.release();
+    return res;
 }
 
-Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
-                                     Location loc,
-                                     NodeVector &argNodes)
+bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 {
-    llvm::SmallVector<Expr*, 8> args;
-    unsigned numArgs = argNodes.size();
-    IdentifierInfo *name = decls[0]->getIdInfo();
+    // FIXME: This is a hack.  The type equality predicates should perform this
+    // reduction.
+    if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
+        targetType = carrierTy->getRepresentationType();
 
-    // Convert the argument nodes to Expr's.
-    for (unsigned i = 0; i < numArgs; ++i)
-        args.push_back(cast_node<Expr>(argNodes[i]));
+    // If the argument as a fully resolved type, all we currently do is test for
+    // type equality.
+    if (arg->hasType()) {
+        Type *argTy = arg->getType();
 
-    if (decls.size() == 1) {
-        Node call = checkSubroutineCall(decls[0], loc, args.data(), numArgs);
-        if (call.isValid()) argNodes.release();
-        return call;
+        // FIXME: This is a hack.  The type equality predicates should perform
+        // this reduction.
+        if (CarrierType *carrierTy = dyn_cast<CarrierType>(argTy))
+            argTy = carrierTy->getRepresentationType();
+
+        if (!targetType->equals(argTy))
+            return false;
+        else
+            return true;
     }
+
+    // We have an unresolved argument expression.  If the expression is an
+    // integer literal it is compatable if the target is an integer type.
+    //
+    // FIXME:  We should also check that the literal satisfies range contraints
+    // of the target.
+    if (isa<IntegerLiteral>(arg))
+        return targetType->isIntegerType();
+
+    // The expression must be an ambiguous function call.  Check that at least
+    // one interpretation of the call satisfies the target type.
+    typedef FunctionCallExpr::connective_iterator iterator;
+    bool applicableArgument = false;
+    FunctionCallExpr *call = cast<FunctionCallExpr>(arg);
+    iterator I = call->begin_connectives();
+    iterator E = call->end_connectives();
+
+    for ( ; I != E; ++I) {
+        FunctionDecl *connective = *I;
+        Type *returnType = connective->getReturnType();
+        if (targetType->equals(returnType)) {
+            applicableArgument = true;
+            break;
+        }
+    }
+
+    return applicableArgument;
+}
+
+Node TypeCheck::acceptSubroutineCall(
+    llvm::SmallVectorImpl<SubroutineDecl*> &decls,
+    Location loc,
+    llvm::SmallVectorImpl<Expr*> &positionalArgs,
+    llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs)
+{
+    unsigned numPositional = positionalArgs.size();
+    unsigned numKeys = keyedArgs.size();
+
+    if (decls.size() == 1)
+        return checkSubroutineCall(decls[0], loc, positionalArgs, keyedArgs);
 
     // We use the following bit vector to indicate which elements of the decl
     // vector are applicable as we resolve the subroutine call with respect to
@@ -329,128 +392,75 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     llvm::BitVector declFilter(decls.size(), true);
 
     // First, reduce the set of declarations to include only those which can
-    // accept any keyword selectors provided.
+    // accept the keyword selectors provided.
     for (unsigned i = 0; i < decls.size(); ++i) {
         SubroutineDecl *decl = decls[i];
-        for (unsigned j = 0; j < numArgs; ++j) {
-            Expr *arg = args[j];
-            if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg)) {
-                IdentifierInfo *key = selector->getKeyword();
-                Location keyLoc = selector->getLocation();
-                int keyIndex = decl->getKeywordIndex(key);
+        for (unsigned j = 0; j < keyedArgs.size(); ++j) {
+            KeywordSelector *selector = keyedArgs[j];
+            IdentifierInfo *key = selector->getKeyword();
+            Location keyLoc = selector->getLocation();
+            int keyIndex = decl->getKeywordIndex(key);
 
-                if (keyIndex < 0) {
-                    declFilter[i] = false;
-                    if (declFilter.none()) {
-                        report(keyLoc, diag::SUBROUTINE_HAS_NO_SUCH_KEYWORD)
-                            << key << name;
-                        return getInvalidNode();
-                    }
-                    break;
-                }
+            if (keyIndex < 0 || unsigned(keyIndex) < numPositional) {
+                declFilter[i] = false;
+                break;
             }
         }
     }
 
-    // Reduce the set of declarations with respect to the types of its
+    // If none of the declarations support the keywords given, just report the
+    // call as ambiguous.
+    if (declFilter.none()) {
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
+        return getInvalidNode();
+    }
+
+    // Reduce the set of declarations with respect to the types of the
     // arguments.
     for (unsigned i = 0; i < decls.size(); ++i) {
         SubroutineDecl *decl = decls[i];
-        for (unsigned j = 0; j < numArgs && declFilter[i]; ++j) {
-            Expr *arg = args[j];
-            unsigned targetIndex = j;
 
-            if (KeywordSelector *selector = dyn_cast<KeywordSelector>(args[j])) {
-                arg = selector->getExpression();
-                targetIndex = decl->getKeywordIndex(selector->getKeyword());
+        // First process the positional parameters.
+        for (unsigned j = 0; j < numPositional; ++j) {
+            Expr *arg = positionalArgs[j];
+            Type *targetType = decl->getParamType(j);
+
+            if (!checkApplicableArgument(arg, targetType)) {
+                declFilter[i] = false;
+                break;
             }
+        }
 
+        // If this declaration is not applicable, move on.
+        if (!declFilter[i])
+            continue;
+
+        // Check the keyed arguments for compatability.
+        for (unsigned j = 0; j < numKeys; ++j) {
+            KeywordSelector *selector = keyedArgs[j];
+            Expr *arg = selector->getExpression();
+            IdentifierInfo *key = selector->getKeyword();
+            unsigned targetIndex = decl->getKeywordIndex(key);
             Type *targetType = decl->getParamType(targetIndex);
 
-            // FIXME: This is a hack.  The type equality predicates should perform
-            // this reduction.
-            if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
-                targetType = carrierTy->getRepresentationType();
-
-            // If the argument as a fully resolved type, all we currently do is
-            // test for type equality.
-            if (arg->hasType()) {
-                Type *argTy = arg->getType();
-
-                // FIXME: This is a hack.  The type equality predicates should
-                // perform this reduction.
-                if (CarrierType *carrierTy = dyn_cast<CarrierType>(argTy))
-                    argTy = carrierTy->getRepresentationType();
-
-                if (!targetType->equals(argTy)) {
-                    declFilter[i] = false;
-                    // If the set of applicable declarations has been reduced to
-                    // zero, report this call as ambiguous.
-                    if (declFilter.none())
-                        report(loc, diag::AMBIGUOUS_EXPRESSION);
-                }
-                continue;
-            }
-
-            // Otherwise, we have an unresolved argument expression.  The
-            // expression can be an integer literal or a function call
-            // expression.
-            if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(arg)) {
-                if (!targetType->isIntegerType()) {
-                    declFilter[i] = false;
-                    // If the set of applicable declarations has been reduced to
-                    // zero, report this call as ambiguous.
-                    if (declFilter.none())
-                        report(loc, diag::AMBIGUOUS_EXPRESSION);
-                }
-                else {
-                    // FIXME: Ensure that the literal meets any range
-                    // constraints implied by the context.
-                    intLit->setType(targetType);
-                }
-                continue;
-            }
-
-            typedef FunctionCallExpr::connective_iterator ConnectiveIter;
-            bool applicableArgument = false;
-            FunctionCallExpr *argCall = cast<FunctionCallExpr>(arg);
-
-            // Check if at least one interpretation of the argument satisfies
-            // the current target type.
-            for (ConnectiveIter iter = argCall->begin_connectives();
-                 iter != argCall->end_connectives(); ++iter) {
-                FunctionDecl *connective = cast<FunctionDecl>(*iter);
-                Type *returnType = connective->getReturnType();
-                if (targetType->equals(returnType)) {
-                    applicableArgument = true;
-                    break;
-                }
-            }
-
-            // If this argument is not applicable (meaning, there is no
-            // interpretation of the argument for this particular decl), filter
-            // out the decl.  Also, if we have exhausted all possibilities, use
-            // the current argument as context for generating a diagnostic.
-            if (!applicableArgument) {
+            if (!checkApplicableArgument(arg, targetType)) {
                 declFilter[i] = false;
-                if (declFilter.none())
-                    report(arg->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+                break;
             }
         }
     }
 
     // If all of the declarations have been filtered out, it is due to ambiguous
-    // arguments.  Simply return (we have already generated a diagnostic).
-    if (declFilter.none())
+    // arguments.
+    if (declFilter.none()) {
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
         return getInvalidNode();
+    }
 
     // If we have a unique declaration, check the matching call.
     if (declFilter.count() == 1) {
-        argNodes.release();
         SubroutineDecl *decl = decls[declFilter.find_first()];
-        Node result = checkSubroutineCall(decl, loc, args.data(), numArgs);
-        if (result.isValid()) argNodes.release();
-        return result;
+        return checkSubroutineCall(decl, loc, positionalArgs, keyedArgs);
     }
 
     // If we are dealing with functions, the resolution of the call will depend
@@ -463,8 +473,8 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
                 connectives.push_back(cast<FunctionDecl>(decls[i]));
         FunctionCallExpr *call =
             new FunctionCallExpr(&connectives[0], connectives.size(),
-                                 args.data(), numArgs, loc);
-        argNodes.release();
+                                 positionalArgs.data(), positionalArgs.size(),
+                                 keyedArgs.data(), keyedArgs.size(), loc);
         return getNode(call);
     }
     else {
@@ -473,76 +483,73 @@ Node TypeCheck::acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
     }
 }
 
-Node TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
-                                    Expr **args, unsigned numArgs)
+Node
+TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
+                               llvm::SmallVectorImpl<Expr*> &positionalArgs,
+                               llvm::SmallVectorImpl<KeywordSelector*> &keyArgs)
 {
+    unsigned numArgs = positionalArgs.size() + keyArgs.size();
+
     if (decl->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << decl->getIdInfo();
         return getInvalidNode();
     }
 
-    llvm::SmallVector<Expr*, 4> sortedArgs(numArgs);
-    unsigned numPositional = 0;
-
-    // Sort the arguments wrt the functions keyword profile.
-    for (unsigned i = 0; i < numArgs; ++i) {
-        Expr *arg = args[i];
-
-        if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg)) {
-            IdentifierInfo  *key      = selector->getKeyword();
-            Location         keyLoc   = selector->getLocation();
-            int              keyIdx   = decl->getKeywordIndex(key);
-
-            // Ensure the given keyword exists.
-            if (keyIdx < 0) {
-                report(keyLoc, diag::SUBROUTINE_HAS_NO_SUCH_KEYWORD)
-                    << key << decl->getIdInfo();
-                return getInvalidNode();
-            }
-
-            // The corresponding index of the keyword must be greater than the
-            // number of supplied positional parameters (otherwise it would
-            // `overlap' a positional parameter).
-            if ((unsigned)keyIdx < numPositional) {
-                report(keyLoc, diag::PARAM_PROVIDED_POSITIONALLY) << key;
-                return getInvalidNode();
-            }
-
-            // Ensure that this keyword is not a duplicate of any preceding
-            // keyword.
-            for (unsigned j = numPositional; j < i; ++j) {
-                KeywordSelector *prevSelector;
-                prevSelector = cast<KeywordSelector>(args[j]);
-
-                if (prevSelector->getKeyword() == key) {
-                    report(keyLoc, diag::DUPLICATE_KEYWORD) << key;
-                    return getInvalidNode();
-                }
-            }
-
-            // Add the argument in its proper position.
-            sortedArgs[keyIdx] = arg;
-        }
-        else {
-            numPositional++;
-            sortedArgs[i] = arg;
-        }
-    }
-
-    if (!checkSubroutineArguments(decl, sortedArgs.data(), numArgs))
+    if (!checkSubroutineArguments(decl, positionalArgs, keyArgs))
         return getInvalidNode();
 
     if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
         FunctionCallExpr *call =
-            new FunctionCallExpr(fdecl, sortedArgs.data(), numArgs, loc);
+            new FunctionCallExpr(fdecl,
+                                 positionalArgs.data(), positionalArgs.size(),
+                                 keyArgs.data(), keyArgs.size(), loc);
         return getNode(call);
     }
     else {
         ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
         ProcedureCallStmt *call =
-            new ProcedureCallStmt(pdecl, sortedArgs.data(), numArgs, loc);
+            new ProcedureCallStmt(pdecl,
+                                  positionalArgs.data(), positionalArgs.size(),
+                                  keyArgs.data(), keyArgs.size(), loc);
         return getNode(call);
     }
+}
+
+bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
+                                        PM::ParameterMode targetMode)
+{
+    Location argLoc = arg->getLocation();
+
+    if (!checkExprInContext(arg, targetType))
+        return false;
+
+    // If the target mode is either "out" or "in out", ensure that the
+    // argument provided is compatable.
+    if (targetMode == PM::MODE_OUT or targetMode == PM::MODE_IN_OUT) {
+        if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
+            ValueDecl *vdecl = declRef->getDeclaration();
+            if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
+                // If the argument is of mode IN, then so too must be the
+                // target mode.
+                if (param->getParameterMode() == PM::MODE_IN) {
+                    report(argLoc, diag::IN_PARAMETER_NOT_MODE_COMPATABLE)
+                        << param->getString() << targetMode;
+                    return false;
+                }
+            }
+            else {
+                // The only other case (currently) are ObjectDecls, which are
+                // always usable.
+                assert(isa<ObjectDecl>(vdecl) && "Cannot typecheck decl!");
+            }
+        }
+        else {
+            // The argument is not usable in an "out" or "in out" context.
+            report(argLoc, diag::EXPRESSION_NOT_MODE_COMPATABLE) << targetMode;
+            return false;
+        }
+    }
+    return true;
 }
 
 /// Checks that the supplied array of arguments are mode compatible with those
@@ -552,49 +559,65 @@ Node TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
 /// expected by the decl.  This function checks that the argument types and
 /// modes are compatible with that of the given decl.  Returns true if the check
 /// succeeds, false otherwise and appropriate diagnostics are posted.
-bool TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
-                                         Expr **args,
-                                         unsigned numArgs)
+bool TypeCheck::checkSubroutineArguments(
+    SubroutineDecl *decl,
+    llvm::SmallVectorImpl<Expr*> &posArgs,
+    llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs)
 {
-    // Check each argument types wrt this decl.
-    for (unsigned i = 0; i < numArgs; ++i) {
+    // Check each positional argument.
+    typedef llvm::SmallVectorImpl<Expr*>::iterator pos_iterator;
+    pos_iterator PI = posArgs.begin();
+    for (unsigned i = 0; PI != posArgs.end(); ++PI, ++i) {
+        Expr *arg = *PI;
         Type *targetType = decl->getParamType(i);
-        Expr *arg = args[i];
-        Location argLoc = arg->getLocation();
         PM::ParameterMode targetMode = decl->getParamMode(i);
 
-        if (KeywordSelector *selector = dyn_cast<KeywordSelector>(arg))
-            arg = selector->getExpression();
-
-        if (!checkExprInContext(arg, targetType))
+        if (!checkSubroutineArgument(arg, targetType, targetMode))
             return false;
+    }
 
-        // If the target mode is either "out" or "in out", ensure that the
-        // argument provided is compatable.
-        if (targetMode == PM::MODE_OUT or targetMode == PM::MODE_IN_OUT) {
-            if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
-                ValueDecl *vdecl = declRef->getDeclaration();
-                if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
-                    // If the argument is of mode IN, then so too must be the
-                    // target mode.
-                    if (param->getParameterMode() == PM::MODE_IN) {
-                        report(argLoc, diag::IN_PARAMETER_NOT_MODE_COMPATABLE)
-                            << param->getString() << targetMode;
-                        return false;
-                    }
-                }
-                else {
-                    // The only other case (currently) are ObjectDecls, which
-                    // are always usable.
-                    assert(isa<ObjectDecl>(vdecl) && "Cannot typecheck decl!");
-                }
-                continue;
-            }
+    // Check each keyed argument.
+    typedef llvm::SmallVectorImpl<KeywordSelector*>::iterator key_iterator;
+    key_iterator KI = keyedArgs.begin();
+    for ( ; KI != keyedArgs.end(); ++KI) {
+        KeywordSelector *selector = *KI;
+        IdentifierInfo *key = selector->getKeyword();
+        Location keyLoc = selector->getLocation();
+        Expr *arg = selector->getExpression();
+        int keyIndex = decl->getKeywordIndex(key);
 
-            // The argument is not usable in an "out" or "in out" context.
-            report(argLoc, diag::EXPRESSION_NOT_MODE_COMPATABLE) << targetMode;
+
+        // Ensure the given keyword exists.
+        if (keyIndex < 0) {
+            report(keyLoc, diag::SUBROUTINE_HAS_NO_SUCH_KEYWORD)
+                << key << decl->getIdInfo();
             return false;
         }
+        unsigned argIndex = unsigned(keyIndex);
+
+        // The corresponding index of the keyword must be greater than the
+        // number of supplied positional parameters (otherwise it would
+        // `overlap' a positional parameter).
+        if (argIndex < posArgs.size()) {
+                report(keyLoc, diag::PARAM_PROVIDED_POSITIONALLY) << key;
+                return false;
+        }
+
+        // Ensure that this keyword is not a duplicate of any preceding
+        // keyword.
+        for (key_iterator I = keyedArgs.begin(); I != KI; ++I) {
+            KeywordSelector *prevSelector = *I;
+            if (prevSelector->getKeyword() == key) {
+                report(keyLoc, diag::DUPLICATE_KEYWORD) << key;
+                return false;
+            }
+        }
+
+        // Ensure the type of the selected expression is compatible.
+        Type *targetType = decl->getParamType(argIndex);
+        PM::ParameterMode targetMode = decl->getParamMode(argIndex);
+        if (!checkSubroutineArgument(arg, targetType, targetMode))
+            return false;
     }
     return true;
 }
@@ -706,7 +729,7 @@ bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
            "Call expression has too many arguments!");
 
     typedef FunctionCallExpr::connective_iterator connective_iter;
-    connective_iter iter    = call->begin_connectives();
+    connective_iter iter = call->begin_connectives();
     connective_iter endIter = call->end_connectives();
     FunctionDecl *connective = 0;
 
@@ -762,7 +785,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 
     for ( ; iter != endIter; ++iter) {
         FunctionDecl *candidate  = *iter;
-        Type         *returnType = candidate->getReturnType();
+        Type *returnType = candidate->getReturnType();
         if (targetType->equals(returnType)) {
             if (fdecl) {
                 report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
@@ -784,36 +807,14 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
         call->resolveConnective(fdecl);
     }
 
-    // Traverse the argument set, patching up any unresolved argument
-    // expressions.  We also need to sort the arguments according to the keyword
-    // selections, since the connectives do not necessarily respect a uniform
-    // ordering.
+    // Traverse the argument expressions and check each against the types
+    // required by the resolved declaration.
+    typedef FunctionCallExpr::arg_iterator iterator;
+    iterator Iter = call->begin_arguments();
+    iterator E = call->end_arguments();
     bool status = true;
-    unsigned numArgs = call->getNumArgs();
-    llvm::SmallVector<Expr*, 8> sortedArgs(numArgs);
-
-    for (unsigned i = 0; i < numArgs; ++i) {
-        unsigned argIndex = i;
-        Expr *arg = call->getArg(i);
-
-        // If we have a keyword selection, locate the corresponding index, and
-        // resolve the selection to its corresponding expression.
-        if (KeywordSelector *select = dyn_cast<KeywordSelector>(arg)) {
-            arg = select->getExpression();
-            argIndex = fdecl->getKeywordIndex(select->getKeyword());
-            sortedArgs[argIndex] = select;
-        }
-        else
-            sortedArgs[argIndex] = arg;
-
-        status = status and
-            checkExprInContext(arg, fdecl->getParamType(argIndex));
-    }
-
-    // Patch up the call itself to respect the new ordering.
-    for (unsigned i = 0; i < numArgs; ++i)
-        call->setArg(sortedArgs[i], i);
-
+    for (unsigned i = 0; Iter != E; ++Iter)
+        status = status && checkExprInContext(*Iter, fdecl->getParamType(i));
     return status;
 }
 

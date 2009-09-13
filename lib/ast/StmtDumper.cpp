@@ -84,20 +84,7 @@ void StmtDumper::visitBlockStmt(BlockStmt *node)
 void StmtDumper::visitProcedureCallStmt(ProcedureCallStmt *node)
 {
     printHeader(node)
-        << llvm::format(" '%s'", node->getConnective()->getString());
-
-    unsigned numArgs = node->getNumArgs();
-    unsigned index = 0;
-    indent();
-    while (index < numArgs) {
-        S << '\n';
-        printIndentation();
-        dumpAST(node->getArg(index));
-        if (++index < numArgs)
-            S << "; ";
-    }
-    dedent();
-    S << '>';
+        << llvm::format(" '%s'>", node->getConnective()->getString());
 }
 
 void StmtDumper::visitReturnStmt(ReturnStmt *node)

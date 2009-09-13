@@ -36,61 +36,103 @@ FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective,
                                    Expr **args, unsigned numArgs)
     : Expr(AST_FunctionCallExpr, connective->getLocation()),
       connective(connective),
-      numArgs(numArgs),
       qualifier(0)
 {
-    arguments = new Expr*[numArgs];
-    std::copy(args, args + numArgs, arguments);
+    setArguments(args, numArgs, 0, 0);
     setTypeForConnective();
 }
 
 FunctionCallExpr::FunctionCallExpr(FunctionDecl **connectives,
                                    unsigned numConnectives,
-                                   Expr **args, unsigned numArgs,
+                                   Expr **posArgs, unsigned numPos,
+                                   KeywordSelector **keyArgs, unsigned numKeys,
                                    Location loc)
     : Expr(AST_FunctionCallExpr, loc),
-      connective(0),
-      numArgs(numArgs),
       qualifier(0)
 {
     connective = new SubroutineRef(loc, connectives,
                                    connectives + numConnectives);
-    arguments = new Expr*[numArgs];
-    std::copy(args, args + numArgs, arguments);
+
+    setArguments(posArgs, numPos, keyArgs, numKeys);
     setTypeForConnective();
 }
 
 FunctionCallExpr::FunctionCallExpr(FunctionDecl *fdecl,
-                                   Expr **args, unsigned numArgs,
+                                   Expr **posArgs, unsigned numPos,
+                                   KeywordSelector **keyArgs, unsigned numKeys,
                                    Location loc)
     : Expr(AST_FunctionCallExpr, loc),
       connective(new SubroutineRef(loc, fdecl)),
-      numArgs(numArgs),
       qualifier(0)
 {
-    arguments = new Expr*[numArgs];
-    std::copy(args, args + numArgs, arguments);
-    setType(fdecl->getReturnType());
+    setArguments(posArgs, numPos, keyArgs, numKeys);
+    setTypeForConnective();
+}
+
+void FunctionCallExpr::setArguments(Expr **posArgs, unsigned numPos,
+                                    KeywordSelector **keyArgs, unsigned numKeys)
+{
+    this->numPositional = numPos;
+    this->numKeys = numKeys;
+
+    unsigned numArgs = numPos + numKeys;
+
+    if (numArgs) {
+        arguments = new Expr*[numArgs];
+        std::copy(posArgs, posArgs + numPos, arguments);
+        std::fill(arguments + numPos, arguments + numArgs, (Expr*)0);
+    }
+    else
+        arguments = 0;
+
+    if (numKeys) {
+        keyedArgs = new KeywordSelector*[numKeys];
+        std::copy(keyArgs, keyArgs + numKeys, keyedArgs);
+    }
+    else
+        keyedArgs = 0;
 }
 
 void FunctionCallExpr::setTypeForConnective()
 {
     if (numConnectives() == 1) {
         FunctionDecl *fdecl = getConnective(0);
-        setType(fdecl->getReturnType());
+        resolveConnective(fdecl);
     }
 }
 
 FunctionCallExpr::~FunctionCallExpr()
 {
-    delete[] arguments;
     delete connective;
+    delete[] arguments;
+    delete[] keyedArgs;
 }
 
 void FunctionCallExpr::resolveConnective(FunctionDecl *decl)
 {
     connective->resolve(decl);
     setType(decl->getReturnType());
+
+    assert(decl->getArity() == getNumArgs() && "Arity mismatch!");
+
+    // Fill in the argument vector with any keyed expressions, sorted so that
+    // they match what the given function decl requires.
+    for (unsigned i = 0; i < numKeys; ++i) {
+        KeywordSelector *selector = keyedArgs[i];
+        IdentifierInfo *key = selector->getKeyword();
+        Expr *expr = selector->getExpression();
+        int indexResult = decl->getKeywordIndex(key);
+
+        assert(indexResult >= 0 && "Could not resolve keyword index!");
+
+        unsigned argIndex = unsigned(indexResult);
+        assert(argIndex >= numPositional &&
+               "Keyword resolved to a positional index!");
+        assert(argIndex < getNumArgs() && "Keyword index too large!");
+        assert(arguments[argIndex] == 0 && "Duplicate keywords!");
+
+        arguments[argIndex] = expr;
+    }
 }
 
 //===----------------------------------------------------------------------===//

@@ -538,8 +538,10 @@ bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
         return false;
 
     PO::PrimitiveID ID = fdecl->getPrimitiveID();
+    typedef FunctionCallExpr::arg_iterator iterator;
     if (PO::denotesUnaryPrimitive(ID)) {
-        if (!evaluateStaticIntegerExpr(expr->getArg(0), result))
+        iterator I = expr->begin_arguments();
+        if (!evaluateStaticIntegerExpr(*I, result))
             return false;
 
         // There are only two unary operations to consider.  Negation and the
@@ -560,8 +562,9 @@ bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
     // Otherwise, we have a binary operator.  Evaluate the left and right hand
     // sides.
     llvm::APInt LHS, RHS;
-    if (!evaluateStaticIntegerExpr(expr->getArg(0), LHS) ||
-        !evaluateStaticIntegerExpr(expr->getArg(1), RHS))
+    iterator I = expr->begin_arguments();
+    if (!evaluateStaticIntegerExpr(*I, LHS) ||
+        !evaluateStaticIntegerExpr(*(++I), RHS))
         return false;
 
     // FIXME: Since we only evaluate addition and subtraction currently, sign

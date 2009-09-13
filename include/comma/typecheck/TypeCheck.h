@@ -605,34 +605,34 @@ private:
     // i.e. one without arguments) to one which satisfies the given target type
     // and returns true.  Otherwise, false is returned and the appropriate
     // diagnostics are emitted.
-    bool resolveNullaryFunctionCall(FunctionCallExpr *call,
-                                    Type             *targetType);
+    bool resolveNullaryFunctionCall(FunctionCallExpr *call, Type *targetType);
 
-    Node checkSubroutineCall(SubroutineDecl *decl,
-                             Location        loc,
-                             Expr          **args,
-                             unsigned        numArgs);
+    Node checkSubroutineCall(SubroutineDecl *decl, Location loc,
+                             llvm::SmallVectorImpl<Expr*> &positionalArgs,
+                             llvm::SmallVectorImpl<KeywordSelector*> &keyArgs);
 
-    /// Checks that the supplied array of arguments are mode compatible with
-    /// those of the given decl.  This is a helper method for
-    /// checkSubroutineCall.
-    ///
-    /// It is assumed that the number of arguments passed matches the number
-    /// expected by the decl.  This function checks that the argument types and
-    /// modes are compatible with that of the given decl.  Returns true if the
-    /// check succeeds, false otherwise and appropriate diagnostics are posted.
-    bool checkSubroutineArguments(SubroutineDecl *decl,
-                                  Expr **args,
-                                  unsigned numArgs);
+    bool checkSubroutineArgument(Expr *arg, Type *targetType,
+                                 PM::ParameterMode targetMode);
+
+    /// Checks that the given arguments are compatible with those of the given
+    /// decl.  This is a helper method for checkSubroutineCall.
+    bool
+    checkSubroutineArguments(SubroutineDecl *decl,
+                             llvm::SmallVectorImpl<Expr*> &posArgs,
+                             llvm::SmallVectorImpl<KeywordSelector*> &keyArgs);
 
     Node acceptSubroutineCall(IdentifierInfo *name,
                               Location        loc,
                               NodeVector     &args,
                               bool            checkFunction);
 
-    Node acceptSubroutineCall(std::vector<SubroutineDecl*> &decls,
-                              Location                      loc,
-                              NodeVector                   &args);
+    bool checkApplicableArgument(Expr *expr, Type *targetType);
+
+    Node
+    acceptSubroutineCall(llvm::SmallVectorImpl<SubroutineDecl*> &decls,
+                         Location loc,
+                         llvm::SmallVectorImpl<Expr*> &positionalArgs,
+                         llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs);
 
     // Returns true if the source type is compatible with the target.  In this
     // case the target denotes a signature, and so the source must be a domain

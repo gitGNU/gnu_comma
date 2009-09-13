@@ -49,7 +49,7 @@ Node TypeCheck::acceptProcedureName(IdentifierInfo *name, Location loc,
 Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
                                     NodeVector &args)
 {
-    std::vector<SubroutineDecl*> decls;
+    llvm::SmallVector<SubroutineDecl*, 8> decls;
     unsigned targetArity = args.size();
 
     SubroutineRef *ref = cast_node<SubroutineRef>(connective);
@@ -66,7 +66,22 @@ Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
         return getInvalidNode();
     }
-    return acceptSubroutineCall(decls, loc, args);
+
+    // Seperate the arguments into positional and keyed sets.
+    llvm::SmallVector<Expr *, 8> positionalArgs;
+    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
+
+    for (unsigned i = 0; i < targetArity; ++i) {
+        if (KeywordSelector *selector = lift_node<KeywordSelector>(args[i]))
+            keyedArgs.push_back(selector);
+        else
+            positionalArgs.push_back(cast_node<Expr>(args[i]));
+    }
+
+    Node res = acceptSubroutineCall(decls, loc, positionalArgs, keyedArgs);
+    if (res.isValid())
+        args.release();
+    return res;
 }
 
 Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)

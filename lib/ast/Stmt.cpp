@@ -15,24 +15,51 @@ using namespace comma;
 //===----------------------------------------------------------------------===//
 // ProcedureCallStmt
 ProcedureCallStmt::ProcedureCallStmt(ProcedureDecl *connective,
-                                     Expr         **args,
-                                     unsigned       numArgs,
-                                     Location       loc)
+                                     Expr **posArgs,
+                                     unsigned numPos,
+                                     KeywordSelector **keys,
+                                     unsigned numKeys,
+                                     Location loc)
     : Stmt(AST_ProcedureCallStmt),
       connective(connective),
       arguments(0),
-      numArgs(numArgs),
+      keyedArgs(0),
+      numArgs(numPos + numKeys),
+      numKeys(numKeys),
       location(loc)
 {
     if (numArgs) {
         arguments = new Expr*[numArgs];
-        std::copy(args, args + numArgs, arguments);
+        std::copy(posArgs, posArgs + numPos, arguments);
+        std::fill(arguments + numPos, arguments + numArgs, (Expr*)0);
+    }
+
+    if (numKeys) {
+        keyedArgs = new KeywordSelector*[numKeys];
+        std::copy(keys, keys + numKeys, keyedArgs);
+    }
+
+    for (unsigned i = 0; i < numKeys; ++i) {
+        KeywordSelector *selector = keyedArgs[i];
+        IdentifierInfo *key = selector->getKeyword();
+        Expr *expr = selector->getExpression();
+        int indexResult = connective->getKeywordIndex(key);
+
+        assert(indexResult >= 0 && "Could not resolve keyword index!");
+
+        unsigned argIndex = unsigned(indexResult);
+        assert(argIndex >= numPos && "Keyword resolved to a positional index!");
+        assert(argIndex < getNumArgs() && "Keyword index too large!");
+        assert(arguments[argIndex] == 0 && "Duplicate keywords!");
+
+        arguments[argIndex] = expr;
     }
 }
 
 ProcedureCallStmt::~ProcedureCallStmt()
 {
-    if (arguments) delete[] arguments;
+    delete[] arguments;
+    delete[] keyedArgs;
 }
 
 //===----------------------------------------------------------------------===//
