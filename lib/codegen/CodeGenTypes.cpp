@@ -252,7 +252,7 @@ const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
         return CG.getInt64Ty();
     else {
         // FIXME: This should be a fatal error, not an assert.
-        assert(false && "Enumeration type too large to codegen!");
+        assert(false && "Bit size too large to codegen!");
         return 0;
     }
 }
