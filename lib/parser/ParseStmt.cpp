@@ -47,31 +47,10 @@ Node Parser::parseStatement()
 
 Node Parser::parseProcedureCallStatement()
 {
-    Node qual = getNullNode();
-    if (qualifierFollows()) {
-        qual = parseQualifier();
-        if (qual.isInvalid())
-            return getInvalidNode();
-    }
-
-    Location        loc  = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
-    if (!name) {
-        seekToken(Lexer::TKN_SEMI);
-        return getInvalidNode();
-    }
-
-    NodeVector args;
-    if (currentTokenIs(Lexer::TKN_LPAREN))
-        if (!parseSubroutineArgumentList(args))
-            return getInvalidNode();
-
-    Node connective = client.acceptProcedureName(name, loc, qual);
-
-    if (connective.isValid())
-        return client.acceptProcedureCall(connective, loc, args);
-    else
-        return getInvalidNode();
+    Node name = parseName(true);
+    if (name.isValid())
+        return client.acceptProcedureCall(name);
+    return getInvalidNode();
 }
 
 Node Parser::parseReturnStmt()

@@ -322,14 +322,12 @@ public:
     /// overriding declaration.  The only time this callback is invoked by the
     /// parser is when it is processing a signature profile.
     ///
-    /// \param qualNode A node resulting from a call to acceptQualifier or
-    /// acceptNestedQualifier, representing the qualification of \p name, or a
-    /// null Node if there was no qualification.
+    /// \param prefix A name representing the qualification of \p name.
     ///
     /// \param name An IdentifierInfo naming the target of the override.
     ///
     /// \param loc The location of \p name.
-    virtual void acceptOverrideTarget(Node qualNode,
+    virtual void acceptOverrideTarget(Node prefix,
                                       IdentifierInfo *name, Location loc) = 0;
 
     /// Called to terminate the context of a subroutine declaration.
@@ -364,38 +362,34 @@ public:
     virtual void endSubroutineDefinition() = 0;
     //@}
 
+    /// \name Name Callbacks
+    ///
+    /// \brief Callbacks concerned with the specification of Comma names.
+    //@{
+    virtual Node acceptDirectName(IdentifierInfo *name, Location loc,
+                                  bool forStatement) = 0;
+
+    virtual Node acceptCharacterLiteral(IdentifierInfo *lit, Location loc) = 0;
+
+    virtual Node acceptSelectedComponent(Node prefix,
+                                         IdentifierInfo *name,
+                                         Location loc,
+                                         bool forStatement) = 0;
+
+    virtual Node acceptParameterAssociation(IdentifierInfo *key,
+                                            Location loc, Node rhs) = 0;
+
+    virtual Node acceptApplication(Node prefix, NodeVector &argumentNodes) = 0;
+
+    virtual Node finishName(Node name) = 0;
+    //@}
+
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;
 
     virtual Node acceptPercent(Location loc) = 0;
 
-    virtual Node acceptTypeName(IdentifierInfo *info, Location loc,
-                                Node qualNode) = 0;
-
-    virtual Node acceptTypeApplication(IdentifierInfo *connective,
-                                       NodeVector &argumentNodes,
-                                       IdentifierInfo **keys,
-                                       Location *keyLocs,
-                                       unsigned numKeys,
-                                       Location loc) = 0;
-
-    virtual Node acceptKeywordSelector(IdentifierInfo *key, Location loc,
-                                       Node exprNode, bool forSubroutine) = 0;
-
-    virtual Node acceptDirectName(IdentifierInfo *name, Location loc,
-                                  Node qualNode) = 0;
-
-    virtual Node acceptFunctionName(IdentifierInfo *name, Location loc,
-                                    Node qualNode) = 0;
-
-    virtual Node acceptFunctionCall(Node connective, Location loc,
-                                    NodeVector &args) = 0;
-
-    virtual Node acceptProcedureName(IdentifierInfo *name, Location loc,
-                                     Node qualNode) = 0;
-
-    virtual Node acceptProcedureCall(Node connective, Location loc,
-                                     NodeVector &args) = 0;
+    virtual Node acceptProcedureCall(Node name) = 0;
 
     /// Called for "inj" expressions.  loc is the location of the inj token and
     /// expr is its argument.
@@ -404,10 +398,6 @@ public:
     /// Called for "prj" expressions.  loc is the location of the prj token and
     /// expr is its argument.
     virtual Node acceptPrj(Location loc, Node expr) = 0;
-
-    virtual Node acceptQualifier(Node qualifierType) = 0;
-
-    virtual Node acceptNestedQualifier(Node qualifier, Node qualifierType) = 0;
 
     virtual Node acceptIntegerLiteral(llvm::APInt &value, Location loc) = 0;
 

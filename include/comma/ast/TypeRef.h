@@ -86,6 +86,12 @@ public:
     /// Returns the referenced declaration.
     Decl *getDecl() const { return target; }
 
+    /// If this references a variety or functor, return it as a general
+    /// ModelDecl, else null.
+    ModelDecl *getModelDecl() const {
+        return llvm::dyn_cast<ModelDecl>(target);
+    }
+
     /// If this references a variety, return it, else null.
     VarietyDecl *getVarietyDecl() const {
         return llvm::dyn_cast<VarietyDecl>(target);

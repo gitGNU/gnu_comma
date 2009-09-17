@@ -337,7 +337,7 @@ bool Parser::keywordSelectionFollows()
         && nextTokenIs(Lexer::TKN_RDARROW);
 }
 
-bool Parser::qualifierFollows()
+bool Parser::selectedComponentFollows()
 {
     bool status = false;
 
@@ -347,17 +347,19 @@ bool Parser::qualifierFollows()
         default:
             break;
 
-        case Lexer::TKN_DCOLON:
+        case Lexer::TKN_DOT:
             status = true;
             break;
 
         case Lexer::TKN_LPAREN: {
             Lexer::Token savedToken = currentToken();
             lexer.beginExcursion();
-            ignoreToken();      // ignore the identifier.
-            ignoreToken();      // ignore the left paren.
-            if (seekCloseParen())
-                status = reduceToken(Lexer::TKN_DCOLON);
+            ignoreToken();      // Ignore the identifier.
+            do {
+                ignoreToken();  // Ignore the left paren.
+                seekCloseParen();
+            } while (currentTokenIs(Lexer::TKN_LPAREN));
+            status = currentTokenIs(Lexer::TKN_DOT);
             lexer.endExcursion();
             setCurrentToken(savedToken);
             break;
@@ -365,43 +367,6 @@ bool Parser::qualifierFollows()
         }
     }
     return status;
-}
-
-Node Parser::parseQualifier()
-{
-    Node qualifier = getNullNode();
-    Node qualifierType = parseModelApplication(qualifier);
-
-    if (qualifierType.isInvalid()) {
-        do {
-            seekAndConsumeToken(Lexer::TKN_DCOLON);
-        } while (qualifierFollows());
-        return getInvalidNode();
-    }
-
-    if (reduceToken(Lexer::TKN_DCOLON)) {
-
-        qualifier = client.acceptQualifier(qualifierType);
-
-        while (qualifierFollows()) {
-            qualifierType = parseModelApplication(qualifier);
-
-            if (qualifierType.isInvalid()) {
-                do {
-                    seekAndConsumeToken(Lexer::TKN_DCOLON);
-                } while (qualifierFollows());
-                return getInvalidNode();
-            }
-            else if (qualifier.isValid()) {
-                assert(currentTokenIs(Lexer::TKN_DCOLON));
-                ignoreToken();
-                qualifier =
-                    client.acceptNestedQualifier(qualifier, qualifierType);
-            }
-        }
-        return qualifier;
-    }
-    return getInvalidNode();
 }
 
 bool Parser::blockStmtFollows()
@@ -593,7 +558,7 @@ void Parser::parseSupersignatureProfile()
     ignoreToken();
 
     while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        Node super = parseModelInstantiation();
+        Node super = parseName(false);
         if (super.isValid()) {
             requireToken(Lexer::TKN_SEMI);
             client.acceptSupersignature(super);
@@ -659,7 +624,7 @@ void Parser::parseCarrier()
         return;
     }
 
-    Node type = parseModelInstantiation();
+    Node type = parseName(false);
 
     if (type.isInvalid()) {
         seekToken(Lexer::TKN_SEMI);
@@ -747,87 +712,6 @@ void Parser::parseModel()
         requireToken(Lexer::TKN_SEMI);
 }
 
-Node Parser::parseModelApplication(Node qualNode)
-{
-    Location loc = currentLocation();
-    IdentifierInfo *info = parseIdentifierInfo();
-
-    if (!info)
-        return getInvalidNode();
-
-    // Empty parameter lists for types are not allowed.  If the type checker
-    // accepts the non-parameterized form, then continue -- otherwise we
-    // complain ourselves.
-    if (unitExprFollows()) {
-        Node type = client.acceptTypeName(info, loc, qualNode);
-        if (type.isValid()) report(loc, diag::EMPTY_PARAMS);
-        return type;
-    }
-
-    if (reduceToken(Lexer::TKN_LPAREN)) {
-        NodeVector arguments;
-        IdInfoVector keywords;
-        LocationVector keywordLocs;
-        bool allOK = true;
-
-        do {
-            Location loc = currentLocation();
-
-            if (keywordSelectionFollows()) {
-                keywords.push_back(parseIdentifierInfo());
-                keywordLocs.push_back(loc);
-                loc = ignoreToken();
-            }
-            else if (!keywords.empty()) {
-                // We have already parsed a keyword.
-                report(loc, diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
-                allOK = false;
-            }
-
-            Node argument = parseModelInstantiation();
-            if (argument.isValid())
-                arguments.push_back(argument);
-            else
-                allOK = false;
-
-        } while (reduceToken(Lexer::TKN_COMMA));
-        requireToken(Lexer::TKN_RPAREN);
-
-        // Do not attempt to form the application unless all of the
-        // arguments are valid.
-        if (allOK) {
-            IdentifierInfo **keys = keywords.data();
-            Location *keyLocs = keywordLocs.data();
-            unsigned numKeys = keywords.size();
-            return client.acceptTypeApplication(
-                info, arguments, keys, keyLocs, numKeys, loc);
-        }
-        else
-            return getInvalidNode();
-    }
-
-    // Otherwise, this is a type constructor without parameters.
-    return client.acceptTypeName(info, loc, qualNode);
-}
-
-Node Parser::parseModelInstantiation()
-{
-    // FIXME: Support the qualification of precent nodes.
-    Location loc = currentLocation();
-    if (reduceToken(Lexer::TKN_PERCENT))
-        return client.acceptPercent(loc);
-
-    Node qual = getNullNode();
-    if (qualifierFollows()) {
-        qual = parseQualifier();
-        if (qual.isInvalid())
-            return getInvalidNode();
-    }
-
-    return parseModelApplication(qual);
-}
-
-
 // Parses an "in", "out" or "in out" parameter mode specification.  If no such
 // specification is available on the stream MODE_DEFAULT is returned.  A common
 // mistake is to find "out in" instead of "in out".  In this case, we simply
@@ -868,7 +752,7 @@ bool Parser::parseSubroutineParameter()
     if (!requireToken(Lexer::TKN_COLON)) return false;
 
     mode = parseParameterMode();
-    Node type = parseModelInstantiation();
+    Node type = parseName(false);
     if (type.isInvalid()) return false;
 
     client.acceptSubroutineParameter(formal, location, type, mode);
@@ -943,7 +827,7 @@ Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
 
     Node returnNode = getNullNode();
     if (reduceToken(Lexer::TKN_RETURN)) {
-        returnNode = parseModelInstantiation();
+        returnNode = parseName(false);
         if (returnNode.isInvalid()) {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
             returnNode = getNullNode();
@@ -1004,13 +888,30 @@ void Parser::parseOverrideTarget()
     assert(currentTokenIs(Lexer::TKN_OVERRIDES));
     ignoreToken();
 
-    Node qual = getNullNode();
-    if (qualifierFollows()) {
-        qual = parseQualifier();
-        if (qual.isInvalid()) {
-            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-            return;
+    Node prefix = parseDirectName(false);
+
+    while (prefix.isValid()) {
+        if (currentTokenIs(Lexer::TKN_LPAREN))
+            prefix = parseApplication(prefix);
+        else {
+            prefix = client.finishName(prefix);
+
+            if (!requireToken(Lexer::TKN_DOT)) {
+                seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+                return;
+            }
+
+            if (!selectedComponentFollows())
+                break;
+
+            if (prefix.isValid())
+                prefix = parseSelectedComponent(prefix, false);
         }
+    }
+
+    if (prefix.isInvalid()) {
+        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
+        return;
     }
 
     Location loc = currentLocation();
@@ -1020,7 +921,7 @@ void Parser::parseOverrideTarget()
         return;
     }
 
-    client.acceptOverrideTarget(qual, target, loc);
+    client.acceptOverrideTarget(prefix, target, loc);
 }
 
 void Parser::parseSubroutineBody(Node declarationNode)
@@ -1127,7 +1028,7 @@ bool Parser::parseObjectDeclaration()
         return false;
     }
 
-    Node type = parseModelInstantiation();
+    Node type = parseName(false);
 
     if (type.isValid()) {
         Node init = getNullNode();
@@ -1147,7 +1048,7 @@ bool Parser::parseImportDeclaration()
     assert(currentTokenIs(Lexer::TKN_IMPORT));
     ignoreToken();
 
-    Node importedType = parseModelInstantiation();
+    Node importedType = parseName(false);
 
     if (importedType.isValid()) {
         client.acceptImportDeclaration(importedType);
@@ -1265,7 +1166,7 @@ void Parser::parseArrayIndexProfile()
     }
 
     do {
-        Node index = parseModelInstantiation();
+        Node index = parseName(false);
         if (index.isValid())
             client.acceptArrayIndex(index);
     } while (reduceToken(Lexer::TKN_COMMA));
@@ -1293,7 +1194,7 @@ bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
         return false;
     }
 
-    Node component = parseModelInstantiation();
+    Node component = parseName(false);
     if (component.isValid()) {
         client.acceptArrayComponent(component);
         client.endArray();
@@ -1302,50 +1203,6 @@ bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
 
     client.endArray();
     return false;
-}
-
-bool Parser::parseSubroutineArgumentList(NodeVector &dst)
-{
-    assert(currentTokenIs(Lexer::TKN_LPAREN));
-
-    // If we have an empty set of parameters, consume them and post a
-    // diagnostic.
-    if (unitExprFollows()) {
-        report(diag::EMPTY_PARAMS);
-        ignoreToken();
-        ignoreToken();
-        return false;
-    }
-
-    ignoreToken();              // Ignore the '('.
-
-    bool seenSelector = false;
-    do {
-        Node arg = getInvalidNode();
-        if (keywordSelectionFollows()) {
-            arg = parseSubroutineKeywordSelection();
-            seenSelector = true;
-        }
-        else if (seenSelector) {
-            report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
-            seekCloseParen();
-            return false;
-        }
-        else
-            arg = parseExpr();
-
-        if (arg.isInvalid()) {
-            seekCloseParen();
-            return false;
-        }
-        dst.push_back(arg);
-    } while (reduceToken(Lexer::TKN_COMMA));
-
-    if (!requireToken(Lexer::TKN_RPAREN)) {
-        seekCloseParen();
-        return false;
-    }
-    return true;
 }
 
 bool Parser::parseTopLevelDeclaration()

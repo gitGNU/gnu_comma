@@ -23,66 +23,23 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-Node TypeCheck::acceptProcedureName(IdentifierInfo *name, Location loc,
-                                    Node qualNode)
+Node TypeCheck::acceptProcedureCall(Node name)
 {
-    llvm::SmallVector<SubroutineDecl*, 8> overloads;
-
-    if (!qualNode.isNull()) {
-        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
-        region->collectProcedureDecls(name, overloads);
-    }
-    else {
-        Scope::Resolver &resolver = scope->getResolver();
-        resolver.resolve(name);
-        resolver.filterFunctionals();
-        resolver.getVisibleSubroutines(overloads);
+    // If the name denotes a procedure call, we are happy.
+    if (lift_node<ProcedureCallStmt>(name)) {
+        name.release();
+        return name;
     }
 
-    if (overloads.empty()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-    return getNode(new SubroutineRef(loc, &overloads[0], overloads.size()));
-}
+    // Otherwise, figure out what kind of name this is and grab its location.
+    Location loc;
+    if (Expr *expr = lift_node<Expr>(name))
+        loc = expr->getLocation();
+    else if (TypeRef *ref = lift_node<TypeRef>(name))
+        loc = ref->getLocation();
 
-Node TypeCheck::acceptProcedureCall(Node connective, Location loc,
-                                    NodeVector &args)
-{
-    llvm::SmallVector<SubroutineDecl*, 8> decls;
-    unsigned targetArity = args.size();
-
-    SubroutineRef *ref = cast_node<SubroutineRef>(connective);
-    SubroutineRef::proc_iterator I = ref->begin_procedures();
-    SubroutineRef::proc_iterator E = ref->end_procedures();
-
-    for ( ; I != E; ++I) {
-        ProcedureDecl *pdecl = *I;
-        if (pdecl->getArity() == targetArity)
-            decls.push_back(pdecl);
-    }
-
-    if (decls.empty()) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
-        return getInvalidNode();
-    }
-
-    // Seperate the arguments into positional and keyed sets.
-    llvm::SmallVector<Expr *, 8> positionalArgs;
-    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
-
-    for (unsigned i = 0; i < targetArity; ++i) {
-        if (KeywordSelector *selector = lift_node<KeywordSelector>(args[i]))
-            keyedArgs.push_back(selector);
-        else
-            positionalArgs.push_back(cast_node<Expr>(args[i]));
-    }
-
-    Node res = acceptSubroutineCall(decls, loc, positionalArgs, keyedArgs);
-    if (res.isValid())
-        args.release();
-    return res;
+    report(loc, diag::EXPECTED_PROCEDURE_CALL);
+    return getInvalidNode();
 }
 
 Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
@@ -123,7 +80,7 @@ Node TypeCheck::acceptAssignmentStmt(Location loc,
                                      Node valueNode)
 {
     Expr *value = cast_node<Expr>(valueNode);
-    Scope::Resolver &resolver = scope->getResolver();
+    Resolver &resolver = scope->getResolver();
 
     if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;

@@ -92,7 +92,6 @@ GLYPH(RPAREN,  ")")
 
 GLYPH(DDOT,    "..")
 GLYPH(RDARROW, "=>")
-GLYPH(DCOLON,  "::")
 GLYPH(LEQ,     "<=")
 GLYPH(DIAMOND, "<>")
 GLYPH(GEQ,     ">=")

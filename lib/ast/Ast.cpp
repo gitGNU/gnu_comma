@@ -110,34 +110,38 @@ DeclRegion *Qualifier::resolveRegion() {
 void SubroutineRef::verify()
 {
     assert(!decls.empty() && "Empty SubroutineRef!");
-    IdentifierInfo *idInfo = decls[0]->getIdInfo();
-    bool isaFunction = isa<FunctionDecl>(decls[0]);
-    verify(idInfo, isaFunction);
+    SubroutineDecl *elem = decls[0];
+    IdentifierInfo *name = elem->getIdInfo();
+    bool isaFunction = isa<FunctionDecl>(elem);
+    unsigned numDecls = numDeclarations();
+
+    for (unsigned i = 1; i < numDecls; ++i) {
+        SubroutineDecl *cursor = decls[i];
+        verify(cursor, name, isaFunction);
+    }
 }
 
-void SubroutineRef::verify(IdentifierInfo *idInfo, bool isaFunction)
+void SubroutineRef::verify(SubroutineDecl *decl,
+                           IdentifierInfo *name, bool isaFunction)
 {
-    unsigned numDecls = decls.size();
-    for (unsigned i = 1; i < numDecls; ++i) {
-        SubroutineDecl *srDecl = decls[i];
-
-        // All decls must have the same name.
-        assert(srDecl->getIdInfo() == idInfo &&
-               "All declarations must have the same identifier!");
-
-        // All decls must either procedures or functions, but not both.
-        if (isaFunction)
-            assert(isa<FunctionDecl>(srDecl) && "Declaration type mismatch!");
-        else
-            assert(isa<ProcedureDecl>(srDecl) && "Declaration type mismatch!");
-    }
+    assert(decl->getIdInfo() == name &&
+           "All declarations must have the same identifier!");
+    if (isaFunction)
+        assert(isa<FunctionDecl>(decl) && "Declaration type mismatch!");
+    else
+        assert(isa<ProcedureDecl>(decl) && "Declaration type mismatch!");
 }
 
 void SubroutineRef::addDeclaration(SubroutineDecl *srDecl)
 {
-    IdentifierInfo *idInfo = srDecl->getIdInfo();
-    bool isaFunction = isa<FunctionDecl>(srDecl);
-    verify(idInfo, isaFunction);
+    if (decls.empty())
+        decls.push_back(srDecl);
+    else {
+        IdentifierInfo *name = getIdInfo();
+        bool isaFunction = referencesFunctions();
+        verify(srDecl, name, isaFunction);
+        decls.push_back(srDecl);
+    }
 }
 
 bool SubroutineRef::contains(const SubroutineDecl *srDecl) const
@@ -156,4 +160,17 @@ bool SubroutineRef::contains(const SubroutineType *srType) const
             return true;
     }
     return false;
+}
+
+bool SubroutineRef::keepSubroutinesWithArity(unsigned arity)
+{
+    DeclVector::iterator I = decls.begin();
+    while (I != decls.end()) {
+        SubroutineDecl *decl = *I;
+        if (decl->getArity() != arity)
+            I = decls.erase(I);
+        else
+            ++I;
+    }
+    return !decls.empty();
 }

@@ -18,6 +18,6 @@ end F;
 domain Test add
    procedure Run (x : D) is
    begin
-      F(D)::Foo(x);
+      F(D).Foo(x);
    end Run;
 end Test;

@@ -5,7 +5,7 @@ domain D with
 end D;
 
 domain E add
-   procedure Test (X : D::T) is begin end Test;
+   procedure Test (X : D.T) is begin end Test;
 end E;
 
 

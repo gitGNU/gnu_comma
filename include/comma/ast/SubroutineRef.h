@@ -20,9 +20,9 @@
 namespace comma {
 
 /// This class represents a reference to a subroutine name.  It provides
-/// location information as to where the the reference occurs in source code.
-/// It also provides a set of declaration nodes representing a overloaded family
-/// of declarations.
+/// location information as to where the reference occurs in source code.  It
+/// also provides a set of declaration nodes representing a overloaded family of
+/// declarations.
 ///
 /// Note that this class is a miscellaneous member of the AST in that it does
 /// not belong to one of a major branched (Type, Decl, Expr).
@@ -64,7 +64,10 @@ public:
     }
 
     /// Returns the IdentifierInfo common to all of the referenced declarations.
-    IdentifierInfo *getIdInfo() const { return decls[0]->getIdInfo(); }
+    IdentifierInfo *getIdInfo() const {
+        assert(!empty() && "Empty SubroutineRef!");
+        return decls[0]->getIdInfo();
+    }
 
     /// Returns a C-string representing the name common to all overloads.
     const char *getString() const { return getIdInfo()->getString(); }
@@ -78,14 +81,17 @@ public:
     /// Returns true if this references more than one declaration.
     bool isOverloaded() const { return numDeclarations() > 1; }
 
+    /// Returns true if this reference is empty.
+    bool empty() const { return numDeclarations() == 0; }
+
     /// Returns true if this is a reference to a set of function declarations.
     bool referencesFunctions() const {
-        return llvm::isa<FunctionDecl>(getDeclaration(0));
+        return empty() ? false : llvm::isa<FunctionDecl>(decls[0]);
     }
 
     /// Returns true if this is a reference to a set of procedure declarations.
     bool referencesProcedures() const {
-        return llvm::isa<ProcedureDecl>(getDeclaration(0));
+        return empty() ? false : llvm::isa<ProcedureDecl>(decls[0]);
     }
 
     /// Returns the number of declarations associated with this reference.
@@ -104,6 +110,18 @@ public:
     }
     //@}
 
+    //@{
+    /// If this is a resolved reference, return the unique declaration it
+    /// names.  Otherwise, return null.
+    const SubroutineDecl *getDeclaration() const {
+        return isResolved() ? decls[0] : 0;
+    }
+
+    SubroutineDecl *getDeclaration() {
+        return isResolved() ? decls[0] : 0;
+    }
+    //@}
+
     /// Returns true if this reference contains the given subroutine
     /// declaration.
     bool contains(const SubroutineDecl *srDecl) const;
@@ -111,6 +129,13 @@ public:
     /// Returns true if this reference contains a subroutine declaration with
     /// the given type.
     bool contains(const SubroutineType *srType) const;
+
+    /// Removes all subroutine declarations which are not of the given arity
+    /// from this reference.
+    ///
+    /// Returns true if any declarations remain after the filtering and false
+    /// if this reference was reduced to the empty reference.
+    bool keepSubroutinesWithArity(unsigned arity);
 
     /// Resolves this reference to point at the given declaration.
     ///
@@ -121,6 +146,9 @@ public:
         decls.clear();
         decls.push_back(srDecl);
     }
+
+    /// Returns true if this is a resolved reference.
+    bool isResolved() const { return numDeclarations() == 1; }
 
     //@{
     /// Iterators over the referenced declarations.
@@ -139,38 +167,30 @@ private:
     template <class T>
     class SubroutineDeclIter {
 
-        mutable SubroutineRef *ref;
-        mutable unsigned index;
+        mutable SubroutineRef::iterator I;
 
-        /// Creates an iterator over the connectives of the given SubroutineRef.
-        SubroutineDeclIter(SubroutineRef *ref)
-            : ref(ref),
-              index(0) { }
+        SubroutineDeclIter(SubroutineRef::iterator I)
+            : I(I) { }
+
+        /// Returns the underlying iterator.
+        SubroutineRef::iterator getIterator() const;
 
         friend class SubroutineRef;
 
     public:
-        /// Creates a sentinal iterator.
-        SubroutineDeclIter() :
-            ref(0),
-            index(0) { }
-
-        SubroutineDeclIter(const SubroutineDeclIter &iter)
-            : ref(iter.ref),
-              index(iter.index) { }
+        SubroutineDeclIter(const SubroutineDeclIter<T> &iter)
+            : I(iter.I) { }
 
         T *operator *() {
-            assert(ref && "Cannot dereference an empty iterator!");
-            return llvm::cast<T>(ref->getDeclaration(index));
+            return llvm::cast<T>(*I);
         }
 
         const T *operator *() const {
-            assert(ref && "Cannot dereference an empty iterator!");
-            return llvm::cast<T>(ref->getDeclaration(index));
+            return llvm::cast<T>(*I);
         }
 
         bool operator ==(const SubroutineDeclIter &iter) const {
-            return (this->ref == iter.ref && this->index == iter.index);
+            return this->I == iter.I;
         }
 
         bool operator !=(const SubroutineDeclIter &iter) const {
@@ -178,18 +198,12 @@ private:
         }
 
         SubroutineDeclIter &operator ++() {
-            if (++index == ref->numDeclarations()) {
-                ref = 0;
-                index = 0;
-            }
+            ++I;
             return *this;
         }
 
         const SubroutineDeclIter &operator ++() const {
-            if (++index == ref->numDeclarations()) {
-                ref = 0;
-                index = 0;
-            }
+            ++I;
             return *this;
         }
 
@@ -211,42 +225,67 @@ public:
     typedef SubroutineDeclIter<FunctionDecl> fun_iterator;
     fun_iterator begin_functions() {
         if (this->referencesFunctions())
-            return fun_iterator(this);
+            return fun_iterator(begin());
         else
-            return fun_iterator();
+            return fun_iterator(end());
     }
-    fun_iterator end_functions() { return fun_iterator(); }
+    fun_iterator end_functions() {
+        return fun_iterator(end());
+    }
 
     typedef const SubroutineDeclIter<FunctionDecl> const_fun_iterator;
     const_fun_iterator begin_functions() const {
-        if (this->referencesFunctions()) {
-            SubroutineRef *ref = const_cast<SubroutineRef*>(this);
-            return const_fun_iterator(ref);
-        }
+        SubroutineRef *ref = const_cast<SubroutineRef*>(this);
+        if (this->referencesFunctions())
+            return const_fun_iterator(ref->begin());
         else
-            return const_fun_iterator();
+            return const_fun_iterator(ref->end());
     }
-    const_fun_iterator end_functions() const { return const_fun_iterator(); }
+    const_fun_iterator end_functions() const {
+        SubroutineRef *ref = const_cast<SubroutineRef*>(this);
+        return const_fun_iterator(ref->end());
+    }
 
     typedef SubroutineDeclIter<ProcedureDecl> proc_iterator;
     proc_iterator begin_procedures() {
         if (this->referencesProcedures())
-            return proc_iterator(this);
+            return proc_iterator(begin());
         else
-            return proc_iterator();
+            return proc_iterator(end());
     }
-    proc_iterator end_procedures() { return proc_iterator(); }
+    proc_iterator end_procedures() {
+        return proc_iterator(end());
+    }
 
     typedef const SubroutineDeclIter<ProcedureDecl> const_proc_iterator;
     const_proc_iterator begin_procedures() const {
-        if (this->referencesProcedures()) {
-            SubroutineRef *ref = const_cast<SubroutineRef*>(this);
-            return const_proc_iterator(ref);
-        }
+        SubroutineRef *ref = const_cast<SubroutineRef*>(this);
+        if (this->referencesProcedures())
+            return const_proc_iterator(ref->begin());
         else
-            return const_proc_iterator();
+            return const_proc_iterator(ref->end());
     }
-    const_proc_iterator end_procedures() const { return const_proc_iterator(); }
+    const_proc_iterator end_procedures() const {
+        SubroutineRef *ref = const_cast<SubroutineRef*>(this);
+        return const_proc_iterator(ref->end());
+    }
+    //@}
+
+    /// \name Erase Methods.
+    ///
+    /// \brief Removes the declaration pointed to by the given iterator from
+    /// this reference.
+    ///
+    /// Returns an iterator pointing to the next declaration in the reference.
+    //@{
+    iterator erase(iterator I) { return decls.erase(I); }
+
+    template <class T>
+    SubroutineDeclIter<T> erase(SubroutineDeclIter<T> SDI) {
+        iterator I = SDI.getIterator();
+        I = decls.erase(I);
+        return SubroutineDeclIter<T>(this, I);
+    }
     //@}
 
     static bool classof(const SubroutineRef *node) { return true; }
@@ -258,13 +297,14 @@ private:
     DeclVector decls;
     Location loc;
 
-    /// Used to check that the current set of declarations are consitent.
+    /// Used to check that the current set of declarations are named
+    /// and typed consitently.
     void verify();
 
-    /// Used to check that the current set of declarations all have the given
-    /// name. If \p isaFunction is true, also checks that all declarations are
-    /// functions, otherwise that all declarations are procedures.
-    void verify(IdentifierInfo *idInfo, bool isaFunction);
+    /// Asserts that the given subroutine decl has the given name and that it
+    /// denotes a function or procedure.  The latter check being governed by the
+    /// value of \p isaFunction.
+    void verify(SubroutineDecl *decl, IdentifierInfo *name, bool isaFunction);
 };
 
 } // end comma namespace.

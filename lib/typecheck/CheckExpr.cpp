@@ -22,308 +22,6 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-
-DeclRegion *TypeCheck::resolveVisibleQualifiedRegion(Qualifier *qual)
-{
-    if (SigInstanceDecl *sig = qual->resolve<SigInstanceDecl>()) {
-        Location loc = qual->getBaseLocation();
-        report(loc, diag::INVALID_SIGNATURE_QUALIFICATION)
-            << sig->getIdInfo();
-        return 0;
-    }
-    return qual->resolveRegion();
-}
-
-Node TypeCheck::acceptQualifier(Node declNode)
-{
-    TypeRef *ref = cast_node<TypeRef>(declNode);
-    Location loc = ref->getLocation();
-    Decl *decl = ref->getDecl();
-    Qualifier *qual = 0;
-
-    switch (decl->getKind()) {
-    default:
-        // The given decl cannot serve as a qualifier.
-        report(loc, diag::INVALID_QUALIFIER) << decl->getIdInfo();
-        return getInvalidNode();
-
-    case Ast::AST_DomainInstanceDecl:
-    case Ast::AST_AbstractDomainDecl:
-    case Ast::AST_PercentDecl:
-        qual = new Qualifier(cast<DomainTypeDecl>(decl), loc);
-        break;
-
-    case Ast::AST_EnumerationDecl:
-        qual = new Qualifier(cast<EnumerationDecl>(decl), loc);
-        break;
-
-    case Ast::AST_SigInstanceDecl:
-        qual = new Qualifier(cast<SigInstanceDecl>(decl), loc);
-        break;
-    }
-
-    return getNode(qual);
-}
-
-Node TypeCheck::acceptNestedQualifier(Node qualifierNode, Node declNode)
-{
-    Qualifier *qual = cast_node<Qualifier>(qualifierNode);
-    Location loc = cast_node<TypeRef>(declNode)->getLocation();
-    TypeDecl *decl = ensureTypeDecl(declNode);
-    DeclRegion *region = resolveVisibleQualifiedRegion(qual);
-
-    // Nested qualifiers must always resolve to visible regions.
-    if (!region || !decl)
-        return getInvalidNode();
-
-    if (!region->findDecl(decl->getIdInfo(), decl->getType())) {
-        report(loc, diag::NAME_NOT_VISIBLE) << decl->getIdInfo();
-        return getInvalidNode();
-    }
-
-    // Add in the sub-qualifier.
-    switch (decl->getKind()) {
-    default:
-        // The given decl cannot serve as a qualifier.
-        report(loc, diag::INVALID_QUALIFIER) << decl->getIdInfo();
-        return getInvalidNode();
-
-    case Ast::AST_DomainInstanceDecl:
-    case Ast::AST_AbstractDomainDecl:
-    case Ast::AST_PercentDecl:
-        qual->addQualifier(cast<DomainTypeDecl>(decl), loc);
-        break;
-
-    case Ast::AST_EnumerationDecl:
-        qual->addQualifier(cast<EnumerationDecl>(decl), loc);
-        break;
-    }
-
-    declNode.release();
-    return qualifierNode;
-}
-
-// Helper function for acceptDirectName -- called when the identifier in
-// question is qualified.
-Node TypeCheck::acceptQualifiedName(Node qualNode,
-                                    IdentifierInfo *name,
-                                    Location loc)
-{
-    Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-    llvm::SmallVector<FunctionDecl*, 8> decls;
-    DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
-
-    if (!region)
-        return getInvalidNode();
-
-    // Scan the entire set of declaration nodes, matching nullary function decls
-    // of the given name.  In addition, look for enumeration declarations which
-    // in turn provide a literal of the given name.  This allows the "short hand
-    // qualification" of enumeration literals.  For example, given:
-    //
-    //   domain D with type T is (X); end D;
-    //
-    // The the qualified name D::X will resolve to D::T::X.  Note however that
-    // the two forms are not equivalent, as the former will match all functions
-    // named X declared in D (as well as other enumeration literals of the same
-    // name).
-    for (DeclRegion::DeclIter iter = region->beginDecls();
-         iter != region->endDecls(); ++iter) {
-        Decl *decl = *iter;
-        if (decl->getIdInfo() == name) {
-            if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-                if (fdecl->getArity() == 0)
-                    decls.push_back(fdecl);
-            }
-        }
-        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl)) {
-            // Lift the literals of an enumeration decl.  For example, given:
-            //   domain D with type T is (X); end D;
-            // Then D::X will match D::T::X.
-            if (EnumLiteral *lit = edecl->findLiteral(name))
-                decls.push_back(lit);
-        }
-    }
-
-    if (decls.empty()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    // Form the function call node and populate with any additional connectives
-    // (to be resolved by the type context of this call).
-    FunctionCallExpr *call
-        = new FunctionCallExpr(&decls[0], decls.size(), 0, 0, 0, 0, loc);
-    call->setQualifier(qualifier);
-    qualNode.release();
-    return getNode(call);
-}
-
-Node TypeCheck::acceptDirectName(IdentifierInfo *name,
-                                 Location loc,
-                                 Node qualNode)
-{
-    if (!qualNode.isNull())
-        return acceptQualifiedName(qualNode, name, loc);
-
-    Scope::Resolver &resolver = scope->getResolver();
-
-    if (!resolver.resolve(name)) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    // If there is a direct value, it shadows any other potentialy visible
-    // declaration.
-    if (resolver.hasDirectValue()) {
-        ValueDecl *vdecl = resolver.getDirectValue();
-        DeclRefExpr *ref = new DeclRefExpr(vdecl, loc);
-        return getNode(ref);
-    }
-
-    llvm::SmallVector<Decl *, 8> overloads;
-    resolver.filterOverloadsWRTArity(0);
-    resolver.filterProcedures();
-
-    // Collect any direct overloads.
-    overloads.append(resolver.begin_direct_overloads(),
-                     resolver.end_direct_overloads());
-
-    // Continue populating the call with indirect overloads if there are no
-    // indirect values visible and return the result.
-    if (!resolver.hasIndirectValues()) {
-        overloads.append(resolver.begin_indirect_overloads(),
-                         resolver.end_indirect_overloads());
-        if (!overloads.empty()) {
-            llvm::SmallVector<FunctionDecl*, 8> connectives;
-            unsigned size = overloads.size();
-
-            for (unsigned i = 0; i < size; ++i)
-                connectives.push_back(cast<FunctionDecl>(overloads[i]));
-
-            FunctionCallExpr *call =
-                new FunctionCallExpr(&connectives[0], size, 0, 0, 0, 0, loc);
-            return getNode(call);
-        }
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    // Otherwise, there are indirect values.  If we have any direct function
-    // decls, return a call expression for them.
-    if (!overloads.empty()) {
-        llvm::SmallVector<FunctionDecl*, 8> connectives;
-        unsigned size = overloads.size();
-
-        for (unsigned i = 0; i < size; ++i)
-            connectives.push_back(cast<FunctionDecl>(overloads[i]));
-
-        FunctionCallExpr *call =
-            new FunctionCallExpr(&connectives[0], size, 0, 0, 0, 0, loc);
-        return getNode(call);
-    }
-
-    // If there are any overloadable indirect decls visible, the presence of
-    // indirect values hides them.
-    if (resolver.hasIndirectOverloads()) {
-        report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
-        return getInvalidNode();
-    }
-
-    // If there are multiple indirect values we have an ambiguity.
-    if (resolver.numIndirectValues() != 1) {
-        report(loc, diag::MULTIPLE_IMPORT_AMBIGUITY);
-        return getInvalidNode();
-    }
-
-    // Finally, a single indirect value is visible.
-    return getNode(new DeclRefExpr(resolver.getIndirectValue(0), loc));
-}
-
-Node TypeCheck::acceptFunctionName(IdentifierInfo *name, Location loc,
-                                   Node qualNode)
-{
-    llvm::SmallVector<SubroutineDecl*, 8> overloads;
-
-    if (!qualNode.isNull()) {
-        Qualifier *qual = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = resolveVisibleQualifiedRegion(qual);
-        if (!region)
-            return getInvalidNode();
-        region->collectFunctionDecls(name, overloads);
-    }
-    else {
-        Scope::Resolver &resolver = scope->getResolver();
-        resolver.resolve(name);
-
-        // If a direct value was resolved, check if it denotes an array type.
-        if (resolver.hasDirectValue()) {
-            ValueDecl *value = resolver.getDirectValue();
-            TypedefType *tyDef = dyn_cast<TypedefType>(value->getType());
-            if (isa<ArrayType>(tyDef->getBaseType()))
-                return getNode(value);
-        }
-
-        // Otherwise, collect all visible functions.
-        resolver.filterProcedures();
-        resolver.filterNullaryOverloads();
-        resolver.getVisibleSubroutines(overloads);
-    }
-    if (overloads.empty()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-    return getNode(new SubroutineRef(loc, &overloads[0], overloads.size()));
-}
-
-Node TypeCheck::acceptFunctionCall(Node connective,
-                                   Location loc,
-                                   NodeVector &argNodes)
-{
-    llvm::SmallVector<SubroutineDecl*, 8> decls;
-    unsigned targetArity = argNodes.size();
-
-    assert(targetArity > 0 && "Cannot accept nullary function calls!");
-
-    connective.release();
-
-    // If the connective is a value decl, this must be an IndexedArray
-    // expression.
-    if (ValueDecl *vdecl = lift_node<ValueDecl>(connective))
-        return acceptIndexedArray(vdecl, loc, argNodes);
-
-    // Reduce the set of declarations to match the required arity.
-    SubroutineRef *ref = cast_node<SubroutineRef>(connective);
-    SubroutineRef::fun_iterator I = ref->begin_functions();
-    SubroutineRef::fun_iterator E = ref->end_functions();
-    for ( ; I != E; ++ I) {
-        FunctionDecl *fdecl = *I;
-        if (fdecl->getArity() == targetArity)
-            decls.push_back(fdecl);
-    }
-
-    if (decls.empty()) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << ref->getIdInfo();
-        return getInvalidNode();
-    }
-
-    // Seperate the arguments into positional and keyed sets.
-    llvm::SmallVector<Expr *, 8> positionalArgs;
-    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
-
-    for (unsigned i = 0; i < targetArity; ++i) {
-        if (KeywordSelector *selector = lift_node<KeywordSelector>(argNodes[i]))
-            keyedArgs.push_back(selector);
-        else
-            positionalArgs.push_back(cast_node<Expr>(argNodes[i]));
-    }
-
-    Node res = acceptSubroutineCall(decls, loc, positionalArgs, keyedArgs);
-    if (res.isValid())
-        argNodes.release();
-    return res;
-}
-
 bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 {
     // FIXME: This is a hack.  The type equality predicates should perform this
@@ -375,145 +73,158 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     return applicableArgument;
 }
 
-Node TypeCheck::acceptSubroutineCall(
-    llvm::SmallVectorImpl<SubroutineDecl*> &decls,
-    Location loc,
-    llvm::SmallVectorImpl<Expr*> &positionalArgs,
-    llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs)
+bool TypeCheck::routineAcceptsKeywords(SubroutineDecl *decl,
+                                       unsigned numPositional,
+                                       SVImpl<KeywordSelector*>::Type &keys)
 {
+    for (unsigned j = 0; j < keys.size(); ++j) {
+        KeywordSelector *selector = keys[j];
+        IdentifierInfo *key = selector->getKeyword();
+        int keyIndex = decl->getKeywordIndex(key);
+
+        if (keyIndex < 0 || unsigned(keyIndex) < numPositional)
+            return false;
+    }
+    return true;
+}
+
+/// Checks that the given subroutine decl accepts the provided positional
+/// arguments.
+bool TypeCheck::routineAcceptsArgs(SubroutineDecl *decl,
+                                   SVImpl<Expr*>::Type &args)
+{
+    unsigned numArgs = args.size();
+    for (unsigned i = 0; i < numArgs; ++i) {
+        Expr *arg = args[i];
+        Type *targetType = decl->getParamType(i);
+
+        if (!checkApplicableArgument(arg, targetType))
+            return false;
+    }
+    return true;
+}
+
+/// Checks that the given subroutine decl accepts the provided keyword
+/// arguments.
+bool
+TypeCheck::routineAcceptsArgs(SubroutineDecl *decl,
+                              SVImpl<KeywordSelector*>::Type &args)
+{
+    unsigned numKeys = args.size();
+    for (unsigned i = 0; i < numKeys; ++i) {
+        KeywordSelector *selector = args[i];
+        Expr *arg = selector->getExpression();
+        IdentifierInfo *key = selector->getKeyword();
+        unsigned targetIndex = decl->getKeywordIndex(key);
+        Type *targetType = decl->getParamType(targetIndex);
+
+        if (!checkApplicableArgument(arg, targetType))
+            return false;
+    }
+    return true;
+}
+
+Ast *TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
+                                     SVImpl<Expr*>::Type &positionalArgs,
+                                     SVImpl<KeywordSelector*>::Type &keyedArgs)
+{
+    Location loc = ref->getLocation();
     unsigned numPositional = positionalArgs.size();
     unsigned numKeys = keyedArgs.size();
 
-    if (decls.size() == 1)
-        return checkSubroutineCall(decls[0], loc, positionalArgs, keyedArgs);
+    if (ref->isResolved())
+        return checkSubroutineCall(ref, positionalArgs, keyedArgs);
 
-    // We use the following bit vector to indicate which elements of the decl
-    // vector are applicable as we resolve the subroutine call with respect to
-    // the given arguments.
-    llvm::BitVector declFilter(decls.size(), true);
-
-    // First, reduce the set of declarations to include only those which can
-    // accept the keyword selectors provided.
-    for (unsigned i = 0; i < decls.size(); ++i) {
-        SubroutineDecl *decl = decls[i];
-        for (unsigned j = 0; j < keyedArgs.size(); ++j) {
-            KeywordSelector *selector = keyedArgs[j];
-            IdentifierInfo *key = selector->getKeyword();
-            Location keyLoc = selector->getLocation();
-            int keyIndex = decl->getKeywordIndex(key);
-
-            if (keyIndex < 0 || unsigned(keyIndex) < numPositional) {
-                declFilter[i] = false;
-                break;
-            }
-        }
+    // Reduce the subroutine reference to include only those which can accept
+    // the keyword selectors provided.
+    SubroutineRef::iterator I = ref->begin();
+    while (I != ref->end()) {
+        SubroutineDecl *decl = *I;
+        if (routineAcceptsKeywords(decl, numPositional, keyedArgs))
+            ++I;
+        else
+            I = ref->erase(I);
     }
 
     // If none of the declarations support the keywords given, just report the
     // call as ambiguous.
-    if (declFilter.none()) {
+    if (ref->empty()) {
         report(loc, diag::AMBIGUOUS_EXPRESSION);
-        return getInvalidNode();
+        return 0;
     }
 
     // Reduce the set of declarations with respect to the types of the
     // arguments.
-    for (unsigned i = 0; i < decls.size(); ++i) {
-        SubroutineDecl *decl = decls[i];
+    for (I = ref->begin(); I != ref->end();) {
+        SubroutineDecl *decl = *I;
 
-        // First process the positional parameters.
-        for (unsigned j = 0; j < numPositional; ++j) {
-            Expr *arg = positionalArgs[j];
-            Type *targetType = decl->getParamType(j);
-
-            if (!checkApplicableArgument(arg, targetType)) {
-                declFilter[i] = false;
-                break;
-            }
-        }
-
-        // If this declaration is not applicable, move on.
-        if (!declFilter[i])
+        // First process the positional parameters.  Move on to the next
+        // declaration if is cannot accept the given arguments.
+        if (!routineAcceptsArgs(decl, positionalArgs)) {
+            I = ref->erase(I);
             continue;
+        }
 
         // Check the keyed arguments for compatability.
-        for (unsigned j = 0; j < numKeys; ++j) {
-            KeywordSelector *selector = keyedArgs[j];
-            Expr *arg = selector->getExpression();
-            IdentifierInfo *key = selector->getKeyword();
-            unsigned targetIndex = decl->getKeywordIndex(key);
-            Type *targetType = decl->getParamType(targetIndex);
-
-            if (!checkApplicableArgument(arg, targetType)) {
-                declFilter[i] = false;
-                break;
-            }
+        if (!routineAcceptsArgs(decl, keyedArgs)) {
+            I = ref->erase(I);
+            continue;
         }
+
+        // We have a compatable declaration.
+        ++I;
     }
 
     // If all of the declarations have been filtered out, it is due to ambiguous
     // arguments.
-    if (declFilter.none()) {
+    if (ref->empty()) {
         report(loc, diag::AMBIGUOUS_EXPRESSION);
-        return getInvalidNode();
+        return 0;
     }
 
     // If we have a unique declaration, check the matching call.
-    if (declFilter.count() == 1) {
-        SubroutineDecl *decl = decls[declFilter.find_first()];
-        return checkSubroutineCall(decl, loc, positionalArgs, keyedArgs);
+    if (ref->isResolved())
+        return checkSubroutineCall(ref, positionalArgs, keyedArgs);
+
+    // If we are dealing with procedures the call is ambiguous since we cannot
+    // use a return type to resolve any further.
+    if (ref->referencesProcedures()) {
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
+        return 0;
     }
 
-    // If we are dealing with functions, the resolution of the call will depend
-    // on the resolution of the return type.  If we are dealing with procedures,
-    // then the call is ambiguous.
-    if (isa<FunctionDecl>(decls[0])) {
-        llvm::SmallVector<FunctionDecl*, 4> connectives;
-        for (unsigned i = 0; i < decls.size(); ++i)
-            if (declFilter[i])
-                connectives.push_back(cast<FunctionDecl>(decls[i]));
-        FunctionCallExpr *call =
-            new FunctionCallExpr(&connectives[0], connectives.size(),
-                                 positionalArgs.data(), positionalArgs.size(),
-                                 keyedArgs.data(), keyedArgs.size(), loc);
-        return getNode(call);
-    }
-    else {
-        report(loc, diag::AMBIGUOUS_EXPRESSION);
-        return getInvalidNode();
-    }
+    return new FunctionCallExpr(ref,
+                                positionalArgs.data(), numPositional,
+                                keyedArgs.data(), numKeys);
 }
 
-Node
-TypeCheck::checkSubroutineCall(SubroutineDecl *decl, Location loc,
-                               llvm::SmallVectorImpl<Expr*> &positionalArgs,
-                               llvm::SmallVectorImpl<KeywordSelector*> &keyArgs)
+Ast*
+TypeCheck::checkSubroutineCall(SubroutineRef *ref,
+                               SVImpl<Expr*>::Type &posArgs,
+                               SVImpl<KeywordSelector*>::Type &keyArgs)
 {
-    unsigned numArgs = positionalArgs.size() + keyArgs.size();
+    assert(ref->isResolved() && "Cannot check call for unresolved reference!");
+
+    Location loc = ref->getLocation();
+    SubroutineDecl *decl = ref->getDeclaration();
+    unsigned numArgs = posArgs.size() + keyArgs.size();
 
     if (decl->getArity() != numArgs) {
         report(loc, diag::WRONG_NUM_ARGS_FOR_SUBROUTINE) << decl->getIdInfo();
-        return getInvalidNode();
+        return 0;
     }
 
-    if (!checkSubroutineArguments(decl, positionalArgs, keyArgs))
-        return getInvalidNode();
+    if (!checkSubroutineArguments(decl, posArgs, keyArgs))
+        return 0;
 
-    if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-        FunctionCallExpr *call =
-            new FunctionCallExpr(fdecl,
-                                 positionalArgs.data(), positionalArgs.size(),
-                                 keyArgs.data(), keyArgs.size(), loc);
-        return getNode(call);
-    }
-    else {
-        ProcedureDecl *pdecl = cast<ProcedureDecl>(decl);
-        ProcedureCallStmt *call =
-            new ProcedureCallStmt(pdecl,
-                                  positionalArgs.data(), positionalArgs.size(),
-                                  keyArgs.data(), keyArgs.size(), loc);
-        return getNode(call);
-    }
+    if (isa<FunctionDecl>(decl))
+        return new FunctionCallExpr(ref,
+                                    posArgs.data(), posArgs.size(),
+                                    keyArgs.data(), keyArgs.size());
+    else
+        return new ProcedureCallStmt(ref,
+                                     posArgs.data(), posArgs.size(),
+                                     keyArgs.data(), keyArgs.size());
 }
 
 bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
@@ -553,20 +264,13 @@ bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
     return true;
 }
 
-/// Checks that the supplied array of arguments are mode compatible with those
-/// of the given decl.  This is a helper method for checkSubroutineCall.
-///
-/// It is assumed that the number of arguments passed matches the number
-/// expected by the decl.  This function checks that the argument types and
-/// modes are compatible with that of the given decl.  Returns true if the check
-/// succeeds, false otherwise and appropriate diagnostics are posted.
-bool TypeCheck::checkSubroutineArguments(
-    SubroutineDecl *decl,
-    llvm::SmallVectorImpl<Expr*> &posArgs,
-    llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs)
+bool
+TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
+                                    SVImpl<Expr*>::Type &posArgs,
+                                    SVImpl<KeywordSelector*>::Type &keyArgs)
 {
     // Check each positional argument.
-    typedef llvm::SmallVectorImpl<Expr*>::iterator pos_iterator;
+    typedef SVImpl<Expr*>::Type::iterator pos_iterator;
     pos_iterator PI = posArgs.begin();
     for (unsigned i = 0; PI != posArgs.end(); ++PI, ++i) {
         Expr *arg = *PI;
@@ -578,15 +282,14 @@ bool TypeCheck::checkSubroutineArguments(
     }
 
     // Check each keyed argument.
-    typedef llvm::SmallVectorImpl<KeywordSelector*>::iterator key_iterator;
-    key_iterator KI = keyedArgs.begin();
-    for ( ; KI != keyedArgs.end(); ++KI) {
+    typedef SVImpl<KeywordSelector*>::Type::iterator key_iterator;
+    key_iterator KI = keyArgs.begin();
+    for ( ; KI != keyArgs.end(); ++KI) {
         KeywordSelector *selector = *KI;
         IdentifierInfo *key = selector->getKeyword();
         Location keyLoc = selector->getLocation();
         Expr *arg = selector->getExpression();
         int keyIndex = decl->getKeywordIndex(key);
-
 
         // Ensure the given keyword exists.
         if (keyIndex < 0) {
@@ -606,7 +309,7 @@ bool TypeCheck::checkSubroutineArguments(
 
         // Ensure that this keyword is not a duplicate of any preceding
         // keyword.
-        for (key_iterator I = keyedArgs.begin(); I != KI; ++I) {
+        for (key_iterator I = keyArgs.begin(); I != KI; ++I) {
             KeywordSelector *prevSelector = *I;
             if (prevSelector->getKeyword() == key) {
                 report(keyLoc, diag::DUPLICATE_KEYWORD) << key;
@@ -623,26 +326,30 @@ bool TypeCheck::checkSubroutineArguments(
     return true;
 }
 
-Node TypeCheck::acceptIndexedArray(ValueDecl *vdecl, Location loc,
-                                   NodeVector &indexNodes)
+IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
+                                                SVImpl<Expr*>::Type &indices)
 {
-    Type *type = vdecl->getType();
-    ArrayType *arrTy = cast<ArrayType>(cast<TypedefType>(type)->getBaseType());
+    Location loc = ref->getLocation();
+    ValueDecl *vdecl = ref->getDeclaration();
+    Type *type = vdecl->getType()->getBaseType();
 
-    llvm::SmallVector<Expr*, 8> indices;
-    unsigned numIndices = indexNodes.size();
+    if (!isa<ArrayType>(type)) {
+        report(loc, diag::EXPECTED_ARRAY_FOR_INDEX);
+        return 0;
+    }
+    ArrayType *arrTy = cast<ArrayType>(type);
 
     // Check that the number of indices matches the rank of the array type.
+    unsigned numIndices = indices.size();
     if (numIndices != arrTy->getRank()) {
         report(loc, diag::WRONG_NUM_SUBSCRIPTS_FOR_ARRAY);
-        return getInvalidNode();
+        return 0;
     }
 
-    // Convert the argument nodes to Expr's and check that each index is
-    // compatible with the arrays type.  If an index does not check, continue
-    // checking each remaining index.
+    // Ensure each index is compatible with the arrays type.  If an index does
+    // not check, continue checking each remaining index.
     for (unsigned i = 0; i < numIndices; ++i) {
-        Expr *index = cast_node<Expr>(indexNodes[i]);
+        Expr *index = indices[i];
         if (checkExprInContext(index, arrTy->getIndexType(i)))
             indices.push_back(index);
     }
@@ -650,13 +357,12 @@ Node TypeCheck::acceptIndexedArray(ValueDecl *vdecl, Location loc,
     // If the number of checked indices does not match the number of nodes
     // given, one or more of the indices did not check.
     if (indices.size() != numIndices)
-        return getInvalidNode();
+        return 0;
 
     // Create a DeclRefExpr to represent the array value and return a fresh
     // expression.
-    indexNodes.release();
     DeclRefExpr *arrExpr = new DeclRefExpr(vdecl, loc);
-    return getNode(new IndexedArrayExpr(arrExpr, &indices[0], numIndices));
+    return new IndexedArrayExpr(arrExpr, &indices[0], numIndices);
 }
 
 // Typechecks the given expression in the given type context.  This method can

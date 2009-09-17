@@ -29,6 +29,7 @@ class APInt;
 namespace comma {
 
 class DeclProducer;
+class Resolver;
 class Scope;
 
 class TypeCheck : public ParseClient {
@@ -71,8 +72,7 @@ public:
 
     void acceptFunctionReturnType(Node typeNode);
 
-    void acceptOverrideTarget(Node qualNode,
-                              IdentifierInfo *name, Location loc);
+    void acceptOverrideTarget(Node prefix, IdentifierInfo *target, Location loc);
 
     Node endSubroutineDeclaration(bool definitionFollows);
 
@@ -83,6 +83,24 @@ public:
 
     void endSubroutineDefinition();
 
+    Node acceptDirectName(IdentifierInfo *name, Location loc,
+                          bool forStatement);
+
+
+    Node acceptCharacterLiteral(IdentifierInfo *lit, Location loc);
+
+    Node acceptSelectedComponent(Node prefix,
+                                 IdentifierInfo *name,
+                                 Location loc,
+                                 bool forStatement);
+
+    Node acceptParameterAssociation(IdentifierInfo *key,
+                                    Location loc, Node rhs);
+
+    Node acceptApplication(Node prefix, NodeVector &argNodes);
+
+    Node finishName(Node name);
+
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
 
@@ -91,45 +109,9 @@ public:
 
     Node acceptPercent(Location loc);
 
-    Node acceptTypeName(IdentifierInfo *info,
-                        Location        loc,
-                        Node            qualNode);
-
-    Node acceptTypeApplication(IdentifierInfo  *connective,
-                               NodeVector      &arguments,
-                               IdentifierInfo **keys,
-                               Location        *keyLocs,
-                               unsigned         numKeys,
-                               Location         loc);
-
-
     bool acceptImportDeclaration(Node importedType);
 
-    Node acceptKeywordSelector(IdentifierInfo *key,
-                               Location        loc,
-                               Node            exprNode,
-                               bool            forSubroutine);
-
-    Node acceptDirectName(IdentifierInfo *name,
-                          Location        loc,
-                          Node            qualNode);
-
-    Node acceptFunctionName(IdentifierInfo *name,
-                            Location        loc,
-                            Node            qualNode);
-
-    Node acceptFunctionCall(Node        connective,
-                            Location    loc,
-                            NodeVector &args);
-
-
-    Node acceptProcedureName(IdentifierInfo *name,
-                             Location        loc,
-                             Node            qualNode);
-
-    Node acceptProcedureCall(Node        connective,
-                             Location    loc,
-                             NodeVector &args);
+    Node acceptProcedureCall(Node name);
 
     // Called for "inj" expressions.  loc is the location of the inj token and
     // expr is its argument.
@@ -204,13 +186,6 @@ public:
     void acceptArrayComponent(Node componentNode);
     void endArray();
 
-    /// Given a ValueDecl having an array type, ensure that the given nodes form
-    /// a proper set of subscripts for indexing into the array.  Returns a Node
-    /// encapsulating an IndexedArrayExpr if the checks succeed, or an invalid
-    /// Node if the checks fail.
-    Node acceptIndexedArray(ValueDecl *arrayDecl, Location loc,
-                            NodeVector &indexNodes);
-
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 
@@ -252,14 +227,14 @@ private:
             INVALID_PROCEDURE_PROFILE, ///< Marks an invalid procedure profile.
         };
 
-        ProfileKind kind;             ///< The kind of this profile.
-        IdentifierInfo *name;         ///< The name of the subroutine.
-        Location loc;                 ///< The location of name.
-        ParamVec params;              ///< Parameter declarations.
-        TypeDecl *returnTy;           ///< The return type or null.
-        Qualifier *overrideQual;      ///< Qualifier for an override, or null.
-        IdentifierInfo *overrideName; ///< Name of the override target, or null.
-        Location overrideLoc;         ///< Location of the override target.
+        ProfileKind kind;               ///< The kind of this profile.
+        IdentifierInfo *name;           ///< The name of the subroutine.
+        Location loc;                   ///< The location of name.
+        ParamVec params;                ///< Parameter declarations.
+        TypeDecl *returnTy;             ///< The return type or null.
+        TypeRef *overrideCtx;           ///< Override qualifier or null.
+        IdentifierInfo *overrideTarget; ///< Override name or null.
+        Location overrideLoc;           ///< The location of overrideTarget.
 
         /// Sets this back to the initial state.
         void reset() {
@@ -268,8 +243,8 @@ private:
             loc  = 0;
             params.clear();
             returnTy = 0;
-            overrideQual = 0;
-            overrideName = 0;
+            overrideCtx = 0;
+            overrideTarget = 0;
             overrideLoc = 0;
         }
 
@@ -375,6 +350,14 @@ private:
 
     /// Staging area for array type declarations.
     ArrayProfileInfo arrProfileInfo;
+
+
+    /// Several support routines operate over llvm::SmallVector's.  Define a
+    /// generic shorthand.
+    template <class T>
+    struct SVImpl {
+        typedef llvm::SmallVectorImpl<T> Type;
+    };
 
     //===------------------------------------------------------------------===//
     // Utility functions.
@@ -607,32 +590,93 @@ private:
     // diagnostics are emitted.
     bool resolveNullaryFunctionCall(FunctionCallExpr *call, Type *targetType);
 
-    Node checkSubroutineCall(SubroutineDecl *decl, Location loc,
-                             llvm::SmallVectorImpl<Expr*> &positionalArgs,
-                             llvm::SmallVectorImpl<KeywordSelector*> &keyArgs);
+    /// Checks that the given SubroutineRef can be applied to the given argument
+    /// nodes.
+    ///
+    /// \return An AST node representing the result of the application.  This is
+    /// either a FunctionCallExpr, a ProcedureCallExpr, or null if the call did
+    /// not type check.
+    Ast *acceptSubroutineApplication(SubroutineRef *ref,
+                                     NodeVector &argNodes);
 
+    /// Given a vector \p argNodes of Node's representing the arguments to a
+    /// subroutine call, extracts the AST nodes and fills in the vectors \p
+    /// positional and \p keyed with the positional and keyed arguments,
+    /// respectively.
+    ///
+    /// This method ensures that the argument nodes are generally compatible
+    /// with a subroutine call; namely, that all positional and keyed arguments
+    /// denote Expr's.  If this conversion fails, diagnostics are posted, false
+    /// is returned, and the contents of the given vectors is undefined.
+    bool checkSubroutineArgumentNodes(NodeVector &argNodes,
+                                      SVImpl<Expr*>::Type &positional,
+                                      SVImpl<KeywordSelector*>::Type &keyed);
+
+    /// Checks that the given expression \p arg satisifes the type \p
+    /// targetType.  Also ensures that \p arg is compatable with the given
+    /// parameter mode.  Returns true if the checks succeed, other wise false is
+    /// returned and diagnostics are posted.
     bool checkSubroutineArgument(Expr *arg, Type *targetType,
                                  PM::ParameterMode targetMode);
 
-    /// Checks that the given arguments are compatible with those of the given
-    /// decl.  This is a helper method for checkSubroutineCall.
-    bool
-    checkSubroutineArguments(SubroutineDecl *decl,
-                             llvm::SmallVectorImpl<Expr*> &posArgs,
-                             llvm::SmallVectorImpl<KeywordSelector*> &keyArgs);
+    /// Checks that given arguments are compatible with those of the given
+    /// decl.
+    ///
+    /// It is assumed that the number of arguments passed matches the number
+    /// expected by the decl.  Each argument is checked for type and mode
+    /// compatibility.  Also, each keyed argument is checked to ensure that the
+    /// key exists, that the argument does not conflict with a positional
+    /// parameter, and that all keys are unique.  Returns true if the check
+    /// succeeds, false otherwise and appropriate diagnostics are posted.
+    bool checkSubroutineArguments(SubroutineDecl *decl,
+                                  SVImpl<Expr*>::Type &posArgs,
+                                  SVImpl<KeywordSelector*>::Type &keyArgs);
 
-    Node acceptSubroutineCall(IdentifierInfo *name,
-                              Location        loc,
-                              NodeVector     &args,
-                              bool            checkFunction);
 
+    /// Returns true if the given declaration accepts the given keyword
+    /// selectors assumming \p numPositional positional arguments are also
+    /// provided.
+    bool routineAcceptsKeywords(SubroutineDecl *decl,
+                                unsigned numPositional,
+                                SVImpl<KeywordSelector*>::Type &keys);
+
+    /// Checks that the given subroutine decl accepts the provided positional
+    /// arguments.
+    bool routineAcceptsArgs(SubroutineDecl *decl,
+                            SVImpl<Expr*>::Type &args);
+
+    /// Checks that the given subroutine decl accepts the provided keyword
+    /// arguments.
+    bool routineAcceptsArgs(SubroutineDecl *decl,
+                            SVImpl<KeywordSelector*>::Type &args);
+
+    /// Given a possibly ambiguous (overloaded) SubroutineRef \p ref, and a set
+    /// of positional and keyed arguments, checks the arguments and builds an
+    /// AST node representing the call.
+    ///
+    /// \return A general AST node which is either a FunctionCallExpr,
+    /// ProcedureCallStmt, or null if the call did not type check.
+    Ast *acceptSubroutineCall(SubroutineRef *ref,
+                              SVImpl<Expr*>::Type &positionalArgs,
+                              SVImpl<KeywordSelector*>::Type &keyedArgs);
+
+
+    /// Given a resolved (not overloaded) SubroutineRef \p ref, and a set of
+    /// positional and keyed arguments, checks the arguments and builds an AST
+    /// node representing the call.
+    ///
+    /// \return A general AST node which is either a FunctionCallExpr,
+    /// ProcedureCallStmt, or null if the call did not type check.
+    Ast *checkSubroutineCall(SubroutineRef *ref,
+                             SVImpl<Expr*>::Type &positionalArgs,
+                             SVImpl<KeywordSelector*>::Type &keyArgs);
+
+    /// Returns true if \p expr is compatible with the given type.
+    ///
+    /// This routine does not post diagnostics.  It is used to do a speculative
+    /// check of a subroutine argument when resolving a set of overloaded
+    /// declarations.
     bool checkApplicableArgument(Expr *expr, Type *targetType);
-
-    Node
-    acceptSubroutineCall(llvm::SmallVectorImpl<SubroutineDecl*> &decls,
-                         Location loc,
-                         llvm::SmallVectorImpl<Expr*> &positionalArgs,
-                         llvm::SmallVectorImpl<KeywordSelector*> &keyedArgs);
 
     // Returns true if the source type is compatible with the target.  In this
     // case the target denotes a signature, and so the source must be a domain
@@ -688,9 +732,9 @@ private:
     /// this function resolves the type of \c U(X) given an actual parameter for
     /// \c X.  It is assumed that the actual arguments provided are compatable
     /// with the given model.
-    SigInstanceDecl *
-    resolveFormalSignature(ModelDecl *parameterizedModel,
-                           Type **arguments, unsigned numArguments);
+    SigInstanceDecl *resolveFormalSignature(ModelDecl *parameterizedModel,
+                                            Type **arguments,
+                                            unsigned numArguments);
 
     /// Returns true if the given parameter is of mode "in", and thus capatable
     /// with a function declaration.  Otherwise false is returned an a
@@ -710,6 +754,115 @@ private:
 
     /// Imports the given declarative region into the current scope.
     void importDeclRegion(DeclRegion *region);
+
+    /// Utility routine for building TypeRef nodes over the given model.
+    static TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
+
+    /// Utility routine for building SubroutineRef nodes using the subroutine
+    /// declarations provided by the given Resolver.
+    static SubroutineRef *buildSubroutineRef(Location loc, Resolver &resolver);
+
+    /// Processes the indirect names in the given resolver.  If no indirect
+    /// names could be found, a diagnostic is posted and an invalid Node is
+    /// returned.
+    Node acceptIndirectName(Location loc, Resolver &resolver);
+
+
+    /// Checks that the given TypeRef can be applied to the given arguments.
+    ///
+    /// \return A new TypeRef representing the application if successful and
+    /// null otherwise.
+    TypeRef *acceptTypeApplication(TypeRef *ref, NodeVector &argNodes);
+
+    /// Checks that the given TypeRef can be applied to the given arguments.
+    ///
+    /// \return A new TypeRef representing the application if successful and
+    /// null otherwise.
+    TypeRef *acceptTypeApplication(TypeRef *ref,
+                                   SVImpl<TypeRef *>::Type &posArgs,
+                                   SVImpl<KeywordSelector *>::Type &keyedArgs);
+
+    /// Given a vector \p argNodes of Node's representing the arguments to a
+    /// subroutine call, extracts the AST nodes and fills in the vectors \p
+    /// positional and \p keyed with the positional and keyed arguments,
+    /// respectively.
+    ///
+    /// This method ensures that the argument nodes are generally compatible
+    /// with a type application; namely, that all positional and keyed arguments
+    /// denote TypeRef's.  If this conversion fails, diagnostics are posted,
+    /// false is returned, and the contents of the given vectors is undefined.
+    bool checkTypeArgumentNodes(NodeVector &argNodes,
+                                SVImpl<TypeRef*>::Type &positional,
+                                SVImpl<KeywordSelector*>::Type &keyed);
+
+    /// Checks that the given TypeRef is valid as a type parameter.  If the
+    /// check fails, diagnostics are posted.
+    ///
+    /// \return The DomainTypeDecl corresponding to \p ref (the only valid kind
+    /// of type parameter ATM), or null.
+    DomainTypeDecl *ensureValidModelParam(TypeRef *ref);
+
+    /// Checks that the given keyword arguments can be used as arguments to the
+    /// given model (which must be parameterized), assuming \p numPositional
+    /// positional parameters are a part of the call.  For example, given:
+    ///
+    /// \verbatim
+    ///     F(X, Y, P => Z);
+    /// \endverbatim
+    ///
+    /// Then \p numPositional would be 2 and \p keyedArgs would be a vector of
+    /// length 1 containing the keyword selector representing <tt>P => Z</tt>.
+    bool checkModelKeywordArgs(ModelDecl *model, unsigned numPositional,
+                               SVImpl<KeywordSelector*>::Type &keyedArgs);
+
+    /// Ensures that the given arguments \p args is compatible with the
+    /// parameterized mode \p model. The \p argLocs vector contains a Location
+    /// entry for each argument.
+    ///
+    /// This method handles any dependency relationships amongst the models
+    /// formal parameters.  Returns true if the checks succeed, otherwise false
+    /// is returned and diagnostics are posted.
+    bool checkModelArgs(ModelDecl *model,
+                        SVImpl<DomainTypeDecl*>::Type &args,
+                        SVImpl<Location>::Type &argLocs);
+
+    /// Builds an IndexedArrayExpr.
+    ///
+    /// Checks that the given DeclRefExpr \p ref is of array type, and ensures
+    /// that the given argument nodes can serve as indexes into \ref.
+    ///
+    /// \return An IndexedArrayExpr if the expression is valid and null
+    /// otherwise.
+    IndexedArrayExpr *acceptIndexedArray(DeclRefExpr *ref,
+                                         NodeVector &argNodes);
+
+    /// Checks that the given nodes are generally valid as array indices
+    /// (meaning that they must all resolve to denote Expr's).  Fills in the
+    /// array \p indices with the results.  If the conversion fails, then false
+    /// is returned, diagnostics are posted, and the state of \p indices is
+    /// undefined.
+    bool checkArrayIndexNodes(NodeVector &argNodes,
+                              SVImpl<Expr*>::Type &indices);
+
+    /// Typechecks an indexed array expression.
+    ///
+    /// \return An IndexedArrayExpr on success or null on failure.
+    IndexedArrayExpr *acceptIndexedArray(DeclRefExpr *ref,
+                                         SVImpl<Expr*>::Type &indices);
+
+    /// Creates a FunctionCallExpr or ProcedureCallStmt representing the given
+    /// SubroutineRef, provided that \p ref admits declarations with arity zero.
+    /// On failure, null is returned and diagnostics posted.
+    Ast *finishSubroutineRef(SubroutineRef *ref);
+
+    /// Ensures that the given TypeRef denotes a fully applied type (as opposed
+    /// to an incomplete reference to a variety or functor).  Returns true if
+    /// the check succeeds.  Otherwise false is returned and diagnostics are
+    /// posted.
+    bool finishTypeRef(TypeRef *ref);
+
+    /// Returns the location of \p node.
+    static Location getNodeLoc(Node node);
 
     bool has(DomainType *source, SigInstanceDecl *target);
     bool has(const AstRewriter &rewrites,

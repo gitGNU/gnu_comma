@@ -372,11 +372,6 @@ bool Lexer::scanGlyph()
             code = TKN_ASSIGN;
             break;
 
-        case ':':
-            ignoreStream();
-            code = TKN_DCOLON;
-            break;
-
         default:
             code = TKN_COLON;
         }

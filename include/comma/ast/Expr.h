@@ -110,7 +110,8 @@ public:
     /// than one declaration is associated with the ref, then the function call
     /// is said to be ambiguous.
     FunctionCallExpr(SubroutineRef *connective,
-                     Expr **arguments, unsigned numArgs);
+                     Expr **positionalArgs, unsigned numPositional,
+                     KeywordSelector **keyedArgs, unsigned numKeys);
 
     /// Creates a function call expression over the given set of function
     /// declarations and arguments.

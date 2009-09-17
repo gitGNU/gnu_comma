@@ -61,7 +61,7 @@ public:
           keyword(key), loc(loc), rhs(tyRef) { }
 
     /// Returns the identifier info representing the keyword.
-    IdentifierInfo *getKeyword() const { return keyword; }
+        IdentifierInfo *getKeyword() const { return keyword; }
 
     /// Returns the location of the keyword for this selection.
     Location getLocation()  const { return loc; }
@@ -79,9 +79,9 @@ public:
     const Expr *getExpression() const { return llvm::dyn_cast<Expr>(rhs); }
     //@}
 
-    /// If this selcetor has an expression of its right hand side, and the
-    /// expression is unambiguous, returns the type of the associated
-    /// expression and null otherwise.
+    /// If this selector has an expression on its right hand side, and the
+    /// expression is unambiguous, return the type of the associated expression
+    /// and null otherwise.
     Type *getType() const {
         if (const Expr *expr = getExpression()) {
             if (expr->hasType())

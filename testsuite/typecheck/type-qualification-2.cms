@@ -5,10 +5,10 @@ domain D with
 end D;
 
 domain E add
-   procedure Foo (X : D::T) is begin end Foo;
+   procedure Foo (X : D.T) is begin end Foo;
 
    procedure Test is
    begin
-      Foo(D::V);
+      Foo(D.V);
    end Test;
 end E;

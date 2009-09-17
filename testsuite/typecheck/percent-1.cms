@@ -11,6 +11,6 @@ domain F is
 add
    procedure Foo is
    begin
-      F(%)::Foo;
+      F(%).Foo;
    end Foo;
 end F;

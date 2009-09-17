@@ -95,8 +95,8 @@ DIAGNOSTIC(IMPORT_FROM_NON_DOMAIN, ERROR,
            "Expression does not denote a domain, and so cannot be imported.")
 DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
            "The name `%0' is not visible.")
-DIAGNOSTIC(PROCEDURE_IN_EXPRESSION, ERROR,
-           "Procedures cannot be used in an expression context.")
+DIAGNOSTIC(INVALID_CONTEXT_FOR_PROCEDURE, ERROR,
+           "Invalid context for procedure.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_SUBROUTINE, ERROR,
            "Wrong number of arguments for subroutine `%0'.")
 DIAGNOSTIC(INCOMPATIBLE_TYPES, ERROR,
@@ -166,3 +166,15 @@ DIAGNOSTIC(SUBROUTINE_OVERRIDE_REQUIRED, ERROR,
            "conflicts.\n   (inherited from `%1' and `%2')")
 DIAGNOSTIC(WRONG_NUM_SUBSCRIPTS_FOR_ARRAY, ERROR,
            "Wrong number of subscripts for array index.")
+DIAGNOSTIC(INVALID_PREFIX_FOR_COMPONENT, ERROR,
+           "Invalid prefix for component `%0'.")
+DIAGNOSTIC(EXPRESSION_AS_TYPE_PARAM, ERROR,
+           "Expressions cannot be used as type parameters.")
+DIAGNOSTIC(EXPECTED_PROCEDURE_CALL, ERROR,
+           "Expected procedure call.")
+DIAGNOSTIC(EXPECTED_ARRAY_FOR_INDEX, ERROR,
+           "Expected array type for indexed component.")
+DIAGNOSTIC(INVALID_ARRAY_INDEX, ERROR,
+           "Invalid array index.")
+DIAGNOSTIC(EXPECTED_NAMED_SUBROUTINE, ERROR,
+           "Expected named subroutine.")

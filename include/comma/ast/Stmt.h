@@ -117,6 +117,10 @@ private:
 class ProcedureCallStmt : public Stmt {
 
 public:
+    ProcedureCallStmt(SubroutineRef *ref,
+                      Expr **positionalArgs, unsigned numPositional,
+                      KeywordSelector **keyedArgs, unsigned numKeys);
+
     ProcedureCallStmt(ProcedureDecl *connective,
                       Expr **positionalArgs, unsigned numPositional,
                       KeywordSelector **keyedArgs, unsigned numKeys,
@@ -228,6 +232,9 @@ private:
     unsigned numArgs;
     unsigned numKeys;
     Location location;
+
+    void setArguments(Expr **posArgs, unsigned numPos,
+                      KeywordSelector **keys, unsigned numKeys);
 };
 
 //===----------------------------------------------------------------------===//

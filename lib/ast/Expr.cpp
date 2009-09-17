@@ -22,12 +22,13 @@ using llvm::isa;
 // FunctionCallExpr
 
 FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective,
-                                   Expr **args, unsigned numArgs)
+                                   Expr **posArgs, unsigned numPos,
+                                   KeywordSelector **keyArgs, unsigned numKeys)
     : Expr(AST_FunctionCallExpr, connective->getLocation()),
       connective(connective),
       qualifier(0)
 {
-    setArguments(args, numArgs, 0, 0);
+    setArguments(posArgs, numPos, keyArgs, numKeys);
     setTypeForConnective();
 }
 

@@ -29,21 +29,6 @@ Node Parser::parseExpr()
     }
 }
 
-Node Parser::parseSubroutineKeywordSelection()
-{
-    assert(keywordSelectionFollows());
-    Location        loc  = currentLocation();
-    IdentifierInfo *key  = parseIdentifierInfo();
-
-    ignoreToken();              // consume the "=>".
-    Node expr = parseExpr();
-
-    if (expr.isInvalid())
-        return getInvalidNode();
-    else
-        return client.acceptKeywordSelector(key, loc, expr, true);
-}
-
 Node Parser::parseInjExpr()
 {
     assert(currentTokenIs(Lexer::TKN_INJ));
@@ -98,12 +83,12 @@ Node Parser::parseExponentialOperator()
     Node rhs = parseExponentialOperator();
 
     if (rhs.isValid()) {
-        Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
-        if (fname.isValid()) {
+        Node prefix = client.acceptDirectName(opInfo, loc, false);
+        if (prefix.isValid()) {
             NodeVector args;
             args.push_back(lhs);
             args.push_back(rhs);
-            return client.acceptFunctionCall(fname, loc, args);
+            return client.acceptApplication(prefix, args);
         }
     }
     return getInvalidNode();
@@ -131,12 +116,12 @@ Node Parser::parseMultiplicativeOperator()
         Node rhs = parseExponentialOperator();
 
         if (rhs.isValid()) {
-            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
-            if (fname.isValid()) {
+            Node prefix = client.acceptDirectName(opInfo, loc, false);
+            if (prefix.isValid()) {
                 NodeVector args;
                 args.push_back(lhs);
                 args.push_back(rhs);
-                lhs = client.acceptFunctionCall(fname, loc, args);
+                lhs = client.acceptApplication(prefix, args);
                 continue;
             }
         }
@@ -158,11 +143,11 @@ Node Parser::parseAdditiveOperator()
         if (!lhs.isValid())
             return getInvalidNode();
 
-        Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
-        if (fname.isValid()) {
+        Node prefix = client.acceptDirectName(opInfo, loc, false);
+        if (prefix.isValid()) {
             NodeVector args;
             args.push_back(lhs);
-            lhs = client.acceptFunctionCall(fname, loc, args);
+            lhs = client.acceptApplication(prefix, args);
         }
     }
     else
@@ -192,12 +177,12 @@ Node Parser::parseBinaryAdditiveOperator(Node lhs)
         Node rhs = parseMultiplicativeOperator();
 
         if (rhs.isValid()) {
-            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
-            if (fname.isValid()) {
+            Node prefix = client.acceptDirectName(opInfo, loc, false);
+            if (prefix.isValid()) {
                 NodeVector args;
                 args.push_back(lhs);
                 args.push_back(rhs);
-                lhs = client.acceptFunctionCall(fname, loc, args);
+                lhs = client.acceptApplication(prefix, args);
                 continue;
             }
         }
@@ -232,12 +217,12 @@ Node Parser::parseRelationalOperator()
         Node rhs = parseAdditiveOperator();
 
         if (rhs.isValid()) {
-            Node fname = client.acceptFunctionName(opInfo, loc, getNullNode());
-            if (fname.isValid()) {
+            Node prefix = client.acceptDirectName(opInfo, loc, false);
+            if (prefix.isValid()) {
                 NodeVector args;
                 args.push_back(lhs);
                 args.push_back(rhs);
-                lhs = client.acceptFunctionCall(fname, loc, args);
+                lhs = client.acceptApplication(prefix, args);
                 continue;
             }
         }
@@ -259,33 +244,7 @@ Node Parser::parsePrimaryExpr()
     if (currentTokenIs(Lexer::TKN_INTEGER))
         return parseIntegerLiteral();
 
-    Node qual = getNullNode();
-    if (qualifierFollows()) {
-       qual = parseQualifier();
-       if (qual.isInvalid())
-           return getInvalidNode();
-    }
-
-    Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierOrCharacter();
-
-    if (!name)
-        return getInvalidNode();
-
-    if (currentTokenIs(Lexer::TKN_LPAREN)) {
-        NodeVector args;
-        if (!parseSubroutineArgumentList(args))
-            return getInvalidNode();
-
-        Node connective = client.acceptFunctionName(name, loc, qual);
-
-        if (connective.isValid())
-            return client.acceptFunctionCall(connective, loc, args);
-        else
-            return getInvalidNode();
-    }
-    else
-        return client.acceptDirectName(name, loc, qual);
+    return parseName(false);
 }
 
 Node Parser::parseIntegerLiteral()

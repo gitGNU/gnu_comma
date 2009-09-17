@@ -263,7 +263,7 @@ Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
         }
     }
     else {
-        Scope::Resolver &resolver = scope->getResolver();
+        Resolver &resolver = scope->getResolver();
         if (resolver.resolve(name)) {
             if (resolver.hasDirectType())
                 result = resolver.getDirectType();
@@ -287,114 +287,152 @@ Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
     return result;
 }
 
-Node TypeCheck::acceptTypeName(IdentifierInfo *id, Location loc, Node qualNode)
+// Ensures that the given TypeRef is of a sort compatible with the
+// parameterization of a variety or functor (e.g. the TypeRef resolves to a
+// DomainTypeDecl).  Returns the resolved DomainTypeDecl on sucess.  Otherwise
+// diagnostics are posted and null is returned.
+DomainTypeDecl *TypeCheck::ensureValidModelParam(TypeRef *ref)
 {
-    Decl *decl;
-
-    if (qualNode.isNull()) {
-        // FIXME:  Use a Scope::Resolver here.
-        decl = resolveTypeOrModelDecl(id, loc);
+    TypeDecl *arg = ref->getTypeDecl();
+    DomainTypeDecl *dom = dyn_cast_or_null<DomainTypeDecl>(arg);
+    if (!dom) {
+        Location loc = ref->getLocation();
+        report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
     }
-    else {
-        Qualifier *qualifier = cast_node<Qualifier>(qualNode);
-        DeclRegion *region = resolveVisibleQualifiedRegion(qualifier);
-        decl = resolveTypeOrModelDecl(id, loc, region);
-    }
-
-    if (decl == 0)
-        return getInvalidNode();
-
-    switch (decl->getKind()) {
-
-    default:
-        assert(false && "Cannot handle type declaration.");
-        return getInvalidNode();
-
-    case Ast::AST_DomainDecl: {
-        if (denotesDomainPercent(decl)) {
-            report(loc, diag::PERCENT_EQUIVALENT);
-            return getNode(getCurrentPercent());
-        }
-        DomainDecl *domDecl = cast<DomainDecl>(decl);
-        TypeRef *ref = new TypeRef(loc, domDecl->getInstance());
-        return getNode(ref);
-    }
-
-    case Ast::AST_SignatureDecl: {
-        SignatureDecl *sigDecl = cast<SignatureDecl>(decl);
-        TypeRef *ref = new TypeRef(loc, sigDecl->getInstance());
-        return getNode(ref);
-    }
-
-    case Ast::AST_AbstractDomainDecl:
-    case Ast::AST_CarrierDecl:
-    case Ast::AST_EnumerationDecl:
-    case Ast::AST_IntegerDecl:
-    case Ast::AST_ArrayDecl: {
-        TypeRef *ref = new TypeRef(loc, cast<TypeDecl>(decl));
-        return getNode(ref);
-    }
-
-    case Ast::AST_FunctorDecl:
-    case Ast::AST_VarietyDecl:
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << id;
-        return getInvalidNode();
-    }
+    return dom;
 }
 
-Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
-                                      NodeVector      &argumentNodes,
-                                      IdentifierInfo **keywords,
-                                      Location        *keywordLocs,
-                                      unsigned         numKeywords,
-                                      Location         loc)
+TypeRef *
+TypeCheck::acceptTypeApplication(TypeRef *ref,
+                                 SVImpl<TypeRef*>::Type &posArgs,
+                                 SVImpl<KeywordSelector*>::Type &keyedArgs)
 {
-    Scope::Resolver &resolver = scope->getResolver();
-    if (!resolver.resolve(connective) || !resolver.hasDirectCapsule()) {
-        report(loc, diag::TYPE_NOT_VISIBLE) << connective;
-        return getInvalidNode();
+    Location loc = ref->getLocation();
+    IdentifierInfo *name = ref->getIdInfo();
+
+    // If the type reference is complete, we cannot apply any arguments.
+    if (ref->isComplete()) {
+        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        return 0;
     }
 
-    ModelDecl *model = resolver.getDirectCapsule();
-    unsigned numArgs = argumentNodes.size();
-    assert(numKeywords <= numArgs && "More keywords than arguments!");
+    ModelDecl *model = ref->getModelDecl();
+    unsigned numPositional = posArgs.size();
+    unsigned numKeyed = keyedArgs.size();
+    unsigned numArgs = numPositional + numKeyed;
 
-    if (!model->isParameterized() || model->getArity() != numArgs) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << connective;
-        return getInvalidNode();
+    if (model->getArity() != numArgs) {
+        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
+        return 0;
     }
 
-    unsigned numPositional = numArgs - numKeywords;
-    llvm::SmallVector<DomainTypeDecl*, 4> arguments(numArgs);
-    llvm::SmallVector<Location, 4> argumentLocs(numArgs);
+    // Check that the model accepts the given keywords.
+    if (!checkModelKeywordArgs(model, numPositional, keyedArgs))
+        return 0;
 
-    // First, populate the argument vector with any positional parameters.
-    //
-    // FIXME: We should factor this out into a seperate pass over the argument
-    // vector.
+    // Build the a sorted vector of arguments, checking that each type reference
+    // denotes a domain.  Similarly build a vector of sorted locations for each
+    // argument.
+    llvm::SmallVector<DomainTypeDecl *, 8> args(numArgs);
+    llvm::SmallVector<Location, 8> argLocs(numArgs);
+
+    // Process the positional parameters.
     for (unsigned i = 0; i < numPositional; ++i) {
-        TypeRef *ref = cast_node<TypeRef>(argumentNodes[i]);
-        DomainTypeDecl *arg = dyn_cast<DomainTypeDecl>(ref->getDecl());
-        if (!arg) {
-            Location loc = ref->getLocation();
-            report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
-            return getInvalidNode();
-        }
-        arguments[i] = arg;
-        argumentLocs[i] = ref->getLocation();
+        DomainTypeDecl *dom = ensureValidModelParam(posArgs[i]);
+        if (!dom)
+            return 0;
+        args[i] = dom;
+        argLocs[i] = posArgs[i]->getLocation();
     }
 
-    // Process any keywords provided.
-    for (unsigned i = 0; i < numKeywords; ++i) {
-        IdentifierInfo *keyword = keywords[i];
-        Location keywordLoc = keywordLocs[i];
+    // Process the keyed parameters, placing them in their sorted positions
+    // (checkModelKeywordArgs has already assured us this mapping will not
+    // conflict).
+    for (unsigned i = 0; i < numKeyed; ++i) {
+        KeywordSelector *selector = keyedArgs[i];
+        TypeRef *argRef = keyedArgs[i]->getTypeRef();
+        DomainTypeDecl *dom = ensureValidModelParam(argRef);
+
+        if (!dom)
+            return 0;
+
+        IdentifierInfo *key = selector->getKeyword();
+        unsigned index = unsigned(model->getKeywordIndex(key));
+        args[index] = dom;
+        argLocs[index] = argRef->getLocation();
+    }
+
+    // Check that the arguments satisfy the parameterization constraints of the
+    // model.
+    if (!checkModelArgs(model, args, argLocs))
+        return 0;
+
+
+    // Obtain a memoized type node for this particular argument set.
+    TypeRef *instanceRef = 0;
+    if (VarietyDecl *V = dyn_cast<VarietyDecl>(model)) {
+        SigInstanceDecl *instance = V->getInstance(&args[0], numArgs);
+        instanceRef = new TypeRef(loc, instance);
+    }
+    else {
+        FunctorDecl *F = cast<FunctorDecl>(model);
+
+        // Ensure the requested instance is not self recursive.
+        if (!ensureNonRecursiveInstance(F, &args[0], numArgs, loc))
+            return false;
+
+        // If this particular functor parameterization is equivalent to %, warn
+        // and canonicalize to the unique percent node.
+        if (denotesFunctorPercent(F, &args[0], numArgs)) {
+            report(loc, diag::PERCENT_EQUIVALENT);
+            instanceRef = new TypeRef(loc, getCurrentPercent());
+        }
+        else {
+            DomainInstanceDecl *instance = F->getInstance(&args[0], numArgs);
+            instanceRef = new TypeRef(loc, instance);
+        }
+    }
+    return instanceRef;
+}
+
+bool TypeCheck::checkModelArgs(ModelDecl *model,
+                               SVImpl<DomainTypeDecl*>::Type &args,
+                               SVImpl<Location>::Type &argLocs)
+{
+    AstRewriter rewrites(resource);
+    unsigned numArgs = args.size();
+    for (unsigned i = 0; i < numArgs; ++i) {
+        DomainType *argTy = args[i]->getType();
+        Location argLoc = argLocs[i];
+        AbstractDomainDecl *target = model->getFormalDecl(i);
+
+        // Extend the rewriter mapping the formal argument type to the type of
+        // the actual argument.
+        rewrites[target->getType()] = argTy;
+
+        // Check the argument in the using the rewriter as context.
+        if (!checkSignatureProfile(rewrites, argTy, target, argLoc))
+            return false;
+    }
+
+    return true;
+}
+
+bool TypeCheck::checkModelKeywordArgs(ModelDecl *model, unsigned numPositional,
+                                      SVImpl<KeywordSelector*>::Type &keyedArgs)
+{
+    unsigned numKeys = keyedArgs.size();
+    for (unsigned i = 0; i < numKeys; ++i) {
+        KeywordSelector *selector = keyedArgs[i];
+        IdentifierInfo *keyword = selector->getKeyword();
+        Location keywordLoc = selector->getLocation();
         int keywordIdx = model->getKeywordIndex(keyword);
 
         // Ensure the given keyword exists.
         if (keywordIdx < 0) {
             report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
-                << keyword << connective;
-            return getInvalidNode();
+                << keyword << model->getIdInfo();
+            return false;
         }
 
         // The corresponding index of the keyword must be greater than the
@@ -402,88 +440,19 @@ Node TypeCheck::acceptTypeApplication(IdentifierInfo  *connective,
         // `overlap' a positional parameter).
         if ((unsigned)keywordIdx < numPositional) {
             report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY) << keyword;
-            return getInvalidNode();
+            return false;
         }
 
         // Ensure that this keyword is not a duplicate of any preceeding
         // keyword.
         for (unsigned j = 0; j < i; ++j) {
-            if (keywords[j] == keyword) {
+            if (keyedArgs[j]->getKeyword() == keyword) {
                 report(keywordLoc, diag::DUPLICATE_KEYWORD) << keyword;
-                return getInvalidNode();
+                return false;
             }
         }
-
-        // Lift the argument node and add it to the set of arguments in its
-        // proper position.
-        unsigned argIdx = i + numPositional;
-        TypeRef *ref = cast_node<TypeRef>(argumentNodes[argIdx]);
-        DomainTypeDecl *argument = dyn_cast<DomainTypeDecl>(ref->getDecl());
-
-        // FIXME: Currently only DomainTypeDecls and SigInstanceDecls propagate
-        // as arguments to a type application.  We should factor this out into a
-        // seperate pass over the argument vector.
-        if (!argument) {
-            Location loc = ref->getLocation();
-            report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
-            return getInvalidNode();
-        }
-
-        argumentNodes[i + numPositional].release();
-        arguments[keywordIdx] = argument;
-        argumentLocs[keywordIdx] = ref->getLocation();
     }
-
-    // Check each argument type.
-    //
-    // FIXME:  Factor this out.
-    for (unsigned i = 0; i < numArgs; ++i) {
-        DomainType *argTy = arguments[i]->getType();
-        Location argLoc = argumentLocs[i];
-        AbstractDomainDecl *target = model->getFormalDecl(i);
-
-        // Establish a rewriter mapping all previous formals to the given
-        // actuals, and from the target to the argument (abstract domain decls
-        // have % rewritten to denote themselves, which in this case we want to
-        // map to the type of the actual).
-        AstRewriter rewrites(resource);
-        rewrites[target->getType()] = arguments[i]->getType();
-        for (unsigned j = 0; j < i; ++j)
-            rewrites[model->getFormalType(j)] = arguments[j]->getType();
-
-        if (!checkSignatureProfile(rewrites, argTy, target, argLoc))
-            return getInvalidNode();
-    }
-
-    // Obtain a memoized type node for this particular argument set.
-    TypeRef *ref = 0;
-    if (VarietyDecl *variety = dyn_cast<VarietyDecl>(model)) {
-        SigInstanceDecl *instance =
-            variety->getInstance(arguments.data(), numArgs);
-        ref = new TypeRef(loc, instance);
-    }
-    else {
-        FunctorDecl *functor = cast<FunctorDecl>(model);
-
-        if (!ensureNonRecursiveInstance(
-                functor, arguments.data(), numArgs, loc))
-            return getInvalidNode();
-
-        if (denotesFunctorPercent(functor, arguments.data(), numArgs)) {
-            // Cannonicalize type applications which are equivalent to `%'.
-            report(loc, diag::PERCENT_EQUIVALENT);
-            ref = new TypeRef(loc, getCurrentPercent());
-        }
-        else {
-            DomainInstanceDecl *instance =
-                functor->getInstance(arguments.data(), numArgs);
-            ref = new TypeRef(loc, instance);
-        }
-    }
-
-    // Note that we do not release the argument node vector since it consisted
-    // only of TypeRefs which are no longer needed.
-    return getNode(ref);
+    return true;
 }
 
 TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
@@ -643,19 +612,6 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
     // context.
     new ImportDecl(domain, loc);
     return true;
-}
-
-Node TypeCheck::acceptKeywordSelector(IdentifierInfo *key, Location loc,
-                                      Node exprNode, bool forSubroutine)
-{
-    if (!forSubroutine) {
-        assert(false && "cannot accept keyword selectors for types yet!");
-        return getInvalidNode();
-    }
-
-    exprNode.release();
-    Expr *expr = cast_node<Expr>(exprNode);
-    return getNode(new KeywordSelector(key, loc, expr));
 }
 
 Node TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
@@ -938,8 +894,8 @@ bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
         }
     }
     else
-        return (std::strncmp(name, "<=", 2) or
-                std::strncmp(name, ">=", 2));
+        return (std::strncmp(name, "<=", 2) == 0 ||
+                std::strncmp(name, ">=", 2) == 0);
 }
 
 bool TypeCheck::namesUnaryFunction(IdentifierInfo *info)
@@ -960,3 +916,20 @@ bool TypeCheck::namesUnaryFunction(IdentifierInfo *info)
         return false;
 }
 
+Location TypeCheck::getNodeLoc(Node node)
+{
+    assert(!node.isNull() && "Cannot get locations from null nodes!");
+    assert(node.isValid() && "Cannot get locations from invalid nodes!");
+
+    if (Expr *expr = lift_node<Expr>(node))
+        return expr->getLocation();
+
+    if (TypeRef *ref = lift_node<TypeRef>(node))
+        return ref->getLocation();
+
+    if (SubroutineRef *ref = lift_node<SubroutineRef>(node))
+        return ref->getLocation();
+
+    ProcedureCallStmt *call = cast_node<ProcedureCallStmt>(node);
+    return call->getLocation();
+}

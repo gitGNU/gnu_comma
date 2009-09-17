@@ -48,9 +48,6 @@ public:
     void parseSupersignatureProfile();
     void parseWithProfile();
 
-    Node parseModelApplication(Node qualNode);
-    Node parseModelInstantiation();
-
     bool parseSubroutineParameter();
     void parseSubroutineParameters();
 
@@ -80,7 +77,6 @@ public:
     Node parseBlockStmt();
     Node parseWhileStmt();
 
-    Node parseSubroutineKeywordSelection();
     Node parseProcedureCallStatement();
 
     Node parseExpr();
@@ -90,7 +86,12 @@ public:
     Node parseOperatorExpr();
     Node parseIntegerLiteral();
 
-    Node parseQualifier();
+    Node parseName(bool forStatement);
+    Node parseDirectName(bool forStatement);
+    Node parseSelectedComponent(Node prefix, bool forStatement);
+    Node parseApplication(Node prefix);
+    Node parseParameterAssociation();
+
     bool parseType();
     void parseEnumerationList(Node enumeration);
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
@@ -262,6 +263,9 @@ private:
     // parse fails due to a missing or unexpected end tag) and false otherwise.
     bool parseEndTag(IdentifierInfo *expectedTag = 0);
 
+    // Seeks to the end of a Comma name.
+    void seekNameEnd();
+
     // Returns true if a matching pair of parens "()" is next on the stream of
     // tokens.
     bool unitExprFollows();
@@ -273,15 +277,9 @@ private:
     // the token stream admits an IdentifierInfo followed by a '=>' token.
     bool keywordSelectionFollows();
 
-    // Returns true if a qualification follows on the token stream.
-    //
-    // More precisely, returns true if the current token is an identifier
-    // followed by:
-    //
-    //   - a double colon;
-    //
-    //   - a left paren with a matching close paren followed by a double colon.
-    bool qualifierFollows();
+    // Returns true if a selected component (a name followed by a '.') is
+    // upcoming on the token stream.
+    bool selectedComponentFollows();
 
     // Returns true is a block statement follows on the token stream.
     //

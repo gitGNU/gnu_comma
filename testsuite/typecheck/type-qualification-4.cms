@@ -7,7 +7,7 @@ end S;
 signature T is
    S;
 with
-   function Test return S::E;
+   function Test return S.E;
 end T;
 
 

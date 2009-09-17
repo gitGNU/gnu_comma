@@ -24,7 +24,7 @@ domain D2 add
    -- Ensure qualified calls resolve.
    procedure Test1 (x : D1) is
    begin
-      F(D1)::Foo(x);
+      F(D1).Foo(x);
    end Test1;
 
    -- Ensure unqualified calls resolve.

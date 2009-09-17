@@ -18,6 +18,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
+#include "comma/ast/TypeRef.h"
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -177,18 +178,22 @@ void TypeCheck::acceptFunctionReturnType(Node typeNode)
     srProfileInfo.returnTy = returnDecl;
 }
 
-void TypeCheck::acceptOverrideTarget(Node qualNode,
-                                     IdentifierInfo *name, Location loc)
+void TypeCheck::acceptOverrideTarget(Node prefix,
+                                     IdentifierInfo *target, Location loc)
 {
-    // Simply store the given info into the current profile info.  We check
-    // overrides once the declaration node has been built.
-    if (qualNode.isNull())
-        srProfileInfo.overrideQual = 0;
-    else
-        srProfileInfo.overrideQual = cast_node<Qualifier>(qualNode);
+    // The override target must be a TypeRef. More detailed processing is
+    // defered until the subroutine declaration itself has been processed.
+    TypeRef *ref = lift_node<TypeRef>(prefix);
 
-    srProfileInfo.overrideName = name;
-    srProfileInfo.overrideLoc = loc;
+    if (!ref) {
+        report(loc, diag::EXPECTING_SIGNATURE_QUALIFIER) << target;
+        return;
+    }
+    else {
+        srProfileInfo.overrideCtx = ref;
+        srProfileInfo.overrideTarget = target;
+        srProfileInfo.overrideLoc = loc;
+    }
 }
 
 Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
@@ -267,28 +272,20 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
 bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
 {
-    Qualifier *targetQual = srProfileInfo.overrideQual;
-    IdentifierInfo *targetName = srProfileInfo.overrideName;
+
+    TypeRef *ref = srProfileInfo.overrideCtx;
+    IdentifierInfo *targetName = srProfileInfo.overrideTarget;
     Location targetLoc = srProfileInfo.overrideLoc;
 
-    // If the current profile information does not name a target, there is no
-    // overriding decl to check.
-    if (targetName == 0)
+    // If there is no override info, we are done.
+    if (!ref)
         return true;
 
-    // The grammer does not enforce that the name to override must be qualified.
-    if (targetQual == 0) {
-        report(targetLoc, diag::EXPECTING_SIGNATURE_QUALIFIER) << targetName;
-        return false;
-    }
-
-    // Ensure that the qualifier resolves to a signature.
-    SigInstanceDecl *sig = targetQual->resolve<SigInstanceDecl>();
-    Location sigLoc = targetQual->getBaseLocation();
+    SigInstanceDecl *sig = ref->getSigInstanceDecl();
 
     if (!sig) {
-        Decl *base = targetQual->getBaseDecl();
-        report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << base->getIdInfo();
+        report(ref->getLocation(), diag::NOT_A_SUPERSIGNATURE)
+            << ref->getIdInfo();
         return false;
     }
     PercentDecl *sigPercent = sig->getSigoid()->getPercent();
@@ -304,7 +301,8 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     }
 
     if (!context->getSignatureSet().contains(sig)) {
-        report(sigLoc, diag::NOT_A_SUPERSIGNATURE) << sig->getIdInfo();
+        report(ref->getLocation(), diag::NOT_A_SUPERSIGNATURE)
+            << ref->getIdInfo();
         return false;
     }
 
@@ -351,6 +349,7 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     report(targetLoc, diag::INCOMPATABLE_OVERRIDE)
         << overridingDecl->getIdInfo() << targetName;
     return false;
+
 }
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)

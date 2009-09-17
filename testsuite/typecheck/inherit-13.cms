@@ -20,8 +20,8 @@ signature V is
    T;
    U;
 with
-   procedure X (A : in out %) overrides S::P;
-   procedure Y (A : in     %) overrides T::P;
+   procedure X (A : in out %) overrides S.P;
+   procedure Y (A : in     %) overrides T.P;
 end V;
 
 
@@ -53,7 +53,7 @@ domain Bar with
 add
    procedure Test is
    begin
-      F::P(F::Make(0));
+      F.P(F.Make(0));
    end Test;
 end Bar;
 
@@ -61,7 +61,7 @@ end Bar;
 domain Baz add
    procedure Test is
    begin
-      Bar(Foo)::Test;
+      Bar(Foo).Test;
    end Test;
 end Baz;
 
