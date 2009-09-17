@@ -199,7 +199,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
     llvm::Value *stackSlot = createStackSlot(objDecl);
 
     if (objDecl->hasInitializer()) {
-        llvm::Value *init = emitExpr(objDecl->getInitializer());
+        llvm::Value *init = emitValue(objDecl->getInitializer());
         Builder.CreateStore(init, stackSlot);
     }
 }
