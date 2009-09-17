@@ -499,10 +499,13 @@ Node TypeCheck::finishName(Node name)
 
 Ast *TypeCheck::finishSubroutineRef(SubroutineRef *ref)
 {
+    IdentifierInfo *name = ref->getIdInfo();
+    Location loc = ref->getLocation();
+
     // Reduce the reference to include only those declarations with arity zero
     // and build the appropriate kind of call node.
     if (!ref->keepSubroutinesWithArity(0)) {
-        report(ref->getLocation(), diag::NAME_NOT_VISIBLE) << ref->getIdInfo();
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
         return 0;
     }
 
