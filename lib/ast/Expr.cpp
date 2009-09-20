@@ -136,8 +136,7 @@ IndexedArrayExpr::IndexedArrayExpr(DeclRefExpr *arrExpr,
 {
     assert(numIndices != 0 && "Missing indices!");
 
-    TypedefType *defTy = cast<TypedefType>(arrExpr->getType());
-    ArrayType *arrTy = cast<ArrayType>(defTy->getBaseType());
+    ArrayType *arrTy = arrExpr->getType()->getAsArrayType();
     setType(arrTy->getComponentType());
 
     indexExprs = new Expr*[numIndices];

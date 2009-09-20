@@ -266,7 +266,7 @@ bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
     // conflict iff both declarations have the same type.
     SubroutineDecl *XSDecl = cast<SubroutineDecl>(X);
     SubroutineDecl *YSDecl = cast<SubroutineDecl>(Y);
-    if (XSDecl->getType()->equals(YSDecl->getType()))
+    if (XSDecl->getType() == YSDecl->getType())
         return true;
     return false;
 }

@@ -137,7 +137,7 @@ Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)
             else if (EnumLiteral *EL = dyn_cast<EnumLiteral>(decl))
                 candidate = EL->getType();
 
-            if (candidate && type->equals(candidate))
+            if (candidate && type == candidate)
                 return decl;
         }
     }

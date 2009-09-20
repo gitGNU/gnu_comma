@@ -55,6 +55,10 @@ DIAGNOSTIC(NON_STATIC_EXPRESSION, ERROR,
            "Static expression required.")
 DIAGNOSTIC(EMPTY_ARRAY_TYPE_INDICES, ERROR,
            "Empty array index profiles are not permitted.")
+DIAGNOSTIC(EXPECTED_CONSTRAINED_ARRAY_INDEX, ERROR,
+           "Expected constrained array index.")
+DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
+           "Expected unconstrained array index.")
 
 //
 // Semantic Diagnostics.
@@ -68,7 +72,7 @@ DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
 DIAGNOSTIC(TYPE_CANNOT_DENOTE_VALUE, ERROR,
            "Type cannot denote a value.")
 DIAGNOSTIC(DOES_NOT_SATISFY, ERROR,
-           "`%0' does not satisfy `%0'.")
+           "Domain does not satisfy signature `%0'.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
            "The type `%0' is not visible.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
@@ -172,6 +176,8 @@ DIAGNOSTIC(EXPRESSION_AS_TYPE_PARAM, ERROR,
            "Expressions cannot be used as type parameters.")
 DIAGNOSTIC(EXPECTED_PROCEDURE_CALL, ERROR,
            "Expected procedure call.")
+DIAGNOSTIC(EXPECTED_DISCRETE_INDEX, ERROR,
+           "Expected discrete type for array index.")
 DIAGNOSTIC(EXPECTED_ARRAY_FOR_INDEX, ERROR,
            "Expected array type for indexed component.")
 DIAGNOSTIC(INVALID_ARRAY_INDEX, ERROR,

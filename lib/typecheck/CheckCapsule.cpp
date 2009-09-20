@@ -410,8 +410,8 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
     }
 
     if (TypeDecl *tyDecl = ensureTypeDecl(typeNode)) {
-        Type *carrierTy = tyDecl->getType();
-        CarrierDecl *carrier = new CarrierDecl(name, carrierTy, loc);
+        // FIXME: We should not have to cast here.
+        CarrierDecl *carrier = new CarrierDecl(name, tyDecl->getType(), loc);
         if (Decl *conflict = scope->addDirectDecl(carrier)) {
             report(loc, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());

@@ -48,32 +48,22 @@ ProcedureType *AstResource::getProcedureType(Type **argTypes, unsigned numArgs)
     return res;
 }
 
-IntegerType *AstResource::getIntegerType(const llvm::APInt &low,
+IntegerType *AstResource::getIntegerType(IntegerDecl *decl,
+                                         const llvm::APInt &low,
                                          const llvm::APInt &high)
 {
-    llvm::FoldingSetNodeID ID;
-    IntegerType::Profile(ID, low, high);
-
-    void *pos = 0;
-    if (IntegerType *uniqued = integerTypes.FindNodeOrInsertPos(ID, pos))
-        return uniqued;
-
-    IntegerType *res = new IntegerType(low, high);
-    integerTypes.InsertNode(res, pos);
+    IntegerType *res = new IntegerType(decl, low, high);
+    integerTypes.push_back(res);
     return res;
 }
 
-ArrayType *AstResource::getArrayType(unsigned rank,
-                                     Type **indices, Type *component)
+ArrayType *AstResource::getArrayType(ArrayDecl *decl, unsigned rank,
+                                     SubType **indices, Type *component,
+                                     bool isConstrained)
 {
-    llvm::FoldingSetNodeID ID;
-    ArrayType::Profile(ID, rank, indices, component);
-
-    void *pos = 0;
-    if (ArrayType *uniqued = arrayTypes.FindNodeOrInsertPos(ID, pos))
-        return uniqued;
-
-    ArrayType *res = new ArrayType(rank, indices, component);
-    arrayTypes.InsertNode(res, pos);
+    ArrayType *res;
+    res = new ArrayType(decl, rank, indices, component, isConstrained);
+    arrayTypes.push_back(res);
     return res;
 }
+

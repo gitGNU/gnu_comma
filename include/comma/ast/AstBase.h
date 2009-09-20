@@ -27,6 +27,7 @@ namespace comma {
 class AbstractDomainDecl;
 class AddDecl;
 class ArrayDecl;
+class ArraySubType;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -46,6 +47,7 @@ class DomainTypeDecl;
 class Domoid;
 class EnumerationDecl;
 class EnumLiteral;
+class EnumSubType;
 class EnumerationType;
 class Expr;
 class FunctionCallExpr;
@@ -56,13 +58,13 @@ class FunctorType;
 class IfStmt;
 class ImportDecl;
 class IndexedArrayExpr;
-class IntegerDecl;
 class InjExpr;
+class IntegerDecl;
 class IntegerLiteral;
+class IntegerSubType;
 class IntegerType;
 class KeywordSelector;
 class ModelDecl;
-class NamedType;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
@@ -80,9 +82,9 @@ class StmtSequence;
 class SubroutineDecl;
 class SubroutineRef;
 class SubroutineType;
+class SubType;
 class Type;
 class TypeDecl;
-class TypedefType;
 class TypeRef;
 class ValueDecl;
 class VarietyDecl;
@@ -159,14 +161,16 @@ public:
         AST_IntegerType,        ///< IntegerType
         AST_ArrayType,          ///< ArrayType
         AST_ProcedureType,      ///< ProcedureType
+        AST_EnumerationType,    ///< EnumerationType
+        AST_DomainType,         ///< DomainType
 
         //
-        // NamedType nodes.
+        // SubType nodes.
         //
-        AST_DomainType,         ///< DomainType
         AST_CarrierType,        ///< CarrierType
-        AST_TypedefType,        ///< TypedefType
-        AST_EnumerationType,    ///< EnumerationType
+        AST_ArraySubType,       ///< ArraySubType
+        AST_EnumSubType,        ///< EnumSubType
+        AST_IntegerSubType,     ///< IntegerSubType
 
         //
         // Expr nodes.
@@ -218,10 +222,10 @@ public:
         LAST_ValueDecl = AST_ObjectDecl,
 
         FIRST_Type = AST_FunctionType,
-        LAST_Type = AST_EnumerationType,
+        LAST_Type = AST_IntegerSubType,
 
-        FIRST_NamedType = AST_DomainType,
-        LAST_NamedType = AST_EnumerationType,
+        FIRST_SubType = AST_CarrierType,
+        LAST_SubType = AST_IntegerSubType,
 
         FIRST_Expr = AST_DeclRefExpr,
         LAST_Expr = AST_PrjExpr,
@@ -299,9 +303,9 @@ public:
         return (FIRST_Type <= kind && kind <= LAST_Type);
     }
 
-    /// Returns true of this node denotes a named type.
-    bool denotesNamedType() const {
-        return (FIRST_NamedType <= kind && kind <= LAST_NamedType);
+    /// Returns true if this node denotes a named subtype.
+    bool denotesSubType() const {
+        return (FIRST_SubType <= kind && kind <= LAST_SubType);
     }
 
     /// Returns true if this node denotes a subroutine type (i.e. either a

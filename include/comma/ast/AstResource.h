@@ -21,6 +21,8 @@
 
 #include "llvm/ADT/FoldingSet.h"
 
+#include <vector>
+
 namespace llvm {
 
 class APInt;
@@ -58,22 +60,29 @@ public:
     /// Returns a uniqued ProcedureType.
     ProcedureType *getProcedureType(Type **argTypes, unsigned numArgs);
 
-    /// Returns a uniqued IntegerType node of the specified range.
-    IntegerType *getIntegerType(const llvm::APInt &low,
+    /// Returns an IntegerType node for the given IntegerDecl using the
+    /// specified range.
+    IntegerType *getIntegerType(IntegerDecl *decl,
+                                const llvm::APInt &low,
                                 const llvm::APInt &high);
 
-    /// Returns a uniqued ArrayType node with the given index and component
+    /// Returns an ArrayType node with the given index and component
     /// types.
-    ArrayType *getArrayType(unsigned rank, Type **indices, Type *component);
+    ArrayType *getArrayType(ArrayDecl *decl, unsigned rank,
+                            SubType **indices, Type *component,
+                            bool isConstrained);
 
 private:
     TextProvider &txtProvider;
     IdentifierPool &idPool;
 
+
+    // FIXME: It is likely enough to have a single container managing all types.
+    std::vector<IntegerType*> integerTypes;
+    std::vector<ArrayType*> arrayTypes;
+
     llvm::FoldingSet<FunctionType> functionTypes;
     llvm::FoldingSet<ProcedureType> procedureTypes;
-    llvm::FoldingSet<IntegerType> integerTypes;
-    llvm::FoldingSet<ArrayType> arrayTypes;
 };
 
 } // End comma namespace.

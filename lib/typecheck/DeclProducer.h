@@ -41,13 +41,13 @@ public:
     EnumerationDecl *getBoolDecl() const;
 
     /// Returns the unique enumeration type representing Bool.
-    EnumerationType *getBoolType() const;
+    SubType *getBoolType() const;
 
     /// Returns the unique integer decl representing Integer.
     IntegerDecl *getIntegerDecl() const;
 
-    /// Returns the unique TypedefType representing Integer.
-    TypedefType *getIntegerType() const;
+    /// Returns the unique SubType representing Integer.
+    SubType *getIntegerType() const;
 
     /// Generates declarations appropriate for the given enumeration, populating
     /// \p enumDecl viewed as a DeclRegion with the results.

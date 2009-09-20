@@ -544,12 +544,7 @@ DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
       DeclRegion(kind)
 {
     assert(this->denotesDomainTypeDecl());
-    correspondingType = new DomainType(this);
-}
-
-DomainTypeDecl::~DomainTypeDecl()
-{
-    delete correspondingType;
+    CorrespondingType = new DomainType(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -730,7 +725,9 @@ EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
       numLiterals(0)
 {
     setDeclRegion(parent);
-    correspondingType = new EnumerationType(this);
+    EnumerationType *enumTy = new EnumerationType(this);
+    CorrespondingType = enumTy->getFirstSubType();
+
     // Ensure that each call to addDecl notifies us so that we can keep track of
     // each enumeration literal added to this decl.
     addObserver(this);
@@ -760,40 +757,38 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 //===----------------------------------------------------------------------===//
 // IntegerDecl
 
-IntegerDecl::IntegerDecl(IdentifierInfo *name, Location loc,
+IntegerDecl::IntegerDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
                          Expr *lowRange, Expr *highRange,
-                         IntegerType *baseType, DeclRegion *parent)
+                         const llvm::APInt &lowVal, const llvm::APInt &highVal,
+                         DeclRegion *parent)
     : TypeDecl(AST_IntegerDecl, name, loc),
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lowRange), highExpr(highRange)
 {
-    correspondingType = new TypedefType(baseType, this);
+    IntegerType *baseType = resource.getIntegerType(this, lowVal, highVal);
+    CorrespondingType = baseType->getFirstSubType();
 }
-
 
 //===----------------------------------------------------------------------===//
 // ArrayDecl
 ArrayDecl::ArrayDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
-                     unsigned rank, TypeDecl **indices,
-                     TypeDecl *componentDecl, DeclRegion *parent)
+                     unsigned rank, SubType **indices,
+                     Type *component, bool isConstrained, DeclRegion *parent)
     : TypeDecl(AST_ArrayDecl, name, loc),
-      DeclRegion(AST_ArrayDecl, parent),
-      rank(rank), componentDecl(componentDecl)
+      DeclRegion(AST_ArrayDecl, parent)
 {
     assert(rank != 0 && "Missing indices!");
 
-    indexDecls = new TypeDecl*[rank];
-    std::copy(indices, indices + rank, indexDecls);
+    // Ensure each of the index subtypes is scalar.
+    //
+    // FIXME:  Conditionalize this for debug builds.
+    for (unsigned i = 0; i < rank; ++i)
+        assert(indices[i]->isScalarType());
 
-    llvm::SmallVector<Type *, 8> indexTypes;
-    for (unsigned i = 0; i < rank; ++i) {
-        Type *indexTy = indexDecls[i]->getType();
-        assert(indexTy->isScalarType());
-        indexTypes.push_back(indexTy);
-    }
-    Type *componentTy = componentDecl->getType();
-    ArrayType *baseType =
-        resource.getArrayType(rank, &indexTypes[0], componentTy);
-    correspondingType = new TypedefType(baseType, this);
+    ArrayType *baseType;
+    baseType = resource.getArrayType(this, rank, indices, component,
+                                     isConstrained);
+    CorrespondingType = baseType->getFirstSubType();
 }

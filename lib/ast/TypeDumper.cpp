@@ -27,14 +27,6 @@ llvm::raw_ostream &TypeDumper::dump(Type *type, unsigned level)
     return S;
 }
 
-llvm::raw_ostream &TypeDumper::printHeader(Ast *node)
-{
-    AstDumperBase::printHeader(node);
-    if (NamedType *namedTy = dyn_cast<NamedType>(node))
-        S << llvm::format(" %s", namedTy->getString());
-    return S;
-}
-
 llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
 {
     unsigned arity = node->getArity();
@@ -88,7 +80,17 @@ void TypeDumper::visitEnumerationType(EnumerationType *node)
     printHeader(node) << '>';
 }
 
+void TypeDumper::visitEnumSubType(EnumSubType *node)
+{
+    printHeader(node) << '>';
+}
+
 void TypeDumper::visitIntegerType(IntegerType *node)
+{
+    printHeader(node) << '>';
+}
+
+void TypeDumper::visitIntegerSubType(IntegerSubType *node)
 {
     printHeader(node) << '>';
 }
@@ -98,7 +100,7 @@ void TypeDumper::visitArrayType(ArrayType *node)
     printHeader(node) << '>';
 }
 
-void TypeDumper::visitTypedefType(TypedefType *node)
+void TypeDumper::visitArraySubType(ArraySubType *node)
 {
     printHeader(node) << '>';
 }

@@ -24,6 +24,9 @@ using llvm::isa;
 
 const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 {
+    if (const SubType *subtype = dyn_cast<SubType>(type))
+        return lowerSubType(subtype);
+
     switch (type->getKind()) {
 
     default:
@@ -33,14 +36,8 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     case Ast::AST_DomainType:
         return lowerDomainType(cast<DomainType>(type));
 
-    case Ast::AST_CarrierType:
-        return lowerCarrierType(cast<CarrierType>(type));
-
     case Ast::AST_EnumerationType:
         return lowerEnumType(cast<EnumerationType>(type));
-
-    case Ast::AST_TypedefType:
-        return lowerTypedefType(cast<TypedefType>(type));
 
     case Ast::AST_IntegerType:
         return lowerIntegerType(cast<IntegerType>(type));
@@ -136,7 +133,7 @@ const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)
 
 const llvm::Type *CodeGenTypes::lowerCarrierType(const CarrierType *type)
 {
-    return lowerType(type->getRepresentationType());
+    return lowerType(type->getTypeOf());
 }
 
 const llvm::IntegerType *
@@ -184,14 +181,17 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     return result;
 }
 
-const llvm::Type *CodeGenTypes::lowerTypedefType(const TypedefType *type)
+const llvm::Type *CodeGenTypes::lowerSubType(const SubType *type)
 {
-    return lowerType(type->getBaseType());
+    if (const ArraySubType *arrayTy = dyn_cast<ArraySubType>(type))
+        return lowerArraySubType(arrayTy);
+
+    return lowerType(type->getTypeOf());
 }
 
 const llvm::IntegerType *CodeGenTypes::lowerIntegerType(const IntegerType *type)
 {
-    return getTypeForWidth(type->getBitWidth());
+    return getTypeForWidth(type->getSize());
 }
 
 const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
@@ -203,8 +203,8 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
     uint64_t numElems = 0;
 
     // Compute the number of elements.
-    if (TypedefType *defTy = dyn_cast<TypedefType>(indexType))
-        indexType = defTy->getBaseType();
+    if (SubType *subtype = dyn_cast<SubType>(indexType))
+        indexType = subtype->getTypeOf();
 
     if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
         llvm::APInt lower(intTy->getLowerBound());
@@ -215,7 +215,7 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 
         // Compute 'upper - lower + 1' to determine the number of elements in
         // this type.
-        unsigned width = intTy->getBitWidth() + 1;
+        unsigned width = intTy->getSize() + 1;
         lower.sext(width);
         upper.sext(width);
         llvm::APInt range(upper);
@@ -235,6 +235,69 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 
     const llvm::Type *elementTy = lowerType(type->getComponentType());
     return llvm::ArrayType::get(elementTy, numElems);
+}
+
+const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
+{
+    // We cannot lower unconstrained types.
+    assert(type->isConstrained() && "Cannot lower unconstrained array types!");
+
+    // Nor can we lower multidimensional arrays.
+    assert(type->getRank() == 1 &&
+           "Cannot codegen multidimensional arrays yet!");
+
+    SubType *constraint = type->getIndexConstraint(0);
+    assert(constraint->isDiscreteType() && "Bad type for array index!");
+
+    // Coumpute the bounds for the index.  If the index is itself range
+    // constrained use the bounds of the range, otherwise use the bounds of the
+    // base type.
+    llvm::APInt lowerBound;
+    llvm::APInt upperBound;
+    if (RangeConstraint *range =
+        dyn_cast<RangeConstraint>(constraint->getConstraint())) {
+        lowerBound = range->getLowerBound();
+        upperBound = range->getUpperBound();
+    }
+    else if (IntegerType *intTy = constraint->getAsIntegerType()) {
+        lowerBound = intTy->getLowerBound();
+        upperBound = intTy->getUpperBound();
+    }
+    else if (EnumerationType *enumTy = constraint->getAsEnumType()) {
+        EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
+        lowerBound = 0;
+        upperBound = enumDecl->getNumLiterals() - 1;
+    }
+
+    uint64_t numElems = getArrayWidth(lowerBound, upperBound);
+
+    const llvm::Type *elementTy = lowerType(type->getComponentType());
+    return llvm::ArrayType::get(elementTy, numElems);
+}
+
+uint64_t CodeGenTypes::getArrayWidth(const llvm::APInt &low,
+                                     const llvm::APInt &high)
+{
+    llvm::APInt lower(low);
+    llvm::APInt upper(high);
+
+    // FIXME: Handle null ranges.
+    assert(lower.slt(upper) && "Cannot codegen null ranges!");
+
+    // Compute 'upper - lower + 1' to determine the number of elements in
+    // this type.
+    unsigned width = std::max(lower.getBitWidth(), upper.getBitWidth()) + 1;
+    lower.sext(width);
+    upper.sext(width);
+    llvm::APInt range(upper);
+    range -= lower;
+    range++;
+
+    // Ensure the range can fit in 64 bits.
+    assert(range.getActiveBits() <= 64 &&
+           "Index type too wide for array type!");
+
+    return range.getZExtValue();
 }
 
 const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)

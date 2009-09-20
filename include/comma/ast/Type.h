@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstRewriter.h"
+#include "comma/ast/Constraint.h"
 #include "comma/basic/ParameterModes.h"
 
 #include "llvm/ADT/APInt.h"
@@ -32,16 +33,21 @@ public:
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
 
+    /// Returns true if this type denotes a discrete type.
+    bool isDiscreteType() const;
+
     /// Returns true if this type denotes an integer type.
     bool isIntegerType() const;
 
-    /// Returns the base type of this type.
-    ///
-    /// For example, returns the base type of a carrier type, or the base type
-    /// of a typedef type.
-    Type *getBaseType() const;
+    /// Returns true if this type denotes an enumeration type.
+    bool isEnumType() const;
 
-    virtual bool equals(const Type *type) const;
+    /// Returns true if this type denotes an array type.
+    bool isArrayType() const;
+
+    ArrayType *getAsArrayType();
+    IntegerType *getAsIntegerType();
+    EnumerationType *getAsEnumType();
 
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
@@ -55,67 +61,14 @@ protected:
         deletable = false;
         assert(this->denotesType());
     }
-};
-
-//===----------------------------------------------------------------------===//
-// NamedType
-//
-// This class represents types that provide IdentifierInfo's which name them.
-class NamedType : public Type {
-
-public:
-    virtual ~NamedType() { }
-
-    NamedType(AstKind kind, IdentifierInfo *idInfo)
-        : Type(kind), idInfo(idInfo) { }
-
-    /// Returns the IdentifierInfo naming this type.
-    IdentifierInfo *getIdInfo() const { return idInfo; }
-
-    /// Returns a C-style string naming this type.
-    const char *getString() const { return idInfo->getString(); }
-
-    /// Support isa and dyn_cast.
-    static bool classof(const NamedType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesNamedType();
-    }
 
 private:
-    IdentifierInfo *idInfo;
-};
-
-//===----------------------------------------------------------------------===//
-// CarrierType
-//
-// The type of carrier declarations.  In the future this node could be combined
-// into a general "type alias" node or similar.
-class CarrierType : public NamedType {
-
-public:
-    CarrierType(CarrierDecl *carrier);
-
-    /// Returns the underlying carrier declaration supporting this type.
-    CarrierDecl *getDeclaration();
-
-    /// Returns the representation type which this carrier aliases.
-    Type *getRepresentationType();
-    const Type *getRepresentationType() const;
-
-    bool equals(const Type *type) const;
-
-    static bool classof(const CarrierType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_CarrierType;
-    }
-
-private:
-    CarrierDecl *declaration;
+    Type(const Type &);         // Do not implement.
 };
 
 //===----------------------------------------------------------------------===//
 // DomainType
-class DomainType : public NamedType {
+class DomainType : public Type {
 
 private:
     /// Domain types are created and owned by a unique DomainTypeDecl.
@@ -125,6 +78,12 @@ private:
     DomainType(DomainTypeDecl *DTDecl);
 
 public:
+    /// Returns the defining identifier of this type.
+    IdentifierInfo *getIdInfo() const;
+
+    /// Returns the defining identifier of this type as a C-string.
+    const char *getString() const { return getIdInfo()->getString(); }
+
     /// Return the associated DomainTypeDecl.
     DomainTypeDecl *getDomainTypeDecl() const;
 
@@ -155,9 +114,6 @@ public:
     /// null.
     AbstractDomainDecl *getAbstractDecl() const;
 
-    /// Returns true if this type and the given type are equal.
-    bool equals(const Type *type) const;
-
     /// Support isa and dyn_cast.
     static bool classof(const DomainType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -165,7 +121,6 @@ public:
     }
 
 private:
-
     Decl *declaration;
 };
 
@@ -287,54 +242,44 @@ private:
 
 //===----------------------------------------------------------------------===//
 // EnumerationType
-//
-// Ownership of an enumeration type is always deligated to the corresponding
-// declaration.
-class EnumerationType : public NamedType
-{
+class EnumerationType : public Type {
+
 public:
     EnumerationType(EnumerationDecl *decl);
 
-    Decl *getDeclaration();
+    EnumerationDecl *getEnumerationDecl() { return declaration; }
+    const EnumerationDecl *getEnumerationDecl() const { return declaration; }
 
-    EnumerationDecl *getEnumerationDecl() { return correspondingDecl; }
-    const EnumerationDecl *getEnumerationDecl() const {
-        return correspondingDecl;
-    }
+    /// Returns the first subtype of this enumeration type.
+    EnumSubType *getFirstSubType() const { return FirstSubType; }
 
-    bool equals(const Type *type) const;
-
+    // Support isa and dyn_cast.
     static bool classof(const EnumerationType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumerationType;
     }
 
 private:
-    EnumerationDecl *correspondingDecl;
+    EnumerationDecl *declaration;
+    EnumSubType *FirstSubType;
 };
 
 //===----------------------------------------------------------------------===//
 // IntegerType
 //
-// These nodes represent ranged, signed, integer types.  They are allocated,
-// owned, and uniqued by an AstResource instance.
-//
-// NOTE: IntegerType's are constructed with respect to a range, represented by
-// llvm::APInt's.  These values must be of identical width, as the bounds of an
-// IntegerType must be compatable with the type itself.
-class IntegerType : public Type, public llvm::FoldingSetNode {
+// These nodes represent ranged, signed, integer types.  They are allocated and
+// owned by an AstResource instance.
+class IntegerType : public Type {
 
 public:
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
 
-    // Returns the number of bits needed to represent this integer type.
-    unsigned getBitWidth() const { return low.getBitWidth(); }
+    /// Returns the number of bits needed to represent this integer type.
+    unsigned getSize() const { return low.getBitWidth(); }
 
-    /// Profile implementation for use by llvm::FoldingSet.
-    void Profile(llvm::FoldingSetNodeID &ID) {
-        return Profile(ID, low, high);
-    }
+    /// Returns the first subtype of this integer type.
+    IntegerSubType *getFirstSubType() const { return FirstSubType; }
 
     /// Support isa and dyn_cast;
     static bool classof(const IntegerType *node) { return true; }
@@ -344,32 +289,43 @@ public:
 
 private:
     // Private constructor used by AstResource to allocate ranged integer types.
-    IntegerType(const llvm::APInt &low, const llvm::APInt &high);
-
-    // Profile method used by AstResource to unique integer type nodes.
-    static void Profile(llvm::FoldingSetNodeID &ID,
-                        const llvm::APInt &low, const llvm::APInt &high);
+    IntegerType(IntegerDecl *decl,
+                const llvm::APInt &low, const llvm::APInt &high);
 
     friend class AstResource;
 
-    // Lower and upper bounds for this type.
+    // Returns the minimun bit width needed to represent the given range.
+    static unsigned getWidthForRange(const llvm::APInt &low,
+                                     const llvm::APInt &high);
+
+    // Returns the base range used to represent the given range of values.
+    static std::pair<llvm::APInt, llvm::APInt>
+    getBaseRange(const llvm::APInt &low, const llvm::APInt &high);
+
+    // The lower and upper bounds for this type.
     llvm::APInt low;
     llvm::APInt high;
+
+    // First subtype.
+    IntegerSubType *FirstSubType;
+
+    // Base subtype.
+    IntegerSubType *BaseSubType;
 };
 
 //===----------------------------------------------------------------------===//
 // ArrayType
 //
 // These nodes describe the index profile and component type of an array type.
-// They are allocated, owned, and uniqued by an AstResource instance.
-class ArrayType : public Type, public llvm::FoldingSetNode {
+// They are allocated and owned by an AstResource instance.
+class ArrayType : public Type {
 
 public:
     /// Returns the rank (dimensionality) of this array type.
     unsigned getRank() const { return rank; }
 
     /// Returns the i'th index type of this array.
-    Type *getIndexType(unsigned i) const {
+    SubType *getIndexType(unsigned i) const {
         assert(i < rank && "Index is out of bounds!");
         return indexTypes[i];
     }
@@ -378,7 +334,7 @@ public:
     ///
     /// Iterators over the index types of this array.
     ///@{
-    typedef Type** index_iterator;
+    typedef SubType** index_iterator;
     index_iterator begin_indices() const { return &indexTypes[0]; }
     index_iterator end_indices() const { return &indexTypes[rank]; }
     ///@}
@@ -386,10 +342,11 @@ public:
     /// Returns the component type of this array.
     Type *getComponentType() const { return componentType; }
 
-    /// Profile implementation for use by llvm::FoldingSet.
-    void Profile(llvm::FoldingSetNodeID &ID) {
-        return Profile(ID, rank, indexTypes, componentType);
-    }
+    /// Returns the first subtype of this array type.
+    ArraySubType *getFirstSubType() const { return FirstSubType; }
+
+    /// Returns true if this is a constrained array type.
+    bool isConstrained() const { return bits & CONSTRAINT_BIT; }
 
     // Support isa and dyn_cast.
     static bool classof(const ArrayType *node) { return true; }
@@ -399,46 +356,206 @@ public:
 
 private:
     unsigned rank;              ///< The dimensionality of this array.
-    Type **indexTypes;          ///< The index types of this array.
+    SubType **indexTypes;       ///< The index types of this array.
     Type *componentType;        ///< The component type of this array.
 
-    // Private constructor used by AstResource to allocate array types.
-    ArrayType(unsigned rank, Type **indices, Type *component);
+    /// Constants for accessing the ast::bits field.
+    enum {
+        CONSTRAINT_BIT = (1 << 0)
+    };
 
-    /// Profile method used by AstResource to unique array type nodes.
-    static void Profile(llvm::FoldingSetNodeID &ID,
-                        unsigned rank, Type **indexTypes, Type *componentType);
+    // Private constructor used by AstResource to allocate array types.
+    ArrayType(ArrayDecl *decl,
+              unsigned rank, SubType **indices, Type *component,
+              bool isConstrained);
 
     friend class AstResource;
+
+    /// First subtype of this array.
+    ArraySubType *FirstSubType;
 };
 
+
 //===----------------------------------------------------------------------===//
-// TypedefType
-//
-// Nodes representing new named types.  These nodes always correspond to a
-// declaration in the source code (or a programmaticly generated decl in the
-// case of primitive types).  These nodes are owned by the associated
-// declaration nodes.
-class TypedefType : public NamedType {
+// SubType
+class SubType : public Type {
+
 public:
-    TypedefType(Type *baseType, Decl *decl);
+    virtual ~SubType() { };
 
-    /// Returns the declaration associated with this type definition.
-    Decl *getDeclaration();
+    /// Returns the parent type of this subtype.
+    Type *getParentType() const { return ParentType; }
 
-    /// Returns the base type of this type definition.
-    Type *getBaseType() { return baseType; }
-    const Type *getBaseType() const { return baseType; }
+    /// Returns the type of this subtype.
+    Type *getTypeOf() const;
 
-    /// Support isa and dyn_cast.
-    static bool classof(const TypedefType *node) { return true; }
+    /// Returns true if this is an anonymous subtype.
+    bool isAnonymous() const { return DefiningIdentifier == 0; }
+
+    /// Returns true if this subtype is constrained.
+    bool isConstrained() const { return SubTypeConstraint != 0; }
+
+    /// Returns the defining identifier of this subtype if it is named,
+    /// otherwise null.
+    IdentifierInfo *getIdInfo() const { return DefiningIdentifier; }
+
+    /// Returns the constraint of this subtype if constrained, else null for
+    /// unconstrained subtypes.
+    Constraint *getConstraint() const { return SubTypeConstraint; }
+
+    static bool classof(const SubType *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_TypedefType;
+        return node->denotesSubType();
+    }
+
+protected:
+    /// Constructs a named subtype.  The constraint may be null to define an
+    /// unsconstrained subtype.
+    SubType(AstKind kind, IdentifierInfo *identifier, Type *type,
+            Constraint *constraint);
+
+    /// Constructs an anonymous subtype.  The constraint may be null to define
+    /// an unconstrained subtype.
+    SubType(AstKind kind, Type *type, Constraint *constraint);
+
+    IdentifierInfo *DefiningIdentifier;
+    Type *ParentType;
+    Constraint *SubTypeConstraint;
+};
+
+
+//===----------------------------------------------------------------------===//
+// CarrierType
+//
+// The type of carrier declarations.  In the future this node could be combined
+// into a general "type alias" node or similar.
+class CarrierType : public SubType {
+
+public:
+    CarrierType(CarrierDecl *carrier, Type *type);
+
+    CarrierDecl *getDeclaration() { return CorrespondingDecl; }
+    const CarrierDecl *getDeclaration() const { return CorrespondingDecl; }
+
+    static bool classof(const CarrierType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_CarrierType;
     }
 
 private:
-    Type *baseType;
-    Decl *declaration;
+    CarrierDecl *CorrespondingDecl;
+};
+
+//===----------------------------------------------------------------------===//
+// ArraySubType
+class ArraySubType : public SubType {
+
+public:
+    /// Defines a subtype of the given array type.  The constraint may be null
+    /// to define an unconstrained subtype.
+    ArraySubType(IdentifierInfo *identifier, ArrayType *type,
+                 IndexConstraint *constraint)
+        : SubType(AST_ArraySubType, identifier, type, constraint) { }
+
+    /// Returns the ArrayType underlying this subtype.
+    ArrayType *getTypeOf() const {
+        return llvm::cast<ArrayType>(SubType::getTypeOf());
+    }
+
+    /// Returns the rank (dimensionality) of this array subtype.
+    unsigned getRank() const { return getTypeOf()->getRank(); }
+
+    /// Returns the component type of this array subtype.
+    Type *getComponentType() const {
+        return getTypeOf()->getComponentType();
+    }
+
+    /// Returns the i'th index type of this array subtype.
+    SubType *getIndexType(unsigned i) const {
+        // FIXME:  Use our constraints if available.
+        return getTypeOf()->getIndexType(i);
+    }
+
+    /// Returns the index constraint associated with this subtype, or null if
+    /// there are not any.
+    IndexConstraint *getConstraint() const {
+        return llvm::cast<IndexConstraint>(SubTypeConstraint);
+    }
+
+    /// Returns the constraint for the i'th index.
+    SubType *getIndexConstraint(unsigned i) const {
+        return getConstraint()->getConstraint(i);
+    }
+
+    // FIXME: These iterators need to take our index constraints (if any) into
+    // account.
+    typedef ArrayType::index_iterator index_iterator;
+    index_iterator begin_indices() const {
+        return getTypeOf()->begin_indices();
+    }
+    index_iterator end_indices() const {
+        return getTypeOf()->end_indices();
+    }
+
+    static bool classof(const ArraySubType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ArraySubType;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// EnumSubType
+class EnumSubType : public SubType {
+
+public:
+    // Defines a subtype of the given enumeration type.  The constraint may be
+    // null to define an unconstrained subtype.
+    EnumSubType(IdentifierInfo *identifier, EnumerationType *type,
+                RangeConstraint *constraint)
+        : SubType(AST_EnumSubType, identifier, type, constraint) { }
+
+    /// Returns the type of this enumeration subtype.
+    EnumerationType *getTypeOf() const {
+        return llvm::cast<EnumerationType>(SubType::getTypeOf());
+    }
+
+    static bool classof(const EnumSubType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumSubType;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// IntegerSubType
+class IntegerSubType : public SubType {
+
+public:
+    /// Constructs a named integer subtype of the given type and constraint.
+    /// The constraint may be null to define an unconstrained subtype.
+    IntegerSubType(IdentifierInfo *name, IntegerType *type,
+                   RangeConstraint *constraint)
+        : SubType(AST_IntegerSubType, name, type, constraint) { }
+
+    /// Constructs an anonymous subtype of the given type and constraint.  The
+    /// constraint may be null to define an unconstrained subtype.
+    IntegerSubType(IntegerType *type, RangeConstraint *constraint)
+        : SubType(AST_IntegerSubType, type, constraint) { }
+
+    /// Returns the type of this integer subtype.
+    IntegerType *getTypeOf() const {
+        return llvm::cast<IntegerType>(SubType::getTypeOf());
+    }
+
+    /// Returns the constraint of this subtype, or null if this subtype is not
+    /// constrained.
+    RangeConstraint *getConstraint() const {
+        return llvm::cast<RangeConstraint>(SubTypeConstraint);
+    }
+
+    static bool classof(const IntegerSubType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerSubType;
+    }
 };
 
 } // End comma namespace

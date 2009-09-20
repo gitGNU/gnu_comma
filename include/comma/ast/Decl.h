@@ -955,7 +955,9 @@ private:
 class TypeDecl : public Decl {
 
 public:
-    virtual Type *getType() const = 0;
+
+    // Returns the type of this TypeDecl.
+    Type *getType() const { return CorrespondingType; }
 
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -966,7 +968,7 @@ protected:
     // Constructs a TypeDecl node when a type is immediately available.
     TypeDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
         : Decl(kind, name, loc),
-          correspondingType(type) {
+          CorrespondingType(type) {
         assert(this->denotesTypeDecl());
     }
 
@@ -974,41 +976,43 @@ protected:
     // Users of this constructor must set the corresponding type.
     TypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
         : Decl(kind, name, loc),
-          correspondingType(0) {
+          CorrespondingType(0) {
         assert(this->denotesTypeDecl());
     }
 
-
-    Type *correspondingType;
+    Type *CorrespondingType;
 };
 
 //===----------------------------------------------------------------------===//
 // CarrierDecl
 //
 // Declaration of a domains carrier type.
+//
+// FIXME: A CarrierDecl should not be a TypeDecl, but rather a SubTypeDecl.
 class CarrierDecl : public TypeDecl {
 
 public:
     CarrierDecl(IdentifierInfo *name, Type *type, Location loc)
-        : TypeDecl(AST_CarrierDecl, name, loc),
-          representation(type) {
-        correspondingType = new CarrierType(this);
+        : TypeDecl(AST_CarrierDecl, name, loc) {
+        CorrespondingType = new CarrierType(this, type);
     }
 
     CarrierType *getType() const {
-        return llvm::cast<CarrierType>(correspondingType);
+        return llvm::cast<CarrierType>(CorrespondingType);
     }
 
-    const Type *getRepresentationType() const { return representation; }
-    Type *getRepresentationType() { return representation; }
+    const Type *getRepresentationType() const {
+        return getType()->getParentType();
+    }
+
+    Type *getRepresentationType() {
+        return getType()->getParentType();
+    }
 
     static bool classof(const CarrierDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_CarrierDecl;
     }
-
-private:
-    Type *representation;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1016,12 +1020,10 @@ private:
 class EnumerationDecl : public TypeDecl, public DeclRegion {
 
 public:
-    EnumerationDecl(IdentifierInfo *name,
-                    Location        loc,
-                    DeclRegion     *parent);
+    EnumerationDecl(IdentifierInfo *name, Location loc, DeclRegion *parent);
 
-    EnumerationType *getType() const {
-        return llvm::cast<EnumerationType>(correspondingType);
+    EnumSubType *getType() const {
+        return llvm::cast<EnumSubType>(CorrespondingType);
     }
 
     // Returns the number of EnumLiteral's associated with this enumeration.
@@ -1052,26 +1054,20 @@ class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
     /// Constructs an integer type declaration.
-    IntegerDecl(IdentifierInfo *name, Location loc,
+    IntegerDecl(AstResource &resource,
+                IdentifierInfo *name, Location loc,
                 Expr *lowRange, Expr *highRange,
-                IntegerType *baseType, DeclRegion *parent);
+                const llvm::APInt &lowVal, const llvm::APInt &highVal,
+                DeclRegion *parent);
 
-    /// IntegerDecl nodes declare a new type distinct from all others.  This is
-    /// modeled by a TypedefType whose base is an IntegerType.  The following
-    /// method return the unique TypedefType.
-    TypedefType *getType() const {
-        return llvm::cast<TypedefType>(correspondingType);
-    }
-
-    /// Returns the base integer type associated with this declaration.
-    IntegerType *getBaseType() const {
-        return llvm::cast<IntegerType>(getType()->getBaseType());
+    IntegerSubType *getType() const {
+        return llvm::cast<IntegerSubType>(CorrespondingType);
     }
 
     /// Returns the expression forming the lower bound of this integer
     /// declaration.
-    Expr *getLowerBoundExpr() { return lowExpr; }
-    const Expr *getLowerBoundExpr() const { return lowExpr; }
+    Expr *getLowBoundExpr() { return lowExpr; }
+    const Expr *getLowBoundExpr() const { return lowExpr; }
 
     /// Returns the expression forming the upper bound of this integer
     /// declaration.
@@ -1098,64 +1094,41 @@ public:
     /// Constructs an Array type declaration.
     ArrayDecl(AstResource &resource,
               IdentifierInfo *name, Location loc,
-              unsigned rank, TypeDecl **indices,
-              TypeDecl *component, DeclRegion *parent);
+              unsigned rank, SubType **indices,
+              Type *component, bool isConstrained, DeclRegion *parent);
 
-    /// ArrayDecl nodes declare a new type distinct from all others.  This is
-    /// modeled by a TypedefType whose base is an ArrayType.  The following
-    /// method returns the unique TypedefType.
-    TypedefType *getType() const {
-        return llvm::cast<TypedefType>(correspondingType);
-    }
-
-    /// Returns the base array type associated with this declaration.
-    ArrayType *getBaseType() const {
-        return llvm::cast<ArrayType>(getType()->getBaseType());
+    ArraySubType *getType() const {
+        return llvm::cast<ArraySubType>(CorrespondingType);
     }
 
     /// Returns the rank of this array declaration.
-    unsigned getRank() const { return rank; }
+    unsigned getRank() const { return getType()->getRank(); }
 
-    ///@{
-    /// Returns the declaration node describing the i'th index of this array.
-    TypeDecl *getIndexDecl(unsigned i) {
-        assert(i < rank && "Index out of bounds!");
-        return indexDecls[i];
+    /// Returns the type describing the i'th index of this array.
+    SubType *getIndexType(unsigned i) const {
+        return getType()->getIndexType(i);
     }
 
-    const TypeDecl *getIndexDecl(unsigned i) const {
-        assert(i < rank && "Index out of bounds!");
-        return indexDecls[i];
+    /// Returns the type describing the component type of this array.
+    Type *getComponentType() const {
+        return getType()->getComponentType();
     }
-    ///@}
 
-    ///@{
-    /// Iterators over the index declarations.
-    typedef TypeDecl **index_iterator;
-    index_iterator begin_indices() { return &indexDecls[0]; }
-    index_iterator end_indices() { return &indexDecls[rank]; }
+    /// Returns true if this declaration is constrained.
+    bool isConstrained() const { return getType()->isConstrained(); }
 
-    typedef const TypeDecl *const *const_index_iterator;
-    const_index_iterator begin_indices() const { return &indexDecls[0]; }
-    const_index_iterator end_indices() const { return &indexDecls[rank]; }
-    ///@}
-
-    ///@{
-    /// Returns the declaration node describing the components of this array.
-    TypeDecl *getComponentDecl() { return componentDecl; }
-    const TypeDecl *getComponentDecl() const { return componentDecl; }
-    ///@}
+    //@{
+    /// Iterators over the index types.
+    typedef SubType **index_iterator;
+    index_iterator begin_indices() { return getType()->begin_indices(); }
+    index_iterator end_indices() { return getType()->end_indices(); }
+    //@}
 
     // Support isa and dyn_cast.
     static bool classof(const ArrayDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ArrayDecl;
     }
-
-private:
-    unsigned rank;
-    TypeDecl **indexDecls;
-    TypeDecl *componentDecl;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1186,7 +1159,7 @@ protected:
     DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc = 0);
 
 public:
-    virtual ~DomainTypeDecl();
+    virtual ~DomainTypeDecl() { }
 
     /// Returns the SignatureSet of this DomainTypeDecl.
     ///
@@ -1198,7 +1171,7 @@ public:
     virtual const SignatureSet &getSignatureSet() const = 0;
 
     DomainType *getType() const {
-        return llvm::cast<DomainType>(correspondingType);
+        return llvm::cast<DomainType>(CorrespondingType);
     }
 
     static bool classof(const DomainTypeDecl *node) { return true; }

@@ -54,11 +54,11 @@ void TypeCheck::populateInitialEnvironment()
 {
     EnumerationDecl *theBoolDecl = declProducer->getBoolDecl();
     scope->addDirectDecl(theBoolDecl);
-    importDeclRegion(theBoolDecl);
+    introduceImplicitDecls(theBoolDecl);
 
     IntegerDecl *theIntegerDecl = declProducer->getIntegerDecl();
     scope->addDirectDecl(theIntegerDecl);
-    importDeclRegion(theIntegerDecl);
+    introduceImplicitDecls(theIntegerDecl);
 }
 
 void TypeCheck::deleteNode(Node &node)
@@ -162,7 +162,7 @@ bool TypeCheck::denotesDomainPercent(const Decl *decl)
     if (checkingDomain()) {
         DomainDecl *domain = getCurrentDomain();
         const DomainDecl *candidate = dyn_cast<DomainDecl>(decl);
-        if (candidate and domain)
+        if (candidate && domain)
             return domain == candidate;
     }
     return false;
@@ -571,12 +571,13 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 
     if (!tyDecl) return false;
 
+    Type *objTy = tyDecl->getType();
     if (!initializerNode.isNull()) {
         init = cast_node<Expr>(initializerNode);
-        if (!checkExprInContext(init, tyDecl->getType()))
+        if (!checkExprInContext(init, objTy))
             return false;
     }
-    ObjectDecl *decl = new ObjectDecl(name, tyDecl->getType(), loc, init);
+    ObjectDecl *decl = new ObjectDecl(name, objTy, loc, init);
 
     initializerNode.release();
 
@@ -661,7 +662,7 @@ void TypeCheck::endEnumeration(Node enumerationNode)
 
     declProducer->createImplicitDecls(enumeration);
     region->addDecl(enumeration);
-    importDeclRegion(enumeration);
+    introduceImplicitDecls(enumeration);
 }
 
 /// Called to process integer type definitions.
@@ -696,9 +697,9 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     // this new declaration.
     lowNode.release();
     highNode.release();
-    IntegerType *intTy = resource.getIntegerType(lowValue, highValue);
     IntegerDecl *Idecl =
-        new IntegerDecl(name, loc, lowExpr, highExpr, intTy, region);
+        new IntegerDecl(resource, name, loc,
+                        lowExpr, highExpr, lowValue, highValue, region);
 
     if (Decl *conflict = scope->addDirectDecl(Idecl)) {
         report(loc, diag::CONFLICTING_DECLARATION)
@@ -707,7 +708,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     }
     region->addDecl(Idecl);
     declProducer->createImplicitDecls(Idecl);
-    importDeclRegion(Idecl);
+    introduceImplicitDecls(Idecl);
 }
 
 //===----------------------------------------------------------------------===//
@@ -723,18 +724,51 @@ void TypeCheck::beginArray(IdentifierInfo *name, Location loc)
     arrProfileInfo.loc = loc;
 }
 
-void TypeCheck::acceptArrayIndex(Node indexNode)
+void TypeCheck::acceptUnconstrainedArrayIndex(Node indexNode)
 {
     assert(arrProfileInfo.isInitialized() &&
            "Array profile is not yet initialized!");
 
-    TypeDecl *indexTy = ensureTypeDecl(indexNode);
+    // The parser guarantees that all index definitions will be unconstrained or
+    // constrained.  Assert this fact for ourselves by ensuring that if the
+    // current array profile is unconstrained, this is the first index
+    // definition so far.
+    if (arrProfileInfo.indices.size())
+        assert(arrProfileInfo.isConstrained &&
+               "Conflicting array index definitions!");
 
-    if (!indexTy) {
+    TypeRef *index = lift_node<TypeRef>(indexNode);
+    if (!index) {
         arrProfileInfo.markInvalid();
+        report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
         return;
     }
-    arrProfileInfo.indices.push_back(indexTy);
+
+    indexNode.release();
+    arrProfileInfo.indices.push_back(index);
+}
+
+void TypeCheck::acceptArrayIndex(Node indexNode)
+{
+   assert(arrProfileInfo.isInitialized() &&
+           "Array profile is not yet initialized!");
+
+    // The parser guarantees that all index definitions will be unconstrained or
+    // constrained.  Assert this fact for ourselves by ensuring that if the
+    // current array profile is not constrained.
+    assert(!arrProfileInfo.isConstrained &&
+           "Conflicting array index definitions!");
+
+    TypeRef *index = lift_node<TypeRef>(indexNode);
+    if (!index) {
+        arrProfileInfo.markInvalid();
+        report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
+        return;
+    }
+
+    indexNode.release();
+    arrProfileInfo.isConstrained = true;
+    arrProfileInfo.indices.push_back(index);
 }
 
 void TypeCheck::acceptArrayComponent(Node componentNode)
@@ -777,15 +811,39 @@ void TypeCheck::endArray()
     if (arrProfileInfo.component == 0)
         return;
 
-    // Create the array declaration.
     IdentifierInfo *name = arrProfileInfo.name;
     Location loc = arrProfileInfo.loc;
-    ArrayProfileInfo::IndexVec &indices = arrProfileInfo.indices;
-    TypeDecl *component = arrProfileInfo.component;
+    ArrayProfileInfo::IndexVec &indexRefs = arrProfileInfo.indices;
+
+    // Ensure that each index type is a discrete type.  Build a vector of all
+    // valid SubTypes for each index.
+    llvm::SmallVector<SubType*, 4> indices;
+    typedef ArrayProfileInfo::IndexVec::iterator index_iterator;
+    for (index_iterator I = indexRefs.begin(); I != indexRefs.end(); ++I) {
+        TypeRef *ref = *I;
+        TypeDecl *tyDecl = dyn_cast_or_null<TypeDecl>(ref->getTypeDecl());
+
+        if (!tyDecl || !tyDecl->getType()->isDiscreteType()) {
+            report(ref->getLocation(), diag::EXPECTED_DISCRETE_INDEX);
+            break;
+        }
+
+        // A type declaration of a scalar type always provides the first subtype
+        // as its type.
+        SubType *subtype = cast<SubType>(tyDecl->getType());
+        indices.push_back(subtype);
+    }
+
+    // Do not create the array declaration unless all indices checked out.
+    if (indices.size() != indexRefs.size())
+        return;
+
+    Type *component = arrProfileInfo.component->getType();
+    bool isConstrained = arrProfileInfo.isConstrained;
     DeclRegion *region = currentDeclarativeRegion();
     ArrayDecl *array = new ArrayDecl(resource, name, loc,
                                      indices.size(), &indices[0],
-                                     component, region);
+                                     component, isConstrained, region);
 
     // Check for conflicts.
     if (Decl *conflict = scope->addDirectDecl(array)) {
@@ -796,30 +854,27 @@ void TypeCheck::endArray()
 
     // FIXME: We need to introduce the implicit operations for this type.
     region->addDecl(array);
-    importDeclRegion(array);
+    introduceImplicitDecls(array);
 }
 
 bool TypeCheck::checkType(Type *source, SigInstanceDecl *target, Location loc)
 {
     if (DomainType *domain = dyn_cast<DomainType>(source)) {
         if (!has(domain, target)) {
-            report(loc, diag::DOES_NOT_SATISFY)
-                << domain->getString()  << target->getString();
+            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
             return false;
         }
         return true;
     }
 
-    if (CarrierType *carrier = dyn_cast<CarrierType>(source)) {
-        DomainType *rep =
-            dyn_cast<DomainType>(carrier->getRepresentationType());
+    if (SubType *subtype = dyn_cast<SubType>(source)) {
+        DomainType *rep = dyn_cast<DomainType>(subtype->getTypeOf());
         if (!rep) {
             report(loc, diag::NOT_A_DOMAIN);
             return false;
         }
         if (!has(rep, target)) {
-            report(loc, diag::DOES_NOT_SATISFY)
-                << carrier->getString() << target->getString();
+            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
             return false;
         }
         return true;
@@ -837,15 +892,14 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
 {
     if (DomainType *domain = dyn_cast<DomainType>(source)) {
         if (!has(rewrites, domain, target)) {
-            report(loc, diag::DOES_NOT_SATISFY)
-                << domain->getString()  << target->getString();
+            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
             return false;
         }
         return true;
     }
 
-    if (CarrierType *carrier = dyn_cast<CarrierType>(source)) {
-        Type *rep = dyn_cast<DomainType>(carrier->getRepresentationType());
+    if (SubType *subtype = dyn_cast<SubType>(source)) {
+        Type *rep = dyn_cast<DomainType>(subtype->getTypeOf());
         return checkSignatureProfile(rewrites, rep, target, loc);
     }
 
@@ -855,20 +909,13 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
     return false;
 }
 
-void TypeCheck::importDeclRegion(DeclRegion *region)
+void TypeCheck::introduceImplicitDecls(DeclRegion *region)
 {
-    // FIXME: We should be able to import a region directly into a scope, thus
-    // making these declarations indirect.  However, we do not have appropriate
-    // scope API's yet.
+    // Implicitly defined declarations should never conflict since they are
+    // always introduced before any use of the corresponding type.
     typedef DeclRegion::DeclIter iterator;
-
-    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
-        Decl *decl = *I;
-        if (Decl *conflict = scope->addDirectDecl(decl)) {
-            report(decl->getLocation(), diag::CONFLICTING_DECLARATION)
-                << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
-        }
-    }
+    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
+        scope->addDirectDeclNoConflicts(*I);
 }
 
 /// Returns true if the IdentifierInfo \p info can name a binary function.
@@ -932,4 +979,22 @@ Location TypeCheck::getNodeLoc(Node node)
 
     ProcedureCallStmt *call = cast_node<ProcedureCallStmt>(node);
     return call->getLocation();
+}
+
+bool TypeCheck::covers(Type *A, Type *B)
+{
+    // A type covers itself.
+    if (A == B)
+        return true;
+
+    Type *baseTypeA = A;
+    Type *baseTypeB = B;
+
+    // If either A or B are subtypes, resolve their types.
+    if (SubType *subtype = dyn_cast<SubType>(A))
+        baseTypeA = subtype->getTypeOf();
+    if (SubType *subtype = dyn_cast<SubType>(B))
+        baseTypeB = subtype->getTypeOf();
+
+    return baseTypeA == baseTypeB;
 }

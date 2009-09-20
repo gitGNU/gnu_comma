@@ -515,10 +515,19 @@ public:
     /// \param loc the location of the arrays name.
     virtual void beginArray(IdentifierInfo *name, Location loc) = 0;
 
+    /// Called to introduce an unconstrained array index definition.
+    ///
+    /// This callback is invoked for index components of the form `<tt>I range
+    /// &lt;&gt;</tt>'.
+    ///
+    /// \param indexNode A node describing the type of the index (as returned by
+    /// acceptDirectName(), for example).
+    virtual void acceptUnconstrainedArrayIndex(Node indexNode) = 0;
+
     /// Called to introduce an array index definition.
     ///
     /// \param indexNode A Node describing the type of the index (as returned by
-    /// acceptTypeName, for example).
+    /// acceptDirectName(), for example).
     virtual void acceptArrayIndex(Node indexNode) = 0;
 
     /// Called to define an arrays component type.

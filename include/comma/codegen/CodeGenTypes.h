@@ -39,11 +39,13 @@ public:
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
-    const llvm::Type *lowerTypedefType(const TypedefType *type);
+    const llvm::Type *lowerSubType(const SubType *type);
 
     const llvm::IntegerType *lowerIntegerType(const IntegerType *type);
 
     const llvm::ArrayType *lowerArrayType(const ArrayType *type);
+
+    const llvm::ArrayType *lowerArraySubType(const ArraySubType *type);
 
 private:
     const CodeGen &CG;
@@ -60,6 +62,10 @@ private:
 
     // Lowers the carrier type defined for the given domoid.
     const llvm::Type *lowerDomoidCarrier(const Domoid *domoid);
+
+    /// Returns the number of elements for an array with a range bounded by the
+    /// given values.
+    uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high);
 };
 
 }; // end comma namespace

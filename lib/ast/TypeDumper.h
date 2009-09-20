@@ -38,10 +38,6 @@ public:
     llvm::raw_ostream &dump(Type *type, unsigned level = 0);
 
 private:
-    /// Override the supers implementation to ensure that NamedType's allways
-    /// have their name printed.
-    llvm::raw_ostream &printHeader(Ast *node);
-
     /// Helper method for the printing of subroutine parameters.  Prints the
     /// list of paremeters for the type delimited by "(" and ")".  No trailing
     /// space.
@@ -62,9 +58,11 @@ private:
     void visitFunctionType(FunctionType *node);
     void visitProcedureType(ProcedureType *node);
     void visitEnumerationType(EnumerationType *node);
+    void visitEnumSubType(EnumSubType *node);
     void visitIntegerType(IntegerType *node);
+    void visitIntegerSubType(IntegerSubType *node);
     void visitArrayType(ArrayType *node);
-    void visitTypedefType(TypedefType *node);
+    void visitArraySubType(ArraySubType *node);
 };
 
 } // end comma namespace.

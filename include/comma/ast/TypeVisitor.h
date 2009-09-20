@@ -35,27 +35,29 @@ public:
     /// invoke the specialized visitor for the resolved type.  Of course, an
     /// implementation may choose to override any or all of these methods.
     ///
-    ///@{
+    //@{
     virtual void visitType(Type *node);
-    virtual void visitNamedType(NamedType *node);
+    virtual void visitSubType(SubType *node);
     virtual void visitSubroutineType(SubroutineType *node);
-    ///@}
+    //@}
 
     /// \name Concrete Visitor Methods.
     ///
     /// The following group of methods visit the non-virtual nodes in the type
     /// hierarchy.  The default implementation for these methods do nothing.
     ///
-    ///@{
+    //@{
     virtual void visitCarrierType(CarrierType *node);
     virtual void visitDomainType(DomainType *node);
     virtual void visitFunctionType(FunctionType *node);
     virtual void visitProcedureType(ProcedureType *node);
     virtual void visitEnumerationType(EnumerationType *node);
+    virtual void visitEnumSubType(EnumSubType *node);
     virtual void visitIntegerType(IntegerType *node);
+    virtual void visitIntegerSubType(IntegerSubType *node);
     virtual void visitArrayType(ArrayType *node);
-    virtual void visitTypedefType(TypedefType *node);
-    ///@}
+    virtual void visitArraySubType(ArraySubType *node);
+    //@}
 
 };
 

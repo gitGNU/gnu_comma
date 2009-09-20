@@ -83,11 +83,12 @@ bool Resolver::resolveDirectDecls(Homonym *homonym)
                 if (SubroutineDecl *targetDecl =
                     dyn_cast<SubroutineDecl>(directOverloads[i])) {
                     SubroutineType *targetType = targetDecl->getType();
-                    if (!(duplicated = stype->equals(targetType)))
+                    if (!(duplicated = stype == targetType))
                         break;
                 }
             }
-            if (!duplicated) directOverloads.push_back(sdecl);
+            if (!duplicated)
+                directOverloads.push_back(sdecl);
         }
         else {
             assert((isa<ValueDecl>(candidate) ||

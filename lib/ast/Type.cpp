@@ -19,79 +19,107 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Type
 
-bool Type::equals(const Type *type) const
-{
-    return type == this;
-}
-
 bool Type::isScalarType() const
 {
-    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
-        return carrier->getRepresentationType()->isScalarType();
+    // Currently, a scalar type is always discrete.
+    return isDiscreteType();
+}
 
-    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
-        return TyDef->getBaseType()->isScalarType();
-
-    return isa<EnumerationType>(this) or isIntegerType();
+bool Type::isDiscreteType() const
+{
+    return isIntegerType() || isEnumType();
 }
 
 bool Type::isIntegerType() const
 {
-    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
-        return carrier->getRepresentationType()->isIntegerType();
-
-    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
-        return TyDef->getBaseType()->isIntegerType();
-
-    return isa<IntegerType>(this);
+    return isa<IntegerSubType>(this) || isa<IntegerType>(this);
 }
 
-Type *Type::getBaseType() const
+bool Type::isEnumType() const
 {
-    if (const CarrierType *carrier = dyn_cast<CarrierType>(this))
-        return carrier->getRepresentationType()->getBaseType();
-
-    if (const TypedefType *TyDef = dyn_cast<TypedefType>(this))
-        return TyDef->getBaseType()->getBaseType();
-
-    return const_cast<Type*>(this);
+    return isa<EnumSubType>(this) || isa<EnumerationType>(this);
 }
+
+bool Type::isArrayType() const
+{
+    return isa<ArraySubType>(this) || isa<ArrayType>(this);
+}
+
+ArrayType *Type::getAsArrayType()
+{
+    if (ArraySubType *subtype = dyn_cast<ArraySubType>(this))
+        return subtype->getTypeOf();
+
+    return dyn_cast<ArrayType>(this);
+}
+
+IntegerType *Type::getAsIntegerType()
+{
+    if (IntegerSubType *subtype = dyn_cast<IntegerSubType>(this))
+        return subtype->getTypeOf();
+
+    return dyn_cast<IntegerType>(this);
+}
+
+EnumerationType *Type::getAsEnumType()
+{
+    if (EnumSubType *subtype = dyn_cast<EnumSubType>(this))
+        return subtype->getTypeOf();
+
+    return dyn_cast<EnumerationType>(this);
+}
+
+//===----------------------------------------------------------------------===//
+// SubType
+
+SubType::SubType(AstKind kind, IdentifierInfo *identifier, Type *parent,
+                 Constraint *constraint)
+    : Type(kind),
+      DefiningIdentifier(identifier),
+      ParentType(parent),
+      SubTypeConstraint(constraint)
+{
+    assert(this->denotesSubType());
+}
+
+SubType::SubType(AstKind kind, Type *parent, Constraint *constraint)
+    : Type(kind),
+      DefiningIdentifier(0),
+      ParentType(parent),
+      SubTypeConstraint(constraint)
+{
+    assert(this->denotesSubType());
+}
+
+Type *SubType::getTypeOf() const
+{
+    Type *type = ParentType;
+    while (SubType *subtype = dyn_cast<SubType>(type)) {
+        type = subtype->getParentType();
+    }
+    return type;
+}
+
 
 //===----------------------------------------------------------------------===//
 // CarrierType
 
-CarrierType::CarrierType(CarrierDecl *carrier)
-  : NamedType(AST_CarrierType, carrier->getIdInfo()),
-    declaration(carrier) { }
-
-CarrierDecl *CarrierType::getDeclaration()
-{
-    return declaration;
-}
-
-Type *CarrierType::getRepresentationType()
-{
-    return declaration->getRepresentationType();
-}
-
-const Type *CarrierType::getRepresentationType() const
-{
-    return declaration->getRepresentationType();
-}
-
-bool CarrierType::equals(const Type *type) const
-{
-    if (this == type) return true;
-    return getRepresentationType()->equals(type);
-}
+CarrierType::CarrierType(CarrierDecl *carrier, Type *type)
+    : SubType(AST_CarrierType, carrier->getIdInfo(), type, 0),
+      CorrespondingDecl(carrier) { }
 
 //===----------------------------------------------------------------------===//
 // DomainType
 
 DomainType::DomainType(DomainTypeDecl *DTDecl)
-    : NamedType(AST_DomainType, DTDecl->getIdInfo()),
+    : Type(AST_DomainType),
       declaration(DTDecl)
 { }
+
+IdentifierInfo *DomainType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
 
 bool DomainType::involvesPercent() const
 {
@@ -130,87 +158,112 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
     return dyn_cast<AbstractDomainDecl>(declaration);
 }
 
-bool DomainType::equals(const Type *type) const
+//===----------------------------------------------------------------------===//
+// IntegerType
+
+IntegerType::IntegerType(IntegerDecl *decl,
+                         const llvm::APInt &low, const llvm::APInt &high)
+    : Type(AST_IntegerType)
 {
-    if (this == type) return true;
+    // Initialize the bounds for this type.
+    std::pair<llvm::APInt, llvm::APInt> bounds = getBaseRange(low, high);
+    this->low = bounds.first;
+    this->high = bounds.second;
 
-    // Otherwise, the candidate type must be a carrier with a representation
-    // equal to this domain.
-    if (const CarrierType *carrier = dyn_cast<CarrierType>(type))
-        return this == carrier->getRepresentationType();
+    // Create the first subtype constrained to the given bounds.
+    RangeConstraint *constraint = new RangeConstraint(low, high);
+    FirstSubType = new IntegerSubType(decl->getIdInfo(), this, constraint);
 
-    return false;
+    // Create an anonymous, unconstrained base subtype.
+    //
+    // FIXME: It may be reasonable to name this subtype "S'Base", where S is
+    // this types defining identifier.  We would need to have AstResource pass a
+    // pointer to itself so that we have access to the identifier pool.
+    BaseSubType = new IntegerSubType(this, 0);
+}
+
+unsigned IntegerType::getWidthForRange(const llvm::APInt &low,
+                                       const llvm::APInt &high)
+{
+    unsigned lowWidth;
+    unsigned highWidth;
+
+    if (low.isNegative())
+        lowWidth = low.getMinSignedBits();
+    else
+        lowWidth = low.getActiveBits();
+
+    if (high.isNegative())
+        highWidth = high.getMinSignedBits();
+    else
+        highWidth = high.getActiveBits();
+
+    return std::max(lowWidth, highWidth);
+}
+
+std::pair<llvm::APInt, llvm::APInt>
+IntegerType::getBaseRange(const llvm::APInt &low,
+                          const llvm::APInt &high)
+{
+    // The base range represents a two's-complement signed integer.  We must be
+    // symmetric about zero and include the values of the bounds.  Therefore,
+    // even for null ranges, our base range is at least 2**7-1 .. 2**7.
+
+    unsigned minimalWidth = getWidthForRange(low, high);
+    unsigned preferedWidth;
+
+    if (minimalWidth <= 8)
+        preferedWidth = 8;
+    else if (minimalWidth <= 16)
+        preferedWidth = 16;
+    else if (minimalWidth <= 32)
+        preferedWidth = 32;
+    else if (minimalWidth <= 64)
+        preferedWidth = 64;
+    else {
+        assert(false && "Range too wide to represent!");
+        preferedWidth = 64;
+    }
+
+    llvm::APInt l = llvm::APInt::getSignedMinValue(preferedWidth);
+    llvm::APInt h = llvm::APInt::getSignedMaxValue(preferedWidth);
+    return std::pair<llvm::APInt, llvm::APInt>(l, h);
 }
 
 //===----------------------------------------------------------------------===//
 // EnumerationType
 
 EnumerationType::EnumerationType(EnumerationDecl *decl)
-    : NamedType(AST_EnumerationType, decl->getIdInfo()),
-      correspondingDecl(decl) { }
-
-bool EnumerationType::equals(const Type *type) const
+    : Type(AST_EnumerationType),
+      declaration(decl)
 {
-    if (const CarrierType *carrier = dyn_cast<CarrierType>(type))
-        return this == carrier->getRepresentationType();
-
-    return this == type;
-}
-
-Decl *EnumerationType::getDeclaration()
-{
-    return correspondingDecl;
-}
-
-//===----------------------------------------------------------------------===//
-// IntegerType
-
-IntegerType::IntegerType(const llvm::APInt &low, const llvm::APInt &high)
-  : Type(AST_IntegerType), low(low), high(high)
-{
-    assert(low.getBitWidth() == high.getBitWidth() &&
-           "Inconsistent widths for IntegerType bounds!");
-}
-
-void IntegerType::Profile(llvm::FoldingSetNodeID &ID,
-                          const llvm::APInt &low, const llvm::APInt &high)
-{
-    low.Profile(ID);
-    high.Profile(ID);
+    // Create the first unconstrained subtype of this enumeration type.
+    FirstSubType = new EnumSubType(decl->getIdInfo(), this, 0);
 }
 
 //===----------------------------------------------------------------------===//
 // ArrayType
 
-ArrayType::ArrayType(unsigned rank, Type **indices, Type *component)
+ArrayType::ArrayType(ArrayDecl *decl,
+                     unsigned rank, SubType **indices, Type *component,
+                     bool isConstrained)
     : Type(AST_ArrayType),
       rank(rank),
       componentType(component)
 {
     assert(rank != 0 && "Missing index types!");
 
-    indexTypes = new Type*[rank];
+    // Use the bits field to record our status as a constrained type.
+    if (isConstrained)
+        bits |= CONSTRAINT_BIT;
+
+    // Build our own vector of index types.
+    indexTypes = new SubType*[rank];
     std::copy(indices, indices + rank, indexTypes);
-}
 
-void ArrayType::Profile(llvm::FoldingSetNodeID &ID,
-                        unsigned rank, Type **indexTypes, Type *componentType)
-{
-    assert(rank != 0 && "Missing index types!");
-    for (unsigned i = 0; i < rank; ++i)
-        ID.AddPointer(indexTypes[i]);
-    ID.AddPointer(componentType);
-}
-
-//===----------------------------------------------------------------------===//
-// TypedefType
-
-TypedefType::TypedefType(Type *baseType, Decl *decl)
-    : NamedType(AST_TypedefType, decl->getIdInfo()),
-      baseType(baseType),
-      declaration(decl) { }
-
-Decl *TypedefType::getDeclaration()
-{
-    return declaration;
+    // Create the first subtype of this array type.
+    IndexConstraint *constraint = 0;
+    if (isConstrained)
+        constraint = new IndexConstraint(indices, rank);
+    FirstSubType = new ArraySubType(decl->getIdInfo(), this, constraint);
 }

@@ -182,6 +182,7 @@ public:
                               Node low, Node high);
 
     void beginArray(IdentifierInfo *name, Location loc);
+    void acceptUnconstrainedArrayIndex(Node indexNode);
     void acceptArrayIndex(Node indexNode);
     void acceptArrayComponent(Node componentNode);
     void endArray();
@@ -306,13 +307,14 @@ private:
             INVALID_ARRAY_PROFILE ///< Marks an invalid array profile.
         };
 
-        typedef llvm::SmallVector<TypeDecl*, 8> IndexVec;
+        typedef llvm::SmallVector<TypeRef*, 8> IndexVec;
 
         ProfileKind kind;       ///< The kind of this profile.
         IdentifierInfo *name;   ///< The name of this array profile.
         Location loc;           ///< The location of name.
         IndexVec indices;       ///< Index declaration nodes.
         TypeDecl *component;    ///< Component declaration node.
+        bool isConstrained;     ///< True if this array is constrained.
 
         /// Sets this back to the initial state.
         void reset() {
@@ -321,6 +323,7 @@ private:
             loc = 0;
             indices.clear();
             component = 0;
+            isConstrained = false;
         }
 
         ArrayProfileInfo() { reset(); }
@@ -548,8 +551,6 @@ private:
     bool evaluateStaticIntegerOperation(FunctionCallExpr *expr,
                                         llvm::APInt &result);
 
-    Node acceptQualifiedName(Node qualNode, IdentifierInfo *name, Location loc);
-
     /// Resolves a visible declarative region associated with a qualifier.
     ///
     /// Qualifiers can name signature components, but such qualifiers are
@@ -557,8 +558,6 @@ private:
     /// visible names.  Posts a diagnostic when the qualifier names a signature
     /// and returns null.
     DeclRegion *resolveVisibleQualifiedRegion(Qualifier *qual);
-
-    Expr *resolveDirectDecl(IdentifierInfo *name, Location loc);
 
     // Returns the TypeDecl or ModelDecl corresponding to the given name.  If
     // the name is not visible, or if the name is ambiguous, this method returns
@@ -684,6 +683,8 @@ private:
     // indicates the position of the source type.
     bool checkType(Type *source, SigInstanceDecl *target, Location loc);
 
+    static bool covers(Type *A, Type *B);
+
     // Returns true if the given type is compatible with the given abstract
     // domain decl in the environment established by the given rewrites.
     //
@@ -752,8 +753,10 @@ private:
     void acceptEnumerationLiteral(EnumerationDecl *enumeration,
                                   IdentifierInfo *name, Location loc);
 
-    /// Imports the given declarative region into the current scope.
-    void importDeclRegion(DeclRegion *region);
+    /// Adds the declarations present in the given region to the current scope
+    /// as direct names.  This subroutine is used to introduce the implicit
+    /// operations which accompany a type declaration.
+    void introduceImplicitDecls(DeclRegion *region);
 
     /// Utility routine for building TypeRef nodes over the given model.
     static TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);

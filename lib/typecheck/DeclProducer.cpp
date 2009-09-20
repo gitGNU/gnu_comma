@@ -58,13 +58,13 @@ void DeclProducer::createTheIntegerDecl()
     IdentifierInfo *integerId = resource.getIdentifierInfo("Integer");
 
     // Define Integer as a signed 32 bit type.
-    llvm::APInt lowVal(32, 1UL << 31);
-    llvm::APInt highVal(32, ~(1UL << 31));
+    llvm::APInt lowVal = llvm::APInt::getSignedMinValue(32);
+    llvm::APInt highVal = llvm::APInt::getSignedMaxValue(32);
     IntegerLiteral *lowExpr = new IntegerLiteral(lowVal, 0);
     IntegerLiteral *highExpr = new IntegerLiteral(highVal, 0);
-    IntegerType *intTy = resource.getIntegerType(lowVal, highVal);
-
-    theIntegerDecl = new IntegerDecl(integerId, 0, lowExpr, highExpr, intTy, 0);
+    theIntegerDecl =
+        new IntegerDecl(resource, integerId, 0,
+                        lowExpr, highExpr, lowVal, highVal, 0);
 }
 
 
@@ -75,7 +75,7 @@ EnumerationDecl *DeclProducer::getBoolDecl() const
 }
 
 /// Returns the unique enumeration type representing Bool.
-EnumerationType *DeclProducer::getBoolType() const
+SubType *DeclProducer::getBoolType() const
 {
     return theBoolDecl->getType();
 }
@@ -86,8 +86,8 @@ IntegerDecl *DeclProducer::getIntegerDecl() const
     return theIntegerDecl;
 }
 
-/// Returns the unique TypedefType representing Integer.
-TypedefType *DeclProducer::getIntegerType() const
+/// Returns the unique type representing Integer.
+SubType *DeclProducer::getIntegerType() const
 {
     return theIntegerDecl->getType();
 }
@@ -146,24 +146,26 @@ void DeclProducer::createImplicitDecls(EnumerationDecl *enumDecl)
 /// populating \p intDecl viewed as a DeclRegion with the results.
 void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
 {
+    SubType *subtype = intDecl->getType();
+
     FunctionDecl *equals =
-        createPredicate(EQ_pred, intDecl->getType(), intDecl);
+        createPredicate(EQ_pred, subtype, intDecl);
     FunctionDecl *lt =
-        createPredicate(LT_pred, intDecl->getType(), intDecl);
+        createPredicate(LT_pred, subtype, intDecl);
     FunctionDecl *gt =
-        createPredicate(GT_pred, intDecl->getType(), intDecl);
+        createPredicate(GT_pred, subtype, intDecl);
     FunctionDecl *lteq =
-        createPredicate(LTEQ_pred, intDecl->getType(), intDecl);
+        createPredicate(LTEQ_pred, subtype, intDecl);
     FunctionDecl *gteq =
-        createPredicate(GTEQ_pred, intDecl->getType(), intDecl);
+        createPredicate(GTEQ_pred, subtype, intDecl);
     FunctionDecl *plus =
-        createBinaryArithOp(PLUS_arith, intDecl->getType(), intDecl);
+        createBinaryArithOp(PLUS_arith, subtype, intDecl);
     FunctionDecl *minus =
-        createBinaryArithOp(MINUS_arith, intDecl->getType(), intDecl);
+        createBinaryArithOp(MINUS_arith, subtype, intDecl);
     FunctionDecl *neg =
-        createUnaryArithOp(NEG_arith, intDecl->getType(), intDecl);
+        createUnaryArithOp(NEG_arith, subtype, intDecl);
     FunctionDecl *pos =
-        createUnaryArithOp(POS_arith, intDecl->getType(), intDecl);
+        createUnaryArithOp(POS_arith, subtype, intDecl);
 
     intDecl->addDecl(equals);
     intDecl->addDecl(lt);

@@ -281,7 +281,7 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
         // If the expression denotes an array type, just return the associated
         // value.  All arrays are manipulated by reference.
-        if (isa<ArrayType>(expr->getType()->getBaseType()))
+        if (expr->getType()->getAsArrayType())
             return exprValue;
 
         if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {

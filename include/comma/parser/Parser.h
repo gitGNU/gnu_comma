@@ -283,7 +283,7 @@ private:
 
     // Returns true is a block statement follows on the token stream.
     //
-    // More recisely, returns true is the current token is
+    // More precisely, returns true is the current token is
     //
     //   - an identifier followed by a colon.
     //

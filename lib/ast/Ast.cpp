@@ -48,11 +48,11 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerType",
     "ArrayType",
     "ProcedureType",
+    "EnumerationType",
 
     "DomainType",
     "CarrierType",
-    "TypedefType",
-    "EnumerationType",
+    "SubType",
 
     "DeclRefExpr",
     "FunctionCallExpr",

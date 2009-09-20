@@ -132,7 +132,11 @@ Node Parser::parseName(bool forStatement)
         if (prefix.isInvalid())
             break;
     }
-    return client.finishName(prefix);
+
+    if (prefix.isInvalid())
+        return prefix;
+    else
+        return client.finishName(prefix);
 }
 
 void Parser::seekNameEnd()

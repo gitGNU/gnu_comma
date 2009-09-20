@@ -272,7 +272,6 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
 bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
 {
-
     TypeRef *ref = srProfileInfo.overrideCtx;
     IdentifierInfo *targetName = srProfileInfo.overrideTarget;
     Location targetLoc = srProfileInfo.overrideLoc;
@@ -349,7 +348,6 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     report(targetLoc, diag::INCOMPATABLE_OVERRIDE)
         << overridingDecl->getIdInfo() << targetName;
     return false;
-
 }
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)

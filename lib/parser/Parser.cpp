@@ -1165,10 +1165,42 @@ void Parser::parseArrayIndexProfile()
         return;
     }
 
+    bool parsedIndex = false;   // True when we have parsed an index.
+    bool isConstrained = false; // True when we have seen a constrained index.
     do {
+        Location loc = currentLocation();
         Node index = parseName(false);
-        if (index.isValid())
-            client.acceptArrayIndex(index);
+        if (index.isInvalid())
+            continue;
+
+        if (reduceToken(Lexer::TKN_RANGE)) {
+            if (reduceToken(Lexer::TKN_DIAMOND)) {
+                // If we have already parsed an index, ensure that it was
+                // constrained.
+                if (parsedIndex && !isConstrained)
+                    report(loc, diag::EXPECTED_CONSTRAINED_ARRAY_INDEX);
+                else {
+                    client.acceptUnconstrainedArrayIndex(index);
+                    isConstrained = true;
+                    parsedIndex = true;
+                }
+            }
+            else {
+                // Only unconstrained array indexes are supported ATM.
+                report(diag::UNEXPECTED_TOKEN_WANTED)
+                    << currentTokenString() << "<>";
+                seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+            }
+        }
+        else {
+            // Check that an unconstrained index is not expected.
+            if (parsedIndex && isConstrained)
+                report(loc, diag::EXPECTED_UNCONSTRAINED_ARRAY_INDEX);
+            else {
+                client.acceptArrayIndex(index);
+                parsedIndex = true;
+            }
+        }
     } while (reduceToken(Lexer::TKN_COMMA));
 
     if (!requireToken(Lexer::TKN_RPAREN))

@@ -24,26 +24,10 @@ using llvm::isa;
 
 bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 {
-    // FIXME: This is a hack.  The type equality predicates should perform this
-    // reduction.
-    if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
-        targetType = carrierTy->getRepresentationType();
-
     // If the argument as a fully resolved type, all we currently do is test for
     // type equality.
-    if (arg->hasType()) {
-        Type *argTy = arg->getType();
-
-        // FIXME: This is a hack.  The type equality predicates should perform
-        // this reduction.
-        if (CarrierType *carrierTy = dyn_cast<CarrierType>(argTy))
-            argTy = carrierTy->getRepresentationType();
-
-        if (!targetType->equals(argTy))
-            return false;
-        else
-            return true;
-    }
+    if (arg->hasType())
+        return covers(targetType, arg->getType());
 
     // We have an unresolved argument expression.  If the expression is an
     // integer literal it is compatable if the target is an integer type.
@@ -56,21 +40,17 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     // The expression must be an ambiguous function call.  Check that at least
     // one interpretation of the call satisfies the target type.
     typedef FunctionCallExpr::connective_iterator iterator;
-    bool applicableArgument = false;
     FunctionCallExpr *call = cast<FunctionCallExpr>(arg);
+
     iterator I = call->begin_connectives();
     iterator E = call->end_connectives();
-
     for ( ; I != E; ++I) {
         FunctionDecl *connective = *I;
         Type *returnType = connective->getReturnType();
-        if (targetType->equals(returnType)) {
-            applicableArgument = true;
-            break;
-        }
+        if (covers(targetType, returnType))
+            return true;
     }
-
-    return applicableArgument;
+    return false;
 }
 
 bool TypeCheck::routineAcceptsKeywords(SubroutineDecl *decl,
@@ -331,13 +311,12 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
 {
     Location loc = ref->getLocation();
     ValueDecl *vdecl = ref->getDeclaration();
-    Type *type = vdecl->getType()->getBaseType();
+    ArrayType *arrTy = vdecl->getType()->getAsArrayType();
 
-    if (!isa<ArrayType>(type)) {
+    if (!arrTy) {
         report(loc, diag::EXPECTED_ARRAY_FOR_INDEX);
         return 0;
     }
-    ArrayType *arrTy = cast<ArrayType>(type);
 
     // Check that the number of indices matches the rank of the array type.
     unsigned numIndices = indices.size();
@@ -383,22 +362,12 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
 
-    // FIXME:  This is a hack.  The basic equality predicate should be able to
-    // sort thru this.
-    if (CarrierType *carrierTy = dyn_cast<CarrierType>(context)) {
-        if (exprTy->equals(carrierTy->getRepresentationType()))
-            return true;
-    }
-
-    // Otherwise, simply ensure that the given expression is compatable with the
-    // context.
-    if (exprTy->equals(context))
+    if (covers(context, exprTy))
         return true;
-    else {
-        // FIXME: Need a better diagnostic here.
-        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
-    }
+
+    // FIXME: Need a better diagnostic here.
+    report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+    return false;
 }
 
 // Resolves the type of the given integer literal, and ensures that the given
@@ -408,7 +377,7 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
     if (intLit->hasType()) {
-        assert(intLit->getType()->equals(context) &&
+        assert(intLit->getType() == context &&
                "Cannot resolve literal to different type!");
         return true;
     }
@@ -444,7 +413,7 @@ bool TypeCheck::resolveNullaryFunctionCall(FunctionCallExpr *call,
         FunctionDecl *candidate = *iter;
         Type *returnType = candidate->getReturnType();
 
-        if (targetType->equals(returnType)) {
+        if (covers(targetType, returnType)) {
             if (connective) {
                 report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
                 return false;
@@ -467,19 +436,12 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
         // the call and the target type match.
         Type *callTy = call->getType();
 
-        // FIXME: This is a hack.  The type equality predicates should perform
-        // these reductions.
-        if (CarrierType *carrierTy = dyn_cast<CarrierType>(callTy))
-            callTy = carrierTy->getRepresentationType();
-        if (CarrierType *carrierTy = dyn_cast<CarrierType>(targetType))
-            targetType = carrierTy->getRepresentationType();
+        if (covers(targetType, callTy))
+            return true;
 
         // FIXME: Need a better diagnostic here.
-        if (!callTy->equals(targetType)) {
-            report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
-            return false;
-        }
-        return true;
+        report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
     }
 
     if (call->getNumArgs() == 0)
@@ -493,7 +455,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     for ( ; iter != endIter; ++iter) {
         FunctionDecl *candidate  = *iter;
         Type *returnType = candidate->getReturnType();
-        if (targetType->equals(returnType)) {
+        if (covers(targetType, returnType)) {
             if (fdecl) {
                 report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
                 return false;
@@ -567,13 +529,14 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
         return getInvalidNode();
     }
 
-    Type *carrierTy = carrier->getType();
+    Type *carrierTy = carrier->getRepresentationType();
     Expr *expr = cast_node<Expr>(exprNode);
     if (!checkExprInContext(expr, carrierTy))
         return getInvalidNode();
 
     exprNode.release();
-    return getNode(new PrjExpr(expr, domoid->getPercentType(), loc));
+    DomainType *prjType = domoid->getPercentType();
+    return getNode(new PrjExpr(expr, prjType, loc));
 }
 
 Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)

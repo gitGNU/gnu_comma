@@ -382,12 +382,12 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 
     // Resolve the index type of the array (not the type of the index
     // expression).
-    ArrayType *arrType = cast<ArrayType>(arrRefExpr->getType()->getBaseType());
-    Type *indexType = arrType->getIndexType(0)->getBaseType();
+    ArrayType *arrType = arrRefExpr->getType()->getAsArrayType();
+    Type *indexType = arrType->getIndexType(0);
 
     // If the index type is an integer type with a lower bound not equal to
     // zero, adjust the index expression.
-    if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
+    if (IntegerType *intTy = indexType->getAsIntegerType()) {
 
         // The index type of the array is always larger than or equal to the
         // type of the actual index value.  Lower the type and determine if the
