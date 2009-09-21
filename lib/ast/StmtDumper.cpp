@@ -154,3 +154,7 @@ void StmtDumper::visitWhileStmt(WhileStmt *node)
     printHeader(node) << '>';
 }
 
+void StmtDumper::visitPragmaStmt(PragmaStmt *node)
+{
+    printHeader(node) << '>';
+}

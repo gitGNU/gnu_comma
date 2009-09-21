@@ -70,6 +70,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ReturnStmt",
     "StmtSequence",
     "WhileStmt",
+    "PragmaStmt",
 
     "KeywordSelector",
     "Qualifier",

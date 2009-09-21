@@ -62,6 +62,7 @@ private:
     void visitAssignmentStmt(AssignmentStmt *node);
     void visitIfStmt(IfStmt *node);
     void visitWhileStmt(WhileStmt *node);
+    void visitPragmaStmt(PragmaStmt *node);
 };
 
 } // end comma namespace.

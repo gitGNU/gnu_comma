@@ -42,6 +42,7 @@ void StmtVisitor::visitStmt(Stmt *node)
     case DISPATCH(AssignmentStmt, node);
     case DISPATCH(IfStmt, node);
     case DISPATCH(WhileStmt, node);
+    case DISPATCH(PragmaStmt, node);
     }
 }
 
@@ -57,3 +58,4 @@ void StmtVisitor::visitReturnStmt(ReturnStmt *node) { }
 void StmtVisitor::visitAssignmentStmt(AssignmentStmt *node) { }
 void StmtVisitor::visitIfStmt(IfStmt *node) { }
 void StmtVisitor::visitWhileStmt(WhileStmt *node) { }
+void StmtVisitor::visitPragmaStmt(PragmaStmt *node) { }

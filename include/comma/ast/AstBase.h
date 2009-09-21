@@ -68,6 +68,9 @@ class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
+class Pragma;
+class PragmaAssert;
+class PragmaStmt;
 class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
@@ -192,6 +195,7 @@ public:
         AST_ReturnStmt,         ///< ReturnStmt
         AST_StmtSequence,       ///< StmtSequence
         AST_WhileStmt,          ///< WhileStmt
+        AST_PragmaStmt,         ///< PragmaStmt
 
         //
         // Miscellaneous helper nodes.
@@ -231,7 +235,7 @@ public:
         LAST_Expr = AST_PrjExpr,
 
         FIRST_Stmt = AST_AssignmentStmt,
-        LAST_Stmt = AST_WhileStmt
+        LAST_Stmt = AST_PragmaStmt
     };
 
     virtual ~Ast() { }

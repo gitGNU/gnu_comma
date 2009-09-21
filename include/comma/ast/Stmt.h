@@ -8,12 +8,15 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/DeclRegion.h"
+
 #include "llvm/ADT/SmallVector.h"
 
 #ifndef COMMA_AST_STMT_HDR_GUARD
 #define COMMA_AST_STMT_HDR_GUARD
 
 namespace comma {
+
+class Pragma;
 
 //===----------------------------------------------------------------------===//
 // Stmt
@@ -427,6 +430,25 @@ private:
     Location location;
     Expr *condition;
     StmtSequence *body;
+};
+
+
+//===----------------------------------------------------------------------===//
+// PragmaStmt
+//
+// This is a simple Stmt node which wraps a pragma so that it can appear within
+// a sequence of statements.
+class PragmaStmt : public Stmt {
+
+public:
+    PragmaStmt(Pragma *pragma)
+        : Stmt(AST_PragmaStmt), pragma(pragma) { }
+
+    const Pragma *getPragma() const { return pragma; }
+    Pragma *getPragma() { return pragma; }
+
+private:
+    Pragma *pragma;
 };
 
 } // End comma namespace.
