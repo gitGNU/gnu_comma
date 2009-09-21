@@ -382,21 +382,25 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 
     // Resolve the index type of the array (not the type of the index
     // expression).
-    ArrayType *arrType = arrRefExpr->getType()->getAsArrayType();
-    Type *indexType = arrType->getIndexType(0);
+    ArraySubType *arrType = cast<ArraySubType>(arrRefExpr->getType());
+    SubType *indexType = arrType->getIndexType(0);
+    assert(arrType->isConstrained() &&
+           "Cannot codegen index into unconstrained arrays!");
 
     // If the index type is an integer type with a lower bound not equal to
     // zero, adjust the index expression.
-    if (IntegerType *intTy = indexType->getAsIntegerType()) {
+    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexType)) {
+        RangeConstraint *range = intTy->getConstraint();
 
         // The index type of the array is always larger than or equal to the
         // type of the actual index value.  Lower the type and determine if the
         // index needs to be adjusted using this width for our operations.
-        const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerType(intTy);
+        const llvm::IntegerType *loweredTy =
+            CGTypes.lowerIntegerType(intTy->getTypeOf());
         unsigned indexWidth = loweredTy->getBitWidth();
 
         // Get the lower bound and promote to the width of the index type.
-        llvm::APInt lower(intTy->getLowerBound());
+        llvm::APInt lower(range->getLowerBound());
         lower.sextOrTrunc(indexWidth);
 
         if (lower != 0) {

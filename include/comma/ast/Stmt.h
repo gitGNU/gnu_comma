@@ -268,15 +268,15 @@ public:
 // AssignmentStmt
 class AssignmentStmt : public Stmt {
 
-    DeclRefExpr *target;
-    Expr        *value;
+    Expr *target;
+    Expr *value;
 
 public:
-    AssignmentStmt(DeclRefExpr *target, Expr *value)
+    AssignmentStmt(Expr *target, Expr *value)
         : Stmt(AST_AssignmentStmt), target(target), value(value) { }
 
-    DeclRefExpr *getTarget() { return target; }
-    const DeclRefExpr *getTarget() const { return target; }
+    Expr *getTarget() { return target; }
+    const Expr *getTarget() const { return target; }
 
     Expr *getAssignedExpr() { return value; }
     const Expr *getAssignedExpr() const { return value; }

@@ -138,8 +138,7 @@ public:
 
     Node acceptReturnStmt(Location loc, Node retNode);
 
-    Node acceptAssignmentStmt(Location loc,
-                              IdentifierInfo *target, Node value);
+    Node acceptAssignmentStmt(Node target, Node value);
 
     // Called when a block statement is about to be parsed.
     Node beginBlockStmt(Location loc, IdentifierInfo *label = 0);

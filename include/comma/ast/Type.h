@@ -472,7 +472,8 @@ public:
 
     /// Returns the i'th index type of this array subtype.
     SubType *getIndexType(unsigned i) const {
-        // FIXME:  Use our constraints if available.
+        if (isConstrained())
+            return getIndexConstraint(i);
         return getTypeOf()->getIndexType(i);
     }
 

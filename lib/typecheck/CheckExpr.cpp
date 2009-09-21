@@ -327,15 +327,15 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
 
     // Ensure each index is compatible with the arrays type.  If an index does
     // not check, continue checking each remaining index.
+    bool allOK = true;
     for (unsigned i = 0; i < numIndices; ++i) {
         Expr *index = indices[i];
-        if (checkExprInContext(index, arrTy->getIndexType(i)))
-            indices.push_back(index);
+        if (!checkExprInContext(index, arrTy->getIndexType(i)))
+            allOK = false;
     }
 
-    // If the number of checked indices does not match the number of nodes
-    // given, one or more of the indices did not check.
-    if (indices.size() != numIndices)
+    // If the indices did not all check out, do not build the expression.
+    if (!allOK)
         return 0;
 
     // Create a DeclRefExpr to represent the array value and return a fresh

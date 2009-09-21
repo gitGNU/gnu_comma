@@ -327,8 +327,13 @@ bool Parser::unitExprFollows()
 
 bool Parser::assignmentFollows()
 {
-    return currentTokenIs(Lexer::TKN_IDENTIFIER) &&
-        nextTokenIs(Lexer::TKN_ASSIGN);
+    Lexer::Token savedToken = currentToken();
+    lexer.beginExcursion();
+    seekNameEnd();
+    bool status = currentTokenIs(Lexer::TKN_ASSIGN);
+    lexer.endExcursion();
+    setCurrentToken(savedToken);
+    return status;
 }
 
 bool Parser::keywordSelectionFollows()

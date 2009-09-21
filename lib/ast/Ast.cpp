@@ -52,7 +52,9 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "DomainType",
     "CarrierType",
-    "SubType",
+    "ArraySubType",
+    "EnumSubType",
+    "IntegerSubType",
 
     "DeclRefExpr",
     "FunctionCallExpr",

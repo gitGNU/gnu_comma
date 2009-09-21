@@ -75,39 +75,53 @@ Node TypeCheck::acceptEmptyReturnStmt(Location loc)
     return getInvalidNode();
 }
 
-Node TypeCheck::acceptAssignmentStmt(Location loc,
-                                     IdentifierInfo *name,
-                                     Node valueNode)
+Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
 {
     Expr *value = cast_node<Expr>(valueNode);
-    Resolver &resolver = scope->getResolver();
+    Expr *target = 0;
 
-    if (!resolver.resolve(name)) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
+    if (DeclRefExpr *ref = lift_node<DeclRefExpr>(targetNode)) {
+        ValueDecl *targetDecl = ref->getDeclaration();
 
-    // FIXME: Only direct (lexical) values can be assigned to for now.  Revisit
-    // the issue of assignment ot an exported name later.
-    if (!resolver.hasDirectValue()) {
-        report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
-    }
-
-    ValueDecl *targetDecl = resolver.getDirectValue();
-
-    // If the target decl is a parameter, ensure that it is not of mode "in".
-    if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
-        if (param->getParameterMode() == PM::MODE_IN) {
-            report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
-            return getInvalidNode();
+        // If the target decl is a parameter, ensure that it is not of mode
+        // "in".
+        if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
+            if (param->getParameterMode() == PM::MODE_IN) {
+                Location loc = ref->getLocation();
+                IdentifierInfo *name = param->getIdInfo();
+                report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
+                return getInvalidNode();
+            }
         }
+        target = ref;
+    }
+    else if (IndexedArrayExpr *idx = lift_node<IndexedArrayExpr>(targetNode)) {
+        DeclRefExpr *arrayRef = idx->getArrayExpr();
+        ValueDecl *arrayDecl = arrayRef->getDeclaration();
+
+        // Again, ensure that if the array is a formal parameter, that it is not
+        // of mode "in".
+        if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(arrayDecl)) {
+            if (param->getParameterMode() == PM::MODE_IN) {
+                Location loc = idx->getLocation();
+                IdentifierInfo *name = param->getIdInfo();
+                report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
+                return getInvalidNode();
+            }
+        }
+        target = idx;
+    }
+    else {
+        report(getNodeLoc(targetNode), diag::INVALID_LHS_FOR_ASSIGNMENT);
+        return getInvalidNode();
     }
 
-    if (checkExprInContext(value, targetDecl->getType())) {
+    // If the value is compatable with the type of the target, build the
+    // assignment node.
+    if (checkExprInContext(value, target->getType())) {
         valueNode.release();
-        DeclRefExpr *ref = new DeclRefExpr(targetDecl, loc);
-        return getNode(new AssignmentStmt(ref, value));
+        targetNode.release();
+        return getNode(new AssignmentStmt(target, value));
     }
 
     return getInvalidNode();

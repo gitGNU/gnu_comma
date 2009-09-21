@@ -73,13 +73,18 @@ Node Parser::parseAssignmentStmt()
 {
     assert(assignmentFollows());
 
-    Location        location = currentLocation();
-    IdentifierInfo *target   = parseIdentifierInfo();
+    Node target = parseName(false);
+
+    if (target.isInvalid())
+        return getInvalidNode();
 
     ignoreToken();              // Ignore the `:='.
+
     Node value = parseExpr();
+
     if (value.isValid())
-        return client.acceptAssignmentStmt(location, target, value);
+        return client.acceptAssignmentStmt(target, value);
+
     return getInvalidNode();
 }
 

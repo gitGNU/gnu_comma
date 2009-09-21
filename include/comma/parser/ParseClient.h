@@ -417,8 +417,7 @@ public:
 
     virtual Node acceptReturnStmt(Location loc, Node retNode) = 0;
 
-    virtual Node acceptAssignmentStmt(Location loc, IdentifierInfo *target,
-                                      Node value) = 0;
+    virtual Node acceptAssignmentStmt(Node target, Node value) = 0;
 
     /// Called when a block statement is about to be parsed.
     virtual Node beginBlockStmt(Location loc, IdentifierInfo *label = 0) = 0;

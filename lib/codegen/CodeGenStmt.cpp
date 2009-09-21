@@ -186,10 +186,24 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
 
 void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 {
-    llvm::Value *ref = emitVariableReference(stmt->getTarget());
-    llvm::Value *rhs = emitValue(stmt->getAssignedExpr());
+    llvm::Value *target;
+    llvm::Value *source;
 
-    Builder.CreateStore(rhs, ref);
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(stmt->getTarget())) {
+        // The left hand side is a simple variable reference.  Just emit the
+        // left and right hand sides and form a store.
+        target = emitVariableReference(ref);
+        source = emitValue(stmt->getAssignedExpr());
+    }
+    else {
+        // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
+        // to the needed component and again, store in the right hand side.
+        IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
+        target = emitIndexedArrayRef(arrIdx);
+        source = emitValue(stmt->getAssignedExpr());
+    }
+
+    Builder.CreateStore(source, target);
 }
 
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)

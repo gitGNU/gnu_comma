@@ -137,6 +137,8 @@ DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
 DIAGNOSTIC(ASSIGNMENT_TO_MODE_IN, ERROR,
            "Cannot assign to parameter `%0' of mode \"in\".")
+DIAGNOSTIC(INVALID_LHS_FOR_ASSIGNMENT, ERROR,
+           "Target of assignment does not denote a variable.")
 DIAGNOSTIC(IN_PARAMETER_NOT_MODE_COMPATABLE, ERROR,
            "Parameter `%0' of mode \"in\" cannot be used in a \"%0\" "
            "context.")
