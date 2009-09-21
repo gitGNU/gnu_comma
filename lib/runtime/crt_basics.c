@@ -17,8 +17,8 @@
 /*
  * _comma_assert_fail :  Used to implement "pragma Assert".
  *
- * Prints the given message to stderr, flushes stderr, and then calls abort() to
- * terminate the process.
+ * Prints the given message to stderr then calls abort() to terminate the
+ * process.
  *
  * TODO: Scan the message for a terminating new line, possibly followed by white
  * space, and emit a newline ourselves if one is not found.
@@ -26,7 +26,6 @@
 void _comma_assert_fail(const char *msg)
 {
         fputs(msg, stderr);
-        fflush(stderr);
         abort();
 }
 
