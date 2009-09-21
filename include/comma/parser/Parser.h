@@ -76,6 +76,7 @@ public:
     Node parseAssignmentStmt();
     Node parseBlockStmt();
     Node parseWhileStmt();
+    Node parsePragmaStmt();
 
     Node parseProcedureCallStatement();
 

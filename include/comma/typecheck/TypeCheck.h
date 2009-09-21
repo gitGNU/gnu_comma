@@ -153,6 +153,8 @@ public:
 
     Node acceptWhileStmt(Location loc, Node condition, NodeVector &stmtNodes);
 
+    Node acceptPragmaStmt(IdentifierInfo *name, Location loc, NodeVector &args);
+
     // Called when an enumeration type is about to be parsed, supplying the name
     // of the type and its location.  For each literal composing the
     // enumeration, acceptEnumerationLiteral is called with the result of this
@@ -862,6 +864,9 @@ private:
     /// the check succeeds.  Otherwise false is returned and diagnostics are
     /// posted.
     bool finishTypeRef(TypeRef *ref);
+
+    /// Checks an assert pragma with the given arguments.
+    PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);
 
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);

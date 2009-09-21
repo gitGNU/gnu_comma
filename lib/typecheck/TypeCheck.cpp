@@ -12,6 +12,7 @@
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
@@ -997,4 +998,28 @@ bool TypeCheck::covers(Type *A, Type *B)
         baseTypeB = subtype->getTypeOf();
 
     return baseTypeA == baseTypeB;
+}
+
+PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
+{
+    // Currently, assert pragmas take a single boolean valued argument.  The
+    // parser knows this.
+    assert(args.size() == 1 && "Wrong number of arguments for pragma Assert!");
+    Expr *condition = cast_node<Expr>(args[0]);
+
+    if (checkExprInContext(condition, declProducer->getBoolType())) {
+        // Get a string representing the source location of the assertion.
+        //
+        // FIXME: We should be calling a utility routine to parse the source
+        // location.
+        std::string message;
+        SourceLocation sloc = getSourceLoc(loc);
+        llvm::raw_string_ostream stream(message);
+        std::string identity = sloc.getTextProvider()->getIdentity();
+        stream << "Assertion failed at "
+               << identity << ":"
+               << sloc.getLine() << ":" << sloc.getColumn() << ".\n";
+        return new PragmaAssert(loc, condition, stream.str());
+    }
+    return 0;;
 }

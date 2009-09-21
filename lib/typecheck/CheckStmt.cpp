@@ -11,6 +11,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/Type.h"
@@ -235,4 +236,21 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
     conditionNode.release();
     stmtNodes.release();
     return getNode(new WhileStmt(loc, condition, body));
+}
+
+Node TypeCheck::acceptPragmaStmt(IdentifierInfo *name, Location loc,
+                                 NodeVector &argNodes)
+{
+    Pragma *pragma = 0;
+
+    // The only pragma we currently support is "Assert".
+    if (name == resource.getIdentifierInfo("Assert"))
+        pragma = acceptPragmaAssert(loc, argNodes);
+
+
+    // The parser knows all about pragmas, so we should always have a match.
+    assert(pragma && "Unrecognized pragma!");
+
+    argNodes.release();
+    return getNode(new PragmaStmt(pragma));
 }

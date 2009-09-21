@@ -434,6 +434,10 @@ public:
     virtual Node acceptWhileStmt(Location loc, Node condition,
                                  NodeVector &stmtNodes) = 0;
 
+    /// Called when a pragma is encountered within a sequence of statements.
+    virtual Node acceptPragmaStmt(IdentifierInfo *name, Location loc,
+                                  NodeVector &pragmaArgs) = 0;
+
     /// \name Enumeration Callbacks.
     ///
     /// Enumerations are processed by first establishing a context with a call

@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/parser/Parser.h"
+
 #include <cassert>
+#include <cstring>
 
 using namespace comma;
 
@@ -36,6 +38,10 @@ Node Parser::parseStatement()
 
     case Lexer::TKN_RETURN:
         node = parseReturnStmt();
+        break;
+
+    case Lexer::TKN_PRAGMA:
+        node = parsePragmaStmt();
         break;
     }
 
@@ -225,4 +231,34 @@ Node Parser::parseWhileStmt()
         return getInvalidNode();
 
     return client.acceptWhileStmt(loc, condition, stmts);
+}
+
+Node Parser::parsePragmaStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_PRAGMA));
+    ignoreToken();
+
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+    NodeVector args;
+
+    if (!name)
+        return getInvalidNode();
+
+    // The only kind of pragma we currently support are Assert pragmas.
+    if (std::strcmp(name->getString(), "Assert") == 0) {
+        if (!requireToken(Lexer::TKN_LPAREN))
+            return getInvalidNode();
+
+        Node condition = parseExpr();
+
+        if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
+            seekTokens(Lexer::TKN_RPAREN);
+            return getInvalidNode();
+        }
+
+        args.push_back(condition);
+    }
+
+    return client.acceptPragmaStmt(name, loc, args);
 }
