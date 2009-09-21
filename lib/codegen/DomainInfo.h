@@ -66,7 +66,11 @@ public:
 
     /// \brief Returns the link (mangled) name of the domain_info object
     /// that would be associated with the capsule given by \p CGC.
-    std::string getLinkName(const CodeGenCapsule &CGC) const;
+    static std::string getLinkName(const CodeGenCapsule &CGC);
+
+    /// \brief Returns the link (mangled) name of the domain_info object that
+    /// would be associated with the given capsule.
+    static std::string getLinkName(const Domoid *model);
 
     template <FieldId F>
     struct FieldIdTraits {

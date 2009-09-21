@@ -88,18 +88,18 @@ public:
     /// alternative.  For example, "*" translates into "0multiply" and "+"
     /// translates into "0plus" (with appropriate qualification prefix and
     /// overload suffix).
-    std::string getLinkName(const SubroutineDecl *sr) const;
+    static std::string getLinkName(const SubroutineDecl *sr);
 
-    std::string getLinkName(const DomainInstanceDecl *instance,
-                            const SubroutineDecl *sr) const;
+    static std::string getLinkName(const DomainInstanceDecl *instance,
+                                   const SubroutineDecl *sr);
 
     /// \brief Returns the name of the given Domoid as it should appear in LLVM
     /// IR.
-    std::string getLinkName(const Domoid *domoid) const;
+    static std::string getLinkName(const Domoid *domoid);
 
     /// \brief Returns the name of the given domain instance as it should appear
     /// in LLVM IR.
-    std::string getLinkName(const DomainInstanceDecl *instance) const;
+    static std::string getLinkName(const DomainInstanceDecl *instance);
 
     /// Notifies this code generator that the underlying capsule relys on the
     /// given domain instance.  Returns a unique ID > 0 representing the

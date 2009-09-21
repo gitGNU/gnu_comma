@@ -102,7 +102,7 @@ std::string CodeGenCapsule::getLinkName() const
 }
 
 std::string CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance,
-                                        const SubroutineDecl *sr) const
+                                        const SubroutineDecl *sr)
 {
     int index;
     std::string name = getLinkName(instance) + "__";
@@ -122,7 +122,7 @@ std::string CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance,
     return name;
 }
 
-std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr) const
+std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr)
 {
     std::string name;
     int index;
@@ -162,13 +162,13 @@ std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr) const
     return name;
 }
 
-std::string CodeGenCapsule::getLinkName(const Domoid *domoid) const
+std::string CodeGenCapsule::getLinkName(const Domoid *domoid)
 {
     return domoid->getString();
 }
 
 std::string
-CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance) const
+CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance)
 {
     assert(!instance->isDependent() &&
            "Cannot form link names for dependent instance declarations!");
@@ -180,10 +180,10 @@ CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance) const
         std::ostringstream ss;
 
         if (param->denotesPercent()) {
-            // Mangle percent nodes to the name of the current instance.
-            assert(getCapsule()->getPercentType() == param &&
-                   "Inconsistent context for a percent node!");
-            ss << "__" << i <<  getLinkName(getInstance());
+            // Mangle percent nodes to the name of the corresponding domain.
+            PercentDecl *percent = param->getPercentDecl();
+            Domoid *model = cast<Domoid>(percent->getDefinition());
+            ss << "__" << i <<  getLinkName(model);
         }
         else {
             ss << "__" << i << getLinkName(param->getInstanceDecl());

@@ -77,9 +77,14 @@ llvm::GlobalVariable *DomainInfo::generateInstance(CodeGenCapsule &CGC)
     return CG.makeExternGlobal(theInfo, false, getLinkName(CGC));
 }
 
-std::string DomainInfo::getLinkName(const CodeGenCapsule &CGC) const
+std::string DomainInfo::getLinkName(const CodeGenCapsule &CGC)
 {
-    return CGC.getLinkName() + "__0domain_info";
+    return getLinkName(CGC.getCapsule());
+}
+
+std::string DomainInfo::getLinkName(const Domoid *domoid)
+{
+    return CodeGenCapsule::getLinkName(domoid) + "__0domain_info";
 }
 
 /// Allocates a constant string for a domain_info's name.

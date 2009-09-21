@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DomainInfo.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
 #include "comma/codegen/CodeGenCapsule.h"
@@ -75,6 +76,57 @@ void CodeGen::emitToplevelDecl(Decl *decl)
     // which need to be codegened.
     while (instancesPending())
         emitNextInstance();
+}
+
+void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
+{
+    // Basic sanity checks on the declaration.
+    assert(pdecl->getArity() == 0 && "Entry procedures must be nullary!");
+
+    // Get the procedures declarative region. This must an instance of a
+    // non-parameterized domain.
+    DeclRegion *region = pdecl->getDeclRegion();
+    DomainInstanceDecl *context = cast<DomainInstanceDecl>(region);
+    assert(!context->isParameterized() &&
+           "Cannot call entry procedures in a parameterized context!");
+
+    // Lookup the previously codegened function for this decl.
+    std::string procName = CodeGenCapsule::getLinkName(context, pdecl);
+    llvm::Value *func = lookupGlobal(procName);
+    assert(func && "Lookup of entry procedure failed!");
+
+
+    // Build the function type for the entry stub.
+    //
+    // FIXME: This should be a target dependent operation.
+    std::vector<const llvm::Type*> args;
+    args.push_back(getInt32Ty());
+    args.push_back(getPointerType(getPointerType(getInt8Ty())));
+    llvm::FunctionType *entryTy =
+        llvm::FunctionType::get(getInt32Ty(), args, false);
+
+    // Get an external function to populate with the entry code.
+    //
+    // FIXME: The name of main function is a target dependent operation.
+    llvm::Function *entry = makeFunction(entryTy, "main");
+
+    llvm::IRBuilder<> Builder(getLLVMContext());
+    llvm::BasicBlock *entryBB = makeBasicBlock("entry", entry);
+    Builder.SetInsertPoint(entryBB);
+
+    // Lookup the domain info object for the needed domain.
+    llvm::GlobalValue *domainInfo = lookupCapsuleInfo(context->getDefinition());
+    assert(domainInfo && "Could not find domain_info for entry function!");
+
+    // Build the get_domain call.  Since this domain is not parameterized, only
+    // the domain_info object is required as an argument.
+    llvm::Value *domainInstance = CRT->getDomain(Builder, domainInfo);
+
+    // Call our entry function with the generated instance as its only argument.
+    Builder.CreateCall(func, domainInstance);
+
+    // Return a zero exit status.
+    Builder.CreateRet(llvm::ConstantInt::get(getInt32Ty(), uint64_t(0)));
 }
 
 bool CodeGen::instancesPending()

@@ -64,6 +64,20 @@ public:
     /// \brief Codegens a top-level declaration.
     void emitToplevelDecl(Decl *decl);
 
+    /// \brief Codegens a main function which calls into the given Comma
+    /// procedure.
+    ///
+    /// The provided procedure must meet the following constraints (failure to
+    /// do so will fire an assertion):
+    ///
+    ///   - The procedure must be nullary.  Parameters are not accepted.
+    ///
+    ///   - The procedure must be defined within a domain, not a functor.
+    ///
+    ///   - The procedure must have been codegened.
+    ///
+    void emitEntryStub(ProcedureDecl *pdecl);
+
     /// \brief Inserts the given instance into the work list.
     ///
     /// \return true if the instance was not already present in the worklist and
