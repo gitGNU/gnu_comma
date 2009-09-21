@@ -39,7 +39,8 @@ CommaRT::CommaRT(CodeGen &CG)
       ITablePtrTy(getITablePtrTy()),
       DomainCtorPtrTy(0),
 
-      GetDomainName("_comma_get_domain")
+      GetDomainName("_comma_get_domain"),
+      AssertFailName("_comma_assert_fail")
 {
     DInfo = new DomainInfo(*this);
     DomainInfoPtrTy = DInfo->getPointerTypeTo();
@@ -106,6 +107,7 @@ const llvm::PointerType *CommaRT::getITablePtrTy()
 void CommaRT::generateRuntimeFunctions()
 {
     defineGetDomain();
+    defineAssertFail();
 }
 
 // Builds a declaration in LLVM IR for the get_domain runtime function.
@@ -122,6 +124,21 @@ void CommaRT::defineGetDomain()
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, true);
 
     getDomainFn = CG.makeFunction(fnTy, GetDomainName);
+}
+
+void CommaRT::defineAssertFail()
+{
+    const llvm::Type *retTy = CG.getVoidTy();
+
+    std::vector<const llvm::Type *> args;
+    args.push_back(CG.getPointerType(CG.getInt8Ty()));
+
+    // _comma_assert_fail takes a pointer to a C string as argument, and does
+    // not return.
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
+
+    assertFailFn = CG.makeFunction(fnTy, AssertFailName);
+    assertFailFn->setDoesNotReturn();
 }
 
 llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
@@ -141,6 +158,12 @@ llvm::Value *CommaRT::getDomain(llvm::IRBuilder<> &builder,
     assert(args.front()->getType() == getType<CRT_DomainInfo>()
            && "First argument is not a domain_info_t!");
     return builder.CreateCall(getDomainFn, args.begin(), args.end());
+}
+
+void CommaRT::assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const
+{
+    builder.CreateCall(assertFailFn, message);
+    builder.CreateUnreachable();
 }
 
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,

@@ -112,9 +112,9 @@ public:
 
     /// \brief Emits a string with internal linkage, returning the global
     /// variable for the associated data.
-    llvm::Constant *emitStringLiteral(const std::string &str,
-                                      bool isConstant = true,
-                                      const std::string &name = "");
+    llvm::GlobalVariable *emitStringLiteral(const std::string &str,
+                                            bool isConstant = true,
+                                            const std::string &name = "");
 
     /// \brief Returns a null pointer constant of the specified type.
     llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
@@ -215,7 +215,6 @@ public:
     /// which must be of the supplied type.
     llvm::Constant *getConstantArray(const llvm::Type *elementType,
                                      std::vector<llvm::Constant*> &elems) const;
-
 
 private:
     /// The Module we are emiting code for.

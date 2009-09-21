@@ -77,6 +77,12 @@ public:
     const DomainInfo *getDomainInfo() const { return DInfo; }
     const DomainInstance *getDomainInstance() const { return DInstance; }
 
+    /// Generates a call to _comma_assert_fail using the given message (which
+    /// must be a i8*, pointing to a null-terminated C string).
+    ///
+    /// A call to _comma_assert_fail does not return.
+    void assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const;
+
 private:
     CodeGen &CG;
 
@@ -94,16 +100,25 @@ private:
     const llvm::PointerType *ITablePtrTy;
     const llvm::PointerType *DomainCtorPtrTy;
 
+    // Names of the comma runtime functions.
     std::string GetDomainName;
+    std::string AssertFailName;
 
     // Function declaration for _comma_get_domain runtime function.
     llvm::Function *getDomainFn;
+
+    // Function declaration for _comma_assert_fail runtime function.
+    llvm::Function *assertFailFn;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();
 
     // Builds a declaration in LLVM IR for the get_domain runtime function.
     void defineGetDomain();
+
+    // Builds a declaration in LLVM IR for the _comma_assert_fail runtime
+    // function.
+    void defineAssertFail();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
     void generateRuntimeTypes();

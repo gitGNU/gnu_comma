@@ -8,10 +8,12 @@
 
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/Stmt.h"
 #include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
+#include "comma/codegen/CommaRT.h"
 
 #include "llvm/Analysis/Verifier.h"
 
@@ -303,4 +305,27 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
     // FIXME:  This is not precise enough, but works for the remaining cases.
     return emitExpr(expr);
+}
+
+void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
+{
+    llvm::Value *condition = emitValue(pragma->getCondition());
+    llvm::GlobalVariable *msgVar = CG.emitStringLiteral(pragma->getMessage());
+    llvm::Value *message =
+        CG.getPointerCast(msgVar, CG.getPointerType(CG.getInt8Ty()));
+
+    // Create basic blocks for when the assertion fires and another for the
+    // continuation.
+    llvm::BasicBlock *assertBB = CG.makeBasicBlock("assert-fail", SRFn);
+    llvm::BasicBlock *passBB = CG.makeBasicBlock("assert-pass", SRFn);
+
+    // If the condition is true, the assertion does not fire.
+    Builder.CreateCondBr(condition, passBB, assertBB);
+
+    // Generate the call to _comma_assert_fail.
+    Builder.SetInsertPoint(assertBB);
+    CRT.assertFail(Builder, message);
+
+    // Switch to the continuation block.
+    Builder.SetInsertPoint(passBB);
 }

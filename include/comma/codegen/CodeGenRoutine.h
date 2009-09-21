@@ -108,6 +108,7 @@ private:
     void emitProcedureCallStmt(ProcedureCallStmt *stmt);
     void emitAssignmentStmt(AssignmentStmt *stmt);
     void emitWhileStmt(WhileStmt *stmt);
+    void emitPragmaStmt(PragmaStmt *stmt);
 
     /// Generates code for the given BlockStmt.
     ///
@@ -176,6 +177,10 @@ private:
     /// overriding declaration which matches \p target.
     SubroutineDecl *resolveAbstractOverride(DomainInstanceDecl *instance,
                                             SubroutineDecl *target);
+
+    /// Emits an assertion pragma.
+    void emitPragmaAssert(PragmaAssert *pragma);
+
 };
 
 } // end comma namespace

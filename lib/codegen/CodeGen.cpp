@@ -218,9 +218,9 @@ llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
         return 0;
 }
 
-llvm::Constant *CodeGen::emitStringLiteral(const std::string &str,
-                                           bool isConstant,
-                                           const std::string &name)
+llvm::GlobalVariable *CodeGen::emitStringLiteral(const std::string &str,
+                                                 bool isConstant,
+                                                 const std::string &name)
 {
     llvm::LLVMContext &ctx = getLLVMContext();
     llvm::Constant *stringConstant = llvm::ConstantArray::get(ctx, str, true);

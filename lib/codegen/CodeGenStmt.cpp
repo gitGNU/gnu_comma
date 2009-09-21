@@ -8,6 +8,7 @@
 
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/Stmt.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
@@ -52,6 +53,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 
     case Ast::AST_ReturnStmt:
         emitReturnStmt(cast<ReturnStmt>(stmt));
+        break;
+
+    case Ast::AST_PragmaStmt:
+        emitPragmaStmt(cast<PragmaStmt>(stmt));
         break;
     }
 }
@@ -234,3 +239,21 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
     // Finally, set mergeBB the current insertion point.
     Builder.SetInsertPoint(mergeBB);
 }
+
+void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)
+{
+    // Currently, only pragma Assert is supported.
+    Pragma *pragma = stmt->getPragma();
+
+    switch (pragma->getKind()) {
+
+    default:
+        assert(false && "Cannot codegen pragma yet!");
+        break;
+
+    case Pragma::Assert:
+        emitPragmaAssert(cast<PragmaAssert>(pragma));
+        break;
+    };
+}
+
