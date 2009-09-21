@@ -24,6 +24,7 @@
 #include <fstream>
 
 using namespace comma;
+using llvm::dyn_cast;
 
 // The input file name as a positional argument.  The default of "-" means read
 // from standard input.
@@ -37,6 +38,67 @@ InputFile(llvm::cl::Positional,
 llvm::cl::opt<bool>
 SyntaxOnly("fsyntax-only",
            llvm::cl::desc("Only perform syntatic and semantic analysis."));
+
+// The entry switch defining the main function to call.
+llvm::cl::opt<std::string>
+EntryPoint("e",
+           llvm::cl::desc("Comma procedure to use as an entry point."));
+
+
+static int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
+{
+    // We must have a well formed entry point string of the form "D.P", where D
+    // is the context domain and P is the procedure to call.
+    typedef std::string::size_type Index;
+    Index dotPos = EntryPoint.find('.');
+
+    if (dotPos == std::string::npos) {
+        llvm::errs() << "Malformed entry designator `" << EntryPoint << "'\n";
+        return 1;
+    }
+
+    std::string domainName = EntryPoint.substr(0, dotPos);
+    std::string procName = EntryPoint.substr(dotPos + 1);
+
+    // Find a declaration in the given compilation unit which matches the needed
+    // domain.
+    DomainDecl *context = 0;
+    typedef CompilationUnit::decl_iterator ctx_iterator;
+    for (ctx_iterator I = cu.beginDeclarations();
+         I != cu.endDeclarations(); ++I) {
+        if (!(context = dyn_cast<DomainDecl>(*I)))
+            continue;
+        if (domainName == context->getString())
+            break;
+    }
+
+    if (!context) {
+        llvm::errs() << "Entry domain `" << domainName << "' not found.\n";
+        return 1;
+    }
+
+    // Find a nullary procedure declaration with the given name.
+    ProcedureDecl *proc = 0;
+    DomainInstanceDecl *instance = context->getInstance();
+    typedef DeclRegion::DeclIter decl_iterator;
+    for (decl_iterator I = instance->beginDecls();
+         I != instance->endDecls(); ++I) {
+        if (!(proc = dyn_cast<ProcedureDecl>(*I)))
+            continue;
+        if (procName != proc->getString())
+            continue;
+        if (proc->getArity() == 0)
+            break;
+    }
+
+    if (!proc) {
+        llvm::errs() << "Entry procedure `" << procName << "' not found.\n";
+        return 1;
+    }
+
+    CG.emitEntryStub(proc);
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
@@ -90,6 +152,11 @@ int main(int argc, char **argv)
              iter != cu.endDeclarations(); ++iter) {
             CG.emitToplevelDecl(*iter);
         }
+
+        // If an entry point was requested.  Emit it.
+        if (!EntryPoint.empty())
+            if (emitEntryPoint(CG, cu))
+                return 1;
 
         M->print(llvm::outs(),0);
     }
