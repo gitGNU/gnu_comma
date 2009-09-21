@@ -271,6 +271,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_RETURN;
         else if (strncmp(str, "import", length) == 0)
             code = TKN_IMPORT;
+        else if (strncmp(str, "pragma", length) == 0)
+            code = TKN_PRAGMA;
         break;
 
     case 7:
