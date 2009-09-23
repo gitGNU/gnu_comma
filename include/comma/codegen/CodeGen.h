@@ -13,6 +13,7 @@
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/GlobalValue.h"
+#include "llvm/Intrinsics.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
 #include "llvm/ADT/StringMap.h"
@@ -124,6 +125,11 @@ public:
         return llvm::OpaqueType::get(getLLVMContext());
     }
 
+    /// \brief Returns the llvm type i8*,
+    const llvm::PointerType *getInt8PtrTy() const {
+        return getPointerType(getInt8Ty());
+    }
+
     /// \brief Returns the llvm type "void".
     const llvm::Type *getVoidTy() const {
         return llvm::Type::getVoidTy(getLLVMContext());
@@ -215,6 +221,18 @@ public:
     /// which must be of the supplied type.
     llvm::Constant *getConstantArray(const llvm::Type *elementType,
                                      std::vector<llvm::Constant*> &elems) const;
+
+    /// \brief Returns a function declaration for the given llvm intrinsic.
+    ///
+    /// This method is not appropriate for the retrieval of overloaded
+    /// intrinsics.
+    llvm::Function *getLLVMIntrinsic(llvm::Intrinsic::ID id) {
+        return llvm::Intrinsic::getDeclaration(M, id);
+    }
+
+    /// \brief Returns a pointer to a global exception object.
+    llvm::GlobalVariable *getEHInfo();
+
 
 private:
     /// The Module we are emiting code for.

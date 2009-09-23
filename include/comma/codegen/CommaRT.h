@@ -83,6 +83,25 @@ public:
     /// A call to _comma_assert_fail does not return.
     void assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const;
 
+    /// Throws an exception.
+    ///
+    /// Currently, Comma supports only a single "system exception".  The
+    /// following call generates the code for a raise, using the given global as
+    /// a message.
+    void raise(llvm::IRBuilder<> &builder, llvm::GlobalVariable *message) const;
+
+    /// Generates a call to _comma_unhandled_exception.  This is only called by
+    /// the main routine when an exception has unwound the entire stack.  Its
+    /// only argument is the unhandled exception object.
+    ///
+    /// A call to _comma_unhandled_exception does not return.
+    void unhandledException(llvm::IRBuilder<> &builder,
+                            llvm::Value *exception) const;
+
+    /// Returns an opaque reference to the exception handling personality
+    /// routine.  Suitable for use as an argument to llvm.eh.selector.
+    llvm::Constant *getEHPersonality() const;
+
 private:
     CodeGen &CG;
 
@@ -103,22 +122,26 @@ private:
     // Names of the comma runtime functions.
     std::string GetDomainName;
     std::string AssertFailName;
+    std::string EHPersonalityName;
+    std::string UnhandledExceptionName;
+    std::string RaiseExceptionName;
 
-    // Function declaration for _comma_get_domain runtime function.
+    // Function declarations for the comma runtime functions.
     llvm::Function *getDomainFn;
-
-    // Function declaration for _comma_assert_fail runtime function.
     llvm::Function *assertFailFn;
+    llvm::Function *EHPersonalityFn;
+    llvm::Function *unhandledExceptionFn;
+    llvm::Function *raiseExceptionFn;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();
 
-    // Builds a declaration in LLVM IR for the get_domain runtime function.
+    // Methods which build the LLVM IR for the comma runtime functions.
     void defineGetDomain();
-
-    // Builds a declaration in LLVM IR for the _comma_assert_fail runtime
-    // function.
     void defineAssertFail();
+    void defineEHPersonality();
+    void defineUnhandledException();
+    void defineRaiseException();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
     void generateRuntimeTypes();

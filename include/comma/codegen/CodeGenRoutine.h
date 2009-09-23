@@ -161,6 +161,9 @@ private:
 
     llvm::Value *getOrCreateStackSlot(Decl *decl);
 
+    /// Emits a scalar range check.
+    void emitScalarRangeCheck(DeclRefExpr *target, llvm::Value *source);
+
     /// Helper method for emitAbstractCall.
     ///
     /// Resolves the target subroutine for an abstract call, given an instance

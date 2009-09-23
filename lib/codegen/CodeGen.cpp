@@ -95,15 +95,14 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
     llvm::Value *func = lookupGlobal(procName);
     assert(func && "Lookup of entry procedure failed!");
 
-
     // Build the function type for the entry stub.
     //
     // FIXME: This should be a target dependent operation.
-    std::vector<const llvm::Type*> args;
-    args.push_back(getInt32Ty());
-    args.push_back(getPointerType(getPointerType(getInt8Ty())));
+    std::vector<const llvm::Type*> argTypes;
+    argTypes.push_back(getInt32Ty());
+    argTypes.push_back(getPointerType(getInt8PtrTy()));
     llvm::FunctionType *entryTy =
-        llvm::FunctionType::get(getInt32Ty(), args, false);
+        llvm::FunctionType::get(getInt32Ty(), argTypes, false);
 
     // Get an external function to populate with the entry code.
     //
@@ -112,6 +111,8 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
 
     llvm::IRBuilder<> Builder(getLLVMContext());
     llvm::BasicBlock *entryBB = makeBasicBlock("entry", entry);
+    llvm::BasicBlock *landingBB = makeBasicBlock("landingpad", entry);
+    llvm::BasicBlock *returnBB  = makeBasicBlock("return", entry);
     Builder.SetInsertPoint(entryBB);
 
     // Lookup the domain info object for the needed domain.
@@ -122,11 +123,82 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
     // the domain_info object is required as an argument.
     llvm::Value *domainInstance = CRT->getDomain(Builder, domainInfo);
 
-    // Call our entry function with the generated instance as its only argument.
-    Builder.CreateCall(func, domainInstance);
+    // Invoke our entry function with the generated instance as its only
+    // argument.
+    llvm::SmallVector<llvm::Value*, 2> args;
+    args.push_back(domainInstance);
+    Builder.CreateInvoke(func, returnBB, landingBB, args.begin(), args.end());
 
-    // Return a zero exit status.
+    // Switch to normal return.
+    Builder.SetInsertPoint(returnBB);
     Builder.CreateRet(llvm::ConstantInt::get(getInt32Ty(), uint64_t(0)));
+
+    // Switch to landing pad.
+    Builder.SetInsertPoint(landingBB);
+    llvm::Function *eh_except;
+    llvm::Function *eh_select;
+    llvm::Function *eh_typeid;
+    llvm::Value *eh_person;
+    eh_except = getLLVMIntrinsic(llvm::Intrinsic::eh_exception);
+    eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
+    eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
+    eh_person = CRT->getEHPersonality();
+
+    // The exception object produced by a call to _comma_raise.
+    llvm::Value *except = Builder.CreateCall(eh_except);
+
+    // Build an exception selector with a null exception info entry.  This is a
+    // catch-all selector.
+    args.clear();
+    args.push_back(except);
+    args.push_back(eh_person);
+    args.push_back(getNullPointer(getInt8PtrTy()));
+    llvm::Value *infodx = Builder.CreateCall(eh_select, args.begin(), args.end());
+
+    // The returned index must be positive and it must match the id for our
+    // exception info object.  Generate a call to _comma_assert_fail if these
+    // conditions are not met.
+    llvm::Value *targetdx = Builder.CreateCall(eh_typeid,
+                                               getNullPointer(getInt8PtrTy()));
+    llvm::BasicBlock *catchAllBB = makeBasicBlock("catch-all", entry);
+    llvm::BasicBlock *assertBB = makeBasicBlock("assert-fail", entry);
+    llvm::Value *cond = Builder.CreateICmpEQ(infodx, targetdx);
+    Builder.CreateCondBr(cond, catchAllBB, assertBB);
+
+    // The catch all should certainly suceed.  Call into _comma_unhandled_exception,
+    // passing it the exception object.  This function never returns.
+    Builder.SetInsertPoint(catchAllBB);
+    CRT->unhandledException(Builder, except);
+
+    // Assertion case for when the catch-all failed.  This should never happen.
+    Builder.SetInsertPoint(assertBB);
+    llvm::GlobalVariable *message =
+        emitStringLiteral("Unhandled exception in main!");
+    llvm::Value *msgPtr = getPointerCast(message, getPointerType(getInt8Ty()));
+    CRT->assertFail(Builder, msgPtr);
+}
+
+llvm::GlobalVariable *CodeGen::getEHInfo()
+{
+    static llvm::GlobalVariable *ehInfo = 0;
+
+    if (ehInfo)
+        return ehInfo;
+
+    llvm::PointerType *bytePtr = getPointerType(getInt8Ty());
+
+    std::vector<const llvm::Type*> members;
+    members.push_back(getInt64Ty());
+    members.push_back(bytePtr);
+    llvm::StructType *theType = getStructTy(members);
+
+    std::vector<llvm::Constant*> elts;
+    elts.push_back(llvm::ConstantInt::get(getInt64Ty(), uint64_t(3)));
+    elts.push_back(getPointerCast(emitStringLiteral("Comma Exception"), bytePtr));
+    llvm::Constant *theInfo = llvm::ConstantStruct::get(theType, elts);
+
+    ehInfo = makeInternGlobal(theInfo, true);
+    return ehInfo;
 }
 
 bool CodeGen::instancesPending()
@@ -272,11 +344,6 @@ llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
 {
     llvm::Function *fn =
         llvm::Function::Create(Ty, llvm::Function::ExternalLinkage, name, M);
-
-    // FIXME:  For now, Comma functions never thow.  When they do, this method
-    // can be extended with an additional boolean flag indicating if the
-    // function throws.
-    fn->setDoesNotThrow();
     return fn;
 }
 
@@ -285,11 +352,6 @@ llvm::Function *CodeGen::makeInternFunction(const llvm::FunctionType *Ty,
 {
     llvm::Function *fn =
         llvm::Function::Create(Ty, llvm::Function::InternalLinkage, name, M);
-
-    // FIXME:  For now, Comma functions never thow.  When they do, this method
-    // can be extended with an additional boolean flag indicating if the
-    // function throws.
-    fn->setDoesNotThrow();
     return fn;
 }
 

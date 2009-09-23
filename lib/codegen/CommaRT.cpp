@@ -40,7 +40,10 @@ CommaRT::CommaRT(CodeGen &CG)
       DomainCtorPtrTy(0),
 
       GetDomainName("_comma_get_domain"),
-      AssertFailName("_comma_assert_fail")
+      AssertFailName("_comma_assert_fail"),
+      EHPersonalityName("_comma_eh_personality"),
+      UnhandledExceptionName("_comma_unhandled_exception"),
+      RaiseExceptionName("_comma_raise_exception")
 {
     DInfo = new DomainInfo(*this);
     DomainInfoPtrTy = DInfo->getPointerTypeTo();
@@ -101,13 +104,16 @@ const llvm::PointerType *CommaRT::getDomainCtorPtrTy()
 
 const llvm::PointerType *CommaRT::getITablePtrTy()
 {
-    return CG.getPointerType(CG.getInt8Ty());
+    return CG.getInt8PtrTy();
 }
 
 void CommaRT::generateRuntimeFunctions()
 {
     defineGetDomain();
     defineAssertFail();
+    defineEHPersonality();
+    defineUnhandledException();
+    defineRaiseException();
 }
 
 // Builds a declaration in LLVM IR for the get_domain runtime function.
@@ -131,7 +137,7 @@ void CommaRT::defineAssertFail()
     const llvm::Type *retTy = CG.getVoidTy();
 
     std::vector<const llvm::Type *> args;
-    args.push_back(CG.getPointerType(CG.getInt8Ty()));
+    args.push_back(CG.getInt8PtrTy());
 
     // _comma_assert_fail takes a pointer to a C string as argument, and does
     // not return.
@@ -139,6 +145,43 @@ void CommaRT::defineAssertFail()
 
     assertFailFn = CG.makeFunction(fnTy, AssertFailName);
     assertFailFn->setDoesNotReturn();
+}
+
+void CommaRT::defineEHPersonality()
+{
+    // This function is never called directly, as does not need a full
+    // definition.
+    const llvm::Type *retTy = CG.getInt32Ty();
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, false);
+    EHPersonalityFn = CG.makeFunction(fnTy, EHPersonalityName);
+}
+
+void CommaRT::defineUnhandledException()
+{
+    // This function takes a simple i8* object denoting the uncaught exception
+    // object.
+    const llvm::Type *retTy = CG.getVoidTy();
+
+    std::vector<const llvm::Type *> args;
+    args.push_back(CG.getInt8PtrTy());
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
+
+    unhandledExceptionFn = CG.makeFunction(fnTy, UnhandledExceptionName);
+    unhandledExceptionFn->setDoesNotReturn();
+}
+
+void CommaRT::defineRaiseException()
+{
+    // This function takes an i8* denoting a message to pack into the thrown
+    // exception.
+    const llvm::Type *retTy = CG.getVoidTy();
+
+    std::vector<const llvm::Type *> args;
+    args.push_back(CG.getInt8PtrTy());
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
+
+    raiseExceptionFn = CG.makeFunction(fnTy, RaiseExceptionName);
+    raiseExceptionFn->setDoesNotReturn();
 }
 
 llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
@@ -164,6 +207,26 @@ void CommaRT::assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const
 {
     builder.CreateCall(assertFailFn, message);
     builder.CreateUnreachable();
+}
+
+void CommaRT::unhandledException(llvm::IRBuilder<> &builder,
+                                 llvm::Value *exception) const
+{
+    builder.CreateCall(unhandledExceptionFn, exception);
+    builder.CreateUnreachable();
+}
+
+void CommaRT::raise(llvm::IRBuilder<> &builder,
+                    llvm::GlobalVariable *message) const
+{
+    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
+    builder.CreateCall(raiseExceptionFn, msgPtr);
+    builder.CreateUnreachable();
+}
+
+llvm::Constant *CommaRT::getEHPersonality() const
+{
+    return CG.getPointerCast(EHPersonalityFn, CG.getInt8PtrTy());
 }
 
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,

@@ -199,6 +199,10 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
         // left and right hand sides and form a store.
         target = emitVariableReference(ref);
         source = emitValue(stmt->getAssignedExpr());
+
+        // If the reference denotes a scalar type, emit a range check.
+        if (ref->getType()->isScalarType())
+            emitScalarRangeCheck(ref, source);
     }
     else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
@@ -257,3 +261,70 @@ void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)
     };
 }
 
+void CodeGenRoutine::emitScalarRangeCheck(DeclRefExpr *target,
+                                          llvm::Value *source)
+{
+    const llvm::IntegerType *boundTy;
+    Type *targetTy = target->getType();
+    // The source value must be of integer type.  Use this width as the domain
+    // of computation for bound checks.
+    boundTy = cast<llvm::IntegerType>(source->getType());
+    unsigned width = boundTy->getBitWidth();
+    llvm::APInt low(width, 0);
+    llvm::APInt high(width, 0);
+
+    if (IntegerSubType *subtype = dyn_cast<IntegerSubType>(targetTy)) {
+        // If this the subtype is constrained, extract the bounds of the
+        // constraint.  Otherwise, use the bounds of the base type.
+        if (RangeConstraint *range = subtype->getConstraint()) {
+            low = range->getLowerBound();
+            high = range->getUpperBound();
+        }
+        else {
+            IntegerType *intTy = subtype->getTypeOf();
+            low = intTy->getLowerBound();
+            high = intTy->getUpperBound();
+        }
+
+        // The above assignments could have reduced the bit width.
+        if (low.getBitWidth() < width)
+            low.sext(width);
+        if (high.getBitWidth() < width)
+            high.sext(width);
+    }
+    else {
+        // Otherwise, this must be an enumeration type.
+        //
+        // FIXME: Support enumeration constraints.
+        EnumerationType *enumTy = targetTy->getAsEnumType();
+        assert(enumTy && "Target not a scalar type!");
+        EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
+        high = enumDecl->getNumLiterals();
+    }
+
+    // Obtain constants for the bounds.
+    llvm::Constant *lowBound = llvm::ConstantInt::get(boundTy, low);
+    llvm::Constant *highBound = llvm::ConstantInt::get(boundTy, high);
+
+    // Build our basic blocks.
+    llvm::BasicBlock *checkHighBB = CG.makeBasicBlock("high-check", SRFn);
+    llvm::BasicBlock *checkFailBB = CG.makeBasicBlock("check-fail", SRFn);
+    llvm::BasicBlock *checkMergeBB = CG.makeBasicBlock("check-merge", SRFn);
+
+    // Check the low bound.
+    llvm::Value *lowPass = Builder.CreateICmpSLE(lowBound, source);
+    Builder.CreateCondBr(lowPass, checkHighBB, checkFailBB);
+
+    // Check the high bound.
+    Builder.SetInsertPoint(checkHighBB);
+    llvm::Value *highPass = Builder.CreateICmpSLE(source, highBound);
+    Builder.CreateCondBr(highPass, checkMergeBB, checkFailBB);
+
+    // Raise an exception if the check failed.
+    Builder.SetInsertPoint(checkFailBB);
+    llvm::GlobalVariable *msg = CG.emitStringLiteral("Range check failed!");
+    CRT.raise(Builder, msg);
+
+    // We are done.
+    Builder.SetInsertPoint(checkMergeBB);
+}
