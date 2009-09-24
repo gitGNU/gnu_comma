@@ -849,24 +849,16 @@ install_handler(struct _Unwind_Context *context,
     struct comma_exception *exception = to_comma_exception(exceptionObject);
 
     /*
-     * The following register numbers are for x86_64 for use with LLVM.
-     * Typically, one would use __builtin_eh_return_data_regno.  But these GCC
-     * builtins do not work with LLVM's conventions.
-     *
-     * For now, assume x86_64 and write the magic reg numbers manually.  Perhaps
-     * LLVM should be ABI compatable with FSF GCC in this case.
-     */
-
-    /*
      * Load the register to contain the exception pointer.
      */
-    _Unwind_SetGR(context, 3, (uintptr_t)exception);
+    _Unwind_SetGR(context, __builtin_eh_return_data_regno(0),
+                  (uintptr_t)exception);
 
     /*
      * Return the matching exception identity to that the landing pad knows
      * which action to take.
      */
-    _Unwind_SetGR(context, 1, id);
+    _Unwind_SetGR(context, __builtin_eh_return_data_regno(1), id);
 
     /*
      * Set the IP to the location of the landing pad.
@@ -1008,11 +1000,8 @@ _comma_eh_personality(int version,
  * When the main Comma procedure catches an uncaught exception, the following
  * function is invoked to report the incident.
  */
-void _comma_unhandled_exception(struct _Unwind_Exception *exceptionObject)
+void _comma_unhandled_exception(struct comma_exception *exception)
 {
-    struct comma_exception *exception;
-
-    exception = to_comma_exception(exceptionObject);
     fprintf(stderr, "Unhandled exception: %s\n", exception->message);
     abort();
 }
