@@ -319,12 +319,11 @@ parse_dwarf_value(Dwarf_Encoding ID, unsigned char *start, uint64_t *value)
  *      of the landing pad code is given by a call to _Unwind_GetRegionStart.
  *
  *    @TTBase format : A DWARF encoding byte telling us how to interpret
- *      @TTBase.  This field seems to require special case code.  See
- *      parse_LSDA().
+ *      the entries in the type table.
  *
- *    @TTBase : An unsigned LEB128 value yielding an offset relative to the
- *      LSDA.  This gives the start of the type table (well, the middle of the
- *      type table as seen in the diagram above).
+ *    @TTBase : An unsigned LEB128 value yielding a self relative offset.  This
+ *      gives the start of the type table (well, the `middle' of the type table
+ *      as seen in the diagram above).
  *
  * The call-site table is organized as follows:
  *
@@ -475,8 +474,7 @@ struct Call_Site {
  */
 struct Action_Record {
     /*
-     * Type Info index.  64 bits is overkill here but at least we can be
-     * assured that it is large enough.
+     * Index into the type table.
      */
     uint64_t info_index;
 
@@ -500,11 +498,25 @@ static void fatal_error(const char *message)
 }
 
 /*
- * This is Comma's exception object.  It contains a code identifying the object
- * and a string containing a message.
+ * The integer type used to identify comma exception objects.
+ */
+typedef uint32_t comma_exid;
+
+/*
+ * Comma's varient of typeinfo.  The current representation simply holds the
+ * identifier for the exception.  Later we will add some more info, such as the
+ * exceptions name.
+ */
+struct comma_exinfo {
+    comma_exid id;
+};
+
+/*
+ * This the exception object thrown by the runtime.  It contains the exceptions
+ * identifier and a string containing a message.
  */
 struct comma_exception {
-    uint64_t identity;
+    comma_exid id;
     const char *message;
     struct _Unwind_Exception header;
 };
@@ -543,7 +555,6 @@ static int parse_LSDA(struct _Unwind_Context *context, struct LSDA_Header *lsda)
     else
         ptr = lsda->lsda_start;
 
-
     /*
      * Parse @LPStart.  This is given by _Unwind_GetRegionStart, possibly
      * augmented by a DWARF value.
@@ -559,22 +570,20 @@ static int parse_LSDA(struct _Unwind_Context *context, struct LSDA_Header *lsda)
         fatal_error("Unexpected DWARF value for @LPStart!");
 
     /*
-     * The @TTBase format seems almost ignored.  Current versions of LLVM always
-     * emit a LEB128 which is relative to the LSDA.  But code is in the works
-     * for PIC.  For now, following LLVM's behaviour, we assert the format to be
-     * DW_EH_PE_absptr, but then interpret @TTBase as a LEB128 (this is probably
-     * for compatability with GCC, I guess).
+     * FIXME: Currently, we do not make use of the @TTBase format.  We assume it
+     * is DW_EH_PE_absptr and interpet the type table entries as such.  See
+     * match_exception() for a few more notes on the issue.
      */
     lsda->type_table_format = *ptr;
     ++ptr;
     if (lsda->type_table_format != DW_EH_PE_absptr)
         fatal_error("Unexpected type table format!");
-    ptr = parse_uleb128(ptr, &tmp);
 
     /*
-     * Treat @TTBase as a relative offset from the LSDA.
+     * Take @TTBase as a self relative offset.
      */
-    lsda->type_table = lsda->lsda_start + tmp;
+    ptr = parse_uleb128(ptr, &tmp);
+    lsda->type_table = ptr + tmp;
 
     /*
      * Read in the call site encoding.  Unlike @TTBase format, we can respect
@@ -806,17 +815,34 @@ match_exception(struct LSDA_Header *lsda,
 
         if (action.info_index > 0) {
             /*
-             * If the action is positive, check that the current excetion object
-             * matches the type table identifier.  Either the identifiers match
-             * excactly, or the handler has a catch-all (indicated by an id of
-             * 0).  In the latter case, ensure that this action is the last
-             * action in the list.
+             * FIXME: We should be using the type table format here to interpret
+             * both the size of the entries themselves and how to interpret the
+             * values.  Here we assume a format of DW_EH_PE_absptr.  This works
+             * for static code, but there are other cases (for PIC code the
+             * references will be indirect).  In short, we should:
+             *
+             *  - Use the ttable format to get a scale factor for the action
+             *    index.
+             *
+             *  - Use the ttable format to fetch the required base.  For
+             *    example, a format of DW_EH_PE_funcrel would indicate that we
+             *    interpret the entries as offsets relative to the value of
+             *    _Unwind_GetRegionStart().
              */
-            uint64_t *id = (uint64_t *)(lsda->type_table - action.info_index);
-            if ((*id == 0) || (exception->identity == *id)) {
+            struct comma_exinfo **info;
+            info = (struct comma_exinfo **)lsda->type_table;
+            info -= action.info_index;
+
+            /*
+             * If the info pointer is 0, then this is a catch-all.  Otherwise,
+             * the exeption objects id must match that of the exinfo to be
+             * handled.
+             */
+            if ((*info == 0) || (exception->id == (*info)->id)) {
                 *dst = action.info_index;
                 return 0;
             }
+
         }
         else {
             /*
@@ -833,7 +859,6 @@ match_exception(struct LSDA_Header *lsda,
     /*
      * No match was found.
      */
-    printf("NO MATCH!\n");
     return 1;
 }
 
@@ -897,7 +922,7 @@ void _comma_raise_exception(const char *message)
      * compiler yet for user defined exceptions.
      */
     exception = malloc(sizeof(struct comma_exception));
-    exception->identity = 3;
+    exception->id = 3;
     exception->message = message;
 
     /*
