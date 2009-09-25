@@ -29,6 +29,7 @@ Node Parser::parseDirectName(bool forStatement)
     if (reduceToken(Lexer::TKN_PERCENT))
         return client.acceptPercent(loc);
 
+    report(diag::UNEXPECTED_TOKEN) << currentTokenString();
     seekNameEnd();
     return getInvalidNode();
 }
