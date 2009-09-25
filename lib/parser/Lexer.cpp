@@ -435,7 +435,15 @@ bool Lexer::scanGlyph()
         break;
 
     case '*':
-        code = TKN_STAR;
+        switch (peekStream()) {
+        case '*':
+            ignoreStream();
+            code = TKN_POW;
+            break;
+
+        default:
+            code = TKN_STAR;
+        }
         break;
 
     case '/':

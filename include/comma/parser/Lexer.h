@@ -123,6 +123,7 @@ public:
         case TKN_MINUS:
         case TKN_STAR:
         case TKN_PLUS:
+        case TKN_POW:
             return true;
         default:
             return false;

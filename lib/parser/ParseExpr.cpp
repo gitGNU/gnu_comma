@@ -72,7 +72,7 @@ Node Parser::parseExponentialOperator()
     default:
         return lhs;
 
-    case Lexer::TKN_HAT:
+    case Lexer::TKN_POW:
         loc    = currentLocation();
         opInfo = parseFunctionIdentifierInfo();
         break;
