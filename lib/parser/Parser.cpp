@@ -1278,20 +1278,12 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
     }
     assert(!digits.empty() && "Empty string literal!");
 
-    // NOTE:  Ideally, this code could just use APInt::getBitsNeeded, but
-    // APInt's constructors will assert using that value.  IMHO, this is a bug
-    // in APInt's API.  For now, use code similar to getBitsNeeded to avoid the
-    // assertion and retain an accurate bit width.
-    //
-    // Compute a generous number of bits for the value.
-    unsigned numDigits = digits.size();
-    unsigned numBits = numDigits * 64 / 18;
-
     // Get the binary value and adjust the number of bits to an accurate width.
+    unsigned numBits = llvm::APInt::getBitsNeeded(digits, 10);
     value = llvm::APInt(numBits, digits, 10);
     if (value == 0)
         numBits = 1;
     else
-        numBits = value.logBase2() + 1;
+        numBits = value.getActiveBits();
     value.zextOrTrunc(numBits);
 }
