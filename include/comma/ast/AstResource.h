@@ -76,7 +76,6 @@ private:
     TextProvider &txtProvider;
     IdentifierPool &idPool;
 
-
     // FIXME: It is likely enough to have a single container managing all types.
     std::vector<IntegerType*> integerTypes;
     std::vector<ArrayType*> arrayTypes;

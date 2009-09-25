@@ -461,6 +461,7 @@ public:
         : Expr(AST_IntegerLiteral, loc), value(value) { }
 
     const llvm::APInt &getValue() const { return value; }
+    llvm::APInt &getValue() { return value; }
 
     void setValue(const llvm::APInt &V) { value = V; }
 

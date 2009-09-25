@@ -186,3 +186,5 @@ DIAGNOSTIC(INVALID_ARRAY_INDEX, ERROR,
            "Invalid array index.")
 DIAGNOSTIC(EXPECTED_NAMED_SUBROUTINE, ERROR,
            "Expected named subroutine.")
+DIAGNOSTIC(VALUE_NOT_IN_RANGE_FOR_TYPE, ERROR,
+           "Value not in range for type `%0'.")

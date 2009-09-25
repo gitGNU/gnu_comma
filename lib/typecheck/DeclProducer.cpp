@@ -30,6 +30,7 @@ DeclProducer::DeclProducer(AstResource &resource)
 {
     createTheBoolDecl();
     createTheIntegerDecl();
+    createTheNaturalDecl();
 
     createImplicitDecls(theBoolDecl);
     createImplicitDecls(theIntegerDecl);
@@ -67,6 +68,16 @@ void DeclProducer::createTheIntegerDecl()
                         lowExpr, highExpr, lowVal, highVal, 0);
 }
 
+void DeclProducer::createTheNaturalDecl()
+{
+    IdentifierInfo *name = resource.getIdentifierInfo("Natural");
+    IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
+    unsigned width = type->getBitWidth();
+    llvm::APInt low(width, 0, false);
+    llvm::APInt high(type->getUpperBound());
+    RangeConstraint *range = new RangeConstraint(low, high);
+    theNaturalType = new IntegerSubType(name, type, range);
+}
 
 /// Returns the unique enumeration decl representing Bool.
 EnumerationDecl *DeclProducer::getBoolDecl() const
@@ -92,189 +103,98 @@ SubType *DeclProducer::getIntegerType() const
     return theIntegerDecl->getType();
 }
 
-/// Returns an IdentifierInfo nameing the given predicate.
-IdentifierInfo *DeclProducer::getPredicateName(PredicateKind kind)
-{
-    switch (kind) {
-    default:
-        assert(false && "Bad kind of predicate!");
-        return 0;
-    case EQ_pred:
-        return resource.getIdentifierInfo("=");
-    case LT_pred:
-        return resource.getIdentifierInfo("<");
-    case GT_pred:
-        return resource.getIdentifierInfo(">");
-    case LTEQ_pred:
-        return resource.getIdentifierInfo("<=");
-    case GTEQ_pred:
-        return resource.getIdentifierInfo(">=");
-    }
-}
-
-/// Returns the primitive operation marker for the given predicate.
-PO::PrimitiveID DeclProducer::getPredicatePrimitive(PredicateKind kind)
-{
-    switch (kind) {
-    default:
-        assert(false && "Bad kind of predicate!");
-        return PO::NotPrimitive;
-    case EQ_pred:
-        return PO::Equality;
-    case LT_pred:
-        return PO::LessThan;
-    case GT_pred:
-        return PO::GreaterThan;
-    case LTEQ_pred:
-        return PO::LessThanOrEqual;
-    case GTEQ_pred:
-        return PO::GreaterThanOrEqual;
-    }
-}
-
 /// Generates declarations appropriate for the given enumeration, populating \p
 /// enumDecl viewed as a DeclRegion with the results.
-void DeclProducer::createImplicitDecls(EnumerationDecl *enumDecl)
+void DeclProducer::createImplicitDecls(EnumerationDecl *decl)
 {
+    SubType *type = decl->getType();
+    Location loc = decl->getLocation();
+
     // Construct the builtin equality function.
     FunctionDecl *equals =
-        createPredicate(EQ_pred, enumDecl->getType(), enumDecl);
-    enumDecl->addDecl(equals);
+        createPrimitiveDecl(PO::EQ_op, loc, type, decl);
+    decl->addDecl(equals);
 }
 
 /// Generates declarations appropriate for the given integer declaration,
 /// populating \p intDecl viewed as a DeclRegion with the results.
-void DeclProducer::createImplicitDecls(IntegerDecl *intDecl)
+void DeclProducer::createImplicitDecls(IntegerDecl *decl)
 {
-    SubType *subtype = intDecl->getType();
+    SubType *type = decl->getType();
+    Location loc = decl->getLocation();
 
-    FunctionDecl *equals =
-        createPredicate(EQ_pred, subtype, intDecl);
+    FunctionDecl *eq =
+        createPrimitiveDecl(PO::EQ_op, loc, type, decl);
     FunctionDecl *lt =
-        createPredicate(LT_pred, subtype, intDecl);
+        createPrimitiveDecl(PO::LT_op, loc, type, decl);
     FunctionDecl *gt =
-        createPredicate(GT_pred, subtype, intDecl);
-    FunctionDecl *lteq =
-        createPredicate(LTEQ_pred, subtype, intDecl);
-    FunctionDecl *gteq =
-        createPredicate(GTEQ_pred, subtype, intDecl);
-    FunctionDecl *plus =
-        createBinaryArithOp(PLUS_arith, subtype, intDecl);
-    FunctionDecl *minus =
-        createBinaryArithOp(MINUS_arith, subtype, intDecl);
+        createPrimitiveDecl(PO::GT_op, loc, type, decl);
+    FunctionDecl *le =
+        createPrimitiveDecl(PO::LE_op, loc, type, decl);
+    FunctionDecl *ge =
+        createPrimitiveDecl(PO::GE_op, loc, type, decl);
+    FunctionDecl *add =
+        createPrimitiveDecl(PO::ADD_op, loc, type, decl);
+    FunctionDecl *sub =
+        createPrimitiveDecl(PO::SUB_op, loc, type, decl);
+    FunctionDecl *mul =
+        createPrimitiveDecl(PO::MUL_op, loc, type, decl);
+    FunctionDecl *pow =
+        createPrimitiveDecl(PO::POW_op, loc, type, decl);
     FunctionDecl *neg =
-        createUnaryArithOp(NEG_arith, subtype, intDecl);
+        createPrimitiveDecl(PO::NEG_op, loc, type, decl);
     FunctionDecl *pos =
-        createUnaryArithOp(POS_arith, subtype, intDecl);
+        createPrimitiveDecl(PO::POS_op, loc, type, decl);
 
-    intDecl->addDecl(equals);
-    intDecl->addDecl(lt);
-    intDecl->addDecl(gt);
-    intDecl->addDecl(lteq);
-    intDecl->addDecl(gteq);
-    intDecl->addDecl(plus);
-    intDecl->addDecl(minus);
-    intDecl->addDecl(neg);
-    intDecl->addDecl(pos);
+    decl->addDecl(eq);
+    decl->addDecl(lt);
+    decl->addDecl(gt);
+    decl->addDecl(le);
+    decl->addDecl(ge);
+    decl->addDecl(add);
+    decl->addDecl(sub);
+    decl->addDecl(mul);
+    decl->addDecl(pow);
+    decl->addDecl(neg);
+    decl->addDecl(pos);
 }
 
 FunctionDecl *
-DeclProducer::createPredicate(PredicateKind kind,
-                              Type *paramType, Decl *context)
+DeclProducer::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
+                                  Type *type, DeclRegion *region)
 {
-    Location loc = context->getLocation();
-    DeclRegion *region = context->asDeclRegion();
-    assert(region && "Decl context not a declarative region!");
+    assert(PO::denotesOperator(ID) && "Not a primitive operator!");
 
-    IdentifierInfo *name = getPredicateName(kind);
-    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
-    IdentifierInfo *paramY = resource.getIdentifierInfo("Y");
+    IdentifierInfo *name = resource.getIdentifierInfo(PO::getOpName(ID));
+    IdentifierInfo *left = resource.getIdentifierInfo("Left");
+    IdentifierInfo *right = resource.getIdentifierInfo("Right");
 
-    ParamValueDecl *params[] = {
-        new ParamValueDecl(paramX, paramType, PM::MODE_DEFAULT, 0),
-        new ParamValueDecl(paramY, paramType, PM::MODE_DEFAULT, 0)
-    };
+    // Create the parameter declarations.
+    llvm::SmallVector<ParamValueDecl *, 2> params;
 
-    FunctionDecl *pred =
-        new FunctionDecl(resource, name, loc, params, 2,
-                         theBoolDecl->getType(), region);
-    pred->setAsPrimitive(getPredicatePrimitive(kind));
-    return pred;
-}
-
-IdentifierInfo *DeclProducer::getArithName(ArithKind kind)
-{
-    switch (kind) {
-    default:
-        assert(false && "Bad arithmetic kind!");
-        return 0;
-    case PLUS_arith:
-    case POS_arith:
-        return resource.getIdentifierInfo("+");
-    case MINUS_arith:
-    case NEG_arith:
-        return resource.getIdentifierInfo("-");
+    if (ID == PO::POW_op) {
+        params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
+        params.push_back(
+            new ParamValueDecl(left, theNaturalType, PM::MODE_DEFAULT, 0));
+    } else if (PO::denotesBinaryOp(ID)) {
+        params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
+        params.push_back(new ParamValueDecl(right, type, PM::MODE_DEFAULT, 0));
     }
-}
-
-PO::PrimitiveID DeclProducer::getArithPrimitive(ArithKind kind)
-{
-    switch (kind) {
-    default:
-        assert(false && "Bad arithmetic kind!");
-        return PO::NotPrimitive;
-    case PLUS_arith:
-        return PO::Plus;
-    case MINUS_arith:
-        return PO::Minus;
-    case NEG_arith:
-        return PO::Neg;
-    case POS_arith:
-        return PO::Pos;
+    else {
+        assert(PO::denotesUnaryOp(ID) && "Unexpected operator kind!");
+        params.push_back(new ParamValueDecl(right, type, PM::MODE_DEFAULT, 0));
     }
-}
 
-FunctionDecl *
-DeclProducer::createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context)
-{
-    assert(denotesBinaryOp(kind) && "Not a binary arithmetic kind!");
+    // Determine the return type.
+    Type *returnTy;
+    if (PO::denotesPredicateOp(ID))
+        returnTy = theBoolDecl->getType();
+    else
+        returnTy = type;
 
-    Location loc = context->getLocation();
-    DeclRegion *region = context->asDeclRegion();
-    assert(region && "Decl context not a declarative region!");
-
-    IdentifierInfo *name = getArithName(kind);
-    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
-    IdentifierInfo *paramY = resource.getIdentifierInfo("Y");
-
-    ParamValueDecl *params[] = {
-        new ParamValueDecl(paramX, Ty, PM::MODE_DEFAULT, 0),
-        new ParamValueDecl(paramY, Ty, PM::MODE_DEFAULT, 0)
-    };
-
-    FunctionDecl *op =
-        new FunctionDecl(resource, name, loc, params, 2, Ty, region);
-    op->setAsPrimitive(getArithPrimitive(kind));
-    return op;
-}
-
-FunctionDecl *
-DeclProducer::createUnaryArithOp(ArithKind kind, Type *Ty, Decl *context)
-{
-    assert(denotesUnaryOp(kind) && "Not a unary arithmetic kind!");
-
-    Location loc = context->getLocation();
-    DeclRegion *region = context->asDeclRegion();
-    assert(region && "Decl context not a declarative region!");
-
-    IdentifierInfo *name = getArithName(kind);
-    IdentifierInfo *paramX = resource.getIdentifierInfo("X");
-
-    ParamValueDecl *params[] = {
-        new ParamValueDecl(paramX, Ty, PM::MODE_DEFAULT, 0)
-    };
-    FunctionDecl *op =
-        new FunctionDecl(resource, name, loc, params, 1, Ty, region);
-    op->setAsPrimitive(getArithPrimitive(kind));
+    FunctionDecl *op;
+    op = new FunctionDecl(resource, name, loc,
+                          &params[0], params.size(), returnTy, region);
+    op->setAsPrimitive(ID);
     return op;
 }

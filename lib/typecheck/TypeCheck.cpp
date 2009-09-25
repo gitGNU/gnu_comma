@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "DeclProducer.h"
+#include "Eval.h"
 #include "Scope.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
@@ -476,92 +477,11 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 /// expression.
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
-    if (evaluateStaticIntegerExpr(expr, result))
+    if (eval::staticIntegerValue(expr, result))
         return true;
 
     report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
     return false;
-}
-
-bool TypeCheck::evaluateStaticIntegerExpr(Expr *expr, llvm::APInt &result)
-{
-    if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(expr)) {
-        result = ILit->getValue();
-        return true;
-    }
-
-    if (FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(expr))
-        return evaluateStaticIntegerOperation(FCall, result);
-
-    return false;
-}
-
-bool TypeCheck::evaluateStaticIntegerOperation(FunctionCallExpr *expr,
-                                               llvm::APInt &result)
-{
-    // FIXME: Support mixed-type static integer expressions.
-    if (expr->isAmbiguous())
-        return false;
-
-    FunctionDecl *fdecl = cast<FunctionDecl>(expr->getConnective());
-
-    if (!fdecl->isPrimitive())
-        return false;
-
-    PO::PrimitiveID ID = fdecl->getPrimitiveID();
-    typedef FunctionCallExpr::arg_iterator iterator;
-    if (PO::denotesUnaryPrimitive(ID)) {
-        iterator I = expr->begin_arguments();
-        if (!evaluateStaticIntegerExpr(*I, result))
-            return false;
-
-        // There are only two unary operations to consider.  Negation and the
-        // "Pos" operation (which does nothing).
-        switch (ID) {
-        default:
-            assert(false && "Bad primitive ID for a unary operator!");
-            return false;
-        case PO::Neg:
-            result = -result;
-            break;
-        case PO::Pos:
-            break;
-        }
-        return true;
-    }
-
-    // Otherwise, we have a binary operator.  Evaluate the left and right hand
-    // sides.
-    llvm::APInt LHS, RHS;
-    iterator I = expr->begin_arguments();
-    if (!evaluateStaticIntegerExpr(*I, LHS) ||
-        !evaluateStaticIntegerExpr(*(++I), RHS))
-        return false;
-
-    // FIXME: Since we only evaluate addition and subtraction currently, sign
-    // extend both operands to have the largest width of either side plus one so
-    // that overflow does not occur.  Obviously we need a separate case for
-    // multiplication.
-    unsigned width = std::max(LHS.getBitWidth(), RHS.getBitWidth()) + 1;
-    LHS.sext(width);
-    RHS.sext(width);
-
-    // Since we are evaluating static integer expressions (as opposed to static
-    // boolean expressions) we care only about arithmetic operations.
-    switch (ID) {
-
-    default:
-        return false;
-
-    case PO::Plus:
-        result = LHS + RHS;
-        break;
-
-    case PO::Minus:
-        result = LHS - RHS;
-        break;
-    }
-    return true;
 }
 
 bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
@@ -681,7 +601,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
 
     llvm::APInt lowValue;
     llvm::APInt highValue;
-    if (!ensureStaticIntegerExpr(lowExpr, lowValue) or
+    if (!ensureStaticIntegerExpr(lowExpr, lowValue) ||
         !ensureStaticIntegerExpr(highExpr, highValue))
         return;
 

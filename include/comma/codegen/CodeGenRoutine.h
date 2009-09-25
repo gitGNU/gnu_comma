@@ -184,6 +184,9 @@ private:
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
+    /// Forms X**N via calls to the runtime.
+    llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
+
 };
 
 } // end comma namespace

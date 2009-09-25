@@ -713,7 +713,7 @@ EnumLiteral::EnumLiteral(AstResource &resource,
     // function-like declaration as primitive.
     index = parent->getNumLiterals();
     parent->addDecl(this);
-    setAsPrimitive(PO::EnumFunction);
+    setAsPrimitive(PO::ENUM_op);
 }
 
 //===----------------------------------------------------------------------===//
@@ -768,7 +768,15 @@ IntegerDecl::IntegerDecl(AstResource &resource,
 {
     IntegerType *baseType = resource.getIntegerType(this, lowVal, highVal);
     CorrespondingType = baseType->getFirstSubType();
+
+    buildImplicitDeclarations();
 }
+
+
+void IntegerDecl::buildImplicitDeclarations()
+{
+}
+
 
 //===----------------------------------------------------------------------===//
 // ArrayDecl

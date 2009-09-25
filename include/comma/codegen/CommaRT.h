@@ -102,6 +102,15 @@ public:
     /// routine.  Suitable for use as an argument to llvm.eh.selector.
     llvm::Constant *getEHPersonality() const;
 
+
+    /// Integer exponentiation routines.
+    //@{
+    llvm::Value *pow_i32_i32(llvm::IRBuilder<> &builder,
+                             llvm::Value *x, llvm::Value *n) const;
+    llvm::Value *pow_i64_i32(llvm::IRBuilder<> &builder,
+                             llvm::Value *x, llvm::Value *n) const;
+    //@}
+
 private:
     CodeGen &CG;
 
@@ -125,6 +134,8 @@ private:
     std::string EHPersonalityName;
     std::string UnhandledExceptionName;
     std::string RaiseExceptionName;
+    std::string pow_i32_i32_Name;
+    std::string pow_i64_i32_Name;
 
     // Function declarations for the comma runtime functions.
     llvm::Function *getDomainFn;
@@ -132,6 +143,8 @@ private:
     llvm::Function *EHPersonalityFn;
     llvm::Function *unhandledExceptionFn;
     llvm::Function *raiseExceptionFn;
+    llvm::Function *pow_i32_i32_Fn;
+    llvm::Function *pow_i64_i32_Fn;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();
@@ -142,6 +155,8 @@ private:
     void defineEHPersonality();
     void defineUnhandledException();
     void defineRaiseException();
+    void define_pow_i32_i32();
+    void define_pow_i64_i32();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
     void generateRuntimeTypes();

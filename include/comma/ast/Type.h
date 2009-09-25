@@ -30,6 +30,23 @@ class Type : public Ast {
 public:
     virtual ~Type() { }
 
+    /// Returns true if this is an anonymous type.
+    ///
+    /// By anonymous we mean something different here than how the spec reads.
+    /// Technically, the only named types are SubType's.  But practically
+    /// speaking we can almost always associate a name with a type, or rather, a
+    /// declaration with a type.  This function returns true if there is a
+    /// declaration associated with this type, and therefore a logical name is
+    /// available identifying it.
+    ///
+    /// Some types are always anonymous.  Procedure types, for example, are
+    /// uniqued and are never associated with a single declaration.
+    bool isAnonymous() const { return getIdInfo() != 0; }
+
+    /// Returns the defining identifier associated with this type, or null if
+    /// this is an anonymous type.
+    virtual IdentifierInfo *getIdInfo() const { return 0; }
+
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
 
@@ -247,6 +264,8 @@ class EnumerationType : public Type {
 public:
     EnumerationType(EnumerationDecl *decl);
 
+    IdentifierInfo *getIdInfo() const;
+
     EnumerationDecl *getEnumerationDecl() { return declaration; }
     const EnumerationDecl *getEnumerationDecl() const { return declaration; }
 
@@ -272,11 +291,13 @@ private:
 class IntegerType : public Type {
 
 public:
+    IdentifierInfo *getIdInfo() const;
+
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
 
     /// Returns the number of bits needed to represent this integer type.
-    unsigned getSize() const { return low.getBitWidth(); }
+    unsigned getBitWidth() const { return low.getBitWidth(); }
 
     /// Returns the first subtype of this integer type.
     IntegerSubType *getFirstSubType() const { return FirstSubType; }
@@ -311,6 +332,9 @@ private:
 
     // Base subtype.
     IntegerSubType *BaseSubType;
+
+    // Declaration associated with this integer type.
+    IntegerDecl *declaration;
 };
 
 //===----------------------------------------------------------------------===//
@@ -321,6 +345,9 @@ private:
 class ArrayType : public Type {
 
 public:
+    /// Returns the defining identifier of this array type.
+    IdentifierInfo *getIdInfo() const;
+
     /// Returns the rank (dimensionality) of this array type.
     unsigned getRank() const { return rank; }
 
@@ -355,10 +382,6 @@ public:
     }
 
 private:
-    unsigned rank;              ///< The dimensionality of this array.
-    SubType **indexTypes;       ///< The index types of this array.
-    Type *componentType;        ///< The component type of this array.
-
     /// Constants for accessing the ast::bits field.
     enum {
         CONSTRAINT_BIT = (1 << 0)
@@ -371,8 +394,11 @@ private:
 
     friend class AstResource;
 
-    /// First subtype of this array.
-    ArraySubType *FirstSubType;
+    unsigned rank;              ///< The dimensionality of this array.
+    SubType **indexTypes;       ///< The index types of this array.
+    Type *componentType;        ///< The component type of this array.
+    ArraySubType *FirstSubType; ///< First subtype of this array.
+    ArrayDecl *declaration;     ///< Corresponding declaration.
 };
 
 
@@ -389,15 +415,16 @@ public:
     /// Returns the type of this subtype.
     Type *getTypeOf() const;
 
-    /// Returns true if this is an anonymous subtype.
-    bool isAnonymous() const { return DefiningIdentifier == 0; }
-
     /// Returns true if this subtype is constrained.
     bool isConstrained() const { return SubTypeConstraint != 0; }
 
     /// Returns the defining identifier of this subtype if it is named,
-    /// otherwise null.
-    IdentifierInfo *getIdInfo() const { return DefiningIdentifier; }
+    /// else the defining identifier of its first progenitor type.
+    IdentifierInfo *getIdInfo() const {
+        if (DefiningIdentifier)
+            return DefiningIdentifier;
+        return ParentType->getIdInfo();
+    }
 
     /// Returns the constraint of this subtype if constrained, else null for
     /// unconstrained subtypes.
@@ -434,8 +461,10 @@ class CarrierType : public SubType {
 public:
     CarrierType(CarrierDecl *carrier, Type *type);
 
-    CarrierDecl *getDeclaration() { return CorrespondingDecl; }
-    const CarrierDecl *getDeclaration() const { return CorrespondingDecl; }
+    IdentifierInfo *getIdInfo() const;
+
+    CarrierDecl *getDeclaration() { return declaration; }
+    const CarrierDecl *getDeclaration() const { return declaration; }
 
     static bool classof(const CarrierType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -443,7 +472,7 @@ public:
     }
 
 private:
-    CarrierDecl *CorrespondingDecl;
+    CarrierDecl *declaration;
 };
 
 //===----------------------------------------------------------------------===//

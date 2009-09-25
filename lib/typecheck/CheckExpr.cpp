@@ -382,14 +382,43 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
         return true;
     }
 
-    if (!context->isIntegerType()) {
+    IntegerSubType *subtype = dyn_cast<IntegerSubType>(context);
+    if (!subtype) {
         // FIXME: Need a better diagnostic here.
         report(intLit->getLocation(), diag::INCOMPATIBLE_TYPES);
         return false;
     }
 
-    // FIXME: Ensure that the literal meets any range constraints implied by the
-    // context.
+    // Unresolved integer literals are represented as signed APInts with a
+    // minimal bit width (see acceptIntegerLiteral()).
+    //
+    // Since integer types are always signed, the literal is within the bounds
+    // of the base type iff its width is less than or equal to the base types
+    // width.  If the literal is in bounds, zero extend if needed to match the
+    // base type.
+    llvm::APInt &litValue = intLit->getValue();
+    IntegerType *intTy = subtype->getAsIntegerType();
+    unsigned targetWidth = intTy->getBitWidth();
+    unsigned literalWidth = litValue.getBitWidth();
+    if (literalWidth < targetWidth)
+        litValue.zext(targetWidth);
+    else if (literalWidth > targetWidth) {
+        report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+            << subtype->getIdInfo();
+        return false;
+    }
+
+    // If the target subtype is constrained, check that the literal is in
+    // bounds.  Note that the range bounds will be of the same width as the base
+    // type since the "type of a range" is the "type of the subtype".
+    if (subtype->isConstrained()) {
+        RangeConstraint *range = subtype->getConstraint();
+        if (!range->contains(litValue)) {
+            report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+                << subtype->getIdInfo();
+        }
+    }
+
     intLit->setType(context);
     return true;
 }
@@ -541,16 +570,17 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
 
 Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
 {
-    // The current convention is to represent the values of integer literals as
-    // signed APInts such that the bit width of the value can accomidate a two's
-    // complement representation.  Since literals are always positive at this
-    // stage (we have yet to apply a negation operator, say), zero extend the
-    // value by one bit -- this assumes that the parser produces APInt's which
-    // are not wider than necessary to represent the unsigned value of the
-    // literal, hense the assert.
+    // Integer literals are always unsigned (we have yet to apply a negation
+    // operator, for example).   The parser is commited to procuding APInt's
+    // which are no wider than necessary to represent the unsigned value.
+    // Assert this property of the parser.
     assert((value == 0 || value.countLeadingZeros() == 0) &&
            "Unexpected literal representation!");
 
+    // If non-zero, zero extend the literal by one bit.  Literals internally
+    // represented as "minimally sized" signed integers until they are resolved
+    // to a particular type.  This convetion simplifies the evaluation of
+    // static integer expressions.
     if (value != 0)
         value.zext(value.getBitWidth() + 1);
 

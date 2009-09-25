@@ -188,50 +188,81 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
         assert(false && "Cannot codegen primitive!");
         return 0;
 
-    case PO::Equality:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::EQ_op:
         return Builder.CreateICmpEQ(args[0], args[1]);
 
-    case PO::Plus:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::ADD_op:
         return Builder.CreateAdd(args[0], args[1]);
 
-    case PO::Minus:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::SUB_op:
         return Builder.CreateSub(args[0], args[1]);
 
-    case PO::Pos:
-        // Pos is a no-op.
-        assert(args.size() == 1 && "Bad aritiy for primitive!");
-        return args[0];
+    case PO::MUL_op:
+        return Builder.CreateMul(args[0], args[1]);
 
-    case PO::Neg:
-        assert(args.size() == 1 && "Bad aritiy for primitive!");
+    case PO::POW_op:
+        return emitExponential(args[0], args[1]);
+
+    case PO::POS_op:
+        return args[0];         // POS is a no-op.
+
+    case PO::NEG_op:
         return Builder.CreateNeg(args[0]);
 
-    case PO::LessThan:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::LT_op:
         return Builder.CreateICmpSLT(args[0], args[1]);
 
-    case PO::GreaterThan:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::GT_op:
         return Builder.CreateICmpSGT(args[0], args[1]);
 
-    case PO::LessThanOrEqual:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::LE_op:
         return Builder.CreateICmpSLE(args[0], args[1]);
 
-    case PO::GreaterThanOrEqual:
-        assert(args.size() == 2 && "Bad arity for primitive!");
+    case PO::GE_op:
         return Builder.CreateICmpSGE(args[0], args[1]);
 
-    case PO::EnumFunction: {
+    case PO::ENUM_op: {
         EnumLiteral *lit = cast<EnumLiteral>(decl);
         unsigned idx = lit->getIndex();
         const llvm::Type *ty = CGTypes.lowerType(lit->getReturnType());
         return llvm::ConstantInt::get(ty, idx);
     }
     };
+}
+
+llvm::Value *CodeGenRoutine::emitExponential(llvm::Value *x, llvm::Value *n)
+{
+    // Depending on the width of the operands, call into a runtime routine to
+    // perform the operation.  Note the the power we raise to is always an i32.
+    const llvm::IntegerType *type = cast<llvm::IntegerType>(x->getType());
+    const llvm::IntegerType *i32Ty = CG.getInt32Ty();
+    const llvm::IntegerType *i64Ty = CG.getInt64Ty();
+    unsigned width = type->getBitWidth();
+    llvm::Value *result;
+
+    assert(cast<llvm::IntegerType>(n->getType()) == i32Ty &&
+           "Unexpected type for rhs of exponential!");
+
+    // Call into the runtime and truncate the results back to the original
+    // width.
+    if (width < 32) {
+        x = Builder.CreateSExt(x, i32Ty);
+        result = CRT.pow_i32_i32(Builder, x, n);
+        result = Builder.CreateTrunc(result, type);
+    }
+    else if (width == 32)
+        result = CRT.pow_i32_i32(Builder, x, n);
+    else if (width < 64) {
+        x = Builder.CreateSExt(x, i64Ty);
+        result = CRT.pow_i64_i32(Builder, x, n);
+        result = Builder.CreateTrunc(result, type);
+    }
+    else {
+        assert(width == 64 && "Integer type too wide!");
+        result = CRT.pow_i64_i32(Builder, x, n);
+    }
+
+    return result;
 }
 
 llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
@@ -358,14 +389,15 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
         llvm::cast<llvm::IntegerType>(CGTypes.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
 
-    // All comma integer types are represented as signed.  Sign extend the value
-    // if needed.
+    // All comma integer literals are represented as unsigned, exact width
+    // APInts.  Zero extend the value if needed to fit in the representation
+    // type.
     unsigned valWidth = val.getBitWidth();
     unsigned tyWidth = ty->getBitWidth();
     assert(valWidth <= tyWidth && "Value/Type width mismatch!");
 
     if (valWidth < tyWidth)
-        val.sext(tyWidth);
+        val.zext(tyWidth);
 
     return llvm::ConstantInt::get(CG.getLLVMContext(), val);
 }
@@ -432,3 +464,4 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
     llvm::Value *component = emitIndexedArrayRef(expr);
     return Builder.CreateLoad(component);
 }
+

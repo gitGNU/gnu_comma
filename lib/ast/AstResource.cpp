@@ -16,7 +16,6 @@ AstResource::AstResource(TextProvider &txtProvider, IdentifierPool &idPool)
     : txtProvider(txtProvider),
       idPool(idPool) { }
 
-
 /// Returns a uniqued FunctionType.
 FunctionType *AstResource::getFunctionType(Type **argTypes, unsigned numArgs,
                                            Type *returnType)

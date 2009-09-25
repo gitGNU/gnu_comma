@@ -43,7 +43,9 @@ CommaRT::CommaRT(CodeGen &CG)
       AssertFailName("_comma_assert_fail"),
       EHPersonalityName("_comma_eh_personality"),
       UnhandledExceptionName("_comma_unhandled_exception"),
-      RaiseExceptionName("_comma_raise_exception")
+      RaiseExceptionName("_comma_raise_exception"),
+      pow_i32_i32_Name("_comma_pow_i32_i32"),
+      pow_i64_i32_Name("_comma_pow_i64_i32")
 {
     DInfo = new DomainInfo(*this);
     DomainInfoPtrTy = DInfo->getPointerTypeTo();
@@ -114,6 +116,8 @@ void CommaRT::generateRuntimeFunctions()
     defineEHPersonality();
     defineUnhandledException();
     defineRaiseException();
+    define_pow_i32_i32();
+    define_pow_i64_i32();
 }
 
 // Builds a declaration in LLVM IR for the get_domain runtime function.
@@ -184,6 +188,31 @@ void CommaRT::defineRaiseException()
     raiseExceptionFn->setDoesNotReturn();
 }
 
+void CommaRT::define_pow_i32_i32()
+{
+    // int32_t _comma_pow_i32_i32(int32_t, int32_t);
+    const llvm::Type *i32Ty = CG.getInt32Ty();
+
+    std::vector<const llvm::Type*> args;
+    args.push_back(i32Ty);
+    args.push_back(i32Ty);
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(i32Ty, args, false);
+    pow_i32_i32_Fn = CG.makeFunction(fnTy, pow_i32_i32_Name);
+}
+
+void CommaRT::define_pow_i64_i32()
+{
+    // int64_t _comma_pow_i64_i32(int64_t, int32_t);
+    const llvm::Type *i32Ty = CG.getInt32Ty();
+    const llvm::Type *i64Ty = CG.getInt64Ty();
+
+    std::vector<const llvm::Type*> args;
+    args.push_back(i64Ty);
+    args.push_back(i32Ty);
+    llvm::FunctionType *fnTy = llvm::FunctionType::get(i64Ty, args, false);
+    pow_i64_i32_Fn = CG.makeFunction(fnTy, pow_i64_i32_Name);
+}
+
 llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
 {
     return DInfo->generateInstance(CGC);
@@ -227,6 +256,18 @@ void CommaRT::raise(llvm::IRBuilder<> &builder,
 llvm::Constant *CommaRT::getEHPersonality() const
 {
     return CG.getPointerCast(EHPersonalityFn, CG.getInt8PtrTy());
+}
+
+llvm::Value *CommaRT::pow_i32_i32(llvm::IRBuilder<> &builder,
+                                  llvm::Value *x, llvm::Value *n) const
+{
+    return builder.CreateCall2(pow_i32_i32_Fn, x, n);
+}
+
+llvm::Value *CommaRT::pow_i64_i32(llvm::IRBuilder<> &builder,
+                                  llvm::Value *x, llvm::Value *n) const
+{
+    return builder.CreateCall2(pow_i64_i32_Fn, x, n);
 }
 
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,

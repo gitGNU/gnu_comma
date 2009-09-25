@@ -903,6 +903,8 @@ public:
 
     Type *getReturnType() const { return getType()->getReturnType(); }
 
+
+
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1080,8 +1082,11 @@ public:
     }
 
 private:
-    Expr *lowExpr;              // Expr forming the lower bound.
-    Expr *highExpr;             // Expr forming the high bound.
+    Expr *lowExpr;              ///< Expr forming the lower bound.
+    Expr *highExpr;             ///< Expr forming the high bound.
+
+    /// Builds the implicit operations.
+    void buildImplicitDeclarations();
 };
 
 //===----------------------------------------------------------------------===//

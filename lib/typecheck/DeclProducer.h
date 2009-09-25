@@ -67,6 +67,9 @@ private:
     /// The primitive Integer declaration node.
     IntegerDecl *theIntegerDecl;
 
+    /// The primitive Natural subtype node.
+    IntegerSubType *theNaturalType;
+
     /// Constructor method for producing a raw Bool decl.  This function does
     /// not generate the associated implicit functions, however, the literals
     /// True and False are produced.
@@ -76,70 +79,26 @@ private:
     /// not generate the associated implicit functions.
     void createTheIntegerDecl();
 
-    /// An enumeration itemizing the various types of predicate functions we can
-    /// produce.  Used as an argument to DeclProducer::createPredicate.
-    enum PredicateKind {
-        EQ_pred,
-        LT_pred,
-        GT_pred,
-        LTEQ_pred,
-        GTEQ_pred,
-    };
+    /// Cunstructor method for producing the Natural subtype of Integer.
+    void createTheNaturalDecl();
 
-    /// Returns an IdentifierInfo naming the given predicate.
-    IdentifierInfo *getPredicateName(PredicateKind kind);
-
-    /// Returns the primitive operation marker for the given predicate.
-    PO::PrimitiveID getPredicatePrimitive(PredicateKind kind);
-
-    /// Generates a binary predicate function.
+    /// Returns a function declaration for the given primitive operator.
     ///
-    /// The function is named after the Comma operator for the given type of
-    /// predicate.  For example, \c EQ_pred results in a function named "=",
-    /// while LTEQ_pred results in a function named "<=".  All predicate
-    /// functions have argument selectors named "X" and "Y".  And, obviously,
-    /// the return type is Bool.  The given decl must be convertable to a
-    /// DeclRegion, and is used as the declaration context for the resulting
-    /// function.
-    FunctionDecl *createPredicate(PredicateKind kind,
-                                  Type *paramType, Decl *context);
-
-    /// An enumeration itemizing the various types of arithmetic functions we
-    /// can produce.
-    enum ArithKind {
-        PLUS_arith,
-        MINUS_arith,
-        NEG_arith,
-        POS_arith
-    };
-
-    /// Returns true if the arithmentic kind dentos a unary operation.
-    bool denotesUnaryOp(ArithKind kind) {
-        return kind == NEG_arith || kind == POS_arith;
-    }
-
-    /// Returns true if the arithmetic kind denotes a binary operation.
-    bool denotesBinaryOp(ArithKind kind) { return !denotesUnaryOp(kind); }
-
-
-    /// Returns an IdentifierInfo naming the given binary arithmetic operator.
-    IdentifierInfo *getArithName(ArithKind kind);
-
-    /// Returns the primitive operation marker for the given arithmetic operator.
-    PO::PrimitiveID getArithPrimitive(ArithKind kind);
-
-    /// Generates a binary arithmetic operation.
+    /// \param ID The primitive operator ID this declaration should support.
     ///
-    /// The function is named after the Comma operator for the given binary
-    /// arithmetic kind.  For example, \c PLUS_arith results in a function named
-    /// "+".  All such functions have argument selectors named "X" and "Y".
-    /// Both argument types and return type are given by \p Ty.  The given decl
-    /// must be convertable to a DeclRegion, and is used as the declaration
-    /// context for the resulting function.
-    FunctionDecl *createBinaryArithOp(ArithKind kind, Type *Ty, Decl *context);
-
-    /// Generates a unary arithmentic operation.
-    FunctionDecl *createUnaryArithOp(ArithKind kind, Type *Ty, Decl *context);
+    /// \param type The argument types of this function.  If the operator is
+    /// Boolean valued, the return type is Boolean.  If the operator is the
+    /// exponentiation operator, the right hand type is Natural. Otherwise, this
+    /// is an arithmetic operation and the return type matches the argument
+    /// types.
+    ///
+    /// \param loc The location this operator is considered to be defined.
+    ///
+    /// \param region The decalarative region the function should be declared
+    /// in.
+    FunctionDecl *
+    createPrimitiveDecl(PO::PrimitiveID ID, Location loc, Type *type,
+                        DeclRegion *region);
 };
 
 } // end comma namespace.

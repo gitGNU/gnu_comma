@@ -100,13 +100,17 @@ Type *SubType::getTypeOf() const
     return type;
 }
 
-
 //===----------------------------------------------------------------------===//
 // CarrierType
 
 CarrierType::CarrierType(CarrierDecl *carrier, Type *type)
     : SubType(AST_CarrierType, carrier->getIdInfo(), type, 0),
-      CorrespondingDecl(carrier) { }
+      declaration(carrier) { }
+
+IdentifierInfo *CarrierType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
 
 //===----------------------------------------------------------------------===//
 // DomainType
@@ -163,15 +167,24 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
 
 IntegerType::IntegerType(IntegerDecl *decl,
                          const llvm::APInt &low, const llvm::APInt &high)
-    : Type(AST_IntegerType)
+    : Type(AST_IntegerType),
+      declaration(decl)
 {
     // Initialize the bounds for this type.
     std::pair<llvm::APInt, llvm::APInt> bounds = getBaseRange(low, high);
     this->low = bounds.first;
     this->high = bounds.second;
 
-    // Create the first subtype constrained to the given bounds.
-    RangeConstraint *constraint = new RangeConstraint(low, high);
+    // The base range my be larger or smaller that the bit width of the given
+    // bounds (since the bounds can be computed using any integer type).  Sign
+    // extend or truncate as needed -- will will not loose any bits.
+    llvm::APInt lowBound(low);
+    llvm::APInt highBound(high);
+    unsigned width = getBitWidth();
+    lowBound.sextOrTrunc(width);
+    highBound.sextOrTrunc(width);
+
+    RangeConstraint *constraint = new RangeConstraint(lowBound, highBound);
     FirstSubType = new IntegerSubType(decl->getIdInfo(), this, constraint);
 
     // Create an anonymous, unconstrained base subtype.
@@ -185,20 +198,7 @@ IntegerType::IntegerType(IntegerDecl *decl,
 unsigned IntegerType::getWidthForRange(const llvm::APInt &low,
                                        const llvm::APInt &high)
 {
-    unsigned lowWidth;
-    unsigned highWidth;
-
-    if (low.isNegative())
-        lowWidth = low.getMinSignedBits();
-    else
-        lowWidth = low.getActiveBits();
-
-    if (high.isNegative())
-        highWidth = high.getMinSignedBits();
-    else
-        highWidth = high.getActiveBits();
-
-    return std::max(lowWidth, highWidth);
+     return std::max(low.getMinSignedBits(), high.getMinSignedBits());
 }
 
 std::pair<llvm::APInt, llvm::APInt>
@@ -230,6 +230,11 @@ IntegerType::getBaseRange(const llvm::APInt &low,
     return std::pair<llvm::APInt, llvm::APInt>(l, h);
 }
 
+IdentifierInfo *IntegerType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
+
 //===----------------------------------------------------------------------===//
 // EnumerationType
 
@@ -241,6 +246,11 @@ EnumerationType::EnumerationType(EnumerationDecl *decl)
     FirstSubType = new EnumSubType(decl->getIdInfo(), this, 0);
 }
 
+IdentifierInfo *EnumerationType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
+
 //===----------------------------------------------------------------------===//
 // ArrayType
 
@@ -249,7 +259,8 @@ ArrayType::ArrayType(ArrayDecl *decl,
                      bool isConstrained)
     : Type(AST_ArrayType),
       rank(rank),
-      componentType(component)
+      componentType(component),
+      declaration(decl)
 {
     assert(rank != 0 && "Missing index types!");
 
@@ -267,3 +278,9 @@ ArrayType::ArrayType(ArrayDecl *decl,
         constraint = new IndexConstraint(indices, rank);
     FirstSubType = new ArraySubType(decl->getIdInfo(), this, constraint);
 }
+
+IdentifierInfo *ArrayType::getIdInfo() const
+{
+    return declaration->getIdInfo();
+}
+

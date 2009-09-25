@@ -191,7 +191,7 @@ const llvm::Type *CodeGenTypes::lowerSubType(const SubType *type)
 
 const llvm::IntegerType *CodeGenTypes::lowerIntegerType(const IntegerType *type)
 {
-    return getTypeForWidth(type->getSize());
+    return getTypeForWidth(type->getBitWidth());
 }
 
 const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
@@ -215,7 +215,7 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 
         // Compute 'upper - lower + 1' to determine the number of elements in
         // this type.
-        unsigned width = intTy->getSize() + 1;
+        unsigned width = intTy->getBitWidth() + 1;
         lower.sext(width);
         upper.sext(width);
         llvm::APInt range(upper);

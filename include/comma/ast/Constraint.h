@@ -62,6 +62,18 @@ public:
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
 
+    /// Returns true if this is a null range.
+    bool isNull() const { return low.sgt(high); }
+
+    /// Returns true if this range contains the given value.
+    ///
+    /// The given value must be of the same width as this range.
+    bool contains(const llvm::APInt &value) const {
+        if (isNull())
+            return false;
+        return low.sle(value) && value.sle(high);
+    }
+
     // Support isa and dyn_cast.
     static bool classof(const RangeConstraint *constraint) { return true; }
     static bool classof(const Constraint *constraint) {
