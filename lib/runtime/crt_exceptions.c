@@ -9,6 +9,8 @@
 /*
  * This file defines Comma's exception handling primitives.
  */
+#include "comma/runtime/commart.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -901,8 +903,8 @@ static const uint64_t Comma_Exception_Class_ID = 0x534D570434D410Ull;
 /*
  * Cleanup routine for Comma exceptions.
  */
-void _comma_cleanup_exception(_Unwind_Reason_Code reason,
-                              struct _Unwind_Exception *exc)
+static void _comma_cleanup_exception(_Unwind_Reason_Code reason,
+                                     struct _Unwind_Exception *exc)
 {
     struct comma_exception *exception = to_comma_exception(exc);
     free(exception);
