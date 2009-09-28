@@ -263,7 +263,7 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
             // subroutine declaration with a given profile is listed.
             if (!fwdDecl->isDeclaredIn(region))
                 region->addDecl(routineDecl);
-        }`
+        }
         else {
             report(location, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());
