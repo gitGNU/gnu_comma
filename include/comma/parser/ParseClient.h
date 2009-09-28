@@ -454,24 +454,19 @@ public:
     ///
     /// \param loc The location of the enumerations name.
     ///
-    virtual Node beginEnumeration(IdentifierInfo *name, Location loc) = 0;
+    virtual void beginEnumeration(IdentifierInfo *name, Location loc) = 0;
 
     /// Called to introduce an enumeration component which was defined using
     /// identifier syntax.
     ///
-    /// \param enumeration A Node as returned from beginEnumeration.
-    ///
     /// \param name The defining identifier for this component.
     ///
     /// \param loc The location of the defining identifier.
-    virtual void acceptEnumerationIdentifier(Node enumeration,
-                                             IdentifierInfo *name,
+    virtual void acceptEnumerationIdentifier(IdentifierInfo *name,
                                              Location loc) = 0;
 
     /// Called to introduce an enumeration component which was defined using
     /// character syntax.
-    ///
-    /// \param enumeration A Node as returned from beginEnumeration.
     ///
     /// \param name The name of the character literal defining this component.
     /// This is always the full name of the literal.  For example, the character
@@ -480,16 +475,12 @@ public:
     ///
     /// \param loc The location of the defining character literal.
     ///
-    virtual void acceptEnumerationCharacter(Node enumeration,
-                                            IdentifierInfo *name,
+    virtual void acceptEnumerationCharacter(IdentifierInfo *name,
                                             Location loc) = 0;
 
     /// Called when all of the enumeration literals have been processed, thus
     /// completing the definition of the enumeration.
-    ///
-    /// \param enumeration A Node as returned from the matching call to
-    /// beginEnumeration.
-    virtual void endEnumeration(Node enumeration) = 0;
+    virtual void endEnumeration() = 0;
     //@}
 
     /// Called to process integer type definitions.

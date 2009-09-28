@@ -55,6 +55,10 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
     case Ast::AST_IndexedArrayExpr:
         val = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
         break;
+
+    case Ast::AST_ConversionExpr:
+        val = emitConversionValue(cast<ConversionExpr>(expr));
+        break;
     }
 
     return val;
@@ -465,3 +469,104 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
     return Builder.CreateLoad(component);
 }
 
+llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
+{
+    // The only type of conversions we currently support are integer
+    // conversions.
+    if (IntegerSubType *target = dyn_cast<IntegerSubType>(expr->getType())) {
+        return emitCheckedIntegerConversion(expr->getOperand(), target);
+    }
+
+    assert(false && "Cannot codegen given conversion yet!");
+    return 0;
+}
+
+llvm::Value *
+CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
+                                             IntegerSubType *targetTy)
+{
+    // FIXME: This code and emitScalarRangeCheck should be combined.
+    IntegerSubType *sourceTy = expr->getType()->getAsIntegerSubType();
+    IntegerType *targetBaseTy = targetTy->getAsIntegerType();
+    IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
+    unsigned targetWidth = targetBaseTy->getBitWidth();
+    unsigned sourceWidth = sourceBaseTy->getBitWidth();
+
+    // Evaluate the source expression.
+    llvm::Value *sourceVal = emitValue(expr);
+
+    // If the source and target types are identical, we are done.
+    if (sourceTy == targetTy)
+        return sourceVal;
+
+    // If the target type contains the source type then range checks are
+    // unnecessary.
+    if (targetTy->contains(sourceTy)) {
+        if (targetWidth == sourceWidth)
+            return sourceVal;
+        if (targetWidth > sourceWidth)
+            return Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
+    }
+
+    // Range checks need to be performed in the computational domain of the
+    // larger type.  Find the appropriate type and sign extend the value if
+    // needed.
+    const llvm::IntegerType *boundTy;
+    if (targetWidth > sourceWidth) {
+        boundTy = CGTypes.lowerIntegerSubType(targetTy);
+        sourceVal = Builder.CreateSExt(sourceVal, boundTy);
+    }
+    else
+        boundTy = cast<llvm::IntegerType>(sourceVal->getType());
+
+    unsigned width = boundTy->getBitWidth();
+    llvm::APInt lower;
+    llvm::APInt upper;
+
+    // If the target subtype is constrained, extract the bounds of the
+    // constraint.  Otherwise, use the bounds of the base type.
+    if (RangeConstraint *range = targetTy->getConstraint()) {
+        lower = range->getLowerBound();
+        upper = range->getUpperBound();
+    }
+    else {
+        lower = targetBaseTy->getLowerBound();
+        upper = targetBaseTy->getUpperBound();
+    }
+
+    if (lower.getBitWidth() < width)
+        lower.sext(width);
+    if (upper.getBitWidth() < width)
+        upper.sext(width);
+
+    // Obtain constants for the bounds.
+    llvm::Constant *lowBound = llvm::ConstantInt::get(boundTy, lower);
+    llvm::Constant *highBound = llvm::ConstantInt::get(boundTy, upper);
+
+    // Build our basic blocks.
+    llvm::BasicBlock *checkHighBB = CG.makeBasicBlock("high.check", SRFn);
+    llvm::BasicBlock *checkFailBB = CG.makeBasicBlock("check.fail", SRFn);
+    llvm::BasicBlock *checkMergeBB = CG.makeBasicBlock("check.merge", SRFn);
+
+    // Check the low bound.
+    llvm::Value *lowPass = Builder.CreateICmpSLE(lowBound, sourceVal);
+    Builder.CreateCondBr(lowPass, checkHighBB, checkFailBB);
+
+    // Check the high bound.
+    Builder.SetInsertPoint(checkHighBB);
+    llvm::Value *highPass = Builder.CreateICmpSLE(sourceVal, highBound);
+    Builder.CreateCondBr(highPass, checkMergeBB, checkFailBB);
+
+    // Raise an exception if the check failed.
+    Builder.SetInsertPoint(checkFailBB);
+    llvm::GlobalVariable *msg = CG.emitStringLiteral("Range check failed!");
+    CRT.raise(Builder, msg);
+
+    // The checked value passed the tests.  Truncate if needed to the target
+    // size.
+    Builder.SetInsertPoint(checkMergeBB);
+    if (targetWidth < sourceWidth)
+        sourceVal = Builder.CreateTrunc(sourceVal, CGTypes.lowerType(targetTy));
+    Builder.SetInsertPoint(checkMergeBB);
+    return sourceVal;
+}

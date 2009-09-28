@@ -127,6 +127,8 @@ private:
     llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
     llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
+    llvm::Value *emitConversionValue(ConversionExpr *expr);
+
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
 
     llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
@@ -144,6 +146,10 @@ private:
 
     llvm::Value *emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                                   unsigned argPosition);
+
+    // Conversion emitters.
+    llvm::Value *emitCheckedIntegerConversion(Expr *expr,
+                                              IntegerSubType *target);
 
     llvm::Value *lookupDecl(Decl *decl);
 

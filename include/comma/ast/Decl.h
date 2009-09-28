@@ -155,6 +155,11 @@ public:
     /// declaration is not parameterized.
     int getKeywordIndex(IdentifierInfo *keyword) const;
 
+    /// Returns the index of the parameter corresponding to the given keyword
+    /// selector or -1 if no such keyword exists.  This method will assert if
+    /// this declaration is not parameterized.
+    int getKeywordIndex(KeywordSelector *selector) const;
+
     /// Returns the PercentDecl representing this Model.
     PercentDecl *getPercent() const { return percent; }
 
@@ -687,6 +692,10 @@ public:
     /// return -1.
     int getKeywordIndex(IdentifierInfo *key) const;
 
+    /// If the KeywordSelector \p key names an argument keyword, return its
+    /// associated index, else return -1.
+    int getKeywordIndex(KeywordSelector *key) const;
+
     /// Returns true if the keywords of the declaration match exactly those of
     /// this one.  The arity of both subroutines must match for this function to
     /// return true.
@@ -903,8 +912,6 @@ public:
 
     Type *getReturnType() const { return getType()->getReturnType(); }
 
-
-
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -933,10 +940,6 @@ private:
 class EnumLiteral : public FunctionDecl {
 
 public:
-    EnumLiteral(AstResource &resource,
-                IdentifierInfo *name, Location loc,
-                EnumerationDecl *parent);
-
     /// Returns the index (or value) of this EnumLiteral.
     unsigned getIndex() const { return index; }
 
@@ -946,9 +949,15 @@ public:
     }
 
 private:
+    // Enumeration literals are constructed by their containing enumeration decl
+    // node.
+    EnumLiteral(AstResource &resource, IdentifierInfo *name, Location loc,
+                unsigned index, EnumerationDecl *parent);
+
+    friend class EnumerationDecl;
+
     unsigned index;
 };
-
 
 //===----------------------------------------------------------------------===//
 // TypeDecl
@@ -1022,7 +1031,10 @@ public:
 class EnumerationDecl : public TypeDecl, public DeclRegion {
 
 public:
-    EnumerationDecl(IdentifierInfo *name, Location loc, DeclRegion *parent);
+    /// Populates the declarative region of this type with all implicit
+    /// operations.  This must be called once the type has been constructed to
+    /// gain access to the types operations.
+    void generateImplicitDeclarations(AstResource &resource);
 
     EnumSubType *getType() const {
         return llvm::cast<EnumSubType>(CorrespondingType);
@@ -1041,11 +1053,16 @@ public:
     }
 
 private:
+    // Private constructor for use by AstResource.
+    EnumerationDecl(AstResource &resource,
+                    IdentifierInfo *name, Location loc,
+                    std::pair<IdentifierInfo*, Location> *elems,
+                    unsigned numElems, DeclRegion *parent);
+
+    friend class AstResource;
+
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
-
-    void notifyAddDecl(Decl *decl);
-    void notifyRemoveDecl(Decl *decl);
 };
 
 //===----------------------------------------------------------------------===//
@@ -1055,15 +1072,22 @@ private:
 class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
-    /// Constructs an integer type declaration.
-    IntegerDecl(AstResource &resource,
-                IdentifierInfo *name, Location loc,
-                Expr *lowRange, Expr *highRange,
-                const llvm::APInt &lowVal, const llvm::APInt &highVal,
-                DeclRegion *parent);
+    /// Populates the declarative region of this type with all implicit
+    /// operations.  This must be called once the type has been constructed to
+    /// gain access to the types operations.
+    void generateImplicitDeclarations(AstResource &resource);
 
+    /// Returns the prefered subtype of this integer declaration.
+    ///
+    /// This method returns the first subtype of this declaration, or in the
+    /// special case of root_integer, the unconstrained base subtype.
     IntegerSubType *getType() const {
         return llvm::cast<IntegerSubType>(CorrespondingType);
+    }
+
+    /// Returns the base subtype of this integer type declaration.
+    IntegerSubType *getBaseSubType() const {
+        return getType()->getTypeOf()->getBaseSubType();
     }
 
     /// Returns the expression forming the lower bound of this integer
@@ -1082,11 +1106,17 @@ public:
     }
 
 private:
+    /// Private constructor for use by AstResource.
+    IntegerDecl(AstResource &resource,
+                IdentifierInfo *name, Location loc,
+                Expr *lowRange, Expr *highRange,
+                const llvm::APInt &lowVal, const llvm::APInt &highVal,
+                DeclRegion *parent);
+
+    friend class AstResource;
+
     Expr *lowExpr;              ///< Expr forming the lower bound.
     Expr *highExpr;             ///< Expr forming the high bound.
-
-    /// Builds the implicit operations.
-    void buildImplicitDeclarations();
 };
 
 //===----------------------------------------------------------------------===//
@@ -1096,12 +1126,6 @@ private:
 class ArrayDecl : public TypeDecl, public DeclRegion {
 
 public:
-    /// Constructs an Array type declaration.
-    ArrayDecl(AstResource &resource,
-              IdentifierInfo *name, Location loc,
-              unsigned rank, SubType **indices,
-              Type *component, bool isConstrained, DeclRegion *parent);
-
     ArraySubType *getType() const {
         return llvm::cast<ArraySubType>(CorrespondingType);
     }
@@ -1134,6 +1158,15 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ArrayDecl;
     }
+
+private:
+    /// Private constructor for use by AstResource.
+    ArrayDecl(AstResource &resource,
+              IdentifierInfo *name, Location loc,
+              unsigned rank, SubType **indices,
+              Type *component, bool isConstrained, DeclRegion *parent);
+
+    friend class AstResource;
 };
 
 //===----------------------------------------------------------------------===//

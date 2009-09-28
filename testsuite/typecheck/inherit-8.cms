@@ -8,5 +8,5 @@ end S1;
 signature S2 is
    S1;
 with
-   function = (X : T; Y : T) return Bool;
+   function = (X : T; Y : T) return Boolean;
 end S2;

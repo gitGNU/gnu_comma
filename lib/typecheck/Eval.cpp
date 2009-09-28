@@ -258,5 +258,10 @@ bool eval::staticIntegerValue(Expr *expr, llvm::APInt &result)
     if (FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(expr))
         return staticIntegerFunctionValue(FCall, result);
 
+    if (ConversionExpr *CExpr = dyn_cast<ConversionExpr>(expr)) {
+        // FIXME:  More work will be needed here.
+        return staticIntegerValue(CExpr->getOperand(), result);
+    }
+
     return false;
 }

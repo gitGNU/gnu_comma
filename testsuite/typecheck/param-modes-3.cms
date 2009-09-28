@@ -1,7 +1,7 @@
 -- MUST-FAIL: Ensure functions cannot have parameters of mode "in out".
 
 domain D add
-   function F (X : in out Bool) return Bool is
+   function F (X : in out Boolean) return Boolean is
    begin
       return true;
    end F;

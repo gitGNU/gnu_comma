@@ -1,7 +1,7 @@
 -- MUST-FAIL:  Ensure parameters of mode "in" cannot be assigned to.
 
 domain D add
-   procedure P (X : Bool) is
+   procedure P (X : Boolean) is
    begin
       X := true;
    end P;

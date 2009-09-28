@@ -1,10 +1,10 @@
 -- MUST-FAIL: Ensure duplicate object declarations are caught.
 
 domain D add
-   carrier Rep is Bool;
+   carrier Rep is Boolean;
    procedure P is
-      X : Bool := true;
-      X : Bool := false;
+      X : Boolean := true;
+      X : Boolean := false;
    begin end P;
 end D;
 

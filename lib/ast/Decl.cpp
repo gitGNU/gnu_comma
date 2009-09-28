@@ -9,6 +9,7 @@
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
 
 #include <algorithm>
@@ -150,6 +151,10 @@ int ModelDecl::getKeywordIndex(IdentifierInfo *keyword) const
            "Cannot retrieve keyword index from a non-parameterized model!");
 }
 
+int ModelDecl::getKeywordIndex(KeywordSelector *key) const
+{
+    return getKeywordIndex(key->getKeyword());
+}
 
 //===----------------------------------------------------------------------===//
 // SignatureDecl
@@ -418,6 +423,11 @@ int SubroutineDecl::getKeywordIndex(IdentifierInfo *key) const
             return i;
     }
     return -1;
+}
+
+int SubroutineDecl::getKeywordIndex(KeywordSelector *key) const
+{
+    return getKeywordIndex(key->getKeyword());
 }
 
 bool SubroutineDecl::keywordsMatch(const SubroutineDecl *SRDecl) const
@@ -704,45 +714,51 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
 //===----------------------------------------------------------------------===//
 // EnumLiteral
 EnumLiteral::EnumLiteral(AstResource &resource,
-                         IdentifierInfo *name, Location loc,
+                         IdentifierInfo *name, Location loc, unsigned index,
                          EnumerationDecl *parent)
     : FunctionDecl(AST_EnumLiteral, resource,
                    name, loc, 0, 0, parent->getType(), parent)
 {
-    // Add ourselves to the enclosing EnumerationDecl, and mark this new
-    // function-like declaration as primitive.
-    index = parent->getNumLiterals();
-    parent->addDecl(this);
     setAsPrimitive(PO::ENUM_op);
 }
 
 //===----------------------------------------------------------------------===//
 // EnumerationDecl
-EnumerationDecl::EnumerationDecl(IdentifierInfo *name,
-                                 Location loc, DeclRegion *parent)
+EnumerationDecl::EnumerationDecl(AstResource &resource,
+                                 IdentifierInfo *name, Location loc,
+                                 std::pair<IdentifierInfo*, Location> *elems,
+                                 unsigned numElems, DeclRegion *parent)
     : TypeDecl(AST_EnumerationDecl, name, loc),
       DeclRegion(AST_EnumerationDecl, parent),
-      numLiterals(0)
+      numLiterals(numElems)
 {
     setDeclRegion(parent);
-    EnumerationType *enumTy = new EnumerationType(this);
-    CorrespondingType = enumTy->getFirstSubType();
 
-    // Ensure that each call to addDecl notifies us so that we can keep track of
-    // each enumeration literal added to this decl.
-    addObserver(this);
+    // First, build the type corresponding to this declaration.  Currently,
+    // enumeration types are defined only with respect to the number of
+    // underlying literals.
+    EnumerationType *base = resource.createEnumType(numElems);
+
+    // Create the first named subtype of this decl.
+    CorrespondingType = resource.createEnumSubType(name, base);
+
+    // Construct enumeration literals for each Id/Location pair and add them to
+    // this decls declarative region.
+    for (unsigned i = 0; i < numElems; ++i) {
+        IdentifierInfo *name = elems[i].first;
+        Location loc = elems[i].second;
+
+        EnumLiteral *elem = new EnumLiteral(resource, name, loc, i, this);
+        addDecl(elem);
+    }
 }
 
-void EnumerationDecl::notifyAddDecl(Decl *decl)
+void EnumerationDecl::generateImplicitDeclarations(AstResource &resource)
 {
-    if (isa<EnumLiteral>(decl))
-        numLiterals++;
-}
+    EnumSubType *type = getType();
+    Location loc = getLocation();
 
-void EnumerationDecl::notifyRemoveDecl(Decl *decl)
-{
-    if (isa<EnumLiteral>(decl))
-        numLiterals--;
+    addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
 }
 
 EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
@@ -766,17 +782,31 @@ IntegerDecl::IntegerDecl(AstResource &resource,
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lowRange), highExpr(highRange)
 {
-    IntegerType *baseType = resource.getIntegerType(this, lowVal, highVal);
-    CorrespondingType = baseType->getFirstSubType();
-
-    buildImplicitDeclarations();
+    IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
+    CorrespondingType =
+        resource.createIntegerSubType(name, base, lowVal, highVal);
 }
 
-
-void IntegerDecl::buildImplicitDeclarations()
+// Note that we could perform these initializations in the constructor, but it
+// would cause difficulties when the language primitive types are first being
+// declared.  For now this is a separate method which called separately.
+void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
 {
-}
+    IntegerSubType *type = getBaseSubType();
+    Location loc = getLocation();
 
+    addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LT_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::GT_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LE_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::GE_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::ADD_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::SUB_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::MUL_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::POW_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::NEG_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::POS_op, loc, type, this));
+}
 
 //===----------------------------------------------------------------------===//
 // ArrayDecl
@@ -795,8 +825,12 @@ ArrayDecl::ArrayDecl(AstResource &resource,
     for (unsigned i = 0; i < rank; ++i)
         assert(indices[i]->isScalarType());
 
-    ArrayType *baseType;
-    baseType = resource.getArrayType(this, rank, indices, component,
-                                     isConstrained);
-    CorrespondingType = baseType->getFirstSubType();
+    ArrayType *base;
+    base = resource.createArrayType(rank, indices, component, isConstrained);
+
+    // Create the first subtype.
+    IndexConstraint *constraint = 0;
+    if (isConstrained)
+        constraint = new IndexConstraint(indices, rank);
+    CorrespondingType = resource.createArraySubType(name, base, constraint);
 }

@@ -30,22 +30,19 @@ class Type : public Ast {
 public:
     virtual ~Type() { }
 
-    /// Returns true if this is an anonymous type.
-    ///
-    /// By anonymous we mean something different here than how the spec reads.
-    /// Technically, the only named types are SubType's.  But practically
-    /// speaking we can almost always associate a name with a type, or rather, a
-    /// declaration with a type.  This function returns true if there is a
-    /// declaration associated with this type, and therefore a logical name is
-    /// available identifying it.
-    ///
-    /// Some types are always anonymous.  Procedure types, for example, are
-    /// uniqued and are never associated with a single declaration.
-    bool isAnonymous() const { return getIdInfo() != 0; }
+    /// The following enumeration lists the "interesting" language-defined
+    /// classes.
+    enum Classification {
+        CLASS_Scalar,
+        CLASS_Discrete,
+        CLASS_Enum,
+        CLASS_Integer,
+        CLASS_Composite,
+        CLASS_Array
+    };
 
-    /// Returns the defining identifier associated with this type, or null if
-    /// this is an anonymous type.
-    virtual IdentifierInfo *getIdInfo() const { return 0; }
+    /// Returns true if this type is a member of the given classification.
+    bool memberOf(Classification ID) const;
 
     /// Returns true if this type denotes a scalar type.
     bool isScalarType() const;
@@ -59,12 +56,16 @@ public:
     /// Returns true if this type denotes an enumeration type.
     bool isEnumType() const;
 
+    /// Returns true if this type denotes a composite type.
+    bool isCompositeType() const;
+
     /// Returns true if this type denotes an array type.
     bool isArrayType() const;
 
     ArrayType *getAsArrayType();
     IntegerType *getAsIntegerType();
     EnumerationType *getAsEnumType();
+    IntegerSubType *getAsIntegerSubType();
 
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
@@ -262,15 +263,11 @@ private:
 class EnumerationType : public Type {
 
 public:
-    EnumerationType(EnumerationDecl *decl);
-
-    IdentifierInfo *getIdInfo() const;
-
-    EnumerationDecl *getEnumerationDecl() { return declaration; }
-    const EnumerationDecl *getEnumerationDecl() const { return declaration; }
-
-    /// Returns the first subtype of this enumeration type.
-    EnumSubType *getFirstSubType() const { return FirstSubType; }
+    /// Returns the number of distinct elements in this enumeration type.
+    ///
+    /// FIXME: This property should be removed in favour of more generic
+    /// attributes such as First, Last, Size, etc.
+    unsigned getNumElements() const { return numElems; }
 
     // Support isa and dyn_cast.
     static bool classof(const EnumerationType *node) { return true; }
@@ -279,8 +276,14 @@ public:
     }
 
 private:
-    EnumerationDecl *declaration;
-    EnumSubType *FirstSubType;
+    // Private constructor for use by AstResource to allocate EnumerationType
+    // nodes.
+    EnumerationType(unsigned numElems)
+        : Type(AST_EnumerationType), numElems(numElems) { }
+
+    friend class AstResource;
+
+    unsigned numElems;          ///< Number of elements in this enum types.
 };
 
 //===----------------------------------------------------------------------===//
@@ -291,16 +294,30 @@ private:
 class IntegerType : public Type {
 
 public:
-    IdentifierInfo *getIdInfo() const;
-
     const llvm::APInt &getLowerBound() const { return low; }
     const llvm::APInt &getUpperBound() const { return high; }
+
+    /// Returns the base subtype.
+    IntegerSubType *getBaseSubType() const { return baseSubType; }
 
     /// Returns the number of bits needed to represent this integer type.
     unsigned getBitWidth() const { return low.getBitWidth(); }
 
-    /// Returns the first subtype of this integer type.
-    IntegerSubType *getFirstSubType() const { return FirstSubType; }
+    /// Returns true if this IntegerType contains another.
+    ///
+    /// Here, `contains' means that this integer type is wide enough to hold all
+    /// values of the given type.
+    bool contains(IntegerType *type) const {
+        return getBitWidth() >= type->getBitWidth();
+    }
+
+    /// Returns true if this IntegerType contains the given Integer subtype.
+    ///
+    /// Again, `contains' means that this integer type is wide enough to hold
+    /// all values of the given subtype.  Note that the given subtype may be of
+    /// a base which is larger than this type -- in such a case the subtype must
+    /// be constrained to a range within the representation of this integer type.
+    bool contains(IntegerSubType *subtype) const;
 
     /// Support isa and dyn_cast;
     static bool classof(const IntegerType *node) { return true; }
@@ -310,7 +327,7 @@ public:
 
 private:
     // Private constructor used by AstResource to allocate ranged integer types.
-    IntegerType(IntegerDecl *decl,
+    IntegerType(AstResource &resource, IntegerDecl *decl,
                 const llvm::APInt &low, const llvm::APInt &high);
 
     friend class AstResource;
@@ -319,22 +336,14 @@ private:
     static unsigned getWidthForRange(const llvm::APInt &low,
                                      const llvm::APInt &high);
 
-    // Returns the base range used to represent the given range of values.
-    static std::pair<llvm::APInt, llvm::APInt>
-    getBaseRange(const llvm::APInt &low, const llvm::APInt &high);
+    void initBounds(const llvm::APInt &low, const llvm::APInt &high);
 
     // The lower and upper bounds for this type.
     llvm::APInt low;
     llvm::APInt high;
 
-    // First subtype.
-    IntegerSubType *FirstSubType;
-
-    // Base subtype.
-    IntegerSubType *BaseSubType;
-
-    // Declaration associated with this integer type.
-    IntegerDecl *declaration;
+    // The base subtype.
+    IntegerSubType *baseSubType;
 };
 
 //===----------------------------------------------------------------------===//
@@ -345,9 +354,6 @@ private:
 class ArrayType : public Type {
 
 public:
-    /// Returns the defining identifier of this array type.
-    IdentifierInfo *getIdInfo() const;
-
     /// Returns the rank (dimensionality) of this array type.
     unsigned getRank() const { return rank; }
 
@@ -369,9 +375,6 @@ public:
     /// Returns the component type of this array.
     Type *getComponentType() const { return componentType; }
 
-    /// Returns the first subtype of this array type.
-    ArraySubType *getFirstSubType() const { return FirstSubType; }
-
     /// Returns true if this is a constrained array type.
     bool isConstrained() const { return bits & CONSTRAINT_BIT; }
 
@@ -388,8 +391,7 @@ private:
     };
 
     // Private constructor used by AstResource to allocate array types.
-    ArrayType(ArrayDecl *decl,
-              unsigned rank, SubType **indices, Type *component,
+    ArrayType(unsigned rank, SubType **indices, Type *component,
               bool isConstrained);
 
     friend class AstResource;
@@ -397,10 +399,7 @@ private:
     unsigned rank;              ///< The dimensionality of this array.
     SubType **indexTypes;       ///< The index types of this array.
     Type *componentType;        ///< The component type of this array.
-    ArraySubType *FirstSubType; ///< First subtype of this array.
-    ArrayDecl *declaration;     ///< Corresponding declaration.
 };
-
 
 //===----------------------------------------------------------------------===//
 // SubType
@@ -418,13 +417,8 @@ public:
     /// Returns true if this subtype is constrained.
     bool isConstrained() const { return SubTypeConstraint != 0; }
 
-    /// Returns the defining identifier of this subtype if it is named,
-    /// else the defining identifier of its first progenitor type.
-    IdentifierInfo *getIdInfo() const {
-        if (DefiningIdentifier)
-            return DefiningIdentifier;
-        return ParentType->getIdInfo();
-    }
+    /// Returns the defining identifier of this subtype if it is named, else null.
+    IdentifierInfo *getIdInfo() const { return DefiningIdentifier; }
 
     /// Returns the constraint of this subtype if constrained, else null for
     /// unconstrained subtypes.
@@ -540,9 +534,8 @@ class EnumSubType : public SubType {
 public:
     // Defines a subtype of the given enumeration type.  The constraint may be
     // null to define an unconstrained subtype.
-    EnumSubType(IdentifierInfo *identifier, EnumerationType *type,
-                RangeConstraint *constraint)
-        : SubType(AST_EnumSubType, identifier, type, constraint) { }
+    EnumSubType(IdentifierInfo *identifier, EnumerationType *type)
+        : SubType(AST_EnumSubType, identifier, type, 0) { }
 
     /// Returns the type of this enumeration subtype.
     EnumerationType *getTypeOf() const {
@@ -560,32 +553,48 @@ public:
 class IntegerSubType : public SubType {
 
 public:
-    /// Constructs a named integer subtype of the given type and constraint.
-    /// The constraint may be null to define an unconstrained subtype.
-    IntegerSubType(IdentifierInfo *name, IntegerType *type,
-                   RangeConstraint *constraint)
-        : SubType(AST_IntegerSubType, name, type, constraint) { }
-
-    /// Constructs an anonymous subtype of the given type and constraint.  The
-    /// constraint may be null to define an unconstrained subtype.
-    IntegerSubType(IntegerType *type, RangeConstraint *constraint)
-        : SubType(AST_IntegerSubType, type, constraint) { }
-
     /// Returns the type of this integer subtype.
     IntegerType *getTypeOf() const {
         return llvm::cast<IntegerType>(SubType::getTypeOf());
     }
 
-    /// Returns the constraint of this subtype, or null if this subtype is not
-    /// constrained.
+    /// Returns the range constraint of this subtype, or null if this subtype is
+    /// not constrained.
     RangeConstraint *getConstraint() const {
-        return llvm::cast<RangeConstraint>(SubTypeConstraint);
+        if (SubTypeConstraint)
+            return llvm::cast<RangeConstraint>(SubTypeConstraint);
+        return 0;
     }
+
+    /// Returns true if this subtype contains another.
+    ///
+    /// One integer subtype contains another if the range of the former includes
+    /// the range of the latter.
+    bool contains(IntegerSubType *subtype) const;
+
+    /// Returns true if this subtype contains the given integer type.
+    ///
+    /// An integer subtype contains another integer type if the range of the
+    /// former spans the representational limits of latter.
+    bool contains(IntegerType *type) const;
 
     static bool classof(const IntegerSubType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerSubType;
     }
+
+private:
+    /// Constructs a named integer subtype of the given type and range
+    /// constraints.
+    IntegerSubType(IdentifierInfo *name, IntegerType *type,
+                   const llvm::APInt &low, const llvm::APInt &high);
+
+    /// Constructs a named, unconstrained integer subtype.
+    IntegerSubType(IdentifierInfo *name, IntegerType *type)
+        : SubType(AST_IntegerSubType, name, type, 0) { }
+
+    /// Allow AstResource to construct IntegerSubType nodes.
+    friend class AstResource;
 };
 
 } // End comma namespace

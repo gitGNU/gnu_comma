@@ -1081,19 +1081,11 @@ bool Parser::parseType()
         break;
 
     case Lexer::TKN_LPAREN: {
-        // We must have an enumeration type.  Always call endEnumerationType if
-        // beginEnumerationType returns a valid node.
-        Node enumeration = client.beginEnumeration(name, loc);
-        if (enumeration.isValid()) {
-            parseEnumerationList(enumeration);
-            client.endEnumeration(enumeration);
-            return true;
-        }
-        else {
-            ignoreToken();
-            seekCloseParen();
-        }
-        break;
+        // We must have an enumeration type.
+        client.beginEnumeration(name, loc);
+        parseEnumerationList();
+        client.endEnumeration();
+        return true;
     }
 
     case Lexer::TKN_RANGE:
@@ -1106,7 +1098,7 @@ bool Parser::parseType()
     return false;
 }
 
-void Parser::parseEnumerationList(Node enumeration)
+void Parser::parseEnumerationList()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
     Location loc = currentLocation();
@@ -1122,7 +1114,7 @@ void Parser::parseEnumerationList(Node enumeration)
         Location loc = currentLocation();
         if (currentTokenIs(Lexer::TKN_CHARACTER)) {
             IdentifierInfo *name = parseCharacter();
-            client.acceptEnumerationCharacter(enumeration, name, loc);
+            client.acceptEnumerationCharacter(name, loc);
         }
         else {
             IdentifierInfo *name = parseIdentifierInfo();
@@ -1131,7 +1123,7 @@ void Parser::parseEnumerationList(Node enumeration)
                 seekCloseParen();
                 return;
             }
-            client.acceptEnumerationIdentifier(enumeration, name, loc);
+            client.acceptEnumerationIdentifier(name, loc);
         }
     } while (reduceToken(Lexer::TKN_COMMA));
 

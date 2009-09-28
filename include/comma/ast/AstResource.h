@@ -18,6 +18,7 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/basic/IdentifierPool.h"
+#include "comma/basic/PrimitiveOps.h"
 
 #include "llvm/ADT/FoldingSet.h"
 
@@ -31,6 +32,8 @@ class APInt;
 
 namespace comma {
 
+class IndexConstraint;
+class RangeConstraint;
 class TextProvider;
 
 class AstResource {
@@ -52,6 +55,9 @@ public:
     IdentifierInfo *getIdentifierInfo(const char *name) const {
         return &idPool.getIdentifierInfo(name);
     }
+    IdentifierInfo *getIdentifierInfo(const std::string &name) const {
+        return &idPool.getIdentifierInfo(name);
+    }
 
     /// Returns a uniqued FunctionType.
     FunctionType *getFunctionType(Type **argTypes, unsigned numArgs,
@@ -60,28 +66,137 @@ public:
     /// Returns a uniqued ProcedureType.
     ProcedureType *getProcedureType(Type **argTypes, unsigned numArgs);
 
-    /// Returns an IntegerType node for the given IntegerDecl using the
-    /// specified range.
-    IntegerType *getIntegerType(IntegerDecl *decl,
-                                const llvm::APInt &low,
-                                const llvm::APInt &high);
+    /// \name Enumeration declaration and type constructors.
+    //@{
+    /// Creates an enumeration declaration node.
+    EnumerationDecl *createEnumDecl(IdentifierInfo *name, Location loc,
+                                    std::pair<IdentifierInfo*, Location> *elems,
+                                    unsigned numElems, DeclRegion *parent);
+
+    /// Returns an EnumerationType node.
+    EnumerationType *createEnumType(unsigned numElements);
+
+    /// Returns a subtype of the given EnumerationType.
+    EnumSubType *createEnumSubType(IdentifierInfo *name, EnumerationType *base);
+    //@}
+
+    /// \name Integer declaration and type constructors.
+    //@{
+    /// Creates an integer declaration node.
+    IntegerDecl *createIntegerDecl(IdentifierInfo *name, Location loc,
+                                   Expr *lowRange, Expr *highRange,
+                                   const llvm::APInt &lowVal,
+                                   const llvm::APInt &highVal,
+                                   DeclRegion *parent);
+
+    /// Returns an IntegerType node with the given static bounds.
+    IntegerType *createIntegerType(IntegerDecl *decl,
+                                   const llvm::APInt &low,
+                                   const llvm::APInt &high);
+
+    /// Returns an IntegerSubType node with the given static bounds.
+    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
+                                         IntegerType *base,
+                                         const llvm::APInt &low,
+                                         const llvm::APInt &high);
+
+    /// Returns an unconstrained IntegerSubType.
+    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
+                                         IntegerType *base);
+    //@}
+
+    /// \name Array declaration and type constructors.
+    //@{
+    /// Creates an Array declaration node.
+    ArrayDecl *createArrayDecl(IdentifierInfo *name, Location loc,
+                               unsigned rank, SubType **indices,
+                               Type *component, bool isConstrained,
+                               DeclRegion *parent);
 
     /// Returns an ArrayType node with the given index and component
     /// types.
-    ArrayType *getArrayType(ArrayDecl *decl, unsigned rank,
-                            SubType **indices, Type *component,
-                            bool isConstrained);
+    ArrayType *createArrayType(unsigned rank,
+                               SubType **indices, Type *component,
+                               bool isConstrained);
+
+    /// Returns an ArraySubType node.
+    ArraySubType *createArraySubType(IdentifierInfo *name, ArrayType *base,
+                                     IndexConstraint *constraint);
+    //@}
+
+    IdentifierInfo *getTypeIdInfo(Type *type);
+
+    /// Creates a function declaration corresponding to the given primitive
+    /// operation.
+    ///
+    /// \param ID The primitive operator ID this declaration should support.
+    ///
+    /// \param type The argument types of this function.  If the operator is
+    /// Boolean valued, the return type is Boolean.  If the operator is the
+    /// exponentiation operator, the right hand type is Natural. Otherwise, this
+    /// is an arithmetic operation and the return type matches the argument
+    /// types.
+    ///
+    /// \param loc The location this operator is considered to be defined.
+    ///
+    /// \param region The decalarative region the function should be declared
+    /// in.
+    FunctionDecl *createPrimitiveDecl(PO::PrimitiveID ID,
+                                      Location loc, Type *type,
+                                      DeclRegion *region);
+
+    /// \name Language Defined AST Nodes.
+    ///
+    ///
+    /// Provides access to basic nodes which represent the various language
+    /// defined type declarations, or in the absence of a declaration, the
+    /// primitive type.
+    //@{
+    EnumerationDecl *getTheBooleanDecl() const { return theBooleanDecl; }
+    EnumSubType *getTheBooleanType() const;
+
+    IntegerDecl *getTheRootIntegerDecl() const { return theRootIntegerDecl; }
+    IntegerSubType *getTheRootIntegerType() const;
+
+    IntegerDecl *getTheIntegerDecl() const { return theIntegerDecl; }
+    IntegerSubType *getTheIntegerType() const;
+
+    IntegerSubType *getTheNaturalType() const { return theNaturalType; }
+    //@}
 
 private:
     TextProvider &txtProvider;
     IdentifierPool &idPool;
 
-    // FIXME: It is likely enough to have a single container managing all types.
-    std::vector<IntegerType*> integerTypes;
-    std::vector<ArrayType*> arrayTypes;
+    // Vectors of declaration and type nodes.
+    std::vector<Decl*> decls;
+    std::vector<Type*> types;
 
+    // Tables of uniqued subroutine types.
     llvm::FoldingSet<FunctionType> functionTypes;
     llvm::FoldingSet<ProcedureType> procedureTypes;
+
+    /// SubType nodes corresponding to language defined types.
+    IntegerSubType *theNaturalType;
+
+    /// Declaration nodes representing the language defined types.
+    EnumerationDecl *theBooleanDecl;
+    IntegerDecl *theRootIntegerDecl;
+    IntegerDecl *theIntegerDecl;
+
+    /// \name Language Defined Type Initialization.
+    ///
+    /// When an ASTResource is constructed, the complete set of AST nodes
+    /// representing the language defined types are constructed.  This is
+    /// implemented by the initializeLanguageDefinedTypes() method, which in
+    /// turn calls a specialized method for each type.
+    //@{
+    void initializeLanguageDefinedTypes();
+    void initializeBoolean();
+    void initializeRootInteger();
+    void initializeInteger();
+    void initializeNatural();
+    //@}
 };
 
 } // End comma namespace.

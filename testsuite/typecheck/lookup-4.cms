@@ -1,9 +1,9 @@
 -- MUST-FAIL:  Ensure local variables shadow imported functions.
 
 domain D with
-   function Foo return Bool;
+   function Foo return Boolean;
 add
-   function Foo return Bool is
+   function Foo return Boolean is
    begin
       return true;
    end Foo;
@@ -13,7 +13,7 @@ domain E add
 
    type Not_Bool is (X);
 
-   function Test return Bool is
+   function Test return Boolean is
       Foo : Not_Bool := X;
       import D;
    begin

@@ -2,17 +2,17 @@
 
 domain D add
 
-   function F return Bool is
+   function F return Boolean is
    begin
       return true;
    end F;
 
-   procedure P1 (X : out Bool) is
+   procedure P1 (X : out Boolean) is
    begin
       X := true;
    end P1;
 
-   procedure P2 (X : in out Bool) is
+   procedure P2 (X : in out Boolean) is
    begin
       P1(X);
    end P2;

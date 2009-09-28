@@ -9,7 +9,8 @@
 #ifndef COMMA_CODEGEN_CODEGENTYPES_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENTYPES_HDR_GUARD
 
-#include "comma/ast/AstBase.h"
+#include "comma/ast/Decl.h"
+#include "comma/ast/Type.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/DerivedTypes.h"
@@ -42,6 +43,10 @@ public:
     const llvm::Type *lowerSubType(const SubType *type);
 
     const llvm::IntegerType *lowerIntegerType(const IntegerType *type);
+
+    const llvm::IntegerType *lowerIntegerSubType(const IntegerSubType *type) {
+        return lowerIntegerType(type->getTypeOf());
+    }
 
     const llvm::ArrayType *lowerArrayType(const ArrayType *type);
 

@@ -1,8 +1,8 @@
 -- MUST-FAIL: Ensure direct decls cannot shadow formal parameters.
 
 domain D add
-   carrier Rep is Bool;
-   procedure P (X : Bool) is
-      X : Bool := true;
+   carrier Rep is Boolean;
+   procedure P (X : Boolean) is
+      X : Boolean := true;
    begin end P;
 end D;

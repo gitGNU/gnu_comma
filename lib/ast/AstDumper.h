@@ -70,7 +70,6 @@ protected:
     /// "I", "O", "IO", or "D" is printed (no trailing space), meaning "in"
     /// "out" "in out" or default, respecively.
     llvm::raw_ostream &dumpParamMode(PM::ParameterMode mode);
-
 };
 
 /// Forward declarations for the various types of dumpers.

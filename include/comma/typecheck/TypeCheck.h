@@ -10,8 +10,9 @@
 #define COMMA_TYPECHECK_TYPECHECK_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
-#include "comma/ast/Cunit.h"
 #include "comma/ast/AstResource.h"
+#include "comma/ast/Cunit.h"
+#include "comma/ast/Type.h"
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
 #include "comma/parser/ParseClient.h"
@@ -28,7 +29,6 @@ class APInt;
 
 namespace comma {
 
-class DeclProducer;
 class Resolver;
 class Scope;
 
@@ -155,23 +155,10 @@ public:
 
     Node acceptPragmaStmt(IdentifierInfo *name, Location loc, NodeVector &args);
 
-    // Called when an enumeration type is about to be parsed, supplying the name
-    // of the type and its location.  For each literal composing the
-    // enumeration, acceptEnumerationLiteral is called with the result of this
-    // function.
-    Node beginEnumeration(IdentifierInfo *name, Location loc);
-
-    // Called for each literal composing an enumeration type, where the first
-    // argument is a valid node as returned by acceptEnumerationType.
-    void acceptEnumerationIdentifier(Node enumeration,
-                                     IdentifierInfo *name, Location loc);
-
-    void acceptEnumerationCharacter(Node enumeration,
-                                    IdentifierInfo *name, Location loc);
-
-    // Called when all of the enumeration literals have been processed, thus
-    // completing the definition of the enumeration.
-    void endEnumeration(Node enumeration);
+    void beginEnumeration(IdentifierInfo *name, Location loc);
+    void acceptEnumerationIdentifier(IdentifierInfo *name, Location loc);
+    void acceptEnumerationCharacter(IdentifierInfo *name, Location loc);
+    void endEnumeration();
 
     /// Called to process integer type definitions.
     ///
@@ -207,13 +194,70 @@ private:
     Scope           *scope;
     unsigned         errorCount;
 
-    /// Instance of a helper class used to hold primitive types and to construct
-    /// implicit operations.
-    DeclProducer *declProducer;
-
     /// The set of AbstractDomainDecls serving as parameters to the current
     /// capsule.
     llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
+
+    /// A simple structure used for accumulating the components of an
+    /// enumeration declaration.
+    struct EnumProfileInfo {
+        typedef std::pair<IdentifierInfo*, Location> IdLocPair;
+        typedef llvm::SmallVector<IdLocPair, 8> ElemVec;
+
+        enum ProfileKind {
+            EMPTY_PROFILE,
+            VALID_ENUM_PROFILE,
+            INVALID_ENUM_PROFILE
+        };
+
+        ProfileKind kind;       ///< The kind of this profile.
+        IdentifierInfo *name;   ///< The name of the enumeration decl.
+        Location loc;           ///< Location of the declaration.
+        ElemVec elements;       ///< Vector of Id/Loc pairs for each element.
+
+        EnumProfileInfo() { reset(); }
+
+        void init(IdentifierInfo *name, Location loc) {
+            this->kind = VALID_ENUM_PROFILE;
+            this->name = name;
+            this->loc = loc;
+        }
+
+        // Sets this profile to an uninitialized state.
+        void reset() {
+            kind = EMPTY_PROFILE;
+            name = 0;
+            loc = 0;
+            elements.clear();
+        }
+
+        // returns true if this profile is initialized.
+        bool isInitialized() { return kind != EMPTY_PROFILE; }
+
+        // Returns true if this profile is invalid.
+        bool isInvalid() { return kind == INVALID_ENUM_PROFILE; }
+
+        // Marks this profile as invalid.
+        void markInvalid() { kind = INVALID_ENUM_PROFILE; }
+
+        // Pushes an element name/location pair onto the list of elements.
+        void addElement(IdentifierInfo *name, Location loc) {
+            elements.push_back(IdLocPair(name, loc));
+        }
+    };
+
+    /// This little structure ensures that when its destructor runs the given
+    /// SubroutineProfileInfo is reset.
+    struct EnumProfileInfoReseter {
+        EnumProfileInfoReseter(EnumProfileInfo &EPI)
+            : EPI(EPI) { }
+        ~EnumProfileInfoReseter() { EPI.reset(); }
+    private:
+        EnumProfileInfo &EPI;
+    };
+
+    /// Staging area for enumeration declarations.
+    EnumProfileInfo enumProfileInfo;
 
     /// A simple struct used for accumulating information during the processing
     /// of a subroutine declaration.
@@ -584,20 +628,29 @@ private:
     // appropriate diagnostics are emitted.
     bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
 
-    // Resolves the given call expression (which must be nullary function call,
-    // i.e. one without arguments) to one which satisfies the given target type
-    // and returns true.  Otherwise, false is returned and the appropriate
-    // diagnostics are emitted.
-    bool resolveNullaryFunctionCall(FunctionCallExpr *call, Type *targetType);
+    // Resolves the given call expression to one which satisfies the given type
+    // classification and returns true.  Otherwise, false is returned and the
+    // appropriate diagnostics are emitted.
+    bool resolveFunctionCall(FunctionCallExpr *call, Type::Classification ID);
+
+    // Returns the prefered connective for the given ambiguous function call, or
+    // null if no unambiguous interpretation exists.
+    FunctionDecl *resolvePreferredConnective(FunctionCallExpr *Call,
+                                             Type *targetType);
+
+    // Checks if the given set of function declarations contains a preferred
+    // primitive operator which should be preferred over any other.  Returns the
+    // prefered declaration if found and null otherwise.
+    FunctionDecl *resolvePreferredOperator(SVImpl<FunctionDecl*>::Type &decls);
 
     /// Checks that the given SubroutineRef can be applied to the given argument
     /// nodes.
     ///
-    /// \return An AST node representing the result of the application.  This is
-    /// either a FunctionCallExpr, a ProcedureCallExpr, or null if the call did
-    /// not type check.
-    Ast *acceptSubroutineApplication(SubroutineRef *ref,
-                                     NodeVector &argNodes);
+    /// \return An SubroutineCall node representing the result of the
+    /// application.  This is either a FunctionCallExpr, a ProcedureCallExpr, or
+    /// null if the call did not type check.
+    SubroutineCall *acceptSubroutineApplication(SubroutineRef *ref,
+                                                NodeVector &argNodes);
 
     /// Given a vector \p argNodes of Node's representing the arguments to a
     /// subroutine call, extracts the AST nodes and fills in the vectors \p
@@ -619,6 +672,10 @@ private:
     bool checkSubroutineArgument(Expr *arg, Type *targetType,
                                  PM::ParameterMode targetMode);
 
+    /// Applys checkSubroutineArgument() to each argument of the given call node
+    /// (which must be resolved).
+    bool checkSubroutineCallArguments(SubroutineCall *call);
+
     /// Checks that given arguments are compatible with those of the given
     /// decl.
     ///
@@ -631,14 +688,6 @@ private:
     bool checkSubroutineArguments(SubroutineDecl *decl,
                                   SVImpl<Expr*>::Type &posArgs,
                                   SVImpl<KeywordSelector*>::Type &keyArgs);
-
-
-    /// Returns true if the given declaration accepts the given keyword
-    /// selectors assumming \p numPositional positional arguments are also
-    /// provided.
-    bool routineAcceptsKeywords(SubroutineDecl *decl,
-                                unsigned numPositional,
-                                SVImpl<KeywordSelector*>::Type &keys);
 
     /// Checks that the given subroutine decl accepts the provided positional
     /// arguments.
@@ -656,9 +705,10 @@ private:
     ///
     /// \return A general AST node which is either a FunctionCallExpr,
     /// ProcedureCallStmt, or null if the call did not type check.
-    Ast *acceptSubroutineCall(SubroutineRef *ref,
-                              SVImpl<Expr*>::Type &positionalArgs,
-                              SVImpl<KeywordSelector*>::Type &keyedArgs);
+    SubroutineCall *
+    acceptSubroutineCall(SubroutineRef *ref,
+                         SVImpl<Expr*>::Type &positionalArgs,
+                         SVImpl<KeywordSelector*>::Type &keyedArgs);
 
 
     /// Given a resolved (not overloaded) SubroutineRef \p ref, and a set of
@@ -667,9 +717,12 @@ private:
     ///
     /// \return A general AST node which is either a FunctionCallExpr,
     /// ProcedureCallStmt, or null if the call did not type check.
-    Ast *checkSubroutineCall(SubroutineRef *ref,
-                             SVImpl<Expr*>::Type &positionalArgs,
-                             SVImpl<KeywordSelector*>::Type &keyArgs);
+    SubroutineCall *
+    checkSubroutineCall(SubroutineRef *ref,
+                        SVImpl<Expr*>::Type &positionalArgs,
+                        SVImpl<KeywordSelector*>::Type &keyArgs);
+
+    /// Injects implicit ConversionExpr nodes into the positional
 
     /// Returns true if \p expr is compatible with the given type.
     ///
@@ -684,7 +737,9 @@ private:
     // indicates the position of the source type.
     bool checkType(Type *source, SigInstanceDecl *target, Location loc);
 
-    static bool covers(Type *A, Type *B);
+    bool covers(Type *A, Type *B);
+
+    bool subsumes(Type *A, Type *B);
 
     // Returns true if the given type is compatible with the given abstract
     // domain decl in the environment established by the given rewrites.
@@ -751,8 +806,7 @@ private:
 
     /// Helper for acceptEnumerationIdentifier and acceptEnumerationCharacter.
     /// Forms a generic enumeration literal AST node.
-    void acceptEnumerationLiteral(EnumerationDecl *enumeration,
-                                  IdentifierInfo *name, Location loc);
+    void acceptEnumerationLiteral(IdentifierInfo *name, Location loc);
 
     /// Adds the declarations present in the given region to the current scope
     /// as direct names.  This subroutine is used to introduce the implicit

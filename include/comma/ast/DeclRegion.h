@@ -249,7 +249,7 @@ private:
 
 namespace llvm {
 
-// Specialize isa_impl_wrap to test if a DeclRegion is a specific Decl.
+// Specialize isa_impl_wrap to test if a DeclRegion is a specific Ast.
 template<class To>
 struct isa_impl_wrap<To,
                      const comma::DeclRegion, const comma::DeclRegion> {
@@ -264,7 +264,7 @@ struct isa_impl_wrap<To, comma::DeclRegion, comma::DeclRegion>
                          const comma::DeclRegion,
                          const comma::DeclRegion> { };
 
-// Decl to DeclRegion conversions.
+// Ast to DeclRegion conversions.
 template<class From>
 struct cast_convert_val<comma::DeclRegion, From, From> {
     static comma::DeclRegion &doit(const From &val) {
@@ -293,7 +293,7 @@ struct cast_convert_val<const comma::DeclRegion, From*, From*> {
     }
 };
 
-// DeclRegion to Decl conversions.
+// DeclRegion to Ast conversions.
 template<class To>
 struct cast_convert_val<To,
                         const comma::DeclRegion,

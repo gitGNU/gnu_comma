@@ -4,12 +4,12 @@ domain D add
 
   type Not_Bool is (X);
 
-  function Foo return Bool is
+  function Foo return Boolean is
   begin
      return true;
   end Foo;
 
-  function Test return Bool is
+  function Test return Boolean is
      Foo : Not_Bool := X;
   begin
      return Foo;

@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DeclProducer.h"
 #include "Scope.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
@@ -117,15 +116,20 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
         return getInvalidNode();
     }
 
-    // If the value is compatable with the type of the target, build the
-    // assignment node.
-    if (checkExprInContext(value, target->getType())) {
-        valueNode.release();
-        targetNode.release();
-        return getNode(new AssignmentStmt(target, value));
-    }
+    // Check that the value is compatable with the type of the target.
+    if (!checkExprInContext(value, target->getType()))
+        return getInvalidNode();
 
-    return getInvalidNode();
+    valueNode.release();
+    targetNode.release();
+
+    // FIXME: We need a predicate better than `!=' here to determine if a type
+    // conversion is necessary.  In particular, if the target type is the base
+    // type of the value, or any unconstrained subtype, a conversion is not
+    // needed.
+    if (value->getType() != target->getType())
+        value = new ConversionExpr(value, target->getType());
+    return getNode(new AssignmentStmt(target, value));
 }
 
 Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
@@ -136,7 +140,7 @@ Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
 
     Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (checkExprInContext(condition, declProducer->getBoolType())) {
+    if (checkExprInContext(condition, resource.getTheBooleanType())) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
         StmtSequence *consequents = new StmtSequence(I, E);
@@ -175,7 +179,7 @@ Node TypeCheck::acceptElsifStmt(Location loc, Node ifNode, Node conditionNode,
     IfStmt *cond = cast_node<IfStmt>(ifNode);
     Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (checkExprInContext(condition, declProducer->getBoolType())) {
+    if (checkExprInContext(condition, resource.getTheBooleanType())) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
         StmtSequence *consequents = new StmtSequence(I, E);
@@ -226,7 +230,7 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
 
     Expr *condition = cast_node<Expr>(conditionNode);
 
-    if (!checkExprInContext(condition, declProducer->getBoolType()))
+    if (!checkExprInContext(condition, resource.getTheBooleanType()))
         return getInvalidNode();
 
     iterator I(stmtNodes.begin(), caster());

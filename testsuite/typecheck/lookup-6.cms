@@ -5,7 +5,7 @@ domain D add
   procedure Foo is begin end Foo;
 
   procedure Test is
-     Foo : Bool := true;
+     Foo : Boolean := true;
   begin
      Foo;
   end Test;

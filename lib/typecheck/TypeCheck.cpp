@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DeclProducer.h"
 #include "Eval.h"
 #include "Scope.h"
 #include "comma/typecheck/TypeCheck.h"
@@ -38,8 +37,7 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
       resource(resource),
       compUnit(cunit),
       scope(new Scope),
-      errorCount(0),
-      declProducer(new DeclProducer(resource))
+      errorCount(0)
 {
     populateInitialEnvironment();
 }
@@ -47,18 +45,22 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
 TypeCheck::~TypeCheck()
 {
     delete scope;
-    delete declProducer;
 }
 
 // Called when then type checker is constructed.  Populates the top level scope
 // with an initial environment.
 void TypeCheck::populateInitialEnvironment()
 {
-    EnumerationDecl *theBoolDecl = declProducer->getBoolDecl();
+    EnumerationDecl *theBoolDecl = resource.getTheBooleanDecl();
     scope->addDirectDecl(theBoolDecl);
     introduceImplicitDecls(theBoolDecl);
 
-    IntegerDecl *theIntegerDecl = declProducer->getIntegerDecl();
+    // We do not add root_integer into scope, since it is an anonymous language
+    // defined type.
+    IntegerDecl *theRootIntegerDecl = resource.getTheRootIntegerDecl();
+    introduceImplicitDecls(theRootIntegerDecl);
+
+    IntegerDecl *theIntegerDecl = resource.getTheIntegerDecl();
     scope->addDirectDecl(theIntegerDecl);
     introduceImplicitDecls(theIntegerDecl);
 }
@@ -497,7 +499,15 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
         init = cast_node<Expr>(initializerNode);
         if (!checkExprInContext(init, objTy))
             return false;
+
+        // FIXME: We need a predicate better than `!=' here to determine if a
+        // type conversion is necessary.  In particular, if the target type is
+        // the base type of the value, or any unconstrained subtype, a
+        // conversion is not needed.
+        if (init->getType() != objTy)
+            init = new ConversionExpr(init, objTy);
     }
+
     ObjectDecl *decl = new ObjectDecl(name, objTy, loc, init);
 
     initializerNode.release();
@@ -536,54 +546,80 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
     return true;
 }
 
-Node TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
+void TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
 {
-    DeclRegion *region = currentDeclarativeRegion();
-    EnumerationDecl *enumeration = new EnumerationDecl(name, loc, region);
-    if (Decl *conflict = scope->addDirectDecl(enumeration)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return getInvalidNode();
+    assert(!enumProfileInfo.isInitialized() &&
+           "Enum profile info is already initialized!");
+    enumProfileInfo.init(name, loc);
+}
+
+void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
+{
+    acceptEnumerationLiteral(name, loc);
+}
+
+void TypeCheck::acceptEnumerationCharacter(IdentifierInfo *name, Location loc)
+{
+    acceptEnumerationLiteral(name, loc);
+}
+
+void TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
+{
+    assert(enumProfileInfo.isInitialized() &&
+           "Enum profile info not initialized!");
+
+    // Check that the given element name has yet to appear in the set of
+    // elements.  If it exists, mark the profile as invalid and ignore the
+    // element.
+    EnumProfileInfo::ElemVec::iterator I = enumProfileInfo.elements.begin();
+    EnumProfileInfo::ElemVec::iterator E = enumProfileInfo.elements.end();
+    for ( ; I != E; ++I) {
+        if (I->first == name) {
+            enumProfileInfo.markInvalid();
+            report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
+            return;
+        }
     }
-    TypeRef *ref = new TypeRef(loc, enumeration);
-    return getNode(ref);
-}
 
-void TypeCheck::acceptEnumerationIdentifier(Node enumerationNode,
-                                            IdentifierInfo *name, Location loc)
-{
-    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
-    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
-    acceptEnumerationLiteral(enumeration, name, loc);
-}
-
-void TypeCheck::acceptEnumerationCharacter(Node enumerationNode,
-                                           IdentifierInfo *name, Location loc)
-{
-    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
-    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
-    acceptEnumerationLiteral(enumeration, name, loc);
-}
-
-void TypeCheck::acceptEnumerationLiteral(EnumerationDecl *enumeration,
-                                         IdentifierInfo *name, Location loc)
-{
-    if (enumeration->containsDecl(name)) {
-        report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
+    // Check that the element does not conflict with the name of the enumeration
+    // decl itself.
+    if (name == enumProfileInfo.name) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(enumProfileInfo.loc);
         return;
     }
-    new EnumLiteral(resource, name, loc, enumeration);
+
+    enumProfileInfo.addElement(name, loc);
 }
 
-void TypeCheck::endEnumeration(Node enumerationNode)
+void TypeCheck::endEnumeration()
 {
+    IdentifierInfo *name = enumProfileInfo.name;
+    Location loc = enumProfileInfo.loc;
     DeclRegion *region = currentDeclarativeRegion();
-    TypeRef *ref = cast_node<TypeRef>(enumerationNode);
-    EnumerationDecl *enumeration = cast<EnumerationDecl>(ref->getDecl());
+    std::pair<IdentifierInfo*, Location> *elems = &enumProfileInfo.elements[0];
+    unsigned numElems = enumProfileInfo.elements.size();
+    EnumProfileInfoReseter reseter(enumProfileInfo);
+    EnumerationDecl *decl;
 
-    declProducer->createImplicitDecls(enumeration);
-    region->addDecl(enumeration);
-    introduceImplicitDecls(enumeration);
+    // It is possible that the enumeration is empty due to previous errors.  Do
+    // not even bother constructing such malformed nodes.
+    if (!numElems)
+        return;
+
+    decl = resource.createEnumDecl(name, loc, elems, numElems, region);
+
+    // Check that the enumeration does not conflict with any other in the
+    // current scope.
+    if (Decl *conflict = scope->addDirectDecl(decl)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
+
+    region->addDecl(decl);
+    decl->generateImplicitDeclarations(resource);
+    introduceImplicitDecls(decl);
 }
 
 /// Called to process integer type definitions.
@@ -599,6 +635,18 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     Expr *lowExpr = cast_node<Expr>(lowNode);
     Expr *highExpr = cast_node<Expr>(highNode);
 
+    // If the bounds are function calls it is possible that they have not been
+    // fully resolved since no target context has been seen for these
+    // expressions.  We demand that the expressions be of any integer type.
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(lowExpr)) {
+        if (!resolveFunctionCall(call, Type::CLASS_Integer))
+            return;
+    }
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(highExpr)) {
+        if (!resolveFunctionCall(call, Type::CLASS_Integer))
+            return;
+    }
+
     llvm::APInt lowValue;
     llvm::APInt highValue;
     if (!ensureStaticIntegerExpr(lowExpr, lowValue) ||
@@ -613,23 +661,25 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     else if (highWidth < lowWidth)
         highValue.sext(lowWidth);
 
-    // Obtain a uniqued integer type to represent the base type of this
-    // declaration and release the range expressions as they are now owned by
-    // this new declaration.
+    // Obtain an integer type to represent the base type of this declaration and
+    // release the range expressions as they are now owned by this new
+    // declaration.
     lowNode.release();
     highNode.release();
-    IntegerDecl *Idecl =
-        new IntegerDecl(resource, name, loc,
-                        lowExpr, highExpr, lowValue, highValue, region);
+    IntegerDecl *decl;
+    decl = resource.createIntegerDecl(name, loc,
+                                      lowExpr, highExpr,
+                                      lowValue, highValue, region);
 
-    if (Decl *conflict = scope->addDirectDecl(Idecl)) {
+    if (Decl *conflict = scope->addDirectDecl(decl)) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(conflict->getLocation());
         return;
     }
-    region->addDecl(Idecl);
-    declProducer->createImplicitDecls(Idecl);
-    introduceImplicitDecls(Idecl);
+
+    region->addDecl(decl);
+    decl->generateImplicitDeclarations(resource);
+    introduceImplicitDecls(decl);
 }
 
 //===----------------------------------------------------------------------===//
@@ -762,7 +812,8 @@ void TypeCheck::endArray()
     Type *component = arrProfileInfo.component->getType();
     bool isConstrained = arrProfileInfo.isConstrained;
     DeclRegion *region = currentDeclarativeRegion();
-    ArrayDecl *array = new ArrayDecl(resource, name, loc,
+    ArrayDecl *array;
+    array = resource.createArrayDecl(name, loc,
                                      indices.size(), &indices[0],
                                      component, isConstrained, region);
 
@@ -832,11 +883,14 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
 
 void TypeCheck::introduceImplicitDecls(DeclRegion *region)
 {
-    // Implicitly defined declarations should never conflict since they are
-    // always introduced before any use of the corresponding type.
     typedef DeclRegion::DeclIter iterator;
-    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I)
-        scope->addDirectDeclNoConflicts(*I);
+    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
+        Decl *decl = *I;
+        if (Decl *conflict = scope->addDirectDecl(decl)) {
+            report(decl->getLocation(), diag::CONFLICTING_DECLARATION)
+                << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
+        }
+    }
 }
 
 /// Returns true if the IdentifierInfo \p info can name a binary function.
@@ -904,14 +958,33 @@ Location TypeCheck::getNodeLoc(Node node)
 
 bool TypeCheck::covers(Type *A, Type *B)
 {
-    // A type covers itself.
+    if (subsumes(A, B))
+        return true;
+
+    // If B denotes the primitive type root_integer and A is any integer type,
+    // then A covers B.
+    if (dyn_cast<IntegerSubType>(B) == resource.getTheRootIntegerType())
+        return A->isIntegerType();
+
+    return false;
+}
+
+bool TypeCheck::subsumes(Type *A, Type *B)
+{
+    // A type subsumes itself.
     if (A == B)
         return true;
+
+    // If A denotes the primitive type root_integer and B is any integer type,
+    // then A subsumes B.
+    if (dyn_cast<IntegerSubType>(A) == resource.getTheRootIntegerType())
+        if (B->isIntegerType())
+            return true;
 
     Type *baseTypeA = A;
     Type *baseTypeB = B;
 
-    // If either A or B are subtypes, resolve their types.
+    // If either A or B are subtypes, resolve their base types.
     if (SubType *subtype = dyn_cast<SubType>(A))
         baseTypeA = subtype->getTypeOf();
     if (SubType *subtype = dyn_cast<SubType>(B))
@@ -927,7 +1000,7 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
     assert(args.size() == 1 && "Wrong number of arguments for pragma Assert!");
     Expr *condition = cast_node<Expr>(args[0]);
 
-    if (checkExprInContext(condition, declProducer->getBoolType())) {
+    if (checkExprInContext(condition, resource.getTheBooleanType())) {
         // Get a string representing the source location of the assertion.
         //
         // FIXME: We should be calling a utility routine to parse the source

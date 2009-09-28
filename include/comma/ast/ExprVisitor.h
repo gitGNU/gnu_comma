@@ -34,6 +34,7 @@ public:
     virtual void visitInjExpr(InjExpr *node);
     virtual void visitPrjExpr(PrjExpr *node);
     virtual void visitIntegerLiteral(IntegerLiteral *node);
+    virtual void visitConversionExpr(ConversionExpr *node);
 };
 
 } // end comma namespace.

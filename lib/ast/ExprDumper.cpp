@@ -61,3 +61,11 @@ void ExprDumper::visitIntegerLiteral(IntegerLiteral *node)
     S << "'>";
 }
 
+void ExprDumper::visitConversionExpr(ConversionExpr *node)
+{
+    printHeader(node) << " ";
+    visitExpr(node->getOperand());
+    S << " ";
+    dumpAST(node->getType()) << ">";
+}
+

@@ -2,17 +2,17 @@
 
 domain Primitive_Tests_1 add
 
-  function Test_Bool_EQ (X : Bool) return Bool is
+  function Test_Bool_EQ (X : Boolean) return Boolean is
   begin
      return X = X;
   end Test_Bool_EQ;
 
-  function Test_Integer_EQ (X : Integer) return Bool is
+  function Test_Integer_EQ (X : Integer) return Boolean is
   begin
      return X = X;
   end Test_Integer_EQ;
 
-  function Test_Integer_LT (X : Integer) return Bool is
+  function Test_Integer_LT (X : Integer) return Boolean is
   begin
      return X < X;
   end Test_Integer_LT;

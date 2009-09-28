@@ -94,7 +94,7 @@ public:
     Node parseParameterAssociation();
 
     bool parseType();
-    void parseEnumerationList(Node enumeration);
+    void parseEnumerationList();
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
 
     void parseArrayIndexProfile();

@@ -193,15 +193,17 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 {
     llvm::Value *target;
     llvm::Value *source;
+    Expr *rhs = stmt->getAssignedExpr();
 
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(stmt->getTarget())) {
         // The left hand side is a simple variable reference.  Just emit the
         // left and right hand sides and form a store.
         target = emitVariableReference(ref);
-        source = emitValue(stmt->getAssignedExpr());
+        source = emitValue(rhs);
 
-        // If the reference denotes a scalar type, emit a range check.
-        if (ref->getType()->isScalarType())
+        // If target denotes a scalar type and the rhs was not already converted
+        // to the target type, emit a range check.
+        if (ref->getType()->isScalarType() && !isa<ConversionExpr>(rhs))
             emitScalarRangeCheck(ref, source);
     }
     else {
@@ -209,7 +211,7 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
         // to the needed component and again, store in the right hand side.
         IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
         target = emitIndexedArrayRef(arrIdx);
-        source = emitValue(stmt->getAssignedExpr());
+        source = emitValue(rhs);
     }
 
     Builder.CreateStore(source, target);
@@ -297,9 +299,7 @@ void CodeGenRoutine::emitScalarRangeCheck(DeclRefExpr *target,
         //
         // FIXME: Support enumeration constraints.
         EnumerationType *enumTy = targetTy->getAsEnumType();
-        assert(enumTy && "Target not a scalar type!");
-        EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
-        high = enumDecl->getNumLiterals();
+        high = enumTy->getNumElements();
     }
 
     // Obtain constants for the bounds.
@@ -307,9 +307,9 @@ void CodeGenRoutine::emitScalarRangeCheck(DeclRefExpr *target,
     llvm::Constant *highBound = llvm::ConstantInt::get(boundTy, high);
 
     // Build our basic blocks.
-    llvm::BasicBlock *checkHighBB = CG.makeBasicBlock("high-check", SRFn);
-    llvm::BasicBlock *checkFailBB = CG.makeBasicBlock("check-fail", SRFn);
-    llvm::BasicBlock *checkMergeBB = CG.makeBasicBlock("check-merge", SRFn);
+    llvm::BasicBlock *checkHighBB = CG.makeBasicBlock("high.check", SRFn);
+    llvm::BasicBlock *checkFailBB = CG.makeBasicBlock("check.fail", SRFn);
+    llvm::BasicBlock *checkMergeBB = CG.makeBasicBlock("check.merge", SRFn);
 
     // Check the low bound.
     llvm::Value *lowPass = Builder.CreateICmpSLE(lowBound, source);

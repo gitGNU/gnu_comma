@@ -2,12 +2,12 @@
 -- context.
 
 domain D add
-   procedure P (X : out Bool) is
+   procedure P (X : out Boolean) is
    begin
       X := true;
    end P;
 
-   procedure Test (X : in Bool) is
+   procedure Test (X : in Boolean) is
    begin
       P(X);
    end Test;

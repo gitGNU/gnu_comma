@@ -173,7 +173,7 @@ private:
             : I(I) { }
 
         /// Returns the underlying iterator.
-        SubroutineRef::iterator getIterator() const;
+        SubroutineRef::iterator getIterator() const { return I; }
 
         friend class SubroutineRef;
 
@@ -284,7 +284,7 @@ public:
     SubroutineDeclIter<T> erase(SubroutineDeclIter<T> SDI) {
         iterator I = SDI.getIterator();
         I = decls.erase(I);
-        return SubroutineDeclIter<T>(this, I);
+        return SubroutineDeclIter<T>(I);
     }
     //@}
 

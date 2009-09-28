@@ -56,6 +56,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumSubType",
     "IntegerSubType",
 
+    "ConversionExpr",
     "DeclRefExpr",
     "FunctionCallExpr",
     "IndexedArrayExpr",

@@ -2,7 +2,7 @@
 
 signature S with
   type T is (A, B);
-  procedure P (X : Bool);
+  procedure P (X : Boolean);
   procedure P (X : T);
 end S;
 

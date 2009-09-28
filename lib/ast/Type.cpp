@@ -6,8 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "comma/ast/Type.h"
+#include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Type.h"
+
+#include "llvm/ADT/Twine.h"
+
 #include <algorithm>
 #include <iostream>
 
@@ -18,6 +22,27 @@ using llvm::isa;
 
 //===----------------------------------------------------------------------===//
 // Type
+
+bool Type::memberOf(Classification ID) const
+{
+    switch (ID) {
+    default:
+        assert(false && "Bad classification ID!");
+        return false;
+    case CLASS_Scalar:
+        return isScalarType();
+    case CLASS_Discrete:
+        return isDiscreteType();
+    case CLASS_Enum:
+        return isEnumType();
+    case CLASS_Integer:
+        return isIntegerType();
+    case CLASS_Composite:
+        return isCompositeType();
+    case CLASS_Array:
+        return isArrayType();
+    }
+}
 
 bool Type::isScalarType() const
 {
@@ -38,6 +63,12 @@ bool Type::isIntegerType() const
 bool Type::isEnumType() const
 {
     return isa<EnumSubType>(this) || isa<EnumerationType>(this);
+}
+
+bool Type::isCompositeType() const
+{
+    // The only kind of composite types ATM are array types.
+    return isArrayType();
 }
 
 bool Type::isArrayType() const
@@ -67,6 +98,15 @@ EnumerationType *Type::getAsEnumType()
         return subtype->getTypeOf();
 
     return dyn_cast<EnumerationType>(this);
+}
+
+IntegerSubType *Type::getAsIntegerSubType()
+{
+    if (IntegerSubType *subtype = dyn_cast<IntegerSubType>(this))
+        return subtype;
+    if (CarrierType *carrier = dyn_cast<CarrierType>(this))
+        return carrier->getParentType()->getAsIntegerSubType();
+    return 0;
 }
 
 //===----------------------------------------------------------------------===//
@@ -165,34 +205,18 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
 //===----------------------------------------------------------------------===//
 // IntegerType
 
-IntegerType::IntegerType(IntegerDecl *decl,
+IntegerType::IntegerType(AstResource &resource, IntegerDecl *decl,
                          const llvm::APInt &low, const llvm::APInt &high)
-    : Type(AST_IntegerType),
-      declaration(decl)
+    : Type(AST_IntegerType)
 {
-    // Initialize the bounds for this type.
-    std::pair<llvm::APInt, llvm::APInt> bounds = getBaseRange(low, high);
-    this->low = bounds.first;
-    this->high = bounds.second;
+    initBounds(low, high);
 
-    // The base range my be larger or smaller that the bit width of the given
-    // bounds (since the bounds can be computed using any integer type).  Sign
-    // extend or truncate as needed -- will will not loose any bits.
-    llvm::APInt lowBound(low);
-    llvm::APInt highBound(high);
-    unsigned width = getBitWidth();
-    lowBound.sextOrTrunc(width);
-    highBound.sextOrTrunc(width);
-
-    RangeConstraint *constraint = new RangeConstraint(lowBound, highBound);
-    FirstSubType = new IntegerSubType(decl->getIdInfo(), this, constraint);
-
-    // Create an anonymous, unconstrained base subtype.
-    //
-    // FIXME: It may be reasonable to name this subtype "S'Base", where S is
-    // this types defining identifier.  We would need to have AstResource pass a
-    // pointer to itself so that we have access to the identifier pool.
-    BaseSubType = new IntegerSubType(this, 0);
+    // Build the base unconstrained subtype node named "I'Base", where I is the
+    // defining identifier for the corresponding declaration.
+    llvm::Twine name(decl->getString());
+    name = name + "'Base";
+    IdentifierInfo *id = resource.getIdentifierInfo(name.str());
+    baseSubType = resource.createIntegerSubType(id, this);
 }
 
 unsigned IntegerType::getWidthForRange(const llvm::APInt &low,
@@ -201,66 +225,71 @@ unsigned IntegerType::getWidthForRange(const llvm::APInt &low,
      return std::max(low.getMinSignedBits(), high.getMinSignedBits());
 }
 
-std::pair<llvm::APInt, llvm::APInt>
-IntegerType::getBaseRange(const llvm::APInt &low,
-                          const llvm::APInt &high)
+void IntegerType::initBounds(const llvm::APInt &low, const llvm::APInt &high)
 {
     // The base range represents a two's-complement signed integer.  We must be
     // symmetric about zero and include the values of the bounds.  Therefore,
     // even for null ranges, our base range is at least 2**7-1 .. 2**7.
-
     unsigned minimalWidth = getWidthForRange(low, high);
-    unsigned preferedWidth;
+    unsigned preferredWidth;
 
     if (minimalWidth <= 8)
-        preferedWidth = 8;
+        preferredWidth = 8;
     else if (minimalWidth <= 16)
-        preferedWidth = 16;
+        preferredWidth = 16;
     else if (minimalWidth <= 32)
-        preferedWidth = 32;
+        preferredWidth = 32;
     else if (minimalWidth <= 64)
-        preferedWidth = 64;
+        preferredWidth = 64;
     else {
         assert(false && "Range too wide to represent!");
-        preferedWidth = 64;
+        preferredWidth = 64;
     }
 
-    llvm::APInt l = llvm::APInt::getSignedMinValue(preferedWidth);
-    llvm::APInt h = llvm::APInt::getSignedMaxValue(preferedWidth);
-    return std::pair<llvm::APInt, llvm::APInt>(l, h);
+    this->low = llvm::APInt::getSignedMinValue(preferredWidth);
+    this->high = llvm::APInt::getSignedMaxValue(preferredWidth);
 }
 
-IdentifierInfo *IntegerType::getIdInfo() const
+bool IntegerType::contains(IntegerSubType *subtype) const
 {
-    return declaration->getIdInfo();
-}
+    // If the given subtype is unconstrained, check if this type contains its
+    // base.
+    if (!subtype->isConstrained())
+        return contains(subtype->getTypeOf());
 
-//===----------------------------------------------------------------------===//
-// EnumerationType
+    // Otherwise, the range of the subtype must be within the representational
+    // limits for this type.
+    RangeConstraint *range = subtype->getConstraint();
+    int64_t target;
+    int64_t source;
 
-EnumerationType::EnumerationType(EnumerationDecl *decl)
-    : Type(AST_EnumerationType),
-      declaration(decl)
-{
-    // Create the first unconstrained subtype of this enumeration type.
-    FirstSubType = new EnumSubType(decl->getIdInfo(), this, 0);
-}
+    // If the target range is null, we always contain such a type.
+    if (range->isNull())
+        return true;
 
-IdentifierInfo *EnumerationType::getIdInfo() const
-{
-    return declaration->getIdInfo();
+    // Check if the lower bounds are in range.
+    target = low.getSExtValue();
+    source = range->getLowerBound().getSExtValue();
+    if (source < target)
+        return false;
+
+    // Likewise for the upper bounds.
+    target = high.getSExtValue();
+    source = range->getUpperBound().getSExtValue();
+    if (source > target)
+        return false;
+
+    return true;
 }
 
 //===----------------------------------------------------------------------===//
 // ArrayType
 
-ArrayType::ArrayType(ArrayDecl *decl,
-                     unsigned rank, SubType **indices, Type *component,
+ArrayType::ArrayType(unsigned rank, SubType **indices, Type *component,
                      bool isConstrained)
     : Type(AST_ArrayType),
       rank(rank),
-      componentType(component),
-      declaration(decl)
+      componentType(component)
 {
     assert(rank != 0 && "Missing index types!");
 
@@ -271,16 +300,90 @@ ArrayType::ArrayType(ArrayDecl *decl,
     // Build our own vector of index types.
     indexTypes = new SubType*[rank];
     std::copy(indices, indices + rank, indexTypes);
-
-    // Create the first subtype of this array type.
-    IndexConstraint *constraint = 0;
-    if (isConstrained)
-        constraint = new IndexConstraint(indices, rank);
-    FirstSubType = new ArraySubType(decl->getIdInfo(), this, constraint);
 }
 
-IdentifierInfo *ArrayType::getIdInfo() const
+//===----------------------------------------------------------------------===//
+// IntegerSubType
+
+IntegerSubType::IntegerSubType(IdentifierInfo *name, IntegerType *type,
+                               const llvm::APInt &low, const llvm::APInt &high)
+    : SubType(AST_IntegerSubType, name, type, 0)
 {
-    return declaration->getIdInfo();
+    unsigned width = type->getBitWidth();
+    llvm::APInt lower(low);
+    llvm::APInt upper(high);
+
+    // We need to ensure that the width of the bounds is the same as the width
+    // of the base type.  Ensure that we are not loosing any significant bits.
+    assert(low.getMinSignedBits() <= width && "Bounds too wide!");
+    assert(high.getMinSignedBits() <= width && "Bounds too wide!");
+
+    lower.sextOrTrunc(width);
+    upper.sextOrTrunc(width);
+
+    SubTypeConstraint = new RangeConstraint(lower, upper);
+
+    // FIXME: Add this to the base types list of subtypes.
 }
 
+
+bool IntegerSubType::contains(IntegerSubType *subtype) const
+{
+    uint64_t lowerTarget;
+    uint64_t upperTarget;
+    uint64_t lowerSource;
+    uint64_t upperSource;
+
+    // If this subtype has a null constraint it cannot contain any other type.
+    if (isConstrained() && getConstraint()->isNull())
+        return false;
+
+    // If the target subtype is null, we certainly can contain it.
+    if (subtype->isConstrained() && subtype->getConstraint()->isNull())
+        return true;
+
+    // Otherwise, obtain bounds.
+    if (RangeConstraint *range = subtype->getConstraint()) {
+        lowerTarget = range->getLowerBound().getSExtValue();
+        upperTarget = range->getUpperBound().getSExtValue();
+    }
+    else {
+        IntegerType *baseTy = subtype->getTypeOf();
+        lowerTarget = baseTy->getLowerBound().getSExtValue();
+        upperTarget = baseTy->getUpperBound().getSExtValue();
+    }
+
+    if (RangeConstraint *range = this->getConstraint()) {
+        lowerSource = range->getLowerBound().getSExtValue();
+        upperSource = range->getUpperBound().getSExtValue();
+    }
+    else {
+        IntegerType *baseTy = this->getTypeOf();
+        lowerSource = baseTy->getLowerBound().getSExtValue();
+        upperSource = baseTy->getUpperBound().getSExtValue();
+    }
+
+    if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
+        return false;
+    return true;
+}
+
+bool IntegerSubType::contains(IntegerType *type) const
+{
+    // If this subtype is unconstrained, check if the base type contains the
+    // target. Otherwise, compare the bounds of this subtypes range and the
+    // given types representation limits.
+    if (!isConstrained())
+        return getTypeOf()->contains(type);
+
+    uint64_t lowerTarget = type->getLowerBound().getSExtValue();
+    uint64_t upperTarget = type->getUpperBound().getSExtValue();
+
+    RangeConstraint *range = this->getConstraint();
+    uint64_t lowerSource = range->getLowerBound().getSExtValue();
+    uint64_t upperSource = range->getUpperBound().getSExtValue();
+
+    if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
+        return false;
+    return true;
+}

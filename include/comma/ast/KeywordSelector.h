@@ -61,7 +61,7 @@ public:
           keyword(key), loc(loc), rhs(tyRef) { }
 
     /// Returns the identifier info representing the keyword.
-        IdentifierInfo *getKeyword() const { return keyword; }
+    IdentifierInfo *getKeyword() const { return keyword; }
 
     /// Returns the location of the keyword for this selection.
     Location getLocation()  const { return loc; }
@@ -71,6 +71,13 @@ public:
 
     /// Returns true if this selector has an expression as its RHS.
     bool isExprSelector() const { return llvm::isa<Expr>(rhs); }
+
+    //@{
+    /// Sets the right hand side of this selector, overwriting the previous
+    /// value.
+    void setRHS(Expr *expr) { rhs = expr; }
+    void setRHS(TypeRef *ref) { rhs = ref; }
+    //@}
 
     //@{
     /// If this selector has an expression on its right hand side, returns the

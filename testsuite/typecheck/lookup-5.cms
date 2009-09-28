@@ -9,7 +9,7 @@ end D;
 domain E add
 
    procedure Test is
-      Foo : Bool := true;
+      Foo : Boolean := true;
       import D;
    begin
       Foo;

@@ -272,11 +272,11 @@ Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
     //
     //   - The prefix is a DeclRefExpr resolving to an object of ArrayType.
     if (SubroutineRef *ref = lift_node<SubroutineRef>(prefix)) {
-        Ast *call = acceptSubroutineApplication(ref, argNodes);
+        SubroutineCall *call = acceptSubroutineApplication(ref, argNodes);
         if (call) {
             prefix.release();
             argNodes.release();
-            return getNode(call);
+            return getNode(call->asAst());
         }
         return getInvalidNode();
     }
@@ -349,8 +349,8 @@ TypeCheck::checkSubroutineArgumentNodes(NodeVector &argNodes,
     return true;
 }
 
-Ast *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
-                                            NodeVector &argNodes)
+SubroutineCall *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
+                                                       NodeVector &argNodes)
 {
     unsigned numArgs = argNodes.size();
     if (!ref->keepSubroutinesWithArity(numArgs)) {

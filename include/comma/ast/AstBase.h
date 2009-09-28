@@ -82,11 +82,13 @@ class SignatureDecl;
 class SigInstanceDecl;
 class Stmt;
 class StmtSequence;
+class SubroutineCall;
 class SubroutineDecl;
 class SubroutineRef;
 class SubroutineType;
 class SubType;
 class Type;
+class ConversionExpr;
 class TypeDecl;
 class TypeRef;
 class ValueDecl;
@@ -178,6 +180,7 @@ public:
         //
         // Expr nodes.
         //
+        AST_ConversionExpr,     ///< ConversionExpr
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
@@ -231,7 +234,7 @@ public:
         FIRST_SubType = AST_CarrierType,
         LAST_SubType = AST_IntegerSubType,
 
-        FIRST_Expr = AST_DeclRefExpr,
+        FIRST_Expr = AST_ConversionExpr,
         LAST_Expr = AST_PrjExpr,
 
         FIRST_Stmt = AST_AssignmentStmt,

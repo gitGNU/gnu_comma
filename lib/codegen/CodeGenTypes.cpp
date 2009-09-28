@@ -141,8 +141,7 @@ CodeGenTypes::lowerEnumType(const EnumerationType *type)
 {
     // Enumeration types are lowered to an integer type with sufficient capacity
     // to hold each element of the enumeration.
-    const EnumerationDecl *decl = type->getEnumerationDecl();
-    unsigned numBits = llvm::Log2_32_Ceil(decl->getNumLiterals());
+    unsigned numBits = llvm::Log2_32_Ceil(type->getNumElements());
     return getTypeForWidth(numBits);
 }
 
@@ -229,8 +228,7 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
         numElems = range.getZExtValue();
     }
     else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(indexType)) {
-        const EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
-        numElems = enumDecl->getNumLiterals();
+        numElems = enumTy->getNumElements();
     }
 
     const llvm::Type *elementTy = lowerType(type->getComponentType());
@@ -264,9 +262,8 @@ const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
         upperBound = intTy->getUpperBound();
     }
     else if (EnumerationType *enumTy = constraint->getAsEnumType()) {
-        EnumerationDecl *enumDecl = enumTy->getEnumerationDecl();
         lowerBound = 0;
-        upperBound = enumDecl->getNumLiterals() - 1;
+        upperBound = enumTy->getNumElements() - 1;
     }
 
     uint64_t numElems = getArrayWidth(lowerBound, upperBound);

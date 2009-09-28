@@ -1,9 +1,9 @@
 -- Ensure local and imported function declarations overload.
 
 domain D with
-   function Foo (X : Bool) return Bool;
+   function Foo (X : Boolean) return Boolean;
 add
-   function Foo (X : Bool) return Bool is
+   function Foo (X : Boolean) return Boolean is
    begin
       return X;
    end Foo;
@@ -13,7 +13,7 @@ domain E add
 
    type A is (An_A);
 
-   function Foo (X : Bool) return A is
+   function Foo (X : Boolean) return A is
    begin
       return An_A;
    end Foo;
