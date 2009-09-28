@@ -810,7 +810,9 @@ private:
 
     /// Adds the declarations present in the given region to the current scope
     /// as direct names.  This subroutine is used to introduce the implicit
-    /// operations which accompany a type declaration.
+    /// operations which accompany a type declaration.  If the region introduces
+    /// any conflicting names a diagnostic is posted and the corresponding
+    /// declaration is not added.
     void introduceImplicitDecls(DeclRegion *region);
 
     /// Utility routine for building TypeRef nodes over the given model.
