@@ -243,25 +243,38 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     if (!validateOverrideTarget(routineDecl))
         return getInvalidNode();
 
+    // Mark the routine as immediate since it is not inherited.
+    routineDecl->setImmediate();
+
     // Ensure this new declaration does not conflict with any other currently in
     // scope.
     if (Decl *conflict = scope->addDirectDecl(routineDecl)) {
-
-        // If the conflict is a subroutine, ensure the current decl forms its
-        // completion.
+        // If the conflict is a subroutine, check if the current declaration can
+        // serve as a completion.
         SubroutineDecl *fwdDecl = dyn_cast<SubroutineDecl>(conflict);
-        if (!(fwdDecl && definitionFollows &&
-              compatibleSubroutineDecls(fwdDecl, routineDecl))) {
+        if (fwdDecl && definitionFollows &&
+            compatibleSubroutineDecls(fwdDecl, routineDecl)) {
+
+            // Link this routine as the completion of the forward declaration.
+            fwdDecl->setDefiningDeclaration(routineDecl);
+
+            // If the forward declaration is present in the current region we do
+            // not add this node to the region.  This ensures that only one
+            // subroutine declaration with a given profile is listed.
+            if (!fwdDecl->isDeclaredIn(region))
+                region->addDecl(routineDecl);
+        }`
+        else {
             report(location, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());
             return getInvalidNode();
         }
     }
-
-    // Add the subroutine to the current declarative region and mark it as
-    // immediate (e.g. not inherited).
-    region->addDecl(routineDecl);
-    routineDecl->setImmediate();
+    else {
+        // The subroutine does not conflict or serve as a completion.  Add it to
+        // the current declarative region.
+        region->addDecl(routineDecl);
+    }
 
     // Since the declaration has been added permanently to the environment,
     // ensure the returned Node does not reclaim the decl.

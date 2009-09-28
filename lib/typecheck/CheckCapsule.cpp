@@ -435,35 +435,25 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
     // declarations and ensure that the AddDecl provides a definition.
     for (DeclRegion::ConstDeclIter iter = percent->beginDecls();
          iter != percent->endDecls(); ++iter) {
-        Decl *decl = *iter;
-        Type *target = 0;
 
-        // Extract the associated type from this decl.
-        if (SubroutineDecl *routineDecl = dyn_cast<SubroutineDecl>(decl))
-            target = routineDecl->getType();
-        else if (ValueDecl *valueDecl = dyn_cast<ValueDecl>(decl))
-            target = valueDecl->getType();
+        // Currently, the only kind of declarations which require a completion
+        // are subroutine decls.
+        SubroutineDecl *decl = dyn_cast<SubroutineDecl>(*iter);
 
+        if (!decl)
+            continue;
+
+        // Check that a defining declaration was processed.
+        //
         // FIXME: We need a better diagnostic here.  In particular, we should be
         // reporting which signature(s) demand the missing export.  However, the
         // current organization makes this difficult.  One solution is to link
         // declaration nodes with those provided by the original signature
         // definition.
-        if (target) {
-            Decl *candidate = add->findDecl(decl->getIdInfo(), target);
-            SubroutineDecl *srDecl = dyn_cast_or_null<SubroutineDecl>(candidate);
-            if (!candidate || (srDecl && !srDecl->hasBody())) {
-                report(domainLoc, diag::MISSING_EXPORT)
-                    << domainName << decl->getIdInfo();
-                allOK = false;
-            }
-            // Check that the parameter mode profiles match in the case of a
-            // subroutine.
-            if (srDecl) {
-                SubroutineDecl *targetRoutine = cast<SubroutineDecl>(decl);
-                if (!ensureMatchingParameterModes(srDecl, targetRoutine))
-                    allOK = false;
-            }
+        if (!decl->getDefiningDeclaration()) {
+            report(domainLoc, diag::MISSING_EXPORT)
+                << domainName << decl->getIdInfo();
+            allOK = false;
         }
     }
     return allOK;
