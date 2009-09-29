@@ -246,12 +246,14 @@ Node TypeCheck::acceptParameterAssociation(IdentifierInfo *key, Location loc,
     // Parameter associations can be built with an Expr on the rhs.
     if (Expr *expr = lift_node<Expr>(rhs)) {
         KeywordSelector *selector = new KeywordSelector(key, loc, expr);
+        rhs.release();
         return getNode(selector);
     }
 
     // Or with a TypeRef.
     if (TypeRef *ref = lift_node<TypeRef>(rhs)) {
         KeywordSelector *selector = new KeywordSelector(key, loc, ref);
+        rhs.release();
         assert(ref->isComplete() && "Invalid TypeRef!");
         return getNode(selector);
     }
