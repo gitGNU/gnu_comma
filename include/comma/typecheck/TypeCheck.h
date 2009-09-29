@@ -214,6 +214,7 @@ private:
         IdentifierInfo *name;   ///< The name of the enumeration decl.
         Location loc;           ///< Location of the declaration.
         ElemVec elements;       ///< Vector of Id/Loc pairs for each element.
+        bool isCharacterType;   ///< True if this is a character enumeration.
 
         EnumProfileInfo() { reset(); }
 
@@ -805,8 +806,9 @@ private:
     bool validateOverrideTarget(SubroutineDecl *overridingDecl);
 
     /// Helper for acceptEnumerationIdentifier and acceptEnumerationCharacter.
-    /// Forms a generic enumeration literal AST node.
-    void acceptEnumerationLiteral(IdentifierInfo *name, Location loc);
+    /// Forms a generic enumeration literal AST node.  Returns true if the
+    /// literal was generated successfully.
+    bool acceptEnumerationLiteral(IdentifierInfo *name, Location loc);
 
     /// Adds the declarations present in the given region to the current scope
     /// as direct names.  This subroutine is used to introduce the implicit

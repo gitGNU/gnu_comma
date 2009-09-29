@@ -560,10 +560,11 @@ void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
 
 void TypeCheck::acceptEnumerationCharacter(IdentifierInfo *name, Location loc)
 {
-    acceptEnumerationLiteral(name, loc);
+    if (acceptEnumerationLiteral(name, loc))
+        enumProfileInfo.isCharacterType = true;
 }
 
-void TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
+bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
 {
     assert(enumProfileInfo.isInitialized() &&
            "Enum profile info not initialized!");
@@ -577,7 +578,7 @@ void TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
         if (I->first == name) {
             enumProfileInfo.markInvalid();
             report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
-            return;
+            return false;
         }
     }
 
@@ -586,10 +587,11 @@ void TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
     if (name == enumProfileInfo.name) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(enumProfileInfo.loc);
-        return;
+        return false;
     }
 
     enumProfileInfo.addElement(name, loc);
+    return true;
 }
 
 void TypeCheck::endEnumeration()
