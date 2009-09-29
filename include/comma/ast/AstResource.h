@@ -124,8 +124,6 @@ public:
                                      IndexConstraint *constraint);
     //@}
 
-    IdentifierInfo *getTypeIdInfo(Type *type);
-
     /// Creates a function declaration corresponding to the given primitive
     /// operation.
     ///

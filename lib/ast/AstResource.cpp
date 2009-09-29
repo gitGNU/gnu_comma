@@ -233,36 +233,6 @@ ArraySubType *AstResource::createArraySubType(IdentifierInfo *name,
     return res;
 }
 
-IdentifierInfo *AstResource::getTypeIdInfo(Type *type)
-{
-    // Function and procedure types are never named.
-    if (isa<SubroutineType>(type))
-        return 0;
-
-    // Subtypes can be either anonymous or named.
-    if (SubType *subtype = dyn_cast<SubType>(type))
-        return subtype->getIdInfo();
-
-    // DomainTypes are always named.
-    if (DomainType *dom = dyn_cast<DomainType>(type))
-        return dom->getIdInfo();
-
-    // Otherwise, there should be a declaration node having this type as a base.
-    std::vector<Decl*>::iterator I = decls.begin();
-    std::vector<Decl*>::iterator E = decls.end();
-    for ( ; I != E; ++I) {
-        if (TypeDecl *decl = dyn_cast<TypeDecl>(decl)) {
-            Type *declTy = decl->getType();
-            if (SubType *subtype = dyn_cast<SubType>(declTy))
-                declTy = subtype->getTypeOf();
-            if (type == declTy)
-                return decl->getIdInfo();
-        }
-    }
-
-    return 0;
-}
-
 FunctionDecl *
 AstResource::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
                                  Type *type, DeclRegion *region)
