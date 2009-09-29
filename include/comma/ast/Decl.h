@@ -1047,6 +1047,15 @@ public:
     // member of this enumeration.
     EnumLiteral *findLiteral(IdentifierInfo *name);
 
+    // Marks this declaration as a character enumeration.
+    //
+    // This method should be called if any of the literals constituting this
+    // declaration are character literals.
+    void markAsCharacterType() { bits = 1; }
+
+    // Returns true if this declaration denotes a character enumeration.
+    bool isCharacterType() const { return bits == 1; }
+
     static bool classof(const EnumerationDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumerationDecl;

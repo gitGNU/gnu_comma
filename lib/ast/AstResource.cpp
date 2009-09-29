@@ -95,6 +95,7 @@ void AstResource::initializeCharacter()
         elems.push_back(IdLocPair(id, 0));
     }
     theCharacterDecl = createEnumDecl(charId, 0, &elems[0], elems.size(), 0);
+    theCharacterDecl->markAsCharacterType();
 }
 
 void AstResource::initializeRootInteger()

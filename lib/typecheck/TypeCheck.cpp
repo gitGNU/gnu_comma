@@ -630,6 +630,11 @@ void TypeCheck::endEnumeration()
         return;
     }
 
+    // Mark the declaration as a character type if any character literals were
+    // used to define it.
+    if (enumProfileInfo.isCharacterType)
+        decl->markAsCharacterType();
+
     region->addDecl(decl);
     decl->generateImplicitDeclarations(resource);
     introduceImplicitDecls(decl);
