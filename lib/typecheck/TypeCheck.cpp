@@ -597,7 +597,7 @@ void TypeCheck::endEnumeration()
     IdentifierInfo *name = enumProfileInfo.name;
     Location loc = enumProfileInfo.loc;
     DeclRegion *region = currentDeclarativeRegion();
-    std::pair<IdentifierInfo*, Location> *elems = &enumProfileInfo.elements[0];
+    EnumProfileInfo::IdLocPair *elems = enumProfileInfo.elements.data();
     unsigned numElems = enumProfileInfo.elements.size();
     EnumProfileInfoReseter reseter(enumProfileInfo);
     EnumerationDecl *decl;
