@@ -184,6 +184,8 @@ DIAGNOSTIC(EXPECTED_ARRAY_FOR_INDEX, ERROR,
            "Expected array type for indexed component.")
 DIAGNOSTIC(INVALID_ARRAY_INDEX, ERROR,
            "Invalid array index.")
+DIAGNOSTIC(UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT, ERROR,
+           "Objects of unconstrained array type require initialization.")
 DIAGNOSTIC(EXPECTED_NAMED_SUBROUTINE, ERROR,
            "Expected named subroutine.")
 DIAGNOSTIC(VALUE_NOT_IN_RANGE_FOR_TYPE, ERROR,

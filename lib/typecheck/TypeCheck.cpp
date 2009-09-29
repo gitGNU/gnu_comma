@@ -507,6 +507,13 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
         if (init->getType() != objTy)
             init = new ConversionExpr(init, objTy);
     }
+    else if (ArraySubType *arrTy = dyn_cast<ArraySubType>(objTy)) {
+        // Unconstrained array objects require initialization.
+        if (!arrTy->isConstrained()) {
+            report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
+            return false;
+        }
+    }
 
     ObjectDecl *decl = new ObjectDecl(name, objTy, loc, init);
 
