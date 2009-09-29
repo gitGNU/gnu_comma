@@ -1053,7 +1053,7 @@ public:
     }
 
 private:
-    // Private constructor for use by AstResource.
+    // Private constructors for use by AstResource.
     EnumerationDecl(AstResource &resource,
                     IdentifierInfo *name, Location loc,
                     std::pair<IdentifierInfo*, Location> *elems,

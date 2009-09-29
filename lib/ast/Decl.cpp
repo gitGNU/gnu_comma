@@ -708,16 +708,14 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
         return mode;
 }
 
-
-
-
 //===----------------------------------------------------------------------===//
 // EnumLiteral
 EnumLiteral::EnumLiteral(AstResource &resource,
                          IdentifierInfo *name, Location loc, unsigned index,
                          EnumerationDecl *parent)
     : FunctionDecl(AST_EnumLiteral, resource,
-                   name, loc, 0, 0, parent->getType(), parent)
+                   name, loc, 0, 0, parent->getType(), parent),
+      index(index)
 {
     setAsPrimitive(PO::ENUM_op);
 }

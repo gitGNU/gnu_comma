@@ -27,6 +27,7 @@ void AstResource::initializeLanguageDefinedTypes()
 {
     // Build the declaration nodes for each language defined type.
     initializeBoolean();
+    initializeCharacter();
     initializeRootInteger();
     initializeInteger();
     initializeNatural();
@@ -35,6 +36,7 @@ void AstResource::initializeLanguageDefinedTypes()
     theBooleanDecl->generateImplicitDeclarations(*this);
     theRootIntegerDecl->generateImplicitDeclarations(*this);
     theIntegerDecl->generateImplicitDeclarations(*this);
+    theCharacterDecl->generateImplicitDeclarations(*this);
 }
 
 void AstResource::initializeBoolean()
@@ -51,6 +53,50 @@ void AstResource::initializeBoolean()
     theBooleanDecl = createEnumDecl(boolId, 0, &elems[0], 2, 0);
 }
 
+void AstResource::initializeCharacter()
+{
+    // FIXME:  Eventually there will be a general library API for working with
+    // character sets.  For now, we just build the type Character by hand.
+    //
+    // NOTE: The following is just the first half of the full standard character
+    // type.
+    static const unsigned numNames = 128;
+    const char* names[numNames] = {
+        "NUL",   "SOH",   "STX",   "ETX",   "EOT",   "ENQ",   "ACK",   "BEL",
+        "BS",    "HT",    "LF",    "VT",    "FF",    "CR",    "SO",    "SI",
+
+        "DLE",   "DC1",   "DC2",   "DC3",   "DC4",   "NAK",   "SYN",   "ETB",
+        "CAN",   "EM",    "SUB",   "ESC",   "FS",    "GS",    "RS",    "US",
+
+        "' '",   "'!'",   "'\"'",  "'#'",   "'$'",   "'%'",   "'&'",   "'''",
+        "'('",   "')'",   "'*'",   "'+'",   "','",   "'-'",   "'.'",   "'/'",
+
+        "'0'",   "'1'",   "'2'",   "'3'",   "'4'",   "'5'",   "'6'",   "'7'",
+        "'8'",   "'9'",   "':'",   "';'",   "'<'",   "'='",   "'>'",   "'?'",
+
+        "'@'",   "'A'",   "'B'",   "'C'",   "'D'",   "'E'",   "'F'",   "'G'",
+        "'H'",   "'I'",   "'J'",   "'K'",   "'L'",   "'M'",   "'N'",   "'O'",
+
+        "'P'",   "'Q'",   "'R'",   "'S'",   "'T'",   "'U'",   "'V'",   "'W'",
+        "'X'",   "'Y'",   "'Z'",   "'['",   "'\\'",  "']'",   "'^'",   "'_'",
+
+        "'`'",   "'a'",   "'b'",   "'c'",   "'d'",   "'e'",   "'f'",   "'g'",
+        "'h'",   "'i'",   "'j'",   "'k'",   "'l'",   "'m'",   "'n'",   "'o'",
+
+        "'p'",   "'q'",   "'r'",   "'s'",   "'t'",   "'u'",   "'v'",   "'w'",
+        "'x'",   "'y'",   "'z'",   "'{'",   "'|'",   "'}'",   "'~'",   "DEL" };
+
+    IdentifierInfo *charId = getIdentifierInfo("Character");
+
+    typedef std::pair<IdentifierInfo*, Location> IdLocPair;
+    llvm::SmallVector<IdLocPair, numNames> elems;
+    for (unsigned i = 0; i < numNames; ++i) {
+        IdentifierInfo *id = getIdentifierInfo(names[i]);
+        elems.push_back(IdLocPair(id, 0));
+    }
+    theCharacterDecl = createEnumDecl(charId, 0, &elems[0], elems.size(), 0);
+}
+
 void AstResource::initializeRootInteger()
 {
     // Define root_integer as a signed 64 bit type.
@@ -61,9 +107,8 @@ void AstResource::initializeRootInteger()
     llvm::APInt upper = llvm::APInt::getSignedMaxValue(64);
     IntegerLiteral *lowerExpr = new IntegerLiteral(lower, 0);
     IntegerLiteral *upperExpr = new IntegerLiteral(upper, 0);
-    theRootIntegerDecl = createIntegerDecl(id, 0,
-                                           lowerExpr, upperExpr,
-                                           lower, upper, 0);
+    theRootIntegerDecl =
+        createIntegerDecl(id, 0, lowerExpr, upperExpr, lower, upper, 0);
 }
 
 void AstResource::initializeInteger()

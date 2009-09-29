@@ -63,6 +63,10 @@ void TypeCheck::populateInitialEnvironment()
     IntegerDecl *theIntegerDecl = resource.getTheIntegerDecl();
     scope->addDirectDecl(theIntegerDecl);
     introduceImplicitDecls(theIntegerDecl);
+
+    EnumerationDecl *theCharacterDecl = resource.getTheCharacterDecl();
+    scope->addDirectDecl(theCharacterDecl);
+    introduceImplicitDecls(theCharacterDecl);
 }
 
 void TypeCheck::deleteNode(Node &node)

@@ -153,6 +153,9 @@ public:
     EnumerationDecl *getTheBooleanDecl() const { return theBooleanDecl; }
     EnumSubType *getTheBooleanType() const;
 
+    EnumerationDecl *getTheCharacterDecl() const { return theCharacterDecl; }
+    EnumSubType *getTheCharacterType() const;
+
     IntegerDecl *getTheRootIntegerDecl() const { return theRootIntegerDecl; }
     IntegerSubType *getTheRootIntegerType() const;
 
@@ -179,6 +182,7 @@ private:
 
     /// Declaration nodes representing the language defined types.
     EnumerationDecl *theBooleanDecl;
+    EnumerationDecl *theCharacterDecl;
     IntegerDecl *theRootIntegerDecl;
     IntegerDecl *theIntegerDecl;
 
@@ -191,6 +195,7 @@ private:
     //@{
     void initializeLanguageDefinedTypes();
     void initializeBoolean();
+    void initializeCharacter();
     void initializeRootInteger();
     void initializeInteger();
     void initializeNatural();
