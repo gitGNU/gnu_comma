@@ -204,3 +204,9 @@ Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
 
     return getNode(new IntegerLiteral(value, loc));
 }
+
+Node TypeCheck::acceptStringLiteral(const char *string, unsigned len,
+                                    Location loc)
+{
+    assert(false && "String literal support is not yet implemented!");
+}

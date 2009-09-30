@@ -127,6 +127,8 @@ public:
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
 
+    Node acceptStringLiteral(const char *string, unsigned len, Location loc);
+
     Node acceptIfStmt(Location loc, Node condition, NodeVector &consequents);
 
     Node acceptElseStmt(Location loc, Node ifNode, NodeVector &alternates);

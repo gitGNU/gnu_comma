@@ -401,6 +401,18 @@ public:
 
     virtual Node acceptIntegerLiteral(llvm::APInt &value, Location loc) = 0;
 
+    /// Invoked when the parser encounters a string literal.
+    ///
+    /// \param string A pointer to the first quotation character of the string
+    /// literal.  The string is not necessarily null terminated, and is owned by
+    /// the parser.  Clients should copy the contents of the string if needed.
+    ///
+    /// \param len The number of characters in the string.
+    ///
+    /// \param loc The location of the first quotation character.
+    virtual Node acceptStringLiteral(const char *string, unsigned len,
+                                     Location loc) = 0;
+
     /// Submits an import from the given type node.
     virtual bool acceptImportDeclaration(Node importedType) = 0;
 

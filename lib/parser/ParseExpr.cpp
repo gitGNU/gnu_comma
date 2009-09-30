@@ -233,7 +233,13 @@ Node Parser::parseRelationalOperator()
 
 Node Parser::parsePrimaryExpr()
 {
-    if (reduceToken(Lexer::TKN_LPAREN)) {
+    switch (currentTokenCode()) {
+
+    default:
+        return parseName(false);
+
+    case Lexer::TKN_LPAREN: {
+        ignoreToken();
         Node result = parseExpr();
         if (!reduceToken(Lexer::TKN_RPAREN))
             report(diag::UNEXPECTED_TOKEN_WANTED)
@@ -241,17 +247,17 @@ Node Parser::parsePrimaryExpr()
         return result;
     }
 
-    if (currentTokenIs(Lexer::TKN_INTEGER))
+    case Lexer::TKN_INTEGER:
         return parseIntegerLiteral();
 
-    return parseName(false);
+    case Lexer::TKN_STRING:
+        return parseStringLiteral();
+    }
 }
 
 Node Parser::parseIntegerLiteral()
 {
     assert(currentTokenIs(Lexer::TKN_INTEGER));
-
-    typedef std::char_traits<char> Traits;
 
     const char *rep = currentToken().getRep();
     unsigned repLen = currentToken().getLength();
@@ -262,4 +268,14 @@ Node Parser::parseIntegerLiteral()
     return client.acceptIntegerLiteral(value, loc);
 }
 
+Node Parser::parseStringLiteral()
+{
+    assert(currentTokenIs(Lexer::TKN_STRING));
+
+    const char *rep = currentToken().getRep();
+    unsigned repLen = currentToken().getLength();
+    Location loc = ignoreToken();
+
+    return client.acceptStringLiteral(rep, repLen, loc);
+}
 

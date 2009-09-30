@@ -86,6 +86,7 @@ public:
     Node parsePrjExpr();
     Node parseOperatorExpr();
     Node parseIntegerLiteral();
+    Node parseStringLiteral();
 
     Node parseName(bool forStatement);
     Node parseDirectName(bool forStatement);
