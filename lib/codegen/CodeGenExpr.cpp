@@ -21,7 +21,6 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-
 llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
 {
     llvm::Value *val = 0;
@@ -50,6 +49,10 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
 
     case Ast::AST_IntegerLiteral:
         val = emitIntegerLiteral(cast<IntegerLiteral>(expr));
+        break;
+
+    case Ast::AST_StringLiteral:
+        val = emitStringLiteral(cast<StringLiteral>(expr));
         break;
 
     case Ast::AST_IndexedArrayExpr:
@@ -406,6 +409,30 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     return llvm::ConstantInt::get(CG.getLLVMContext(), val);
 }
 
+llvm::Value *CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
+{
+    assert(expr->hasType() && "Unresolved string literal type!");
+
+    // Build a constant array representing the literal.
+    const llvm::ArrayType *arrTy = CGTypes.lowerArraySubType(expr->getType());
+    const llvm::Type *elemTy = arrTy->getElementType();
+    llvm::StringRef string = expr->getString();
+
+    std::vector<llvm::Constant *> elements;
+    const EnumerationDecl *component = expr->getComponentType();
+    for (llvm::StringRef::iterator I = string.begin(); I != string.end(); ++I) {
+        unsigned encoding = component->getEncoding(*I);
+        elements.push_back(llvm::ConstantInt::get(elemTy, encoding));
+    }
+
+    // Build a constant global array to represent this literal.
+    //
+    // FIXME:  It might be a better policy to return the constant representation
+    // here and let the use sites determine what to do with the data.
+    llvm::Constant *data = CG.getConstantArray(elemTy, elements);
+    return CG.emitInternArray(data);
+}
+
 llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 {
     assert(expr->getNumIndices() == 1 &&
@@ -559,7 +586,7 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
 
     // Raise an exception if the check failed.
     Builder.SetInsertPoint(checkFailBB);
-    llvm::GlobalVariable *msg = CG.emitStringLiteral("Range check failed!");
+    llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
     CRT.raise(Builder, msg);
 
     // The checked value passed the tests.  Truncate if needed to the target

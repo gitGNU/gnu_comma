@@ -112,10 +112,18 @@ public:
     llvm::GlobalValue *lookupCapsuleInfo(Domoid *domoid) const;
 
     /// \brief Emits a string with internal linkage, returning the global
+    /// variable for the associated data.  If addNull is true, emit as a null
+    /// terminated string.
+    llvm::GlobalVariable *emitInternString(const llvm::StringRef &elems,
+                                           bool addNull = true,
+                                           bool isConstant = true,
+                                           const std::string &name = "");
+
+    /// \brief Emits an array with internal linkage, returning the global
     /// variable for the associated data.
-    llvm::GlobalVariable *emitStringLiteral(const std::string &str,
-                                            bool isConstant = true,
-                                            const std::string &name = "");
+    llvm::GlobalVariable *emitInternArray(llvm::Constant *init,
+                                          bool isConstant = true,
+                                          const std::string &name = "");
 
     /// \brief Returns a null pointer constant of the specified type.
     llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
@@ -222,17 +230,24 @@ public:
     llvm::Constant *getConstantArray(const llvm::Type *elementType,
                                      std::vector<llvm::Constant*> &elems) const;
 
+    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
+                                      uint64_t value);
+
     /// \brief Returns a function declaration for the given llvm intrinsic.
     ///
     /// This method is not appropriate for the retrieval of overloaded
     /// intrinsics.
     llvm::Function *getLLVMIntrinsic(llvm::Intrinsic::ID id) {
+        assert(!llvm::Intrinsic::isOverloaded(id) &&
+               "Cannot retrieve overloaded intrinsics!");
         return llvm::Intrinsic::getDeclaration(M, id);
     }
 
+    /// \brief Returns a function declaration for the llvm.memcpy.i64 intrinsic.
+    llvm::Function *getMemcpy64() const;
+
     /// \brief Returns a pointer to a global exception object.
     llvm::GlobalVariable *getEHInfo();
-
 
 private:
     /// The Module we are emiting code for.

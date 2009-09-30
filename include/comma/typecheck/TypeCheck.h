@@ -626,6 +626,12 @@ private:
     // is returned and appropriate diagnostics are posted.
     bool resolveIntegerLiteral(IntegerLiteral *intLit, Type *context);
 
+    // Resolves the type of the given string literal, and ensures that the given
+    // type context is itself compatible with the literal provided.  Returns
+    // true if the literal was successfully checked.  Otherwise, false is
+    // returned and appropriate diagnostics are posted.
+    bool resolveStringLiteral(StringLiteral *strLit, Type *context);
+
     // Resolves the given call expression to one which satisfies the given
     // target type and returns true.  Otherwise, false is returned and the
     // appropriate diagnostics are emitted.

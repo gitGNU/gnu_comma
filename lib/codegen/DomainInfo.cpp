@@ -93,7 +93,7 @@ llvm::Constant *DomainInfo::genName(CodeGenCapsule &CGC)
     Domoid *theCapsule = CGC.getCapsule();
     const llvm::PointerType *NameTy = getFieldType<Name>();
 
-    llvm::Constant *capsuleName = CG.emitStringLiteral(theCapsule->getString());
+    llvm::Constant *capsuleName = CG.emitInternString(theCapsule->getString());
     return CG.getPointerCast(capsuleName, NameTy);
 }
 

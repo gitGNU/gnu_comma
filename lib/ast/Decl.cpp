@@ -13,6 +13,7 @@
 #include "comma/ast/Stmt.h"
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 
 using namespace comma;
@@ -765,6 +766,22 @@ EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 
     if (range.first != range.second)
         return cast<EnumLiteral>(*range.first);
+    return 0;
+}
+
+const EnumLiteral *EnumerationDecl::findCharacterLiteral(char ch) const
+{
+    char target[] = { '\'', ch, '\'', 0 };
+
+    // Traverse the declarative region and do a case by case comparison of the
+    // literal names and the target string.
+    for (ConstDeclIter I = beginDecls(); I != endDecls(); ++I) {
+        if (EnumLiteral *lit = dyn_cast<EnumLiteral>(*I)) {
+            const char *name = lit->getIdInfo()->getString();
+            if (strcmp(name, target) == 0)
+                return lit;
+        }
+    }
     return 0;
 }
 

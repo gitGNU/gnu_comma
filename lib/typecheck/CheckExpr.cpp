@@ -12,6 +12,8 @@
 #include "comma/ast/TypeRef.h"
 #include "comma/typecheck/TypeCheck.h"
 
+#include <algorithm>
+
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
@@ -62,13 +64,15 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
 // diagnostics are emitted.
 bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
 {
-    // Currently, only two types of expressions are "sensitive" to context,
-    // meaning that we might need to patch up the AST so that it conforms to the
-    // context -- IntegerLiterals and FunctionCallExpr's.
-    if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(expr))
-        return resolveIntegerLiteral(intLit, context);
+    // Three types of expressions are "sensitive" to context, meaning that we
+    // might need to patch up the AST so that it conforms to the context --
+    // FunctionCallExpr, IntegerLiteral, and StringLiteral.
     if (FunctionCallExpr *fcall = dyn_cast<FunctionCallExpr>(expr))
         return resolveFunctionCall(fcall, context);
+    if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(expr))
+        return resolveIntegerLiteral(intLit, context);
+    if (StringLiteral *strLit = dyn_cast<StringLiteral>(expr))
+        return resolveStringLiteral(strLit, context);
 
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
@@ -205,8 +209,143 @@ Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
     return getNode(new IntegerLiteral(value, loc));
 }
 
-Node TypeCheck::acceptStringLiteral(const char *string, unsigned len,
+namespace {
+
+/// Helper function for acceptStringLiteral().  Extracts the enumeration
+/// declarations resulting from the lookup of a character literal.
+void getVisibleEnumerations(Resolver &resolver,
+                            llvm::SmallVectorImpl<EnumerationDecl*> &enums)
+{
+    typedef llvm::SmallVector<SubroutineDecl*, 8> RoutineBuff;
+    RoutineBuff routines;
+
+    resolver.getVisibleSubroutines(routines);
+
+    RoutineBuff::iterator I = routines.begin();
+    RoutineBuff::iterator E = routines.end();
+    for ( ; I != E; ++I) {
+        EnumLiteral *lit = cast<EnumLiteral>(*I);
+        enums.push_back(lit->getDeclRegion());
+    }
+}
+
+/// Helper function for acceptStringLiteral().  Forms the intersection of
+/// component enumeration types for a string literal.
+void intersectComponentTypes(StringLiteral *string,
+                             llvm::SmallVectorImpl<EnumerationDecl*> &enums)
+{
+    typedef StringLiteral::component_iterator iterator;
+    iterator I = string->begin_component_types();
+    while (I != string->end_component_types()) {
+        EnumerationDecl *decl = *I;
+        ++I;
+        if (std::find(enums.begin(), enums.end(), decl) == enums.end())
+            string->removeComponentType(decl);
+    }
+}
+
+} // end anonymous namespace.
+
+Node TypeCheck::acceptStringLiteral(const char *chars, unsigned len,
                                     Location loc)
 {
-    assert(false && "String literal support is not yet implemented!");
+    // The parser provides us with a string which includes the quotation marks.
+    // This means that the given length is at least 2.  Our internal
+    // representation drops the outer quotes.
+    assert(len >= 2 && chars[0] == '"' && chars[len - 1] == '"' &&
+           "Unexpected string format!");
+
+    const char *I = chars + 1;
+    const char *E = chars + len - 1;
+    StringLiteral *string = new StringLiteral(I, E, loc);
+
+    char buff[3] = { '\'', 0, '\'' };
+    typedef llvm::SmallVector<EnumerationDecl*, 8> LitVec;
+
+    while (I != E) {
+        buff[1] = *I;
+        IdentifierInfo *id = resource.getIdentifierInfo(&buff[0], 3);
+        Resolver &resolver = scope->getResolver();
+        LitVec literals;
+
+        ++I;
+        resolver.resolve(id);
+        getVisibleEnumerations(resolver, literals);
+
+        // We should always have a set of visible subroutines.  Character
+        // literals are modeled as functions with "funny" names (therefore, they
+        // cannot conflict with any other kind of declaration), and the language
+        // defined character types are always visible (unless hidden by a
+        // character declaration of the name name).
+        assert(!literals.empty() && "Failed to resolve character literal!");
+
+        // If the string literal has zero interpretaions this must be the first
+        // character in the string.  Add each resolved declaration.
+        if (string->zeroComponentTypes()) {
+            string->addComponentTypes(literals.begin(), literals.end());
+            continue;
+        }
+
+        // Form the intersection of the current component types with the
+        // resolved types.
+        intersectComponentTypes(string, literals);
+
+        // The result of the interesction should never be zero since the
+        // language defined character types supply declarations for all possible
+        // literals.
+        assert(!string->zeroComponentTypes() && "Disjoint character types!");
+    }
+
+    return getNode(string);
+}
+
+bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
+{
+    // First, ensure the type context is a string array type.
+    ArraySubType *arrTy = dyn_cast<ArraySubType>(context);
+    if (!arrTy || !arrTy->isStringType()) {
+        report(strLit->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+
+    // The array is a string type.  Check that the string literal has at least
+    // one interpretation of its components which matches the component type of
+    // the target.
+    //
+    // FIXME: more work needs to be done here when the enumeration type is
+    // constrained.
+    EnumSubType *enumTy = cast<EnumSubType>(arrTy->getComponentType());
+    if (!strLit->containsComponentType(enumTy)) {
+        report(strLit->getLocation(), diag::STRING_COMPONENTS_DO_NOT_SATISFY)
+            << enumTy->getIdInfo();
+        return false;
+    }
+
+    // If the array type is statically constrained, ensure that the string is of
+    // the proper width.  Currently, all constrained array indices are
+    // statically constrained.
+    if (arrTy->isConstrained()) {
+        uint64_t arrLength = arrTy->length();
+        uint64_t strLength = strLit->length();
+
+        if (arrLength < strLength) {
+            report(strLit->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+                << arrTy->getIdInfo();
+            return false;
+        }
+        if (arrLength > strLength) {
+            report(strLit->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
+                << arrTy->getIdInfo();
+            return false;
+        }
+
+        /// Resolve the component type of the literal to the component type of
+        /// the array and set the type of the literal to the type of the array.
+        strLit->resolveComponentType(enumTy);
+        strLit->setType(arrTy);
+        return true;
+    }
+
+    assert(false && "Unconstrained array types are not yet supported!");
+    return false;
 }

@@ -40,6 +40,7 @@ void ExprVisitor::visitExpr(Expr *node)
     case DISPATCH(InjExpr, node);
     case DISPATCH(PrjExpr, node);
     case DISPATCH(IntegerLiteral, node);
+    case DISPATCH(StringLiteral, node);
     case DISPATCH(ConversionExpr, node);
     };
 }
@@ -53,4 +54,5 @@ void ExprVisitor::visitIndexedArrayExpr(IndexedArrayExpr *node) { }
 void ExprVisitor::visitInjExpr(InjExpr *node) { }
 void ExprVisitor::visitPrjExpr(PrjExpr *node) { }
 void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }
+void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
 void ExprVisitor::visitConversionExpr(ConversionExpr *node) { }

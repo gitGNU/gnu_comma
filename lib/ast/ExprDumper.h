@@ -62,6 +62,7 @@ private:
     void visitInjExpr(InjExpr *node);
     void visitPrjExpr(PrjExpr *node);
     void visitIntegerLiteral(IntegerLiteral *node);
+    void visitStringLiteral(StringLiteral *node);
     void visitConversionExpr(ConversionExpr *node);
 };
 

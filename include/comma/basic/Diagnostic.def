@@ -190,3 +190,9 @@ DIAGNOSTIC(EXPECTED_NAMED_SUBROUTINE, ERROR,
            "Expected named subroutine.")
 DIAGNOSTIC(VALUE_NOT_IN_RANGE_FOR_TYPE, ERROR,
            "Value not in range for type `%0'.")
+DIAGNOSTIC(STRING_COMPONENTS_DO_NOT_SATISFY, ERROR,
+           "Cannot resolve string components to type `%0'.")
+DIAGNOSTIC(TOO_FEW_ELEMENTS_FOR_TYPE, ERROR,
+           "Too few elements for type `%0'.")
+DIAGNOSTIC(TOO_MANY_ELEMENTS_FOR_TYPE, ERROR,
+           "Too many elements for type `%0'.")

@@ -38,7 +38,8 @@ public:
         CLASS_Enum,
         CLASS_Integer,
         CLASS_Composite,
-        CLASS_Array
+        CLASS_Array,
+        CLASS_String
     };
 
     /// Returns true if this type is a member of the given classification.
@@ -61,6 +62,9 @@ public:
 
     /// Returns true if this type denotes an array type.
     bool isArrayType() const;
+
+    /// Returns true if this type denotes a string type.
+    bool isStringType() const;
 
     ArrayType *getAsArrayType();
     IntegerType *getAsIntegerType();
@@ -269,6 +273,12 @@ public:
     /// attributes such as First, Last, Size, etc.
     unsigned getNumElements() const { return numElems; }
 
+    /// Marks this enumeration as a character type.
+    void markAsCharacterType() { bits = 1; }
+
+    /// Returns true if this enumeration type is a character type.
+    bool isCharacterType() const { return bits == 1; }
+
     // Support isa and dyn_cast.
     static bool classof(const EnumerationType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -357,11 +367,18 @@ public:
     /// Returns the rank (dimensionality) of this array type.
     unsigned getRank() const { return rank; }
 
+    /// Returns true if this is a vector type (an array of rank 1).
+    bool isVector() const { return rank == 1; }
+
     /// Returns the i'th index type of this array.
     SubType *getIndexType(unsigned i) const {
         assert(i < rank && "Index is out of bounds!");
         return indexTypes[i];
     }
+
+    /// Return the length of the first dimension.  This operation is valid only
+    /// if this is a statically constrained array type.
+    uint64_t length() const;
 
     /// \name Index Type Iterators.
     ///
@@ -499,6 +516,10 @@ public:
             return getIndexConstraint(i);
         return getTypeOf()->getIndexType(i);
     }
+
+    /// Returns the length of the first dimension of this array.  This operation
+    /// is valid iff the index type is statically constrained.
+    uint64_t length() const { return getTypeOf()->length(); }
 
     /// Returns the index constraint associated with this subtype, or null if
     /// there are not any.

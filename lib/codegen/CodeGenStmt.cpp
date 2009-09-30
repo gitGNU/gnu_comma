@@ -322,7 +322,7 @@ void CodeGenRoutine::emitScalarRangeCheck(DeclRefExpr *target,
 
     // Raise an exception if the check failed.
     Builder.SetInsertPoint(checkFailBB);
-    llvm::GlobalVariable *msg = CG.emitStringLiteral("Range check failed!");
+    llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
     CRT.raise(Builder, msg);
 
     // We are done.

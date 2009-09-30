@@ -173,7 +173,7 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
     // Assertion case for when the catch-all failed.  This should never happen.
     Builder.SetInsertPoint(assertBB);
     llvm::GlobalVariable *message =
-        emitStringLiteral("Unhandled exception in main!");
+        emitInternString("Unhandled exception in main!");
     llvm::Value *msgPtr = getPointerCast(message, getPointerType(getInt8Ty()));
     CRT->assertFail(Builder, msgPtr);
 }
@@ -194,11 +194,17 @@ llvm::GlobalVariable *CodeGen::getEHInfo()
 
     std::vector<llvm::Constant*> elts;
     elts.push_back(llvm::ConstantInt::get(getInt64Ty(), uint64_t(3)));
-    elts.push_back(getPointerCast(emitStringLiteral("Comma Exception"), bytePtr));
+    elts.push_back(getPointerCast(emitInternString("Comma Exception"), bytePtr));
     llvm::Constant *theInfo = llvm::ConstantStruct::get(theType, elts);
 
     ehInfo = makeInternGlobal(theInfo, true);
     return ehInfo;
+}
+
+llvm::Function *CodeGen::getMemcpy64() const
+{
+    const llvm::Type *Tys[1] = { getInt64Ty() };
+    return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
 }
 
 bool CodeGen::instancesPending()
@@ -290,15 +296,25 @@ llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
         return 0;
 }
 
-llvm::GlobalVariable *CodeGen::emitStringLiteral(const std::string &str,
-                                                 bool isConstant,
-                                                 const std::string &name)
+llvm::GlobalVariable *CodeGen::emitInternString(const llvm::StringRef &elems,
+                                                bool addNull,
+                                                bool isConstant,
+                                                const std::string &name)
 {
     llvm::LLVMContext &ctx = getLLVMContext();
-    llvm::Constant *stringConstant = llvm::ConstantArray::get(ctx, str, true);
-    return new llvm::GlobalVariable(*M, stringConstant->getType(), isConstant,
+    llvm::Constant *string = llvm::ConstantArray::get(ctx, elems, addNull);
+    return new llvm::GlobalVariable(*M, string->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
-                                    stringConstant, name);
+                                    string, name);
+}
+
+llvm::GlobalVariable *CodeGen::emitInternArray(llvm::Constant *init,
+                                               bool isConstant,
+                                               const std::string &name)
+{
+    return new llvm::GlobalVariable(*M, init->getType(), isConstant,
+                                    llvm::GlobalValue::InternalLinkage,
+                                    init, name);
 }
 
 llvm::Constant *CodeGen::getNullPointer(const llvm::PointerType *Ty) const
@@ -368,3 +384,10 @@ CodeGen::getConstantArray(const llvm::Type *elementType,
     llvm::ArrayType *arrayTy = llvm::ArrayType::get(elementType, elems.size());
     return llvm::ConstantArray::get(arrayTy, elems);
 }
+
+llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
+                                           uint64_t value)
+{
+    return llvm::ConstantInt::get(type, value);
+}
+

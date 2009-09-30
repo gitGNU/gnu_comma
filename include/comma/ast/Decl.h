@@ -943,6 +943,14 @@ public:
     /// Returns the index (or value) of this EnumLiteral.
     unsigned getIndex() const { return index; }
 
+    /// Returns the EnumerationDecl this literal belongs to.
+    EnumerationDecl *getDeclRegion() {
+        return llvm::cast<EnumerationDecl>(context);
+    }
+    const EnumerationDecl *getDeclRegion() const {
+        return llvm::cast<EnumerationDecl>(context);
+    }
+
     static bool classof(const EnumLiteral *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumLiteral;
@@ -1051,10 +1059,31 @@ public:
     //
     // This method should be called if any of the literals constituting this
     // declaration are character literals.
-    void markAsCharacterType() { bits = 1; }
+    void markAsCharacterType() {
+        bits = 1;
+        getType()->getTypeOf()->markAsCharacterType();
+    }
 
     // Returns true if this declaration denotes a character enumeration.
     bool isCharacterType() const { return bits == 1; }
+
+    // Locates the EnumLiteral corresponding to the given character, or null if
+    // no such literal exists.
+    const EnumLiteral *findCharacterLiteral(char ch) const;
+
+    // Returns true if an enumeration literal exists which maps to the given
+    // character.
+    bool hasEncoding(char ch) const {
+        return findCharacterLiteral(ch) != 0;
+    }
+
+    // Returns the encoding of the given character.  This method is only valid
+    // if hasEncoding() returns true for the given character.
+    unsigned getEncoding(char ch) const {
+        const EnumLiteral *lit = findCharacterLiteral(ch);
+        assert(lit && "No encoding exists for the given character!");
+        return lit->getIndex();
+    }
 
     static bool classof(const EnumerationDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1072,6 +1101,7 @@ private:
 
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
+
 };
 
 //===----------------------------------------------------------------------===//

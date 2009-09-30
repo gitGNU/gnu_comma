@@ -16,6 +16,8 @@
 #include "comma/ast/Type.h"
 
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/DataTypes.h"
 
 namespace comma {
@@ -303,6 +305,144 @@ public:
 
 private:
     llvm::APInt value;
+};
+
+//===----------------------------------------------------------------------===//
+// StringLiteral
+//
+// Initially, strings are constructed without a known type, as they are
+// overloaded objects.
+class StringLiteral : public Expr
+{
+    typedef llvm::SmallPtrSet<EnumerationDecl*, 4> InterpSet;
+
+public:
+    /// Constructs a string literal over the given raw character data.  The data
+    /// is copied by the constructor (it is safe for the data to live in a
+    /// shared memory region).
+    StringLiteral(const char *string, unsigned len, Location loc)
+        : Expr(AST_StringLiteral, loc) {
+        init(string, len);
+    }
+
+    /// Constructs a string literal using a pair of iterators.
+    StringLiteral(const char *start, const char *end, Location loc)
+        : Expr(AST_StringLiteral, loc) {
+        init(start, end - start);
+    }
+
+    /// Returns the type of this string literal once resolved.
+    ArraySubType *getType() const {
+        return llvm::cast<ArraySubType>(Expr::getType());
+    }
+
+    /// Returns the underlying representation of this string literal.
+    llvm::StringRef getString() const { return llvm::StringRef(rep, len); }
+
+    /// Returns the length in characters of this string literal.
+    unsigned length() const { return len; }
+
+    /// Adds an interpretation for the component type of this string.
+    ///
+    /// \param decl The enumeration decl defining a possible component type.
+    ///
+    /// \return True if the given declaration was a new interpretation and
+    /// false if it was already present.
+    bool addComponentType(EnumerationDecl *decl) {
+        return interps.insert(decl);
+    }
+
+    /// Adds a set of interpretations for the component type of this string.
+    template <class I>
+    void addComponentTypes(I start, I end) { interps.insert(start, end); }
+
+    /// Removes an interpretation for the component type of this string.
+    ///
+    /// \param decl The enumeration decl to remove.
+    ///
+    /// \return True if the given enumeration was removed from the set of
+    /// interpretations, and false if it did not exist.
+    bool removeComponentType(EnumerationDecl *decl) {
+        return interps.erase(decl);
+    }
+
+    /// Tests if the given enumeration type or declaration is in the set of
+    /// component types.
+    ///
+    /// \param decl The enumeration decl or type to test.
+    ///
+    /// \return True if the given declaration is registered as a component type
+    /// and false otherwise.
+    //@{
+    bool containsComponentType(EnumerationDecl *decl) const {
+        return interps.count(decl);
+    }
+    bool containsComponentType(EnumerationType *type) const {
+        return findComponent(type) != end_component_types();
+    }
+    bool containsComponentType(EnumSubType *subtype) const {
+        return containsComponentType(subtype->getTypeOf());
+    }
+    //@}
+
+    /// Sets the component type of this literal to the given type, dropping all
+    /// other interpretations, and returns true.  If the given type does not
+    /// describe an interpretation of this literal nothing is done and false is
+    /// returned.
+    //@{
+    bool resolveComponentType(EnumerationType *type);
+    bool resolveComponentType(EnumSubType *subtype) {
+        return resolveComponentType(subtype->getTypeOf());
+    }
+    //@}
+
+    /// Returns the number of component interpretations.
+    unsigned numComponentTypes() const { return interps.size(); }
+
+    /// Returns true if the set of component types is empty.
+    bool zeroComponentTypes() const { return numComponentTypes() == 0; }
+
+    /// If there is a unique component type, return it, else null.
+    const EnumerationDecl *getComponentType() const {
+        if (numComponentTypes() != 1)
+            return 0;
+        return *begin_component_types();
+    }
+
+
+    //@{
+    /// Iterators over the set of component types.
+    typedef InterpSet::iterator component_iterator;
+    component_iterator begin_component_types() { return interps.begin(); }
+    component_iterator end_component_types() { return interps.end(); }
+
+    typedef InterpSet::const_iterator const_component_iterator;
+    const_component_iterator begin_component_types() const {
+        return interps.begin();
+    }
+    const_component_iterator end_component_types() const {
+        return interps.end();
+    }
+    //@}
+
+    // Support isa and dyn_cast.
+    static bool classof(const StringLiteral *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_StringLiteral;
+    }
+
+private:
+    char *rep;
+    unsigned len;
+    InterpSet interps;
+
+    /// Initialize this literal with the given character data.
+    void init(const char *string, unsigned len);
+
+    /// Returns an iterator to the given component declaration with the given
+    /// type.
+    const_component_iterator findComponent(EnumerationType *type) const;
+    component_iterator findComponent(EnumerationType *type);
 };
 
 //===----------------------------------------------------------------------===//

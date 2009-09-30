@@ -82,6 +82,7 @@ class SignatureDecl;
 class SigInstanceDecl;
 class Stmt;
 class StmtSequence;
+class StringLiteral;
 class SubroutineCall;
 class SubroutineDecl;
 class SubroutineRef;
@@ -187,6 +188,7 @@ public:
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
         AST_PrjExpr,            ///< PrjExpr
+        AST_StringLiteral,      ///< StringLiteral
 
         //
         // Stmt nodes.
@@ -235,7 +237,7 @@ public:
         LAST_SubType = AST_IntegerSubType,
 
         FIRST_Expr = AST_ConversionExpr,
-        LAST_Expr = AST_PrjExpr,
+        LAST_Expr = AST_StringLiteral,
 
         FIRST_Stmt = AST_AssignmentStmt,
         LAST_Stmt = AST_PragmaStmt
@@ -348,7 +350,8 @@ protected:
     Ast(AstKind kind)
         : kind(kind),
           validFlag(true),
-          deletable(true) { }
+          deletable(true),
+          bits(0) { }
 
     AstKind  kind      : 8;     ///< The kind of this node.
     bool     validFlag : 1;     ///< True if this node is valid.

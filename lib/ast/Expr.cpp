@@ -8,9 +8,8 @@
 
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
-#include "comma/ast/Qualifier.h"
 
-#include "llvm/Support/Casting.h"
+#include <cstring>
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -60,4 +59,53 @@ IndexedArrayExpr::IndexedArrayExpr(DeclRefExpr *arrExpr,
 
     indexExprs = new Expr*[numIndices];
     std::copy(indices, indices + numIndices, indexExprs);
+}
+
+//===----------------------------------------------------------------------===//
+// StringLiteral
+
+void StringLiteral::init(const char *string, unsigned len)
+{
+    this->rep = new char[len];
+    this->len = len;
+    std::strncpy(this->rep, string, len);
+}
+
+StringLiteral::const_component_iterator
+StringLiteral::findComponent(EnumerationType *type) const
+{
+    const_component_iterator I = begin_component_types();
+    const_component_iterator E = end_component_types();
+    for ( ; I != E; ++I) {
+        const EnumerationDecl *decl = *I;
+        if (type == decl->getType()->getTypeOf())
+            return I;
+    }
+    return E;
+}
+
+StringLiteral::component_iterator
+StringLiteral::findComponent(EnumerationType *type)
+{
+    component_iterator I = begin_component_types();
+    component_iterator E = end_component_types();
+    for ( ; I != E; ++I) {
+        EnumerationDecl *decl = *I;
+        if (type == decl->getType()->getTypeOf())
+            return I;
+    }
+    return E;
+}
+
+bool StringLiteral::resolveComponentType(EnumerationType *type)
+{
+    component_iterator I = findComponent(type);
+
+    if (I == end_component_types())
+        return false;
+
+    EnumerationDecl *decl = *I;
+    interps.clear();
+    interps.insert(decl);
+    return true;
 }

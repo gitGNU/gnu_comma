@@ -41,6 +41,8 @@ bool Type::memberOf(Classification ID) const
         return isCompositeType();
     case CLASS_Array:
         return isArrayType();
+    case CLASS_String:
+        return isStringType();
     }
 }
 
@@ -74,6 +76,16 @@ bool Type::isCompositeType() const
 bool Type::isArrayType() const
 {
     return isa<ArraySubType>(this) || isa<ArrayType>(this);
+}
+
+bool Type::isStringType() const
+{
+    const ArrayType *arrTy = const_cast<Type*>(this)->getAsArrayType();
+    if (!arrTy || !arrTy->isVector())
+        return false;
+
+    EnumerationType *enumTy = arrTy->getComponentType()->getAsEnumType();
+    return enumTy && enumTy->isCharacterType();
 }
 
 ArrayType *Type::getAsArrayType()
@@ -300,6 +312,40 @@ ArrayType::ArrayType(unsigned rank, SubType **indices, Type *component,
     // Build our own vector of index types.
     indexTypes = new SubType*[rank];
     std::copy(indices, indices + rank, indexTypes);
+}
+
+uint64_t ArrayType::length() const
+{
+    assert(isConstrained() &&
+           "Cannot determine length of unconstrained arrays!");
+
+    SubType *indexTy = getIndexType(0);
+
+    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
+        llvm::APInt lower;
+        llvm::APInt upper;
+        if (intTy->isConstrained()) {
+            RangeConstraint *range = intTy->getConstraint();
+            if (range->isNull())
+                return 0;
+            lower = range->getLowerBound();
+            upper = range->getUpperBound();
+        }
+        else {
+            IntegerType *base = intTy->getTypeOf();
+            lower = base->getLowerBound();
+            upper = base->getUpperBound();
+        }
+
+        llvm::APInt length(upper - lower);
+        ++length;
+        return length.getZExtValue();
+    }
+
+    // FIXME: We do not support constrained enumeration types yet, so just use
+    // the number of elements in the base type.
+    EnumSubType *enumTy = cast<EnumSubType>(indexTy);
+    return enumTy->getTypeOf()->getNumElements();
 }
 
 //===----------------------------------------------------------------------===//

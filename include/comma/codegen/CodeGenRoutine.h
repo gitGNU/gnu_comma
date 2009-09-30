@@ -125,6 +125,7 @@ private:
     llvm::Value *emitPrjExpr(PrjExpr *expr);
     llvm::Value *emitInjExpr(InjExpr *expr);
     llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
+    llvm::Value *emitStringLiteral(StringLiteral *expr);
     llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitConversionValue(ConversionExpr *expr);
@@ -167,6 +168,10 @@ private:
 
     llvm::Value *getOrCreateStackSlot(Decl *decl);
 
+    llvm::Value *createTemporary(const llvm::Type *type);
+
+    void associateStackSlot(Decl *decl, llvm::Value *value);
+
     /// Emits a scalar range check.
     void emitScalarRangeCheck(DeclRefExpr *target, llvm::Value *source);
 
@@ -189,6 +194,8 @@ private:
 
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
+
+    void emitArrayCopy(llvm::Value *source, llvm::Value *destination);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

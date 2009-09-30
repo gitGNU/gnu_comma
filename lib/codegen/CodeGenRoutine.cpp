@@ -198,12 +198,50 @@ bool CodeGenRoutine::isLocalCall(const ProcedureCallStmt *stmt)
 
 void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
-    llvm::Value *stackSlot = createStackSlot(objDecl);
-
     if (objDecl->hasInitializer()) {
         llvm::Value *init = emitValue(objDecl->getInitializer());
-        Builder.CreateStore(init, stackSlot);
+        if (objDecl->getType()->isArrayType()) {
+            // The object is of array type.  The initializer is a pointer to
+            // some temporary object or a global array.  In the former case we
+            // can associate the object directly with its initializer.  In the
+            // latter case we need to generate our own copy of the global data.
+            if (isa<llvm::GlobalVariable>(init)) {
+                llvm::Value *slot = createStackSlot(objDecl);
+                emitArrayCopy(init, slot);
+            }
+            else
+                associateStackSlot(objDecl, init);
+        }
+        else
+            Builder.CreateStore(init, createStackSlot(objDecl));
     }
+    else {
+        // FIXME:  We should be giving all objects default values here.
+        createStackSlot(objDecl);
+    }
+}
+
+void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
+                                   llvm::Value *destination)
+{
+    // Implement array copies via memcpy.
+    llvm::Value *src;
+    llvm::Value *dst;
+    llvm::Constant *len;
+    llvm::Constant *align;
+    llvm::Function *memcpy;
+    const llvm::PointerType *ptrTy;
+    const llvm::ArrayType *arrTy;
+
+    src = Builder.CreatePointerCast(source, CG.getInt8PtrTy());
+    dst = Builder.CreatePointerCast(destination, CG.getInt8PtrTy());
+    ptrTy = cast<llvm::PointerType>(source->getType());
+    arrTy = cast<llvm::ArrayType>(ptrTy->getElementType());
+    len = llvm::ConstantExpr::getSizeOf(arrTy);
+    align = llvm::ConstantInt::get(CG.getInt32Ty(), 1);
+    memcpy = CG.getMemcpy64();
+
+    Builder.CreateCall4(memcpy, dst, src, len, align);
 }
 
 llvm::Value *CodeGenRoutine::emitScalarLoad(llvm::Value *ptr)
@@ -246,6 +284,22 @@ llvm::Value *CodeGenRoutine::getOrCreateStackSlot(Decl *decl)
         return stackSlot;
     else
         return createStackSlot(decl);
+}
+
+llvm::Value *CodeGenRoutine::createTemporary(const llvm::Type *type)
+{
+    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+
+    Builder.SetInsertPoint(entryBB);
+    llvm::Value *stackSlot = Builder.CreateAlloca(type);
+    Builder.SetInsertPoint(savedBB);
+    return stackSlot;
+}
+
+void CodeGenRoutine::associateStackSlot(Decl *decl, llvm::Value *value)
+{
+    assert(!lookupDecl(decl) && "Decl already associated with a stack slot!");
+    declTable[decl] = value;
 }
 
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
@@ -310,7 +364,7 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 {
     llvm::Value *condition = emitValue(pragma->getCondition());
-    llvm::GlobalVariable *msgVar = CG.emitStringLiteral(pragma->getMessage());
+    llvm::GlobalVariable *msgVar = CG.emitInternString(pragma->getMessage());
     llvm::Value *message =
         CG.getPointerCast(msgVar, CG.getPointerType(CG.getInt8Ty()));
 

@@ -55,6 +55,9 @@ public:
     IdentifierInfo *getIdentifierInfo(const char *name) const {
         return &idPool.getIdentifierInfo(name);
     }
+    IdentifierInfo *getIdentifierInfo(const char *name, unsigned len) const {
+        return &idPool.getIdentifierInfo(name, len);
+    }
     IdentifierInfo *getIdentifierInfo(const std::string &name) const {
         return &idPool.getIdentifierInfo(name);
     }

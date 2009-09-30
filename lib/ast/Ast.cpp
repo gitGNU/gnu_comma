@@ -63,6 +63,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "InjExpr",
     "IntegerLiteral",
     "PrjExpr",
+    "StringLiteral",
 
     "AssignmentStmt",
     "BlockStmt",
