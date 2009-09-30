@@ -231,6 +231,17 @@ Node Parser::parseRelationalOperator()
     return lhs;
 }
 
+Node Parser::parseParenExpr()
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    ignoreToken();
+
+    Node result = parseExpr();
+    if (!reduceToken(Lexer::TKN_RPAREN))
+        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
+    return result;
+}
+
 Node Parser::parsePrimaryExpr()
 {
     switch (currentTokenCode()) {
@@ -238,14 +249,8 @@ Node Parser::parsePrimaryExpr()
     default:
         return parseName(false);
 
-    case Lexer::TKN_LPAREN: {
-        ignoreToken();
-        Node result = parseExpr();
-        if (!reduceToken(Lexer::TKN_RPAREN))
-            report(diag::UNEXPECTED_TOKEN_WANTED)
-                << currentTokenString() << ")";
-        return result;
-    }
+    case Lexer::TKN_LPAREN:
+        return parseParenExpr();
 
     case Lexer::TKN_INTEGER:
         return parseIntegerLiteral();

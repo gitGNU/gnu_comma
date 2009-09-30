@@ -82,6 +82,7 @@ public:
 
     Node parseExpr();
     Node parsePrimaryExpr();
+    Node parseParenExpr();
     Node parseInjExpr();
     Node parsePrjExpr();
     Node parseOperatorExpr();
