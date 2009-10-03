@@ -173,7 +173,9 @@ private:
     void associateStackSlot(Decl *decl, llvm::Value *value);
 
     /// Emits a scalar range check.
-    void emitScalarRangeCheck(DeclRefExpr *target, llvm::Value *source);
+    void emitScalarRangeCheck(llvm::Value *sourceVal,
+                              IntegerSubType *sourceTy,
+                              IntegerSubType *targetTy);
 
     /// Helper method for emitAbstractCall.
     ///

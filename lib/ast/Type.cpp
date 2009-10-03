@@ -375,10 +375,10 @@ IntegerSubType::IntegerSubType(IdentifierInfo *name, IntegerType *type,
 
 bool IntegerSubType::contains(IntegerSubType *subtype) const
 {
-    uint64_t lowerTarget;
-    uint64_t upperTarget;
-    uint64_t lowerSource;
-    uint64_t upperSource;
+    int64_t lowerTarget;
+    int64_t upperTarget;
+    int64_t lowerSource;
+    int64_t upperSource;
 
     // If this subtype has a null constraint it cannot contain any other type.
     if (isConstrained() && getConstraint()->isNull())
@@ -422,12 +422,12 @@ bool IntegerSubType::contains(IntegerType *type) const
     if (!isConstrained())
         return getTypeOf()->contains(type);
 
-    uint64_t lowerTarget = type->getLowerBound().getSExtValue();
-    uint64_t upperTarget = type->getUpperBound().getSExtValue();
+    int64_t lowerTarget = type->getLowerBound().getSExtValue();
+    int64_t upperTarget = type->getUpperBound().getSExtValue();
 
     RangeConstraint *range = this->getConstraint();
-    uint64_t lowerSource = range->getLowerBound().getSExtValue();
-    uint64_t upperSource = range->getUpperBound().getSExtValue();
+    int64_t lowerSource = range->getLowerBound().getSExtValue();
+    int64_t upperSource = range->getUpperBound().getSExtValue();
 
     if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
         return false;

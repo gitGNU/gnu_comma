@@ -508,45 +508,25 @@ llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
     return 0;
 }
 
-llvm::Value *
-CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
-                                             IntegerSubType *targetTy)
+void
+CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
+                                     IntegerSubType *sourceTy,
+                                     IntegerSubType *targetTy)
 {
-    // FIXME: This code and emitScalarRangeCheck should be combined.
-    IntegerSubType *sourceTy = expr->getType()->getAsIntegerSubType();
     IntegerType *targetBaseTy = targetTy->getAsIntegerType();
     IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
-    unsigned targetWidth = targetBaseTy->getBitWidth();
-    unsigned sourceWidth = sourceBaseTy->getBitWidth();
-
-    // Evaluate the source expression.
-    llvm::Value *sourceVal = emitValue(expr);
-
-    // If the source and target types are identical, we are done.
-    if (sourceTy == targetTy)
-        return sourceVal;
-
-    // If the target type contains the source type then range checks are
-    // unnecessary.
-    if (targetTy->contains(sourceTy)) {
-        if (targetWidth == sourceWidth)
-            return sourceVal;
-        if (targetWidth > sourceWidth)
-            return Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
-    }
-
-    // Range checks need to be performed in the computational domain of the
-    // larger type.  Find the appropriate type and sign extend the value if
-    // needed.
     const llvm::IntegerType *boundTy;
-    if (targetWidth > sourceWidth) {
+
+    // Range checks need to be performed using the larger type (most often the
+    // source type).  Find the appropriate type and sign extend the value if
+    // needed.
+    if (targetBaseTy->getBitWidth() > sourceBaseTy->getBitWidth()) {
         boundTy = CGTypes.lowerIntegerSubType(targetTy);
         sourceVal = Builder.CreateSExt(sourceVal, boundTy);
     }
     else
         boundTy = cast<llvm::IntegerType>(sourceVal->getType());
 
-    unsigned width = boundTy->getBitWidth();
     llvm::APInt lower;
     llvm::APInt upper;
 
@@ -561,10 +541,10 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
         upper = targetBaseTy->getUpperBound();
     }
 
-    if (lower.getBitWidth() < width)
-        lower.sext(width);
-    if (upper.getBitWidth() < width)
-        upper.sext(width);
+    if (lower.getBitWidth() < boundTy->getBitWidth())
+        lower.sext(boundTy->getBitWidth());
+    if (upper.getBitWidth() < boundTy->getBitWidth())
+        upper.sext(boundTy->getBitWidth());
 
     // Obtain constants for the bounds.
     llvm::Constant *lowBound = llvm::ConstantInt::get(boundTy, lower);
@@ -589,11 +569,42 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
     llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
     CRT.raise(Builder, msg);
 
-    // The checked value passed the tests.  Truncate if needed to the target
-    // size.
+    // Switch the context to the success block.
     Builder.SetInsertPoint(checkMergeBB);
+}
+
+llvm::Value *
+CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
+                                             IntegerSubType *targetTy)
+{
+    // FIXME: This code and emitScalarRangeCheck should be combined.
+    IntegerSubType *sourceTy = expr->getType()->getAsIntegerSubType();
+    IntegerType *targetBaseTy = targetTy->getAsIntegerType();
+    IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
+    unsigned targetWidth = targetBaseTy->getBitWidth();
+    unsigned sourceWidth = sourceBaseTy->getBitWidth();
+
+    // Evaluate the source expression.
+    llvm::Value *sourceVal = emitValue(expr);
+
+    // If the source and target types are identical, we are done.
+    if (sourceTy == targetTy)
+        return sourceVal;
+
+    // If the target type contains the source type then a range check is unnessary.
+    if (targetTy->contains(sourceTy)) {
+        if (targetWidth == sourceWidth)
+            return sourceVal;
+        if (targetWidth > sourceWidth)
+            return Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
+    }
+
+    emitScalarRangeCheck(sourceVal, sourceTy, targetTy);
+
+    // Truncate/extend the value if needed to the target size.
     if (targetWidth < sourceWidth)
         sourceVal = Builder.CreateTrunc(sourceVal, CGTypes.lowerType(targetTy));
-    Builder.SetInsertPoint(checkMergeBB);
+    if (targetWidth > sourceWidth)
+        sourceVal = Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
     return sourceVal;
 }
