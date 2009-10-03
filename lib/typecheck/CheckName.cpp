@@ -355,9 +355,16 @@ SubroutineCall *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
                                                        NodeVector &argNodes)
 {
     unsigned numArgs = argNodes.size();
+
+    // FIXME: Perhaps SubroutineRef's should always hold onto their defining
+    // identifier once constructed.  If we do not cache the identifier now, we
+    // will hit an assertion if the following filter reduces the ref to an empty
+    // ref.
+    IdentifierInfo *refName = ref->getIdInfo();
+
     if (!ref->keepSubroutinesWithArity(numArgs)) {
         report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
-            << ref->getIdInfo();
+            << refName;
         return 0;
     }
 
