@@ -41,6 +41,15 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
     return S << ")";
 }
 
+llvm::raw_ostream &TypeDumper::printHeader(SubType *node)
+{
+    if (const char *name = node->getString())
+        AstDumperBase::printHeader(node) << llvm::format(" '%s'", name);
+    else
+        AstDumperBase::printHeader(node) << " <anon>";
+    return S;
+}
+
 void TypeDumper::visitCarrierType(CarrierType *node)
 {
     printHeader(node) << '>';
