@@ -437,6 +437,14 @@ public:
     /// Returns the defining identifier of this subtype if it is named, else null.
     IdentifierInfo *getIdInfo() const { return DefiningIdentifier; }
 
+    /// Returns a C-string representation of the defining identifier if this
+    /// subtype is names, else null.
+    const char *getString() const {
+        if (IdentifierInfo *idInfo = getIdInfo())
+            return idInfo->getString();
+        return 0;
+    }
+
     /// Returns the constraint of this subtype if constrained, else null for
     /// unconstrained subtypes.
     Constraint *getConstraint() const { return SubTypeConstraint; }
