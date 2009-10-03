@@ -473,7 +473,7 @@ bool TypeCheck::checkSubroutineCallArguments(SubroutineCall *call)
     bool status = true;
     SubroutineDecl *decl = call->getConnective();
 
-    for (unsigned i = 0; I != E; ++I) {
+    for (unsigned i = 0; I != E; ++I, ++i) {
         PM::ParameterMode targetMode = decl->getParamMode(i);
         Type *targetType = decl->getParamType(i);
         status = status && checkSubroutineArgument(*I, targetType, targetMode);
