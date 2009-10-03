@@ -72,7 +72,8 @@ void TypeCheck::populateInitialEnvironment()
 void TypeCheck::deleteNode(Node &node)
 {
     Ast *ast = lift_node<Ast>(node);
-    if (ast && ast->isDeletable()) delete ast;
+    if (ast && ast->isDeletable())
+        delete ast;
     node.release();
 }
 
