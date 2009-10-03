@@ -67,7 +67,7 @@ void DiagnosticStream::emitFormatComponent()
     // print properly, strip the source line of any trailing newlines.
     std::string sourceLine = sourceLoc.getTextProvider()->extract(sourceLoc);
     unsigned    column     = sourceLoc.getColumn();
-    unsigned    endLoc     = sourceLine.find('\n');
+    size_t      endLoc     = sourceLine.find('\n');
     if (endLoc != std::string::npos)
         sourceLine.erase(endLoc);
 
