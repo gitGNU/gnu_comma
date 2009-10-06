@@ -149,7 +149,19 @@ const llvm::FunctionType *
 CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
 {
     std::vector<const llvm::Type*> args;
-    const llvm::FunctionType *result;
+    const llvm::Type *retTy = 0;
+
+    // If the return type is an aggregate, use the struct return calling
+    // convention.
+    if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
+        retTy = lowerType(fdecl->getReturnType());
+        if (isa<llvm::StructType>(retTy) || isa<llvm::ArrayType>(retTy)) {
+            args.push_back(CG.getPointerType(retTy));
+            retTy = CG.getVoidTy();
+        }
+    }
+    else
+        retTy = CG.getVoidTy();
 
     // Emit the implicit first "%" argument.
     args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
@@ -185,14 +197,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         }
     }
 
-    if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-        const llvm::Type *retTy = lowerType(fdecl->getReturnType());
-        result = llvm::FunctionType::get(retTy, args, false);
-    }
-    else
-        result = llvm::FunctionType::get(CG.getVoidTy(), args, false);
-
-    return result;
+    return llvm::FunctionType::get(retTy, args, false);
 }
 
 const llvm::Type *CodeGenTypes::lowerSubType(const SubType *type)

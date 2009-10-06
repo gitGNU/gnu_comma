@@ -66,8 +66,15 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
     if (ret->hasReturnExpr()) {
         // Store the result into the return slot.
         assert(returnValue && "Non-empty return from function!");
+        Expr *expr = ret->getReturnExpr();
         llvm::Value *res = emitValue(ret->getReturnExpr());
-        Builder.CreateStore(res, returnValue);
+
+        // If the return value is composite, copy the result into the return
+        // value, otherwise a simple store suffices.
+        if (expr->getType()->isCompositeType())
+            emitArrayCopy(res, returnValue);
+        else
+            Builder.CreateStore(res, returnValue);
         Builder.CreateBr(returnBB);
     }
     else {

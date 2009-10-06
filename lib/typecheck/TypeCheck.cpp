@@ -490,30 +490,38 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 }
 
 
-ArraySubType *TypeCheck::generateConstrainedArraySubType(ArraySubType *arrTy,
-                                                         Expr *init)
+ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
+                                                    Expr *init)
 {
-    // FIXME: Currently only string literals are supported.
-    //
     // FIXME: This assumes integer index types exclusively.
     //
-    // FIXME: Check that the index type is large enough to support the length of
-    // the literal.
-    assert(!arrTy->isConstrained() && "Arry type already constrained!");
+    assert(!arrTy->isConstrained() && "Array type already constrained!");
 
-    IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
-    StringLiteral *strLit = cast<StringLiteral>(init);
+    if (StringLiteral *strLit = dyn_cast<StringLiteral>(init)) {
+        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
 
-    // FIXME: For empty string literals we should generate a null range which is
-    // compatable with the base index type.
-    llvm::APInt lower(idxTy->getLowerBound());
-    llvm::APInt upper(lower + strLit->length() - 1);
+        // FIXME: For empty string literals we should generate a null range
+        // which is compatable with the base index type.
+        llvm::APInt lower(idxTy->getLowerBound());
+        llvm::APInt upper(lower + strLit->length() - 1);
 
-    SubType *newIdxTy;
-    newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
-                                             lower, upper);
-    return resource.createArraySubType(0, arrTy->getTypeOf(),
-                                       new IndexConstraint(&newIdxTy, 1));
+        // FIXME: Check that the index type is large enough to support the
+        // length of the literal.
+        SubType *newIdxTy;
+        newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
+                                                 lower, upper);
+        return resource.createArraySubType(0, arrTy->getTypeOf(),
+                                           new IndexConstraint(&newIdxTy, 1));
+    }
+    else {
+        ArraySubType *exprTy = cast<ArraySubType>(init->getType());
+
+        // FIXME: If the expression is unconstrained, we need to create a
+        // dynamicly constrained subtype.  These situations arrise when a
+        // function returns an unconstrained array type, for example.
+        assert(exprTy->isConstrained() && "Unconstrained array not supported!");
+        return exprTy;
+    }
 }
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
@@ -531,7 +539,7 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
         }
 
         // Generate a new subtype for the object which matches the initializer.
-        if (!(arrTy = generateConstrainedArraySubType(arrTy, init)))
+        if (!(arrTy = getConstrainedArraySubType(arrTy, init)))
             return 0;
     }
 

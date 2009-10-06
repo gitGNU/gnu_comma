@@ -51,6 +51,21 @@ CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
 
     if (!fn) {
         fn = CG.makeFunction(srTy, srName);
+
+        // If this is a function returning a composit type, mark the function
+        // as following the struct return calling convention.
+        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(srDecl)) {
+            if (fdecl->getReturnType()->isCompositeType()) {
+                fn->addAttribute(1, llvm::Attribute::StructRet);
+
+                // FIXME:  This assertion can go one we support variable length
+                // return values.
+                SubType *subtype = cast<SubType>(fdecl->getReturnType());
+                assert(subtype->isConstrained() &&
+                       "Variable length return types not supported yet!");
+            }
+        }
+
         CG.insertGlobal(srName, fn);
     }
     return fn;
@@ -84,10 +99,15 @@ void CodeGenRoutine::emitSubroutineBody()
     entryBB = CG.makeBasicBlock("entry", SRFn, returnBB);
     Builder.SetInsertPoint(entryBB);
 
-    // If we are generating a function, allocate a stack slot for the return
-    // value.
-    if (isa<FunctionDecl>(SRDecl))
-        returnValue = Builder.CreateAlloca(SRFn->getReturnType());
+    // If we are generating a function which is using the struct return calling
+    // convention map the return value to the first parameter of this function.
+    // Otherwise allocate a stack slot for the return value.
+    if (isa<FunctionDecl>(SRDecl)) {
+        if (SRFn->hasStructRetAttr())
+            returnValue = SRFn->arg_begin();
+        else
+            returnValue = Builder.CreateAlloca(SRFn->getReturnType());
+    }
 
     // Codegen the function body.  If the resulting insertion context is not
     // properly terminated, create a branch to the return BB.
@@ -148,7 +168,8 @@ void CodeGenRoutine::emitEpilogue()
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
     Builder.SetInsertPoint(returnBB);
-    if (returnValue) {
+
+    if (returnValue && !SRFn->hasStructRetAttr()) {
         llvm::Value *V = Builder.CreateLoad(returnValue);
         Builder.CreateRet(V);
     }

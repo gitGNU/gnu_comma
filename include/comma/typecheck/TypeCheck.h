@@ -944,11 +944,9 @@ private:
     ObjectDecl *acceptArrayObjectDeclaration(Location loc, IdentifierInfo *name,
                                              ArrayDecl *arrDecl, Expr *init);
 
-    /// Generates a constrained array subtype derived from the given type \p
-    /// arrTy and an array valued expression (typically an array initializer) \p
-    /// init.
-    ArraySubType *generateConstrainedArraySubType(ArraySubType *arrTy,
-                                                  Expr *init);
+    /// Returns a constrained array subtype derived from the given type \p arrTy
+    /// and an array valued expression (typically an array initializer) \p init.
+    ArraySubType *getConstrainedArraySubType(ArraySubType *arrTy, Expr *init);
 
     /// Creates a FunctionCallExpr or ProcedureCallStmt representing the given
     /// SubroutineRef, provided that \p ref admits declarations with arity zero.

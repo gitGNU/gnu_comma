@@ -98,6 +98,30 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
         return emitAbstractCall(fdecl, args);
 }
 
+llvm::Value *CodeGenRoutine::emitCall(SubroutineType *srTy,
+                                      llvm::Value *func,
+                                      std::vector<llvm::Value *> &args)
+{
+    // If the given function follows the struct return convention, allocate a
+    // temporary to hold the results.
+    if (FunctionType *fnTy = dyn_cast<FunctionType>(srTy)) {
+        if (fnTy->getReturnType()->isCompositeType()) {
+            const llvm::PointerType *ptrTy;
+            const llvm::FunctionType *fnTy;
+            ptrTy = cast<llvm::PointerType>(func->getType());
+            fnTy = cast<llvm::FunctionType>(ptrTy->getElementType());
+            ptrTy = cast<llvm::PointerType>(fnTy->getParamType(0));
+
+            llvm::Value *slot = createTemporary(ptrTy->getElementType());
+            args.insert(args.begin(), slot);
+
+            Builder.CreateCall(func, args.begin(), args.end());
+            return slot;
+        }
+    }
+    return Builder.CreateCall(func, args.begin(), args.end());
+}
+
 void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
                                       unsigned argPosition,
                                       std::vector<llvm::Value *> &args)
@@ -154,7 +178,7 @@ llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
         func = CG.lookupGlobal(CGC.getLinkName(srDecl));
 
     assert(func && "function lookup failed!");
-    return Builder.CreateCall(func, args.begin(), args.end());
+    return emitCall(srDecl->getType(), func, args);
 }
 
 llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
@@ -205,7 +229,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     // call.
     llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(srDecl));
     assert(func && "function lookup failed!");
-    return Builder.CreateCall(func, args.begin(), args.end());
+    return emitCall(srDecl->getType(), func, args);
 }
 
 llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
@@ -332,7 +356,7 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     args.insert(args.begin(), DOC);
     llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(resolvedRoutine));
     assert(func && "function lookup failed!");
-    return Builder.CreateCall(func, args.begin(), args.end());
+    return emitCall(resolvedRoutine->getType(), func, args);
 }
 
 SubroutineDecl *

@@ -48,9 +48,16 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
            "Return statement outside subroutine context!");
 
     if (checkingFunction()) {
-        FunctionDecl *fdecl      = getCurrentFunction();
-        Expr         *retExpr    = cast_node<Expr>(retNode);
-        Type         *targetType = fdecl->getReturnType();
+        FunctionDecl *fdecl = getCurrentFunction();
+        Expr *retExpr = cast_node<Expr>(retNode);
+        Type *targetType = fdecl->getReturnType();
+
+        // If the target type is an unconstrained array type, get a constrained
+        // subtype suitable for the return expression.
+        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(targetType)) {
+            if (!arrTy->isConstrained())
+                targetType = getConstrainedArraySubType(arrTy, retExpr);
+        }
 
         if (checkExprInContext(retExpr, targetType)) {
             retNode.release();

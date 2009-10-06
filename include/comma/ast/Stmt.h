@@ -164,7 +164,6 @@ public:
     const Expr *getReturnExpr() const { return returnExpr; }
     Expr *getReturnExpr() { return returnExpr; }
 
-
     Location getLocation() const { return location; }
 
     static bool classof(const ReturnStmt *node) { return true; }
