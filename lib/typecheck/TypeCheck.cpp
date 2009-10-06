@@ -22,8 +22,6 @@
 #include <algorithm>
 #include <cstring>
 
-#include "llvm/Support/raw_ostream.h"
-
 using namespace comma;
 using llvm::dyn_cast;
 using llvm::dyn_cast_or_null;
@@ -567,11 +565,7 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
             if (!checkExprInContext(init, objTy))
                 return false;
 
-            // FIXME: We need a predicate better than `!=' here to determine if
-            // a type conversion is necessary.  In particular, if the target
-            // type is the base type of the value, or any unconstrained subtype,
-            // a conversion is not needed.
-            if (init->getType() != objTy)
+            if (conversionRequired(init->getType(), objTy))
                 init = new ConversionExpr(init, objTy);
         }
         decl = new ObjectDecl(name, objTy, loc, init);
@@ -1068,6 +1062,35 @@ bool TypeCheck::subsumes(Type *A, Type *B)
     return baseTypeA == baseTypeB;
 }
 
+bool TypeCheck::conversionRequired(Type *source, Type *target)
+{
+    if (source == target)
+        return false;
+
+    if (SubType *sourceSubTy = dyn_cast<SubType>(source)) {
+        // If the target is the base type of the source a conversion is not
+        // required.
+        if (sourceSubTy->getTypeOf() == target)
+            return false;
+
+        // If the target is an unconstrained subtype of a common base, a
+        // conversion is not needed.
+        if (SubType *targetSubTy = dyn_cast<SubType>(target)) {
+            if ((sourceSubTy->getTypeOf() == targetSubTy->getTypeOf()) &&
+                !targetSubTy->isConstrained())
+                return false;
+        }
+    }
+    else if (SubType *targetSubTy = dyn_cast<SubType>(target)) {
+        // If the target type is an unconstrained subtype of the source, a
+        // conversion is not needed.
+        if ((targetSubTy->getTypeOf() == source) &&
+            !targetSubTy->isConstrained())
+            return false;
+    }
+    return true;
+}
+
 PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
 {
     // Currently, assert pragmas take a single boolean valued argument.  The
@@ -1091,3 +1114,4 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
     }
     return 0;;
 }
+

@@ -123,11 +123,7 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
     valueNode.release();
     targetNode.release();
 
-    // FIXME: We need a predicate better than `!=' here to determine if a type
-    // conversion is necessary.  In particular, if the target type is the base
-    // type of the value, or any unconstrained subtype, a conversion is not
-    // needed.
-    if (value->getType() != target->getType())
+    if (conversionRequired(value->getType(), target->getType()))
         value = new ConversionExpr(value, target->getType());
     return getNode(new AssignmentStmt(target, value));
 }

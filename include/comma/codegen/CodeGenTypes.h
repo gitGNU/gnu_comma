@@ -52,6 +52,10 @@ public:
 
     const llvm::ArrayType *lowerArraySubType(const ArraySubType *type);
 
+    /// Returns the structure type used to hold the bounds of an unconstrained
+    /// array.
+    const llvm::StructType *lowerArrayBounds(const ArraySubType *arrTy);
+
 private:
     const CodeGen &CG;
 
@@ -71,6 +75,7 @@ private:
     /// Returns the number of elements for an array with a range bounded by the
     /// given values.
     uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high);
+
 };
 
 }; // end comma namespace

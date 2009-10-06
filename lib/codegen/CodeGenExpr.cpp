@@ -85,7 +85,7 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
     iterator E = expr->end_arguments();
     for (unsigned i = 0; Iter != E; ++Iter, ++i) {
         Expr *arg = *Iter;
-        args.push_back(emitCallArgument(fdecl, arg, i));
+        emitCallArgument(fdecl, arg, i, args);
     }
 
     if (fdecl->isPrimitive())
@@ -98,15 +98,40 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
         return emitAbstractCall(fdecl, args);
 }
 
-llvm::Value *CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
-                                              unsigned argPosition)
+void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
+                                      unsigned argPosition,
+                                      std::vector<llvm::Value *> &args)
 {
+    Type *paramTy = srDecl->getParamType(argPosition);
     PM::ParameterMode mode = srDecl->getParamMode(argPosition);
+    llvm::Value *arg;
 
     if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
-        return emitVariableReference(arg);
+        arg = emitVariableReference(expr);
     else
-        return emitValue(arg);
+        arg = emitValue(expr);
+
+    if (ArraySubType *arrTy = dyn_cast<ArraySubType>(paramTy)) {
+        // When the expected type is an unconstrained array type, we might need
+        // to cast the argument.  Unconstrained arrays are represented as
+        // pointers to empty LLVM arrays (e.g. [0 x T]*), whereas constrained
+        // arrays have a defininte dimension.  Lower the target type and cast
+        // the argument if necessary.
+        const llvm::Type *contextTy;
+        contextTy = CGTypes.lowerType(srDecl->getParamType(argPosition));
+        contextTy = CG.getPointerType(contextTy);
+
+        if (contextTy != arg->getType())
+            arg = Builder.CreatePointerCast(arg, contextTy);
+
+        args.push_back(arg);
+
+        // Emit the bounds.
+        if (!arrTy->isConstrained())
+            args.push_back(emitArrayBounds(expr));
+    }
+    else
+        args.push_back(arg);
 }
 
 llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
@@ -443,43 +468,58 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
     llvm::Value *arrValue = lookupDecl(arrRefExpr->getDeclaration());
     llvm::Value *idxValue = emitValue(idxExpr);
 
-    // Resolve the index type of the array (not the type of the index
-    // expression).
     ArraySubType *arrType = cast<ArraySubType>(arrRefExpr->getType());
-    SubType *indexType = arrType->getIndexType(0);
-    assert(arrType->isConstrained() &&
-           "Cannot codegen index into unconstrained arrays!");
 
-    // If the index type is an integer type with a lower bound not equal to
-    // zero, adjust the index expression.
-    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexType)) {
-        RangeConstraint *range = intTy->getConstraint();
+    if (arrType->isConstrained()) {
+        // Resolve the index type of the array (not the type of the index
+        // expression).
+        SubType *indexType = arrType->getIndexType(0);
 
-        // The index type of the array is always larger than or equal to the
-        // type of the actual index value.  Lower the type and determine if the
-        // index needs to be adjusted using this width for our operations.
-        const llvm::IntegerType *loweredTy =
-            CGTypes.lowerIntegerType(intTy->getTypeOf());
-        unsigned indexWidth = loweredTy->getBitWidth();
+        // If the index type is an integer type with a lower bound not equal to
+        // zero, adjust the index expression.
+        if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexType)) {
+            RangeConstraint *range = intTy->getConstraint();
 
-        // Get the lower bound and promote to the width of the index type.
-        llvm::APInt lower(range->getLowerBound());
-        lower.sextOrTrunc(indexWidth);
+            // The index type of the array is always larger than or equal to the
+            // type of the actual index value.  Lower the type and determine if
+            // the index needs to be adjusted using this width for our
+            // operations.
+            const llvm::IntegerType *loweredTy =
+                CGTypes.lowerIntegerType(intTy->getTypeOf());
+            unsigned indexWidth = loweredTy->getBitWidth();
 
-        if (lower != 0) {
-            // Check if we need to sign extend the width of the index expression
-            // so it matches the width of the array index type.
-            const llvm::IntegerType *idxExprType =
-                cast<llvm::IntegerType>(idxValue->getType());
-            if (idxExprType->getBitWidth() < indexWidth)
-                idxValue = Builder.CreateSExt(idxValue, loweredTy);
-            else
-                assert(idxExprType->getBitWidth() == indexWidth);
+            // Get the lower bound and promote to the width of the index type.
+            llvm::APInt lower(range->getLowerBound());
+            lower.sextOrTrunc(indexWidth);
 
-            // Subtract the lower bound from the index expression.
-            llvm::Value *adjust = llvm::ConstantInt::get(loweredTy, lower);
-            idxValue = Builder.CreateSub(idxValue, adjust);
+            if (lower != 0) {
+                // Check if we need to sign extend the width of the index
+                // expression so it matches the width of the array index type.
+                const llvm::IntegerType *idxExprType =
+                    cast<llvm::IntegerType>(idxValue->getType());
+                if (idxExprType->getBitWidth() < indexWidth)
+                    idxValue = Builder.CreateSExt(idxValue, loweredTy);
+                else
+                    assert(idxExprType->getBitWidth() == indexWidth);
+
+                // Subtract the lower bound from the index expression.
+                llvm::Value *adjust = llvm::ConstantInt::get(loweredTy, lower);
+                idxValue = Builder.CreateSub(idxValue, adjust);
+            }
         }
+    }
+    else {
+        // The array expression is unconstrained.  Lookup the bounds for the
+        // array and adjust the index if needed.
+        ValueDecl *decl = expr->getArrayExpr()->getDeclaration();
+        llvm::Value *boundSlot = lookupBounds(decl);
+        assert(boundSlot && "Could not retrieve array bounds!");
+
+        // Grab the lower bound and subtract it from the index.
+        llvm::Value *bounds = Builder.CreateConstGEP1_32(boundSlot, 0);
+        llvm::Value *lower = Builder.CreateStructGEP(bounds, 0);
+        llvm::Value *adjust = Builder.CreateLoad(lower);
+        idxValue = Builder.CreateSub(idxValue, adjust);
     }
 
     // Arrays are always represented as pointers to the aggregate. GEP the
@@ -606,4 +646,74 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
     if (targetWidth > sourceWidth)
         sourceVal = Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
     return sourceVal;
+}
+
+void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot,
+                                     ArraySubType *arrTy)
+{
+    assert(arrTy->isConstrained() && "Expected constrained arrray!");
+
+    llvm::Value *bounds = Builder.CreateConstGEP1_32(boundSlot, 0);
+    unsigned boundIdx = 0;
+    IndexConstraint *constraint = arrTy->getConstraint();
+    typedef IndexConstraint::iterator iterator;
+
+    for (iterator I = constraint->begin(); I != constraint->end(); ++I) {
+        // FIXME: Only integer index types are supported ATM.
+        IntegerSubType *idxTy = cast<IntegerSubType>(*I);
+
+        llvm::Value *bound;
+        int64_t lower = idxTy->getLowerBound().getSExtValue();
+        int64_t upper = idxTy->getUpperBound().getSExtValue();
+
+        // All bounds are represented using the base type for the index.
+        const llvm::IntegerType *boundTy =
+            cast<llvm::IntegerType>(CGTypes.lowerType(idxTy->getTypeOf()));
+
+        bound = Builder.CreateStructGEP(bounds, boundIdx++);
+        Builder.CreateStore(CG.getConstantInt(boundTy, lower), bound);
+
+        bound = Builder.CreateStructGEP(bounds, boundIdx++);
+        Builder.CreateStore(CG.getConstantInt(boundTy, upper), bound);
+    }
+}
+
+llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
+{
+    ArraySubType *arrTy = cast<ArraySubType>(expr->getType());
+
+    // If the given expression is a reference to value declaration, obtain a
+    // bounds structure describing the it.
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+        if (llvm::Value *bounds = lookupBounds(ref->getDeclaration()))
+            return bounds;
+
+        // All array expressions have a constrained type except for the formal
+        // parameters to a subroutine.  However, all formal parameters are
+        // mapped to the bounds supplied to the function call and handled above.
+        // Therefore, expr must have a constrained array type at this point.
+        assert(arrTy->isConstrained() && "Unexpected unconstrained arrray!");
+
+        // There are no bounds currently associated with this value.  Create a
+        // new bound object and initialize.
+        //
+        // FIXME:  Initializing the bounds in the entryBB is not correct since
+        // this declaration could be in an inner declarative region, but we do
+        // not keep track of nested initialization scopes yet.
+        llvm::Value *boundSlot = createBounds(ref->getDeclaration());
+        llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+        Builder.SetInsertPoint(entryBB);
+        initArrayBounds(boundSlot, arrTy);
+        Builder.SetInsertPoint(savedBB);
+        return boundSlot;
+    }
+
+    // The expression refers to a temporary array.  Allocate a temporary to hold
+    // the bounds.
+    llvm::Value *boundSlot = createTemporary(CGTypes.lowerArrayBounds(arrTy));
+    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+    Builder.SetInsertPoint(entryBB);
+    initArrayBounds(boundSlot, arrTy);
+    Builder.SetInsertPoint(savedBB);
+    return boundSlot;
 }

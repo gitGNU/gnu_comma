@@ -154,20 +154,35 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     // Emit the implicit first "%" argument.
     args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
 
-    for (unsigned i = 0; i < decl->getArity(); ++i) {
-        const llvm::Type *argTy = lowerType(decl->getParamType(i));
+    SubroutineDecl::const_param_iterator I = decl->begin_params();
+    SubroutineDecl::const_param_iterator E = decl->end_params();
+    for ( ; I != E; ++I) {
+        const ParamValueDecl *param = *I;
+        const Type *paramTy = param->getType();
+        const llvm::Type *loweredTy = lowerType(paramTy);
 
-        // If the argument mode is "out" or "in out", make the argument a
-        // pointer-to type.
-        PM::ParameterMode mode = decl->getParamMode(i);
-        if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
-            argTy = CG.getPointerType(argTy);
+        if (const ArraySubType *arrTy = dyn_cast<ArraySubType>(paramTy)) {
+            // We never pass arrays by value, always by reference.  Therefore,
+            // the parameter mode does not change how we pass an array.
+            assert(isa<llvm::ArrayType>(loweredTy) &&
+                   "Unexpected type for array!");
+            loweredTy = CG.getPointerType(loweredTy);
 
-        // We do not pass arrays by value, always by reference.
-        if (isa<llvm::ArrayType>(argTy))
-            argTy = CG.getPointerType(argTy);
+            args.push_back(loweredTy);
 
-        args.push_back(argTy);
+            // If the array is unconstrained, generate an implicit second
+            // argument for the bounds.
+            if (!arrTy->isConstrained())
+                args.push_back(CG.getPointerType(lowerArrayBounds(arrTy)));
+        }
+        else {
+            // If the argument mode is "out" or "in out", make the argument a
+            // pointer-to type.
+            PM::ParameterMode mode = param->getParameterMode();
+            if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
+                loweredTy = CG.getPointerType(loweredTy);
+            args.push_back(loweredTy);
+        }
     }
 
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
@@ -237,12 +252,15 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 
 const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
 {
-    // We cannot lower unconstrained types.
-    assert(type->isConstrained() && "Cannot lower unconstrained array types!");
-
-    // Nor can we lower multidimensional arrays.
     assert(type->getRank() == 1 &&
            "Cannot codegen multidimensional arrays yet!");
+
+    // If the array is unconstrained, emit a variable length array type, which
+    // in LLVM is represented as an array with zero elements.
+    if (!type->isConstrained()) {
+        const llvm::Type *elementTy = lowerType(type->getComponentType());
+        return llvm::ArrayType::get(elementTy, 0);
+    }
 
     SubType *constraint = type->getIndexConstraint(0);
     assert(constraint->isDiscreteType() && "Bad type for array index!");
@@ -295,6 +313,23 @@ uint64_t CodeGenTypes::getArrayWidth(const llvm::APInt &low,
            "Index type too wide for array type!");
 
     return range.getZExtValue();
+}
+
+const llvm::StructType *
+CodeGenTypes::lowerArrayBounds(const ArraySubType *arrTy)
+{
+    // FIXME: The width of the bounds is target dependent -- i32 for 32 bit
+    // machines and i64 for 64 bit machines.
+    std::vector<const llvm::Type*> elts;
+    ArrayType *baseTy = arrTy->getTypeOf();
+
+    for (unsigned i = 0; i < baseTy->getRank(); ++i) {
+        const llvm::Type *boundTy = lowerType(baseTy->getIndexType(i));
+        elts.push_back(boundTy);
+        elts.push_back(boundTy);
+    }
+
+    return CG.getStructTy(elts);
 }
 
 const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)

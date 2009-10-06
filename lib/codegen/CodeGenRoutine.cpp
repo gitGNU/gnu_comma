@@ -107,15 +107,27 @@ void CodeGenRoutine::emitSubroutineBody()
 void CodeGenRoutine::injectSubroutineArgs()
 {
     // Extract and save the first implicit argument "%".
-    llvm::Function::arg_iterator iter = SRFn->arg_begin();
-    percent = iter++;
+    llvm::Function::arg_iterator argI = SRFn->arg_begin();
+    llvm::Function::arg_iterator argE = SRFn->arg_begin();
+    percent = argI++;
 
-    // For each formal argument, set its name to match that of the declaration.
-    // Also, populate the declTable with entries for each of the parameters.
-    for (unsigned i = 0; iter != SRFn->arg_end(); ++iter, ++i) {
-        ParamValueDecl *param = SRDecl->getParam(i);
-        iter->setName(param->getString());
-        declTable[param] = iter;
+    // For each formal argument, locate the corresponding llvm argument.  This
+    // is mostly a one-to-one mapping except when unconstrained arrays are
+    // present, in which case there are two arguments (one to the array and one
+    // to the bounds).
+    //
+    // Set the name of each argument to match the corresponding formal.
+    SubroutineDecl::const_param_iterator paramI = SRDecl->begin_params();
+    SubroutineDecl::const_param_iterator paramE = SRDecl->end_params();
+    for ( ; paramI != paramE; ++paramI, ++argI) {
+        ParamValueDecl *param = *paramI;
+        argI->setName(param->getString());
+        declTable[param] = argI;
+
+        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(param->getType())) {
+            if (!arrTy->isConstrained())
+                boundTable[param] = ++argI;
+        }
     }
 }
 
@@ -300,6 +312,35 @@ void CodeGenRoutine::associateStackSlot(Decl *decl, llvm::Value *value)
 {
     assert(!lookupDecl(decl) && "Decl already associated with a stack slot!");
     declTable[decl] = value;
+}
+
+llvm::Value *CodeGenRoutine::lookupBounds(ValueDecl *decl)
+{
+    DeclMap::iterator iter = boundTable.find(decl);
+
+    if (iter != boundTable.end())
+        return iter->second;
+    return 0;
+}
+
+llvm::Value *CodeGenRoutine::createBounds(ValueDecl *decl)
+{
+    assert(!lookupBounds(decl) && "Decl already associated with bounds!");
+
+    ArraySubType *arrTy = cast<ArraySubType>(decl->getType());
+    const llvm::StructType *boundTy = CGTypes.lowerArrayBounds(arrTy);
+    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+
+    Builder.SetInsertPoint(entryBB);
+    llvm::Value *bounds = Builder.CreateAlloca(boundTy);
+    Builder.SetInsertPoint(savedBB);
+    return bounds;
+}
+
+void CodeGenRoutine::associateBounds(ValueDecl *decl, llvm::Value *value)
+{
+    assert(!lookupBounds(decl) && "Decl already associated with bounds!");
+    boundTable[decl] = value;
 }
 
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)

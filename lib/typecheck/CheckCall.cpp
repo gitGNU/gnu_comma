@@ -66,16 +66,12 @@ convertSubroutineArguments(SubroutineDecl *decl,
                            llvm::SmallVectorImpl<Expr*> &posArgs,
                            llvm::SmallVectorImpl<KeywordSelector*> &keyArgs)
 {
-    // FIXME: We need a predicate better than `!=' here to determine if a type
-    // conversion is necessary.  In particular, if the target type is the base
-    // type of the value, or any unconstrained subtype, a conversion is not
-    // needed.
     typedef llvm::SmallVectorImpl<Expr*>::iterator pos_iterator;
     pos_iterator PI = posArgs.begin();
     for (unsigned i = 0; PI != posArgs.end(); ++PI, ++i) {
         Expr *arg = *PI;
         Type *targetType = decl->getParamType(i);
-        if (arg->getType() != targetType)
+        if (TypeCheck::conversionRequired(arg->getType(), targetType))
             *PI = new ConversionExpr(arg, targetType);
     }
 
@@ -98,10 +94,6 @@ void convertSubroutineCallArguments(SubroutineCall *call)
 {
     assert(call->isUnambiguous() && "Expected resolved call!");
 
-    // FIXME: We need a predicate better than `!=' here to determine if a type
-    // conversion is necessary.  In particular, if the target type is the base
-    // type of the value, or any unconstrained subtype, a conversion is not
-    // needed.
     typedef SubroutineCall::arg_iterator iterator;
     iterator I = call->begin_arguments();
     iterator E = call->end_arguments();
@@ -109,7 +101,7 @@ void convertSubroutineCallArguments(SubroutineCall *call)
     for (unsigned i = 0; I != E; ++I, ++i) {
         Expr *arg = *I;
         Type *targetType = decl->getParamType(i);
-        if (arg->getType() != targetType)
+        if (TypeCheck::conversionRequired(arg->getType(), targetType))
             call->setArgument(I, new ConversionExpr(arg, targetType));
     }
 }

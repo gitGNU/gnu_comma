@@ -179,7 +179,7 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
     iterator I = stmt->begin_arguments();
     iterator E = stmt->end_arguments();
     for (unsigned i = 0; I != E; ++I, ++i)
-        args.push_back(emitCallArgument(pdecl, *I, i));
+        emitCallArgument(pdecl, *I, i, args);
 
     if (isLocalCall(stmt))
         emitLocalCall(pdecl, args);

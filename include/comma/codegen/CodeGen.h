@@ -175,9 +175,9 @@ public:
                                      llvm::BasicBlock *insertBefore = 0) const;
 
     /// \breif Returns an llvm structure type.
-    llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &params,
-                                  bool isPacked = false) {
-        return llvm::StructType::get(getLLVMContext(), params, isPacked);
+    llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &elts,
+                                  bool isPacked = false) const {
+        return llvm::StructType::get(getLLVMContext(), elts, isPacked);
     }
 
     /// \brief Returns a global variable with external linkage embedded in the

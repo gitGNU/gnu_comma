@@ -59,6 +59,9 @@ class CodeGenRoutine {
     typedef llvm::DenseMap<Decl *, llvm::Value *> DeclMap;
     DeclMap declTable;
 
+    // Map from array objects to bound structures.
+    DeclMap boundTable;
+
 public:
     CodeGenRoutine(CodeGenCapsule &CGC);
 
@@ -145,8 +148,9 @@ private:
                                   std::vector<llvm::Value *> &args);
 
 
-    llvm::Value *emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
-                                  unsigned argPosition);
+    void emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
+                          unsigned argPosition,
+                          std::vector<llvm::Value *> &args);
 
     // Conversion emitters.
     llvm::Value *emitCheckedIntegerConversion(Expr *expr,
@@ -160,10 +164,6 @@ private:
 
     llvm::Value *getStackSlot(Decl *decl);
 
-    llvm::Value *emitVariableReference(Expr *expr);
-
-    llvm::Value *emitValue(Expr *expr);
-
     llvm::Value *createStackSlot(Decl *decl);
 
     llvm::Value *getOrCreateStackSlot(Decl *decl);
@@ -171,6 +171,16 @@ private:
     llvm::Value *createTemporary(const llvm::Type *type);
 
     void associateStackSlot(Decl *decl, llvm::Value *value);
+
+    llvm::Value *lookupBounds(ValueDecl *decl);
+
+    llvm::Value *createBounds(ValueDecl *decl);
+
+    void associateBounds(ValueDecl *decl, llvm::Value *value);
+
+    llvm::Value *emitVariableReference(Expr *expr);
+
+    llvm::Value *emitValue(Expr *expr);
 
     /// Emits a scalar range check.
     void emitScalarRangeCheck(llvm::Value *sourceVal,
@@ -198,6 +208,10 @@ private:
     void emitPragmaAssert(PragmaAssert *pragma);
 
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination);
+
+    llvm::Value *emitArrayBounds(Expr *expr);
+
+    void initArrayBounds(llvm::Value *boundSlot, ArraySubType *arrTy);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

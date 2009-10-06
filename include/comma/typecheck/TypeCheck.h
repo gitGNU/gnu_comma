@@ -187,6 +187,11 @@ public:
     /// \brief Returns the number of errors encountered thus far.
     unsigned getErrorCount() const { return errorCount; }
 
+
+    /// Returns true if the type \p source requires a conversion to be
+    /// compatable with the type \p target.
+    static bool conversionRequired(Type *source, Type *target);
+
 private:
     Diagnostic      &diagnostic;
     AstResource     &resource;
@@ -749,6 +754,7 @@ private:
     bool covers(Type *A, Type *B);
 
     bool subsumes(Type *A, Type *B);
+
 
     // Returns true if the given type is compatible with the given abstract
     // domain decl in the environment established by the given rewrites.
