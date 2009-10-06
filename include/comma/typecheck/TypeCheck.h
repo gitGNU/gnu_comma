@@ -920,6 +920,30 @@ private:
     IndexedArrayExpr *acceptIndexedArray(DeclRefExpr *ref,
                                          SVImpl<Expr*>::Type &indices);
 
+
+    /// Checks an object declaration of array type.  This method is a special
+    /// case version of acceptObjectDeclaration().
+    ///
+    /// \param loc The location of the declaration.
+    ///
+    /// \param name The object identifier.
+    ///
+    /// \param arrDecl Declaration node corresponding to the type of the object.
+    ///
+    /// \param init Initialization expression, or null if there is no
+    /// initializer.
+    ///
+    /// \return An ObjectDecl node or null if the declaration did not type
+    /// check.
+    ObjectDecl *acceptArrayObjectDeclaration(Location loc, IdentifierInfo *name,
+                                             ArrayDecl *arrDecl, Expr *init);
+
+    /// Generates a constrained array subtype derived from the given type \p
+    /// arrTy and an array valued expression (typically an array initializer) \p
+    /// init.
+    ArraySubType *generateConstrainedArraySubType(ArraySubType *arrTy,
+                                                  Expr *init);
+
     /// Creates a FunctionCallExpr or ProcedureCallStmt representing the given
     /// SubroutineRef, provided that \p ref admits declarations with arity zero.
     /// On failure, null is returned and diagnostics posted.

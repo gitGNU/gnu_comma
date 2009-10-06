@@ -322,23 +322,11 @@ uint64_t ArrayType::length() const
     SubType *indexTy = getIndexType(0);
 
     if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
-        llvm::APInt lower;
-        llvm::APInt upper;
-        if (intTy->isConstrained()) {
-            RangeConstraint *range = intTy->getConstraint();
-            if (range->isNull())
-                return 0;
-            lower = range->getLowerBound();
-            upper = range->getUpperBound();
-        }
-        else {
-            IntegerType *base = intTy->getTypeOf();
-            lower = base->getLowerBound();
-            upper = base->getUpperBound();
-        }
-
-        llvm::APInt length(upper - lower);
-        ++length;
+        if (intTy->isNull())
+            return 0;
+        llvm::APInt lower(intTy->getLowerBound());
+        llvm::APInt upper(intTy->getUpperBound());
+        llvm::APInt length(upper - lower + 1);
         return length.getZExtValue();
     }
 
@@ -432,4 +420,28 @@ bool IntegerSubType::contains(IntegerType *type) const
     if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
         return false;
     return true;
+}
+
+//===----------------------------------------------------------------------===//
+// ArraySubType
+uint64_t ArraySubType::length() const
+{
+    if (!isConstrained())
+        return getTypeOf()->length();
+
+    SubType *indexTy = getIndexType(0);
+
+    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
+        if (intTy->isNull())
+            return 0;
+        llvm::APInt lower(intTy->getLowerBound());
+        llvm::APInt upper(intTy->getUpperBound());
+        llvm::APInt length(upper - lower + 1);
+        return length.getZExtValue();
+    }
+
+    // FIXME: We do not support constrained enumeration types yet, so just use
+    // the number of elements in the base type.
+    EnumSubType *enumTy = cast<EnumSubType>(indexTy);
+    return enumTy->getTypeOf()->getNumElements();
 }

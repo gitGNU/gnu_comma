@@ -491,36 +491,92 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
     return false;
 }
 
+
+ArraySubType *TypeCheck::generateConstrainedArraySubType(ArraySubType *arrTy,
+                                                         Expr *init)
+{
+    // FIXME: Currently only string literals are supported.
+    //
+    // FIXME: This assumes integer index types exclusively.
+    //
+    // FIXME: Check that the index type is large enough to support the length of
+    // the literal.
+    assert(!arrTy->isConstrained() && "Arry type already constrained!");
+
+    IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+    StringLiteral *strLit = cast<StringLiteral>(init);
+
+    // FIXME: For empty string literals we should generate a null range which is
+    // compatable with the base index type.
+    llvm::APInt lower(idxTy->getLowerBound());
+    llvm::APInt upper(lower + strLit->length() - 1);
+
+    SubType *newIdxTy;
+    newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
+                                             lower, upper);
+    return resource.createArraySubType(0, arrTy->getTypeOf(),
+                                       new IndexConstraint(&newIdxTy, 1));
+}
+
+ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
+                                                    IdentifierInfo *name,
+                                                    ArrayDecl *arrDecl,
+                                                    Expr *init)
+{
+    ArraySubType *arrTy = arrDecl->getType();
+
+    if (!arrTy->isConstrained()) {
+        // Unconstrained arrays require initialization.
+        if (init == 0) {
+            report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
+            return 0;
+        }
+
+        // Generate a new subtype for the object which matches the initializer.
+        if (!(arrTy = generateConstrainedArraySubType(arrTy, init)))
+            return 0;
+    }
+
+    if (init && !checkExprInContext(init, arrTy))
+        return 0;
+
+    return new ObjectDecl(name, arrTy, loc, init);
+}
+
 bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                         Node refNode, Node initializerNode)
 {
     Expr *init = 0;
+    ObjectDecl *decl = 0;
     TypeDecl *tyDecl = ensureTypeDecl(refNode);
 
     if (!tyDecl) return false;
 
-    Type *objTy = tyDecl->getType();
-    if (!initializerNode.isNull()) {
+    if (!initializerNode.isNull())
         init = cast_node<Expr>(initializerNode);
-        if (!checkExprInContext(init, objTy))
-            return false;
 
-        // FIXME: We need a predicate better than `!=' here to determine if a
-        // type conversion is necessary.  In particular, if the target type is
-        // the base type of the value, or any unconstrained subtype, a
-        // conversion is not needed.
-        if (init->getType() != objTy)
-            init = new ConversionExpr(init, objTy);
-    }
-    else if (ArraySubType *arrTy = dyn_cast<ArraySubType>(objTy)) {
-        // Unconstrained array objects require initialization.
-        if (!arrTy->isConstrained()) {
-            report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
+    if (ArrayDecl *arrDecl = dyn_cast<ArrayDecl>(tyDecl)) {
+        decl = acceptArrayObjectDeclaration(loc, name, arrDecl, init);
+        if (decl == 0)
             return false;
+    }
+    else {
+        Type *objTy = tyDecl->getType();
+
+        if (init) {
+            if (!checkExprInContext(init, objTy))
+                return false;
+
+            // FIXME: We need a predicate better than `!=' here to determine if
+            // a type conversion is necessary.  In particular, if the target
+            // type is the base type of the value, or any unconstrained subtype,
+            // a conversion is not needed.
+            if (init->getType() != objTy)
+                init = new ConversionExpr(init, objTy);
         }
+        decl = new ObjectDecl(name, objTy, loc, init);
     }
 
-    ObjectDecl *decl = new ObjectDecl(name, objTy, loc, init);
 
     initializerNode.release();
 

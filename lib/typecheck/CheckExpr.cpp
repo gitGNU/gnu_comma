@@ -308,6 +308,10 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
         return false;
     }
 
+    // All contexts which involve unconstrained array types must resolve the
+    // context.  Ensure we were not passed an unconstrained type.
+    assert(arrTy->isConstrained() && "Unexpected unconstrained array type!");
+
     // The array is a string type.  Check that the string literal has at least
     // one interpretation of its components which matches the component type of
     // the target.
@@ -321,31 +325,27 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
         return false;
     }
 
+
     // If the array type is statically constrained, ensure that the string is of
     // the proper width.  Currently, all constrained array indices are
     // statically constrained.
-    if (arrTy->isConstrained()) {
-        uint64_t arrLength = arrTy->length();
-        uint64_t strLength = strLit->length();
+    uint64_t arrLength = arrTy->length();
+    uint64_t strLength = strLit->length();
 
-        if (arrLength < strLength) {
-            report(strLit->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
-                << arrTy->getIdInfo();
-            return false;
-        }
-        if (arrLength > strLength) {
-            report(strLit->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
-                << arrTy->getIdInfo();
-            return false;
-        }
-
-        /// Resolve the component type of the literal to the component type of
-        /// the array and set the type of the literal to the type of the array.
-        strLit->resolveComponentType(enumTy);
-        strLit->setType(arrTy);
-        return true;
+    if (arrLength < strLength) {
+        report(strLit->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+            << arrTy->getIdInfo();
+        return false;
+    }
+    if (arrLength > strLength) {
+        report(strLit->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
+            << arrTy->getIdInfo();
+        return false;
     }
 
-    assert(false && "Unconstrained array types are not yet supported!");
-    return false;
+    /// Resolve the component type of the literal to the component type of
+    /// the array and set the type of the literal to the type of the array.
+    strLit->resolveComponentType(enumTy);
+    strLit->setType(arrTy);
+    return true;
 }

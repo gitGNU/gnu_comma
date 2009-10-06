@@ -527,7 +527,7 @@ public:
 
     /// Returns the length of the first dimension of this array.  This operation
     /// is valid iff the index type is statically constrained.
-    uint64_t length() const { return getTypeOf()->length(); }
+    uint64_t length() const;
 
     /// Returns the index constraint associated with this subtype, or null if
     /// there are not any.
@@ -595,6 +595,9 @@ public:
         return 0;
     }
 
+    /// Returns true if this type has a null range constraint.
+    bool isNull() const { return isConstrained() && getConstraint()->isNull(); }
+
     /// Returns true if this subtype contains another.
     ///
     /// One integer subtype contains another if the range of the former includes
@@ -604,8 +607,24 @@ public:
     /// Returns true if this subtype contains the given integer type.
     ///
     /// An integer subtype contains another integer type if the range of the
-    /// former spans the representational limits of latter.
+    /// former spans the representational limits of the latter.
     bool contains(IntegerType *type) const;
+
+    /// Returns the lower bound of this subtype.
+    const llvm::APInt &getLowerBound() const {
+        if (RangeConstraint *range = getConstraint())
+            return range->getLowerBound();
+        else
+            return getTypeOf()->getLowerBound();
+    }
+
+    /// Return the upper bound of this subtype.
+    const llvm::APInt &getUpperBound() const {
+        if (RangeConstraint *range = getConstraint())
+            return range->getUpperBound();
+        else
+            return getTypeOf()->getUpperBound();
+    }
 
     static bool classof(const IntegerSubType *node) { return true; }
     static bool classof(const Ast *node) {
