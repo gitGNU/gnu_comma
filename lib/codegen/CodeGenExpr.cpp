@@ -577,7 +577,6 @@ llvm::Value *
 CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
                                              IntegerSubType *targetTy)
 {
-    // FIXME: This code and emitScalarRangeCheck should be combined.
     IntegerSubType *sourceTy = expr->getType()->getAsIntegerSubType();
     IntegerType *targetBaseTy = targetTy->getAsIntegerType();
     IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
