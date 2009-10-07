@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2009, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -63,7 +63,7 @@ public:
     /// \return An interned (unique) IdentifierInfo object associated with \a
     /// name.
     IdentifierInfo &getIdentifierInfo(const std::string& name) {
-        // We do not use c_str() here since the we do not need require null
+        // We do not use c_str() here since the we do not require null
         // termination.
         const char *rep = &name[0];
         return getIdentifierInfo(rep, name.size());
