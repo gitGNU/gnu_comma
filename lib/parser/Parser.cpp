@@ -24,6 +24,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/basic/Attributes.h"
 #include "comma/parser/Parser.h"
 
 #include "llvm/ADT/APInt.h"
@@ -44,6 +45,10 @@ Parser::Parser(TextProvider &txtProvider, IdentifierPool &idPool,
       lexer(txtProvider, diag),
       errorCount(0)
 {
+    // Mark each identifier which can name an attribute.
+    attrib::markAttributeIdentifiers(idPool);
+
+    // Prime the parser by loading in the first token.
     lexer.scan(token);
 }
 
