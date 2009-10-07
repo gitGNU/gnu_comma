@@ -29,7 +29,8 @@ namespace {
 /// computed value.
 ///
 /// \return True if \p expr was static and \p result was set. False otherwise.
-bool staticIntegerFunctionValue(FunctionCallExpr *expr, llvm::APInt &result);
+bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
+                                llvm::APInt &result);
 
 /// Attempts to evaluate a static, unary, integer-valued function call.
 ///
@@ -42,7 +43,7 @@ bool staticIntegerFunctionValue(FunctionCallExpr *expr, llvm::APInt &result);
 ///
 /// \return True if \p arg was static and \p result was set.  False otherwise.
 bool staticIntegerUnaryValue(PO::PrimitiveID ID,
-                             Expr *expr, llvm::APInt &result);
+                             const Expr *expr, llvm::APInt &result);
 
 /// Attempts to evaluate a static, binary, integer-valued function call.
 ///
@@ -56,15 +57,16 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID,
 /// computed value.
 ///
 /// \return True if the evaluation was successful.
-bool staticIntegerBinaryValue(PO::PrimitiveID ID, Expr *x, Expr *y,
+bool staticIntegerBinaryValue(PO::PrimitiveID ID,
+                              const Expr *x, const Expr *y,
                               llvm::APInt &result);
 
-PO::PrimitiveID getCallPrimitive(FunctionCallExpr *call)
+PO::PrimitiveID getCallPrimitive(const FunctionCallExpr *call)
 {
     if (call->isAmbiguous())
         return PO::NotPrimitive;
     else {
-        FunctionDecl *decl = cast<FunctionDecl>(call->getConnective());
+        const FunctionDecl *decl = cast<FunctionDecl>(call->getConnective());
         return decl->getPrimitiveID();
     }
 }
@@ -104,29 +106,31 @@ llvm::APInt exponentiate(llvm::APInt x, llvm::APInt y);
 //===----------------------------------------------------------------------===//
 // Implementations.
 
-bool staticIntegerFunctionValue(FunctionCallExpr *expr, llvm::APInt &result)
+bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
+                                llvm::APInt &result)
 {
     PO::PrimitiveID ID = getCallPrimitive(expr);
 
     if (ID == PO::NotPrimitive)
         return false;
 
-    typedef FunctionCallExpr::arg_iterator iterator;
+    typedef FunctionCallExpr::const_arg_iterator iterator;
     iterator I = expr->begin_arguments();
     if (PO::denotesUnaryOp(ID)) {
         assert(expr->getNumArgs() == 1);
-        Expr *arg = *I;
+        const Expr *arg = *I;
         return staticIntegerUnaryValue(ID, arg, result);
     }
     else {
         assert(expr->getNumArgs() == 2);
-        Expr *lhs = *I;
-        Expr *rhs = *(++I);
+        const Expr *lhs = *I;
+        const Expr *rhs = *(++I);
         return staticIntegerBinaryValue(ID, lhs, rhs, result);
     }
 }
 
-bool staticIntegerBinaryValue(PO::PrimitiveID ID, Expr *x, Expr *y,
+bool staticIntegerBinaryValue(PO::PrimitiveID ID,
+                              const Expr *x, const Expr *y,
                               llvm::APInt &result)
 {
     llvm::APInt LHS, RHS;
@@ -157,7 +161,8 @@ bool staticIntegerBinaryValue(PO::PrimitiveID ID, Expr *x, Expr *y,
     return true;
 }
 
-bool staticIntegerUnaryValue(PO::PrimitiveID ID, Expr *arg, llvm::APInt &result)
+bool staticIntegerUnaryValue(PO::PrimitiveID ID, const Expr *arg,
+                             llvm::APInt &result)
 {
     if (!arg->staticIntegerValue(result))
         return false;
@@ -244,18 +249,24 @@ llvm::APInt exponentiate(llvm::APInt x, llvm::APInt y)
 
 } // end anonymous namespace.
 
-bool Expr::staticIntegerValue(llvm::APInt &result)
+bool Expr::staticIntegerValue(llvm::APInt &result) const
 {
-    if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(this)) {
+    if (const IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(this)) {
         result = ILit->getValue();
         return true;
     }
 
-    if (FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(this))
+    if (const FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(this))
         return staticIntegerFunctionValue(FCall, result);
 
-    if (ConversionExpr *CExpr = dyn_cast<ConversionExpr>(this))
+    if (const ConversionExpr *CExpr = dyn_cast<ConversionExpr>(this))
         return CExpr->getOperand()->staticIntegerValue(result);
 
     return false;
+}
+
+bool Expr::isStaticIntegerExpr() const
+{
+    llvm::APInt tmp;
+    return staticIntegerValue(tmp);
 }

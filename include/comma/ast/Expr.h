@@ -63,13 +63,17 @@ public:
     // subsequently return false.
     void setType(Type *type) { this->type = type; }
 
+    /// Returns true if this expression can be evaluated as to a static integer
+    /// value.
+    bool isStaticIntegerExpr() const;
+
     /// Attempts to evaluate this expression as a constant integer expression.
     ///
     /// \param result If this is a static expression, \p result is set to the
     /// computed value.
     ///
     /// \return True if \p expr is static and \p result was set.  False otherwise.
-    bool staticIntegerValue(llvm::APInt &result);
+    bool staticIntegerValue(llvm::APInt &result) const;
 
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {
