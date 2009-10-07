@@ -9,7 +9,10 @@
 #ifndef COMMA_BASIC_IDENTIFIERINFO_HDR_GUARD
 #define COMMA_BASIC_IDENTIFIERINFO_HDR_GUARD
 
+#include "comma/basic/Attributes.h"
+
 #include "llvm/ADT/StringMap.h"
+
 #include <cassert>
 
 namespace comma {
@@ -33,7 +36,9 @@ namespace comma {
 class IdentifierInfo {
 
 public:
-    IdentifierInfo() : metadata(0) { }
+    IdentifierInfo()
+        : attributeID(attrib::UNKNOWN_ATTRIBUTE),
+          metadata(0) { }
 
     /// Obtains the unique null terminated string associated with this
     /// identifier.
@@ -56,7 +61,14 @@ public:
     /// Returns true if the metadata has been set to a non-null pointer.
     bool hasMetadata() const { return metadata != 0; }
 
+    /// Sets the attribute ID for this identifier.
+    void setAttributeID(attrib::AttributeID ID) { attributeID = ID; }
+
+    /// Returns the attribute ID for this identifier.
+    attrib::AttributeID getAttributeID() const { return attributeID; }
+
 private:
+    attrib::AttributeID attributeID : 8; ///< Attribute ID of this identifier.
     void *metadata;
 };
 
