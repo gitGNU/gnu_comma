@@ -1148,9 +1148,7 @@ private:
     /// Private constructor for use by AstResource.
     IntegerDecl(AstResource &resource,
                 IdentifierInfo *name, Location loc,
-                Expr *lowRange, Expr *highRange,
-                const llvm::APInt &lowVal, const llvm::APInt &highVal,
-                DeclRegion *parent);
+                Expr *lower, Expr *upper, DeclRegion *parent);
 
     friend class AstResource;
 

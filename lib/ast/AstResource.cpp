@@ -109,7 +109,7 @@ void AstResource::initializeRootInteger()
     IntegerLiteral *lowerExpr = new IntegerLiteral(lower, 0);
     IntegerLiteral *upperExpr = new IntegerLiteral(upper, 0);
     theRootIntegerDecl =
-        createIntegerDecl(id, 0, lowerExpr, upperExpr, lower, upper, 0);
+        createIntegerDecl(id, 0, lowerExpr, upperExpr, 0);
 }
 
 void AstResource::initializeInteger()
@@ -121,8 +121,7 @@ void AstResource::initializeInteger()
     IntegerLiteral *lowerExpr = new IntegerLiteral(lower, 0);
     IntegerLiteral *upperExpr = new IntegerLiteral(upper, 0);
     theIntegerDecl = createIntegerDecl(integerId, 0,
-                                       lowerExpr, upperExpr,
-                                       lower, upper, 0);
+                                       lowerExpr, upperExpr, 0);
 }
 
 void AstResource::initializeNatural()
@@ -214,12 +213,10 @@ EnumSubType *AstResource::createEnumSubType(IdentifierInfo *name,
 
 IntegerDecl *AstResource::createIntegerDecl(IdentifierInfo *name, Location loc,
                                             Expr *lowRange, Expr *highRange,
-                                            const llvm::APInt &lowVal,
-                                            const llvm::APInt &highVal,
                                             DeclRegion *parent)
 {
-    IntegerDecl *res = new IntegerDecl(*this, name, loc, lowRange, highRange,
-                                       lowVal, highVal, parent);
+    IntegerDecl *res;
+    res = new IntegerDecl(*this, name, loc, lowRange, highRange, parent);
     decls.push_back(res);
     return res;
 }

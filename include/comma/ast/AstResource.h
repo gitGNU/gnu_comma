@@ -88,8 +88,6 @@ public:
     /// Creates an integer declaration node.
     IntegerDecl *createIntegerDecl(IdentifierInfo *name, Location loc,
                                    Expr *lowRange, Expr *highRange,
-                                   const llvm::APInt &lowVal,
-                                   const llvm::APInt &highVal,
                                    DeclRegion *parent);
 
     /// Returns an IntegerType node with the given static bounds.

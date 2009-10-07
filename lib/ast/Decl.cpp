@@ -790,13 +790,21 @@ const EnumLiteral *EnumerationDecl::findCharacterLiteral(char ch) const
 
 IntegerDecl::IntegerDecl(AstResource &resource,
                          IdentifierInfo *name, Location loc,
-                         Expr *lowRange, Expr *highRange,
-                         const llvm::APInt &lowVal, const llvm::APInt &highVal,
+                         Expr *lower, Expr *upper,
                          DeclRegion *parent)
     : TypeDecl(AST_IntegerDecl, name, loc),
       DeclRegion(AST_IntegerDecl, parent),
-      lowExpr(lowRange), highExpr(highRange)
+      lowExpr(lower), highExpr(upper)
 {
+    llvm::APInt lowVal;
+    llvm::APInt highVal;
+
+    assert(lower->isStaticIntegerExpr());
+    assert(upper->isStaticIntegerExpr());
+
+    lower->staticIntegerValue(lowVal);
+    upper->staticIntegerValue(highVal);
+
     IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
     CorrespondingType =
         resource.createIntegerSubType(name, base, lowVal, highVal);

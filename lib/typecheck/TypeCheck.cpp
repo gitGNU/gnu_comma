@@ -483,12 +483,18 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
     return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
 }
 
-/// Returns true if \p expr is a static integer expression.  If so, initializes
-/// \p result to a signed value which can accommodate the given static
-/// expression.
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
     if (expr->staticIntegerValue(result))
+        return true;
+
+    report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
+    return false;
+}
+
+bool TypeCheck::ensureStaticIntegerExpr(Expr *expr)
+{
+    if (expr->isStaticIntegerExpr())
         return true;
 
     report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
@@ -725,19 +731,8 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
             return;
     }
 
-    llvm::APInt lowValue;
-    llvm::APInt highValue;
-    if (!ensureStaticIntegerExpr(lowExpr, lowValue) ||
-        !ensureStaticIntegerExpr(highExpr, highValue))
+    if (!ensureStaticIntegerExpr(lowExpr) || !ensureStaticIntegerExpr(highExpr))
         return;
-
-    // Sign extend the values so that they have identical widths.
-    unsigned lowWidth = lowValue.getBitWidth();
-    unsigned highWidth = highValue.getBitWidth();
-    if (lowWidth < highWidth)
-        lowValue.sext(highWidth);
-    else if (highWidth < lowWidth)
-        highValue.sext(lowWidth);
 
     // Obtain an integer type to represent the base type of this declaration and
     // release the range expressions as they are now owned by this new
@@ -745,9 +740,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     lowNode.release();
     highNode.release();
     IntegerDecl *decl;
-    decl = resource.createIntegerDecl(name, loc,
-                                      lowExpr, highExpr,
-                                      lowValue, highValue, region);
+    decl = resource.createIntegerDecl(name, loc, lowExpr, highExpr, region);
 
     if (Decl *conflict = scope->addDirectDecl(decl)) {
         report(loc, diag::CONFLICTING_DECLARATION)

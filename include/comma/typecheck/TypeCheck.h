@@ -398,6 +398,10 @@ private:
     /// static expression.
     bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
 
+    /// Returns true if \p expr is a static integer expression.  Otherwise false
+    /// is returned and diagnostics are posted.
+    bool ensureStaticIntegerExpr(Expr *expr);
+
     /// Resolves a visible declarative region associated with a qualifier.
     ///
     /// Qualifiers can name signature components, but such qualifiers are
