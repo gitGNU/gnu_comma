@@ -1,4 +1,4 @@
-//===-- typecheck/Eval.cpp ------------------------------------ -*- C++ -*-===//
+//===-- ast/Eval.cpp ------------------------------------------ -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
@@ -12,13 +12,9 @@
 /// \brief Implementation of the compile-time expression evaluation routines.
 //===----------------------------------------------------------------------===//
 
-#include "Eval.h"
 #include "comma/ast/Expr.h"
 
-#include "llvm/ADT/APInt.h"
-
 using namespace comma;
-using namespace comma::eval;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
@@ -134,7 +130,7 @@ bool staticIntegerBinaryValue(PO::PrimitiveID ID, Expr *x, Expr *y,
                               llvm::APInt &result)
 {
     llvm::APInt LHS, RHS;
-    if (!staticIntegerValue(x, LHS) || !staticIntegerValue(y, RHS))
+    if (!x->staticIntegerValue(LHS) || !y->staticIntegerValue(RHS))
         return false;
 
     switch (ID) {
@@ -163,7 +159,7 @@ bool staticIntegerBinaryValue(PO::PrimitiveID ID, Expr *x, Expr *y,
 
 bool staticIntegerUnaryValue(PO::PrimitiveID ID, Expr *arg, llvm::APInt &result)
 {
-    if (!staticIntegerValue(arg, result))
+    if (!arg->staticIntegerValue(result))
         return false;
 
     // There are only two unary operations to consider.  Negation and the
@@ -248,20 +244,18 @@ llvm::APInt exponentiate(llvm::APInt x, llvm::APInt y)
 
 } // end anonymous namespace.
 
-bool eval::staticIntegerValue(Expr *expr, llvm::APInt &result)
+bool Expr::staticIntegerValue(llvm::APInt &result)
 {
-    if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(expr)) {
+    if (IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(this)) {
         result = ILit->getValue();
         return true;
     }
 
-    if (FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(expr))
+    if (FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(this))
         return staticIntegerFunctionValue(FCall, result);
 
-    if (ConversionExpr *CExpr = dyn_cast<ConversionExpr>(expr)) {
-        // FIXME:  More work will be needed here.
-        return staticIntegerValue(CExpr->getOperand(), result);
-    }
+    if (ConversionExpr *CExpr = dyn_cast<ConversionExpr>(this))
+        return CExpr->getOperand()->staticIntegerValue(result);
 
     return false;
 }

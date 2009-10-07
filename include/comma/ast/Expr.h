@@ -39,6 +39,9 @@ public:
         assert(this->denotesExpr());
     }
 
+    /// Returns the location of this expression.
+    Location getLocation() const { return location; }
+
     // Returns true if this expression has a single known type associated with
     // it.
     bool hasType() const { return type != 0; }
@@ -60,7 +63,13 @@ public:
     // subsequently return false.
     void setType(Type *type) { this->type = type; }
 
-    Location getLocation() const { return location; }
+    /// Attempts to evaluate this expression as a constant integer expression.
+    ///
+    /// \param result If this is a static expression, \p result is set to the
+    /// computed value.
+    ///
+    /// \return True if \p expr is static and \p result was set.  False otherwise.
+    bool staticIntegerValue(llvm::APInt &result);
 
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {

@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Eval.h"
 #include "Scope.h"
 #include "Stencil.h"
 #include "comma/typecheck/TypeCheck.h"
@@ -489,13 +488,12 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 /// expression.
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
-    if (eval::staticIntegerValue(expr, result))
+    if (expr->staticIntegerValue(result))
         return true;
 
     report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
     return false;
 }
-
 
 ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
                                                     Expr *init)
