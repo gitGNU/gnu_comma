@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Scope.h"
+#include "Stencil.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
@@ -92,90 +93,77 @@ bool TypeCheck::ensureMatchingParameterModes(
 
 void TypeCheck::beginFunctionDeclaration(IdentifierInfo *name, Location loc)
 {
-    assert(srProfileInfo.kind == SubroutineProfileInfo::EMPTY_PROFILE &&
-           "Subroutine profile info already initialized!");
-
-    srProfileInfo.kind = SubroutineProfileInfo::FUNCTION_PROFILE;
-    srProfileInfo.name = name;
-    srProfileInfo.loc = loc;
+    routineStencil->init(name, loc, SRDeclStencil::FUNCTION_Stencil);
 }
 
 void TypeCheck::beginProcedureDeclaration(IdentifierInfo *name, Location loc)
 {
-    assert(srProfileInfo.kind == SubroutineProfileInfo::EMPTY_PROFILE &&
-           "Subroutine profile info already initialized!");
-
-    srProfileInfo.kind = SubroutineProfileInfo::PROCEDURE_PROFILE;
-    srProfileInfo.name = name;
-    srProfileInfo.loc = loc;
+    routineStencil->init(name, loc, SRDeclStencil::PROCEDURE_Stencil);
 }
 
 void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
                                           Node declNode, PM::ParameterMode mode)
 {
-    assert(srProfileInfo.kind != SubroutineProfileInfo::EMPTY_PROFILE &&
-           "Subroutine profile not initialized!");
-
     TypeDecl *tyDecl = ensureTypeDecl(declNode);
 
     if (!tyDecl) {
-        srProfileInfo.markInvalid();
+        routineStencil->markInvalid();
         return;
     }
 
     // If we are building a function declaration, ensure that the parameter is
     // of mode "in".
-    if (srProfileInfo.denotesFunction() &&
+    if (routineStencil->denotesFunction() &&
         (mode != PM::MODE_IN) && (mode != PM::MODE_DEFAULT)) {
         report(loc, diag::OUT_MODE_IN_FUNCTION);
-        srProfileInfo.markInvalid();
+        routineStencil->markInvalid();
         return;
     }
 
     // Check that this parameters name does not conflict with any previous
     // parameters.
-    typedef SubroutineProfileInfo::ParamVec::iterator iterator;
-    for (iterator I = srProfileInfo.params.begin();
-         I != srProfileInfo.params.end(); ++I) {
+    typedef SRDeclStencil::param_iterator iterator;
+    for (iterator I = routineStencil->begin_params();
+         I != routineStencil->end_params(); ++I) {
         ParamValueDecl *previousParam = *I;
         if (previousParam->getIdInfo() == formal) {
             report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
-            srProfileInfo.markInvalid();
+            routineStencil->markInvalid();
             return;
         }
     }
 
     // Check that the parameter name does not conflict with the subroutine
     // declaration itself.
-    if (formal == srProfileInfo.name) {
+    if (formal == routineStencil->getIdInfo()) {
         report(loc, diag::CONFLICTING_DECLARATION)
-            << formal << getSourceLoc(srProfileInfo.loc);
-        srProfileInfo.markInvalid();
+            << formal << getSourceLoc(routineStencil->getLocation());
+        routineStencil->markInvalid();
         return;
     }
 
     Type *paramTy = tyDecl->getType();
     ParamValueDecl *paramDecl = new ParamValueDecl(formal, paramTy, mode, loc);
-    srProfileInfo.params.push_back(paramDecl);
+    routineStencil->addParameter(paramDecl);
 }
 
 void TypeCheck::acceptFunctionReturnType(Node typeNode)
 {
-    assert(srProfileInfo.denotesFunction() &&
+    assert(routineStencil->denotesFunction() &&
            "Inconsitent state for function returns!");
 
     if (typeNode.isNull()) {
-        srProfileInfo.markInvalid();
+        routineStencil->markInvalid();
         return;
     }
 
     TypeDecl *returnDecl = ensureTypeDecl(typeNode);
     if (!returnDecl) {
-        srProfileInfo.markInvalid();
+        routineStencil->markInvalid();
         return;
     }
 
-    srProfileInfo.returnTy = returnDecl;
+    routineStencil->setReturnType(returnDecl);
 }
 
 void TypeCheck::acceptOverrideTarget(Node prefix,
@@ -189,30 +177,27 @@ void TypeCheck::acceptOverrideTarget(Node prefix,
         report(loc, diag::EXPECTING_SIGNATURE_QUALIFIER) << target;
         return;
     }
-    else {
-        srProfileInfo.overrideCtx = ref;
-        srProfileInfo.overrideTarget = target;
-        srProfileInfo.overrideLoc = loc;
-    }
+    else
+        routineStencil->setOverrideInfo(ref, target, loc);
 }
 
 Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 {
-    IdentifierInfo *name = srProfileInfo.name;
-    Location location = srProfileInfo.loc;
-    SubroutineProfileInfo::ParamVec &params = srProfileInfo.params;
+    IdentifierInfo *name = routineStencil->getIdInfo();
+    Location location = routineStencil->getLocation();
+    SRDeclStencil::ParamVec &params = routineStencil->getParams();
 
-    // Ensure the profile info is reset once this method returns.
-    SubroutineProfileInfoReseter reseter(srProfileInfo);
+    // Ensure the stencil is reset once this method returns.
+    ASTStencilReseter reseter(routineStencil);
 
-    // If the subroutine profile has not checked out thus far, do not construct
+    // If the subroutine stencil has not checked out thus far, do not construct
     // a subroutine declaration for it.
-    if (srProfileInfo.isInvalid())
+    if (routineStencil->isInvalid())
         return getInvalidNode();
 
     // Ensure that if this function names a binary or unary operator it has the
     // required arity.
-    if (srProfileInfo.denotesFunction()) {
+    if (routineStencil->denotesFunction()) {
         if (namesUnaryFunction(name)) {
             if (params.size() != 1 && !namesBinaryFunction(name))
                 report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
@@ -227,8 +212,8 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion *region = currentDeclarativeRegion();
-    if (srProfileInfo.denotesFunction()) {
-        Type *returnType = srProfileInfo.returnTy->getType();
+    if (routineStencil->denotesFunction()) {
+        Type *returnType = routineStencil->getReturnType()->getType();
         routineDecl = new FunctionDecl(resource, name, location,
                                        params.data(), params.size(),
                                        returnType, region);
@@ -239,7 +224,7 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
                                         region);
 
     // If this declaration overrides, validate it using the data in
-    // srProfileInfo.
+    // the subroutine stencil.
     if (!validateOverrideTarget(routineDecl))
         return getInvalidNode();
 
@@ -285,14 +270,13 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
 bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
 {
-    TypeRef *ref = srProfileInfo.overrideCtx;
-    IdentifierInfo *targetName = srProfileInfo.overrideTarget;
-    Location targetLoc = srProfileInfo.overrideLoc;
-
     // If there is no override info, we are done.
-    if (!ref)
+    if (!routineStencil->hasOverrideInfo())
         return true;
 
+    TypeRef *ref = routineStencil->getOverrideContext();
+    IdentifierInfo *targetName = routineStencil->getOverrideTarget();
+    Location targetLoc = routineStencil->getOverrideTargetLocation();
     SigInstanceDecl *sig = ref->getSigInstanceDecl();
 
     if (!sig) {
@@ -322,10 +306,10 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     // given name.
     typedef llvm::SmallVector<SubroutineDecl*, 8> TargetVector;
     TargetVector targets;
-    if (srProfileInfo.denotesFunction())
+    if (routineStencil->denotesFunction())
         sigPercent->collectFunctionDecls(targetName, targets);
     else {
-        assert(srProfileInfo.denotesProcedure());
+        assert(routineStencil->denotesProcedure());
         sigPercent->collectProcedureDecls(targetName, targets);
     }
 

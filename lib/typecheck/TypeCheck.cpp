@@ -8,6 +8,7 @@
 
 #include "Eval.h"
 #include "Scope.h"
+#include "Stencil.h"
 #include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
@@ -35,7 +36,10 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
       resource(resource),
       compUnit(cunit),
       scope(new Scope),
-      errorCount(0)
+      errorCount(0),
+      arrayStencil(new ArrayDeclStencil()),
+      enumStencil(new EnumDeclStencil()),
+      routineStencil(new SRDeclStencil())
 {
     populateInitialEnvironment();
 }
@@ -43,6 +47,9 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
 TypeCheck::~TypeCheck()
 {
     delete scope;
+    delete arrayStencil;
+    delete enumStencil;
+    delete routineStencil;
 }
 
 // Called when then type checker is constructed.  Populates the top level scope
@@ -618,9 +625,7 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
 
 void TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
 {
-    assert(!enumProfileInfo.isInitialized() &&
-           "Enum profile info is already initialized!");
-    enumProfileInfo.init(name, loc);
+    enumStencil->init(name, loc);
 }
 
 void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
@@ -631,22 +636,19 @@ void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
 void TypeCheck::acceptEnumerationCharacter(IdentifierInfo *name, Location loc)
 {
     if (acceptEnumerationLiteral(name, loc))
-        enumProfileInfo.isCharacterType = true;
+        enumStencil->markAsCharacterType();
 }
 
 bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
 {
-    assert(enumProfileInfo.isInitialized() &&
-           "Enum profile info not initialized!");
-
     // Check that the given element name has yet to appear in the set of
-    // elements.  If it exists, mark the profile as invalid and ignore the
+    // elements.  If it exists, mark the stencil as invalid and ignore the
     // element.
-    EnumProfileInfo::ElemVec::iterator I = enumProfileInfo.elements.begin();
-    EnumProfileInfo::ElemVec::iterator E = enumProfileInfo.elements.end();
+    EnumDeclStencil::elem_iterator I = enumStencil->begin_elems();
+    EnumDeclStencil::elem_iterator E = enumStencil->end_elems();
     for ( ; I != E; ++I) {
         if (I->first == name) {
-            enumProfileInfo.markInvalid();
+            enumStencil->markInvalid();
             report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
             return false;
         }
@@ -654,25 +656,26 @@ bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
 
     // Check that the element does not conflict with the name of the enumeration
     // decl itself.
-    if (name == enumProfileInfo.name) {
+    if (name == enumStencil->getIdInfo()) {
         report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(enumProfileInfo.loc);
+            << name << getSourceLoc(enumStencil->getLocation());
         return false;
     }
 
-    enumProfileInfo.addElement(name, loc);
+    enumStencil->addElement(name, loc);
     return true;
 }
 
 void TypeCheck::endEnumeration()
 {
-    IdentifierInfo *name = enumProfileInfo.name;
-    Location loc = enumProfileInfo.loc;
+    IdentifierInfo *name = enumStencil->getIdInfo();
+    Location loc = enumStencil->getLocation();
     DeclRegion *region = currentDeclarativeRegion();
-    EnumProfileInfo::IdLocPair *elems = enumProfileInfo.elements.data();
-    unsigned numElems = enumProfileInfo.elements.size();
-    EnumProfileInfoReseter reseter(enumProfileInfo);
+    EnumDeclStencil::IdLocPair *elems = enumStencil->getElements().data();
+    unsigned numElems = enumStencil->numElements();
     EnumerationDecl *decl;
+
+    ASTStencilReseter reseter(enumStencil);
 
     // It is possible that the enumeration is empty due to previous errors.  Do
     // not even bother constructing such malformed nodes.
@@ -691,7 +694,7 @@ void TypeCheck::endEnumeration()
 
     // Mark the declaration as a character type if any character literals were
     // used to define it.
-    if (enumProfileInfo.isCharacterType)
+    if (enumStencil->isCharacterType())
         decl->markAsCharacterType();
 
     region->addDecl(decl);
@@ -764,110 +767,91 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
 
 void TypeCheck::beginArray(IdentifierInfo *name, Location loc)
 {
-    assert(!arrProfileInfo.isInitialized() &&
-           "Array profile info is already initialized!");
-
-    arrProfileInfo.kind = ArrayProfileInfo::VALID_ARRAY_PROFILE;
-    arrProfileInfo.name = name;
-    arrProfileInfo.loc = loc;
+    arrayStencil->init(name, loc);
 }
 
 void TypeCheck::acceptUnconstrainedArrayIndex(Node indexNode)
 {
-    assert(arrProfileInfo.isInitialized() &&
-           "Array profile is not yet initialized!");
-
     // The parser guarantees that all index definitions will be unconstrained or
-    // constrained.  Assert this fact for ourselves by ensuring that if the
-    // current array profile is unconstrained, this is the first index
-    // definition so far.
-    if (arrProfileInfo.indices.size())
-        assert(arrProfileInfo.isConstrained &&
+    // constrained.  Assert this fact for ourselves.
+    if (arrayStencil->numIndices())
+        assert(!arrayStencil->isConstrained() &&
                "Conflicting array index definitions!");
 
     TypeRef *index = lift_node<TypeRef>(indexNode);
     if (!index) {
-        arrProfileInfo.markInvalid();
+        arrayStencil->markInvalid();
         report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
         return;
     }
 
     indexNode.release();
-    arrProfileInfo.indices.push_back(index);
+    arrayStencil->addIndex(index);
 }
 
 void TypeCheck::acceptArrayIndex(Node indexNode)
 {
-   assert(arrProfileInfo.isInitialized() &&
-           "Array profile is not yet initialized!");
-
     // The parser guarantees that all index definitions will be unconstrained or
     // constrained.  Assert this fact for ourselves by ensuring that if the
-    // current array profile is not constrained.
-    assert(!arrProfileInfo.isConstrained &&
+    // current array stencil is not constrained.
+    assert(!arrayStencil->isConstrained() &&
            "Conflicting array index definitions!");
 
     TypeRef *index = lift_node<TypeRef>(indexNode);
     if (!index) {
-        arrProfileInfo.markInvalid();
+        arrayStencil->markInvalid();
         report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
         return;
     }
 
     indexNode.release();
-    arrProfileInfo.isConstrained = true;
-    arrProfileInfo.indices.push_back(index);
+    arrayStencil->markAsConstrained();
+    arrayStencil->addIndex(index);
 }
 
 void TypeCheck::acceptArrayComponent(Node componentNode)
 {
-    assert(arrProfileInfo.isInitialized() &&
-           "Array profile is not yet initialized!");
-    assert(arrProfileInfo.component == 0 &&
+    assert(arrayStencil->getComponentType() == 0 &&
            "Array component type already initialized!");
 
-    TypeDecl *indexTy = ensureTypeDecl(componentNode);
+    TypeDecl *componentTy = ensureTypeDecl(componentNode);
 
-    if (!indexTy) {
-        arrProfileInfo.markInvalid();
+    if (!componentTy) {
+        arrayStencil->markInvalid();
         return;
     }
-    arrProfileInfo.component = indexTy;
+    arrayStencil->setComponentType(componentTy);
 }
 
 void TypeCheck::endArray()
 {
-    assert(arrProfileInfo.isInitialized() &&
-           "Array profile is not yet initialized!");
+    ASTStencilReseter reseter(arrayStencil);
 
-    // Ensure that the profile info is reset upon return.
-    ArrayProfileInfoReseter reseter(arrProfileInfo);
-
-    // If the profile info is invalid, do not construct the declaration.
-    if (arrProfileInfo.isInvalid())
+    // If the array stencil is invalid, do not construct the declaration.
+    if (arrayStencil->isInvalid())
         return;
 
-    // Ensure that at least one index has been associated with this profile.  It
+    // Ensure that at least one index has been associated with this stencil.  It
     // is possible that the parser could not parse the index components.  Just
     // return in this case, since the parser would have already posted a
     // diagnostic.
-    if (arrProfileInfo.indices.empty())
+    if (arrayStencil->numIndices() == 0)
         return;
 
     // Likewise, it is possible that the parser could not complete the component
     // type declaration.
-    if (arrProfileInfo.component == 0)
+    if (arrayStencil->getComponentType() == 0)
         return;
 
-    IdentifierInfo *name = arrProfileInfo.name;
-    Location loc = arrProfileInfo.loc;
-    ArrayProfileInfo::IndexVec &indexRefs = arrProfileInfo.indices;
+    IdentifierInfo *name = arrayStencil->getIdInfo();
+    Location loc = arrayStencil->getLocation();
 
     // Ensure that each index type is a discrete type.  Build a vector of all
     // valid SubTypes for each index.
     llvm::SmallVector<SubType*, 4> indices;
-    typedef ArrayProfileInfo::IndexVec::iterator index_iterator;
-    for (index_iterator I = indexRefs.begin(); I != indexRefs.end(); ++I) {
+    typedef ArrayDeclStencil::index_iterator index_iterator;
+    for (index_iterator I = arrayStencil->begin_indices();
+         I != arrayStencil->end_indices(); ++I) {
         TypeRef *ref = *I;
         TypeDecl *tyDecl = dyn_cast_or_null<TypeDecl>(ref->getTypeDecl());
 
@@ -883,11 +867,11 @@ void TypeCheck::endArray()
     }
 
     // Do not create the array declaration unless all indices checked out.
-    if (indices.size() != indexRefs.size())
+    if (indices.size() != arrayStencil->numIndices())
         return;
 
-    Type *component = arrProfileInfo.component->getType();
-    bool isConstrained = arrProfileInfo.isConstrained;
+    Type *component = arrayStencil->getComponentType()->getType();
+    bool isConstrained = arrayStencil->isConstrained();
     DeclRegion *region = currentDeclarativeRegion();
     ArrayDecl *array;
     array = resource.createArrayDecl(name, loc,
