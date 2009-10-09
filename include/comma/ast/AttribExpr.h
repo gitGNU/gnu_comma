@@ -90,6 +90,18 @@ public:
     }
     //@}
 
+
+    //@{
+    /// Specializations of Expr::getType().
+    const IntegerSubType *getType() const {
+        return llvm::cast<IntegerSubType>(Expr::getType());
+    }
+
+    IntegerSubType *getType() {
+        return llvm::cast<IntegerSubType>(Expr::getType());
+    }
+    //@}
+
     // Support isa and dyn_cast.
     static bool classof(const FirstAE *node) { return true; }
     static bool classof(const Ast *node) {
@@ -118,6 +130,17 @@ public:
 
     IntegerSubType *getPrefix() {
         return llvm::cast<IntegerSubType>(prefix);
+    }
+    //@}
+
+    //@{
+    /// Specializations of Expr::getType().
+    const IntegerSubType *getType() const {
+        return llvm::cast<IntegerSubType>(Expr::getType());
+    }
+
+    IntegerSubType *getType() {
+        return llvm::cast<IntegerSubType>(Expr::getType());
     }
     //@}
 
