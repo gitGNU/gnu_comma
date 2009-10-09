@@ -146,6 +146,7 @@ DiagnosticStream &DiagnosticStream::operator<<(PM::ParameterMode mode)
 
 DiagnosticStream &Diagnostic::report(const SourceLocation &loc, diag::Kind kind)
 {
+    reportCount++;
     return diagstream.initialize(loc, messages[kind]);
 }
 

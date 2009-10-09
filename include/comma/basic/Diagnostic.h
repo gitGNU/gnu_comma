@@ -70,7 +70,7 @@ class Diagnostic {
 public:
     // Creates a diagnostic object with the reporting stream defaulting to
     // std::cerr;
-    Diagnostic() : diagstream(std::cerr) { }
+    Diagnostic() : diagstream(std::cerr), reportCount(0) { }
 
     // Creates a diagnostic object with the given output stream serving as the
     // default stream to which messages are delivered.
@@ -80,8 +80,15 @@ public:
 
     const char *getDiagnosticFormat(diag::Kind);
 
+    // Returns true if report() has been called.
+    bool reportsGenerated() { return reportCount != 0; }
+
+    // Returns the number of reports handled by this Diagnostic so far.
+    unsigned numReports() const { return reportCount; }
+
 private:
     DiagnosticStream diagstream;
+    unsigned reportCount;
 
     static void initializeMessages();
 
