@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/ExprVisitor.h"
 
@@ -30,18 +31,33 @@ void ExprVisitor::visitAst(Ast *node)
 
 void ExprVisitor::visitExpr(Expr *node)
 {
+    if (isa<AttribExpr>(node))
+        visitAttribExpr(cast<AttribExpr>(node));
+    else {
+        switch (node->getKind()) {
+        default:
+            assert(false && "Cannot visit this kind of node!");
+            break;
+        case DISPATCH(DeclRefExpr, node);
+        case DISPATCH(FunctionCallExpr, node);
+        case DISPATCH(IndexedArrayExpr, node);
+        case DISPATCH(InjExpr, node);
+        case DISPATCH(PrjExpr, node);
+        case DISPATCH(IntegerLiteral, node);
+        case DISPATCH(StringLiteral, node);
+        case DISPATCH(ConversionExpr, node);
+        };
+    }
+}
+
+void ExprVisitor::visitAttribExpr(AttribExpr *node)
+{
     switch (node->getKind()) {
     default:
-        assert(false && "Cannot visit this kind of node!");
+        assert(false && "Cannot visit this kind of attribute!");
         break;
-    case DISPATCH(DeclRefExpr, node);
-    case DISPATCH(FunctionCallExpr, node);
-    case DISPATCH(IndexedArrayExpr, node);
-    case DISPATCH(InjExpr, node);
-    case DISPATCH(PrjExpr, node);
-    case DISPATCH(IntegerLiteral, node);
-    case DISPATCH(StringLiteral, node);
-    case DISPATCH(ConversionExpr, node);
+    case DISPATCH(FirstAE, node);
+    case DISPATCH(LastAE, node);
     };
 }
 
@@ -56,3 +72,6 @@ void ExprVisitor::visitPrjExpr(PrjExpr *node) { }
 void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }
 void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
 void ExprVisitor::visitConversionExpr(ConversionExpr *node) { }
+
+void ExprVisitor::visitFirstAE(FirstAE *node) { }
+void ExprVisitor::visitLastAE(LastAE *node) { }

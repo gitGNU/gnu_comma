@@ -28,6 +28,7 @@ public:
 
     virtual void visitAst(Ast *node);
     virtual void visitExpr(Expr *node);
+    virtual void visitAttribExpr(AttribExpr *node);
     virtual void visitDeclRefExpr(DeclRefExpr *node);
     virtual void visitFunctionCallExpr(FunctionCallExpr *node);
     virtual void visitIndexedArrayExpr(IndexedArrayExpr *node);
@@ -36,6 +37,10 @@ public:
     virtual void visitIntegerLiteral(IntegerLiteral *node);
     virtual void visitStringLiteral(StringLiteral *node);
     virtual void visitConversionExpr(ConversionExpr *node);
+
+    /// Visitors over AttribExpr nodes.
+    virtual void visitFirstAE(FirstAE *node);
+    virtual void visitLastAE(LastAE *node);
 };
 
 } // end comma namespace.

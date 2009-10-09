@@ -33,6 +33,7 @@ class AssignmentStmt;
 class Ast;
 class AstRewriter;
 class AstResource;
+class AttribExpr;
 class BlockStmt;
 class CarrierDecl;
 class CarrierType;
@@ -50,6 +51,7 @@ class EnumLiteral;
 class EnumSubType;
 class EnumerationType;
 class Expr;
+class FirstAE;
 class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
@@ -64,6 +66,7 @@ class IntegerLiteral;
 class IntegerSubType;
 class IntegerType;
 class KeywordSelector;
+class LastAE;
 class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
@@ -190,6 +193,10 @@ public:
         AST_PrjExpr,            ///< PrjExpr
         AST_StringLiteral,      ///< StringLiteral
 
+        // Expr attributes.
+        AST_FirstAE,            ///< FirstAE
+        AST_LastAE,             ///< LastAE
+
         //
         // Stmt nodes.
         //
@@ -237,7 +244,10 @@ public:
         LAST_SubType = AST_IntegerSubType,
 
         FIRST_Expr = AST_ConversionExpr,
-        LAST_Expr = AST_StringLiteral,
+        LAST_Expr = AST_LastAE,
+
+        FIRST_AttribExpr = AST_FirstAE,
+        LAST_AttribExpr = AST_LastAE,
 
         FIRST_Stmt = AST_AssignmentStmt,
         LAST_Stmt = AST_PragmaStmt
@@ -327,6 +337,11 @@ public:
     /// Returns true if this node denotes a expression.
     bool denotesExpr() const {
         return (FIRST_Expr <= kind && kind <= LAST_Expr);
+    }
+
+    /// Returns true if this node denotes an AttribExpr.
+    bool denotesAttribExpr() const {
+        return (FIRST_AttribExpr <= kind && kind <= LAST_AttribExpr);
     }
 
     /// Returns true if this node denotes a Stmt.

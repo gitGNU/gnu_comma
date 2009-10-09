@@ -18,9 +18,11 @@
 #define COMMA_AST_AST_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Cunit.h"
-#include "comma/ast/Type.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
+#include "comma/ast/Type.h"
 
 #endif
