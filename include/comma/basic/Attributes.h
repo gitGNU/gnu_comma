@@ -50,6 +50,10 @@ inline AttributeID getAttributeID(llvm::StringRef &name) {
     return getAttributeID(name.begin(), name.end());
 }
 
+/// Returns a null terminated string naming the given attribute.
+/// UNKNOWN_ATTRBIUTE is not a valid ID in this case.
+const char *getAttributeString(AttributeID ID);
+
 } // end attrib namespace.
 
 } // end comma namespace.

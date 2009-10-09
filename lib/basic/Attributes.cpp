@@ -20,13 +20,12 @@ static const char *attributeNames[] = {
     "Last"
 };
 
-/// Returns the string corresponding to the given AttributeID.
-const char *getAttributeString(AttributeID ID)
+} // end anonymous namespace.
+
+const char *comma::attrib::getAttributeString(AttributeID ID)
 {
     return attributeNames[ID - FIRST_ATTRIB];
 }
-
-} // end anonymous namespace.
 
 void comma::attrib::markAttributeIdentifiers(IdentifierPool &idPool)
 {
