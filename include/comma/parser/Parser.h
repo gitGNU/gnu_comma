@@ -94,6 +94,7 @@ public:
     Node parseSelectedComponent(Node prefix, bool forStatement);
     Node parseApplication(Node prefix);
     Node parseParameterAssociation();
+    Node parseAttribute(Node prefix);
 
     bool parseType();
     void parseEnumerationList();

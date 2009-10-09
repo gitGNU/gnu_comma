@@ -103,6 +103,8 @@ public:
 
     Node acceptApplication(Node prefix, NodeVector &argNodes);
 
+    Node acceptAttribute(Node prefix, IdentifierInfo *name, Location loc);
+
     Node finishName(Node name);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
@@ -184,13 +186,9 @@ public:
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
 
-    /// \brief Returns true if the type checker as not encountered an error and
+    /// \brief Returns true if the type checker has not encountered an error and
     /// false otherwise.
-    bool checkSuccessful() const { return errorCount == 0; }
-
-    /// \brief Returns the number of errors encountered thus far.
-    unsigned getErrorCount() const { return errorCount; }
-
+    bool checkSuccessful() const { return !diagnostic.reportsGenerated(); }
 
     /// Returns true if the type \p source requires a conversion to be
     /// compatable with the type \p target.
@@ -203,7 +201,6 @@ private:
     DeclRegion      *declarativeRegion;
     ModelDecl       *currentModel;
     Scope           *scope;
-    unsigned         errorCount;
 
     /// The set of AbstractDomainDecls serving as parameters to the current
     /// capsule.
@@ -760,6 +757,8 @@ private:
     /// Checks an assert pragma with the given arguments.
     PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);
 
+    Ast *checkAttribute(attrib::AttributeID, Ast *prefix, Location loc);
+
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);
 
@@ -772,7 +771,6 @@ private:
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
-        ++errorCount;
         return diagnostic.report(getSourceLoc(loc), kind);
     }
 };

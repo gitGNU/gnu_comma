@@ -108,6 +108,18 @@ Node Parser::parseParameterAssociation()
         return getInvalidNode();
 }
 
+Node Parser::parseAttribute(Node prefix)
+{
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+
+    if (name->getAttributeID() == attrib::UNKNOWN_ATTRIBUTE) {
+        report(loc, diag::UNKNOWN_ATTRIBUTE) << name;
+        return getInvalidNode();
+    }
+    return client.acceptAttribute(prefix, name, loc);
+}
+
 Node Parser::parseName(bool forStatement)
 {
     Location loc = currentLocation();
@@ -123,9 +135,13 @@ Node Parser::parseName(bool forStatement)
             prefix = parseApplication(prefix);
         else if (reduceToken(Lexer::TKN_DOT)) {
             prefix = client.finishName(prefix);
-            if (prefix.isValid()) {
+            if (prefix.isValid())
                 prefix = parseSelectedComponent(prefix, forStatement);
-            }
+        }
+        else if (reduceToken(Lexer::TKN_QUOTE)) {
+            prefix = client.finishName(prefix);
+            if (prefix.isValid())
+                prefix = parseAttribute(prefix);
         }
         else
             break;

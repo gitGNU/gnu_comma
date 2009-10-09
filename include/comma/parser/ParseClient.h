@@ -381,6 +381,9 @@ public:
 
     virtual Node acceptApplication(Node prefix, NodeVector &argumentNodes) = 0;
 
+    virtual Node acceptAttribute(Node prefix,
+                                 IdentifierInfo *name, Location loc) = 0;
+
     virtual Node finishName(Node name) = 0;
     //@}
 

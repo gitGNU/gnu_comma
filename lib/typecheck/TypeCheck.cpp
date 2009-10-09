@@ -35,7 +35,6 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
       resource(resource),
       compUnit(cunit),
       scope(new Scope),
-      errorCount(0),
       arrayStencil(new ArrayDeclStencil()),
       enumStencil(new EnumDeclStencil()),
       routineStencil(new SRDeclStencil())

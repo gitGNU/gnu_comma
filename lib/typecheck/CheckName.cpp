@@ -11,6 +11,7 @@
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
+#include "comma/basic/Attributes.h"
 #include "comma/typecheck/TypeCheck.h"
 
 using namespace comma;
@@ -476,6 +477,22 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
     if (!checkArrayIndexNodes(argNodes, indices))
         return 0;
     return acceptIndexedArray(ref, indices);
+}
+
+Node TypeCheck::acceptAttribute(Node prefixNode,
+                                IdentifierInfo *name, Location loc)
+{
+    assert(name->getAttributeID() != attrib::UNKNOWN_ATTRIBUTE);
+
+    attrib::AttributeID ID = name->getAttributeID();
+    Ast *prefix = cast_node<Ast>(prefixNode);
+    Ast *result = checkAttribute(ID, prefix, loc);
+
+    if (result) {
+        prefixNode.release();
+        return getNode(result);
+    }
+    return getInvalidNode();
 }
 
 Node TypeCheck::finishName(Node name)

@@ -59,6 +59,8 @@ DIAGNOSTIC(EXPECTED_CONSTRAINED_ARRAY_INDEX, ERROR,
            "Expected constrained array index.")
 DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
            "Expected unconstrained array index.")
+DIAGNOSTIC(UNKNOWN_ATTRIBUTE, ERROR,
+           "Unknown attribute `%0'.")
 
 //
 // Semantic Diagnostics.
@@ -196,3 +198,7 @@ DIAGNOSTIC(TOO_FEW_ELEMENTS_FOR_TYPE, ERROR,
            "Too few elements for type `%0'.")
 DIAGNOSTIC(TOO_MANY_ELEMENTS_FOR_TYPE, ERROR,
            "Too many elements for type `%0'.")
+DIAGNOSTIC(ATTRIB_OF_NON_SCALAR, ERROR,
+           "Attribute `%0' applied to non-scalar type.")
+DIAGNOSTIC(INVALID_ATTRIB_PREFIX, ERROR,
+           "Invalid prefix for attribute `%0'.")
