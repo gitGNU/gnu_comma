@@ -518,15 +518,17 @@ bool Lexer::scanCharacter()
             // FIXME:  Ensure the character belongs to the standard character
             // set.
 
-            if (readStream() != '\'') {
+            if (peekStream() != '\'') {
                 // If the character is not terminated, this must be an attribute
                 // selector.  Unget the current character and return a quote
                 // token.
                 ungetStream();
                 emitToken(TKN_QUOTE, loc);
             }
-            else
+            else {
+                ignoreStream();
                 emitCharacterToken(start, currentIter);
+            }
             break;
 
         case '\\':
