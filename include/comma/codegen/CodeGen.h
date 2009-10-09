@@ -233,6 +233,17 @@ public:
     llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
                                       uint64_t value);
 
+    /// \brief Returns a ConstantInt for the given value.
+    ///
+    /// This method ensures that the given APInt is within the representational
+    /// limits of the given type.  If the bit width of the supplied APInt does
+    /// not match that of the given type, then the active bits of the value
+    /// (interpreted as a signed integer) are used, sign extended to the width
+    /// of the type.  An assertion will fire if the number of active bits
+    /// exceeds the width of the supplied type.
+    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
+                                      const llvm::APInt &value);
+
     /// \brief Returns a function declaration for the given llvm intrinsic.
     ///
     /// This method is not appropriate for the retrieval of overloaded

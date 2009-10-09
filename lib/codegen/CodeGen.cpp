@@ -391,3 +391,29 @@ llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
     return llvm::ConstantInt::get(type, value);
 }
 
+llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
+                                           const llvm::APInt &value)
+{
+    llvm::Constant *res = 0;
+
+    unsigned typeWidth = type->getBitWidth();
+    unsigned valueWidth = value.getBitWidth();
+
+    if (typeWidth == valueWidth)
+        res = llvm::ConstantInt::get(type, value);
+    else if (typeWidth > valueWidth) {
+        llvm::APInt tmp(value);
+        tmp.sext(typeWidth);
+        res = llvm::ConstantInt::get(type, tmp);
+    }
+    else {
+        llvm::APInt tmp(value);
+        assert(tmp.getMinSignedBits() < typeWidth &&
+               "Value to wide for supplied type!");
+
+        tmp.trunc(typeWidth);
+        res = llvm::ConstantInt::get(type, tmp);
+    }
+
+    return cast<llvm::ConstantInt>(res);
+}
