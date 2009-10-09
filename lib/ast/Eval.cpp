@@ -12,6 +12,7 @@
 /// \brief Implementation of the compile-time expression evaluation routines.
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 
 using namespace comma;
@@ -25,7 +26,7 @@ namespace {
 ///
 /// \param expr A function call expression.
 ///
-/// \param If \p expr was successfully evaluated, \p result is set to the
+/// \param result If \p expr was successfully evaluated, \p result is set to the
 /// computed value.
 ///
 /// \return True if \p expr was static and \p result was set. False otherwise.
@@ -38,7 +39,7 @@ bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
 ///
 /// \param arg An expression.
 ///
-/// \param If \p arg was successfully evaluated, \p result is set to the
+/// \param result If \p arg was successfully evaluated, \p result is set to the
 /// computed value.
 ///
 /// \return True if \p arg was static and \p result was set.  False otherwise.
@@ -53,13 +54,21 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID,
 ///
 /// \param y The right hand side of the binary operation.
 ///
-/// \param If \p x and \p y were successfully evaluated, \p result is set to the
-/// computed value.
+/// \param result If \p x and \p y were successfully evaluated, \p result is set
+/// to the computed value.
 ///
 /// \return True if the evaluation was successful.
 bool staticIntegerBinaryValue(PO::PrimitiveID ID,
                               const Expr *x, const Expr *y,
                               llvm::APInt &result);
+
+/// Attempts to evaluate a static integer-valued attribute expression.
+///
+/// \param expr The attribute to evaluate.
+///
+/// \param result If \p expr was successfully exvaluated, \p result is set to
+/// the computed value.
+bool staticIntegerAttribExpr(const AttribExpr *expr, llvm::APInt &result);
 
 PO::PrimitiveID getCallPrimitive(const FunctionCallExpr *call)
 {
@@ -182,6 +191,30 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID, const Expr *arg,
     return true;
 }
 
+bool staticIntegerAttribExpr(const AttribExpr *expr, llvm::APInt &result)
+{
+    // Current attribute support is minimal.  Only First and Last are currently
+    // supported, and they are always static.
+    switch (expr->getKind()) {
+
+    default:
+        // The given attribute cannot be evaluated statically.
+        return false;
+
+    case Ast::AST_FirstAE: {
+        const IntegerSubType *subtype = cast<FirstAE>(expr)->getType();
+        result = subtype->getLowerBound();
+        return true;
+    }
+
+    case Ast::AST_LastAE: {
+        const IntegerSubType *subtype = cast<LastAE>(expr)->getType();
+        result = subtype->getUpperBound();
+        return true;
+    }
+    };
+}
+
 void signExtend(llvm::APInt &x, llvm::APInt &y)
 {
     unsigned xWidth = x.getBitWidth();
@@ -261,6 +294,9 @@ bool Expr::staticIntegerValue(llvm::APInt &result) const
 
     if (const ConversionExpr *CExpr = dyn_cast<ConversionExpr>(this))
         return CExpr->getOperand()->staticIntegerValue(result);
+
+    if (const AttribExpr *AExpr = dyn_cast<AttribExpr>(this))
+        return staticIntegerAttribExpr(AExpr, result);
 
     return false;
 }
