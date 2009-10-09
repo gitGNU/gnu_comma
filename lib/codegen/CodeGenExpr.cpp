@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
@@ -27,8 +28,12 @@ llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
 
     switch (expr->getKind()) {
     default:
-        assert(false && "Cannot codegen expression!");
-        val = 0;
+        if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
+            val = emitAttribExpr(attrib);
+        else {
+            assert(false && "Cannot codegen expression!");
+            val = 0;
+        }
         break;
 
     case Ast::AST_DeclRefExpr:
@@ -741,3 +746,24 @@ llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
     Builder.SetInsertPoint(savedBB);
     return boundSlot;
 }
+
+llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
+{
+    // The only attributes supported ATM are First and Last when applied to a
+    // scalar subtype, and even then the type must have static bounds.
+    attrib::AttributeID ID = expr->getAttributeID();
+    assert((ID == attrib::First || ID == attrib::Last) &&
+           "Cannot codegen attribute yet!");
+
+    llvm::APInt bound;
+    const llvm::IntegerType *type;
+    type = CGTypes.lowerIntegerSubType(cast<IntegerSubType>(expr->getType()));
+
+    if (expr->staticIntegerValue(bound))
+        return CG.getConstantInt(type, bound);
+    else {
+        assert(false && "Cannot codegen non-static bound attributes yet!");
+        return 0;
+    }
+}
+
