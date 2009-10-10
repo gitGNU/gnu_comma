@@ -51,10 +51,10 @@ private:
     AttribExpr *checkBound(Ast *prefix, Location loc);
 
     /// Helper for checkBound().  Handles scalar First and Last attributes.
-    AttribExpr *checkScalarBound(TypeRef *prefix, Location loc);
+    ScalarBoundAE *checkScalarBound(TypeRef *prefix, Location loc);
 
     /// Helper for checkBound().  Handles array First and Last attributes.
-    AttribExpr *checkArrayBound(Expr *prefix, Location loc);
+    ArrayBoundAE *checkArrayBound(Expr *prefix, Location loc);
 
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);
@@ -98,7 +98,7 @@ AttribExpr *AttributeChecker::checkBound(Ast *prefix, Location loc)
     return result;
 }
 
-AttribExpr *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
+ScalarBoundAE *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
 {
     // FIXME:  It is possible that the TypeRef is incomplete.  We should
     // diagnose that fact rather than ignore it.
@@ -118,7 +118,7 @@ AttribExpr *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
         return new LastAE(decl->getType(), loc);
 }
 
-AttribExpr *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
+ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
 {
     ArraySubType *arrTy = dyn_cast<ArraySubType>(prefix->getType());
 
