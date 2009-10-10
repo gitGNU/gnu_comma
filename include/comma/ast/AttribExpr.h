@@ -33,9 +33,10 @@ public:
     const Ast *getPrefix() const { return prefix; }
     Ast *getPrefix() { return prefix; }
 
-    /// Returns the associated AttributeID.
+    /// Returns the AttributeID associated with this expression.
     attrib::AttributeID getAttributeID() const {
-        return id;
+        // AttributeID's are stored in the Ast bits field.
+        return static_cast<attrib::AttributeID>(bits);
     }
 
     // Support isa and dyn_cast.
@@ -46,24 +47,29 @@ public:
 
 protected:
     /// Constructs an AttribExpr when the type of the attribute is known.
-    AttribExpr(AstKind kind,
-               Ast *prefix, attrib::AttributeID id, Type *type, Location loc)
-        : Expr(kind, type, loc), prefix(prefix), id(id) {
+    AttribExpr(AstKind kind, Ast *prefix, Type *type, Location loc)
+        : Expr(kind, type, loc),
+          prefix(prefix) {
+        bits = correspondingID(kind);
         assert(this->denotesAttribExpr());
-        assert(id != attrib::UNKNOWN_ATTRIBUTE);
+        assert(getAttributeID() != attrib::UNKNOWN_ATTRIBUTE);
     }
 
     /// Constructs an AttribExpr when the exact type is not available.
     /// Subclasses should call Expr::setType to resolve the type when available.
-    AttribExpr(AstKind kind,
-               Ast *prefix, attrib::AttributeID id, Location loc)
-        : Expr(kind, loc), prefix(prefix), id(id) {
+    AttribExpr(AstKind kind, Ast *prefix, Location loc)
+        : Expr(kind, loc),
+          prefix(prefix) {
+        bits = correspondingID(kind);
         assert(this->denotesAttribExpr());
-        assert(id != attrib::UNKNOWN_ATTRIBUTE);
+        assert(getAttributeID() != attrib::UNKNOWN_ATTRIBUTE);
     }
 
+    /// Returns the AttributeID which corresponds to the given AstKind, or
+    /// attrib::UNKNOWN_ATTRIB if there is no mapping.
+    static attrib::AttributeID correspondingID(AstKind kind);
+
     Ast *prefix;
-    attrib::AttributeID id;
 };
 
 //===----------------------------------------------------------------------===//
@@ -77,7 +83,7 @@ class FirstAE : public AttribExpr {
 
 public:
     FirstAE(IntegerSubType *prefix, Location loc)
-        : AttribExpr(AST_FirstAE, prefix, attrib::First, prefix, loc) { }
+        : AttribExpr(AST_FirstAE, prefix, prefix, loc) { }
 
     //@{
     /// Specializations of AttribExpr::getPrefix().
@@ -120,7 +126,7 @@ class LastAE : public AttribExpr {
 
 public:
     LastAE(IntegerSubType *prefix, Location loc)
-        : AttribExpr(AST_LastAE, prefix, attrib::Last, prefix, loc) { }
+        : AttribExpr(AST_LastAE, prefix, prefix, loc) { }
 
     //@{
     /// Specializations of AttribExpr::getPrefix().
