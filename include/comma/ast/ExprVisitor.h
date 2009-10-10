@@ -40,6 +40,8 @@ public:
 
     /// Visitors over AttribExpr nodes.
     virtual void visitFirstAE(FirstAE *node);
+    virtual void visitFirstArrayAE(FirstArrayAE *node);
+    virtual void visitLastArrayAE(LastArrayAE *node);
     virtual void visitLastAE(LastAE *node);
 };
 

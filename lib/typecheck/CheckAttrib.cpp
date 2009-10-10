@@ -50,6 +50,12 @@ private:
     /// In the latter case, diagnostics are posted.
     AttribExpr *checkBound(Ast *prefix, Location loc);
 
+    /// Helper for checkBound().  Handles scalar First and Last attributes.
+    AttribExpr *checkScalarBound(TypeRef *prefix, Location loc);
+
+    /// Helper for checkBound().  Handles array First and Last attributes.
+    AttribExpr *checkArrayBound(Expr *prefix, Location loc);
+
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);
     }
@@ -80,34 +86,51 @@ AttribExpr *AttributeChecker::checkBound(Ast *prefix, Location loc)
 {
     AttribExpr *result = 0;
 
-    if (TypeRef *ref = dyn_cast<TypeRef>(prefix)) {
-        // FIXME:  It is possible that the TypeRef is incomplete.  We should
-        // diagnose that fact rather than ignore it.
-
-        // When the prefix is a type, it must resolve to a scalar type.
-        IntegerDecl *decl;
-
-        decl = dyn_cast_or_null<IntegerDecl>(ref->getTypeDecl());
-        if (!decl) {
-            report(loc, diag::ATTRIB_OF_NON_SCALAR) << attributeName();
-            return 0;
-        }
-
-        if (ID == attrib::First)
-            result = new FirstAE(decl->getType(), loc);
-        else
-            result = new LastAE(decl->getType(), loc);
-    }
-    else if (isa<Expr>(prefix)) {
-        // The expression must resolve to be of array type.
-        assert(false && "Attribute not supported yet!");
-    }
+    if (TypeRef *ref = dyn_cast<TypeRef>(prefix))
+        result = checkScalarBound(ref, loc);
+    else if (Expr *expr = dyn_cast<Expr>(prefix))
+        result = checkArrayBound(expr, loc);
     else {
         // FIXME: The location here is of the attribute, not the prefix.  The
         // AST should provide a service similar to TypeCheck::getNodeLoc.
         report(loc, diag::INVALID_ATTRIB_PREFIX) << attributeName();
     }
     return result;
+}
+
+AttribExpr *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
+{
+    // FIXME:  It is possible that the TypeRef is incomplete.  We should
+    // diagnose that fact rather than ignore it.
+
+    // When the prefix is a type, it must resolve to a scalar type.
+    IntegerDecl *decl;
+
+    decl = dyn_cast_or_null<IntegerDecl>(prefix->getTypeDecl());
+    if (!decl) {
+        report(loc, diag::ATTRIB_OF_NON_SCALAR) << attributeName();
+        return 0;
+    }
+
+    if (ID == attrib::First)
+        return new FirstAE(decl->getType(), loc);
+    else
+        return new LastAE(decl->getType(), loc);
+}
+
+AttribExpr *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
+{
+    ArraySubType *arrTy = dyn_cast<ArraySubType>(prefix->getType());
+
+    if (!arrTy) {
+        report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
+        return 0;
+    }
+
+    if (ID == attrib::First)
+        return new FirstArrayAE(prefix, loc);
+    else
+        return new LastArrayAE(prefix, loc);
 }
 
 } // end anonymous namespace.

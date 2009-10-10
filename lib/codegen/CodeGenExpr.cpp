@@ -747,23 +747,77 @@ llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
     return boundSlot;
 }
 
+llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
+{
+    // Currently, scalar types are always integer types with static bounds.
+    llvm::APInt bound(Ty->getLowerBound());
+    const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
+    return CG.getConstantInt(loweredTy, bound);
+}
+
+llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerSubType *Ty)
+{
+    // Currently, scalar types are always integer types with static bounds.
+    llvm::APInt bound(Ty->getUpperBound());
+    const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
+    return CG.getConstantInt(loweredTy, bound);
+}
+
 llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 {
-    // The only attributes supported ATM are First and Last when applied to a
-    // scalar subtype, and even then the type must have static bounds.
+    if (ArrayBoundAE *arrayAE = dyn_cast<ArrayBoundAE>(expr))
+        return emitArrayBoundAE(arrayAE);
+
+    // The only other attributes supported ATM are First and Last when applied
+    // to a scalar subtype, and even then the type must have static bounds.
     attrib::AttributeID ID = expr->getAttributeID();
     assert((ID == attrib::First || ID == attrib::Last) &&
            "Cannot codegen attribute yet!");
 
-    llvm::APInt bound;
-    const llvm::IntegerType *type;
-    type = CGTypes.lowerIntegerSubType(cast<IntegerSubType>(expr->getType()));
+    IntegerSubType *Ty = cast<IntegerSubType>(expr->getType());
 
-    if (expr->staticIntegerValue(bound))
-        return CG.getConstantInt(type, bound);
-    else {
-        assert(false && "Cannot codegen non-static bound attributes yet!");
-        return 0;
-    }
+    if (ID == attrib::First)
+        return emitScalarLowerBound(Ty);
+    else
+        return emitScalarUpperBound(Ty);
 }
 
+llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
+{
+    ArraySubType *arrTy = AE->getPrefixType();
+
+    if (arrTy->isConstrained()) {
+        // For constrained arrays the bound can be generated with reference to
+        // the index subtype alone.
+        IntegerSubType *indexTy = AE->getType();
+        if (AE->isFirst())
+            return emitScalarLowerBound(indexTy);
+        else
+            return emitScalarUpperBound(indexTy);
+    }
+
+    // Unconstrained arrays come in two flavours:  As actual parameters to a
+    // subroutine or as the value of a function call.  We only cope with the
+    // first possibility ATM.
+    DeclRefExpr *ref;
+    ParamValueDecl *param;
+
+    ref = dyn_cast<DeclRefExpr>(AE->getPrefix());
+    param = dyn_cast_or_null<ParamValueDecl>(ref->getDeclaration());
+    if (!ref || !param) {
+        assert(false && "Unconstrained array attribute not supported yet!");
+        return 0;
+    }
+
+    llvm::Value *bounds = lookupBounds(param);
+    unsigned offset = AE->getDimension() * 2;
+
+    // The bounds structure is organized as a set of low/high pairs.  Offset
+    // points to the low entry -- adjust if needed.
+    if (AE->isLast())
+        ++offset;
+
+    // GEP and lod the required bound.
+    llvm::Value *bound = Builder.CreateStructGEP(bounds, offset);
+    return Builder.CreateLoad(bound);
+}

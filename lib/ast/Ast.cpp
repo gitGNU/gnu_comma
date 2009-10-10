@@ -66,6 +66,8 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "StringLiteral",
 
     "FirstAE",
+    "FirstArrayAE",
+    "LastArrayAE",
     "LastAE",
 
     "AssignmentStmt",

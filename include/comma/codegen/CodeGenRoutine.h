@@ -123,6 +123,12 @@ private:
     llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
                                     llvm::BasicBlock *predecessor = 0);
 
+    /// Emits a value representing the lower bound of the given scalar subtype.
+    llvm::Value *emitScalarLowerBound(IntegerSubType *Ty);
+
+    /// Emits a value representing the upper bound of the given scalar subtype.
+    llvm::Value *emitScalarUpperBound(IntegerSubType *Ty);
+
     llvm::Value *emitExpr(Expr *expr);
     llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
     llvm::Value *emitPrjExpr(PrjExpr *expr);
@@ -133,6 +139,7 @@ private:
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
+    llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
 
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
 

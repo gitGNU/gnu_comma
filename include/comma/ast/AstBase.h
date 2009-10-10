@@ -26,6 +26,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class ArrayBoundAE;
 class ArrayDecl;
 class ArraySubType;
 class ArrayType;
@@ -52,6 +53,7 @@ class EnumSubType;
 class EnumerationType;
 class Expr;
 class FirstAE;
+class FirstArrayAE;
 class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
@@ -67,6 +69,7 @@ class IntegerSubType;
 class IntegerType;
 class KeywordSelector;
 class LastAE;
+class LastArrayAE;
 class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
@@ -195,6 +198,8 @@ public:
 
         // Expr attributes.
         AST_FirstAE,            ///< FirstAE
+        AST_FirstArrayAE,       ///< FirstArrayAE
+        AST_LastArrayAE,        ///< LastArrayAE
         AST_LastAE,             ///< LastAE
 
         //

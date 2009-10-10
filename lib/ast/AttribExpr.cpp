@@ -24,13 +24,53 @@ attrib::AttributeID AttribExpr::correspondingID(AstKind kind)
         break;
 
     case AST_FirstAE:
+    case AST_FirstArrayAE:
         ID = attrib::First;
         break;
 
     case AST_LastAE:
+    case AST_LastArrayAE:
         ID = attrib::Last;
         break;
     };
 
     return ID;
+}
+
+//===----------------------------------------------------------------------===//
+// ArrayBoundAE
+
+ArrayBoundAE::ArrayBoundAE(AstKind kind,
+                           Expr *prefix, Expr *dimension, Location loc)
+    : AttribExpr(kind, prefix, loc),
+      dimExpr(dimension)
+{
+    assert(kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
+    assert(dimension->isStaticIntegerExpr());
+
+    ArraySubType *arrTy = cast<ArraySubType>(prefix->getType());
+
+    llvm::APInt dim;
+    dimension->staticIntegerValue(dim);
+    assert(dim.getMinSignedBits() <= sizeof(unsigned)*8 &&
+           "Cannot represent dimension!");
+
+    dimValue = unsigned(dim.getSExtValue());
+    assert(dimValue > 0 && "Non-positive dimension!");
+    assert(dimValue <= arrTy->getRank() && "Dimension too large!");
+
+    // Make the dimension value zero based and set the type to correspond to the
+    // index type of the array.
+    --dimValue;
+    setType(arrTy->getIndexType(dimValue));
+}
+
+ArrayBoundAE::ArrayBoundAE(AstKind kind, Expr *prefix, Location loc)
+    : AttribExpr(kind, prefix, loc),
+      dimExpr(0),
+      dimValue(0)
+{
+    assert(kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
+    ArraySubType *arrTy = cast<ArraySubType>(prefix->getType());
+    setType(arrTy->getIndexType(0));
 }

@@ -35,7 +35,7 @@ public:
 
     /// Returns the AttributeID associated with this expression.
     attrib::AttributeID getAttributeID() const {
-        // AttributeID's are stored in the Ast bits field.
+        // AttributeID's are stored in the lower Ast bits field.
         return static_cast<attrib::AttributeID>(bits);
     }
 
@@ -90,19 +90,16 @@ public:
     const IntegerSubType *getPrefix() const {
         return llvm::cast<IntegerSubType>(prefix);
     }
-
     IntegerSubType *getPrefix() {
         return llvm::cast<IntegerSubType>(prefix);
     }
     //@}
-
 
     //@{
     /// Specializations of Expr::getType().
     const IntegerSubType *getType() const {
         return llvm::cast<IntegerSubType>(Expr::getType());
     }
-
     IntegerSubType *getType() {
         return llvm::cast<IntegerSubType>(Expr::getType());
     }
@@ -133,7 +130,6 @@ public:
     const IntegerSubType *getPrefix() const {
         return llvm::cast<IntegerSubType>(prefix);
     }
-
     IntegerSubType *getPrefix() {
         return llvm::cast<IntegerSubType>(prefix);
     }
@@ -144,7 +140,6 @@ public:
     const IntegerSubType *getType() const {
         return llvm::cast<IntegerSubType>(Expr::getType());
     }
-
     IntegerSubType *getType() {
         return llvm::cast<IntegerSubType>(Expr::getType());
     }
@@ -156,6 +151,181 @@ public:
         return node->getKind() == AST_LastAE;
     }
 };
+
+//===----------------------------------------------------------------------===//
+// ArrayBoundAE
+//
+/// Common base class for the attributes \c First and \c Last when applied to a
+/// prefix of array type.
+class ArrayBoundAE : public AttribExpr {
+
+public:
+    /// Returns true if the dimension associated with this arrtibute is
+    /// implicit.
+    bool hasImplicitDimension() const { return dimExpr == 0; }
+
+    //@{
+    /// Returns the dimension expression associated with this attribute, or null
+    /// if the dimension is implicit for this node.
+    Expr *getDimensionExpr() { return dimExpr; }
+    const Expr *getDimensionExpr() const { return dimExpr; }
+    //@}
+
+    /// Returns the zero based dimension associated with this attribute.
+    unsigned getDimension() const { return dimValue; }
+
+    /// Returns true if this is a \c First attribute.
+    bool isFirst() const;
+
+    /// Returns true if this is a \c Last attribute.
+    bool isLast() const;
+
+    //@{
+    /// Specializations of AttribExpr::getPrefix().
+    const Expr *getPrefix() const {
+        return llvm::cast<Expr>(prefix);
+    }
+    Expr *getPrefix() {
+        return llvm::cast<Expr>(prefix);
+    }
+    //@}
+
+    //@{
+    /// Returns the type of the prefix.
+    const ArraySubType *getPrefixType() const {
+        return llvm::cast<ArraySubType>(getPrefix()->getType());
+    }
+    ArraySubType *getPrefixType() {
+        return llvm::cast<ArraySubType>(getPrefix()->getType());
+    }
+
+    //@{
+    /// Specializations of Expr::getType().
+    const IntegerSubType *getType() const {
+        return llvm::cast<IntegerSubType>(Expr::getType());
+    }
+    IntegerSubType *getType() {
+        return llvm::cast<IntegerSubType>(Expr::getType());
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const ArrayBoundAE *node) { return true; }
+    static bool classof(const Ast *node) {
+        AstKind kind = node->getKind();
+        return (kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
+    }
+
+protected:
+    /// Creates an array bound attribute expression with an explicit dimension.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param dimension A positive static integer expression which does not
+    /// exceed the dimensionality of the type of \p prefix.
+    ///
+    /// \param loc the location of the attribute.
+    ArrayBoundAE(AstKind kind, Expr *prefix, Expr *dimension, Location loc);
+
+    /// Creates an array bound arribute expression with an implicit dimension of
+    /// 1.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param loc the location of the attribute.
+    ArrayBoundAE(AstKind kind, Expr *prefix, Location loc);
+
+    /// The expression node defining the associated dimension, or null if the
+    /// dimension is implicit.
+    Expr *dimExpr;
+
+    /// The static value of the dimension expression, or 0 if the dimension is
+    /// implicit.
+    unsigned dimValue;
+};
+
+//===----------------------------------------------------------------------===//
+// FirstArrayAE
+//
+/// Represents the attribute <tt>A'First(N)</tt>, where \c A is an object of
+/// array type and \c N is a positive static integer expression denoting the
+/// dimension to which the attribute applies.  The dimension is not required to
+/// be explicit, in which case the index defaults to 1.
+class FirstArrayAE : public ArrayBoundAE {
+
+public:
+    /// Creates a \c First attribute expression with an explicit dimension.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param dimension A positive static integer expression which does not
+    /// exceed the dimensionality of the type of \p prefix.
+    ///
+    /// \param loc the location of the attribute.
+    FirstArrayAE(Expr *prefix, Expr *dimension, Location loc)
+        : ArrayBoundAE(AST_FirstArrayAE, prefix, dimension, loc) { }
+
+    /// Creates a \c First arribute expression with an implicit dimension of 1.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param loc the location of the attribute.
+    FirstArrayAE(Expr *prefix, Location loc)
+        : ArrayBoundAE(AST_FirstArrayAE, prefix, loc) { }
+
+    // Support isa/dyn_cast.
+    static bool classof(const FirstArrayAE *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_FirstArrayAE;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// LastArrayAE
+//
+/// Represents the attribute <tt>A'Last(N)</tt>, where \c A is an object of
+/// array type and \c N is a positive static integer expression denoting the
+/// dimension to which the attribute applies.  The dimension is not required to
+/// be explicit, in which case the index defaults to 1.
+class LastArrayAE : public ArrayBoundAE {
+
+public:
+    /// Creates a \c Last attribute expression with an explicit dimension.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param dimension A positive static integer expression which does not
+    /// exceed the dimensionality of the type of \p prefix.
+    ///
+    /// \param loc the location of the attribute.
+    LastArrayAE(Expr *prefix, Expr *dimension, Location loc)
+        : ArrayBoundAE(AST_LastArrayAE, prefix, dimension, loc) { }
+
+    /// Creates a \c Last arribute expression with an implicit dimension of 1.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param loc the location of the attribute.
+    LastArrayAE(Expr *prefix, Location loc)
+        : ArrayBoundAE(AST_LastArrayAE, prefix, loc) { }
+
+    // Support isa/dyn_cast.
+    static bool classof(const LastArrayAE *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_LastArrayAE;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// Inline methods now that the hierarchy is in place.
+
+inline bool ArrayBoundAE::isFirst() const {
+    return llvm::isa<FirstArrayAE>(this);
+}
+
+inline bool ArrayBoundAE::isLast() const {
+    return llvm::isa<LastArrayAE>(this);
+}
 
 } // end comma namespace.
 

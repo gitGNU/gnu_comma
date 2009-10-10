@@ -57,6 +57,8 @@ void ExprVisitor::visitAttribExpr(AttribExpr *node)
         assert(false && "Cannot visit this kind of attribute!");
         break;
     case DISPATCH(FirstAE, node);
+    case DISPATCH(FirstArrayAE, node);
+    case DISPATCH(LastArrayAE, node);
     case DISPATCH(LastAE, node);
     };
 }
@@ -74,4 +76,6 @@ void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
 void ExprVisitor::visitConversionExpr(ConversionExpr *node) { }
 
 void ExprVisitor::visitFirstAE(FirstAE *node) { }
+void ExprVisitor::visitFirstArrayAE(FirstArrayAE *node) { }
+void ExprVisitor::visitLastArrayAE(LastArrayAE *node) { }
 void ExprVisitor::visitLastAE(LastAE *node) { }
