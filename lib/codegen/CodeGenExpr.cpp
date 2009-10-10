@@ -765,18 +765,20 @@ llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerSubType *Ty)
 
 llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 {
+    if (ScalarBoundAE *scalarAE = dyn_cast<ScalarBoundAE>(expr))
+        return emitScalarBoundAE(scalarAE);
+
     if (ArrayBoundAE *arrayAE = dyn_cast<ArrayBoundAE>(expr))
         return emitArrayBoundAE(arrayAE);
 
-    // The only other attributes supported ATM are First and Last when applied
-    // to a scalar subtype, and even then the type must have static bounds.
-    attrib::AttributeID ID = expr->getAttributeID();
-    assert((ID == attrib::First || ID == attrib::Last) &&
-           "Cannot codegen attribute yet!");
+    assert(false && "Cannot codegen attribute yet!");
+    return 0;
+}
 
-    IntegerSubType *Ty = cast<IntegerSubType>(expr->getType());
-
-    if (ID == attrib::First)
+llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
+{
+    IntegerSubType *Ty = AE->getType();
+    if (AE->isFirst())
         return emitScalarLowerBound(Ty);
     else
         return emitScalarUpperBound(Ty);

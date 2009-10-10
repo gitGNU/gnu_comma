@@ -139,6 +139,7 @@ private:
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
+    llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
 
     llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
