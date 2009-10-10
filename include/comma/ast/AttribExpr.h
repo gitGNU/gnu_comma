@@ -73,17 +73,19 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// FirstAE
+// ScalarBoundAE
 //
-/// Attribute representing <tt>S'First</tt>, where \c S is a scalar subtype.
-/// This attribute denotes the lower bound of \c S, represented as an element of
-/// the type of S.  Note that this attribute is not necessarily static, as
-/// scalar subtypes can have dynamic bounds.
-class FirstAE : public AttribExpr {
+/// Represents a \c First or 'c Last attribute when applied to a scalar subtype.
+class ScalarBoundAE : public AttribExpr {
 
 public:
-    FirstAE(IntegerSubType *prefix, Location loc)
-        : AttribExpr(AST_FirstAE, prefix, prefix, loc) { }
+    virtual ~ScalarBoundAE() { }
+
+    /// Returns true if this is a \c First attribute.
+    bool isFirst() const { return llvm::isa<FirstAE>(this); }
+
+    /// Returns true if this is a \c Last attribute.
+    bool isLast() const { return llvm::isa<LastAE>(this); }
 
     //@{
     /// Specializations of AttribExpr::getPrefix().
@@ -104,6 +106,33 @@ public:
         return llvm::cast<IntegerSubType>(Expr::getType());
     }
     //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const ScalarBoundAE *node) { return true; }
+    static bool classof(const Ast *node) {
+        AstKind kind = node->getKind();
+        return (kind == AST_FirstAE || kind == AST_LastAE);
+    }
+
+protected:
+    ScalarBoundAE(AstKind kind, IntegerSubType *prefix, Location loc)
+        : AttribExpr(kind, prefix, prefix, loc) {
+        assert(kind == AST_FirstAE || kind == AST_LastAE);
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// FirstAE
+//
+/// Attribute representing <tt>S'First</tt>, where \c S is a scalar subtype.
+/// This attribute denotes the lower bound of \c S, represented as an element of
+/// the type of S.  Note that this attribute is not necessarily static, as
+/// scalar subtypes can have dynamic bounds.
+class FirstAE : public ScalarBoundAE {
+
+public:
+    FirstAE(IntegerSubType *prefix, Location loc)
+        : ScalarBoundAE(AST_FirstAE, prefix, loc) { }
 
     // Support isa and dyn_cast.
     static bool classof(const FirstAE *node) { return true; }
@@ -119,31 +148,11 @@ public:
 /// This attribute denotes the upper bound of \c S, represented as an element of
 /// the type of S.  Note that this attribute is not necessarily static, as
 /// scalar subtypes can have dynamic bounds.
-class LastAE : public AttribExpr {
+class LastAE : public ScalarBoundAE {
 
 public:
     LastAE(IntegerSubType *prefix, Location loc)
-        : AttribExpr(AST_LastAE, prefix, prefix, loc) { }
-
-    //@{
-    /// Specializations of AttribExpr::getPrefix().
-    const IntegerSubType *getPrefix() const {
-        return llvm::cast<IntegerSubType>(prefix);
-    }
-    IntegerSubType *getPrefix() {
-        return llvm::cast<IntegerSubType>(prefix);
-    }
-    //@}
-
-    //@{
-    /// Specializations of Expr::getType().
-    const IntegerSubType *getType() const {
-        return llvm::cast<IntegerSubType>(Expr::getType());
-    }
-    IntegerSubType *getType() {
-        return llvm::cast<IntegerSubType>(Expr::getType());
-    }
-    //@}
+        : ScalarBoundAE(AST_LastAE, prefix, loc) { }
 
     // Support isa and dyn_cast.
     static bool classof(const LastAE *node) { return true; }

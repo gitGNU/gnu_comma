@@ -83,6 +83,7 @@ class ProcedureDecl;
 class ProcedureType;
 class Qualifier;
 class ReturnStmt;
+class ScalarBoundAE;
 class Sigoid;
 class SignatureDecl;
 class SigInstanceDecl;
