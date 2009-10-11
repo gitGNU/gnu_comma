@@ -31,6 +31,8 @@ void AstResource::initializeLanguageDefinedTypes()
     initializeRootInteger();
     initializeInteger();
     initializeNatural();
+    initializePositive();
+    initializeString();
 
     // Initialize the implicit operations for each declared type.
     theBooleanDecl->generateImplicitDeclarations(*this);
@@ -136,6 +138,26 @@ void AstResource::initializeNatural()
     theNaturalType = createIntegerSubType(name, type, low, high);
 }
 
+void AstResource::initializePositive()
+{
+    // FIXME: This is a temporary hack until we have actual subtype declaration
+    // nodes.
+    IdentifierInfo *name = getIdentifierInfo("Positive");
+    IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
+    unsigned width = type->getBitWidth();
+    llvm::APInt low(width, 1, false);
+    llvm::APInt high(type->getUpperBound());
+    thePositiveType = createIntegerSubType(name, type, low, high);
+}
+
+void AstResource::initializeString()
+{
+    IdentifierInfo *name = getIdentifierInfo("String");
+    SubType *indexTy = thePositiveType;
+    theStringDecl = createArrayDecl(name, 0, 1, &indexTy,
+                                    getTheCharacterType(), false, 0);
+}
+
 /// Accessors to the language defined types.  We keep these out of line since we
 /// do not want a dependence on Decl.h in AstResource.h.
 EnumSubType *AstResource::getTheBooleanType() const
@@ -153,6 +175,15 @@ IntegerSubType *AstResource::getTheIntegerType() const
     return theIntegerDecl->getType();
 }
 
+EnumSubType *AstResource::getTheCharacterType() const
+{
+    return theCharacterDecl->getType();
+}
+
+ArraySubType *AstResource::getTheStringType() const
+{
+    return theStringDecl->getType();
+}
 
 /// Returns a uniqued FunctionType.
 FunctionType *AstResource::getFunctionType(Type **argTypes, unsigned numArgs,
@@ -232,10 +263,21 @@ IntegerType *AstResource::createIntegerType(IntegerDecl *decl,
 
 IntegerSubType *AstResource::createIntegerSubType(IdentifierInfo *name,
                                                   IntegerType *base,
+                                                  Expr *low, Expr *high)
+{
+    IntegerSubType *res = new IntegerSubType(name, base, low, high);
+    types.push_back(res);
+    return res;
+}
+
+IntegerSubType *AstResource::createIntegerSubType(IdentifierInfo *name,
+                                                  IntegerType *base,
                                                   const llvm::APInt &low,
                                                   const llvm::APInt &high)
 {
-    IntegerSubType *res = new IntegerSubType(name, base, low, high);
+    Expr *lowExpr = new IntegerLiteral(low, base, 0);
+    Expr *highExpr = new IntegerLiteral(high, base, 0);
+    IntegerSubType *res = new IntegerSubType(name, base, lowExpr, highExpr);
     types.push_back(res);
     return res;
 }

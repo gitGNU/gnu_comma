@@ -95,7 +95,15 @@ public:
                                    const llvm::APInt &low,
                                    const llvm::APInt &high);
 
-    /// Returns an IntegerSubType node with the given static bounds.
+    /// Returns an IntegerSubType node with the given bounds.
+    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
+                                         IntegerType *base,
+                                         Expr *low, Expr *high);
+
+    /// Returns an IntegerSubType node constrained to the given bounds.
+    ///
+    /// The resulting subtype will have IntegerLiteral expressions generated to
+    /// encapsulate the provided constants.
     IntegerSubType *createIntegerSubType(IdentifierInfo *name,
                                          IntegerType *base,
                                          const llvm::APInt &low,
@@ -164,6 +172,10 @@ public:
     IntegerSubType *getTheIntegerType() const;
 
     IntegerSubType *getTheNaturalType() const { return theNaturalType; }
+    IntegerSubType *getThePositiveType() const { return thePositiveType; }
+
+    ArrayDecl *getTheStringDecl() const { return theStringDecl; }
+    ArraySubType *getTheStringType() const;
     //@}
 
 private:
@@ -180,12 +192,14 @@ private:
 
     /// SubType nodes corresponding to language defined types.
     IntegerSubType *theNaturalType;
+    IntegerSubType *thePositiveType;
 
     /// Declaration nodes representing the language defined types.
     EnumerationDecl *theBooleanDecl;
     EnumerationDecl *theCharacterDecl;
     IntegerDecl *theRootIntegerDecl;
     IntegerDecl *theIntegerDecl;
+    ArrayDecl *theStringDecl;
 
     /// \name Language Defined Type Initialization.
     ///
@@ -200,6 +214,8 @@ private:
     void initializeRootInteger();
     void initializeInteger();
     void initializeNatural();
+    void initializePositive();
+    void initializeString();
     //@}
 };
 

@@ -124,21 +124,19 @@ IntegerSubType *Type::getAsIntegerSubType()
 //===----------------------------------------------------------------------===//
 // SubType
 
-SubType::SubType(AstKind kind, IdentifierInfo *identifier, Type *parent,
-                 Constraint *constraint)
+SubType::SubType(AstKind kind, IdentifierInfo *identifier, Type *parent)
+
     : Type(kind),
       DefiningIdentifier(identifier),
-      ParentType(parent),
-      SubTypeConstraint(constraint)
+      ParentType(parent)
 {
     assert(this->denotesSubType());
 }
 
-SubType::SubType(AstKind kind, Type *parent, Constraint *constraint)
+SubType::SubType(AstKind kind, Type *parent)
     : Type(kind),
       DefiningIdentifier(0),
-      ParentType(parent),
-      SubTypeConstraint(constraint)
+      ParentType(parent)
 {
     assert(this->denotesSubType());
 }
@@ -156,7 +154,7 @@ Type *SubType::getTypeOf() const
 // CarrierType
 
 CarrierType::CarrierType(CarrierDecl *carrier, Type *type)
-    : SubType(AST_CarrierType, carrier->getIdInfo(), type, 0),
+    : SubType(AST_CarrierType, carrier->getIdInfo(), type),
       declaration(carrier) { }
 
 IdentifierInfo *CarrierType::getIdInfo() const
@@ -271,26 +269,27 @@ bool IntegerType::contains(IntegerSubType *subtype) const
 
     // Otherwise, the range of the subtype must be within the representational
     // limits for this type.
-    RangeConstraint *range = subtype->getConstraint();
-    int64_t target;
-    int64_t source;
+    Range *range = subtype->getConstraint();
+
+    // If the target range is not static, containment is only possible if this
+    // type contains the base.
+    if (!range->isStatic())
+        return contains(subtype->getTypeOf());
 
     // If the target range is null, we always contain such a type.
     if (range->isNull())
         return true;
 
-    // Check if the lower bounds are in range.
-    target = low.getSExtValue();
-    source = range->getLowerBound().getSExtValue();
-    if (source < target)
-        return false;
+    // Obtain the lower and upper bounds of the range.  If the number of bits
+    // needed to represent the range bounds exceed the limits of this type, we
+    // cannot contain the type.
+    const llvm::APInt &targetLower = range->getStaticLowerBound();
+    const llvm::APInt &targetUpper = range->getStaticUpperBound();
+    unsigned width = getBitWidth();
 
-    // Likewise for the upper bounds.
-    target = high.getSExtValue();
-    source = range->getUpperBound().getSExtValue();
-    if (source > target)
+    if ((targetLower.getMinSignedBits() > width) ||
+        (targetUpper.getMinSignedBits() > width))
         return false;
-
     return true;
 }
 
@@ -339,65 +338,55 @@ uint64_t ArrayType::length() const
 //===----------------------------------------------------------------------===//
 // IntegerSubType
 
-IntegerSubType::IntegerSubType(IdentifierInfo *name, IntegerType *type,
-                               const llvm::APInt &low, const llvm::APInt &high)
-    : SubType(AST_IntegerSubType, name, type, 0)
-{
-    unsigned width = type->getBitWidth();
-    llvm::APInt lower(low);
-    llvm::APInt upper(high);
-
-    // We need to ensure that the width of the bounds is the same as the width
-    // of the base type.  Ensure that we are not loosing any significant bits.
-    assert(low.getMinSignedBits() <= width && "Bounds too wide!");
-    assert(high.getMinSignedBits() <= width && "Bounds too wide!");
-
-    lower.sextOrTrunc(width);
-    upper.sextOrTrunc(width);
-
-    SubTypeConstraint = new RangeConstraint(lower, upper);
-
-    // FIXME: Add this to the base types list of subtypes.
-}
-
-
 bool IntegerSubType::contains(IntegerSubType *subtype) const
 {
-    int64_t lowerTarget;
-    int64_t upperTarget;
-    int64_t lowerSource;
-    int64_t upperSource;
+
+    // If this subtype is not constrained, check if the base type contains the
+    // target.
+    if (!isConstrained())
+        return getTypeOf()->contains(subtype);
 
     // If this subtype has a null constraint it cannot contain any other type.
-    if (isConstrained() && getConstraint()->isNull())
+    if (getConstraint()->isNull())
         return false;
 
     // If the target subtype is null, we certainly can contain it.
     if (subtype->isConstrained() && subtype->getConstraint()->isNull())
         return true;
 
-    // Otherwise, obtain bounds.
-    if (RangeConstraint *range = subtype->getConstraint()) {
-        lowerTarget = range->getLowerBound().getSExtValue();
-        upperTarget = range->getUpperBound().getSExtValue();
-    }
-    else {
-        IntegerType *baseTy = subtype->getTypeOf();
-        lowerTarget = baseTy->getLowerBound().getSExtValue();
-        upperTarget = baseTy->getUpperBound().getSExtValue();
-    }
+    // If this subtype does not have a static range we cannot determine
+    // containment.
+    if (!isStaticallyConstrained())
+        return false;
 
-    if (RangeConstraint *range = this->getConstraint()) {
-        lowerSource = range->getLowerBound().getSExtValue();
-        upperSource = range->getUpperBound().getSExtValue();
-    }
-    else {
-        IntegerType *baseTy = this->getTypeOf();
-        lowerSource = baseTy->getLowerBound().getSExtValue();
-        upperSource = baseTy->getUpperBound().getSExtValue();
-    }
+    // Otherwise obtain bounds for the target subtype.  If the constraint is
+    // static or partially static, the bounds corrspond to the constraint, else
+    // to the base type limits.
+    llvm::APInt lowerTarget(subtype->getLowerBound());
+    llvm::APInt upperTarget(subtype->getUpperBound());
 
-    if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
+    // This type is staticly constrained.  The following bounds are with repect
+    // to the range.
+    const llvm::APInt &lowerSource = getLowerBound();
+    const llvm::APInt &upperSource = getUpperBound();
+
+    // The domain of computation here is with respect to this types bit width.
+    // If the lower or upper target bounds exceed the width (bit wise) of this
+    // type, we cannot represent the target.  Otherwise, convert the target to
+    // this types representation width.
+    unsigned width = getTypeOf()->getBitWidth();
+
+    if (lowerTarget.getMinSignedBits() > width)
+        return false;
+    else
+        lowerTarget.sextOrTrunc(width);
+
+    if (upperTarget.getMinSignedBits() > width)
+        return false;
+    else
+        upperTarget.sextOrTrunc(width);
+
+    if (lowerTarget.slt(lowerSource) || upperSource.slt(upperTarget))
         return false;
     return true;
 }
@@ -405,19 +394,39 @@ bool IntegerSubType::contains(IntegerSubType *subtype) const
 bool IntegerSubType::contains(IntegerType *type) const
 {
     // If this subtype is unconstrained, check if the base type contains the
-    // target. Otherwise, compare the bounds of this subtypes range and the
-    // given types representation limits.
+    // target.
     if (!isConstrained())
         return getTypeOf()->contains(type);
 
-    int64_t lowerTarget = type->getLowerBound().getSExtValue();
-    int64_t upperTarget = type->getUpperBound().getSExtValue();
+    // If this subtype does not have static bounds on its constraint we cannot
+    // determine containment.
+    if (!isStaticallyConstrained())
+        return false;
 
-    RangeConstraint *range = this->getConstraint();
-    int64_t lowerSource = range->getLowerBound().getSExtValue();
-    int64_t upperSource = range->getUpperBound().getSExtValue();
+    // Otherwise, compare the bounds of this subtypes range and the given types
+    // representation limits.
+    const llvm::APInt &lowerTarget = type->getLowerBound();
+    const llvm::APInt &upperTarget = type->getUpperBound();
+    llvm::APInt lowerSource(getLowerBound());
+    llvm::APInt upperSource(getUpperBound());
 
-    if ((lowerTarget < lowerSource) || (upperSource < upperTarget))
+    // The domain of computation here is with respect to the target types bit
+    // width.  If the lower or upper bounds of this type are smaller (bit wise)
+    // than the width of the target, we cannot represent the target.  Otherwise,
+    // convert this types bounds to the targets width.
+    unsigned width = type->getBitWidth();
+
+    if (lowerSource.getMinSignedBits() > width)
+        return false;
+    else
+        lowerSource.sextOrTrunc(width);
+
+    if (upperSource.getMinSignedBits() > width)
+        return false;
+    else
+        upperSource.sextOrTrunc(width);
+
+    if (lowerTarget.slt(lowerSource) || upperSource.slt(upperTarget))
         return false;
     return true;
 }
@@ -434,8 +443,8 @@ uint64_t ArraySubType::length() const
     if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
         if (intTy->isNull())
             return 0;
-        llvm::APInt lower(intTy->getLowerBound());
-        llvm::APInt upper(intTy->getUpperBound());
+        const llvm::APInt &lower = intTy->getLowerBound();
+        const llvm::APInt &upper = intTy->getUpperBound();
         llvm::APInt length(upper - lower + 1);
         return length.getZExtValue();
     }

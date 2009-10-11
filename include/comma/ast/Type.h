@@ -12,6 +12,7 @@
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/Constraint.h"
+#include "comma/ast/Range.h"
 #include "comma/basic/ParameterModes.h"
 
 #include "llvm/ADT/APInt.h"
@@ -432,7 +433,7 @@ public:
     Type *getTypeOf() const;
 
     /// Returns true if this subtype is constrained.
-    bool isConstrained() const { return SubTypeConstraint != 0; }
+    virtual bool isConstrained() const = 0;
 
     /// Returns the defining identifier of this subtype if it is named, else null.
     IdentifierInfo *getIdInfo() const { return DefiningIdentifier; }
@@ -445,40 +446,33 @@ public:
         return 0;
     }
 
-    /// Returns the constraint of this subtype if constrained, else null for
-    /// unconstrained subtypes.
-    Constraint *getConstraint() const { return SubTypeConstraint; }
-
     static bool classof(const SubType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesSubType();
     }
 
 protected:
-    /// Constructs a named subtype.  The constraint may be null to define an
-    /// unsconstrained subtype.
-    SubType(AstKind kind, IdentifierInfo *identifier, Type *type,
-            Constraint *constraint);
+    /// Constructs a named subtype.
+    SubType(AstKind kind, IdentifierInfo *identifier, Type *type);
 
-    /// Constructs an anonymous subtype.  The constraint may be null to define
-    /// an unconstrained subtype.
-    SubType(AstKind kind, Type *type, Constraint *constraint);
+    /// Constructs an anonymous subtype.
+    SubType(AstKind kind, Type *type);
 
     IdentifierInfo *DefiningIdentifier;
     Type *ParentType;
-    Constraint *SubTypeConstraint;
 };
 
 
 //===----------------------------------------------------------------------===//
 // CarrierType
 //
-// The type of carrier declarations.  In the future this node could be combined
-// into a general "type alias" node or similar.
+// The type of carrier declarations.
 class CarrierType : public SubType {
 
 public:
     CarrierType(CarrierDecl *carrier, Type *type);
+
+    bool isConstrained() const { return false; }
 
     IdentifierInfo *getIdInfo() const;
 
@@ -503,7 +497,8 @@ public:
     /// to define an unconstrained subtype.
     ArraySubType(IdentifierInfo *identifier, ArrayType *type,
                  IndexConstraint *constraint)
-        : SubType(AST_ArraySubType, identifier, type, constraint) { }
+        : SubType(AST_ArraySubType, identifier, type),
+          constraint(constraint) { }
 
     /// Returns the ArrayType underlying this subtype.
     ArrayType *getTypeOf() const {
@@ -529,11 +524,12 @@ public:
     /// is valid iff the index type is statically constrained.
     uint64_t length() const;
 
+    /// Returns true if this is a constrained subtype.
+    bool isConstrained() const { return constraint != 0; }
+
     /// Returns the index constraint associated with this subtype, or null if
     /// there are not any.
-    IndexConstraint *getConstraint() const {
-        return llvm::cast<IndexConstraint>(SubTypeConstraint);
-    }
+    IndexConstraint *getConstraint() const { return constraint; }
 
     /// Returns the constraint for the i'th index.
     SubType *getIndexConstraint(unsigned i) const {
@@ -554,6 +550,9 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ArraySubType;
     }
+
+private:
+    IndexConstraint *constraint;
 };
 
 //===----------------------------------------------------------------------===//
@@ -561,10 +560,12 @@ public:
 class EnumSubType : public SubType {
 
 public:
-    // Defines a subtype of the given enumeration type.  The constraint may be
-    // null to define an unconstrained subtype.
+    // Defines an unconstrained subtype of the given enumeration type.
     EnumSubType(IdentifierInfo *identifier, EnumerationType *type)
-        : SubType(AST_EnumSubType, identifier, type, 0) { }
+        : SubType(AST_EnumSubType, identifier, type) { }
+
+    /// Returns true if this subtype is constrained.
+    bool isConstrained() const { return false; }
 
     /// Returns the type of this enumeration subtype.
     EnumerationType *getTypeOf() const {
@@ -587,16 +588,20 @@ public:
         return llvm::cast<IntegerType>(SubType::getTypeOf());
     }
 
+    /// Returns true if this subtype is constrained.
+    bool isConstrained() const { return constraint != 0; }
+
     /// Returns the range constraint of this subtype, or null if this subtype is
     /// not constrained.
-    RangeConstraint *getConstraint() const {
-        if (SubTypeConstraint)
-            return llvm::cast<RangeConstraint>(SubTypeConstraint);
-        return 0;
-    }
+    Range *getConstraint() const { return constraint; }
 
     /// Returns true if this type has a null range constraint.
     bool isNull() const { return isConstrained() && getConstraint()->isNull(); }
+
+    /// Returns true if this subtype is staticly constrained.
+    bool isStaticallyConstrained() const {
+        return isConstrained() && getConstraint()->isStatic();
+    }
 
     /// Returns true if this subtype contains another.
     ///
@@ -610,22 +615,31 @@ public:
     /// former spans the representational limits of the latter.
     bool contains(IntegerType *type) const;
 
-    /// Returns the lower bound of this subtype.
+    /// If this is a constrained subtype, the lower bound must be staticly
+    /// constrained.  If constrained, returns the lower bound.  Otherwise,
+    /// returns the lower bound of the base type.
     const llvm::APInt &getLowerBound() const {
-        if (RangeConstraint *range = getConstraint())
-            return range->getLowerBound();
+        if (Range *range = getConstraint()) {
+            assert(range->hasStaticLowerBound());
+            return range->getStaticLowerBound();
+        }
         else
             return getTypeOf()->getLowerBound();
     }
 
-    /// Return the upper bound of this subtype.
+    /// If this is a constrained subtype, the upper bound must be staticly
+    /// constrained.  If constrained, returns the upper bound.  Otherwise,
+    /// returns the upper bound of the base type.
     const llvm::APInt &getUpperBound() const {
-        if (RangeConstraint *range = getConstraint())
-            return range->getUpperBound();
+        if (Range *range = getConstraint()) {
+            assert(range->hasStaticUpperBound());
+            return range->getStaticUpperBound();
+        }
         else
             return getTypeOf()->getUpperBound();
     }
 
+    // Support isa/dyn_cast.
     static bool classof(const IntegerSubType *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerSubType;
@@ -635,14 +649,19 @@ private:
     /// Constructs a named integer subtype of the given type and range
     /// constraints.
     IntegerSubType(IdentifierInfo *name, IntegerType *type,
-                   const llvm::APInt &low, const llvm::APInt &high);
+                   Expr *low, Expr *high)
+        : SubType(AST_IntegerSubType, name, type),
+          constraint(Range::create(low, high)) { }
 
     /// Constructs a named, unconstrained integer subtype.
     IntegerSubType(IdentifierInfo *name, IntegerType *type)
-        : SubType(AST_IntegerSubType, name, type, 0) { }
+        : SubType(AST_IntegerSubType, name, type),
+          constraint(0) { }
 
     /// Allow AstResource to construct IntegerSubType nodes.
     friend class AstResource;
+
+    Range *constraint;
 };
 
 } // End comma namespace
