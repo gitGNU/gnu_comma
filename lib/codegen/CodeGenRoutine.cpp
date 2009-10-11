@@ -233,17 +233,12 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
     if (objDecl->hasInitializer()) {
         llvm::Value *init = emitValue(objDecl->getInitializer());
-        if (objDecl->getType()->isArrayType()) {
-            // The object is of array type.  The initializer is a pointer to
-            // some temporary object or a global array.  In the former case we
-            // can associate the object directly with its initializer.  In the
-            // latter case we need to generate our own copy of the global data.
-            if (isa<llvm::GlobalVariable>(init)) {
-                llvm::Value *slot = createStackSlot(objDecl);
-                emitArrayCopy(init, slot);
-            }
-            else
-                associateStackSlot(objDecl, init);
+        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(objDecl->getType())) {
+            // FIXME: It would be very nice to optimize array assignment by
+            // reusing any temporaries generated on the RHS.  However, LLVM's
+            // optimizers can do the thinking for us here most of the time.
+            llvm::Value *slot = createStackSlot(objDecl);
+            emitArrayCopy(init, slot, arrTy);
         }
         else
             Builder.CreateStore(init, createStackSlot(objDecl));
@@ -255,12 +250,13 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 }
 
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
-                                   llvm::Value *destination)
+                                   llvm::Value *destination,
+                                   ArraySubType *Ty)
 {
     // Implement array copies via memcpy.
     llvm::Value *src;
     llvm::Value *dst;
-    llvm::Constant *len;
+    llvm::Value *len;
     llvm::Constant *align;
     llvm::Function *memcpy;
     const llvm::PointerType *ptrTy;
@@ -270,7 +266,18 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     dst = Builder.CreatePointerCast(destination, CG.getInt8PtrTy());
     ptrTy = cast<llvm::PointerType>(source->getType());
     arrTy = cast<llvm::ArrayType>(ptrTy->getElementType());
-    len = llvm::ConstantExpr::getSizeOf(arrTy);
+
+    // If the array type is of variable length, use the Comma type to compute
+    // the number of elements to copy.
+    if (arrTy->getNumElements() == 0)
+        len = emitArrayLength(Ty);
+    else
+        len = llvm::ConstantExpr::getSizeOf(arrTy);
+
+    // Zero extend the length if not an i64.
+    if (len->getType() != CG.getInt64Ty())
+        len = Builder.CreateZExt(len, CG.getInt64Ty());
+
     align = llvm::ConstantInt::get(CG.getInt32Ty(), 1);
     memcpy = CG.getMemcpy64();
 
@@ -301,6 +308,34 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
     // The only kind of declaration we emit stack slots for are value
     // declarations, hense the cast.
     ValueDecl *vDecl = cast<ValueDecl>(decl);
+    Type *vTy = vDecl->getType();
+
+    if (ArraySubType *arrTy = dyn_cast<ArraySubType>(vTy)) {
+        assert(arrTy->isConstrained() && "Unconstrained value declaration!");
+
+        // FIXME: Support multidimensional arrays and general scalar index
+        // types.
+        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+        if (!idxTy->isStaticallyConstrained()) {
+            const llvm::Type *type;
+            type = CGTypes.lowerType(arrTy->getComponentType());
+
+            llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
+            Builder.SetInsertPoint(entryBB);
+            llvm::Value *length = emitArrayLength(arrTy);
+            llvm::Value *stackSlot = Builder.CreateAlloca(type, length);
+
+            // The slot is a pointer to the component type.  Cast it as a
+            // pointer to a variable length array.
+            type = CG.getPointerType(CGTypes.lowerArraySubType(arrTy));
+            stackSlot = Builder.CreatePointerCast(stackSlot, type);
+
+            declTable[decl] = stackSlot;
+            Builder.SetInsertPoint(savedBB);
+            return stackSlot;
+        }
+    }
+
     const llvm::Type *type = CGTypes.lowerType(vDecl->getType());
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 

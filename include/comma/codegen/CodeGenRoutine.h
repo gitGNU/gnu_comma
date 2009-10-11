@@ -218,15 +218,17 @@ private:
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
-    void emitArrayCopy(llvm::Value *source, llvm::Value *destination);
+    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
+                       ArraySubType *arrTy);
 
     llvm::Value *emitArrayBounds(Expr *expr);
 
     void initArrayBounds(llvm::Value *boundSlot, ArraySubType *arrTy);
 
+    llvm::Value *emitArrayLength(ArraySubType *arrTy);
+
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
-
 };
 
 } // end comma namespace

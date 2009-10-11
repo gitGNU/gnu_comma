@@ -260,12 +260,12 @@ const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
     assert(type->getRank() == 1 &&
            "Cannot codegen multidimensional arrays yet!");
 
+    const llvm::Type *elementTy = lowerType(type->getComponentType());
+
     // If the array is unconstrained, emit a variable length array type, which
     // in LLVM is represented as an array with zero elements.
-    if (!type->isConstrained()) {
-        const llvm::Type *elementTy = lowerType(type->getComponentType());
+    if (!type->isConstrained())
         return llvm::ArrayType::get(elementTy, 0);
-    }
 
     SubType *constraint = type->getIndexConstraint(0);
     assert(constraint->isDiscreteType() && "Bad type for array index!");
@@ -275,23 +275,30 @@ const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
     // base type.
     llvm::APInt lowerBound;
     llvm::APInt upperBound;
-    if (RangeConstraint *range =
-        dyn_cast<RangeConstraint>(constraint->getConstraint())) {
-        lowerBound = range->getLowerBound();
-        upperBound = range->getUpperBound();
+    if (IntegerSubType *subTy = dyn_cast<IntegerSubType>(constraint)) {
+        if (subTy->isConstrained()) {
+            if (subTy->isStaticallyConstrained()) {
+                Range *range = subTy->getConstraint();
+                lowerBound = range->getStaticLowerBound();
+                upperBound = range->getStaticUpperBound();
+            }
+            else
+                return llvm::ArrayType::get(elementTy, 0);
+        }
+        else {
+            IntegerType *intTy = subTy->getTypeOf();
+            lowerBound = intTy->getLowerBound();
+            upperBound = intTy->getUpperBound();
+        }
     }
-    else if (IntegerType *intTy = constraint->getAsIntegerType()) {
-        lowerBound = intTy->getLowerBound();
-        upperBound = intTy->getUpperBound();
-    }
-    else if (EnumerationType *enumTy = constraint->getAsEnumType()) {
+    else {
+        EnumerationType *enumTy = constraint->getAsEnumType();
+        assert(enumTy && "Unexpected array index type!");
         lowerBound = 0;
         upperBound = enumTy->getNumElements() - 1;
     }
 
     uint64_t numElems = getArrayWidth(lowerBound, upperBound);
-
-    const llvm::Type *elementTy = lowerType(type->getComponentType());
     return llvm::ArrayType::get(elementTy, numElems);
 }
 

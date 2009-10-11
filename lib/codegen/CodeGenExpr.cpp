@@ -504,37 +504,12 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
         // expression).
         SubType *indexType = arrType->getIndexType(0);
 
-        // If the index type is an integer type with a lower bound not equal to
-        // zero, adjust the index expression.
+        // If the index type is an integer type adjust the index expression by
+        // the lower bound.  If the bound happens to be a constant zero the
+        // IRBuilder will fold the ajustment.
         if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexType)) {
-            RangeConstraint *range = intTy->getConstraint();
-
-            // The index type of the array is always larger than or equal to the
-            // type of the actual index value.  Lower the type and determine if
-            // the index needs to be adjusted using this width for our
-            // operations.
-            const llvm::IntegerType *loweredTy =
-                CGTypes.lowerIntegerType(intTy->getTypeOf());
-            unsigned indexWidth = loweredTy->getBitWidth();
-
-            // Get the lower bound and promote to the width of the index type.
-            llvm::APInt lower(range->getLowerBound());
-            lower.sextOrTrunc(indexWidth);
-
-            if (lower != 0) {
-                // Check if we need to sign extend the width of the index
-                // expression so it matches the width of the array index type.
-                const llvm::IntegerType *idxExprType =
-                    cast<llvm::IntegerType>(idxValue->getType());
-                if (idxExprType->getBitWidth() < indexWidth)
-                    idxValue = Builder.CreateSExt(idxValue, loweredTy);
-                else
-                    assert(idxExprType->getBitWidth() == indexWidth);
-
-                // Subtract the lower bound from the index expression.
-                llvm::Value *adjust = llvm::ConstantInt::get(loweredTy, lower);
-                idxValue = Builder.CreateSub(idxValue, adjust);
-            }
+            llvm::Value *adjust = emitScalarLowerBound(intTy);
+            idxValue = Builder.CreateSub(idxValue, adjust);
         }
     }
     else {
@@ -601,9 +576,12 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
 
     // If the target subtype is constrained, extract the bounds of the
     // constraint.  Otherwise, use the bounds of the base type.
-    if (RangeConstraint *range = targetTy->getConstraint()) {
-        lower = range->getLowerBound();
-        upper = range->getUpperBound();
+    //
+    // FIXME: Support dynmaic ranges.
+    if (Range *range = targetTy->getConstraint()) {
+        assert(range->isStatic() && "Dynamic ranges not supported yet!");
+        lower = range->getStaticLowerBound();
+        upper = range->getStaticUpperBound();
     }
     else {
         lower = targetBaseTy->getLowerBound();
@@ -747,20 +725,62 @@ llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
     return boundSlot;
 }
 
+llvm::Value *CodeGenRoutine::emitArrayLength(ArraySubType *arrTy)
+{
+    assert(arrTy->isConstrained() && "Unconstrained array type!");
+
+    // FIXME: Support general scalar index types.
+    IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+    llvm::Value *lower = emitScalarLowerBound(idxTy);
+    llvm::Value *upper = emitScalarUpperBound(idxTy);
+    llvm::Value *length = Builder.CreateSub(upper, lower);
+    const llvm::IntegerType *loweredTy =
+        cast<llvm::IntegerType>(length->getType());
+    return Builder.CreateAdd(length, CG.getConstantInt(loweredTy, 1));
+}
+
 llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
 {
-    // Currently, scalar types are always integer types with static bounds.
-    llvm::APInt bound(Ty->getLowerBound());
     const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
-    return CG.getConstantInt(loweredTy, bound);
+
+    // If unconstrained, emit the lower limit of the base type.
+    if (!Ty->isConstrained()) {
+        llvm::APInt bound(Ty->getTypeOf()->getLowerBound());
+        return CG.getConstantInt(loweredTy, bound);
+    }
+
+    Range *range = Ty->getConstraint();
+
+    // Emit a constant if the range has a static lower bound.
+    if (range->hasStaticLowerBound()) {
+        llvm::APInt bound(range->getStaticLowerBound());
+        return CG.getConstantInt(loweredTy, bound);
+    }
+
+    // Otherwise, we have a dynamic lower bound.
+    return emitValue(range->getLowerBound());
 }
 
 llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerSubType *Ty)
 {
-    // Currently, scalar types are always integer types with static bounds.
-    llvm::APInt bound(Ty->getUpperBound());
     const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
-    return CG.getConstantInt(loweredTy, bound);
+
+    // If unconstrained, emit the lower limit of the base type.
+    if (!Ty->isConstrained()) {
+        llvm::APInt bound(Ty->getTypeOf()->getUpperBound());
+        return CG.getConstantInt(loweredTy, bound);
+    }
+
+    Range *range = Ty->getConstraint();
+
+    // Emit a constant if the range has a static lower bound.
+    if (range->hasStaticUpperBound()) {
+        llvm::APInt bound(range->getStaticUpperBound());
+        return CG.getConstantInt(loweredTy, bound);
+    }
+
+    // Otherwise, we have a dynamic upper bound.
+    return emitValue(range->getUpperBound());
 }
 
 llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
