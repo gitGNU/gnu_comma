@@ -81,6 +81,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "KeywordSelector",
     "Qualifier",
+    "Range",
     "SubroutineRef",
     "TypeRef"
 };

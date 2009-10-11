@@ -82,6 +82,7 @@ class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
 class Qualifier;
+class Range;
 class ReturnStmt;
 class ScalarBoundAE;
 class Sigoid;
@@ -220,6 +221,7 @@ public:
         //
         AST_KeywordSelector,    ///< KeywordSelector
         AST_Qualifier,          ///< Qualifier
+        AST_Range,              ///< Range
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
 
