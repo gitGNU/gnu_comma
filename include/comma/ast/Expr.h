@@ -306,6 +306,9 @@ public:
     IntegerLiteral(const llvm::APInt &value, Location loc)
         : Expr(AST_IntegerLiteral, loc), value(value) { }
 
+    IntegerLiteral(const llvm::APInt &value, Type *type, Location loc)
+        : Expr(AST_IntegerLiteral, type, loc), value(value) { }
+
     const llvm::APInt &getValue() const { return value; }
     llvm::APInt &getValue() { return value; }
 
