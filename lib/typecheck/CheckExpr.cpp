@@ -127,7 +127,7 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     // bounds.  Note that the range bounds will be of the same width as the base
     // type since the "type of a range" is the "type of the subtype".
     if (subtype->isConstrained()) {
-        RangeConstraint *range = subtype->getConstraint();
+        Range *range = subtype->getConstraint();
         if (!range->contains(litValue)) {
             report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
                 << subtype->getIdInfo();

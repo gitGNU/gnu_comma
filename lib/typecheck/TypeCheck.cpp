@@ -9,6 +9,7 @@
 #include "Scope.h"
 #include "Stencil.h"
 #include "comma/typecheck/TypeCheck.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/KeywordSelector.h"
@@ -70,6 +71,9 @@ void TypeCheck::populateInitialEnvironment()
     EnumerationDecl *theCharacterDecl = resource.getTheCharacterDecl();
     scope->addDirectDecl(theCharacterDecl);
     introduceImplicitDecls(theCharacterDecl);
+
+    ArrayDecl *theStringDecl = resource.getTheStringDecl();
+    scope->addDirectDecl(theStringDecl);
 }
 
 void TypeCheck::deleteNode(Node &node)
@@ -503,9 +507,10 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr)
 ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
                                                     Expr *init)
 {
-    // FIXME: This assumes integer index types exclusively.
-    //
+    // FIXME: The following code assumes integer index types exclusively.
+    // FIXME: Support multidimensional array types.
     assert(!arrTy->isConstrained() && "Array type already constrained!");
+    assert(arrTy->getRank() == 1 && "Multidimensional arrays not supported!");
 
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(init)) {
         IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
@@ -523,15 +528,32 @@ ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
         return resource.createArraySubType(0, arrTy->getTypeOf(),
                                            new IndexConstraint(&newIdxTy, 1));
     }
-    else {
-        ArraySubType *exprTy = cast<ArraySubType>(init->getType());
 
-        // FIXME: If the expression is unconstrained, we need to create a
-        // dynamicly constrained subtype.  These situations arrise when a
-        // function returns an unconstrained array type, for example.
-        assert(exprTy->isConstrained() && "Unconstrained array not supported!");
-        return exprTy;
+    ArraySubType *exprTy = cast<ArraySubType>(init->getType());
+
+    if (!exprTy->isConstrained()) {
+        // If the expression is unconstrained, we need to create a dynamicly
+        // constrained subtype.  These situations arise when the initializer is
+        // a function call returning an unconstrained array type, for example.
+        //
+        // The subtype is constructed using a range for each index of the type
+        // corresponding to X'First .. X'Last, where X is the given expression.
+
+        // FIXME: We should be creating a range attribute here.  This is
+        // important since a range attribute will not evaluate the expression
+        // twice when computing the bounds.
+        FirstArrayAE *first = new FirstArrayAE(init, 0);
+        LastArrayAE *last = new LastArrayAE(init, 0);
+
+        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+        SubType *newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
+                                                          first, last);
+        IndexConstraint *constraint = new IndexConstraint(&newIdxTy, 1);
+        return resource.createArraySubType(0, arrTy->getTypeOf(), constraint);
     }
+
+    // The initializer is constrained.  Use the type of the initializer.
+    return exprTy;
 }
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
