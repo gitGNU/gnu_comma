@@ -758,6 +758,10 @@ void EnumerationDecl::generateImplicitDeclarations(AstResource &resource)
     Location loc = getLocation();
 
     addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LT_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LE_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::GT_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::GE_op, loc, type, this));
 }
 
 EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
