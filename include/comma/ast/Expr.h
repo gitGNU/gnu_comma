@@ -75,6 +75,18 @@ public:
     /// \return True if \p expr is static and \p result was set.  False otherwise.
     bool staticIntegerValue(llvm::APInt &result) const;
 
+    /// Attempts to evaluate this expression as a constant string expression.
+    ///
+    /// \param result If this is a static expression, \p result is set to the
+    /// computed value.
+    ///
+    /// \return True if \p expr is static and \p result was set.  False
+    /// otherwise.
+    bool staticStringValue(std::string &result) const;
+
+    /// Returns true if this expression evaluates to a static string expression.
+    bool isStaticStringExpr() const;
+
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesExpr();

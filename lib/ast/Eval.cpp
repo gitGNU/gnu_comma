@@ -306,3 +306,19 @@ bool Expr::isStaticIntegerExpr() const
     llvm::APInt tmp;
     return staticIntegerValue(tmp);
 }
+
+bool Expr::staticStringValue(std::string &result) const
+{
+    // The only static string values ATM are string literals.
+    if (const StringLiteral *lit = dyn_cast<StringLiteral>(this)) {
+        result = lit->getString().str();
+        return true;
+    }
+    return false;
+}
+
+bool Expr::isStaticStringExpr() const
+{
+    return isa<StringLiteral>(this);
+}
+
