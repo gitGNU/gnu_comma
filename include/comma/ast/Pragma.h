@@ -16,22 +16,18 @@
 #define COMMA_AST_PRAGMA_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/basic/Pragmas.h"
 
 namespace comma {
 
 //===----------------------------------------------------------------------===//
 // Pragma
-
 class Pragma {
 
 public:
     virtual ~Pragma() { }
 
-    enum PragmaKind {
-        Assert
-    };
-
-    PragmaKind getKind() const { return kind; }
+    pragma::PragmaID getKind() const { return ID; }
 
     Location getLocation() const { return loc; }
 
@@ -39,20 +35,19 @@ public:
     static bool classof(const Pragma *pragma) { return true; }
 
 protected:
-    Pragma(PragmaKind kind, Location loc) : kind(kind), loc(loc) { }
+    Pragma(pragma::PragmaID ID, Location loc) : ID(ID), loc(loc) { }
 
-    PragmaKind kind;
+    pragma::PragmaID ID;
     Location loc;
 };
 
 //===----------------------------------------------------------------------===//
 // PragmaAssert
-
 class PragmaAssert : public Pragma {
 
 public:
     PragmaAssert(Location loc, Expr *condition, const std::string &message)
-        : Pragma(Pragma::Assert, loc),
+        : Pragma(pragma::Assert, loc),
           condition(condition),
           message(message) { }
 
@@ -64,7 +59,7 @@ public:
     // Support isa and dyn_cast.
     static bool classof(const PragmaAssert *pragma) { return true; }
     static bool classof(const Pragma *pragma) {
-        return pragma->getKind() == Pragma::Assert;
+        return pragma->getKind() == pragma::Assert;
     }
 
 private:

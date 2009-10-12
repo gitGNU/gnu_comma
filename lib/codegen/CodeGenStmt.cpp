@@ -259,7 +259,7 @@ void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)
         assert(false && "Cannot codegen pragma yet!");
         break;
 
-    case Pragma::Assert:
+    case pragma::Assert:
         emitPragmaAssert(cast<PragmaAssert>(pragma));
         break;
     };
