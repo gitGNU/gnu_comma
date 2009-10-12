@@ -302,6 +302,8 @@ private:
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
 
+    Node parsePragmaAssert(IdentifierInfo *name, Location loc);
+
     // Convenience function for obtaining null nodes.
     Node getNullNode() { return client.getNullNode(); }
 

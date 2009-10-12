@@ -61,6 +61,10 @@ DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
            "Expected unconstrained array index.")
 DIAGNOSTIC(UNKNOWN_ATTRIBUTE, ERROR,
            "Unknown attribute `%0'.")
+DIAGNOSTIC(UNKNOWN_PRAGMA, ERROR,
+           "Unknown pragma `%0'.")
+DIAGNOSTIC(INVALID_PRAGMA_CONTEXT, ERROR,
+           "Pragma `%0' cannot be used in this context.")
 
 //
 // Semantic Diagnostics.

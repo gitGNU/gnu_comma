@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/basic/Pragmas.h"
 #include "comma/parser/Parser.h"
 
 #include <cassert>
@@ -240,16 +241,35 @@ Node Parser::parsePragmaStmt()
 
     Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
-    NodeVector args;
 
     if (!name)
         return getInvalidNode();
 
-    // The only kind of pragma we currently support are Assert pragmas.
-    if (std::strcmp(name->getString(), "Assert") == 0) {
-        if (!requireToken(Lexer::TKN_LPAREN))
-            return getInvalidNode();
+    llvm::StringRef ref(name->getString());
+    pragma::PragmaID ID = pragma::getPragmaID(ref);
 
+    if (ID == pragma::UNKNOWN_PRAGMA) {
+        report(loc, diag::UNKNOWN_PRAGMA) << name;
+        return getInvalidNode();
+    }
+
+    // Currently, the only pragma accepted in a statement context is Assert.
+    // When the set of valid pragmas expands, special parsers will be written to
+    // parse the arguments.
+    switch (ID) {
+    default:
+        report(loc, diag::INVALID_PRAGMA_CONTEXT) << name;
+        return getInvalidNode();
+
+    case pragma::Assert:
+        return parsePragmaAssert(name, loc);
+    }
+}
+
+Node Parser::parsePragmaAssert(IdentifierInfo *name, Location loc)
+{
+    if (requireToken(Lexer::TKN_LPAREN)) {
+        NodeVector args;
         Node condition = parseExpr();
 
         if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
@@ -258,7 +278,7 @@ Node Parser::parsePragmaStmt()
         }
 
         args.push_back(condition);
+        return client.acceptPragmaStmt(name, loc, args);
     }
-
-    return client.acceptPragmaStmt(name, loc, args);
+   return getInvalidNode();
 }
