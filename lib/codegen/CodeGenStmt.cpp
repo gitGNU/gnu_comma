@@ -188,7 +188,9 @@ void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
     for (unsigned i = 0; I != E; ++I, ++i)
         emitCallArgument(pdecl, *I, i, args);
 
-    if (isLocalCall(stmt))
+    if (pdecl->hasPragma(pragma::Import))
+        emitForeignCall(pdecl, args);
+    else if (isLocalCall(stmt))
         emitLocalCall(pdecl, args);
     else if (isDirectCall(stmt))
         emitDirectCall(pdecl, args);

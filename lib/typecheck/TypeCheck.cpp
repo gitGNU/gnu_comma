@@ -8,7 +8,6 @@
 
 #include "Scope.h"
 #include "Stencil.h"
-#include "comma/typecheck/TypeCheck.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
@@ -17,6 +16,7 @@
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
+#include "comma/typecheck/TypeCheck.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -1093,6 +1093,62 @@ bool TypeCheck::conversionRequired(Type *source, Type *target)
             return false;
     }
     return true;
+}
+
+void TypeCheck::acceptPragmaImport(Location pragmaLoc,
+                                   IdentifierInfo *convention,
+                                   Location conventionLoc,
+                                   IdentifierInfo *entity,
+                                   Location entityLoc,
+                                   Node externalNameNode)
+{
+    llvm::StringRef conventionRef(convention->getString());
+    PragmaImport::Convention ID = PragmaImport::getConventionID(conventionRef);
+
+    if (ID == PragmaImport::UNKNOWN_CONVENTION) {
+        report(conventionLoc, diag::UNKNOWN_CONVENTION) << convention;
+        return;
+    }
+
+    Resolver &resolver = scope->getResolver();
+    if (!resolver.resolve(entity) || !resolver.hasDirectOverloads()) {
+        report(entityLoc, diag::NAME_NOT_VISIBLE) << entity;
+        return;
+    }
+
+    // We do not support importation of overloaded declarations (yet).
+    if (resolver.numDirectOverloads() != 1) {
+        report(entityLoc, diag::OVERLOADED_IMPORT_NOT_SUPPORTED);
+        return;
+    }
+
+    // Resolve the external name to a static string expression.
+    Expr *externalNameExpr = cast_node<Expr>(externalNameNode);
+    if (!checkExprInContext(externalNameExpr, resource.getTheStringType()))
+        return;
+    if (!externalNameExpr->isStaticStringExpr()) {
+        report(externalNameExpr->getLocation(), diag::NON_STATIC_EXPRESSION);
+        return;
+    }
+
+    // Ensure the declaration does not already have a import pragma associated
+    // with it.
+    SubroutineDecl *srDecl =
+        cast<SubroutineDecl>(resolver.getDirectOverload(0));
+    if (srDecl->hasPragma(pragma::Import)) {
+        report(entityLoc, diag::DUPLICATE_IMPORT_PRAGMAS) << entity;
+        return;
+    }
+
+    // The pragma checks out.
+    //
+    // FIXME: We should also ensure that the declaration profile is conformant
+    // with the convention (does not involve unconstrained array types, for
+    // example).
+    externalNameNode.release();
+    PragmaImport *pragma =
+        new PragmaImport(pragmaLoc, ID, entity, externalNameExpr);
+    srDecl->attachPragma(pragma);
 }
 
 PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)

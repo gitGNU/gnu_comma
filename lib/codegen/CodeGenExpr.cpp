@@ -95,6 +95,8 @@ llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 
     if (fdecl->isPrimitive())
         return emitPrimitiveCall(expr, args);
+    else if (fdecl->hasPragma(pragma::Import))
+        return emitForeignCall(fdecl, args);
     else if (isLocalCall(expr))
         return emitLocalCall(fdecl, args);
     else if (isDirectCall(expr))
@@ -183,6 +185,14 @@ llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
         func = CG.lookupGlobal(CGC.getLinkName(srDecl));
 
     assert(func && "function lookup failed!");
+    return emitCall(srDecl->getType(), func, args);
+}
+
+llvm::Value *CodeGenRoutine::emitForeignCall(SubroutineDecl *srDecl,
+                                             std::vector<llvm::Value*> &args)
+{
+    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+    assert(func && "Function lookup failed!");
     return emitCall(srDecl->getType(), func, args);
 }
 

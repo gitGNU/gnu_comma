@@ -1,0 +1,38 @@
+-- The canonical hello world program.
+--
+-- FIXME:  This test should be simplifed as Comma evolves.
+
+domain D with
+   procedure Hello_World;
+add
+
+   function Put_Char (C : Character) return Integer;
+   pragma Import (C, Put_Char, "putchar");
+
+   procedure Put (C : Character) is
+      I : Integer := Put_Char(C);
+   begin
+   end Put;
+
+   procedure New_Line is
+   begin
+      Put(LF);
+   end New_Line;
+
+   procedure Put (A : String) is
+      I : Integer := A'First;
+   begin
+      while I <= A'Last loop
+         Put(A(I));
+         I := I + 1;
+      end loop;
+   end Put;
+
+   procedure Hello_World is
+      S : String := "hello, world";
+   begin
+      Put(S);
+      New_Line;
+   end Hello_World;
+
+end D;

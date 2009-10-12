@@ -76,6 +76,7 @@ class ParamValueDecl;
 class PercentDecl;
 class Pragma;
 class PragmaAssert;
+class PragmaImport;
 class PragmaStmt;
 class PrjExpr;
 class ProcedureCallStmt;

@@ -308,9 +308,11 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
         return false;
     }
 
-    // All contexts which involve unconstrained array types must resolve the
-    // context.  Ensure we were not passed an unconstrained type.
-    assert(arrTy->isConstrained() && "Unexpected unconstrained array type!");
+    // FIXME: Typically all contexts which involve unconstrained array types
+    // resolve the context.  Perhaps we should assert that the supplied type is
+    // constrained.  For now, construct an appropriate type for the literal.
+    if (!arrTy->isConstrained())
+        arrTy = getConstrainedArraySubType(arrTy, strLit);
 
     // The array is a string type.  Check that the string literal has at least
     // one interpretation of its components which matches the component type of
@@ -324,7 +326,6 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
             << enumTy->getIdInfo();
         return false;
     }
-
 
     // If the array type is statically constrained, ensure that the string is of
     // the proper width.  Currently, all constrained array indices are

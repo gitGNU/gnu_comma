@@ -79,6 +79,10 @@ void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
     // Get the llvm function for this routine.
     SRFn = getOrCreateSubroutineDeclaration(srDecl);
 
+    // If the declaration has a pragma import as completion, we are done.
+    if (SRDecl->hasPragma(pragma::Import))
+        return;
+
     // Resolve the defining declaration, if needed.
     if (SRDecl->getDefiningDeclaration())
         SRDecl = SRDecl->getDefiningDeclaration();

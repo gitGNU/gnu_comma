@@ -163,8 +163,13 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     else
         retTy = CG.getVoidTy();
 
-    // Emit the implicit first "%" argument.
-    args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
+    // Emit the implicit first "%" argument, unless this is an imported
+    // subroutine using the C convention.
+    //
+    // FIXME: All imports currently use the C convention, hence the following
+    // simplistic test.
+    if (!decl->findPragma(pragma::Import))
+        args.push_back(CG.getRuntime().getType<CommaRT::CRT_DomainInstance>());
 
     SubroutineDecl::const_param_iterator I = decl->begin_params();
     SubroutineDecl::const_param_iterator E = decl->end_params();

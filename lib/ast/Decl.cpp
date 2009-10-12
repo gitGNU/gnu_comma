@@ -497,6 +497,17 @@ void SubroutineDecl::setOverriddenDecl(SubroutineDecl *decl) {
     overriddenDecl = decl;
 }
 
+const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const
+{
+    const_pragma_iterator I = begin_pragmas();
+    const_pragma_iterator E = end_pragmas();
+    for ( ; I != E; ++I) {
+        if (I->getKind() == ID)
+            return &*I;
+    }
+    return 0;
+}
+
 //===----------------------------------------------------------------------===//
 // ProcedureDecl
 

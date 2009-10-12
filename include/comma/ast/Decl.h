@@ -11,11 +11,14 @@
 
 #include "comma/ast/AstBase.h"
 #include "comma/ast/DeclRegion.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/SignatureSet.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/ParameterModes.h"
+#include "comma/basic/Pragmas.h"
 #include "comma/basic/PrimitiveOps.h"
-#include "llvm/Support/Casting.h"
+
+#include "llvm/ADT/ilist.h"
 #include "llvm/ADT/FoldingSet.h"
 
 namespace comma {
@@ -785,6 +788,28 @@ public:
     /// Sets this declaration as overriding the given subroutine.
     void setOverriddenDecl(SubroutineDecl *decl);
 
+    /// Associates the given pragma with this declaration.  The declaration node
+    /// takes ownership of the supplied pragma.
+    void attachPragma(Pragma *P) { pragmas.push_front(P); }
+
+    /// Returns the first pragma attached to this declaration with the given ID.
+    const Pragma *findPragma(pragma::PragmaID ID) const;
+
+    /// Returns true if a pragma with the given ID has been assoiated with this
+    /// declaration.
+    bool hasPragma(pragma::PragmaID ID) const { return findPragma(ID) != 0; }
+
+    //@{
+    /// Iterators over the attached set of pragmas.
+    typedef llvm::iplist<Pragma>::iterator pragma_iterator;
+    pragma_iterator begin_pragmas() { return pragmas.begin(); }
+    pragma_iterator end_pragmas() { return pragmas.end(); }
+
+    typedef llvm::iplist<Pragma>::const_iterator const_pragma_iterator;
+    const_pragma_iterator begin_pragmas() const { return pragmas.begin(); }
+    const_pragma_iterator end_pragmas() const { return pragmas.end(); }
+    //@}
+
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -811,6 +836,7 @@ protected:
     SubroutineDecl *definingDeclaration;
     SubroutineDecl *origin;
     SubroutineDecl *overriddenDecl;
+    llvm::iplist<Pragma> pragmas;
 };
 
 //===----------------------------------------------------------------------===//

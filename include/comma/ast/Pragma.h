@@ -18,6 +18,9 @@
 #include "comma/ast/AstBase.h"
 #include "comma/basic/Pragmas.h"
 
+#include "llvm/ADT/ilist.h"
+#include "llvm/ADT/StringRef.h"
+
 namespace comma {
 
 //===----------------------------------------------------------------------===//
@@ -31,14 +34,36 @@ public:
 
     Location getLocation() const { return loc; }
 
+    //@{
+    /// Pramas may be tied together into doubly linked list structures if needed
+    /// using the following methods.
+    Pragma *getNext() { return nextLink; }
+    Pragma *getPrev() { return prevLink; }
+
+    const Pragma *getNext() const { return nextLink; }
+    const Pragma *getPrev() const { return prevLink; }
+
+    void setNext(Pragma *P) { nextLink = P; }
+    void setPrev(Pragma *P) { prevLink = P; }
+    //@}
+
     // Support isa and dyn_cast.
     static bool classof(const Pragma *pragma) { return true; }
 
 protected:
-    Pragma(pragma::PragmaID ID, Location loc) : ID(ID), loc(loc) { }
+    Pragma(pragma::PragmaID ID, Location loc)
+        : ID(ID), loc(loc), nextLink(0), prevLink(0) { }
+
+    /// Default pragma constructor is used to support the generation of
+    /// llvm::iplist sentinal nodes.  Such default constructed pragma nodes are
+    /// invalid.
+    Pragma() : ID(pragma::UNKNOWN_PRAGMA), loc(0), nextLink(0), prevLink(0) { }
+    friend class llvm::ilist_sentinel_traits<Pragma>;
 
     pragma::PragmaID ID;
     Location loc;
+    Pragma *nextLink;
+    Pragma *prevLink;
 };
 
 //===----------------------------------------------------------------------===//
@@ -65,6 +90,49 @@ public:
 private:
     Expr *condition;
     std::string message;
+};
+
+//===----------------------------------------------------------------------===//
+// PragmaImport
+class PragmaImport : public Pragma {
+
+public:
+    /// Enumeration of the conventions supported by an import pragma.
+    /// UNKNOWN_CONVENTION is a special marker which does not map to an actual
+    /// convention name.
+    enum Convention {
+        UNKNOWN_CONVENTION,
+        C
+    };
+
+    PragmaImport(Location loc, Convention convention,
+                 IdentifierInfo *entity, Expr *externalName);
+
+    /// Returns the convention which the given string maps to, or
+    /// UNKNOWN_CONVENTION if there is no mapping.
+    static Convention getConventionID(llvm::StringRef &ref);
+
+    /// Returns the convention associated with this pragma.
+    Convention getConvention() const { return convention; }
+
+    /// Returns the identifier naming the entity associated with this pragma.
+    IdentifierInfo *getEntityIdInfo() const { return entity; }
+
+    //@{
+    /// Returns the expression designating the external name of the entity.
+    /// The expression is always of type String.
+    Expr *getExternalNameExpr() { return externalNameExpr; }
+    const Expr *getExternalNameExpr() const { return externalNameExpr; }
+    //@}
+
+    /// Returns a string representation of the external name.
+    const std::string &getExternalName() const { return externalName; }
+
+private:
+    Convention convention;
+    IdentifierInfo *entity;
+    Expr *externalNameExpr;
+    std::string externalName;
 };
 
 } // end comma namespace.

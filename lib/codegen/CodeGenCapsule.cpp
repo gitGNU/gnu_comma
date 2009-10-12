@@ -17,6 +17,7 @@
 using namespace comma;
 
 using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
@@ -104,6 +105,12 @@ std::string CodeGenCapsule::getLinkName() const
 std::string CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance,
                                         const SubroutineDecl *sr)
 {
+    // If the given subroutine is imported use the external name given by the
+    // pragma.
+    if (const PragmaImport *pragma =
+        dyn_cast_or_null<PragmaImport>(sr->findPragma(pragma::Import)))
+        return pragma->getExternalName();
+
     int index;
     std::string name = getLinkName(instance) + "__";
     name.append(getSubroutineName(sr));
@@ -126,6 +133,12 @@ std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr)
 {
     std::string name;
     int index;
+
+    // If the given subroutine is imported use the external name given by the
+    // pragma.
+    if (const PragmaImport *pragma =
+        dyn_cast_or_null<PragmaImport>(sr->findPragma(pragma::Import)))
+        return pragma->getExternalName();
 
     // All subroutine decls must either be resolved within the context of a
     // domain (non-parameterized) or be an external declaration provided by an

@@ -208,3 +208,9 @@ DIAGNOSTIC(ATTRIB_OF_NON_ARRAY, ERROR,
            "Attribute `%0' requires array valued prefix.")
 DIAGNOSTIC(INVALID_ATTRIB_PREFIX, ERROR,
            "Invalid prefix for attribute `%0'.")
+DIAGNOSTIC(UNKNOWN_CONVENTION, ERROR,
+           "Unknown convention `%0'.")
+DIAGNOSTIC(OVERLOADED_IMPORT_NOT_SUPPORTED, ERROR,
+           "Overloaded imports are not yet supported.")
+DIAGNOSTIC(DUPLICATE_IMPORT_PRAGMAS, ERROR,
+           "Duplicate import pragmas for entity `%0'.")

@@ -25,6 +25,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/basic/Attributes.h"
+#include "comma/basic/Pragmas.h"
 #include "comma/parser/Parser.h"
 
 #include "llvm/ADT/APInt.h"
@@ -673,6 +674,10 @@ void Parser::parseAddComponents()
         case Lexer::TKN_TYPE:
             parseType();
             break;
+
+        case Lexer::TKN_PRAGMA:
+            parseDeclarationPragma();
+            break;
         }
 
         requireToken(Lexer::TKN_SEMI);
@@ -1283,4 +1288,72 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
     else
         numBits = value.getActiveBits();
     value.zextOrTrunc(numBits);
+}
+
+void Parser::parseDeclarationPragma()
+{
+    assert(currentTokenIs(Lexer::TKN_PRAGMA));
+    ignoreToken();
+
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+
+    if (!name)
+        return;
+
+    llvm::StringRef ref(name->getString());
+    pragma::PragmaID ID = pragma::getPragmaID(ref);
+
+    if (ID == pragma::UNKNOWN_PRAGMA) {
+        report(loc, diag::UNKNOWN_PRAGMA) << name;
+        return;
+    }
+
+    // Currently, the only pragma accepted in a declaration context is Import.
+    // When the set of valid pragmas expands, special parsers will be written to
+    // parse the arguments.
+    switch (ID) {
+    default:
+        report(loc, diag::INVALID_PRAGMA_CONTEXT) << name;
+        break;
+
+    case pragma::Import:
+        parsePragmaImport(loc);
+        break;
+    }
+}
+
+void Parser::parsePragmaImport(Location pragmaLoc)
+{
+    if (!requireToken(Lexer::TKN_LPAREN))
+        return;
+
+    // The first argument is an identifier naming the import convention.  The
+    // parser does not know anything about convention names.
+    Location conventionLoc = currentLocation();
+    IdentifierInfo *conventionName = parseIdentifierInfo();
+    if (!conventionName || !requireToken(Lexer::TKN_COMMA)) {
+        seekCloseParen();
+        return;
+    }
+
+    // The second argument is the name of the local declaration corresponding to
+    // the imported entity.
+    Location entityLoc = currentLocation();
+    IdentifierInfo *entityName = parseFunctionIdentifierInfo();
+    if (!entityName || !requireToken(Lexer::TKN_COMMA)) {
+        seekCloseParen();
+        return;
+    }
+
+    // Finally, the external name.  This is a general expression.
+    Node externalName = parseExpr();
+    if (externalName.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
+        seekCloseParen();
+        return;
+    }
+
+    client.acceptPragmaImport(pragmaLoc,
+                              conventionName, conventionLoc,
+                              entityName, entityLoc, externalName);
 }

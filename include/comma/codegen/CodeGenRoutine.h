@@ -156,8 +156,12 @@ private:
     llvm::Value *emitAbstractCall(SubroutineDecl *srDecl,
                                   std::vector<llvm::Value *> &args);
 
+    llvm::Value *emitForeignCall(SubroutineDecl *srDecl,
+                                 std::vector<llvm::Value *> &args);
+
     llvm::Value *emitCall(SubroutineType *srTy,
                           llvm::Value *func, std::vector<llvm::Value *> &args);
+
 
     void emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
                           unsigned argPosition,

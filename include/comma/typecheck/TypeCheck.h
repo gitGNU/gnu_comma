@@ -163,6 +163,11 @@ public:
 
     Node acceptPragmaStmt(IdentifierInfo *name, Location loc, NodeVector &args);
 
+    void acceptPragmaImport(Location pragmaLoc,
+                            IdentifierInfo *convention, Location conventionLoc,
+                            IdentifierInfo *entity, Location entityLoc,
+                            Node externalNameNode);
+
     void beginEnumeration(IdentifierInfo *name, Location loc);
     void acceptEnumerationIdentifier(IdentifierInfo *name, Location loc);
     void acceptEnumerationCharacter(IdentifierInfo *name, Location loc);

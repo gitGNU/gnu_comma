@@ -304,6 +304,10 @@ private:
 
     Node parsePragmaAssert(IdentifierInfo *name, Location loc);
 
+    // Parses a pragma in a declaration context.
+    void parseDeclarationPragma();
+    void parsePragmaImport(Location pragmaLoc);
+
     // Convenience function for obtaining null nodes.
     Node getNullNode() { return client.getNullNode(); }
 

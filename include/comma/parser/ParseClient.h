@@ -453,6 +453,27 @@ public:
     virtual Node acceptPragmaStmt(IdentifierInfo *name, Location loc,
                                   NodeVector &pragmaArgs) = 0;
 
+    /// Called when a pragma Import is encountered.  These pragmas can occur
+    /// when processing a list of declarative items.
+    ///
+    /// \param pragmaLoc The location of the Import identifier.
+    ///
+    /// \param convention An identifier naming the convention to be used.  Note
+    /// that the parser does not know what identifiers name valid conventions.
+    ///
+    /// \param conventionLoc The location of the \p convention identifier.
+    ///
+    /// \param entity The identifier naming the entity to import.
+    ///
+    /// \param entityLoc The location of the \p entity identifier.
+    ///
+    /// \param externalNameNode An arbitrary expression node.
+    virtual void
+    acceptPragmaImport(Location pragmaLoc,
+                       IdentifierInfo *convention, Location conventionLoc,
+                       IdentifierInfo *enity, Location entityLoc,
+                       Node externalNameNode) = 0;
+
     /// \name Enumeration Callbacks.
     ///
     /// Enumerations are processed by first establishing a context with a call
