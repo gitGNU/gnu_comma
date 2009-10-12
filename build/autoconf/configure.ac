@@ -12,7 +12,7 @@ dnl ****************************************************************************
 dnl * Initialize
 dnl ****************************************************************************
 
-AC_INIT([[Comma]],[[0.05]],[wilsons@start.ca])
+AC_INIT([[Comma]],[[0.06]],[wilsons@start.ca])
 
 dnl Ensure we are using a recent enough version of Autoconf.
 AC_PREREQ(2.60)
