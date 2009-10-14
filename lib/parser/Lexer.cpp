@@ -236,6 +236,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_INJ;
         else if (strncmp(str, "prj", length) == 0)
             code = TKN_PRJ;
+        else if (strncmp(str, "and", length) == 0)
+            code = TKN_AND;
         break;
 
     case 4:

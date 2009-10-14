@@ -40,6 +40,7 @@
 
 RESERVED(ABSTRACT,  "abstract")
 RESERVED(ADD,       "add")
+RESERVED(AND,       "and")
 RESERVED(ARRAY,     "array")
 RESERVED(CARRIER,   "carrier")
 RESERVED(BEGIN,     "begin")
