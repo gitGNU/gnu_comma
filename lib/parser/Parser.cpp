@@ -568,20 +568,16 @@ void Parser::parseSupersignatureProfile()
     assert(currentTokenIs(Lexer::TKN_IS));
     ignoreToken();
 
-    while (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+    do {
         Node super = parseName(false);
-        if (super.isValid()) {
-            requireToken(Lexer::TKN_SEMI);
+
+        if (super.isValid())
             client.acceptSupersignature(super);
-        }
         else {
-            seekTokens(Lexer::TKN_SEMI, Lexer::TKN_FUNCTION,
-                       Lexer::TKN_ADD,  Lexer::TKN_END);
-            // If we skipped to a semicolon, reduce it an attempt to continue
-            // any remaining super signature expressions.
-            reduceToken(Lexer::TKN_SEMI);
+            seekTokens(Lexer::TKN_AND, Lexer::TKN_ADD,
+                       Lexer::TKN_WITH, Lexer::TKN_END);
         }
-    }
+    } while (reduceToken(Lexer::TKN_AND));
 }
 
 void Parser::parseWithProfile()

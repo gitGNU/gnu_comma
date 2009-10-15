@@ -3,9 +3,7 @@
 signature S end S;
 
 generic
-   abstract domain X is
-     S;
-   end X;
+   abstract domain X is S end X;
 domain F with
    procedure Foo (x : X);
 add
@@ -14,7 +12,7 @@ add
    procedure Foo (x : X) is begin end Foo;
 end F;
 
-domain D1 is S; add
+domain D1 is S add
    carrier Rep is Boolean;
 end D1;
 

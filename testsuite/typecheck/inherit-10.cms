@@ -11,8 +11,8 @@ signature T with
 end T;
 
 signature U is
-   S;
-   T;
+   S and
+   T
 with
    procedure P (Z : %);
    function F (Z : %) return %;

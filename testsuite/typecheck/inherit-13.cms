@@ -15,19 +15,15 @@ signature U with
 end U;
 
 
-signature V is
-   S;
-   T;
-   U;
-with
+signature V is S and
+               T and
+               U with
    procedure X (A : in out %) overrides S.P;
    procedure Y (A : in     %) overrides T.P;
 end V;
 
 
-domain Foo is
-   V;
-with
+domain Foo is V with
    function Make (X : Integer) return %;
 add
    carrier Rep is Integer;
@@ -43,9 +39,7 @@ end Foo;
 
 
 generic
-   abstract domain F is
-      T;
-   with
+   abstract domain F is T with
       function Make(X : Integer) return %;
    end F;
 domain Bar with

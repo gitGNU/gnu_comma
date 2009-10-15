@@ -3,16 +3,12 @@
 signature S1 end S1;
 
 generic
-   abstract domain X is
-      S1;
-   end X;
+   abstract domain X is S1 end X;
 signature S2 end S2;
 
 generic
-   abstract domain X is
-      S1;
-   end X;
+   abstract domain X is S1 end X;
 signature S3 is
-  S2(X);
+  S2(X)
 end S3;
 

@@ -7,9 +7,7 @@ signature S with
 end S;
 
 generic
-   abstract domain X is
-      S;
-   end X;
+   abstract domain X is S end X;
 domain D add
    import X;
    procedure Test is
