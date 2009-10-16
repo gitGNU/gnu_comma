@@ -11,6 +11,7 @@
 #include "comma/ast/SignatureSet.h"
 #include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CommaRT.h"
+#include "comma/codegen/Mangle.h"
 
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/Support/Casting.h"
@@ -84,7 +85,7 @@ std::string DomainInfo::getLinkName(const CodeGenCapsule &CGC)
 
 std::string DomainInfo::getLinkName(const Domoid *domoid)
 {
-    return CodeGenCapsule::getLinkName(domoid) + "__0domain_info";
+    return mangle::getLinkName(domoid) + "__0domain_info";
 }
 
 /// Allocates a constant string for a domain_info's name.

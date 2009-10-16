@@ -14,6 +14,7 @@
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
+#include "comma/codegen/Mangle.h"
 
 #include "llvm/Analysis/Verifier.h"
 
@@ -45,7 +46,7 @@ llvm::Function *
 CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
 {
     const llvm::FunctionType *srTy = CGTypes.lowerSubroutine(srDecl);
-    std::string srName = CGC.getLinkName(CGC.getInstance(), srDecl);
+    std::string srName = mangle::getLinkName(CGC.getInstance(), srDecl);
     llvm::Function *fn =
         dyn_cast_or_null<llvm::Function>(CG.lookupGlobal(srName));
 

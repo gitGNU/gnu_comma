@@ -13,6 +13,7 @@
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CommaRT.h"
+#include "comma/codegen/Mangle.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -91,7 +92,7 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
            "Cannot call entry procedures in a parameterized context!");
 
     // Lookup the previously codegened function for this decl.
-    std::string procName = CodeGenCapsule::getLinkName(context, pdecl);
+    std::string procName = mangle::getLinkName(context, pdecl);
     llvm::Value *func = lookupGlobal(procName);
     assert(func && "Lookup of entry procedure failed!");
 
@@ -255,7 +256,7 @@ bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
     for (DeclRegion::DeclIter I = instance->beginDecls();
          I != instance->endDecls(); ++I) {
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
-            std::string name = CGCapsule->getLinkName(srDecl);
+            std::string name = mangle::getLinkName(srDecl);
             const llvm::FunctionType *fnTy =
                 CGTypes->lowerSubroutine(srDecl);
             llvm::Function *fn = makeFunction(fnTy, name);
@@ -287,7 +288,7 @@ llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
 
 llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
 {
-    std::string name = CGCapsule->getLinkName(domoid);
+    std::string name = mangle::getLinkName(domoid);
     StringGlobalMap::const_iterator iter = capsuleInfoTable.find(name);
 
     if (iter != capsuleInfoTable.end())

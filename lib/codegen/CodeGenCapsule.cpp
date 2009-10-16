@@ -11,8 +11,7 @@
 #include "comma/codegen/CodeGen.h"
 #include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenRoutine.h"
-
-#include <sstream>
+#include "comma/codegen/Mangle.h"
 
 using namespace comma;
 
@@ -24,16 +23,19 @@ using llvm::isa;
 CodeGenCapsule::CodeGenCapsule(CodeGen &CG, DomainDecl *domain)
     : CG(CG),
       capsule(domain),
+      capsuleLinkName(mangle::getLinkName(domain->getInstance())),
       theInstance(domain->getInstance()) { }
 
 CodeGenCapsule::CodeGenCapsule(CodeGen &CG, DomainInstanceDecl *instance)
     : CG(CG),
       capsule(instance->getDefinition()),
+      capsuleLinkName(mangle::getLinkName(instance)),
       theInstance(instance) { }
 
 CodeGenCapsule::CodeGenCapsule(CodeGen &CG, FunctorDecl *functor)
     : CG(CG),
       capsule(functor),
+      capsuleLinkName(mangle::getLinkName(functor)),
       theInstance(0) { }
 
 void CodeGenCapsule::emit()
@@ -95,200 +97,6 @@ const DomainInstanceDecl *CodeGenCapsule::getInstance() const
 {
     assert(generatingInstance() && "Not generating an instance!");
     return theInstance;
-}
-
-std::string CodeGenCapsule::getLinkName() const
-{
-    return getLinkName(capsule);
-}
-
-std::string CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance,
-                                        const SubroutineDecl *sr)
-{
-    // If the given subroutine is imported use the external name given by the
-    // pragma.
-    if (const PragmaImport *pragma =
-        dyn_cast_or_null<PragmaImport>(sr->findPragma(pragma::Import)))
-        return pragma->getExternalName();
-
-    int index;
-    std::string name = getLinkName(instance) + "__";
-    name.append(getSubroutineName(sr));
-
-    // FIXME: This is wrong.  We need to account for overloads local to the
-    // definition.  We should be resolving the Domoid rather than the parent
-    // declarative region.
-    index = getDeclIndex(sr, sr->getParent());
-    assert(index >= 0 && "getDeclIndex failed!");
-
-    if (index) {
-        std::ostringstream ss;
-        ss << "__" << index;
-        name += ss.str();
-    }
-    return name;
-}
-
-std::string CodeGenCapsule::getLinkName(const SubroutineDecl *sr)
-{
-    std::string name;
-    int index;
-
-    // If the given subroutine is imported use the external name given by the
-    // pragma.
-    if (const PragmaImport *pragma =
-        dyn_cast_or_null<PragmaImport>(sr->findPragma(pragma::Import)))
-        return pragma->getExternalName();
-
-    // All subroutine decls must either be resolved within the context of a
-    // domain (non-parameterized) or be an external declaration provided by an
-    // instance.
-    const DeclRegion *region = sr->getDeclRegion();
-
-    if (isa<AddDecl>(region)) {
-        // If the region is an AddDecl.  Ensure this subroutine is not in a
-        // generic context.
-        const PercentDecl *percent = dyn_cast<PercentDecl>(region->getParent());
-        assert(percent && "Cannot mangle generic subroutine declarations!");
-        name = getLinkName(cast<DomainDecl>(percent->getDefinition()));
-    }
-    else {
-        // Otherwise, the region must be a DomainInstanceDecl.  Mangle the
-        // instance for form the prefix.
-        const DomainInstanceDecl *instance = cast<DomainInstanceDecl>(region);
-        name = getLinkName(instance);
-    }
-    name += "__";
-    name.append(getSubroutineName(sr));
-
-    // FIXME:  This is wrong.  We need to account for overloads local to the
-    // definition.  We should be resolving the Domoid rather than the parent
-    // declarative region.
-    index = getDeclIndex(sr, sr->getParent());
-    assert(index >= 0 && "getDeclIndex failed!");
-
-    if (index) {
-        std::ostringstream ss;
-        ss << "__" << index;
-        name += ss.str();
-    }
-    return name;
-}
-
-std::string CodeGenCapsule::getLinkName(const Domoid *domoid)
-{
-    return domoid->getString();
-}
-
-std::string
-CodeGenCapsule::getLinkName(const DomainInstanceDecl *instance)
-{
-    assert(!instance->isDependent() &&
-           "Cannot form link names for dependent instance declarations!");
-
-    std::string name = instance->getString();
-    for (unsigned i = 0; i < instance->getArity(); ++i) {
-        DomainType *param =
-            cast<DomainType>(instance->getActualParamType(i));
-        std::ostringstream ss;
-
-        if (param->denotesPercent()) {
-            // Mangle percent nodes to the name of the corresponding domain.
-            PercentDecl *percent = param->getPercentDecl();
-            Domoid *model = cast<Domoid>(percent->getDefinition());
-            ss << "__" << i <<  getLinkName(model);
-        }
-        else {
-            ss << "__" << i << getLinkName(param->getInstanceDecl());
-            name += ss.str();
-        }
-    }
-    return name;
-}
-
-int CodeGenCapsule::getDeclIndex(const Decl *decl, const DeclRegion *region)
-{
-    IdentifierInfo *idInfo = decl->getIdInfo();
-    unsigned result = 0;
-
-    typedef DeclRegion::ConstDeclIter iterator;
-
-    for (iterator i = region->beginDecls(); i != region->endDecls(); ++i) {
-        if (idInfo == (*i)->getIdInfo()) {
-            if (decl == (*i))
-                return result;
-            else
-                result++;
-        }
-    }
-    return -1;
-}
-
-std::string CodeGenCapsule::getSubroutineName(const SubroutineDecl *srd)
-{
-    const char *name = srd->getIdInfo()->getString();
-
-    switch (strlen(name)) {
-
-    default:
-        return name;
-
-    case 1:
-        if (strncmp(name, "!", 1) == 0)
-            return "0bang";
-        else if (strncmp(name, "&", 1) == 0)
-            return "0amper";
-        else if (strncmp(name, "#", 1) == 0)
-            return "0hash";
-        else if (strncmp(name, "*", 1) == 0)
-            return "0multiply";
-        else if (strncmp(name, "+", 1) == 0)
-            return "0plus";
-        else if (strncmp(name, "-", 1) == 0)
-            return "0minus";
-        else if (strncmp(name, "<", 1) == 0)
-            return "0less";
-        else if (strncmp(name, "=", 1) == 0)
-            return "0equal";
-        else if (strncmp(name, ">", 1) == 0)
-            return "0great";
-        else if (strncmp(name, "@", 1) == 0)
-            return "0at";
-        else if (strncmp(name, "\\", 1) == 0)
-            return "0bslash";
-        else if (strncmp(name, "^", 1) == 0)
-            return "0hat";
-        else if (strncmp(name, "`", 1) == 0)
-            return "0grave";
-        else if (strncmp(name, "|", 1) == 0)
-            return "0bar";
-        else if (strncmp(name, "/", 1) == 0)
-            return "0fslash";
-        else if (strncmp(name, "~", 1) == 0)
-            return "0tilde";
-        else
-            return name;
-
-    case 2:
-        if (strncmp(name, "<=", 2) == 0)
-            return "0leq";
-        else if (strncmp(name, "<>", 2) == 0)
-            return "0diamond";
-        else if (strncmp(name, "<<", 2) == 0)
-            return "0dless";
-        else if (strncmp(name, "==", 2) == 0)
-            return "0dequal";
-        else if (strncmp(name, ">=", 2) == 0)
-            return "0geq";
-        else if (strncmp(name, ">>", 2) == 0)
-            return "0dgreat";
-        else if  (strncmp(name, "||", 2) == 0)
-            return "0dbar";
-        else if (strncmp(name, "~=", 2) == 0)
-            return "0nequal";
-        else
-            return name;
-    }
 }
 
 unsigned CodeGenCapsule::addCapsuleDependency(DomainInstanceDecl *instance)

@@ -14,6 +14,7 @@
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
+#include "comma/codegen/Mangle.h"
 
 using namespace comma;
 
@@ -179,10 +180,10 @@ llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
         // parameterized capsule.  Generate the link name with respect to the
         // current instance and build the call.
         DomainInstanceDecl *instance = CGC.getInstance();
-        func = CG.lookupGlobal(CGC.getLinkName(instance, srDecl));
+        func = CG.lookupGlobal(mangle::getLinkName(instance, srDecl));
     }
     else
-        func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+        func = CG.lookupGlobal(mangle::getLinkName(srDecl));
 
     assert(func && "function lookup failed!");
     return emitCall(srDecl->getType(), func, args);
@@ -191,7 +192,7 @@ llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
 llvm::Value *CodeGenRoutine::emitForeignCall(SubroutineDecl *srDecl,
                                              std::vector<llvm::Value*> &args)
 {
-    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(srDecl));
     assert(func && "Function lookup failed!");
     return emitCall(srDecl->getType(), func, args);
 }
@@ -242,7 +243,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
 
     // With our fully-resolved subroutine, get the actual link name and form the
     // call.
-    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(srDecl));
+    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(srDecl));
     assert(func && "function lookup failed!");
     return emitCall(srDecl->getType(), func, args);
 }
@@ -369,7 +370,7 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     // actual llvm function representing the instances subroutine, and emit the
     // call.
     args.insert(args.begin(), DOC);
-    llvm::Value *func = CG.lookupGlobal(CGC.getLinkName(resolvedRoutine));
+    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(resolvedRoutine));
     assert(func && "function lookup failed!");
     return emitCall(resolvedRoutine->getType(), func, args);
 }
