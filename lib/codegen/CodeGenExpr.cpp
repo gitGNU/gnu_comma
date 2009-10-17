@@ -217,8 +217,7 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     // If the instance is dependent on formal parameters, rewrite using the
     // current parameter map.
     if (instance->isDependent()) {
-        const CodeGenCapsule::ParameterMap &paramMap =
-            CGC.getParameterMap();
+        const CodeGenCapsule::ParameterMap &paramMap = CGC.getParameterMap();
         rewriter.addRewrites(paramMap.begin(), paramMap.end());
     }
 
