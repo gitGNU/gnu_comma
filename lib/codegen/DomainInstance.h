@@ -66,6 +66,11 @@ public:
     llvm::Value *loadLocalVec(llvm::IRBuilder<> &builder,
                               llvm::Value *instance) const;
 
+    /// Sets the local instance vector to \p vec.
+    void setLocalVec(llvm::IRBuilder<> &builder,
+                     llvm::Value *instance,
+                     llvm::Value *vec) const;
+
     /// Loads the required domain with the given index.
     llvm::Value *loadLocalInstance(llvm::IRBuilder<> &builder,
                                    llvm::Value *instance,

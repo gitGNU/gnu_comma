@@ -158,8 +158,7 @@ llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
     llvm::Value *size =
         llvm::ConstantInt::get(CG.getInt32Ty(), numDependents);
     capsules = builder.CreateMalloc(CRT.getType<CommaRT::CRT_DomainInstance>(), size);
-    llvm::Value *dst = builder.CreateStructGEP(instance, 3);
-    builder.CreateStore(capsules, dst);
+    CRT.getDomainInstance()->setLocalVec(builder, instance, capsules);
     builder.CreateBr(constructBB);
 
     // Generate a return.

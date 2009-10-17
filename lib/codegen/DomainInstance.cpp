@@ -98,6 +98,14 @@ llvm::Value *DomainInstance::loadLocalVec(llvm::IRBuilder<> &builder,
     return builder.CreateLoad(localVecAddr);
 }
 
+void DomainInstance::setLocalVec(llvm::IRBuilder<> &builder,
+                                 llvm::Value *instance,
+                                 llvm::Value *vec) const
+{
+    llvm::Value *dst = builder.CreateStructGEP(instance, Requirements);
+    builder.CreateStore(vec, dst);
+}
+
 llvm::Value *DomainInstance::loadLocalInstance(llvm::IRBuilder<> &builder,
                                                llvm::Value *instance,
                                                unsigned ID) const
