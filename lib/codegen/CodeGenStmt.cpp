@@ -101,7 +101,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
-    llvm::BasicBlock *BB = CG.makeBasicBlock(label, SRFn);
+    llvm::BasicBlock *BB = makeBasicBlock(label);
 
     if (predecessor == 0) {
         // If we are not supplied a predecessor, terminate the current
@@ -129,14 +129,14 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 {
     llvm::Value *condition = emitExpr(ite->getCondition());
-    llvm::BasicBlock *thenBB = CG.makeBasicBlock("then", SRFn);
-    llvm::BasicBlock *mergeBB = CG.makeBasicBlock("merge", SRFn);
+    llvm::BasicBlock *thenBB = makeBasicBlock("then");
+    llvm::BasicBlock *mergeBB = makeBasicBlock("merge");
     llvm::BasicBlock *elseBB;
 
     if (ite->hasElsif())
-        elseBB = CG.makeBasicBlock("elsif", SRFn);
+        elseBB = makeBasicBlock("elsif");
     else if (ite->hasAlternate())
-        elseBB = CG.makeBasicBlock("else", SRFn);
+        elseBB = makeBasicBlock("else");
     else
         elseBB = mergeBB;
 
@@ -153,12 +153,12 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         Builder.SetInsertPoint(elseBB);
         IfStmt::iterator J = I;
         if (++J != ite->endElsif())
-            elseBB = CG.makeBasicBlock("elsif", SRFn);
+            elseBB = makeBasicBlock("elsif");
         else if (ite->hasAlternate())
-            elseBB = CG.makeBasicBlock("else", SRFn);
+            elseBB = makeBasicBlock("else");
         else
             elseBB = mergeBB;
-        llvm::BasicBlock *bodyBB = CG.makeBasicBlock("body", SRFn);
+        llvm::BasicBlock *bodyBB = makeBasicBlock("body");
         llvm::Value *pred = emitExpr(I->getCondition());
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
@@ -223,9 +223,9 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 {
-    llvm::BasicBlock *entryBB = CG.makeBasicBlock("while.top", SRFn);
-    llvm::BasicBlock *bodyBB = CG.makeBasicBlock("while.entry", SRFn);
-    llvm::BasicBlock *mergeBB = CG.makeBasicBlock("while.merge", SRFn);
+    llvm::BasicBlock *entryBB = makeBasicBlock("while.top");
+    llvm::BasicBlock *bodyBB = makeBasicBlock("while.entry");
+    llvm::BasicBlock *mergeBB = makeBasicBlock("while.merge");
 
     // Branch unconditionally from the current insertion point to the entry
     // block and set up our new context.  Emit the loop condition into the entry

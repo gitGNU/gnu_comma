@@ -28,19 +28,19 @@ namespace comma {
 // This class provides for code generation of subroutines.
 class CodeGenRoutine {
 
-    CodeGenCapsule &CGC;
     CodeGen        &CG;
-    CodeGenTypes   &CGTypes;
+    CodeGenCapsule &CGC;
+    CodeGenTypes   &CGT;
     const CommaRT  &CRT;
 
     // Builder object used to construct LLVM IR.
     llvm::IRBuilder<> Builder;
 
-    // The subroutine declaration we are emitting code for.
-    SubroutineDecl *SRDecl;
+    // The info node for the subroutine we are emitting code for.
+    SRInfo *srInfo;
 
-    // The llvm function we are emitting code into.
-    llvm::Function *SRFn;
+    // The declaration node which is the completion of the current subroutine.
+    SubroutineDecl *srCompletion;
 
     // The first (implicit) argument to this function (%).
     llvm::Value *percent;
@@ -65,7 +65,6 @@ class CodeGenRoutine {
 public:
     CodeGenRoutine(CodeGenCapsule &CGC);
 
-    void declareSubroutine(SubroutineDecl *srDecl);
     void emitSubroutine(SubroutineDecl *srDecl);
 
     /// Returns true if the given call is "direct", meaning that the domain of
@@ -85,6 +84,9 @@ public:
     static bool isLocalCall(const ProcedureCallStmt *stmt);
 
 private:
+    // Returns the llvm function we are generating code for.
+    llvm::Function *getLLVMFunction() const;
+
     // Emits the prologue for the current subroutine given a basic block
     // representing the body of the function.
     void emitPrologue(llvm::BasicBlock *body);
@@ -233,6 +235,17 @@ private:
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
+
+    //===------------------------------------------------------------------===//
+    // Helper methods to generate LLVM IR.
+
+    /// \brief Returns an llvm basic block.
+    ///
+    /// Generates a BasicBlock with the parent taken to be the current
+    /// subroutine being generated.
+    llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
+                                     llvm::BasicBlock *insertBefore = 0) const;
+
 };
 
 } // end comma namespace

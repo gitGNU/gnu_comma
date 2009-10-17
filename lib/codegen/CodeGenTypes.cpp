@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
 
@@ -21,6 +21,7 @@ using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
+
 
 const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 {
@@ -50,56 +51,23 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 void CodeGenTypes::addInstanceRewrites(DomainInstanceDecl *instance)
 {
     FunctorDecl *functor = instance->getDefiningFunctor();
-    if (!functor) return;
+    if (!functor)
+        return;
 
-    typedef RewriteMap::value_type KeyVal;
     unsigned arity = functor->getArity();
     for (unsigned i = 0; i < arity; ++i) {
-        KeyVal &KV = rewrites.FindAndConstruct(functor->getFormalType(i));
-        RewriteVal &RV = KV.second;
-        RV.first = instance->getActualParamType(i);
-        RV.second++;
-    }
-}
-
-void CodeGenTypes::removeInstanceRewrites(DomainInstanceDecl *instance)
-{
-    FunctorDecl *functor = instance->getDefiningFunctor();
-    if (!functor) return;
-
-    typedef RewriteMap::iterator iterator;
-    unsigned arity = functor->getArity();
-    for (unsigned i = 0; i < arity; ++i) {
-        iterator I = rewrites.find(functor->getFormalType(i));
-        assert(I != rewrites.end() && "Inconsistent rewrites!");
-        RewriteVal &RV = I->second;
-        if (--RV.second == 0)
-            rewrites.erase(I);
+        Type *key = functor->getFormalType(i);
+        Type *value = instance->getActualParamType(i);
+        rewrites.insert(key, value);
     }
 }
 
 const DomainType *CodeGenTypes::rewriteAbstractDecl(AbstractDomainDecl *abstract)
 {
-    // Check the rewrite map, followed by parameter map given by the
-    // current capsule generator.
-    Type *source = abstract->getType();
-
-    {
-        typedef RewriteMap::iterator iterator;
-        iterator I = rewrites.find(source);
-        if (I != rewrites.end()) {
-            const RewriteVal &RV = I->second;
-            return cast<DomainType>(RV.first);
-        }
-    }
-
-    {
-        typedef CodeGenCapsule::ParameterMap ParamMap;
-        const ParamMap &pMap = CG.getCapsuleGenerator().getParameterMap();
-        ParamMap::const_iterator I = pMap.find(source);
-        assert(I != pMap.end() && "Could not resolve abstract type!");
-        return cast<DomainType>(I->second);
-    }
+    typedef RewriteMap::iterator iterator;
+    iterator I = rewrites.begin(abstract->getType());
+    assert(I != rewrites.end() && "Could not resolve abstract type!");
+    return cast<DomainType>(*I);
 }
 
 const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
@@ -111,17 +79,16 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
         const Domoid *domoid = cast<Domoid>(percent->getDefinition());
         return lowerDomoidCarrier(domoid);
     }
-    else {
-        // This must correspond to an instance decl.  Resolve the carrier type.
-        DomainInstanceDecl *instance = type->getInstanceDecl();
-        assert(instance && "Cannot lower this kind of type!");
 
+    DomainInstanceDecl *instance = type->getInstanceDecl();
+
+    if (instance->isParameterized()) {
+        RewriteScope scope(rewrites);
         addInstanceRewrites(instance);
-        const llvm::Type *result
-            = lowerDomoidCarrier(instance->getDefinition());
-        removeInstanceRewrites(instance);
-        return result;
+        return lowerDomoidCarrier(instance->getDefinition());
     }
+    else
+        return lowerDomoidCarrier(instance->getDefinition());
 }
 
 const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)

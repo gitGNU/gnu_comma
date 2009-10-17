@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
 #include "DomainInfo.h"
 #include "DomainInstance.h"
 #include "comma/ast/SignatureSet.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CommaRT.h"
 #include "comma/codegen/Mangle.h"
 

@@ -17,7 +17,7 @@
 #ifndef COMMA_TYPECHECK_CODEGENGENERIC_HDR_GUARD
 #define COMMA_TYPECHECK_CODEGENGENERIC_HDR_GUARD
 
-#include "comma/codegen/CodeGenCapsule.h"
+#include "CodeGenCapsule.h"
 
 namespace comma {
 

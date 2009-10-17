@@ -363,9 +363,9 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       numParameters(numParams),
       parameters(0),
       body(0),
-      definingDeclaration(0),
       origin(0),
-      overriddenDecl(0)
+      overriddenDecl(0),
+      declarationLink(0, 0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -390,9 +390,9 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       numParameters(type->getArity()),
       parameters(0),
       body(0),
-      definingDeclaration(0),
       origin(0),
-      overriddenDecl(0)
+      overriddenDecl(0),
+      declarationLink(0, 0)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -457,16 +457,24 @@ bool SubroutineDecl::paramModesMatch(const SubroutineDecl *SRDecl) const
 
 void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
 {
-    assert(definingDeclaration == 0 && "Cannot reset base declaration!");
+    // Check that we are not reseting the link, and that the given subroutine if
+    // of a compatable kind.
+    assert(declarationLink.getPointer() == 0 && "Cannot reset base declaration!");
     assert(((isa<FunctionDecl>(this) && isa<FunctionDecl>(routineDecl)) ||
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&
            "Defining declarations must be of the same kind as the parent!");
-    definingDeclaration = routineDecl;
+
+    // Check that the defining declaration does not already have its link set.
+    assert(routineDecl->declarationLink.getPointer() == 0);
+
+    declarationLink.setPointer(routineDecl);
+    routineDecl->declarationLink.setPointer(this);
+    routineDecl->declarationLink.setInt(1);
 }
 
 bool SubroutineDecl::hasBody() const
 {
-    return body || (definingDeclaration && definingDeclaration->body);
+    return body || getDefiningDeclaration();
 }
 
 BlockStmt *SubroutineDecl::getBody()
@@ -474,8 +482,8 @@ BlockStmt *SubroutineDecl::getBody()
     if (body)
         return body;
 
-    if (definingDeclaration)
-        return definingDeclaration->body;
+    if (SubroutineDecl *definition = getDefiningDeclaration())
+        return definition->body;
 
     return 0;
 }

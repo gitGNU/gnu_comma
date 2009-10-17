@@ -9,6 +9,7 @@
 #ifndef COMMA_CODEGEN_CODEGENCAPSULE_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENCAPSULE_HDR_GUARD
 
+#include "InstanceInfo.h"
 #include "comma/ast/AstBase.h"
 #include "comma/codegen/CodeGenTypes.h"
 
@@ -27,9 +28,8 @@ private:
     typedef llvm::UniqueVector<DomainInstanceDecl *> InstanceList;
 
 public:
-    CodeGenCapsule(CodeGen &CG, DomainDecl *domain);
+    CodeGenCapsule(CodeGen &CG, InstanceInfo *instance);
     CodeGenCapsule(CodeGen &CG, FunctorDecl *functor);
-    CodeGenCapsule(CodeGen &CG, DomainInstanceDecl *instance);
 
     /// Generate code for the given capsule.
     void emit();
@@ -40,7 +40,7 @@ public:
     /// capsule for which we are generating specialized code for a particular
     /// concrete parameterization, or the current capsule is not parameterized.
     /// This method is the inverse of generatingGeneric.
-    bool generatingInstance() const { return theInstance != 0; }
+    bool generatingInstance() const { return theInstanceInfo != 0; }
 
     /// Returns ture if we are generating a parameterized instance.
     bool generatingParameterizedInstance() const;
@@ -51,7 +51,7 @@ public:
     /// for generics (parameterized capsules) except for a constructor function
     /// used to build the runtime representation of instances.  This method is
     /// the inverse of generatingInstance.
-    bool generatingGeneric() const { return theInstance == 0; }
+    bool generatingGeneric() const { return theInstanceInfo == 0; }
 
     /// Returns the instance being compiled.
     ///
@@ -63,6 +63,11 @@ public:
     /// This method will assert when generatingGeneric returns true.
     DomainInstanceDecl *getInstance();
     const DomainInstanceDecl *getInstance() const;
+
+    /// Returns the type generator used for building types within this capsules
+    /// context.
+    CodeGenTypes &getTypeGenerator() { return CGT; }
+    const CodeGenTypes &getTypeGenerator() const { return CGT; }
 
     /// Returns the CodeGen object giving context to this generator.
     CodeGen &getCodeGen() { return CG; }
@@ -105,15 +110,18 @@ private:
     /// The CodeGen object used to generate this capsule.
     CodeGen &CG;
 
+    /// A type generator for this capsules instance.
+    CodeGenTypes CGT;
+
     /// The current capsule being generated.
     Domoid *capsule;
 
     /// The link name of the capsule.
     std::string capsuleLinkName;
 
-    /// If we are generating an instance, this member points to it.  Otherwise
-    /// it is null.
-    DomainInstanceDecl *theInstance;
+    /// If we are generating an instance, this member points to its info node.
+    /// Otherwise it is null.
+    InstanceInfo *theInstanceInfo;
 
     /// A map from the formal parameters of the current capsule to the actual
     /// parameters (non-empty only when we are generating code for a

@@ -7,9 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenGeneric.h"
+#include "CodeGenCapsule.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/Mangle.h"
 
@@ -20,29 +20,25 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-CodeGenCapsule::CodeGenCapsule(CodeGen &CG, DomainDecl *domain)
+CodeGenCapsule::CodeGenCapsule(CodeGen &CG, InstanceInfo *instance)
     : CG(CG),
-      capsule(domain),
-      capsuleLinkName(mangle::getLinkName(domain->getInstance())),
-      theInstance(domain->getInstance()) { }
-
-CodeGenCapsule::CodeGenCapsule(CodeGen &CG, DomainInstanceDecl *instance)
-    : CG(CG),
+      CGT(CG, instance->getInstanceDecl()),
       capsule(instance->getDefinition()),
-      capsuleLinkName(mangle::getLinkName(instance)),
-      theInstance(instance) { }
+      capsuleLinkName(instance->getLinkName()),
+      theInstanceInfo(instance) { }
 
 CodeGenCapsule::CodeGenCapsule(CodeGen &CG, FunctorDecl *functor)
     : CG(CG),
+      CGT(CG),
       capsule(functor),
       capsuleLinkName(mangle::getLinkName(functor)),
-      theInstance(0) { }
+      theInstanceInfo(0) { }
 
 void CodeGenCapsule::emit()
 {
     // If this is a just a functor, analyze the dependents so that we can
     // emit a constructor function.
-    if (!theInstance && isa<FunctorDecl>(capsule)) {
+    if (!theInstanceInfo && isa<FunctorDecl>(capsule)) {
         CodeGenGeneric CGG(*this);
         CGG.analyzeDependants();
         return;
@@ -52,20 +48,10 @@ void CodeGenCapsule::emit()
     // with the actual parameters.
     if (generatingParameterizedInstance()) {
         FunctorDecl *functor = cast<FunctorDecl>(capsule);
-        for (unsigned i = 0; i < theInstance->getArity(); ++i)
+        DomainInstanceDecl *instance = getInstance();
+        for (unsigned i = 0; i < instance->getArity(); ++i)
             paramMap[functor->getFormalType(i)] =
-                theInstance->getActualParamType(i);
-    }
-
-    // Declare every subroutine in the add.
-    if (AddDecl *add = capsule->getImplementation()) {
-        typedef DeclRegion::DeclIter iterator;
-        for (iterator I = add->beginDecls(); I != add->endDecls(); ++I) {
-            if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*I)) {
-                CodeGenRoutine CGR(*this);
-                CGR.declareSubroutine(SR);
-            }
-        }
+                instance->getActualParamType(i);
     }
 
     // Codegen each subroutine.
@@ -78,6 +64,8 @@ void CodeGenCapsule::emit()
             }
         }
     }
+
+    theInstanceInfo->markAsCompiled();
 }
 
 bool CodeGenCapsule::generatingParameterizedInstance() const
@@ -90,13 +78,13 @@ bool CodeGenCapsule::generatingParameterizedInstance() const
 DomainInstanceDecl *CodeGenCapsule::getInstance()
 {
     assert(generatingInstance() && "Not generating an instance!");
-    return theInstance;
+    return theInstanceInfo->getInstanceDecl();
 }
 
 const DomainInstanceDecl *CodeGenCapsule::getInstance() const
 {
     assert(generatingInstance() && "Not generating an instance!");
-    return theInstance;
+    return theInstanceInfo->getInstanceDecl();
 }
 
 unsigned CodeGenCapsule::addCapsuleDependency(DomainInstanceDecl *instance)

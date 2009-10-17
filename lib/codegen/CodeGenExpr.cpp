@@ -6,11 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
+#include "SRInfo.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
@@ -150,7 +151,7 @@ void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
         // arrays have a defininte dimension.  Lower the target type and cast
         // the argument if necessary.
         const llvm::Type *contextTy;
-        contextTy = CGTypes.lowerType(srDecl->getParamType(argPosition));
+        contextTy = CGT.lowerType(srDecl->getParamType(argPosition));
         contextTy = CG.getPointerType(contextTy);
 
         if (contextTy != arg->getType())
@@ -169,31 +170,31 @@ void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
 llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
                                            std::vector<llvm::Value *> &args)
 {
-    llvm::Value *func;
-
     // Insert the implicit first parameter, which for a local call is the
     // percent handed to the current subroutine.
     args.insert(args.begin(), percent);
 
-    if (CGC.generatingParameterizedInstance()) {
-        // We are generating a local call from within an instance of a
-        // parameterized capsule.  Generate the link name with respect to the
-        // current instance and build the call.
-        DomainInstanceDecl *instance = CGC.getInstance();
-        func = CG.lookupGlobal(mangle::getLinkName(instance, srDecl));
-    }
-    else
-        func = CG.lookupGlobal(mangle::getLinkName(srDecl));
+    // Get the info structure for this declaration using the current instance as
+    // context.
+    DomainInstanceDecl *instance = CGC.getInstance();
+    SRInfo *info = CG.getSRInfo(instance, srDecl);
+    llvm::Value *func = info->getLLVMFunction();
 
-    assert(func && "function lookup failed!");
     return emitCall(srDecl->getType(), func, args);
 }
 
 llvm::Value *CodeGenRoutine::emitForeignCall(SubroutineDecl *srDecl,
                                              std::vector<llvm::Value*> &args)
 {
-    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(srDecl));
-    assert(func && "Function lookup failed!");
+    // Resolve the instance for the given declaration.
+    DeclRegion *region = srDecl->getDeclRegion();
+    DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region);
+
+    if (!instance)
+        instance = CGC.getInstance();
+
+    SRInfo *info = CG.getSRInfo(instance, srDecl);
+    llvm::Value *func = info->getLLVMFunction();
     return emitCall(srDecl->getType(), func, args);
 }
 
@@ -241,10 +242,10 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
         targetInstance->findDecl(srDecl->getIdInfo(), targetTy));
     assert(srDecl && "Failed to resolve subroutine!");
 
-    // With our fully-resolved subroutine, get the actual link name and form the
-    // call.
-    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(srDecl));
-    assert(func && "function lookup failed!");
+    // With our fully-resolved subroutine, get the corresponding SRInfo object
+    // and LLVM function.
+    SRInfo *info = CG.getSRInfo(targetInstance, srDecl);
+    llvm::Value *func = info->getLLVMFunction();
     return emitCall(srDecl->getType(), func, args);
 }
 
@@ -296,7 +297,7 @@ llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
     case PO::ENUM_op: {
         EnumLiteral *lit = cast<EnumLiteral>(decl);
         unsigned idx = lit->getIndex();
-        const llvm::Type *ty = CGTypes.lowerType(lit->getReturnType());
+        const llvm::Type *ty = CGT.lowerType(lit->getReturnType());
         return llvm::ConstantInt::get(ty, idx);
     }
     };
@@ -370,7 +371,8 @@ llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
     // actual llvm function representing the instances subroutine, and emit the
     // call.
     args.insert(args.begin(), DOC);
-    llvm::Value *func = CG.lookupGlobal(mangle::getLinkName(resolvedRoutine));
+    SRInfo *info = CG.getSRInfo(instance, resolvedRoutine);
+    llvm::Value *func = info->getLLVMFunction();
     assert(func && "function lookup failed!");
     return emitCall(resolvedRoutine->getType(), func, args);
 }
@@ -458,7 +460,7 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     assert(expr->hasType() && "Unresolved literal type!");
 
     const llvm::IntegerType *ty =
-        llvm::cast<llvm::IntegerType>(CGTypes.lowerType(expr->getType()));
+        llvm::cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
 
     // All comma integer literals are represented as unsigned, exact width
@@ -479,7 +481,7 @@ llvm::Value *CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
     assert(expr->hasType() && "Unresolved string literal type!");
 
     // Build a constant array representing the literal.
-    const llvm::ArrayType *arrTy = CGTypes.lowerArraySubType(expr->getType());
+    const llvm::ArrayType *arrTy = CGT.lowerArraySubType(expr->getType());
     const llvm::Type *elemTy = arrTy->getElementType();
     llvm::StringRef string = expr->getString();
 
@@ -576,7 +578,7 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
     // source type).  Find the appropriate type and sign extend the value if
     // needed.
     if (targetBaseTy->getBitWidth() > sourceBaseTy->getBitWidth()) {
-        boundTy = CGTypes.lowerIntegerSubType(targetTy);
+        boundTy = CGT.lowerIntegerSubType(targetTy);
         sourceVal = Builder.CreateSExt(sourceVal, boundTy);
     }
     else
@@ -609,9 +611,9 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
     llvm::Constant *highBound = llvm::ConstantInt::get(boundTy, upper);
 
     // Build our basic blocks.
-    llvm::BasicBlock *checkHighBB = CG.makeBasicBlock("high.check", SRFn);
-    llvm::BasicBlock *checkFailBB = CG.makeBasicBlock("check.fail", SRFn);
-    llvm::BasicBlock *checkMergeBB = CG.makeBasicBlock("check.merge", SRFn);
+    llvm::BasicBlock *checkHighBB = makeBasicBlock("high.check");
+    llvm::BasicBlock *checkFailBB = makeBasicBlock("check.fail");
+    llvm::BasicBlock *checkMergeBB = makeBasicBlock("check.merge");
 
     // Check the low bound.
     llvm::Value *lowPass = Builder.CreateICmpSLE(lowBound, sourceVal);
@@ -653,16 +655,16 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
         if (targetWidth == sourceWidth)
             return sourceVal;
         if (targetWidth > sourceWidth)
-            return Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
+            return Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
     }
 
     emitScalarRangeCheck(sourceVal, sourceTy, targetTy);
 
     // Truncate/extend the value if needed to the target size.
     if (targetWidth < sourceWidth)
-        sourceVal = Builder.CreateTrunc(sourceVal, CGTypes.lowerType(targetTy));
+        sourceVal = Builder.CreateTrunc(sourceVal, CGT.lowerType(targetTy));
     if (targetWidth > sourceWidth)
-        sourceVal = Builder.CreateSExt(sourceVal, CGTypes.lowerType(targetTy));
+        sourceVal = Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
     return sourceVal;
 }
 
@@ -686,7 +688,7 @@ void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot,
 
         // All bounds are represented using the base type for the index.
         const llvm::IntegerType *boundTy =
-            cast<llvm::IntegerType>(CGTypes.lowerType(idxTy->getTypeOf()));
+            cast<llvm::IntegerType>(CGT.lowerType(idxTy->getTypeOf()));
 
         bound = Builder.CreateStructGEP(bounds, boundIdx++);
         Builder.CreateStore(CG.getConstantInt(boundTy, lower), bound);
@@ -728,7 +730,7 @@ llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
 
     // The expression refers to a temporary array.  Allocate a temporary to hold
     // the bounds.
-    llvm::Value *boundSlot = createTemporary(CGTypes.lowerArrayBounds(arrTy));
+    llvm::Value *boundSlot = createTemporary(CGT.lowerArrayBounds(arrTy));
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
     Builder.SetInsertPoint(entryBB);
     initArrayBounds(boundSlot, arrTy);
@@ -752,7 +754,7 @@ llvm::Value *CodeGenRoutine::emitArrayLength(ArraySubType *arrTy)
 
 llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerIntegerSubType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {
@@ -774,7 +776,7 @@ llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
 
 llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerSubType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGTypes.lowerIntegerSubType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerIntegerSubType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {

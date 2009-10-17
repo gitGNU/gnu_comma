@@ -16,6 +16,7 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Target/TargetData.h"
 
@@ -27,6 +28,8 @@ namespace comma {
 class CodeGenCapsule;
 class CodeGenTypes;
 class CommaRT;
+class InstanceInfo;
+class SRInfo;
 
 class CodeGen {
 
@@ -35,15 +38,6 @@ public:
 
     CodeGen(llvm::Module *M, const llvm::TargetData &data,
             AstResource &resource);
-
-    /// \brief Returns the type generator used to lower Comma AST types into
-    /// LLVM IR types.
-    const CodeGenTypes &getTypeGenerator() const;
-    CodeGenTypes &getTypeGenerator();
-
-    /// \brief Returns the current capsule generator.
-    const CodeGenCapsule &getCapsuleGenerator() const;
-    CodeGenCapsule &getCapsuleGenerator();
 
     /// \brief Returns the interface to the runtime system.
     const CommaRT &getRuntime() const { return *CRT; }
@@ -89,11 +83,27 @@ public:
     ///
     /// When an instance is inserted into the worklist, a few actions take
     /// place.  First, the instance is schedualed for codegen, meaning that
-    /// specialisations of that instances subroutines will be emmited into the
+    /// specializations of that instances subroutines will be emmited into the
     /// current module.  Second, forward declarations are created for each of
     /// the instances subroutines.  These declarations are accessible thru the
     /// lookupGlobal method using the appropriately mangled name.
     bool extendWorklist(DomainInstanceDecl *instace);
+
+    InstanceInfo *lookupInstanceInfo(DomainInstanceDecl *instance) const {
+        return instanceTable.lookup(instance);
+    }
+
+    InstanceInfo *getInstanceInfo(DomainInstanceDecl *instance) const {
+        InstanceInfo *info = lookupInstanceInfo(instance);
+        assert(info && "Instance lookup failed!");
+        return info;
+    }
+
+    /// \brief Returns the SRInfo object associated with \p srDecl.
+    ///
+    /// The given instance must be a domain registered with the code generator.
+    /// If the lookup of \p srDecl fails an assertion will fire.
+    SRInfo *getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl);
 
     /// \brief Adds a mapping between the given link name and an LLVM
     /// GlobalValue into the global table.
@@ -168,8 +178,7 @@ public:
         return llvm::Type::getInt64Ty(getLLVMContext());
     }
 
-
-    /// \breif Returns an llvm basic block.
+    /// \brief Returns an llvm basic block.
     llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
                                      llvm::Function *parent = 0,
                                      llvm::BasicBlock *insertBefore = 0) const;
@@ -193,7 +202,6 @@ public:
                                            bool isConstant = false,
                                            const std::string &name = "");
 
-
     /// \brief Returns a global variable with internal linkage embedded in the
     /// current module.
     ///
@@ -211,6 +219,12 @@ public:
     /// type is external.
     llvm::Function *makeFunction(const llvm::FunctionType *Ty,
                                  const std::string &name = "");
+
+    /// \brief Creates a function corresponding to the given Comma subroutine
+    /// declaration.
+    llvm::Function *makeFunction(const DomainInstanceDecl *instance,
+                                 const SubroutineDecl *srDecl,
+                                 CodeGenTypes &CGT);
 
     /// \brief Creates a function with the given name and type.  The linkage
     /// type is internal.
@@ -270,14 +284,8 @@ private:
     /// The AstResource used for generating new types.
     AstResource &Resource;
 
-    /// The type generator used to lower Comma AST Types into LLVM IR types.
-    CodeGenTypes *CGTypes;
-
     /// Interface to the runtime system.
     CommaRT *CRT;
-
-    /// The current capsule code generator.
-    CodeGenCapsule *CGCapsule;
 
     /// The type of table used to map strings to global values.
     typedef llvm::StringMap<llvm::GlobalValue *> StringGlobalMap;
@@ -288,24 +296,23 @@ private:
     /// A map from declaration names to LLVM global values.
     StringGlobalMap globalTable;
 
-    /// The work list is represented as a std::map from DomainInstanceDecl's to
-    /// WorkEntry structures.  Currently, WorkEntry's contain a single bit of
-    /// information : a flag indicating if the associated instance has been
-    /// compiled.  This will be extended over time.
-    struct WorkEntry {
-        DomainInstanceDecl *instance;
-        bool isCompiled;
-    };
+    /// Table mapping domain instance declarations to the corresponding
+    /// InstanceInfo objects.
+    typedef llvm::DenseMap<DomainInstanceDecl*, InstanceInfo*> InstanceMap;
+    InstanceMap instanceTable;
 
-    typedef std::map<DomainInstanceDecl*, WorkEntry> WorkingSet;
-    WorkingSet workList;
+    /// Generates an InstanceInfo object and adds it to the instance table.
+    ///
+    /// This method will assert if there already exists an info object for the
+    /// given instance.
+    InstanceInfo *createInstanceInfo(DomainInstanceDecl *instance);
 
-    /// Returns true if there exists an instance in the worklist which needs to
-    /// be compiled.
-    bool instancesPending();
+    /// Returns true if there exists an member in the instance table which needs
+    /// to be compiled.
+    bool instancesPending() const;
 
-    /// Compiles the next instance in the worklist.  This operation could very
-    /// well expand the worklist to include more instances.
+    /// Compiles the next member of the instance table.  This operation could
+    /// very well expand the table to include more instances.
     void emitNextInstance();
 };
 

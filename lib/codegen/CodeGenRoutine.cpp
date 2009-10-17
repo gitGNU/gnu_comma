@@ -6,11 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
+#include "SRInfo.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/Stmt.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
@@ -26,89 +27,52 @@ using llvm::cast;
 using llvm::isa;
 
 CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC)
-    : CGC(CGC),
-      CG(CGC.getCodeGen()),
-      CGTypes(CG.getTypeGenerator()),
+    : CG(CGC.getCodeGen()),
+      CGC(CGC),
+      CGT(CGC.getTypeGenerator()),
       CRT(CG.getRuntime()),
       Builder(CG.getLLVMContext()),
-      SRDecl(0),
-      SRFn(0),
       entryBB(0),
       returnBB(0),
       returnValue(0) { }
 
-void CodeGenRoutine::declareSubroutine(SubroutineDecl *srDecl)
-{
-    getOrCreateSubroutineDeclaration(srDecl);
-}
-
-llvm::Function *
-CodeGenRoutine::getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl)
-{
-    const llvm::FunctionType *srTy = CGTypes.lowerSubroutine(srDecl);
-    std::string srName = mangle::getLinkName(CGC.getInstance(), srDecl);
-    llvm::Function *fn =
-        dyn_cast_or_null<llvm::Function>(CG.lookupGlobal(srName));
-
-    if (!fn) {
-        fn = CG.makeFunction(srTy, srName);
-
-        // If this is a function returning a composit type, mark the function
-        // as following the struct return calling convention.
-        if (FunctionDecl *fdecl = dyn_cast<FunctionDecl>(srDecl)) {
-            if (fdecl->getReturnType()->isCompositeType()) {
-                fn->addAttribute(1, llvm::Attribute::StructRet);
-
-                // FIXME:  This assertion can go one we support variable length
-                // return values.
-                SubType *subtype = cast<SubType>(fdecl->getReturnType());
-                assert(subtype->isConstrained() &&
-                       "Variable length return types not supported yet!");
-            }
-        }
-
-        CG.insertGlobal(srName, fn);
-    }
-    return fn;
-}
-
 void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
 {
     // Remember the declaration we are processing.
-    SRDecl = srDecl;
+    srInfo = CG.getSRInfo(CGC.getInstance(), srDecl);
 
-    // Get the llvm function for this routine.
-    SRFn = getOrCreateSubroutineDeclaration(srDecl);
-
-    // If the declaration has a pragma import as completion, we are done.
-    if (SRDecl->hasPragma(pragma::Import))
+    // If this declaration is imported (pragma import as completion), we are
+    // done.
+    if (srInfo->isImported())
         return;
 
-    // Resolve the defining declaration, if needed.
-    if (SRDecl->getDefiningDeclaration())
-        SRDecl = SRDecl->getDefiningDeclaration();
+    // Resolve the completion for this subroutine, if needed.
+    srCompletion = srDecl->getDefiningDeclaration();
+    if (!srCompletion)
+        srCompletion = srDecl;
 
     injectSubroutineArgs();
     emitSubroutineBody();
-    llvm::verifyFunction(*SRFn);
+    llvm::verifyFunction(*srInfo->getLLVMFunction());
 }
 
 /// Generates code for the current subroutines body.
 void CodeGenRoutine::emitSubroutineBody()
 {
     // Create the return block.
-    returnBB = CG.makeBasicBlock("return", SRFn);
+    returnBB = makeBasicBlock("return");
 
     // Create the entry block and set it as the current insertion point for our
     // IRBuilder.
-    entryBB = CG.makeBasicBlock("entry", SRFn, returnBB);
+    entryBB = makeBasicBlock("entry", returnBB);
     Builder.SetInsertPoint(entryBB);
 
     // If we are generating a function which is using the struct return calling
     // convention map the return value to the first parameter of this function.
     // Otherwise allocate a stack slot for the return value.
-    if (isa<FunctionDecl>(SRDecl)) {
-        if (SRFn->hasStructRetAttr())
+    if (srInfo->isaFunction()) {
+        llvm::Function *SRFn = getLLVMFunction();
+        if (srInfo->hasSRet())
             returnValue = SRFn->arg_begin();
         else
             returnValue = Builder.CreateAlloca(SRFn->getReturnType());
@@ -116,7 +80,8 @@ void CodeGenRoutine::emitSubroutineBody()
 
     // Codegen the function body.  If the resulting insertion context is not
     // properly terminated, create a branch to the return BB.
-    llvm::BasicBlock *bodyBB = emitBlockStmt(SRDecl->getBody(), entryBB);
+    BlockStmt *body = srCompletion->getBody();
+    llvm::BasicBlock *bodyBB = emitBlockStmt(body, entryBB);
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(returnBB);
 
@@ -131,9 +96,18 @@ void CodeGenRoutine::emitSubroutineBody()
 /// decl yields the corresponding llvm value.
 void CodeGenRoutine::injectSubroutineArgs()
 {
-    // Extract and save the first implicit argument "%".
+    llvm::Function *SRFn = getLLVMFunction();
     llvm::Function::arg_iterator argI = SRFn->arg_begin();
-    llvm::Function::arg_iterator argE = SRFn->arg_begin();
+
+    // If this function uses the SRet convention, name the return argument.
+    if (srInfo->hasSRet()) {
+        argI->setName("return.arg");
+        ++argI;
+    }
+
+    // The next argument is the domain instance structure.  Name the arg
+    // "percent".
+    argI->setName("percent");
     percent = argI++;
 
     // For each formal argument, locate the corresponding llvm argument.  This
@@ -142,8 +116,8 @@ void CodeGenRoutine::injectSubroutineArgs()
     // to the bounds).
     //
     // Set the name of each argument to match the corresponding formal.
-    SubroutineDecl::const_param_iterator paramI = SRDecl->begin_params();
-    SubroutineDecl::const_param_iterator paramE = SRDecl->end_params();
+    SubroutineDecl::const_param_iterator paramI = srCompletion->begin_params();
+    SubroutineDecl::const_param_iterator paramE = srCompletion->end_params();
     for ( ; paramI != paramE; ++paramI, ++argI) {
         ParamValueDecl *param = *paramI;
         argI->setName(param->getString());
@@ -154,6 +128,11 @@ void CodeGenRoutine::injectSubroutineArgs()
                 boundTable[param] = ++argI;
         }
     }
+}
+
+llvm::Function *CodeGenRoutine::getLLVMFunction() const
+{
+    return srInfo->getLLVMFunction();
 }
 
 void CodeGenRoutine::emitPrologue(llvm::BasicBlock *bodyBB)
@@ -174,7 +153,7 @@ void CodeGenRoutine::emitEpilogue()
 
     Builder.SetInsertPoint(returnBB);
 
-    if (returnValue && !SRFn->hasStructRetAttr()) {
+    if (returnValue && !srInfo->hasSRet()) {
         llvm::Value *V = Builder.CreateLoad(returnValue);
         Builder.CreateRet(V);
     }
@@ -323,7 +302,7 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
         IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
         if (!idxTy->isStaticallyConstrained()) {
             const llvm::Type *type;
-            type = CGTypes.lowerType(arrTy->getComponentType());
+            type = CGT.lowerType(arrTy->getComponentType());
 
             llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
             Builder.SetInsertPoint(entryBB);
@@ -332,7 +311,7 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
 
             // The slot is a pointer to the component type.  Cast it as a
             // pointer to a variable length array.
-            type = CG.getPointerType(CGTypes.lowerArraySubType(arrTy));
+            type = CG.getPointerType(CGT.lowerArraySubType(arrTy));
             stackSlot = Builder.CreatePointerCast(stackSlot, type);
 
             declTable[decl] = stackSlot;
@@ -341,7 +320,7 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
         }
     }
 
-    const llvm::Type *type = CGTypes.lowerType(vDecl->getType());
+    const llvm::Type *type = CGT.lowerType(vDecl->getType());
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
     Builder.SetInsertPoint(entryBB);
@@ -389,7 +368,7 @@ llvm::Value *CodeGenRoutine::createBounds(ValueDecl *decl)
     assert(!lookupBounds(decl) && "Decl already associated with bounds!");
 
     ArraySubType *arrTy = cast<ArraySubType>(decl->getType());
-    const llvm::StructType *boundTy = CGTypes.lowerArrayBounds(arrTy);
+    const llvm::StructType *boundTy = CGT.lowerArrayBounds(arrTy);
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
     Builder.SetInsertPoint(entryBB);
@@ -472,8 +451,8 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 
     // Create basic blocks for when the assertion fires and another for the
     // continuation.
-    llvm::BasicBlock *assertBB = CG.makeBasicBlock("assert-fail", SRFn);
-    llvm::BasicBlock *passBB = CG.makeBasicBlock("assert-pass", SRFn);
+    llvm::BasicBlock *assertBB = makeBasicBlock("assert-fail");
+    llvm::BasicBlock *passBB = makeBasicBlock("assert-pass");
 
     // If the condition is true, the assertion does not fire.
     Builder.CreateCondBr(condition, passBB, assertBB);
@@ -484,4 +463,14 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 
     // Switch to the continuation block.
     Builder.SetInsertPoint(passBB);
+}
+
+//===----------------------------------------------------------------------===//
+// LLVM IR generation helpers.
+
+llvm::BasicBlock *
+CodeGenRoutine::makeBasicBlock(const std::string &name,
+                               llvm::BasicBlock *insertBefore) const
+{
+    return CG.makeBasicBlock(name, getLLVMFunction(), insertBefore);
 }

@@ -20,6 +20,7 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/PointerIntPair.h"
 
 namespace comma {
 
@@ -241,6 +242,7 @@ public:
                   IdentifierInfo *name, const Location &loc);
 
     SigInstanceDecl *getInstance() { return theInstance; }
+    const SigInstanceDecl *getInstance() const { return theInstance; }
 
     // Support for isa and dyn_cast.
     static bool classof(const SignatureDecl *node) { return true; }
@@ -269,6 +271,11 @@ public:
     /// Returns the instance decl corresponding to this variety applied over the
     /// given arguments.
     SigInstanceDecl *getInstance(DomainTypeDecl **args, unsigned numArgs);
+
+    const SigInstanceDecl *getInstance(DomainTypeDecl **args,
+                                       unsigned numArgs) const {
+        return const_cast<VarietyDecl*>(this)->getInstance(args, numArgs);
+    }
 
     /// Returns the number of arguments accepted by this variety.
     unsigned getArity() const { return arity; }
@@ -403,6 +410,9 @@ public:
                IdentifierInfo *name, const Location &loc);
 
     DomainInstanceDecl *getInstance();
+    const DomainInstanceDecl *getInstance() const {
+        return const_cast<DomainDecl*>(this)->getInstance();
+    }
 
     // Returns the AddDecl which implements this domain.
     const AddDecl *getImplementation() const { return implementation; }
@@ -434,6 +444,11 @@ public:
     // memoized, and for a given set of arguments this method always returns the
     // same declaration node.
     DomainInstanceDecl *getInstance(DomainTypeDecl **args, unsigned numArgs);
+
+    const DomainInstanceDecl *getInstance(DomainTypeDecl **args,
+                                          unsigned numArgs) const {
+        return const_cast<FunctorDecl*>(this)->getInstance(args, numArgs);
+    }
 
     // Returns the AddDecl which implements this functor.
     const AddDecl *getImplementation() const { return implementation; }
@@ -722,9 +737,29 @@ public:
     ///@}
 
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
-    SubroutineDecl *getDefiningDeclaration() { return definingDeclaration; }
+
+    SubroutineDecl *getDefiningDeclaration() {
+        if (!declarationLink.getInt())
+            return declarationLink.getPointer();
+        return 0;
+    }
+
     const SubroutineDecl *getDefiningDeclaration() const {
-        return definingDeclaration;
+        if (!declarationLink.getInt())
+            return declarationLink.getPointer();
+        return 0;
+    }
+
+    SubroutineDecl *getForwardDeclaration() {
+        if (declarationLink.getInt())
+            return declarationLink.getPointer();
+        return 0;
+    }
+
+    const SubroutineDecl *getForwardDeclaration() const {
+        if (declarationLink.getInt())
+            return declarationLink.getPointer();
+        return 0;
     }
 
     bool hasBody() const;
@@ -833,9 +868,9 @@ protected:
     unsigned numParameters;
     ParamValueDecl **parameters;
     BlockStmt *body;
-    SubroutineDecl *definingDeclaration;
     SubroutineDecl *origin;
     SubroutineDecl *overriddenDecl;
+    llvm::PointerIntPair<SubroutineDecl*, 1> declarationLink;
     llvm::iplist<Pragma> pragmas;
 };
 
@@ -871,11 +906,25 @@ public:
     ProcedureType *getType() const { return correspondingType; }
 
     ProcedureDecl *getDefiningDeclaration() {
-        return llvm::cast_or_null<ProcedureDecl>(definingDeclaration);
+        SubroutineDecl *definition = SubroutineDecl::getDefiningDeclaration();
+        return llvm::cast_or_null<ProcedureDecl>(definition);
     }
 
     const ProcedureDecl *getDefiningDeclaration() const {
-        return const_cast<ProcedureDecl*>(this)->getDefiningDeclaration();
+        const SubroutineDecl *definition;
+        definition = SubroutineDecl::getDefiningDeclaration();
+        return llvm::cast_or_null<ProcedureDecl>(definition);
+    }
+
+    ProcedureDecl *getForwardDeclaration() {
+        SubroutineDecl *forward = SubroutineDecl::getForwardDeclaration();
+        return llvm::cast_or_null<ProcedureDecl>(forward);
+    }
+
+    const ProcedureDecl *getForwardDeclaration() const {
+        const SubroutineDecl *forward;
+        forward = SubroutineDecl::getForwardDeclaration();
+        return llvm::cast_or_null<ProcedureDecl>(forward);
     }
 
     /// Returns the declaration this one overrides, or null if this is not an
@@ -923,11 +972,25 @@ public:
     FunctionType *getType() const { return correspondingType; }
 
     FunctionDecl *getDefiningDeclaration() {
-        return llvm::cast_or_null<FunctionDecl>(definingDeclaration);
+        SubroutineDecl *definition = SubroutineDecl::getDefiningDeclaration();
+        return llvm::cast_or_null<FunctionDecl>(definition);
     }
 
     const FunctionDecl *getDefiningDeclaration() const {
-        return const_cast<FunctionDecl*>(this)->getDefiningDeclaration();
+        const SubroutineDecl *definition;
+        definition = SubroutineDecl::getDefiningDeclaration();
+        return llvm::cast_or_null<FunctionDecl>(definition);
+    }
+
+    FunctionDecl *getForwardDeclaration() {
+        SubroutineDecl *forward = SubroutineDecl::getForwardDeclaration();
+        return llvm::cast_or_null<FunctionDecl>(forward);
+    }
+
+    const FunctionDecl *getForwardDeclaration() const {
+        const SubroutineDecl *forward;
+        forward = SubroutineDecl::getForwardDeclaration();
+        return llvm::cast_or_null<FunctionDecl>(forward);
     }
 
     /// Returns the declaration this one overrides, or null if this is not an

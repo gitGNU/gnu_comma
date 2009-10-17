@@ -12,7 +12,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Type.h"
 
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/DerivedTypes.h"
 
 namespace comma {
@@ -28,7 +28,12 @@ class CodeGen;
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(const CodeGen &CG) : CG(CG) { }
+    CodeGenTypes(CodeGen &CG) : CG(CG), topScope(rewrites) { }
+
+    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context)
+        : CG(CG), topScope(rewrites) {
+        addInstanceRewrites(context);
+    }
 
     const llvm::Type *lowerType(const Type *type);
 
@@ -57,14 +62,15 @@ public:
     const llvm::StructType *lowerArrayBounds(const ArraySubType *arrTy);
 
 private:
-    const CodeGen &CG;
+    CodeGen &CG;
 
-    typedef std::pair<Type*, unsigned> RewriteVal;
-    typedef llvm::DenseMap<Type*, RewriteVal> RewriteMap;
+    typedef llvm::ScopedHashTable<Type*, Type*> RewriteMap;
+    typedef llvm::ScopedHashTableScope<Type*, Type*> RewriteScope;
     RewriteMap rewrites;
+    RewriteScope topScope;
 
     void addInstanceRewrites(DomainInstanceDecl *instance);
-    void removeInstanceRewrites(DomainInstanceDecl *instance);
+
     const DomainType *rewriteAbstractDecl(AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
@@ -75,7 +81,6 @@ private:
     /// Returns the number of elements for an array with a range bounded by the
     /// given values.
     uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high);
-
 };
 
 }; // end comma namespace

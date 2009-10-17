@@ -6,10 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
 #include "DomainInfo.h"
+#include "InstanceInfo.h"
+#include "SRInfo.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CommaRT.h"
@@ -28,53 +30,34 @@ CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
     : M(M),
       TD(data),
       Resource(resource),
-      CGTypes(new CodeGenTypes(*this)),
-      CRT(new CommaRT(*this)),
-      CGCapsule(0) { }
+      CRT(new CommaRT(*this)) { }
 
 CodeGen::~CodeGen()
 {
-    delete CGTypes;
     delete CRT;
-}
-
-CodeGenTypes &CodeGen::getTypeGenerator()
-{
-    return *CGTypes;
-}
-
-const CodeGenTypes &CodeGen::getTypeGenerator() const
-{
-    return *CGTypes;
-}
-
-CodeGenCapsule &CodeGen::getCapsuleGenerator()
-{
-    return *CGCapsule;
-}
-
-const CodeGenCapsule &CodeGen::getCapsuleGenerator() const
-{
-    return *CGCapsule;
 }
 
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
-    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl))
-        CGCapsule = new CodeGenCapsule(*this, domain);
+    CodeGenCapsule *CGC;
+    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
+        // Generate an InstanceInfo object for this domain.
+        InstanceInfo *info = createInstanceInfo(domain->getInstance());
+        CGC = new CodeGenCapsule(*this, info);
+    }
     else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl))
-        CGCapsule = new CodeGenCapsule(*this, functor);
+        CGC = new CodeGenCapsule(*this, functor);
     else
         return;
 
-    CGCapsule->emit();
+    CGC->emit();
 
-    llvm::GlobalVariable *info = CRT->registerCapsule(*CGCapsule);
-    capsuleInfoTable[CGCapsule->getLinkName()] = info;
-    delete CGCapsule;
+    llvm::GlobalVariable *info = CRT->registerCapsule(*CGC);
+    capsuleInfoTable[CGC->getLinkName()] = info;
+    delete CGC;
 
-    // Continuously compile the worklist so long as there exists entries
-    // which need to be codegened.
+    // Continuously compile from the set of required instances so long as there
+    // exist entries which need to be codegened.
     while (instancesPending())
         emitNextInstance();
 }
@@ -92,9 +75,8 @@ void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
            "Cannot call entry procedures in a parameterized context!");
 
     // Lookup the previously codegened function for this decl.
-    std::string procName = mangle::getLinkName(context, pdecl);
-    llvm::Value *func = lookupGlobal(procName);
-    assert(func && "Lookup of entry procedure failed!");
+    SRInfo *info = getSRInfo(context, pdecl);
+    llvm::Value *func = info->getLLVMFunction();
 
     // Build the function type for the entry stub.
     //
@@ -208,12 +190,22 @@ llvm::Function *CodeGen::getMemcpy64() const
     return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
 }
 
-bool CodeGen::instancesPending()
+InstanceInfo *CodeGen::createInstanceInfo(DomainInstanceDecl *instance)
 {
-    typedef WorkingSet::const_iterator iterator;
-    iterator E = workList.end();
-    for (iterator I = workList.begin(); I != E; ++I) {
-        if (!I->second.isCompiled)
+    assert(!lookupInstanceInfo(instance) &&
+           "Instance already has associated info!");
+
+    InstanceInfo *info = new InstanceInfo(*this, instance);
+    instanceTable[instance] = info;
+    return info;
+}
+
+bool CodeGen::instancesPending() const
+{
+    typedef InstanceMap::const_iterator iterator;
+    iterator E = instanceTable.end();
+    for (iterator I = instanceTable.begin(); I != E; ++I) {
+        if (!I->second->isCompiled())
             return true;
     }
     return false;
@@ -221,49 +213,34 @@ bool CodeGen::instancesPending()
 
 void CodeGen::emitNextInstance()
 {
-    typedef WorkingSet::iterator iterator;
-    iterator E = workList.end();
-    for (iterator I = workList.begin(); I != E; ++I) {
-        if (I->second.isCompiled)
+    typedef InstanceMap::iterator iterator;
+    iterator E = instanceTable.end();
+    for (iterator I = instanceTable.begin(); I != E; ++I) {
+        if (I->second->isCompiled())
             continue;
-        CGCapsule = new CodeGenCapsule(*this, I->first);
-        CGCapsule->emit();
-        I->second.isCompiled = true;
-        delete CGCapsule;
+        CodeGenCapsule CGC(*this, I->second);
+        CGC.emit();
         return;
     }
 }
 
 bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
 {
-    assert(!instance->isDependent() &&
-           "Cannot extend the work list with dependent instances!");
+    assert(!instance->isDependent() && "Cannot codegen dependent instances!");
 
-    if (workList.count(instance))
+    // If there is already and entry for this instance we will codegen it
+    // eventually (if we have not already).
+    if (lookupInstanceInfo(instance))
         return false;
 
-    // Do not add non-parameterized instances into the worklist.
-    if (!instance->isParameterized())
-        return false;
-
-    WorkEntry &entry = workList[instance];
-
-    entry.instance = instance;
-    entry.isCompiled = false;
-
-    // Iterate over the public subroutines provided by the given instance and
-    // generate forward declarations for each of them.
-    for (DeclRegion::DeclIter I = instance->beginDecls();
-         I != instance->endDecls(); ++I) {
-        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
-            std::string name = mangle::getLinkName(srDecl);
-            const llvm::FunctionType *fnTy =
-                CGTypes->lowerSubroutine(srDecl);
-            llvm::Function *fn = makeFunction(fnTy, name);
-            insertGlobal(name, fn);
-        }
-    }
+    createInstanceInfo(instance);
     return true;
+}
+
+SRInfo *CodeGen::getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl)
+{
+    InstanceInfo *iInfo = getInstanceInfo(instance);
+    return iInfo->getSRInfo(srDecl);
 }
 
 bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
@@ -279,11 +256,7 @@ bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
 
 llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
 {
-    StringGlobalMap::const_iterator iter = globalTable.find(linkName);
-
-    if (iter != globalTable.end())
-        return iter->second;
-    return 0;
+    return M->getGlobalVariable(linkName);
 }
 
 llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
@@ -361,6 +334,25 @@ llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
 {
     llvm::Function *fn =
         llvm::Function::Create(Ty, llvm::Function::ExternalLinkage, name, M);
+    return fn;
+}
+
+llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
+                                      const SubroutineDecl *srDecl,
+                                      CodeGenTypes &CGT)
+{
+    const llvm::FunctionType *fnTy = CGT.lowerSubroutine(srDecl);
+    std::string fnName = mangle::getLinkName(instance, srDecl);
+    llvm::Function *fn = makeFunction(fnTy, fnName);
+
+    // If this is a function returning a composit type, mark it as using the
+    // struct return calling convention.
+    if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
+        Type *retTy = fDecl->getReturnType();
+        if (retTy->isCompositeType())
+            fn->addAttribute(1, llvm::Attribute::StructRet);
+    }
+
     return fn;
 }
 

@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenCapsule.h"
 #include "DomainInfo.h"
 #include "DomainInstance.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenCapsule.h"
 #include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/CommaRT.h"
 
