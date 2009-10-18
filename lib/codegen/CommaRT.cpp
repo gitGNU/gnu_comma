@@ -213,9 +213,9 @@ void CommaRT::define_pow_i64_i32()
     pow_i64_i32_Fn = CG.makeFunction(fnTy, pow_i64_i32_Name);
 }
 
-llvm::GlobalVariable *CommaRT::registerCapsule(CodeGenCapsule &CGC)
+llvm::GlobalVariable *CommaRT::registerCapsule(Domoid *domoid)
 {
-    return DInfo->generateInstance(CGC);
+    return DInfo->emit(domoid);
 }
 
 llvm::Value *CommaRT::getDomain(llvm::IRBuilder<> &builder,
@@ -273,7 +273,7 @@ llvm::Value *CommaRT::pow_i64_i32(llvm::IRBuilder<> &builder,
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,
                                       llvm::Value *percent, unsigned ID) const
 {
-    return DInstance->loadLocalInstance(builder, percent, ID - 1);
+    return DInstance->loadLocalInstance(builder, percent, ID);
 }
 
 /// Returns the formal parameter with the given index.

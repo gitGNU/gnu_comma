@@ -20,14 +20,12 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Target/TargetData.h"
 
-#include <string>
-#include <map>
-
 namespace comma {
 
 class CodeGenCapsule;
 class CodeGenTypes;
 class CommaRT;
+class DependencySet;
 class InstanceInfo;
 class SRInfo;
 
@@ -39,31 +37,14 @@ public:
     CodeGen(llvm::Module *M, const llvm::TargetData &data,
             AstResource &resource);
 
-    /// \brief Returns the interface to the runtime system.
-    const CommaRT &getRuntime() const { return *CRT; }
-
-    /// \brief Returns the module we are generating code for.
-    llvm::Module *getModule() { return M; }
-
-    /// \brief Returns the llvm::TargetData used to generate code.
-    const llvm::TargetData &getTargetData() const { return TD; }
-
-    /// \brief Returns the AstResource used to generate new AST nodes.
-    AstResource &getAstResource() const { return Resource; }
-
-    /// \brief Returns the LLVMContext associated with this code generator.
-    llvm::LLVMContext &getLLVMContext() const {
-        return llvm::getGlobalContext();
-    }
-
     /// \brief Codegens a top-level declaration.
     void emitToplevelDecl(Decl *decl);
 
-    /// \brief Codegens a main function which calls into the given Comma
-    /// procedure.
+    /// \brief Codegens an entry function which calls into the Procedure \p proc
+    /// and embeds it into the LibraryItem \p item.
     ///
-    /// The provided procedure must meet the following constraints (failure to
-    /// do so will fire an assertion):
+    /// The given procedure must meet the following constraints (failure to do
+    /// so will fire an assertion):
     ///
     ///   - The procedure must be nullary.  Parameters are not accepted.
     ///
@@ -71,7 +52,24 @@ public:
     ///
     ///   - The procedure must have been codegened.
     ///
-    void emitEntryStub(ProcedureDecl *pdecl);
+    void emitEntry(ProcedureDecl *pdecl);
+
+    /// Returns the interface to the runtime system.
+    const CommaRT &getRuntime() const { return *CRT; }
+
+    /// Returns the module we are generating code for.
+    llvm::Module *getModule() { return M; }
+
+    /// Returns the llvm::TargetData used to generate code.
+    const llvm::TargetData &getTargetData() const { return TD; }
+
+    /// Returns the AstResource used to generate new AST nodes.
+    AstResource &getAstResource() const { return Resource; }
+
+    /// Returns the LLVMContext associated with this code generator.
+    llvm::LLVMContext &getLLVMContext() const {
+        return llvm::getGlobalContext();
+    }
 
     /// \brief Inserts the given instance into the work list.
     ///
@@ -105,6 +103,10 @@ public:
     /// If the lookup of \p srDecl fails an assertion will fire.
     SRInfo *getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl);
 
+
+    /// FIXME: This method needs to be encapsulated in the seperate structure.
+    const DependencySet &getDependencySet(const Domoid *domoid);
+
     /// \brief Adds a mapping between the given link name and an LLVM
     /// GlobalValue into the global table.
     ///
@@ -119,7 +121,7 @@ public:
     /// \brief Returns an llvm value representing the static compile time info
     /// representing a previously declared capsule, or null if no such
     /// information is present.
-    llvm::GlobalValue *lookupCapsuleInfo(Domoid *domoid) const;
+    llvm::GlobalValue *lookupCapsuleInfo(const Domoid *domoid) const;
 
     /// \brief Emits a string with internal linkage, returning the global
     /// variable for the associated data.  If addNull is true, emit as a null
@@ -135,59 +137,10 @@ public:
                                           bool isConstant = true,
                                           const std::string &name = "");
 
-    /// \brief Returns a null pointer constant of the specified type.
-    llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const;
-
-    /// \brief Returns an llvm "opaque" type.
-    const llvm::OpaqueType *getOpaqueTy() const {
-        return llvm::OpaqueType::get(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type i8*,
-    const llvm::PointerType *getInt8PtrTy() const {
-        return getPointerType(getInt8Ty());
-    }
-
-    /// \brief Returns the llvm type "void".
-    const llvm::Type *getVoidTy() const {
-        return llvm::Type::getVoidTy(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type "i1".
-    const llvm::IntegerType *getInt1Ty() const {
-        return llvm::Type::getInt1Ty(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type "i8".
-    const llvm::IntegerType *getInt8Ty() const {
-        return llvm::Type::getInt8Ty(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type "i16".
-    const llvm::IntegerType *getInt16Ty() const {
-        return llvm::Type::getInt16Ty(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type "i32".
-    const llvm::IntegerType *getInt32Ty() const {
-        return llvm::Type::getInt32Ty(getLLVMContext());
-    }
-
-    /// \brief Returns the llvm type "i64".
-    const llvm::IntegerType *getInt64Ty() const {
-        return llvm::Type::getInt64Ty(getLLVMContext());
-    }
-
-    /// \brief Returns an llvm basic block.
+    /// Returns an llvm basic block.
     llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
                                      llvm::Function *parent = 0,
                                      llvm::BasicBlock *insertBefore = 0) const;
-
-    /// \breif Returns an llvm structure type.
-    llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &elts,
-                                  bool isPacked = false) const {
-        return llvm::StructType::get(getLLVMContext(), elts, isPacked);
-    }
 
     /// \brief Returns a global variable with external linkage embedded in the
     /// current module.
@@ -231,34 +184,7 @@ public:
     llvm::Function *makeInternFunction(const llvm::FunctionType *Ty,
                                        const std::string &name = "");
 
-    /// \brief Casts the given constant expression into the given pointer type.
-    llvm::Constant *getPointerCast(llvm::Constant *constant,
-                                   const llvm::PointerType *Ty) const;
-
-    /// \brief Returns a pointer-to the given type.
-    llvm::PointerType *getPointerType(const llvm::Type *Ty) const;
-
-
-    /// \brief Returns a constant array consiting of the given elements, each of
-    /// which must be of the supplied type.
-    llvm::Constant *getConstantArray(const llvm::Type *elementType,
-                                     std::vector<llvm::Constant*> &elems) const;
-
-    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
-                                      uint64_t value);
-
-    /// \brief Returns a ConstantInt for the given value.
-    ///
-    /// This method ensures that the given APInt is within the representational
-    /// limits of the given type.  If the bit width of the supplied APInt does
-    /// not match that of the given type, then the active bits of the value
-    /// (interpreted as a signed integer) are used, sign extended to the width
-    /// of the type.  An assertion will fire if the number of active bits
-    /// exceeds the width of the supplied type.
-    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
-                                      const llvm::APInt &value);
-
-    /// \brief Returns a function declaration for the given llvm intrinsic.
+    /// Returns a function declaration for the given llvm intrinsic.
     ///
     /// This method is not appropriate for the retrieval of overloaded
     /// intrinsics.
@@ -268,17 +194,107 @@ public:
         return llvm::Intrinsic::getDeclaration(M, id);
     }
 
-    /// \brief Returns a function declaration for the llvm.memcpy.i64 intrinsic.
+    /// Returns a function declaration for the llvm.memcpy.i64 intrinsic.
     llvm::Function *getMemcpy64() const;
 
-    /// \brief Returns a pointer to a global exception object.
+    /// Returns a pointer to a global exception object.
     llvm::GlobalVariable *getEHInfo();
+
+    /// Returns an llvm "opaque" type.
+    const llvm::OpaqueType *getOpaqueTy() const {
+        return llvm::OpaqueType::get(getLLVMContext());
+    }
+
+    /// Returns the llvm type i8*.
+    const llvm::PointerType *getInt8PtrTy() const {
+        return getPointerType(getInt8Ty());
+    }
+
+    /// \brief Returns the llvm type "void".
+    const llvm::Type *getVoidTy() const {
+        return llvm::Type::getVoidTy(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i1".
+    const llvm::IntegerType *getInt1Ty() const {
+        return llvm::Type::getInt1Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i8".
+    const llvm::IntegerType *getInt8Ty() const {
+        return llvm::Type::getInt8Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i16".
+    const llvm::IntegerType *getInt16Ty() const {
+        return llvm::Type::getInt16Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i32".
+    const llvm::IntegerType *getInt32Ty() const {
+        return llvm::Type::getInt32Ty(getLLVMContext());
+    }
+
+    /// \brief Returns the llvm type "i64".
+    const llvm::IntegerType *getInt64Ty() const {
+        return llvm::Type::getInt64Ty(getLLVMContext());
+    }
+
+    /// Returns a null pointer constant of the specified type.
+    llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const {
+        return llvm::ConstantPointerNull::get(Ty);
+    }
+
+    /// Returns a pointer-to the given type.
+    llvm::PointerType *getPointerType(const llvm::Type *Ty) const {
+        return llvm::PointerType::getUnqual(Ty);
+    }
+
+    /// Returns a constant integer.
+    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
+                                      uint64_t value) const {
+        return llvm::ConstantInt::get(type, value);
+    }
+
+    /// Returns a ConstantInt for the given value.
+    ///
+    /// This method ensures that the given APInt is within the representational
+    /// limits of the given type.  If the bit width of the supplied APInt does
+    /// not match that of the given type, then the active bits of the value
+    /// (interpreted as a signed integer) are used, sign extended to the width
+    /// of the type.  An assertion will fire if the number of active bits
+    /// exceeds the width of the supplied type.
+    llvm::ConstantInt *getConstantInt(const llvm::IntegerType *type,
+                                      const llvm::APInt &value) const;
+
+    /// \brief Returns a constant array consiting of the given elements, each of
+    /// which must be of the supplied type.
+    llvm::Constant *
+    getConstantArray(const llvm::Type *elementType,
+                     std::vector<llvm::Constant*> &elems) const {
+        llvm::ArrayType *arrayTy;
+        arrayTy = llvm::ArrayType::get(elementType, elems.size());
+        return llvm::ConstantArray::get(arrayTy, elems);
+
+    }
+
+    /// Casts the given constant expression into the given pointer type.
+    llvm::Constant *getPointerCast(llvm::Constant *constant,
+                                   const llvm::PointerType *Ty) const {
+        return llvm::ConstantExpr::getPointerCast(constant, Ty);
+    }
+
+    /// Returns an llvm structure type.
+    llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &elts,
+                                  bool isPacked = false) const {
+        return llvm::StructType::get(getLLVMContext(), elts, isPacked);
+    }
 
 private:
     /// The Module we are emiting code for.
     llvm::Module *M;
 
-    /// The TargetData describing our target,
+    /// Data describing our target,
     const llvm::TargetData &TD;
 
     /// The AstResource used for generating new types.
@@ -301,6 +317,11 @@ private:
     typedef llvm::DenseMap<DomainInstanceDecl*, InstanceInfo*> InstanceMap;
     InstanceMap instanceTable;
 
+    /// FIXME: Temporary mapping from Domoids to their dependency sets.  This
+    /// information will be encapsulated in an as-yet undefined class.
+    typedef llvm::DenseMap<const Domoid*, DependencySet*> DependenceMap;
+    DependenceMap dependenceTable;
+
     /// Generates an InstanceInfo object and adds it to the instance table.
     ///
     /// This method will assert if there already exists an info object for the
@@ -316,6 +337,6 @@ private:
     void emitNextInstance();
 };
 
-}; // end comma namespace
+} // end comma namespace.
 
 #endif

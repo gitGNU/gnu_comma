@@ -6,23 +6,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenCapsule.h"
-#include "DomainInfo.h"
-#include "InstanceInfo.h"
 #include "SRInfo.h"
+#include "CodeGenCapsule.h"
+#include "DependencySet.h"
+#include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenTypes.h"
-#include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/CommaRT.h"
 #include "comma/codegen/Mangle.h"
 
-#include "llvm/Support/Casting.h"
-
 using namespace comma;
 
-using llvm::cast;
 using llvm::dyn_cast;
+using llvm::cast;
 using llvm::isa;
 
 CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
@@ -39,22 +35,25 @@ CodeGen::~CodeGen()
 
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
-    CodeGenCapsule *CGC;
     if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
+        DependencySet *DS = new DependencySet(domain);
+        dependenceTable[domain] = DS;
+
         // Generate an InstanceInfo object for this domain.
         InstanceInfo *info = createInstanceInfo(domain->getInstance());
-        CGC = new CodeGenCapsule(*this, info);
+        CodeGenCapsule CGC(*this, info);
+        CGC.emit();
+        capsuleInfoTable[CGC.getLinkName()] = CRT->registerCapsule(domain);
     }
-    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl))
-        CGC = new CodeGenCapsule(*this, functor);
+    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl)) {
+        DependencySet *DS = new DependencySet(functor);
+        dependenceTable[functor] = DS;
+
+        std::string name = mangle::getLinkName(functor);
+        capsuleInfoTable[name] = CRT->registerCapsule(functor);
+    }
     else
         return;
-
-    CGC->emit();
-
-    llvm::GlobalVariable *info = CRT->registerCapsule(*CGC);
-    capsuleInfoTable[CGC->getLinkName()] = info;
-    delete CGC;
 
     // Continuously compile from the set of required instances so long as there
     // exist entries which need to be codegened.
@@ -62,7 +61,7 @@ void CodeGen::emitToplevelDecl(Decl *decl)
         emitNextInstance();
 }
 
-void CodeGen::emitEntryStub(ProcedureDecl *pdecl)
+void CodeGen::emitEntry(ProcedureDecl *pdecl)
 {
     // Basic sanity checks on the declaration.
     assert(pdecl->getArity() == 0 && "Entry procedures must be nullary!");
@@ -259,7 +258,7 @@ llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
     return M->getGlobalVariable(linkName);
 }
 
-llvm::GlobalValue *CodeGen::lookupCapsuleInfo(Domoid *domoid) const
+llvm::GlobalValue *CodeGen::lookupCapsuleInfo(const Domoid *domoid) const
 {
     std::string name = mangle::getLinkName(domoid);
     StringGlobalMap::const_iterator iter = capsuleInfoTable.find(name);
@@ -291,22 +290,12 @@ llvm::GlobalVariable *CodeGen::emitInternArray(llvm::Constant *init,
                                     init, name);
 }
 
-llvm::Constant *CodeGen::getNullPointer(const llvm::PointerType *Ty) const
-{
-    return llvm::ConstantPointerNull::get(Ty);
-}
-
 llvm::BasicBlock *CodeGen::makeBasicBlock(const std::string &name,
                                           llvm::Function *parent,
                                           llvm::BasicBlock *insertBefore) const
 {
     llvm::LLVMContext &ctx = getLLVMContext();
     return llvm::BasicBlock::Create(ctx, name, parent, insertBefore);
-}
-
-llvm::PointerType *CodeGen::getPointerType(const llvm::Type *Ty) const
-{
-    return llvm::PointerType::getUnqual(Ty);
 }
 
 llvm::GlobalVariable *CodeGen::makeExternGlobal(llvm::Constant *init,
@@ -322,7 +311,6 @@ llvm::GlobalVariable *CodeGen::makeExternGlobal(llvm::Constant *init,
 llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
                                                 bool isConstant,
                                                 const std::string &name)
-
 {
     return new llvm::GlobalVariable(*M, init->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
@@ -364,28 +352,9 @@ llvm::Function *CodeGen::makeInternFunction(const llvm::FunctionType *Ty,
     return fn;
 }
 
-llvm::Constant *CodeGen::getPointerCast(llvm::Constant *constant,
-                                        const llvm::PointerType *Ty) const
-{
-    return llvm::ConstantExpr::getPointerCast(constant, Ty);
-}
-
-llvm::Constant *
-CodeGen::getConstantArray(const llvm::Type *elementType,
-                          std::vector<llvm::Constant*> &elems) const
-{
-    llvm::ArrayType *arrayTy = llvm::ArrayType::get(elementType, elems.size());
-    return llvm::ConstantArray::get(arrayTy, elems);
-}
 
 llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
-                                           uint64_t value)
-{
-    return llvm::ConstantInt::get(type, value);
-}
-
-llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
-                                           const llvm::APInt &value)
+                                           const llvm::APInt &value) const
 {
     llvm::Constant *res = 0;
 
@@ -409,4 +378,16 @@ llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
     }
 
     return cast<llvm::ConstantInt>(res);
+}
+
+const DependencySet &CodeGen::getDependencySet(const Domoid *domoid)
+{
+    DependenceMap::value_type &entry = dependenceTable.FindAndConstruct(domoid);
+
+    if (entry.second)
+        return *entry.second;
+
+    DependencySet *DS = new DependencySet(domoid);
+    entry.second = DS;
+    return *DS;
 }

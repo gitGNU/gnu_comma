@@ -96,7 +96,7 @@ static int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
         return 1;
     }
 
-    CG.emitEntryStub(proc);
+    CG.emitEntry(proc);
     return 0;
 }
 

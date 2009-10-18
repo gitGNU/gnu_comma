@@ -55,7 +55,7 @@ public:
 
     const std::string &getTypeName(TypeId id) const;
 
-    llvm::GlobalVariable *registerCapsule(CodeGenCapsule &CGC);
+    llvm::GlobalVariable *registerCapsule(Domoid *domoid);
 
     llvm::Value *getDomain(llvm::IRBuilder<> &builder,
                            llvm::GlobalValue *capsuleInfo) const;

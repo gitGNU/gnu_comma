@@ -20,6 +20,7 @@
 namespace comma {
 
 class CommaRT;
+class DependencySet;
 
 /// The DomainInfo class generates the static runtime tables used to represent
 /// domains.
@@ -62,11 +63,7 @@ public:
     ///
     /// A non-constant global variable is generated, initialized, and injected
     /// into the current module.
-    llvm::GlobalVariable *generateInstance(CodeGenCapsule &CGC);
-
-    /// \brief Returns the link (mangled) name of the domain_info object
-    /// that would be associated with the capsule given by \p CGC.
-    static std::string getLinkName(const CodeGenCapsule &CGC);
+    llvm::GlobalVariable *emit(const Domoid *domoid);
 
     /// \brief Returns the link (mangled) name of the domain_info object that
     /// would be associated with the given capsule.
@@ -92,16 +89,16 @@ private:
     llvm::PATypeHolder theType;
 
     /// Allocates a constant string for a domain_info's name.
-    llvm::Constant *genName(CodeGenCapsule &CGC);
+    llvm::Constant *genName(const Domoid *domoid);
 
     /// Generates the arity for an instance.
-    llvm::Constant *genArity(CodeGenCapsule &CGC);
+    llvm::Constant *genArity(const Domoid *domoid);
 
     /// Generates a constructor function for an instance.
-    llvm::Constant *genConstructor(CodeGenCapsule &CGC);
+    llvm::Constant *genConstructor(const Domoid *domoid);
 
     /// Generates a pointer to the instance table for an instance.
-    llvm::Constant *genITable(CodeGenCapsule &CGC);
+    llvm::Constant *genITable(const Domoid *domoid);
 
     /// \brief Helper method for genConstructor.
     ///
@@ -111,7 +108,7 @@ private:
     /// from \p ID.  \p percent represents the domain_instance serving as
     /// argument to the constructor.
     void genInstanceRequirement(llvm::IRBuilder<> &builder,
-                                CodeGenCapsule &CGC,
+                                const DependencySet &DS,
                                 unsigned ID,
                                 llvm::Value *destVector,
                                 llvm::Value *percent);
@@ -121,7 +118,7 @@ private:
     /// Constructs the dependency info for the dependency represented by \p ID,
     /// which must be a non-parameterized domain.
     void genDomainRequirement(llvm::IRBuilder<> &builder,
-                              CodeGenCapsule &CGC,
+                              const DependencySet &DS,
                               unsigned ID,
                               llvm::Value *destVector);
 
@@ -130,10 +127,14 @@ private:
     /// Constructs the dependency info for the dependency represented by \p ID,
     /// which must be a parameterized domain (functor).
     void genFunctorRequirement(llvm::IRBuilder<> &builder,
-                               CodeGenCapsule &CGC,
+                               const DependencySet &DS,
                                unsigned ID,
                                llvm::Value *destVector,
                                llvm::Value *percent);
+
+    /// \brief Returns the link (mangled) name of the constructor function that
+    /// would be associated with the given capsule.
+    static std::string getCtorName(const Domoid *domoid);
 };
 
 //===----------------------------------------------------------------------===//

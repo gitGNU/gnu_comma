@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenCapsule.h"
+#include "DependencySet.h"
 #include "DomainInfo.h"
 #include "DomainInstance.h"
 #include "comma/ast/SignatureSet.h"
@@ -65,22 +66,17 @@ const llvm::PointerType *DomainInfo::getCtorPtrType() const
     return CG.getPointerType(ctorTy);
 }
 
-llvm::GlobalVariable *DomainInfo::generateInstance(CodeGenCapsule &CGC)
+llvm::GlobalVariable *DomainInfo::emit(const Domoid *domoid)
 {
     std::vector<llvm::Constant *> elts;
 
-    elts.push_back(genArity(CGC));
-    elts.push_back(genName(CGC));
-    elts.push_back(genConstructor(CGC));
-    elts.push_back(genITable(CGC));
+    elts.push_back(genArity(domoid));
+    elts.push_back(genName(domoid));
+    elts.push_back(genConstructor(domoid));
+    elts.push_back(genITable(domoid));
 
     llvm::Constant *theInfo = llvm::ConstantStruct::get(getType(), elts);
-    return CG.makeExternGlobal(theInfo, false, getLinkName(CGC));
-}
-
-std::string DomainInfo::getLinkName(const CodeGenCapsule &CGC)
-{
-    return getLinkName(CGC.getCapsule());
+    return CG.makeExternGlobal(theInfo, false, mangle::getLinkName(domoid));
 }
 
 std::string DomainInfo::getLinkName(const Domoid *domoid)
@@ -88,38 +84,43 @@ std::string DomainInfo::getLinkName(const Domoid *domoid)
     return mangle::getLinkName(domoid) + "__0domain_info";
 }
 
-/// Allocates a constant string for a domain_info's name.
-llvm::Constant *DomainInfo::genName(CodeGenCapsule &CGC)
+std::string DomainInfo::getCtorName(const Domoid *domoid)
 {
-    Domoid *theCapsule = CGC.getCapsule();
+    return mangle::getLinkName(domoid) + "__0ctor";
+}
+
+/// Allocates a constant string for a domain_info's name.
+llvm::Constant *DomainInfo::genName(const Domoid *domoid)
+{
     const llvm::PointerType *NameTy = getFieldType<Name>();
 
-    llvm::Constant *capsuleName = CG.emitInternString(theCapsule->getString());
+    llvm::Constant *capsuleName = CG.emitInternString(domoid->getString());
     return CG.getPointerCast(capsuleName, NameTy);
 }
 
 /// Generates the arity for an instance.
-llvm::Constant *DomainInfo::genArity(CodeGenCapsule &CGC)
+llvm::Constant *DomainInfo::genArity(const Domoid *domoid)
 {
-    Domoid *theCapsule = CGC.getCapsule();
     const llvm::IntegerType *ArityTy = getFieldType<Arity>();
 
-    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(theCapsule))
+    if (const FunctorDecl *functor = dyn_cast<FunctorDecl>(domoid))
         return llvm::ConstantInt::get(ArityTy, functor->getArity());
     else
         return llvm::ConstantInt::get(ArityTy, 0);
 }
 
 /// Generates a constructor function for an instance.
-llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
+llvm::Constant *DomainInfo::genConstructor(const Domoid *domoid)
 {
+    const DependencySet &DS = CG.getDependencySet(domoid);
+
     // If the capsule in question does not have any dependencies, do not build a
     // function -- just return 0.  The runtime will not call thru null
     // constructors.
-    if (CGC.dependencyCount() == 0)
+    if (DS.size() == 0)
         return CG.getNullPointer(getFieldType<Ctor>());
 
-    std::string ctorName = CGC.getLinkName() + "__0ctor";
+    std::string ctorName = getCtorName(domoid);
     const llvm::FunctionType *ctorTy;
     llvm::Function *ctor;
 
@@ -146,17 +147,19 @@ llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
 
     // Iterate over the set of capsule dependencies and emit calls to
     // get_domain for each, keeping track of the number of dependents.
-    unsigned numDependents = CGC.dependencyCount();
-    for (unsigned ID = 1; ID <= numDependents; ++ID)
-        genInstanceRequirement(builder, CGC, ID, capsules, instance);
+    typedef DependencySet::iterator iterator;
+    iterator E = DS.end();
+    for (iterator I = DS.begin(); I != E; ++I) {
+        unsigned ID = DS.getDependentID(I);
+        genInstanceRequirement(builder, DS, ID, capsules, instance);
+    }
 
     // Now that we have the full size of the vector, allocate an array of
     // sufficient size to accommodate all the required instances.
     llvm::BasicBlock *initBB = CG.makeBasicBlock("init", ctor, constructBB);
     builder.SetInsertPoint(initBB);
 
-    llvm::Value *size =
-        llvm::ConstantInt::get(CG.getInt32Ty(), numDependents);
+    llvm::Value *size = llvm::ConstantInt::get(CG.getInt32Ty(), DS.size());
     capsules = builder.CreateMalloc(CRT.getType<CommaRT::CRT_DomainInstance>(), size);
     CRT.getDomainInstance()->setLocalVec(builder, instance, capsules);
     builder.CreateBr(constructBB);
@@ -176,18 +179,18 @@ llvm::Constant *DomainInfo::genConstructor(CodeGenCapsule &CGC)
 /// percent represents the domain_instance serving as argument to the
 /// constructor.
 void DomainInfo::genInstanceRequirement(llvm::IRBuilder<> &builder,
-                                        CodeGenCapsule &CGC,
+                                        const DependencySet &DS,
                                         unsigned ID,
                                         llvm::Value *destVector,
                                         llvm::Value *percent)
 {
-    DomainInstanceDecl *instance = CGC.getDependency(ID);
-    Domoid *domoid = instance->getDefinition();
+    const DomainInstanceDecl *instance = DS.getDependent(ID);
+    const Domoid *domoid = instance->getDefinition();
 
     if (isa<DomainDecl>(domoid))
-        genDomainRequirement(builder, CGC, ID, destVector);
+        genDomainRequirement(builder, DS, ID, destVector);
     else
-        genFunctorRequirement(builder, CGC, ID, destVector, percent);
+        genFunctorRequirement(builder, DS, ID, destVector, percent);
 }
 
 /// \brief Helper method for genInstanceRequirement.
@@ -195,19 +198,19 @@ void DomainInfo::genInstanceRequirement(llvm::IRBuilder<> &builder,
 /// Constructs the dependency info for the dependency represented by \p ID,
 /// which must be a non-parameterized domain.
 void DomainInfo::genDomainRequirement(llvm::IRBuilder<> &builder,
-                                      CodeGenCapsule &CGC,
+                                      const DependencySet &DS,
                                       unsigned ID,
                                       llvm::Value *destVector)
 {
-    DomainInstanceDecl *instance = CGC.getDependency(ID);
-    DomainDecl *domain = instance->getDefiningDomain();
+    const DomainInstanceDecl *instance = DS.getDependent(ID);
+    const DomainDecl *domain = instance->getDefiningDomain();
     assert(domain && "Cannot gen requirement for this type of instance!");
 
     llvm::GlobalValue *info = CG.lookupCapsuleInfo(domain);
     assert(info && "Could not resolve capsule info!");
 
     llvm::Value *ptr = CRT.getDomain(builder, info);
-    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID - 1);
+    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID);
     builder.CreateStore(ptr, builder.CreateGEP(destVector, slotIndex));
 }
 
@@ -216,13 +219,13 @@ void DomainInfo::genDomainRequirement(llvm::IRBuilder<> &builder,
 /// Constructs the dependency info for the dependency represented by \p ID,
 /// which must be a parameterized domain (functor).
 void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
-                                       CodeGenCapsule &CGC,
+                                       const DependencySet &DS,
                                        unsigned ID,
                                        llvm::Value *destVector,
                                        llvm::Value *percent)
 {
-    DomainInstanceDecl *instance = CGC.getDependency(ID);
-    FunctorDecl *functor = instance->getDefiningFunctor();
+    const DomainInstanceDecl *instance = DS.getDependent(ID);
+    const FunctorDecl *functor = instance->getDefiningFunctor();
     assert(functor && "Cannot gen requirement for this type of instance!");
 
     const DomainInstance *DInstance = CRT.getDomainInstance();
@@ -233,7 +236,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         // applied is the current capsule for which we are generating a
         // constructor for.  Fortunately, the runtime provides this info via
         // this instances percent node.
-        assert(functor == cast<FunctorDecl>(CGC.getCapsule()) &&
+        assert(functor == cast<FunctorDecl>(DS.getCapsule()) &&
                "Could not resolve capsule info!");
         info = DInstance->loadInfo(builder, percent);
     }
@@ -245,7 +248,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         DomainType *argTy = cast<DomainType>(instance->getActualParamType(i));
 
         if (PercentDecl *pdecl = argTy->getPercentDecl()) {
-            assert(pdecl->getDefinition() == CGC.getCapsule() &&
+            assert(pdecl->getDefinition() == DS.getCapsule() &&
                    "Percent node does not represent the current domain!");
 
             // The argument to this functor is %. Simply push the given percent
@@ -253,7 +256,9 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
             arguments.push_back(percent);
         }
         else if (DomainInstanceDecl *arg = argTy->getInstanceDecl()) {
-            unsigned argIndex = CGC.getDependencyID(arg) - 1;
+            DependencySet::iterator argPos = DS.find(arg);
+            assert(argPos != DS.end() && "Dependency lookup failed!");
+            unsigned argIndex = DS.getDependentID(argPos);
 
             // Load the instance from the destination vector and push it onto
             // the argument list.
@@ -265,7 +270,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         }
         else {
             AbstractDomainDecl *arg = argTy->getAbstractDecl();
-            unsigned paramIdx = CGC.getCapsule()->getFormalIndex(arg);
+            unsigned paramIdx = DS.getCapsule()->getFormalIndex(arg);
 
             // Load the instance corresponding to the formal parameter and push
             // as an argument.
@@ -275,13 +280,13 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     }
 
     llvm::Value *theInstance = CRT.getDomain(builder, arguments);
-    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID - 1);
+    llvm::Value *slotIndex = llvm::ConstantInt::get(CG.getInt32Ty(), ID);
     builder.CreateStore(theInstance, builder.CreateGEP(destVector, slotIndex));
 }
 
 
 /// Generates a pointer to the instance table for an instance.
-llvm::Constant *DomainInfo::genITable(CodeGenCapsule &CGC)
+llvm::Constant *DomainInfo::genITable(const Domoid *domoid)
 {
     // Initially the instance table is always null.  A table is allocated at
     // runtime when needed.

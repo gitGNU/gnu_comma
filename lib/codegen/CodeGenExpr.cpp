@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenCapsule.h"
+#include "DependencySet.h"
 #include "SRInfo.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
@@ -204,10 +205,12 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     DomainInstanceDecl *instance
         = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
 
-    // Register the domain of computation with the capsule context.  Using the
-    // ID of the instance, index into percent to obtain the appropriate
-    // domain_instance.
-    unsigned instanceID = CGC.addCapsuleDependency(instance);
+    // Get the dependency ID for this instance and index into percent to obtain
+    // the appropriate domain_instance runtime object.
+    const DependencySet &DSet = CG.getDependencySet(CGC.getCapsule());
+    DependencySet::iterator IDPos = DSet.find(instance);
+    assert(IDPos != DSet.end() && "Failed to resolve dependency!");
+    unsigned instanceID = DSet.getDependentID(IDPos);
     args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
 
     AstRewriter rewriter(CG.getAstResource());
