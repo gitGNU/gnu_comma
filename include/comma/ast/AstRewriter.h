@@ -16,6 +16,7 @@
 #define COMMA_AST_ASTREWRITER_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+
 #include <map>
 
 namespace comma {

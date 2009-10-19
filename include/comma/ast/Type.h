@@ -10,7 +10,6 @@
 #define COMMA_AST_TYPE_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
-#include "comma/ast/AstRewriter.h"
 #include "comma/ast/Constraint.h"
 #include "comma/ast/Range.h"
 #include "comma/basic/ParameterModes.h"

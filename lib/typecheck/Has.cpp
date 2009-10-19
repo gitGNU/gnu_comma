@@ -6,10 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "comma/typecheck/TypeCheck.h"
-#include "comma/ast/Type.h"
+
+#include "comma/ast/AstRewriter.h"
 #include "comma/ast/Decl.h"
-#include <map>
+#include "comma/ast/Type.h"
+#include "comma/typecheck/TypeCheck.h"
 
 using namespace comma;
 using llvm::dyn_cast;

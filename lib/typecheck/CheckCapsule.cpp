@@ -14,6 +14,7 @@
 
 #include "Scope.h"
 #include "comma/typecheck/TypeCheck.h"
+#include "comma/ast/AstRewriter.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/TypeRef.h"
 

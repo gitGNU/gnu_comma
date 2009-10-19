@@ -15,9 +15,9 @@
 #include "Scope.h"
 #include "Stencil.h"
 #include "comma/typecheck/TypeCheck.h"
+#include "comma/ast/AstRewriter.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
-#include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 

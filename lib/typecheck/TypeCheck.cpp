@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "Stencil.h"
+#include "comma/ast/AstRewriter.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"

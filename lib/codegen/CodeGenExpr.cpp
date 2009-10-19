@@ -9,6 +9,7 @@
 #include "CodeGenCapsule.h"
 #include "DependencySet.h"
 #include "SRInfo.h"
+#include "comma/ast/AstRewriter.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
