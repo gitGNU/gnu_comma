@@ -53,16 +53,6 @@ public:
     // Returns the number of declarations in this region.
     unsigned countDecls() const { return declarations.size(); }
 
-    // Adds the given declaration to the region using the supplied rewrite
-    // rules.
-    void addDeclarationUsingRewrites(const AstRewriter &rewrites,
-                                     Decl *decl);
-
-    // Adds the declarations from the given region to this one using the
-    // supplied rewrite rules.
-    void addDeclarationsUsingRewrites(const AstRewriter &rewrites,
-                                      const DeclRegion  *region);
-
     typedef DeclarationTable::iterator DeclIter;
     DeclIter beginDecls() { return declarations.begin(); }
     DeclIter endDecls()   { return declarations.end(); }
@@ -227,6 +217,21 @@ public:
 protected:
     virtual void notifyAddDecl(Decl *decl);
     virtual void notifyRemoveDecl(Decl *decl);
+
+    /// \brief Adds the declarations from the given region to this one using the
+    /// supplied rewrite rules.
+    ///
+    /// This method is intended to support subclasses which have some subset of
+    /// their declarative regions defined in terms of another declaration.  For
+    /// example, domain instances are a rewritten version of the domains
+    /// PercentDecl.
+    void addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+                                      const DeclRegion  *region);
+
+    /// \brief Adds the given declaration to this region using the supplied
+    /// rewrite rules.
+    void addDeclarationUsingRewrites(const AstRewriter &rewrites,
+                                     Decl *decl);
 
 private:
     Ast::AstKind regionKind;
