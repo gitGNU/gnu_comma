@@ -209,14 +209,32 @@ Decl *DeclRewriter::rewriteDecl(Decl *decl)
     return result;
 }
 
-IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit) const
+IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)
 {
     Type *targetTy = rewriteType(lit->getType());
     const llvm::APInt &value = lit->getValue();
     return new IntegerLiteral(value, targetTy, 0);
 }
 
-Expr *DeclRewriter::rewriteExpr(Expr *expr) const
+FunctionCallExpr *
+DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
+{
+    FunctionDecl *connective = rewriteFunctionDecl(call->getConnective());
+    unsigned numArgs = call->getNumArgs();
+    Expr *args[numArgs];
+
+    // When rewriting function calls we pay no respect to any keyed arguments in
+    // the source expression.  Just generate a positional call.
+    FunctionCallExpr::arg_iterator I = call->begin_arguments();
+    FunctionCallExpr::arg_iterator E = call->end_arguments();
+    for (unsigned idx = 0; I != E; ++I, ++idx)
+        args[idx] = rewriteExpr(*I);
+
+    SubroutineRef *ref = new SubroutineRef(0, connective);
+    return new FunctionCallExpr(ref, args, numArgs, 0, 0);
+}
+
+Expr *DeclRewriter::rewriteExpr(Expr *expr)
 {
     Expr *result = 0;
 
@@ -224,6 +242,10 @@ Expr *DeclRewriter::rewriteExpr(Expr *expr) const
 
     default:
         assert(false && "Cannot rewrite this kind of expr yet!");
+        break;
+
+    case Ast::AST_FunctionCallExpr:
+        result = rewriteFunctionCall(cast<FunctionCallExpr>(expr));
         break;
 
     case Ast::AST_IntegerLiteral:
