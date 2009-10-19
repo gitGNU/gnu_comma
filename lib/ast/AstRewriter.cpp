@@ -132,8 +132,6 @@ SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
     return rewrite(cast<FunctionType>(srType));
 }
 
-// Rewrites "count" parameter types of the given subroutine, placing the results
-// of the rewrite in "params".
 void AstRewriter::rewriteParameters(SubroutineType *srType,
                                     unsigned count, Type **params) const
 {
