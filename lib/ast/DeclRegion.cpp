@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AstResource.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/DeclRegion.h"
 #include "comma/ast/Decl.h"
@@ -84,6 +85,39 @@ ProcedureDecl *rewriteProcedureDecl(const AstRewriter &rewrites,
     return result;
 }
 
+EnumerationDecl *rewriteEnumerationDecl(const AstRewriter &rewrites,
+                                        EnumerationDecl *edecl,
+                                        DeclRegion *context)
+{
+    typedef std::pair<IdentifierInfo*, Location> Pair;
+
+    IdentifierInfo *name = edecl->getIdInfo();
+    llvm::SmallVector<Pair, 8> elems;
+
+    // Enumeration declarations do not require any rewriting.  Just construct a
+    // new declaration which is otherwise identical to the one given.
+    //
+    // Traverse the given decls region and extract each enumeration literal
+    // therein.  Note that the DeclRegion of an enumeration contains
+    // declarations for its primitive operations as well.
+    typedef DeclRegion::DeclIter iterator;
+    iterator I = edecl->beginDecls();
+    iterator E = edecl->endDecls();
+    for ( ; I != E; ++I) {
+        EnumLiteral *lit = dyn_cast<EnumLiteral>(*I);
+        if (!lit)
+            continue;
+        IdentifierInfo *litId = lit->getIdInfo();
+        elems.push_back(Pair(litId, 0));
+    }
+
+    AstResource &resource = rewrites.getAstResource();
+    EnumerationDecl *result =
+        resource.createEnumDecl(name, 0, &elems[0], elems.size(), context);
+    result->generateImplicitDeclarations(resource);
+    return result;
+}
+
 } // end anonymous namespace.
 
 void DeclRegion::addDecl(Decl *decl) {
@@ -118,12 +152,12 @@ void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
         break;
     }
 
-    case Ast::AST_EnumerationDecl:
-        // Nothing to do for an enumeration since there are never free variables
-        // in such a type.
-        newDecl = decl;
+    case Ast::AST_EnumerationDecl: {
+        EnumerationDecl *edecl = cast<EnumerationDecl>(decl);
+        newDecl = rewriteEnumerationDecl(rewrites, edecl, this);
         break;
     }
+    };
 
     if (newDecl)
         this->addDecl(newDecl);

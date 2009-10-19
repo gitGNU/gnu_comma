@@ -1,0 +1,21 @@
+-- MUST-FAIL: Inner types of a domain instance should be distinct.
+
+generic
+   abstract domain X end X;
+domain F with
+   type T is (A);
+end F;
+
+domain D1 end D1;
+domain D2 end D2;
+
+domain D3 add
+   procedure Test is
+     X : F(D1).T := F(D1).A;
+     Y : F(D2).T := X;
+   begin
+   end Test;
+end D3;
+
+
+
