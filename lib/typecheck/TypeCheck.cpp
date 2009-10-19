@@ -254,11 +254,11 @@ TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
     for (unsigned i = 0; i < numArguments; ++i) {
         Type *formal = parameterizedModel->getFormalType(i);
         Type *actual = arguments[i];
-        rewriter.addRewrite(formal, actual);
+        rewriter.addTypeRewrite(formal, actual);
     }
 
     SigInstanceDecl *target = parameterizedModel->getFormalSignature(numArguments);
-    return rewriter.rewrite(target);
+    return rewriter.rewriteSigInstance(target);
 }
 
 Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
@@ -425,7 +425,7 @@ bool TypeCheck::checkModelArgs(ModelDecl *model,
 
         // Extend the rewriter mapping the formal argument type to the type of
         // the actual argument.
-        rewrites[target->getType()] = argTy;
+        rewrites.addTypeRewrite(target->getType(), argTy);
 
         // Check the argument in the using the rewriter as context.
         if (!checkSignatureProfile(rewrites, argTy, target, argLoc))
@@ -541,8 +541,8 @@ ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
         // corresponding to X'First .. X'Last, where X is the given expression.
 
         // FIXME: We should be creating a range attribute here.  This is
-        // important since a range attribute will not evaluate the expression
-        // twice when computing the bounds.
+        // important since a range attribute will not evaluate its prefix twice
+        // when computing the bounds.
         FirstArrayAE *first = new FirstArrayAE(init, 0);
         LastArrayAE *last = new LastArrayAE(init, 0);
 

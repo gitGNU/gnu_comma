@@ -216,16 +216,17 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
 
     AstRewriter rewriter(CG.getAstResource());
     // Always map percent nodes from the current capsule to the instance.
-    rewriter[CGC.getCapsule()->getPercentType()] = CGC.getInstance()->getType();
+    rewriter.addTypeRewrite(CGC.getCapsule()->getPercentType(),
+                            CGC.getInstance()->getType());
 
     // If the instance is dependent on formal parameters, rewrite using the
     // current parameter map.
     if (instance->isDependent()) {
         const CodeGenCapsule::ParameterMap &paramMap = CGC.getParameterMap();
-        rewriter.addRewrites(paramMap.begin(), paramMap.end());
+        rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
     }
 
-    DomainType *targetDomainTy = rewriter.rewrite(instance->getType());
+    DomainType *targetDomainTy = rewriter.rewriteType(instance->getType());
     DomainInstanceDecl *targetInstance = targetDomainTy->getInstanceDecl();
     assert(!targetInstance->isDependent() &&
            "Instance rewriting did not remove all dependencies!");
@@ -239,8 +240,8 @@ llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
     // the rewritten type.  Using this extended rewriter, get the concrete
     // type for the subroutine decl we are calling, and locate it in the
     // target instance (this operation must not fail).
-    rewriter.addRewrite(instance->getType(), targetDomainTy);
-    SubroutineType *targetTy = rewriter.rewrite(srDecl->getType());
+    rewriter.addTypeRewrite(instance->getType(), targetDomainTy);
+    SubroutineType *targetTy = rewriter.rewriteType(srDecl->getType());
     srDecl = dyn_cast_or_null<SubroutineDecl>(
         targetInstance->findDecl(srDecl->getIdInfo(), targetTy));
     assert(srDecl && "Failed to resolve subroutine!");
@@ -400,8 +401,8 @@ CodeGenRoutine::resolveAbstractSubroutine(DomainInstanceDecl *instance,
     // occurrences of abstractTy are mapped to the type of the given instance.
     // Use an AstRewriter to obtain the required target type.
     AstRewriter rewriter(CG.getAstResource());
-    rewriter.addRewrite(abstractTy, instance->getType());
-    SubroutineType *targetTy = rewriter.rewrite(target->getType());
+    rewriter.addTypeRewrite(abstractTy, instance->getType());
+    SubroutineType *targetTy = rewriter.rewriteType(target->getType());
 
     // Lookup the target declaration directly in the instance.
     return dyn_cast_or_null<SubroutineDecl>(

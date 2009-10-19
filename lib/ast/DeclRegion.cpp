@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DeclRewriter.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/DeclRegion.h"
@@ -24,102 +25,6 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-namespace {
-
-//===----------------------------------------------------------------------===//
-// Declaration rewrite functions.
-//
-// The following functions rewrite declaration nodes.  These are kept as a set
-// of internal routines (as opposed to being a part of the AstRewriter API, for
-// example) since the rewriting of declarations should never be rewritten except
-// in a controlled manner.
-//
-// These functions always return a new declaration node, regardless of whether
-// any rewrite rules apply.  The given DeclRegion is used as the defining
-// context for the generated declaration.
-
-FunctionDecl *rewriteFunctionDecl(const AstRewriter &rewrites,
-                                  FunctionDecl *fdecl,
-                                  DeclRegion *context)
-{
-    llvm::SmallVector<ParamValueDecl*, 8> params;
-    unsigned arity = fdecl->getArity();
-
-    for (unsigned i = 0; i < arity; ++i) {
-        ParamValueDecl *origParam = fdecl->getParam(i);
-        Type *rewriteType = rewrites.rewrite(origParam->getType());
-        ParamValueDecl *newParam =
-            new ParamValueDecl(origParam->getIdInfo(), rewriteType,
-                               origParam->getExplicitParameterMode(), 0);
-        params.push_back(newParam);
-    }
-
-    FunctionDecl *result =
-        new FunctionDecl(rewrites.getAstResource(),
-                         fdecl->getIdInfo(), 0, params.data(), arity,
-                         rewrites.rewrite(fdecl->getReturnType()), context);
-    result->setOrigin(fdecl);
-    return result;
-}
-
-ProcedureDecl *rewriteProcedureDecl(const AstRewriter &rewrites,
-                                    ProcedureDecl *pdecl,
-                                    DeclRegion *context)
-{
-    llvm::SmallVector<ParamValueDecl*, 8> params;
-    unsigned arity = pdecl->getArity();
-
-    for (unsigned i = 0; i < arity; ++i) {
-        ParamValueDecl *origParam = pdecl->getParam(i);
-        Type *newType = rewrites.rewrite(origParam->getType());
-        ParamValueDecl *newParam =
-            new ParamValueDecl(origParam->getIdInfo(), newType,
-                               origParam->getExplicitParameterMode(), 0);
-        params.push_back(newParam);
-    }
-
-    ProcedureDecl *result =
-        new ProcedureDecl(rewrites.getAstResource(),
-                          pdecl->getIdInfo(), 0, params.data(), arity, context);
-    result->setOrigin(pdecl);
-    return result;
-}
-
-EnumerationDecl *rewriteEnumerationDecl(const AstRewriter &rewrites,
-                                        EnumerationDecl *edecl,
-                                        DeclRegion *context)
-{
-    typedef std::pair<IdentifierInfo*, Location> Pair;
-
-    IdentifierInfo *name = edecl->getIdInfo();
-    llvm::SmallVector<Pair, 8> elems;
-
-    // Enumeration declarations do not require any rewriting.  Just construct a
-    // new declaration which is otherwise identical to the one given.
-    //
-    // Traverse the given decls region and extract each enumeration literal
-    // therein.  Note that the DeclRegion of an enumeration contains
-    // declarations for its primitive operations as well.
-    typedef DeclRegion::DeclIter iterator;
-    iterator I = edecl->beginDecls();
-    iterator E = edecl->endDecls();
-    for ( ; I != E; ++I) {
-        EnumLiteral *lit = dyn_cast<EnumLiteral>(*I);
-        if (!lit)
-            continue;
-        IdentifierInfo *litId = lit->getIdInfo();
-        elems.push_back(Pair(litId, 0));
-    }
-
-    AstResource &resource = rewrites.getAstResource();
-    EnumerationDecl *result =
-        resource.createEnumDecl(name, 0, &elems[0], elems.size(), context);
-    result->generateImplicitDeclarations(resource);
-    return result;
-}
-
-} // end anonymous namespace.
-
 void DeclRegion::addDecl(Decl *decl) {
     declarations.push_back(decl);
     notifyObserversOfAddition(decl);
@@ -128,50 +33,18 @@ void DeclRegion::addDecl(Decl *decl) {
 void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
                                              Decl *decl)
 {
-    Decl *newDecl = 0;
-
-    switch (decl->getKind()) {
-
-    default:
-        assert(false && "Bad type of declaration!");
-        break;
-
-    case Ast::AST_FunctionDecl: {
-        FunctionDecl *fdecl = cast<FunctionDecl>(decl);
-        FunctionDecl *rewrite = rewriteFunctionDecl(rewrites, fdecl, this);
-        rewrite->setOrigin(fdecl);
-        newDecl = rewrite;
-        break;
-    }
-
-    case Ast::AST_ProcedureDecl: {
-        ProcedureDecl *sdecl = cast<ProcedureDecl>(decl);
-        ProcedureDecl *rewrite = rewriteProcedureDecl(rewrites, sdecl, this);
-        rewrite->setOrigin(sdecl);
-        newDecl = rewrite;
-        break;
-    }
-
-    case Ast::AST_EnumerationDecl: {
-        EnumerationDecl *edecl = cast<EnumerationDecl>(decl);
-        newDecl = rewriteEnumerationDecl(rewrites, edecl, this);
-        break;
-    }
-    };
-
-    if (newDecl)
-        this->addDecl(newDecl);
+    DeclRewriter rewriter(rewrites, this);
+    addDecl(rewriter.rewriteDecl(decl));
 }
 
 void
 DeclRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
                                          const DeclRegion *region)
 {
-    ConstDeclIter iter;
-    ConstDeclIter endIter = region->endDecls();
-
-    for (iter = region->beginDecls(); iter != endIter; ++iter)
-        addDeclarationUsingRewrites(rewrites, *iter);
+    DeclRewriter rewriter(rewrites, this);
+    ConstDeclIter E = region->endDecls();
+    for (ConstDeclIter I = region->beginDecls(); I != E; ++I)
+        addDecl(rewriter.rewriteDecl(*I));
 }
 
 Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)

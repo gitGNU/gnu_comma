@@ -324,7 +324,7 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     // instance.
     AstRewriter rewrites(resource);
     rewrites.installRewrites(sig);
-    rewrites[sigPercent->getType()] = context->getType();
+    rewrites.addTypeRewrite(sigPercent->getType(), context->getType());
 
     // Iterate over the set of targets.  Compare the rewritten version of each
     // target type with the type of the overriding decl.  If we find a match,
@@ -333,7 +333,7 @@ bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
     for (TargetVector::iterator I = targets.begin(); I != targets.end(); ++I) {
         SubroutineDecl *targetDecl = *I;
         SubroutineType *targetType = targetDecl->getType();
-        SubroutineType *rewriteType = rewrites.rewrite(targetType);
+        SubroutineType *rewriteType = rewrites.rewriteType(targetType);
         if ((overridingType == rewriteType) &&
             overridingDecl->paramModesMatch(targetDecl)) {
             overridingDecl->setOverriddenDecl(targetDecl);
@@ -411,7 +411,7 @@ TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
                               const AstRewriter &rewrites, DeclRegion *region)
 {
     IdentifierInfo *name = SRDecl->getIdInfo();
-    SubroutineType *SRType = rewrites.rewrite(SRDecl->getType());
+    SubroutineType *SRType = rewrites.rewriteType(SRDecl->getType());
     unsigned arity = SRDecl->getArity();
 
     llvm::SmallVector<IdentifierInfo*, 8> keys;

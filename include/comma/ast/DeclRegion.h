@@ -226,7 +226,7 @@ protected:
     /// example, domain instances are a rewritten version of the domains
     /// PercentDecl.
     void addDeclarationsUsingRewrites(const AstRewriter &rewrites,
-                                      const DeclRegion  *region);
+                                      const DeclRegion *region);
 
     /// \brief Adds the given declaration to this region using the supplied
     /// rewrite rules.

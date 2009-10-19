@@ -75,8 +75,8 @@ bool ModelDecl::addDirectSignature(SigInstanceDecl *signature)
     // Rewrite % nodes of the signature to the % nodes of this model and map any
     // formal arguments to the actuals.
     AstRewriter rewrites(resource);
-    rewrites.addRewrite(signature->getSigoid()->getPercentType(),
-                        getPercentType());
+    rewrites.addTypeRewrite(signature->getSigoid()->getPercentType(),
+                            getPercentType());
     rewrites.installRewrites(signature);
     return percent->sigset.addDirectSignature(signature, rewrites);
 }
@@ -587,7 +587,7 @@ bool AbstractDomainDecl::addSuperSignature(SigInstanceDecl *sig)
 
     // Establish a mapping from the % node of the signature to the type of this
     // abstract domain.
-    rewriter.addRewrite(sigoid->getPercentType(), getType());
+    rewriter.addTypeRewrite(sigoid->getPercentType(), getType());
 
     // Establish mappings from the formal parameters of the signature to the
     // actual parameters of the type (this is a no-op if the signature is not
@@ -611,7 +611,7 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
     percent->addObserver(this);
 
     AstRewriter rewriter(domain->getAstResource());
-    rewriter.addRewrite(domain->getPercentType(), getType());
+    rewriter.addTypeRewrite(domain->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, percent);
 
@@ -639,7 +639,7 @@ DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
     percent->addObserver(this);
 
     AstRewriter rewriter(functor->getAstResource());
-    rewriter.addRewrite(functor->getPercentType(), getType());
+    rewriter.addTypeRewrite(functor->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, percent);
 
@@ -676,7 +676,7 @@ unsigned DomainInstanceDecl::getArity() const
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
     AstRewriter rewriter(getDefinition()->getAstResource());
-    rewriter.addRewrite(getDefinition()->getPercentType(), getType());
+    rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);
 }

@@ -230,7 +230,7 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
         PercentDecl *sigPercent = sigdecl->getPercent();
         AstRewriter rewrites(resource);
 
-        rewrites[sigdecl->getPercentType()] = domain->getType();
+        rewrites.addTypeRewrite(sigdecl->getPercentType(), domain->getType());
         rewrites.installRewrites(super);
 
         DeclRegion::DeclIter iter    = sigPercent->beginDecls();

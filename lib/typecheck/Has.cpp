@@ -111,7 +111,7 @@ bool TypeCheck::has(const AstRewriter &rewrites,
             if (!srDecl->isImmediate())
                 continue;
 
-            Type *targetType = rewrites.rewrite(srDecl->getType());
+            Type *targetType = rewrites.rewriteType(srDecl->getType());
             SubroutineDecl *sourceDecl = dyn_cast_or_null<SubroutineDecl>(
                 sourceRegion->findDecl(targetName, targetType));
             if (!sourceDecl)

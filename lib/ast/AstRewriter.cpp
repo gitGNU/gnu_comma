@@ -60,27 +60,30 @@ void AstRewriter::installRewrites(SigInstanceDecl *context)
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *formal = variety->getFormalType(i);
             Type *actual = context->getActualParamType(i);
-            addRewrite(formal, actual);
+            addTypeRewrite(formal, actual);
         }
     }
 }
 
-Type *AstRewriter::rewrite(Type *type) const
+Type *AstRewriter::rewriteType(Type *type) const
 {
+    if (Type *result = findRewrite(type))
+        return result;
+
     switch(type->getKind()) {
 
     default: return type;
 
     case Ast::AST_DomainType:
-        return rewrite(cast<DomainType>(type));
+        return rewriteType(cast<DomainType>(type));
     case Ast::AST_FunctionType:
-        return rewrite(cast<FunctionType>(type));
+        return rewriteType(cast<FunctionType>(type));
     case Ast::AST_ProcedureType:
-        return rewrite(cast<ProcedureType>(type));
+        return rewriteType(cast<ProcedureType>(type));
     }
 }
 
-SigInstanceDecl *AstRewriter::rewrite(SigInstanceDecl *sig) const
+SigInstanceDecl *AstRewriter::rewriteSigInstance(SigInstanceDecl *sig) const
 {
     if (sig->isParameterized()) {
         llvm::SmallVector<DomainTypeDecl*, 4> args;
@@ -89,7 +92,7 @@ SigInstanceDecl *AstRewriter::rewrite(SigInstanceDecl *sig) const
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
             // FIXME: Currently it is true that all arguments are domains, but
             // in the furture we will need to be more general than this.
-            DomainType *argTy = rewrite((*iter)->getType());
+            DomainType *argTy = rewriteType((*iter)->getType());
             args.push_back(argTy->getDomainTypeDecl());
         }
         // Obtain a memoized instance.
@@ -99,10 +102,10 @@ SigInstanceDecl *AstRewriter::rewrite(SigInstanceDecl *sig) const
     return sig;
 }
 
-DomainType *AstRewriter::rewrite(DomainType *dom) const
+DomainType *AstRewriter::rewriteType(DomainType *dom) const
 {
-    if (DomainType *rewrite = dyn_cast_or_null<DomainType>(findRewrite(dom)))
-        return rewrite;
+    if (DomainType *result = dyn_cast_or_null<DomainType>(findRewrite(dom)))
+        return result;
 
     if (DomainInstanceDecl *instance = dom->getInstanceDecl()) {
         if (FunctorDecl *functor = instance->getDefiningFunctor()) {
@@ -113,7 +116,7 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
                 // FIXME: Currently it is true that all arguments are domains,
                 // but in the furture we will need to be more general than this.
-                DomainType *argTy = rewrite((*iter)->getType());
+                DomainType *argTy = rewriteType((*iter)->getType());
                 args.push_back(argTy->getDomainTypeDecl());
             }
             // Obtain a memoized instance and return the associated type.
@@ -124,12 +127,12 @@ DomainType *AstRewriter::rewrite(DomainType *dom) const
     return dom;
 }
 
-SubroutineType *AstRewriter::rewrite(SubroutineType *srType) const
+SubroutineType *AstRewriter::rewriteType(SubroutineType *srType) const
 {
     if (ProcedureType *ptype = dyn_cast<ProcedureType>(srType))
-        return rewrite(ptype);
+        return rewriteType(ptype);
 
-    return rewrite(cast<FunctionType>(srType));
+    return rewriteType(cast<FunctionType>(srType));
 }
 
 void AstRewriter::rewriteParameters(SubroutineType *srType,
@@ -139,7 +142,7 @@ void AstRewriter::rewriteParameters(SubroutineType *srType,
         params[i] = getRewrite(srType->getArgType(i));
 }
 
-FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
+FunctionType *AstRewriter::rewriteType(FunctionType *ftype) const
 {
     unsigned arity = ftype->getArity();
     Type *returnType = getRewrite(ftype->getReturnType());
@@ -149,7 +152,7 @@ FunctionType *AstRewriter::rewrite(FunctionType *ftype) const
     return resource.getFunctionType(paramTypes, arity, returnType);
 }
 
-ProcedureType *AstRewriter::rewrite(ProcedureType *ptype) const
+ProcedureType *AstRewriter::rewriteType(ProcedureType *ptype) const
 {
     unsigned arity = ptype->getArity();
     Type *paramTypes[arity];

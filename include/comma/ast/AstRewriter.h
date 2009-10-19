@@ -44,14 +44,14 @@ public:
     /// unconditionally re-target the rule -- it is the responsibility of the
     /// programmer to ensure that established rules are not mistakenly
     /// overwritten.
-    void addRewrite(Type *source, Type *target) {
+    void addTypeRewrite(Type *source, Type *target) {
         rewrites[source] = target;
     }
 
     /// \brief Adds a set of rewrites given by iterators over std::pair<Type*,
     /// Type*>.
     template <class Iter>
-    void addRewrites(Iter I, Iter E) {
+    void addTypeRewrites(Iter I, Iter E) {
         for ( ; I != E; ++I)
             rewrites[I->first] = I->second;
     }
@@ -71,6 +71,49 @@ public:
     /// parameterized.
     void installRewrites(SigInstanceDecl *context);
 
+    /// Returns true if a rewrite rule is associated with \p source.
+    bool hasRewriteRule(Type *source) const {
+        return getRewrite(source) != source;
+    }
+
+    /// Remove all rewrite rules.
+    void clear() { rewrites.clear(); }
+
+    /// \name Type Rewriters.
+    ///
+    /// \brief Rewrites the given type using the installed rules.
+    ///
+    /// If no rules apply to any component of the argument type, the argument is
+    /// returned unchanged.  If a rewrite rule does apply, then the a new
+    /// rewritten type node is returned.
+    //@{
+    Type *rewriteType(Type *type) const;
+
+    DomainType *rewriteType(DomainType *dom) const;
+
+    SubroutineType *rewriteType(SubroutineType *srType) const;
+
+    FunctionType *rewriteType(FunctionType *ftype) const;
+
+    ProcedureType *rewriteType(ProcedureType *ftype) const;
+    //@}
+
+    /// Rewrites the parameterization of the given SigInstanceDecl.
+    ///
+    /// If no rewrite rules apply, the argument is returned unchanged.
+    /// Otherwise, a uniqued SigInstanceDecl is returned representing the
+    /// rewritten parameterization.
+    SigInstanceDecl *rewriteSigInstance(SigInstanceDecl *sig) const;
+
+    // Returns the AstResource used to construct rewritten nodes.
+    AstResource &getAstResource() const { return resource; }
+
+private:
+    AstResource &resource;
+
+    typedef std::map<Type*, Type*> RewriteMap;
+    RewriteMap rewrites;
+
     /// \brief Maps \p source to a new target if a rewrite rule exists,
     /// otherwise returns \p source.
     Type *getRewrite(Type *source) const;
@@ -83,43 +126,6 @@ public:
     Type *&operator [](Type *source) {
         return rewrites[source];
     }
-
-    /// Returns true if a rewrite rule is associated with \p source.
-    bool hasRewriteRule(Type *source) const {
-        return getRewrite(source) != source;
-    }
-
-    /// Remove all rewrite rules.
-    void clear() { rewrites.clear(); }
-
-    /// \name Rewriters.
-    ///
-    /// The following methods attempt to rewrite the given type using the
-    /// installed rules.  If no rules apply to any component of the argument
-    /// type, the argument is returned unchanged.  If a rewrite rule does apply,
-    /// then the a new rewritten type node is returned.
-    //@{
-    Type *rewrite(Type *type) const;
-
-    SigInstanceDecl *rewrite(SigInstanceDecl *sig) const;
-
-    DomainType *rewrite(DomainType *dom) const;
-
-    SubroutineType *rewrite(SubroutineType *srType) const;
-
-    FunctionType *rewrite(FunctionType *ftype) const;
-
-    ProcedureType *rewrite(ProcedureType *ftype) const;
-    //@}
-
-    // Returns the AstResource used to construct rewritten nodes.
-    AstResource &getAstResource() const { return resource; }
-
-private:
-    AstResource &resource;
-
-    typedef std::map<Type*, Type*> RewriteMap;
-    RewriteMap rewrites;
 
     /// Returns a rewrite if it exists, otherwise null.
     Type *findRewrite(Type *source) const;

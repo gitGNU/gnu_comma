@@ -54,14 +54,15 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
     E = instance->endDecls();
     for (I = instance->beginDecls(); I != E; ++I) {
         /// FIXME: Support all declaration kinds.
-        SubroutineDecl *srDecl = cast<SubroutineDecl>(*I);
-        SubroutineDecl *key = getKeySRDecl(srDecl);
+        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
+            SubroutineDecl *key = getKeySRDecl(srDecl);
 
-        assert(!srInfoTable.count(key) &&
-               "Multiple declarations map to the same key!");
+            assert(!srInfoTable.count(key) &&
+                   "Multiple declarations map to the same key!");
 
-        llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
-        srInfoTable[key] = new SRInfo(key, fn);
+            llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
+            srInfoTable[key] = new SRInfo(key, fn);
+        }
     }
 
     // Similarly for every private declaration that is not visible thru the
