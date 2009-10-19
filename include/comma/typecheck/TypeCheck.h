@@ -386,11 +386,11 @@ private:
     /// declarative region, and register them with the current scope.  If by
     /// bringing any such types into scope results in a name conflict, post a
     /// diagnostic and skip the type.
-    void aquireSignatureTypeDeclarations(DeclRegion *region, Sigoid *sigdecl);
+    void acquireSignatureTypeDeclarations(DeclRegion *region, Sigoid *sigdecl);
 
     /// Brings the implicit declarations provided by all types supplied by the
     /// given signature into scope.
-    void aquireSignatureImplicitDeclarations(Sigoid *sigdecl);
+    void acquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);

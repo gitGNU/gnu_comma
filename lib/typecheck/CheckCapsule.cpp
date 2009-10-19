@@ -167,13 +167,13 @@ void TypeCheck::acceptSupersignature(Node typeNode)
     // can participate in upcomming type expressions) and add them to the
     // current model.
     Sigoid *sigoid = superSig->getSigoid();
-    aquireSignatureTypeDeclarations(declarativeRegion, sigoid);
+    acquireSignatureTypeDeclarations(declarativeRegion, sigoid);
 
     // Bring all implicit declarations defined by the super signature types into
     // scope.  This allows us to detect conflicting declarations as we process
     // the body.  All other subroutine declarations are processed after in
     // ensureNecessaryRedeclarations.
-    aquireSignatureImplicitDeclarations(sigoid);
+    acquireSignatureImplicitDeclarations(sigoid);
 }
 
 void TypeCheck::beginSignatureProfile()
@@ -327,8 +327,8 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
     }
 }
 
-void TypeCheck::aquireSignatureTypeDeclarations(DeclRegion *region,
-                                                Sigoid *sigdecl)
+void TypeCheck::acquireSignatureTypeDeclarations(DeclRegion *region,
+                                                 Sigoid *sigdecl)
 {
     PercentDecl *sigPercent = sigdecl->getPercent();
 
@@ -351,7 +351,7 @@ void TypeCheck::aquireSignatureTypeDeclarations(DeclRegion *region,
     }
 }
 
-void TypeCheck::aquireSignatureImplicitDeclarations(Sigoid *sigdecl)
+void TypeCheck::acquireSignatureImplicitDeclarations(Sigoid *sigdecl)
 {
     PercentDecl *sigPercent = sigdecl->getPercent();
 
