@@ -759,8 +759,22 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
             return;
     }
 
+    // If the bounds are integer literals, they have yet to have their type
+    // resolved.  Use root_integer in this case.
+    if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(lowExpr)) {
+        if (!lit->hasType())
+            lit->setType(resource.getTheRootIntegerType());
+    }
+    if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(highExpr)) {
+        if (!lit->hasType())
+            lit->setType(resource.getTheRootIntegerType());
+    }
+
     if (!ensureStaticIntegerExpr(lowExpr) || !ensureStaticIntegerExpr(highExpr))
         return;
+
+    // FIXME: Check that the bound expressions are within the targets
+    // representational limits.
 
     // Obtain an integer type to represent the base type of this declaration and
     // release the range expressions as they are now owned by this new
