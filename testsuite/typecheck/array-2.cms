@@ -1,0 +1,14 @@
+-- MUST-FAIL: Ensure unconstrained array types cannot be initialized using an
+-- expression with a different base type.
+
+domain D add
+
+   type Arr_1 is array (Integer range <>) of Character;
+   type Arr_2 is array (Integer range <>) of Character;
+
+   procedure P is
+      X : Arr_1 := "x";
+      Y : Arr_2 := X;
+   begin end P;
+
+end D;

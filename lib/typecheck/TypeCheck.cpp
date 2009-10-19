@@ -553,8 +553,14 @@ ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
         return resource.createArraySubType(0, arrTy->getTypeOf(), constraint);
     }
 
-    // The initializer is constrained.  Use the type of the initializer.
-    return exprTy;
+    // The initializer is constrained.  If the base types are identical simply
+    // use the type of the initializer.
+    if (exprTy->getTypeOf() == arrTy->getTypeOf())
+        return exprTy;
+    else {
+        report(init->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
 }
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,

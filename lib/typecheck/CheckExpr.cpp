@@ -311,8 +311,9 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     // FIXME: Typically all contexts which involve unconstrained array types
     // resolve the context.  Perhaps we should assert that the supplied type is
     // constrained.  For now, construct an appropriate type for the literal.
-    if (!arrTy->isConstrained())
-        arrTy = getConstrainedArraySubType(arrTy, strLit);
+    if (!arrTy->isConstrained() &&
+        !(arrTy = getConstrainedArraySubType(arrTy, strLit)))
+        return false;
 
     // The array is a string type.  Check that the string literal has at least
     // one interpretation of its components which matches the component type of
