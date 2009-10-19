@@ -90,6 +90,8 @@ private:
 
     IntegerLiteral *rewriteIntegerLiteral(IntegerLiteral *lit);
     FunctionCallExpr *rewriteFunctionCall(FunctionCallExpr *call);
+    AttribExpr *rewriteAttrib(AttribExpr *attrib);
+    ConversionExpr *rewriteConversion(ConversionExpr *conv);
 };
 
 } // end comma namespace.

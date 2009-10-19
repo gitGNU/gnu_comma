@@ -8,6 +8,7 @@
 
 #include "DeclRewriter.h"
 #include "comma/ast/AstResource.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 
@@ -219,9 +220,12 @@ IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)
 FunctionCallExpr *
 DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
 {
-    FunctionDecl *connective = rewriteFunctionDecl(call->getConnective());
+    FunctionDecl *connective = call->getConnective();
     unsigned numArgs = call->getNumArgs();
     Expr *args[numArgs];
+
+    if (Decl *rewrite = findRewrite(connective))
+        connective = cast<FunctionDecl>(rewrite);
 
     // When rewriting function calls we pay no respect to any keyed arguments in
     // the source expression.  Just generate a positional call.
@@ -234,6 +238,47 @@ DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
     return new FunctionCallExpr(ref, args, numArgs, 0, 0);
 }
 
+AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
+{
+    AttribExpr *result = 0;
+
+    if (ScalarBoundAE *bound = dyn_cast<ScalarBoundAE>(attrib)) {
+        IntegerSubType *prefix;
+        prefix = cast<IntegerSubType>(rewriteType(bound->getPrefix()));
+
+        if (bound->isFirst())
+            result = new FirstAE(prefix, 0);
+        else
+            result = new LastAE(prefix, 0);
+    }
+    else {
+        ArrayBoundAE *bound = cast<ArrayBoundAE>(attrib);
+        Expr *prefix = rewriteExpr(bound->getPrefix());
+
+        if (bound->hasImplicitDimension()) {
+            if (bound->isFirst())
+                result = new FirstArrayAE(prefix, 0);
+            else
+                result = new LastArrayAE(prefix, 0);
+        }
+        else {
+            Expr *dim = rewriteExpr(bound->getDimensionExpr());
+            if (bound->isFirst())
+                result = new FirstArrayAE(prefix, dim, 0);
+            else
+                result = new LastArrayAE(prefix, dim, 0);
+        }
+    }
+    return result;
+}
+
+ConversionExpr *DeclRewriter::rewriteConversion(ConversionExpr *conv)
+{
+    Expr *operand = rewriteExpr(conv->getOperand());
+    Type *targetTy = rewriteType(conv->getType());
+    return new ConversionExpr(operand, targetTy, 0);
+}
+
 Expr *DeclRewriter::rewriteExpr(Expr *expr)
 {
     Expr *result = 0;
@@ -241,7 +286,10 @@ Expr *DeclRewriter::rewriteExpr(Expr *expr)
     switch (expr->getKind()) {
 
     default:
-        assert(false && "Cannot rewrite this kind of expr yet!");
+        if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
+            result = rewriteAttrib(attrib);
+        else
+            assert(false && "Cannot rewrite this kind of expr yet!");
         break;
 
     case Ast::AST_FunctionCallExpr:
@@ -250,6 +298,10 @@ Expr *DeclRewriter::rewriteExpr(Expr *expr)
 
     case Ast::AST_IntegerLiteral:
         result = rewriteIntegerLiteral(cast<IntegerLiteral>(expr));
+        break;
+
+    case Ast::AST_ConversionExpr:
+        result = rewriteConversion(cast<ConversionExpr>(expr));
         break;
     };
 
