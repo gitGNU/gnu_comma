@@ -88,11 +88,6 @@ public:
     DomainType *rewrite(DomainType *dom) const;
 
     // Rewrites the given subroutine type according to the installed rules.
-    //
-    // FIXME: Currently, a freshly `newed' node is unconditionally created, even
-    // in the case where no rewrites were applicable.  This behaviour will
-    // change once the allocation requirements of function type nodes are nailed
-    // down.
     SubroutineType *rewrite(SubroutineType *srType) const;
 
     // Rewrites the given function type according to the installed rules.
