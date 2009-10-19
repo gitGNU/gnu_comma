@@ -371,6 +371,8 @@ void TypeCheck::acquireSignatureImplicitDeclarations(Sigoid *sigdecl)
             region = eDecl;
         else if (IntegerDecl *iDecl = dyn_cast<IntegerDecl>(tyDecl))
             region = iDecl;
+        else
+            continue;
 
         DeclRegion::DeclIter II = region->beginDecls();
         DeclRegion::DeclIter EE = region->endDecls();
