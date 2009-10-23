@@ -6,11 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DeclRewriter.h"
+
 #include "comma/ast/AstResource.h"
 #include "comma/ast/AstRewriter.h"
-#include "comma/ast/DeclRegion.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DeclRegion.h"
+#include "comma/ast/DeclRewriter.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/Type.h"
 

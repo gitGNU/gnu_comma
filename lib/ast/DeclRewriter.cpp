@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DeclRewriter.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DeclRewriter.h"
 #include "comma/ast/Expr.h"
 
 using namespace comma;
