@@ -232,6 +232,10 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
             // item in the source.
             conflict = conflict->resolveOrigin();
             candidate = candidate->resolveOrigin();
+
+            // FIXME: We need a better diagnostic here.  Instead of just noting
+            // which declarations conflict, we should also specify which
+            // signature inclusions produce the conflict.
             SourceLocation sloc = getSourceLoc(conflict->getLocation());
             report(candidate->getLocation(), diag::DECLARATION_CONFLICTS)
                 << candidate->getIdInfo() << sloc;
