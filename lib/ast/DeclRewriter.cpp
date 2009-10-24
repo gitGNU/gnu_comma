@@ -118,6 +118,7 @@ DeclRewriter::rewriteEnumerationDecl(EnumerationDecl *edecl)
     EnumerationDecl *result =
         resource.createEnumDecl(name, 0, &elems[0], elems.size(), context);
     result->generateImplicitDeclarations(resource);
+    result->setOrigin(edecl);
 
     // Inject rewrite rules mapping the old enumeration to the new.
     addDeclRewrite(edecl, result);
@@ -142,6 +143,7 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
 
     result = resource.createArrayDecl(name, 0, rank, indices,
                                       component, isConstrained, context);
+    result->setOrigin(adecl);
 
     /// FIXME:  Array types will eventually have primitive operations defined on
     /// them.  Generate and mirror the results.
@@ -161,6 +163,7 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
 
     result = resource.createIntegerDecl(name, 0, lower, upper, context);
     result->generateImplicitDeclarations(resource);
+    result->setOrigin(idecl);
 
     IntegerSubType *sourceTy = idecl->getType();
     IntegerSubType *targetTy = result->getType();
