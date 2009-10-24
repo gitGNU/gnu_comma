@@ -849,9 +849,6 @@ Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
 
     client.acceptFunctionReturnType(returnNode);
 
-    if (parsingSignatureProfile && currentTokenIs(Lexer::TKN_OVERRIDES))
-        parseOverrideTarget();
-
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
 
     // FIXME: We should model the parser state with more than a tag stack.
@@ -882,9 +879,6 @@ Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
         seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
     }
 
-    if (parsingSignatureProfile && currentTokenIs(Lexer::TKN_OVERRIDES))
-        parseOverrideTarget();
-
     bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
 
     // FIXME: We should model the parser state with more than a tag stack.
@@ -892,47 +886,6 @@ Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
         endTagStack.push(EndTagEntry(NAMED_TAG, location, name));
 
     return client.endSubroutineDeclaration(bodyFollows);
-}
-
-void Parser::parseOverrideTarget()
-{
-    assert(currentTokenIs(Lexer::TKN_OVERRIDES));
-    ignoreToken();
-
-    Node prefix = parseDirectName(false);
-
-    while (prefix.isValid()) {
-        if (currentTokenIs(Lexer::TKN_LPAREN))
-            prefix = parseApplication(prefix);
-        else {
-            prefix = client.finishName(prefix);
-
-            if (!requireToken(Lexer::TKN_DOT)) {
-                seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-                return;
-            }
-
-            if (!selectedComponentFollows())
-                break;
-
-            if (prefix.isValid())
-                prefix = parseSelectedComponent(prefix, false);
-        }
-    }
-
-    if (prefix.isInvalid()) {
-        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-        return;
-    }
-
-    Location loc = currentLocation();
-    IdentifierInfo *target = parseFunctionIdentifierInfo();
-    if (!target) {
-        seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
-        return;
-    }
-
-    client.acceptOverrideTarget(prefix, target, loc);
 }
 
 void Parser::parseSubroutineBody(Node declarationNode)

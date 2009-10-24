@@ -55,7 +55,6 @@ public:
     Node parseProcedureDeclaration(bool parsingSignatureProfile = false);
     void parseFunctionDeclOrDefinition();
     void parseProcedureDeclOrDefinition();
-    void parseOverrideTarget();
 
     /// This parser is called just after the 'is' token beginning a function or
     /// procedure definition.  The argument \p declarationNode is a valid Node
