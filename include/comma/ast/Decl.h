@@ -762,6 +762,10 @@ public:
         return 0;
     }
 
+    const bool hasForwardDeclaration() const {
+        return getForwardDeclaration() != 0;
+    }
+
     bool hasBody() const;
     void setBody(BlockStmt *block) { body = block; }
     BlockStmt *getBody();
