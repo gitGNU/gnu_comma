@@ -318,18 +318,6 @@ public:
                                            Node typeNode,
                                            PM::ParameterMode mode) = 0;
 
-    /// Called to notify the client that a subroutine was declared as an
-    /// overriding declaration.  The only time this callback is invoked by the
-    /// parser is when it is processing a signature profile.
-    ///
-    /// \param prefix A name representing the qualification of \p name.
-    ///
-    /// \param name An IdentifierInfo naming the target of the override.
-    ///
-    /// \param loc The location of \p name.
-    virtual void acceptOverrideTarget(Node prefix,
-                                      IdentifierInfo *name, Location loc) = 0;
-
     /// Called to terminate the context of a subroutine declaration.
     ///
     /// \param definitionFollows Set to true if the parser sees a \c is token

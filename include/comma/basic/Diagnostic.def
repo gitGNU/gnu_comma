@@ -171,11 +171,6 @@ DIAGNOSTIC(NOT_A_SUPERSIGNATURE, ERROR,
            "`%0' does not name a visible supersignature.")
 DIAGNOSTIC(NOT_A_COMPONENT_OF, ERROR,
            "`%0' is not a component of `%0'.")
-DIAGNOSTIC(INCOMPATABLE_OVERRIDE, ERROR,
-           "`%0' is not compatible with the override target `%0'.")
-DIAGNOSTIC(SUBROUTINE_OVERRIDE_REQUIRED, ERROR,
-           "Inherited subroutine `%0' requires override due to mode "
-           "conflicts.\n   (inherited from `%1' and `%2')")
 DIAGNOSTIC(WRONG_NUM_SUBSCRIPTS_FOR_ARRAY, ERROR,
            "Wrong number of subscripts for array index.")
 DIAGNOSTIC(INVALID_PREFIX_FOR_COMPONENT, ERROR,

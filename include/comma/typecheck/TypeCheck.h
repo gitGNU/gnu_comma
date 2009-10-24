@@ -76,10 +76,7 @@ public:
 
     void acceptFunctionReturnType(Node typeNode);
 
-    void acceptOverrideTarget(Node prefix, IdentifierInfo *target, Location loc);
-
     Node endSubroutineDeclaration(bool definitionFollows);
-
 
     void beginSubroutineDefinition(Node declarationNode);
 
@@ -357,21 +354,6 @@ private:
     ///    - they both have the same keywords.
     bool compatibleSubroutineDecls(SubroutineDecl *X, SubroutineDecl *Y);
 
-    /// Checks that subroutines \p X and \p Y have identical parameter mode
-    /// profiles, or that an overriding declaration exists in the given region.
-    ///
-    /// Returns true if the modes match or an override was found, otherwise
-    /// false is returned and diagnostics are posted.
-    bool ensureMatchingParameterModes(SubroutineDecl *X, SubroutineDecl *Y,
-                                      DeclRegion *region);
-
-    /// Checks that the subroutines \p X and \p Y have identical parameter mode
-    /// profiles.
-    ///
-    /// Returns true if the modes match, otherwise false is returned and
-    /// diagnostics are posted.
-    bool ensureMatchingParameterModes(SubroutineDecl *X, SubroutineDecl *Y);
-
     /// If the given functor represents the current capsule being checked,
     /// ensure that none of the argument types directly reference %.  Returns
     /// true if the given functor and argument combination is legal, otherwise
@@ -610,12 +592,6 @@ private:
     /// with a function declaration.  Otherwise false is returned an a
     /// diagnostic is posted.
     bool checkFunctionParameter(ParamValueDecl *param);
-
-    /// Using the data in srProfileInfo, validates the target of an overriding
-    /// declaration.  Returns true if the validation succeeded and updates the
-    /// supplied decl to point at its override.  Otherwise false is returned and
-    /// diagnostics are posted.
-    bool validateOverrideTarget(SubroutineDecl *overridingDecl);
 
     /// Helper for acceptEnumerationIdentifier and acceptEnumerationCharacter.
     /// Forms a generic enumeration literal AST node.  Returns true if the

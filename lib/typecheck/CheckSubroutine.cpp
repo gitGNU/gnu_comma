@@ -27,70 +27,6 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-bool TypeCheck::ensureMatchingParameterModes(SubroutineDecl *X,
-                                             SubroutineDecl *Y)
-{
-    unsigned arity = X->getArity();
-    assert(arity == Y->getArity() && "Arity mismatch!");
-
-    for (unsigned i = 0; i < arity; ++i) {
-        if (X->getParamMode(i) != Y->getParamMode(i)) {
-            ParamValueDecl *param = X->getParam(i);
-            report(param->getLocation(),
-                   diag::INCOMPATABLE_MODE_REDECLARATION)
-                << getSourceLoc(Y->resolveOrigin()->getLocation());
-            return false;
-        }
-    }
-    return true;
-}
-
-bool TypeCheck::ensureMatchingParameterModes(
-    SubroutineDecl *X, SubroutineDecl *Y, DeclRegion *region)
-{
-    unsigned arity = X->getArity();
-    assert(arity == Y->getArity() && "Arity mismatch!");
-
-    for (unsigned i = 0; i < arity; ++i) {
-        if (X->getParamMode(i) != Y->getParamMode(i)) {
-            // The parameter modes do not match.  Using the supplied declarative
-            // region, check if any overriding declarations are in effect.
-            if (region->findOverridingDeclaration(Y))
-                return false;
-
-            // None were found.
-            if (X->isImmediate()) {
-                // X is an immediate decl.  Use the location of the offending
-                // parameter as a context.
-                ParamValueDecl *param = X->getParam(i);
-                report(param->getLocation(),
-                       diag::INCOMPATABLE_MODE_REDECLARATION)
-                    << getSourceLoc(Y->getLocation());
-            }
-            else {
-                // Otherwise, resolve the declarative region to a PercentDecl or
-                // AbstractDomainDecl and use the corresponding model as
-                // context.  Form a cross reference diagnostic involving the
-                // origin of X.
-                Location contextLoc;
-                if (PercentDecl *context = dyn_cast<PercentDecl>(region))
-                    contextLoc = context->getDefinition()->getLocation();
-                else {
-                    AbstractDomainDecl *context =
-                        cast<AbstractDomainDecl>(region);
-                    contextLoc = context->getLocation();
-                }
-                report(contextLoc, diag::SUBROUTINE_OVERRIDE_REQUIRED)
-                    << X->getIdInfo()
-                    << getSourceLoc(X->getOrigin()->getLocation())
-                    << getSourceLoc(Y->getLocation());
-            }
-            return false;
-        }
-    }
-    return true;
-}
-
 void TypeCheck::beginFunctionDeclaration(IdentifierInfo *name, Location loc)
 {
     routineStencil->init(name, loc, SRDeclStencil::FUNCTION_Stencil);
@@ -166,21 +102,6 @@ void TypeCheck::acceptFunctionReturnType(Node typeNode)
     routineStencil->setReturnType(returnDecl);
 }
 
-void TypeCheck::acceptOverrideTarget(Node prefix,
-                                     IdentifierInfo *target, Location loc)
-{
-    // The override target must be a TypeRef. More detailed processing is
-    // defered until the subroutine declaration itself has been processed.
-    TypeRef *ref = lift_node<TypeRef>(prefix);
-
-    if (!ref) {
-        report(loc, diag::EXPECTING_SIGNATURE_QUALIFIER) << target;
-        return;
-    }
-    else
-        routineStencil->setOverrideInfo(ref, target, loc);
-}
-
 Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 {
     IdentifierInfo *name = routineStencil->getIdInfo();
@@ -223,11 +144,6 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
                                         params.data(), params.size(),
                                         region);
 
-    // If this declaration overrides, validate it using the data in
-    // the subroutine stencil.
-    if (!validateOverrideTarget(routineDecl))
-        return getInvalidNode();
-
     // Mark the routine as immediate since it is not inherited.
     routineDecl->setImmediate();
 
@@ -266,85 +182,6 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     Node routine = getNode(routineDecl);
     routine.release();
     return routine;
-}
-
-bool TypeCheck::validateOverrideTarget(SubroutineDecl *overridingDecl)
-{
-    // If there is no override info, we are done.
-    if (!routineStencil->hasOverrideInfo())
-        return true;
-
-    TypeRef *ref = routineStencil->getOverrideContext();
-    IdentifierInfo *targetName = routineStencil->getOverrideTarget();
-    Location targetLoc = routineStencil->getOverrideTargetLocation();
-    SigInstanceDecl *sig = ref->getSigInstanceDecl();
-
-    if (!sig) {
-        report(ref->getLocation(), diag::NOT_A_SUPERSIGNATURE)
-            << ref->getIdInfo();
-        return false;
-    }
-    PercentDecl *sigPercent = sig->getSigoid()->getPercent();
-
-    // Resolve the current context and ensure the given instance denotes a super
-    // signature.
-    DomainTypeDecl *context;
-    if (PercentDecl *percent = getCurrentPercent())
-        context = percent;
-    else {
-        // FIXME: Use a cleaner interface when available.
-        context = cast<AbstractDomainDecl>(declarativeRegion);
-    }
-
-    if (!context->getSignatureSet().contains(sig)) {
-        report(ref->getLocation(), diag::NOT_A_SUPERSIGNATURE)
-            << ref->getIdInfo();
-        return false;
-    }
-
-    // Collect all subroutine declarations of the appropriate kind with the
-    // given name.
-    typedef llvm::SmallVector<SubroutineDecl*, 8> TargetVector;
-    TargetVector targets;
-    if (routineStencil->denotesFunction())
-        sigPercent->collectFunctionDecls(targetName, targets);
-    else {
-        assert(routineStencil->denotesProcedure());
-        sigPercent->collectProcedureDecls(targetName, targets);
-    }
-
-    // If we did not resolve a single name, diagnose and return.
-    if (targets.empty()) {
-        report(targetLoc, diag::NOT_A_COMPONENT_OF)
-            << targetName << sig->getIdInfo();
-        return false;
-    }
-
-    // Create a set of rewrite rules compatable with the given signature
-    // instance.
-    AstRewriter rewrites(resource);
-    rewrites.installRewrites(sig);
-    rewrites.addTypeRewrite(sigPercent->getType(), context->getType());
-
-    // Iterate over the set of targets.  Compare the rewritten version of each
-    // target type with the type of the overriding decl.  If we find a match,
-    // the construct is valid.
-    SubroutineType *overridingType = overridingDecl->getType();
-    for (TargetVector::iterator I = targets.begin(); I != targets.end(); ++I) {
-        SubroutineDecl *targetDecl = *I;
-        SubroutineType *targetType = targetDecl->getType();
-        SubroutineType *rewriteType = rewrites.rewriteType(targetType);
-        if ((overridingType == rewriteType) &&
-            overridingDecl->paramModesMatch(targetDecl)) {
-            overridingDecl->setOverriddenDecl(targetDecl);
-            return true;
-        }
-    }
-
-    // Otherwise, no match was found.
-    report(targetLoc, diag::INCOMPATABLE_OVERRIDE)
-        << overridingDecl->getIdInfo() << targetName;
-    return false;
 }
 
 void TypeCheck::beginSubroutineDefinition(Node declarationNode)

@@ -15,11 +15,11 @@
 /// While the parser drives the type checker, contexts are established to begin
 /// the processing of complex constructs.  For example, function declarations
 /// are processed by notifying the type checker with a call to
-/// ParseClient::beginFunctionDeclaration(), followed by parameter, return type,
-/// and override target processing.  We do not want to maintain incomplete AST
-/// nodes to hold onto the intermediate data between callbacks.  Thus,
-/// ASTStencil's are used to hold onto the necessary bits until the type checker
-/// can complete its analysis and form a proper AST node.
+/// ParseClient::beginFunctionDeclaration(), followed by parameter and return
+/// type processing.  We do not want to maintain incomplete AST nodes to hold
+/// onto the intermediate data between callbacks.  Thus, ASTStencil's are used
+/// to hold onto the necessary bits until the type checker can complete its
+/// analysis and form a proper AST node.
 //===----------------------------------------------------------------------===//
 
 #ifndef COMMA_TYPECHECK_STENCIL_HDR_GUARD
@@ -172,9 +172,6 @@ public:
     void reset() {
         ASTStencil::reset();
         returnTy = 0;
-        overrideCtx = 0;
-        overrideTarget = 0;
-        overrideLoc = 0;
         subBits = UNKNOWN_Stencil;
         params.clear();
     };
@@ -223,39 +220,9 @@ public:
     /// has been associated.
     TypeDecl *getReturnType() { return returnTy; }
 
-    /// Sets the override info for this stencil.
-    ///
-    /// \param context A TypeRef serving as a qualifier for the override target.
-    ///
-    /// \param target The name of the override target.
-    ///
-    /// \param loc The location of \p target.
-    void setOverrideInfo(TypeRef *context,
-                         IdentifierInfo *target, Location loc) {
-        overrideCtx = context;
-        overrideTarget = target;
-        overrideLoc = loc;
-    }
-
-    /// Returns true if override information has been provided.
-    bool hasOverrideInfo() const { return overrideCtx || overrideTarget; }
-
-    /// Returns the context of the override for this declaration, or null.
-    TypeRef *getOverrideContext() { return overrideCtx; }
-
-    /// Returns the target name of the override, or null.
-    IdentifierInfo *getOverrideTarget() { return overrideTarget; }
-
-    /// Returns the location of the target name.
-    Location getOverrideTargetLocation() { return overrideLoc; }
-
 private:
-
-    ParamVec params;                ///< Parameter declarations.
-    TypeDecl *returnTy;             ///< The return type or null.
-    TypeRef *overrideCtx;           ///< Override qualifier or null.
-    IdentifierInfo *overrideTarget; ///< Override name or null.
-    Location overrideLoc;           ///< The location of overrideTarget.
+    ParamVec params;            ///< Parameter declarations.
+    TypeDecl *returnTy;         ///< The return type or null.
 };
 
 //===----------------------------------------------------------------------===//

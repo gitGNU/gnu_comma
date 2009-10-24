@@ -163,12 +163,6 @@ public:
     // removed, false otherwise.
     bool removeDecl(Decl *decl);
 
-    // Returns an overriding subroutine declaration that yields a target
-    // matching exacty the given decl.  If no overriding decl is found, null is
-    // returned.
-    const SubroutineDecl *
-    findOverridingDeclaration(const SubroutineDecl *srDecl) const;
-
     // Looks up all function declaration nodes in this region with the given
     // name, pushing the results onto the supplied vector.  Returns true if any
     // declarations were found and false otherwise.

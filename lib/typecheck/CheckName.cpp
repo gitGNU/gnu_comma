@@ -171,10 +171,7 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
     // qualification.  The prefix must therfore be a TypeRef.
     TypeRef *ref = lift_node<TypeRef>(prefix);
 
-    // Currently there is only one valid context in which a signature component
-    // is valid -- override specifiers.  We have a special callback
-    // (acceptOverrideTarget) to handle them, and so a SigInstanceDecl as a
-    // prefix is always invalid here.
+    // Currently, a signature can never be used as the prefix to a component.
     if (!ref || ref->referencesSigInstance()) {
         report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
         return getInvalidNode();

@@ -813,16 +813,6 @@ public:
     /// Returns the PrimitiveID of this subroutine.
     PO::PrimitiveID getPrimitiveID() const { return opID; }
 
-    /// Returns true if this subroutine is an overriding declaration.
-    bool isOverriding() const { return overriddenDecl != 0; }
-
-    /// Returns the declaration this one overrides, or null if this is not an
-    /// overriding declaration.
-    const SubroutineDecl *getOverriddenDecl() const { return overriddenDecl; }
-
-    /// Sets this declaration as overriding the given subroutine.
-    void setOverriddenDecl(SubroutineDecl *decl);
-
     /// Associates the given pragma with this declaration.  The declaration node
     /// takes ownership of the supplied pragma.
     void attachPragma(Pragma *P) { pragmas.push_front(P); }
@@ -869,7 +859,6 @@ protected:
     ParamValueDecl **parameters;
     BlockStmt *body;
     SubroutineDecl *origin;
-    SubroutineDecl *overriddenDecl;
     llvm::PointerIntPair<SubroutineDecl*, 1> declarationLink;
     llvm::iplist<Pragma> pragmas;
 };
@@ -925,12 +914,6 @@ public:
         const SubroutineDecl *forward;
         forward = SubroutineDecl::getForwardDeclaration();
         return llvm::cast_or_null<ProcedureDecl>(forward);
-    }
-
-    /// Returns the declaration this one overrides, or null if this is not an
-    /// overriding declaration.
-    const ProcedureDecl *getOverriddenDecl() const {
-        return llvm::dyn_cast_or_null<ProcedureDecl>(overriddenDecl);
     }
 
     // Support for isa and dyn_cast.
@@ -991,12 +974,6 @@ public:
         const SubroutineDecl *forward;
         forward = SubroutineDecl::getForwardDeclaration();
         return llvm::cast_or_null<FunctionDecl>(forward);
-    }
-
-    /// Returns the declaration this one overrides, or null if this is not an
-    /// overriding declaration.
-    const FunctionDecl *getOverriddenDecl() const {
-        return llvm::dyn_cast_or_null<FunctionDecl>(overriddenDecl);
     }
 
     Type *getReturnType() const { return getType()->getReturnType(); }

@@ -95,18 +95,6 @@ bool DeclRegion::removeDecl(Decl *decl)
     return false;
 }
 
-const SubroutineDecl *
-DeclRegion::findOverridingDeclaration(const SubroutineDecl *srDecl) const
-{
-    for (ConstDeclIter I = beginDecls(); I != endDecls(); ++I) {
-        if (const SubroutineDecl *decl = dyn_cast<SubroutineDecl>(*I)) {
-            if (decl->isOverriding() && (decl->getOverriddenDecl() == srDecl))
-                return decl;
-        }
-    }
-    return 0;
-}
-
 bool DeclRegion::collectFunctionDecls(
     IdentifierInfo *name, llvm::SmallVectorImpl<SubroutineDecl*> &dst)
 {

@@ -214,13 +214,6 @@ private:
                                               AbstractDomainDecl *abstract,
                                               SubroutineDecl *target);
 
-    /// Helper method for resolveAbstractSubroutine.
-    ///
-    /// Given an instance serving as a formal parameter to a functor, find an
-    /// overriding declaration which matches \p target.
-    SubroutineDecl *resolveAbstractOverride(DomainInstanceDecl *instance,
-                                            SubroutineDecl *target);
-
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
