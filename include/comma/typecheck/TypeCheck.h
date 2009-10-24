@@ -343,8 +343,6 @@ private:
     /// necessary to begin processing both signature and domain declarations.
     void initializeForModelDeclaration();
 
-    void ensureNecessaryRedeclarations(DomainTypeDecl *model);
-
     /// Returns true if the subroutines \p X and \p Y are compatable.
     ///
     /// This is a stronger test than just type equality.  Two subroutine
@@ -381,16 +379,6 @@ private:
     bool ensureNonRecursiveInstance(FunctorDecl *decl,
                                     DomainTypeDecl **args, unsigned numArgs,
                                     Location loc);
-
-    /// Bring all type declarations provided by the signature into the given
-    /// declarative region, and register them with the current scope.  If by
-    /// bringing any such types into scope results in a name conflict, post a
-    /// diagnostic and skip the type.
-    void acquireSignatureTypeDeclarations(DeclRegion *region, Sigoid *sigdecl);
-
-    /// Brings the implicit declarations provided by all types supplied by the
-    /// given signature into scope.
-    void acquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
     /// Brings the implicit declarations provided by \p decl into scope.
     void acquireImplicitDeclarations(Decl *decl);
