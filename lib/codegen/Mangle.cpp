@@ -119,10 +119,18 @@ unsigned getRegionIndex(const DeclRegion *region, IdentifierInfo *idInfo,
     for ( ; I != E; ++I) {
         const Decl *candidate = *I;
         if (idInfo == candidate->getIdInfo()) {
+            // If the target matches the current declaration, terminate the
+            // index count.
             if (target == candidate)
                 return true;
-            else
-                index++;
+
+            // Do not increment the index if a foward declaration exists (we
+            // would be counting the same declaration twice).
+            if (const SubroutineDecl *SR = dyn_cast<SubroutineDecl>(candidate))
+                if (SR->hasForwardDeclaration())
+                    continue;
+
+            index++;
         }
     }
     return false;
