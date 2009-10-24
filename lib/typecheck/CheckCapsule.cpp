@@ -14,8 +14,8 @@
 
 #include "Scope.h"
 #include "comma/typecheck/TypeCheck.h"
-#include "comma/ast/AstRewriter.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DeclRewriter.h"
 #include "comma/ast/TypeRef.h"
 
 #include "llvm/ADT/DenseMap.h"
@@ -163,17 +163,9 @@ void TypeCheck::acceptSupersignature(Node typeNode)
         decl->addSuperSignature(superSig);
     }
 
-    // Bring all types defined by this super signature into scope (so that they
-    // can participate in upcomming type expressions) and add them to the
-    // current model.
-    Sigoid *sigoid = superSig->getSigoid();
-    acquireSignatureTypeDeclarations(declarativeRegion, sigoid);
-
-    // Bring all implicit declarations defined by the super signature types into
-    // scope.  This allows us to detect conflicting declarations as we process
-    // the body.  All other subroutine declarations are processed after in
-    // ensureNecessaryRedeclarations.
-    acquireSignatureImplicitDeclarations(sigoid);
+    // Bring all of the declarations defined by this super signature into scope
+    // and add them to the current declarative region.
+    acquireSignatureDeclarations(superSig);
 }
 
 void TypeCheck::beginSignatureProfile()
@@ -193,8 +185,6 @@ void TypeCheck::endSignatureProfile()
         domain = model->getPercent();
     else
         domain = cast<AbstractDomainDecl>(declarativeRegion);
-
-    ensureNecessaryRedeclarations(domain);
 }
 
 void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
@@ -262,7 +252,7 @@ void TypeCheck::ensureNecessaryRedeclarations(DomainTypeDecl *domain)
             // If the conflict is with respect to a TypeDecl, it must be a type
             // declared locally within the current model (since the set of types
             // provided by the super signatures have already been verified
-            // consistent in aquireSignatureTypeDeclarations).  This is an
+            // consistent in acquireSignatureTypeDeclarations).  This is an
             // error.
             //
             // FIXME: assert that this is local to the current model.
@@ -381,6 +371,65 @@ void TypeCheck::acquireSignatureImplicitDeclarations(Sigoid *sigdecl)
     }
 }
 
+void TypeCheck::acquireImplicitDeclarations(Decl *decl)
+{
+    typedef DeclRegion::DeclIter iterator;
+    DeclRegion *region = 0;
+
+    // Resolve the decl by cases.  We do not use Decl::asDeclRegion() here since
+    // since only primitive types implicitly export operations.
+    if (EnumerationDecl *eDecl = dyn_cast<EnumerationDecl>(decl))
+        region = eDecl;
+    else if (IntegerDecl *iDecl = dyn_cast<IntegerDecl>(decl))
+        region = iDecl;
+    else
+        return;
+
+    iterator E = region->endDecls();
+    for (iterator I = region->beginDecls(); I != E; ++I)
+        scope->addDirectDeclNoConflicts(*I);
+}
+
+void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
+{
+    typedef DeclRegion::DeclIter iterator;
+    PercentDecl *sigPercent = sig->getSigoid()->getPercent();
+    DeclRewriter rewrites(resource, declarativeRegion);
+
+    // Map the formal arguments of the signature to the actual arguments of the
+    // instance, and map the percent type of the instance to the percent type of
+    // the current model.
+    rewrites.installRewrites(sig);
+    rewrites.addTypeRewrite(sigPercent->getType(), getCurrentPercentType());
+
+    iterator E = sigPercent->endDecls();
+    for (iterator I = sigPercent->beginDecls(); I != E; ++I) {
+        // Apply the rewrite rules, constructing a new declaration node in the
+        // process.
+        Decl *candidate = rewrites.rewriteDecl(*I);
+
+        // Ensure there are no conflicts.
+        if (Decl *conflict = scope->addDirectDecl(candidate)) {
+            // If the conflict is not immediate, resolve the original
+            // declaration.  Non-immediate declarations are implicitly generated
+            // and we want our diagnostics to point at the relevant item in the
+            // source.
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(conflict))
+                conflict = srDecl->resolveOrigin();
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(candidate))
+                candidate = srDecl->resolveOrigin();
+            SourceLocation sloc = getSourceLoc(conflict->getLocation());
+            report(candidate->getLocation(), diag::DECLARATION_CONFLICTS)
+                << candidate->getIdInfo() << sloc;
+        }
+        else {
+            // Bring any implicit declarations into scope, and add the candidate
+            // to the current region.
+            acquireImplicitDeclarations(candidate);
+            declarativeRegion->addDecl(candidate);
+        }
+    }
+}
 
 void TypeCheck::beginAddExpression()
 {

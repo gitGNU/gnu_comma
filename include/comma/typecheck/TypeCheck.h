@@ -392,6 +392,16 @@ private:
     /// given signature into scope.
     void acquireSignatureImplicitDeclarations(Sigoid *sigdecl);
 
+    /// Brings the implicit declarations provided by \p decl into scope.
+    void acquireImplicitDeclarations(Decl *decl);
+
+    /// Using the current model as context, rewrites the set of declarations
+    /// provided by the given signature.  For each declaration which does not
+    /// conflict with any other immediate declaration in scope, the declaration
+    /// is added both to the scope and to the current DeclRegion.  This method
+    /// is used to implement acceptSupersignature.
+    void acquireSignatureDeclarations(SigInstanceDecl *sig);
+
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
