@@ -48,6 +48,16 @@ DeclRegion *Decl::asDeclRegion()
     }
 }
 
+Decl *Decl::resolveOrigin()
+{
+    Decl *res = this;
+
+    while (res->hasOrigin())
+        res = res->getOrigin();
+
+    return res;
+}
+
 //===----------------------------------------------------------------------===//
 // ModelDecl
 
@@ -358,12 +368,10 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
                                DeclRegion *parent)
     : Decl(kind, name, loc, parent),
       DeclRegion(kind, parent),
-      immediate(false),
       opID(PO::NotPrimitive),
       numParameters(numParams),
       parameters(0),
       body(0),
-      origin(0),
       declarationLink(0, 0)
 {
     assert(this->denotesSubroutineDecl());
@@ -384,12 +392,10 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
                                DeclRegion *parent)
     : Decl(kind, name, loc, parent),
       DeclRegion(kind, parent),
-      immediate(false),
       opID(PO::NotPrimitive),
       numParameters(type->getArity()),
       parameters(0),
       body(0),
-      origin(0),
       declarationLink(0, 0)
 {
     assert(this->denotesSubroutineDecl());
@@ -484,16 +490,6 @@ BlockStmt *SubroutineDecl::getBody()
         return definition->body;
 
     return 0;
-}
-
-SubroutineDecl *SubroutineDecl::resolveOrigin()
-{
-    SubroutineDecl *res = this;
-
-    while (res->hasOrigin())
-        res = res->getOrigin();
-
-    return res;
 }
 
 const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const

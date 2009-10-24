@@ -144,9 +144,6 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
                                         params.data(), params.size(),
                                         region);
 
-    // Mark the routine as immediate since it is not inherited.
-    routineDecl->setImmediate();
-
     // Ensure this new declaration does not conflict with any other currently in
     // scope.
     if (Decl *conflict = scope->addDirectDecl(routineDecl)) {

@@ -226,14 +226,12 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
 
         // Ensure there are no conflicts.
         if (Decl *conflict = scope->addDirectDecl(candidate)) {
-            // If the conflict is not immediate, resolve the original
-            // declaration.  Non-immediate declarations are implicitly generated
-            // and we want our diagnostics to point at the relevant item in the
-            // source.
-            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(conflict))
-                conflict = srDecl->resolveOrigin();
-            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(candidate))
-                candidate = srDecl->resolveOrigin();
+            // If either the conflict or candidate is not immediate, resolve the
+            // original declaration.  Non-immediate declarations are implicitly
+            // generated and we want our diagnostics to point at the relevant
+            // item in the source.
+            conflict = conflict->resolveOrigin();
+            candidate = candidate->resolveOrigin();
             SourceLocation sloc = getSourceLoc(conflict->getLocation());
             report(candidate->getLocation(), diag::DECLARATION_CONFLICTS)
                 << candidate->getIdInfo() << sloc;
