@@ -18,11 +18,8 @@
 
 #include "comma/ast/AstBase.h"
 
-namespace llvm {
-
-class APInt;
-
-} // end llvm namespace;
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/PointerIntPair.h"
 
 namespace comma {
 
@@ -33,7 +30,14 @@ public:
     /// Constructs a Range given expressions for the lower and upper bounds.
     /// The types of both bounds must be identical, for they determine the type
     /// of the Range itself.
-    static Range *create(Expr *lower, Expr *upper);
+    Range(Expr *lower, Expr *upper);
+
+    /// Constructs a Range given expressions for the lower and upper bounds.
+    /// The types of both bounds must be identical, for they determine the type
+    /// of the Range itself.
+    static Range *create(Expr *lower, Expr *upper) {
+        return new Range(lower, upper);
+    }
 
     //@{
     /// Returns the type of this range.  This is always a base scalar type.
@@ -43,37 +47,21 @@ public:
 
     //@{
     /// Returns the expression defining the lower bound.
-    Expr *getLowerBound() {
-        intptr_t bits = getIntPtr(lowerBound) & ~uintptr_t(1);
-        return reinterpret_cast<Expr*>(bits);
-    }
-    const Expr *getLowerBound() const {
-        intptr_t bits = getIntPtr(lowerBound) & ~uintptr_t(1);
-        return reinterpret_cast<Expr*>(bits);
-    }
+    Expr *getLowerBound() { return lowerBound.getPointer(); }
+    const Expr *getLowerBound() const { return lowerBound.getPointer(); }
     //@}
 
     //@{
     /// Returns the expression defining the upper bound.
-    Expr *getUpperBound() {
-        intptr_t bits = getIntPtr(upperBound) & ~uintptr_t(1);
-        return reinterpret_cast<Expr*>(bits);
-    }
-    const Expr *getUpperBound() const {
-        intptr_t bits = getIntPtr(upperBound) & ~uintptr_t(1);
-        return reinterpret_cast<Expr*>(bits);
-    }
+    Expr *getUpperBound() { return upperBound.getPointer(); }
+    const Expr *getUpperBound() const { return upperBound.getPointer(); }
     //@}
 
     /// Returns true if the lower bound is static.
-    bool hasStaticLowerBound() const {
-        return getIntPtr(lowerBound) & 1;
-    }
+    bool hasStaticLowerBound() const { return lowerBound.getInt(); }
 
     /// Returns true if the upper bound is static.
-    bool hasStaticUpperBound() const {
-        return getIntPtr(upperBound) & 1;
-    }
+    bool hasStaticUpperBound() const { return upperBound.getInt(); }
 
     /// Returns true if this Range is static.
     ///
@@ -84,10 +72,16 @@ public:
     }
 
     /// If this Range has a static lower bound, retrieve the value as an APInt.
-    const llvm::APInt &getStaticLowerBound() const;
+    const llvm::APInt &getStaticLowerBound() const {
+        assert(hasStaticLowerBound() && "Lower bound not static!");
+        return lowerValue;
+    }
 
     /// If this Range has a static upper bound, retrieve the value as an APInt.
-    const llvm::APInt &getStaticUpperBound() const;
+    const llvm::APInt &getStaticUpperBound() const {
+        assert(hasStaticUpperBound() && "Upper bound not static!");
+        return upperValue;
+    }
 
     /// Returns true if this is known to be a null range and false otherwise.
     /// Non-static ranges are never known to be null.
@@ -105,39 +99,21 @@ public:
     }
 
 private:
-    Range(Expr *lower, Expr *upper)
-        : Ast(AST_Range),
-          lowerBound(lower),
-          upperBound(upper) { }
-
     Range(const Range &);       // Do not implement.
-
-    /// Converts an Expr to an intptr_t.
-    static intptr_t getIntPtr(Expr *ptr) {
-        return reinterpret_cast<intptr_t>(ptr);
-    }
-
-    /// Converts an intptr_t to an Expr.
-    static Expr *getPtrInt(intptr_t bits) {
-        return reinterpret_cast<Expr*>(bits);
-    }
 
     /// Munges the low order bit of \c lowerBound to encode the fact that a
     /// static interpretaion of the value has been computed.
-    void markLowerAsStatic() {
-        intptr_t bits = getIntPtr(lowerBound) | intptr_t(1);
-        lowerBound = getPtrInt(bits);
-    }
+    void markLowerAsStatic() { lowerBound.setInt(1); }
 
     /// Munges the low order bit of \c upperBound to encode the fact that a
     /// static interpretaion of the value has been computed.
-    void markUpperAsStatic() {
-        intptr_t bits = getIntPtr(upperBound) | intptr_t(1);
-        upperBound = getPtrInt(bits);
-    }
+    void markUpperAsStatic() { upperBound.setInt(1); }
 
-    Expr *lowerBound;           ///< lower bound expression.
-    Expr *upperBound;           ///< Upper bound expression.
+    typedef llvm::PointerIntPair<Expr *, 1> PtrInt;
+    PtrInt lowerBound;          ///< lower bound expression.
+    PtrInt upperBound;          ///< Upper bound expression.
+    llvm::APInt lowerValue;     ///< static lower value.
+    llvm::APInt upperValue;     ///< static upper value.
 };
 
 } // end comma namespace.

@@ -17,7 +17,10 @@ using llvm::cast;
 using llvm::isa;
 
 
-Range *Range::create(Expr *lower, Expr *upper)
+Range::Range(Expr *lower, Expr *upper)
+    : Ast(AST_Range),
+      lowerBound(lower, 0),
+      upperBound(upper, 0)
 {
     Type *lowerTy = lower->getType();
     Type *upperTy = upper->getType();
@@ -29,52 +32,27 @@ Range *Range::create(Expr *lower, Expr *upper)
     if (SubType *subTy = dyn_cast<SubType>(upperTy))
         upperTy = subTy->getTypeOf();
 
-    // Both expressions must be of the same common type.
-    assert(lowerTy == upperTy && "Type mismatch in array bounds!");
+    // Both expressions must be of the same common discrete type.
+    assert(lowerTy == upperTy && "Type mismatch in range bounds!");
+    assert(lowerTy->isDiscreteType() && "Non discrete type of range!");
 
     // Currently, the type must be an IntegerType.
     IntegerType *rangeTy = cast<IntegerType>(lowerTy);
-
-    llvm::APInt lowerVal;
-    llvm::APInt upperVal;
-
-    bool staticLower = lower->staticIntegerValue(lowerVal);
-    bool staticUpper = upper->staticIntegerValue(upperVal);
     unsigned width = rangeTy->getBitWidth();
 
-    // We need to make the width of the bounds the same as the width of the base
-    // type.  Ensure that we are not loosing any significant bits.
-    assert(lowerVal.getMinSignedBits() <= width && "Bounds too wide!");
-    assert(upperVal.getMinSignedBits() <= width && "Bounds too wide!");
-
-    lowerVal.sextOrTrunc(width);
-    upperVal.sextOrTrunc(width);
-
-    // Compute the size of the actual object.
-    size_t size = sizeof(Range);
-    if (staticLower)
-        size += sizeof(llvm::APInt);
-    if (staticUpper)
-        size += sizeof(llvm::APInt);
-
-    // Allocate a region to hold the final representaion.
-    char *buff = new char[size];
-
-    // Initialize the range.
-    Range *range = new (buff) Range(lower, upper);
-
-    // Initialize each bound, if needed.
-    buff += sizeof(Range);
-    if (staticLower) {
-        new (buff) llvm::APInt(lowerVal);
-        range->markLowerAsStatic();
-        buff += sizeof(llvm::APInt);
+    // Try to evaluate the upper and lower bounds as static integer valued
+    // expressions.  Mark each bound as appropriate and convert the CTC to a
+    // width that matches this ranges type.
+    if (lower->staticIntegerValue(lowerValue)) {
+        markLowerAsStatic();
+        assert(lowerValue.getMinSignedBits() <= width && "Bounds too wide!");
+        lowerValue.sextOrTrunc(width);
     }
-    if (staticUpper) {
-        new (buff) llvm::APInt(upperVal);
-        range->markUpperAsStatic();
+    if (upper->staticIntegerValue(upperValue)) {
+        markUpperAsStatic();
+        assert(upperValue.getMinSignedBits() <= width && "Bounds too wide!");
+        upperValue.sextOrTrunc(width);
     }
-    return range;
 }
 
 IntegerType *Range::getType()
@@ -97,24 +75,6 @@ const IntegerType *Range::getType() const
 
     // Currently, all range types are integer types.
     return cast<IntegerType>(Ty);
-}
-
-const llvm::APInt &Range::getStaticLowerBound() const
-{
-    assert(hasStaticLowerBound());
-    const llvm::APInt *value = reinterpret_cast<const llvm::APInt*>(this + 1);
-    return *value;
-}
-
-const llvm::APInt &Range::getStaticUpperBound() const
-{
-    assert(hasStaticUpperBound());
-
-    const llvm::APInt *value = reinterpret_cast<const llvm::APInt*>(this + 1);
-
-    if (hasStaticLowerBound())
-        value++;
-    return *value;
 }
 
 bool Range::isNull() const
