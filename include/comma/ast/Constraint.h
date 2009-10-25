@@ -15,6 +15,8 @@
 #ifndef COMMA_AST_CONSTRAINT_HDR_GUARD
 #define COMMA_AST_CONSTRAINT_HDR_GUARD
 
+#include "comma/ast/Range.h"
+
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -52,37 +54,18 @@ private:
 //===----------------------------------------------------------------------===//
 // RangeConstraint.
 
-class RangeConstraint : public Constraint {
+class RangeConstraint : public Constraint, public Range {
 
 public:
-    RangeConstraint(const llvm::APInt low, const llvm::APInt high)
+    RangeConstraint(Expr *lower, Expr *upper)
         : Constraint(Range_Constraint),
-          low(low), high(high) { }
-
-    const llvm::APInt &getLowerBound() const { return low; }
-    const llvm::APInt &getUpperBound() const { return high; }
-
-    /// Returns true if this is a null range.
-    bool isNull() const { return low.sgt(high); }
-
-    /// Returns true if this range contains the given value.
-    ///
-    /// The given value must be of the same width as this range.
-    bool contains(const llvm::APInt &value) const {
-        if (isNull())
-            return false;
-        return low.sle(value) && value.sle(high);
-    }
+          Range(lower, upper) { }
 
     // Support isa and dyn_cast.
     static bool classof(const RangeConstraint *constraint) { return true; }
     static bool classof(const Constraint *constraint) {
         return constraint->getKind() == Range_Constraint;
     }
-
-private:
-    llvm::APInt low;
-    llvm::APInt high;
 };
 
 //===----------------------------------------------------------------------===//
