@@ -78,6 +78,7 @@ class Pragma;
 class PragmaAssert;
 class PragmaImport;
 class PragmaStmt;
+class PrimaryType;
 class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
@@ -172,12 +173,12 @@ public:
         //
         // Type nodes.
         //
+        AST_DomainType,         ///< DomainType
         AST_FunctionType,       ///< FunctionType
+        AST_ProcedureType,      ///< ProcedureType
         AST_IntegerType,        ///< IntegerType
         AST_ArrayType,          ///< ArrayType
-        AST_ProcedureType,      ///< ProcedureType
         AST_EnumerationType,    ///< EnumerationType
-        AST_DomainType,         ///< DomainType
 
         //
         // SubType nodes.
@@ -246,8 +247,11 @@ public:
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl = AST_ObjectDecl,
 
-        FIRST_Type = AST_FunctionType,
+        FIRST_Type = AST_DomainType,
         LAST_Type = AST_IntegerSubType,
+
+        FIRST_PrimaryType = AST_IntegerType,
+        LAST_PrimaryType = AST_EnumerationType,
 
         FIRST_SubType = AST_CarrierType,
         LAST_SubType = AST_IntegerSubType,
@@ -329,6 +333,11 @@ public:
     /// Returns true if this node denotes a Type.
     bool denotesType() const {
         return (FIRST_Type <= kind && kind <= LAST_Type);
+    }
+
+    /// Returns true if this node denotes a PrimaryType.
+    bool denotesPrimaryType() const {
+        return (FIRST_PrimaryType <= kind && kind <= LAST_PrimaryType);
     }
 
     /// Returns true if this node denotes a named subtype.

@@ -44,13 +44,13 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumLiteral",
     "ImportDecl",
 
+    "DomainType",
     "FunctionType",
+    "ProcedureType",
     "IntegerType",
     "ArrayType",
-    "ProcedureType",
     "EnumerationType",
 
-    "DomainType",
     "CarrierType",
     "ArraySubType",
     "EnumSubType",

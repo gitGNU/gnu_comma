@@ -263,6 +263,91 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// PrimaryType
+//
+/// The PrimaryType class forms the principle root of the type hierarchy.  Most
+/// type nodes inherit from PrimitiveType, with the notable exception of
+/// SubroutineType.
+class PrimaryType : public Type {
+
+public:
+    /// Returns true if this node denotes a subtype.
+    bool isSubtype() const { return rootOrParentType.getInt(); }
+
+    /// Returns true if this node denotes a root type.
+    bool isRootType() const { return !isSubtype(); }
+
+    //@{
+    /// Returns the root type of this type.  If this is a root type, returns a
+    /// pointer to this, otherwise the type of this subtype is returned.
+    const PrimaryType *getRootType() const {
+        return isRootType() ? this : rootOrParentType.getPointer();
+    }
+    PrimaryType *getRootType() {
+        return isRootType() ? this : rootOrParentType.getPointer();
+    }
+    //@}
+
+    /// Returns true if this is a derived type.
+    bool isDerivedType() const {
+        const PrimaryType *root = getRootType();
+        return root->rootOrParentType.getPointer() != 0;
+    }
+
+    //@{
+    /// \brief Returns the parent type of this type, or null if isDerivedType()
+    /// returns false.
+    PrimaryType *getParentType() {
+        PrimaryType *root = getRootType();
+        return root->rootOrParentType.getPointer();
+    }
+    const PrimaryType *getParentType() const {
+        const PrimaryType *root = getRootType();
+        return root->rootOrParentType.getPointer();
+    }
+    //@}
+
+    /// Returns true if this type is a subtype of the given type.
+    ///
+    /// All types are considered to be subtypes of themselves.
+    bool isSubtypeOf(const PrimaryType *type) const {
+        return (type == this || getRootType() == type->getRootType());
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const PrimaryType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesPrimaryType();
+    }
+
+protected:
+    /// Protected constructor for primary types.
+    ///
+    /// \param kind The concrete kind tag for this node.
+    ///
+    /// \param rootOrParent If this is to represent a root type, then this
+    /// argument is a pointer to the parent type or null.  If this is to
+    /// represent a subtype, then rootOrParent should point to the type of this
+    /// subtype.
+    ///
+    /// \param subtype When true, the type under construction is a subtype.
+    /// When false, the type is a root type.
+    PrimaryType(AstKind kind, PrimaryType *rootOrParent, bool subtype)
+        : Type(kind), rootOrParentType(rootOrParent, subtype) {
+        assert(this->denotesPrimaryType());
+    }
+
+private:
+    /// The following field encapsulates a bit which marks this node as either a
+    /// subtype or root type, and a pointer to the parent type or root type.
+    ///
+    /// When this type denotes a subtype, the following field contains a link to
+    /// the root type (the type of the subtype).  Otherwise, this is a root type
+    /// and rootOrParentType points to the parent type or null.
+    llvm::PointerIntPair<PrimaryType*, 1> rootOrParentType;
+};
+
+//===----------------------------------------------------------------------===//
 // EnumerationType
 class EnumerationType : public Type {
 
