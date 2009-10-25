@@ -51,8 +51,7 @@ public:
     void beginGenericFormals();
     void endGenericFormals();
 
-    void beginFormalDomainDecl(IdentifierInfo *name, Location loc);
-    void endFormalDomainDecl();
+    void acceptFormalDomain(IdentifierInfo *name, Location loc, Node sig);
 
     void beginDomainDecl(IdentifierInfo *name, Location loc);
     void beginSignatureDecl(IdentifierInfo *name, Location loc);

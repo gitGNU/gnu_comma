@@ -220,19 +220,17 @@ public:
     virtual void endGenericFormals() = 0;
     //@}
 
-    /// \name Formal Domain Declarations.
+    /// Called to notify the client of a generic formal domain parameter.
     ///
-    /// The client is notified of the start of a formal domain declaration with
-    /// a call to beginFormalDomainDecl, giving the name and location of the
-    /// declaration.  The super signatures and component declarations are then
-    /// processed.  The end of a formal domain declaration is announced with a
-    /// call to endFormalDomainDecl.
+    /// \param name The defining identifier of the domain.
     ///
-    //@{
-    virtual void beginFormalDomainDecl(IdentifierInfo *name, Location loc) = 0;
-    virtual void endFormalDomainDecl() = 0;
-    //@}
-    //@}
+    /// \param loc Location of the defining identifier.
+    ///
+    /// \param sig If the formal domain was specified as satisfying a particular
+    /// signature, \p sig is a valid node as returned by a call to parseName().
+    /// Otherwise \p sig is a null node.
+    virtual void acceptFormalDomain(IdentifierInfo *name, Location loc,
+                                    Node sig) = 0;
 
     /// \name Capsule Callbacks.
     ///

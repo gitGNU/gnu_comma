@@ -1,7 +1,7 @@
 -- MUST-FAIL: Inner types of a domain instance should be distinct.
 
 generic
-   abstract domain X end X;
+   abstract domain X;
 domain F with
    type T is (A);
 end F;

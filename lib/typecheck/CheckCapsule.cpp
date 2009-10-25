@@ -59,36 +59,36 @@ void TypeCheck::beginGenericFormals()
 
 void TypeCheck::endGenericFormals() { }
 
-void TypeCheck::beginFormalDomainDecl(IdentifierInfo *name, Location loc)
+void TypeCheck::acceptFormalDomain(IdentifierInfo *name, Location loc,
+                                   Node sigNode)
 {
-    // Create an abstract domain declaration to represent this formal.
-    AbstractDomainDecl *formal = new AbstractDomainDecl(name, loc);
+    AbstractDomainDecl *decl;
 
-    // Set the current declarative region to be that of the formal.
-    declarativeRegion = formal;
+    if (sigNode.isNull())
+        decl = new AbstractDomainDecl(name, loc);
+    else {
+        TypeRef *ref = lift_node<TypeRef>(sigNode);
 
-    // Push a scope for the declaration and add the formal itself.
-    scope->push();
-    scope->addDirectDeclNoConflicts(formal);
-    GenericFormalDecls.push_back(formal);
-}
+        if (!ref || !ref->referencesSigInstance()) {
+            report(getNodeLoc(sigNode), diag::NOT_A_SIGNATURE);
+            return;
+        }
 
-void TypeCheck::endFormalDomainDecl()
-{
-    // Pop the scope for the formal decl.  We sould be back in the scope of the
-    // capsule being defined.
-    scope->pop();
-    assert(scope->getKind() == MODEL_SCOPE);
-
-    // Add the most recent generic declaration into the scope for the model,
-    // checking for conflicts.
-    if (Decl *conflict = scope->addDirectDecl(GenericFormalDecls.back())) {
-        // The only conflict possible is with a pervious formal parameter.
-        AbstractDomainDecl *dom = cast<AbstractDomainDecl>(conflict);
-        report(dom->getLocation(), diag::DUPLICATE_FORMAL_PARAM)
-            << dom->getIdInfo();
-        GenericFormalDecls.pop_back();
+        sigNode.release();
+        delete ref;
+        SigInstanceDecl *sig = ref->getSigInstanceDecl();
+        decl = new AbstractDomainDecl(name, loc, sig);
     }
+
+
+    if (scope->addDirectDecl(decl)) {
+        // The only conflict possible is with respect to a previous generic
+        // parameter.
+        report(loc, diag::DUPLICATE_FORMAL_PARAM) << name;
+        delete decl;
+    }
+    else
+        GenericFormalDecls.push_back(decl);
 }
 
 void TypeCheck::beginDomainDecl(IdentifierInfo *name, Location loc)
@@ -152,16 +152,7 @@ void TypeCheck::acceptSupersignature(Node typeNode)
         return;
     }
 
-    // We are either processing a model or a generic formal domain.  Add the
-    // signature.
-    if (ModelDecl *model = getCurrentModel()) {
-        model->addDirectSignature(superSig);
-    }
-    else {
-        // FIXME: Use a cleaner interface when available.
-        AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
-        decl->addSuperSignature(superSig);
-    }
+    getCurrentModel()->addDirectSignature(superSig);
 
     // Bring all of the declarations defined by this super signature into scope
     // and add them to the current declarative region.

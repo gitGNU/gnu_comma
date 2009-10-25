@@ -1,9 +1,7 @@
 -- MUST-FAIL: Ensure direct names cannot conflict with capsule parameters.
 
-signature S end S;
-
 generic
-   abstract domain X is S; end X;
+   abstract domain X;
 signature T with
   type X is (A);
   procedure X;

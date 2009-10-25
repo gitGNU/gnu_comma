@@ -5,10 +5,8 @@ signature S with
 end S;
 
 generic
-   abstract domain X is S; end X;
-domain F is
-   S;
-add
+   abstract domain X is S;
+domain F is S add
    procedure Foo is
    begin
       F(%).Foo;

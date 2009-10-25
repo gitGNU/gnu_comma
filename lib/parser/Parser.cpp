@@ -521,10 +521,7 @@ void Parser::parseGenericFormalDomain()
     ignoreToken();
 
     if (!requireToken(Lexer::TKN_DOMAIN)) {
-        // Try and forward to the next formal or to the end of the generic
-        // declaration.
-        seekTokens(Lexer::TKN_ABSTRACT,
-                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+        seekToken(Lexer::TKN_SEMI);
         return;
     }
 
@@ -532,21 +529,19 @@ void Parser::parseGenericFormalDomain()
     IdentifierInfo *name = parseIdentifierInfo();
 
     if (!name) {
-        seekTokens(Lexer::TKN_ABSTRACT,
-                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+        seekToken(Lexer::TKN_SEMI);
         return;
     }
 
-    client.beginFormalDomainDecl(name, loc);
-    if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
-        parseSignatureProfile();
-    client.endFormalDomainDecl();
-
-    if (!parseEndTag(name))
-        seekTokens(Lexer::TKN_ABSTRACT,
-                   Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE);
+    if (reduceToken(Lexer::TKN_IS)) {
+        Node sig = parseName(false);
+        if (sig.isValid())
+            client.acceptFormalDomain(name, loc, sig);
+    }
     else
-        requireToken(Lexer::TKN_SEMI);
+        client.acceptFormalDomain(name, loc, getNullNode());
+
+    requireToken(Lexer::TKN_SEMI);
 }
 
 void Parser::parseSignatureProfile()

@@ -567,7 +567,9 @@ DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
 
-bool AbstractDomainDecl::addSuperSignature(SigInstanceDecl *sig)
+AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name, Location loc,
+                                       SigInstanceDecl *sig)
+    : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
 {
     Sigoid *sigoid = sig->getSigoid();
     AstRewriter rewriter(sigoid->getAstResource());
@@ -577,12 +579,12 @@ bool AbstractDomainDecl::addSuperSignature(SigInstanceDecl *sig)
     rewriter.addTypeRewrite(sigoid->getPercentType(), getType());
 
     // Establish mappings from the formal parameters of the signature to the
-    // actual parameters of the type (this is a no-op if the signature is not
-    // parametrized).
-    rewriter.installRewrites(getType());
+    // actual parameters of the given instance (this is a no-op if the signature
+    // is not parametrized).
+    rewriter.installRewrites(sig);
 
-    // Add our rewritten signature hierarchy.
-    return sigset.addDirectSignature(sig, rewriter);
+    sigset.addDirectSignature(sig, rewriter);
+    addDeclarationsUsingRewrites(rewriter, sigoid->getPercent());
 }
 
 //===----------------------------------------------------------------------===//

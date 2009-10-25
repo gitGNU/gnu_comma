@@ -3,10 +3,10 @@
 
 signature S end S;
 
-domain D is S; end D;
+domain D is S end D;
 
 generic
-   abstract domain X is S; end X;
+   abstract domain X is S;
 domain F with
    procedure Foo (x : X);
    procedure Foo (x : D);

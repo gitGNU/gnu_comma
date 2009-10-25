@@ -1351,20 +1351,16 @@ public:
 class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
+    AbstractDomainDecl(IdentifierInfo *name, Location loc,
+                       SigInstanceDecl *sig);
+
     AbstractDomainDecl(IdentifierInfo *name, Location loc)
         : DomainTypeDecl(AST_AbstractDomainDecl, name, loc) { }
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
 
-    /// Adds a direct super signature to this decl.
-    ///
-    /// Returns true if the given signature was added to the set, or false if it
-    /// was already registered with this declaration.
-    bool addSuperSignature(SigInstanceDecl *sig);
-
-    /// Returns the principle signature type which this abstract domain
-    /// implements.
+    /// Returns the principle signature which this abstract domain implements.
     SigInstanceDecl *getPrincipleSignature() const {
         return *sigset.beginDirect();
     }
@@ -1376,10 +1372,6 @@ public:
 
 private:
     SignatureSet sigset;
-
-    AstResource &getAstResource() {
-        return getPrincipleSignature()->getSigoid()->getAstResource();
-    }
 };
 
 //===----------------------------------------------------------------------===//
