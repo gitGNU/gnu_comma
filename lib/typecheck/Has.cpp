@@ -87,57 +87,13 @@ bool TypeCheck::has(DomainType *source, SigInstanceDecl *target)
 bool TypeCheck::has(const AstRewriter &rewrites,
                     DomainType *source, AbstractDomainDecl *target)
 {
-    // Ensure each named signature required by the target is present in the
-    // source.
-    const SignatureSet &targetSigs = target->getSignatureSet();
-    for (SignatureSet::const_iterator I = targetSigs.begin();
-         I != targetSigs.end(); ++I) {
-        SigInstanceDecl *targetSig = *I;
-        if (!has(source, targetSig))
-            return false;
-    }
+    // If the target does not have a principle signature, the source domain
+    // trivialy satisfies.
+    if (!target->hasPrincipleSignature())
+        return true;
 
-    // Traverse the set of declarations provided by the target and ensure each
-    // exists in source.
-    DeclRegion *sourceRegion = source->getDomainTypeDecl();
-    for (DeclRegion::DeclIter I = target->beginDecls();
-         I != target->endDecls(); ++I) {
-        Decl *targetDecl = *I;
-        IdentifierInfo *targetName = targetDecl->getIdInfo();
-
-        // We are only interested in the immediate declarations within the
-        // target.
-        if (!targetDecl->isImmediate())
-            continue;
-
-        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(targetDecl)) {
-            Type *targetType = rewrites.rewriteType(srDecl->getType());
-            SubroutineDecl *sourceDecl = dyn_cast_or_null<SubroutineDecl>(
-                sourceRegion->findDecl(targetName, targetType));
-            if (!sourceDecl)
-                return false;
-
-            // Ensure the parameter models of booth the source and target decls
-            // match.
-            if (!sourceDecl->paramModesMatch(srDecl))
-                return false;
-
-            continue;
-        }
-
-        if (IntegerDecl *intDecl = dyn_cast<IntegerDecl>(targetDecl)) {
-            // No need to rewrite, as integer types no not capture formal
-            // variables.
-            Type *targetType = intDecl->getType();
-            if (!sourceRegion->findDecl(targetName, targetType))
-                return false;
-            continue;
-        }
-
-        // FIXME:
-        // EnumDecls need to be compared for equivalence.
-        assert(false && "Cannot handle this kind of declaration yet!");
-        return false;
-    }
-    return true;
+    // Otherwise, the source domain must implement the principle signature of
+    // the target.
+    SigInstanceDecl *targetSig = target->getPrincipleSignature();
+    return has(source, rewrites.rewriteSigInstance(targetSig));
 }
