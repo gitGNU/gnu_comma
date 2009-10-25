@@ -348,8 +348,34 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// DiscreteType
+//
+/// The DiscreteType class forms a common base for integer and enumeration
+/// types.
+class DiscreteType : public PrimaryType {
+
+public:
+    // Support isa/dyn_cast.
+    static bool classof(const DiscreteType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return denotesDiscreteType(node->getKind());
+    }
+
+protected:
+    DiscreteType(AstKind kind, DiscreteType *rootOrParent, bool subtype)
+        : PrimaryType(kind, rootOrParent, subtype) {
+        assert(denotesDiscreteType(kind));
+    }
+
+private:
+    static bool denotesDiscreteType(AstKind kind) {
+        return (kind == AST_EnumerationType || kind == AST_IntegerType);
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // EnumerationType
-class EnumerationType : public Type {
+class EnumerationType : public DiscreteType {
 
 public:
     /// Returns the number of distinct elements in this enumeration type.
@@ -374,7 +400,8 @@ private:
     // Private constructor for use by AstResource to allocate EnumerationType
     // nodes.
     EnumerationType(unsigned numElems)
-        : Type(AST_EnumerationType), numElems(numElems) { }
+        : DiscreteType(AST_EnumerationType, 0, false),
+          numElems(numElems) { }
 
     friend class AstResource;
 
@@ -386,7 +413,7 @@ private:
 //
 // These nodes represent ranged, signed, integer types.  They are allocated and
 // owned by an AstResource instance.
-class IntegerType : public Type {
+class IntegerType : public DiscreteType {
 
 public:
     const llvm::APInt &getLowerBound() const { return low; }

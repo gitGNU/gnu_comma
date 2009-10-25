@@ -217,7 +217,7 @@ AbstractDomainDecl *DomainType::getAbstractDecl() const
 
 IntegerType::IntegerType(AstResource &resource, IntegerDecl *decl,
                          const llvm::APInt &low, const llvm::APInt &high)
-    : Type(AST_IntegerType)
+    : DiscreteType(AST_IntegerType, 0, false)
 {
     initBounds(low, high);
 
