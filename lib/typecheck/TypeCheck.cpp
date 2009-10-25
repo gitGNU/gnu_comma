@@ -1193,6 +1193,6 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
                << sloc.getLine() << ":" << sloc.getColumn() << ".\n";
         return new PragmaAssert(loc, condition, stream.str());
     }
-    return 0;;
+    return 0;
 }
 
