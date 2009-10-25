@@ -559,10 +559,6 @@ private:
 class EnumSubType : public SubType {
 
 public:
-    // Defines an unconstrained subtype of the given enumeration type.
-    EnumSubType(IdentifierInfo *identifier, EnumerationType *type)
-        : SubType(AST_EnumSubType, identifier, type) { }
-
     /// Returns true if this subtype is constrained.
     bool isConstrained() const { return false; }
 
@@ -575,6 +571,13 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumSubType;
     }
+
+private:
+    // Defines an unconstrained subtype of the given enumeration type.
+    EnumSubType(IdentifierInfo *identifier, EnumerationType *type)
+        : SubType(AST_EnumSubType, identifier, type) { }
+
+    friend class AstResource;
 };
 
 //===----------------------------------------------------------------------===//
