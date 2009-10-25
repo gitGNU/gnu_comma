@@ -1360,8 +1360,13 @@ public:
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
 
+    /// Returns true if this abstract domain has an associated signature
+    /// constraint.
+    bool hasPrincipleSignature() const { return !sigset.empty(); }
+
     /// Returns the principle signature which this abstract domain implements.
     SigInstanceDecl *getPrincipleSignature() const {
+        assert(hasPrincipleSignature());
         return *sigset.beginDirect();
     }
 
