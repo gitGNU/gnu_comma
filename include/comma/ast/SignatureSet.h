@@ -61,16 +61,19 @@ public:
         return contains(signature) && !isDirect(signature);
     }
 
-    /// \brief Returns the number of direct and indirect signatures in this set.
+    /// Returns the number of direct and indirect signatures in this set.
     unsigned numSignatures() const { return allSignatures.size(); }
 
-    /// \brief Analogus to numSignatures().
+    /// Analogus to numSignatures().
     unsigned size() const { return numSignatures(); }
 
-    /// \brief Returns the number of direct signatures in this set.
+    /// Returns true if this signature set is empty.
+    bool empty() const { return numSignatures() == 0; }
+
+    /// Returns the number of direct signatures in this set.
     unsigned numDirectSignatures() const { return directSignatures.size(); }
 
-    /// \brief Returns the number of indirect signatures in this set.
+    /// Returns the number of indirect signatures in this set.
     unsigned numIndirectSignatures() const {
         return numSignatures() - numDirectSignatures();
     }
