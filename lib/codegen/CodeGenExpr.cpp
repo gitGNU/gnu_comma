@@ -416,7 +416,7 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     assert(expr->hasType() && "Unresolved literal type!");
 
     const llvm::IntegerType *ty =
-        llvm::cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
+        cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
 
     // All comma integer literals are represented as unsigned, exact width
