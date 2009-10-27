@@ -125,9 +125,17 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     // type since the "type of a range" is the "type of the subtype".
     if (subtype->isConstrained()) {
         Range *range = subtype->getConstraint();
-        if (!range->contains(litValue)) {
-            report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
-                << subtype->getIdInfo();
+        if (range->hasStaticLowerBound()) {
+            if (litValue.slt(range->getStaticLowerBound())) {
+                report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+                    << subtype->getIdInfo();
+            }
+        }
+        if (range->hasStaticUpperBound()) {
+            if (litValue.slt(range->getStaticLowerBound())) {
+                report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+                    << subtype->getIdInfo();
+            }
         }
     }
 
