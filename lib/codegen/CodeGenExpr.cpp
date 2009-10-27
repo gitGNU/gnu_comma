@@ -496,10 +496,10 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 
     // Arrays are always represented as pointers to the aggregate. GEP the
     // component.
-    llvm::SmallVector<llvm::Value *, 8> indices;
-    indices.push_back(llvm::ConstantInt::get(CG.getInt32Ty(), (uint64_t)0));
-    indices.push_back(idxValue);
-    return Builder.CreateGEP(arrValue, indices.begin(), indices.end());
+    llvm::Value *indices[2];
+    indices[0] = llvm::ConstantInt::get(CG.getInt32Ty(), (uint64_t)0);
+    indices[1] = idxValue;
+    return Builder.CreateGEP(arrValue, indices, indices + 2);
 }
 
 llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
