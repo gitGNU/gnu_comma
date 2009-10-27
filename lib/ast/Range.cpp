@@ -90,8 +90,9 @@ bool Range::isNull() const
 
 bool Range::contains(const llvm::APInt &value) const
 {
-    if (!isStatic())
-        return false;
+    // FIXME: Perhaps this method should return a ternary value instead of a
+    // bool.
+    assert(isStatic() && "Cannot determin containment for non-static ranges!");
 
     if (isNull())
         return false;
