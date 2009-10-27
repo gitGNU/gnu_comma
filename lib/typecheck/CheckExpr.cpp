@@ -104,19 +104,16 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
         return false;
     }
 
-    // Unresolved integer literals are represented as signed APInts with a
-    // minimal bit width (see acceptIntegerLiteral()).
-    //
     // Since integer types are always signed, the literal is within the bounds
     // of the base type iff its width is less than or equal to the base types
-    // width.  If the literal is in bounds, zero extend if needed to match the
+    // width.  If the literal is in bounds, sign extend if needed to match the
     // base type.
     llvm::APInt &litValue = intLit->getValue();
     IntegerType *rootTy = subtype->getRootType();
     unsigned targetWidth = rootTy->getSize();
     unsigned literalWidth = litValue.getBitWidth();
     if (literalWidth < targetWidth)
-        litValue.zext(targetWidth);
+        litValue.sext(targetWidth);
     else if (literalWidth > targetWidth) {
         report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
             << subtype->getIdInfo();

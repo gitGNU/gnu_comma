@@ -419,15 +419,14 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
         cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
 
-    // All comma integer literals are represented as unsigned, exact width
-    // APInts.  Zero extend the value if needed to fit in the representation
-    // type.
+    // All comma integer literals are represented as signed APInt's.  Sign
+    // extend the value if needed to fit in the representation type.
     unsigned valWidth = val.getBitWidth();
     unsigned tyWidth = ty->getBitWidth();
     assert(valWidth <= tyWidth && "Value/Type width mismatch!");
 
     if (valWidth < tyWidth)
-        val.zext(tyWidth);
+        val.sext(tyWidth);
 
     return llvm::ConstantInt::get(CG.getLLVMContext(), val);
 }
