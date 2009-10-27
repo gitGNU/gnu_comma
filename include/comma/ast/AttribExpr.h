@@ -89,21 +89,21 @@ public:
 
     //@{
     /// Specializations of AttribExpr::getPrefix().
-    const IntegerSubType *getPrefix() const {
-        return llvm::cast<IntegerSubType>(prefix);
+    const IntegerType *getPrefix() const {
+        return llvm::cast<IntegerType>(prefix);
     }
-    IntegerSubType *getPrefix() {
-        return llvm::cast<IntegerSubType>(prefix);
+    IntegerType *getPrefix() {
+        return llvm::cast<IntegerType>(prefix);
     }
     //@}
 
     //@{
     /// Specializations of Expr::getType().
-    const IntegerSubType *getType() const {
-        return llvm::cast<IntegerSubType>(Expr::getType());
+    const IntegerType *getType() const {
+        return llvm::cast<IntegerType>(Expr::getType());
     }
-    IntegerSubType *getType() {
-        return llvm::cast<IntegerSubType>(Expr::getType());
+    IntegerType *getType() {
+        return llvm::cast<IntegerType>(Expr::getType());
     }
     //@}
 
@@ -115,7 +115,7 @@ public:
     }
 
 protected:
-    ScalarBoundAE(AstKind kind, IntegerSubType *prefix, Location loc)
+    ScalarBoundAE(AstKind kind, IntegerType *prefix, Location loc)
         : AttribExpr(kind, prefix, prefix, loc) {
         assert(kind == AST_FirstAE || kind == AST_LastAE);
     }
@@ -131,7 +131,7 @@ protected:
 class FirstAE : public ScalarBoundAE {
 
 public:
-    FirstAE(IntegerSubType *prefix, Location loc)
+    FirstAE(IntegerType *prefix, Location loc)
         : ScalarBoundAE(AST_FirstAE, prefix, loc) { }
 
     // Support isa and dyn_cast.
@@ -151,7 +151,7 @@ public:
 class LastAE : public ScalarBoundAE {
 
 public:
-    LastAE(IntegerSubType *prefix, Location loc)
+    LastAE(IntegerType *prefix, Location loc)
         : ScalarBoundAE(AST_LastAE, prefix, loc) { }
 
     // Support isa and dyn_cast.
@@ -201,20 +201,20 @@ public:
 
     //@{
     /// Returns the type of the prefix.
-    const ArraySubType *getPrefixType() const {
-        return llvm::cast<ArraySubType>(getPrefix()->getType());
+    const ArrayType *getPrefixType() const {
+        return llvm::cast<ArrayType>(getPrefix()->getType());
     }
-    ArraySubType *getPrefixType() {
-        return llvm::cast<ArraySubType>(getPrefix()->getType());
+    ArrayType *getPrefixType() {
+        return llvm::cast<ArrayType>(getPrefix()->getType());
     }
 
     //@{
     /// Specializations of Expr::getType().
-    const IntegerSubType *getType() const {
-        return llvm::cast<IntegerSubType>(Expr::getType());
+    const IntegerType *getType() const {
+        return llvm::cast<IntegerType>(Expr::getType());
     }
-    IntegerSubType *getType() {
-        return llvm::cast<IntegerSubType>(Expr::getType());
+    IntegerType *getType() {
+        return llvm::cast<IntegerType>(Expr::getType());
     }
     //@}
 

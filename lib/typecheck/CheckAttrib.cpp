@@ -120,7 +120,7 @@ ScalarBoundAE *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
 
 ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
 {
-    ArraySubType *arrTy = dyn_cast<ArraySubType>(prefix->getType());
+    ArrayType *arrTy = dyn_cast<ArrayType>(prefix->getType());
 
     if (!arrTy) {
         report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();

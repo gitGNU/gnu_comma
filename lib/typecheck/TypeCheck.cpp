@@ -405,7 +405,8 @@ TypeCheck::acceptTypeApplication(TypeRef *ref,
             instanceRef = new TypeRef(loc, getCurrentPercent());
         }
         else {
-            DomainInstanceDecl *instance = F->getInstance(&args[0], numArgs);
+            DomainInstanceDecl *instance;
+            instance = F->getInstance(&args[0], numArgs);
             instanceRef = new TypeRef(loc, instance);
         }
     }
@@ -505,8 +506,7 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr)
     return false;
 }
 
-ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
-                                                    Expr *init)
+ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
 {
     // FIXME: The following code assumes integer index types exclusively.
     // FIXME: Support multidimensional array types.
@@ -514,23 +514,65 @@ ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
     assert(arrTy->getRank() == 1 && "Multidimensional arrays not supported!");
 
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(init)) {
-        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+        unsigned length = strLit->length();
+        DiscreteType *idxTy = cast<DiscreteType>(arrTy->getIndexType(0));
 
-        // FIXME: For empty string literals we should generate a null range
-        // which is compatable with the base index type.
-        llvm::APInt lower(idxTy->getLowerBound());
-        llvm::APInt upper(lower + strLit->length() - 1);
+        // FIXME:  Support null string literals by generating a null index type.
+        assert(length != 0 && "Null string literals not yet supported!");
 
-        // FIXME: Check that the index type is large enough to support the
-        // length of the literal.
-        SubType *newIdxTy;
-        newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
-                                                 lower, upper);
-        return resource.createArraySubType(0, arrTy->getTypeOf(),
-                                           new IndexConstraint(&newIdxTy, 1));
+        // Obtain the lower and upper limits for the index type and ensure that
+        // the given literal is representable within those bounds.
+        llvm::APInt lower;
+        llvm::APInt upper;
+
+        if (const Range *range = idxTy->getConstraint()) {
+            assert(range->isStatic() && "FIXME: Support dynamic indices.");
+            lower = range->getStaticLowerBound();
+            upper = range->getStaticUpperBound();
+        }
+        else {
+            // Use the representational limits.
+            idxTy->getLowerLimit(lower);
+            idxTy->getUpperLimit(upper);
+        }
+
+        // The following subtraction is always valid provided we treat the
+        // result as unsigned.  Note that the value computed here is one less
+        // than the actual cardinality -- this is to avoid overflow.
+        uint64_t cardinality = (upper - lower).getZExtValue();
+
+        // Reduce the non-zero length by one to fit the "zero based" cardinality
+        // value.
+        --length;
+
+        if (length > cardinality) {
+            report(init->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+                << arrTy->getIdInfo();
+            return 0;
+        }
+
+        // Adjust the upper bound to the length of the literal.
+        upper = length;
+        upper += lower;
+
+        // Generate expressions for the bounds.
+        //
+        // FIXME: Support enumeration types by generating Val attribute
+        // expressions.
+        IntegerType *intTy = cast<IntegerType>(idxTy);
+        Expr *lowerExpr = new IntegerLiteral(lower, idxTy, 0);
+        Expr *upperExpr = new IntegerLiteral(upper, idxTy, 0);
+        idxTy = resource.createIntegerSubtype(0, intTy, lowerExpr, upperExpr);
+        return resource.createArraySubtype(0, arrTy, &idxTy);
     }
 
-    ArraySubType *exprTy = cast<ArraySubType>(init->getType());
+    ArrayType *exprTy = cast<ArrayType>(init->getType());
+
+    // Check that both root types are identical.
+    if (exprTy->getRootType() != arrTy->getRootType()) {
+        report(init->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
 
     if (!exprTy->isConstrained()) {
         // If the expression is unconstrained, we need to create a dynamicly
@@ -546,21 +588,14 @@ ArraySubType *TypeCheck::getConstrainedArraySubType(ArraySubType *arrTy,
         FirstArrayAE *first = new FirstArrayAE(init, 0);
         LastArrayAE *last = new LastArrayAE(init, 0);
 
-        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
-        SubType *newIdxTy = resource.createIntegerSubType(0, idxTy->getTypeOf(),
-                                                          first, last);
-        IndexConstraint *constraint = new IndexConstraint(&newIdxTy, 1);
-        return resource.createArraySubType(0, arrTy->getTypeOf(), constraint);
+        DiscreteType *idxTy;
+        idxTy = arrTy->getIndexType(0);
+        idxTy = resource.createDiscreteSubtype(0, idxTy, first, last);
+        return resource.createArraySubtype(0, arrTy, &idxTy);
     }
 
-    // The initializer is constrained.  If the base types are identical simply
-    // use the type of the initializer.
-    if (exprTy->getTypeOf() == arrTy->getTypeOf())
-        return exprTy;
-    else {
-        report(init->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return 0;
-    }
+    // The initializer is constrained.  Simply use the type of the initializer.
+    return exprTy;
 }
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
@@ -568,7 +603,7 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
                                                     ArrayDecl *arrDecl,
                                                     Expr *init)
 {
-    ArraySubType *arrTy = arrDecl->getType();
+    ArrayType *arrTy = arrDecl->getType();
 
     if (!arrTy->isConstrained()) {
         // Unconstrained arrays require initialization.
@@ -578,7 +613,7 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
         }
 
         // Generate a new subtype for the object which matches the initializer.
-        if (!(arrTy = getConstrainedArraySubType(arrTy, init)))
+        if (!(arrTy = getConstrainedArraySubtype(arrTy, init)))
             return 0;
     }
 
@@ -881,7 +916,7 @@ void TypeCheck::endArray()
 
     // Ensure that each index type is a discrete type.  Build a vector of all
     // valid SubTypes for each index.
-    llvm::SmallVector<SubType*, 4> indices;
+    llvm::SmallVector<DiscreteType*, 4> indices;
     typedef ArrayDeclStencil::index_iterator index_iterator;
     for (index_iterator I = arrayStencil->begin_indices();
          I != arrayStencil->end_indices(); ++I) {
@@ -895,8 +930,8 @@ void TypeCheck::endArray()
 
         // A type declaration of a scalar type always provides the first subtype
         // as its type.
-        SubType *subtype = cast<SubType>(tyDecl->getType());
-        indices.push_back(subtype);
+        DiscreteType *indexTy = cast<DiscreteType>(tyDecl->getType());
+        indices.push_back(indexTy);
     }
 
     // Do not create the array declaration unless all indices checked out.
@@ -923,35 +958,6 @@ void TypeCheck::endArray()
     introduceImplicitDecls(array);
 }
 
-bool TypeCheck::checkType(Type *source, SigInstanceDecl *target, Location loc)
-{
-    if (DomainType *domain = dyn_cast<DomainType>(source)) {
-        if (!has(domain, target)) {
-            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
-            return false;
-        }
-        return true;
-    }
-
-    if (SubType *subtype = dyn_cast<SubType>(source)) {
-        DomainType *rep = dyn_cast<DomainType>(subtype->getTypeOf());
-        if (!rep) {
-            report(loc, diag::NOT_A_DOMAIN);
-            return false;
-        }
-        if (!has(rep, target)) {
-            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
-            return false;
-        }
-        return true;
-    }
-
-    // Otherwise, the source does not denote a domain, and so cannot satisfy the
-    // signature constraint.
-    report(loc, diag::NOT_A_DOMAIN);
-    return false;
-}
-
 bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
                                       Type *source, AbstractDomainDecl *target,
                                       Location loc)
@@ -964,8 +970,8 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
         return true;
     }
 
-    if (SubType *subtype = dyn_cast<SubType>(source)) {
-        Type *rep = dyn_cast<DomainType>(subtype->getTypeOf());
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(source)) {
+        Type *rep = dyn_cast<DomainType>(primary->getRootType());
         return checkSignatureProfile(rewrites, rep, target, loc);
     }
 
@@ -1057,7 +1063,7 @@ bool TypeCheck::covers(Type *A, Type *B)
 
     // If B denotes the primitive type root_integer and A is any integer type,
     // then A covers B.
-    if (dyn_cast<IntegerSubType>(B) == resource.getTheRootIntegerType())
+    if (dyn_cast<IntegerType>(B) == resource.getTheRootIntegerType())
         return A->isIntegerType();
 
     return false;
@@ -1071,20 +1077,20 @@ bool TypeCheck::subsumes(Type *A, Type *B)
 
     // If A denotes the primitive type root_integer and B is any integer type,
     // then A subsumes B.
-    if (dyn_cast<IntegerSubType>(A) == resource.getTheRootIntegerType())
+    if (dyn_cast<IntegerType>(A) == resource.getTheRootIntegerType())
         if (B->isIntegerType())
             return true;
 
-    Type *baseTypeA = A;
-    Type *baseTypeB = B;
+    Type *rootTypeA = A;
+    Type *rootTypeB = B;
 
-    // If either A or B are subtypes, resolve their base types.
-    if (SubType *subtype = dyn_cast<SubType>(A))
-        baseTypeA = subtype->getTypeOf();
-    if (SubType *subtype = dyn_cast<SubType>(B))
-        baseTypeB = subtype->getTypeOf();
+    // If either A or B are primary, resolve their root types.
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(A))
+        rootTypeA = primary->getRootType();
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(B))
+        rootTypeB = primary->getRootType();
 
-    return baseTypeA == baseTypeB;
+    return rootTypeA == rootTypeB;
 }
 
 bool TypeCheck::conversionRequired(Type *source, Type *target)
@@ -1092,24 +1098,24 @@ bool TypeCheck::conversionRequired(Type *source, Type *target)
     if (source == target)
         return false;
 
-    if (SubType *sourceSubTy = dyn_cast<SubType>(source)) {
-        // If the target is the base type of the source a conversion is not
+    if (PrimaryType *sourceSubTy = dyn_cast<PrimaryType>(source)) {
+        // If the target is the root type of the source a conversion is not
         // required.
-        if (sourceSubTy->getTypeOf() == target)
+        if (sourceSubTy->getRootType() == target)
             return false;
 
         // If the target is an unconstrained subtype of a common base, a
         // conversion is not needed.
-        if (SubType *targetSubTy = dyn_cast<SubType>(target)) {
-            if ((sourceSubTy->getTypeOf() == targetSubTy->getTypeOf()) &&
+        if (PrimaryType *targetSubTy = dyn_cast<PrimaryType>(target)) {
+            if ((sourceSubTy->getRootType() == targetSubTy->getRootType()) &&
                 !targetSubTy->isConstrained())
                 return false;
         }
     }
-    else if (SubType *targetSubTy = dyn_cast<SubType>(target)) {
+    else if (PrimaryType *targetSubTy = dyn_cast<PrimaryType>(target)) {
         // If the target type is an unconstrained subtype of the source, a
         // conversion is not needed.
-        if ((targetSubTy->getTypeOf() == source) &&
+        if ((targetSubTy->getRootType() == source) &&
             !targetSubTy->isConstrained())
             return false;
     }

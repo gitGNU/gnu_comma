@@ -71,7 +71,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
 
         // If the return value is composite, copy the result into the return
         // value, otherwise a simple store suffices.
-        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(expr->getType()))
+        if (ArrayType *arrTy = dyn_cast<ArrayType>(expr->getType()))
             emitArrayCopy(res, returnValue, arrTy);
         else
             Builder.CreateStore(res, returnValue);

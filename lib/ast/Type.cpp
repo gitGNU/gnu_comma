@@ -59,12 +59,12 @@ bool Type::isDiscreteType() const
 
 bool Type::isIntegerType() const
 {
-    return isa<IntegerSubType>(this) || isa<IntegerType>(this);
+    return isa<IntegerType>(this);
 }
 
 bool Type::isEnumType() const
 {
-    return isa<EnumSubType>(this) || isa<EnumerationType>(this);
+    return isa<EnumerationType>(this);
 }
 
 bool Type::isCompositeType() const
@@ -75,7 +75,7 @@ bool Type::isCompositeType() const
 
 bool Type::isArrayType() const
 {
-    return isa<ArraySubType>(this) || isa<ArrayType>(this);
+    return isa<ArrayType>(this);
 }
 
 bool Type::isStringType() const
@@ -90,89 +90,49 @@ bool Type::isStringType() const
 
 ArrayType *Type::getAsArrayType()
 {
-    if (ArraySubType *subtype = dyn_cast<ArraySubType>(this))
-        return subtype->getTypeOf();
-
     return dyn_cast<ArrayType>(this);
 }
 
 IntegerType *Type::getAsIntegerType()
 {
-    if (IntegerSubType *subtype = dyn_cast<IntegerSubType>(this))
-        return subtype->getTypeOf();
-
     return dyn_cast<IntegerType>(this);
 }
 
 EnumerationType *Type::getAsEnumType()
 {
-    if (EnumSubType *subtype = dyn_cast<EnumSubType>(this))
-        return subtype->getTypeOf();
-
     return dyn_cast<EnumerationType>(this);
-}
-
-IntegerSubType *Type::getAsIntegerSubType()
-{
-    if (IntegerSubType *subtype = dyn_cast<IntegerSubType>(this))
-        return subtype;
-    if (CarrierType *carrier = dyn_cast<CarrierType>(this))
-        return carrier->getParentType()->getAsIntegerSubType();
-    return 0;
-}
-
-//===----------------------------------------------------------------------===//
-// SubType
-
-SubType::SubType(AstKind kind, IdentifierInfo *identifier, Type *parent)
-
-    : Type(kind),
-      DefiningIdentifier(identifier),
-      ParentType(parent)
-{
-    assert(this->denotesSubType());
-}
-
-SubType::SubType(AstKind kind, Type *parent)
-    : Type(kind),
-      DefiningIdentifier(0),
-      ParentType(parent)
-{
-    assert(this->denotesSubType());
-}
-
-Type *SubType::getTypeOf() const
-{
-    Type *type = ParentType;
-    while (SubType *subtype = dyn_cast<SubType>(type)) {
-        type = subtype->getParentType();
-    }
-    return type;
 }
 
 //===----------------------------------------------------------------------===//
 // CarrierType
 
-CarrierType::CarrierType(CarrierDecl *carrier, Type *type)
-    : SubType(AST_CarrierType, carrier->getIdInfo(), type),
-      declaration(carrier) { }
+CarrierType::CarrierType(CarrierDecl *carrier, PrimaryType *type)
+    : PrimaryType(AST_CarrierType, type, true),
+      definingDecl(carrier) { }
 
 IdentifierInfo *CarrierType::getIdInfo() const
 {
-    return declaration->getIdInfo();
+    return definingDecl->getIdInfo();
 }
 
 //===----------------------------------------------------------------------===//
 // DomainType
 
 DomainType::DomainType(DomainTypeDecl *DTDecl)
-    : Type(AST_DomainType),
-      declaration(DTDecl)
+    : PrimaryType(AST_DomainType, 0, false),
+      definingDecl(DTDecl)
+{ }
+
+DomainType::DomainType(DomainType *rootType, IdentifierInfo *name)
+    : PrimaryType(AST_DomainType, rootType, true),
+      definingDecl(name)
 { }
 
 IdentifierInfo *DomainType::getIdInfo() const
 {
-    return declaration->getIdInfo();
+    if (DomainTypeDecl *decl = definingDecl.dyn_cast<DomainTypeDecl*>())
+        return decl->getIdInfo();
+    return definingDecl.get<IdentifierInfo*>();
 }
 
 bool DomainType::involvesPercent() const
@@ -180,7 +140,7 @@ bool DomainType::involvesPercent() const
     if (denotesPercent())
         return true;
 
-    if (DomainInstanceDecl *instance = getInstanceDecl()) {
+    if (const DomainInstanceDecl *instance = getInstanceDecl()) {
         unsigned arity = instance->getArity();
         for (unsigned i = 0; i < arity; ++i) {
             DomainType *param = dyn_cast<DomainType>(
@@ -192,125 +152,630 @@ bool DomainType::involvesPercent() const
     return false;
 }
 
-DomainTypeDecl *DomainType::getDomainTypeDecl() const
+//===----------------------------------------------------------------------===//
+// The following getXXXDecl methods cannot be inlined into Type.h since we do
+// not want Type.h to directly depend on Decl.h.
+
+const DomainTypeDecl *DomainType::getDomainTypeDecl() const
 {
-    return dyn_cast<DomainTypeDecl>(declaration);
+    const DomainType *root = isSubtype() ? getRootType() : this;
+    return root->definingDecl.get<DomainTypeDecl*>();
 }
 
-PercentDecl *DomainType::getPercentDecl() const
+DomainTypeDecl *DomainType::getDomainTypeDecl()
 {
-    return dyn_cast<PercentDecl>(declaration);
+    DomainType *root = isSubtype() ? getRootType() : this;
+    return root->definingDecl.get<DomainTypeDecl*>();
 }
 
-DomainInstanceDecl *DomainType::getInstanceDecl() const
+const PercentDecl *DomainType::getPercentDecl() const
 {
-    return dyn_cast<DomainInstanceDecl>(declaration);
+    return dyn_cast<PercentDecl>(getDomainTypeDecl());
 }
 
-AbstractDomainDecl *DomainType::getAbstractDecl() const
+PercentDecl *DomainType::getPercentDecl()
 {
-    return dyn_cast<AbstractDomainDecl>(declaration);
+    return dyn_cast<PercentDecl>(getDomainTypeDecl());
+}
+
+const DomainInstanceDecl *DomainType::getInstanceDecl() const
+{
+    return dyn_cast<DomainInstanceDecl>(getDomainTypeDecl());
+}
+
+DomainInstanceDecl *DomainType::getInstanceDecl()
+{
+    return dyn_cast<DomainInstanceDecl>(getDomainTypeDecl());
+}
+
+const AbstractDomainDecl *DomainType::getAbstractDecl() const
+{
+    return dyn_cast<AbstractDomainDecl>(getDomainTypeDecl());
+}
+
+AbstractDomainDecl *DomainType::getAbstractDecl()
+{
+    return dyn_cast<AbstractDomainDecl>(getDomainTypeDecl());
+}
+
+//===----------------------------------------------------------------------===//
+// DiscreteType
+
+bool DiscreteType::contains(const DiscreteType *target) const
+{
+    // All types trivially contain themselves.
+    if (this == target)
+        return true;
+
+    // Check that the categories of both types match.
+    if (this->getKind() != target->getKind())
+        return false;
+
+    // Obtain the bounds for this type.
+    llvm::APInt min;
+    llvm::APInt max;
+
+    if (const RangeConstraint *constraint = getConstraint()) {
+        // If this type has a non-static constraint we cannot compute
+        // containment.
+        if (!constraint->isStatic())
+            return false;
+
+        // If this type has a null range, we cannot contain the target.
+        if (constraint->isNull())
+            return false;
+
+        min = constraint->getStaticLowerBound();
+        max = constraint->getStaticUpperBound();
+    }
+    else {
+        // Use the representational limits.
+        getLowerLimit(min);
+        getUpperLimit(max);
+    }
+
+
+    // Obtain bounds for the target.
+    llvm::APInt lower;
+    llvm::APInt upper;
+
+    if (const RangeConstraint *constraint = target->getConstraint()) {
+        // If the target constraint is non-static, use the representational
+        // limits.
+        if (!constraint->isStatic()) {
+            target->getLowerLimit(lower);
+            target->getUpperLimit(upper);
+        }
+
+        // If the target is constrained to a null range, we can always contain
+        // it.
+        if (constraint->isNull())
+            return true;
+
+        lower = constraint->getStaticLowerBound();
+        upper = constraint->getStaticUpperBound();
+    }
+    else {
+        // Use the representational limits.
+        target->getLowerLimit(lower);
+        target->getUpperLimit(upper);
+    }
+
+    // Adjust the collected bounds so that they are of equal widths and compare.
+    unsigned width = std::max(getSize(), target->getSize());
+    min.sextOrTrunc(width);
+    max.sextOrTrunc(width);
+    lower.sextOrTrunc(width);
+    upper.sextOrTrunc(width);
+    return (min.sle(lower) && upper.sle(max));
+}
+
+unsigned DiscreteType::getPreferredSize(uint64_t bits)
+{
+    unsigned size;
+
+    if (bits <= 8)
+        size = 8;
+    else if (bits <= 16)
+        size = 16;
+    else if (bits <= 32)
+        size = 32;
+    else if (bits <= 64)
+        size = 64;
+    else {
+        assert(false && "Range too wide to represent!");
+        size = 64;
+    }
+    return size;
+}
+
+//===----------------------------------------------------------------------===//
+// EnumerationType
+//
+// EnumerationType nodes are implemented using one of three classes
+// corresponding to the three fundamental types of enumeration nodes: root,
+// constrained subtypes, and unconstrained subtype.
+
+namespace {
+
+class UnconstrainedEnumType;
+class ConstrainedEnumType;
+
+class RootEnumType : public EnumerationType {
+
+public:
+    RootEnumType(AstResource &resource, EnumerationDecl *decl);
+
+    /// Returns the defining identifier associated with this integer type.
+    IdentifierInfo *getIdInfo() const { return definingDecl->getIdInfo(); }
+
+    //@{
+    /// Returns the declaration node defining this type.
+    EnumerationDecl *getDefiningDecl() { return definingDecl; }
+    const EnumerationDecl *getDefiningDecl() const { return definingDecl; }
+    //@}
+
+    /// Returns the number of literals supported by this type.
+    uint64_t getNumLiterals() const { return definingDecl->getNumLiterals(); }
+
+    /// Returns the number of bits needed to represent this type.
+    ///
+    /// For root enumeration types the size is either 8, 16, 32, or 64.
+    uint64_t getSize() const;
+
+    /// Returns the base subtype.
+    const EnumerationType *getBaseSubtype();
+
+    /// Returns the lower limit of this type.
+    void getLowerLimit(llvm::APInt &res) const {
+        res = llvm::APInt(getSize(), uint64_t(0), true);
+    }
+
+    /// Returns the upper limit of this type.
+    void getUpperLimit(llvm::APInt &res) const {
+        uint64_t max = definingDecl->getNumLiterals() - 1;
+        res = llvm::APInt(getSize(), max, true);
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const RootEnumType *node) { return true; }
+    static bool classof(const EnumerationType *node) {
+        return node->getEnumKind() == RootEnumType_KIND;
+    }
+
+private:
+    UnconstrainedEnumType *baseType; ///< Base subtype.
+    EnumerationDecl *definingDecl;   ///< Underlying declaration.
+};
+
+class UnconstrainedEnumType : public EnumerationType {
+
+public:
+    UnconstrainedEnumType(RootEnumType *rootType,
+                          IdentifierInfo *name = 0)
+        : EnumerationType(UnconstrainedEnumType_KIND, rootType),
+          idInfo(name) { }
+
+    /// Returns true if this is an anonymous subtype.
+    bool isAnonymous() const { return idInfo == 0; }
+
+    /// Returns the identifier which most appropriately names this subtype.
+    ///
+    /// If this subtype is anonymous, the identifier returned is that of the
+    /// root type.
+    IdentifierInfo *getIdInfo() const {
+        return idInfo ? idInfo : getRootType()->getIdInfo();
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const UnconstrainedEnumType *node) { return true; }
+    static bool classof(const EnumerationType *node) {
+        return node->getEnumKind() == UnconstrainedEnumType_KIND;
+    }
+
+private:
+    IdentifierInfo *idInfo;
+};
+
+class ConstrainedEnumType : public EnumerationType {
+
+public:
+    ConstrainedEnumType(RootEnumType *rootType,
+                        Expr *lowerBound, Expr *upperBound,
+                        IdentifierInfo *name = 0)
+        : EnumerationType(ConstrainedEnumType_KIND, rootType),
+          constraint(new RangeConstraint(lowerBound, upperBound)),
+          idInfo(name) { }
+
+    /// Returns true if this is an anonymous subtype.
+    bool isAnonymous() const { return idInfo == 0; }
+
+    /// Returns the identifier which most appropriately names this subtype.
+    ///
+    /// If this is an anonymous type, returns the identifier of the underlying
+    /// root type.
+    IdentifierInfo *getIdInfo() const {
+        return idInfo ? idInfo : getRootType()->getIdInfo();
+    }
+
+    //@{
+    /// Returns the constraint on this subtype.
+    RangeConstraint *getConstraint() { return constraint; }
+    const RangeConstraint *getConstraint() const { return constraint; }
+    //@}
+
+    /// \brief Returns true if the constraint bounds for this subtype are
+    /// statically known.
+    bool isStaticallyConstrained() const { return constraint->isStatic(); }
+
+    // Support isa/dyn_cast.
+    static bool classof(const ConstrainedEnumType *node) { return true; }
+    static bool classof(const EnumerationType *node) {
+        return node->getEnumKind() == ConstrainedEnumType_KIND;
+    }
+
+private:
+    RangeConstraint *constraint; ///< The constraint on this subtype.
+    IdentifierInfo *idInfo;      ///< The name of this subtype or null.
+};
+
+} // end anonymous namespace.
+
+RootEnumType::RootEnumType(AstResource &resource, EnumerationDecl *decl)
+    : EnumerationType(RootEnumType_KIND, 0),
+      definingDecl(decl)
+{
+    // Build the base unconstrained subtype node.  This type is given the name
+    // "I'Base" where I is the defining identifier of the corresponding
+    // declaration.
+    llvm::Twine name(definingDecl->getString());
+    name = name + "'Base";
+    IdentifierInfo *id = resource.getIdentifierInfo(name.str());
+    baseType = cast<UnconstrainedEnumType>(
+        resource.createEnumSubtype(id, this));
+}
+
+uint64_t RootEnumType::getSize() const
+{
+    uint64_t numBits = llvm::Log2_64_Ceil(definingDecl->getNumLiterals());
+    return DiscreteType::getPreferredSize(numBits);
+}
+
+const EnumerationType *RootEnumType::getBaseSubtype()
+{
+    return baseType;
+}
+
+const EnumerationDecl *EnumerationType::getDeclaration() const
+{
+    const RootEnumType *root = cast<RootEnumType>(getRootType());
+    return root->getDefiningDecl();
+}
+
+bool EnumerationType::isCharacterType() const
+{
+    return getDeclaration()->isCharacterType();
+};
+
+uint64_t EnumerationType::getNumLiterals() const
+{
+    return cast<RootEnumType>(getRootType())->getNumLiterals();
+}
+
+RangeConstraint *EnumerationType::getConstraint()
+{
+    if (ConstrainedEnumType *Ty = dyn_cast<ConstrainedEnumType>(this))
+        return Ty->getConstraint();
+    return 0;
+}
+
+const RangeConstraint *EnumerationType::getConstraint() const
+{
+    if (const ConstrainedEnumType *Ty = dyn_cast<ConstrainedEnumType>(this))
+        return Ty->getConstraint();
+    return 0;
+}
+
+void EnumerationType::getLowerLimit(llvm::APInt &res) const
+{
+    cast<RootEnumType>(getRootType())->getLowerLimit(res);
+}
+
+void EnumerationType::getUpperLimit(llvm::APInt &res) const
+{
+    cast<RootEnumType>(this->getRootType())->getUpperLimit(res);
+}
+
+uint64_t EnumerationType::getSize() const
+{
+    return cast<RootEnumType>(this->getRootType())->getSize();
+}
+
+EnumerationType *EnumerationType::create(AstResource &resource,
+                                         EnumerationDecl *decl)
+{
+    return new RootEnumType(resource, decl);
+}
+
+EnumerationType *EnumerationType::createSubtype(EnumerationType *type,
+                                                IdentifierInfo *name)
+{
+    RootEnumType *root = cast<RootEnumType>(type->getRootType());
+    return new UnconstrainedEnumType(root, name);
+}
+
+EnumerationType *
+EnumerationType::createConstrainedSubtype(EnumerationType *type,
+                                          Expr *lowerBound, Expr *upperBound,
+                                          IdentifierInfo *name)
+{
+    RootEnumType *root = cast<RootEnumType>(type->getRootType());
+    return new ConstrainedEnumType(root, lowerBound, upperBound, name);
 }
 
 //===----------------------------------------------------------------------===//
 // IntegerType
+//
+// IntegerType nodes are implemented using one of three classes corresponding to
+// the three fundamental types of integer nodes:  root, constrained subtype, and
+// unconstrained subtype.
 
-IntegerType::IntegerType(AstResource &resource, IntegerDecl *decl,
-                         const llvm::APInt &low, const llvm::APInt &high)
-    : DiscreteType(AST_IntegerType, 0, false)
+namespace {
+
+class ConstrainedIntegerType;
+class UnconstrainedIntegerType;
+
+class RootIntegerType : public IntegerType {
+
+public:
+    RootIntegerType(AstResource &resource, IntegerDecl *decl,
+                    const llvm::APInt &low, const llvm::APInt &high);
+
+    /// Returns the defining identifier associated with this integer type.
+    IdentifierInfo *getIdInfo() const { return definingDecl->getIdInfo(); }
+
+    //@{
+    /// Returns the declaration node defining this type.
+    IntegerDecl *getDefiningDecl() { return definingDecl; }
+    const IntegerDecl *getDefiningDecl() const { return definingDecl; }
+    //@}
+
+    /// Returns the number of bits to represent this type.
+    ///
+    /// For root integer types the size is either 8, 16, 32, or 64.
+    uint64_t getSize() const { return lowerBound.getBitWidth(); }
+
+    /// Returns the base subtype.
+    UnconstrainedIntegerType *getBaseSubtype() { return baseType; }
+
+    /// Returns the lower limit of this type.
+    void getLowerLimit(llvm::APInt &res) const { res = lowerBound; }
+
+    /// Returns the upper limit of this type.
+    void getUpperLimit(llvm::APInt &res) const { res = upperBound; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const RootIntegerType *node) { return true; }
+    static bool classof(const IntegerType *node) {
+        return node->getIntegerKind() == RootIntegerType_KIND;
+    }
+
+private:
+    llvm::APInt lowerBound;             ///< Static lower bound for this type.
+    llvm::APInt upperBound;             ///< Static upper bound for this type.
+    UnconstrainedIntegerType *baseType; ///< Base subtype.
+    IntegerDecl *definingDecl;          ///< Defining declaration node.
+
+    /// Constructor helper.  Initializes the lower and upper bounds.
+    void initBounds(const llvm::APInt &low, const llvm::APInt &high);
+};
+
+class ConstrainedIntegerType : public IntegerType {
+
+public:
+    ConstrainedIntegerType(RootIntegerType *rootType,
+                           Expr *lowerBound, Expr *upperBound,
+                           IdentifierInfo *name = 0)
+        : IntegerType(ConstrainedIntegerType_KIND, rootType),
+          constraint(new RangeConstraint(lowerBound, upperBound)),
+          idInfo(name) { }
+
+    /// Returns true if this is an anonymous subtype.
+    bool isAnonymous() const { return idInfo == 0; }
+
+    /// Returns the identifier which most appropriately names this subtype.
+    ///
+    /// If this is an anonymous subtype, the identifier returned is that of the
+    /// root type.
+    IdentifierInfo *getIdInfo() const {
+        return idInfo ? idInfo : getRootType()->getIdInfo();
+    }
+
+    //@{
+    /// Returns the constraint on this subtype.
+    RangeConstraint *getConstraint() { return constraint; }
+    const RangeConstraint *getConstraint() const { return constraint; }
+    //@}
+
+    /// \brief Returns true if the constraint bounds for this subtype are
+    /// statically constrained.
+    bool isStaticallyConstrained() const { return constraint->isStatic(); }
+
+    // Support isa/dyn_cast.
+    static bool classof(const ConstrainedIntegerType *node) { return true; }
+    static bool classof(const IntegerType *node) {
+        return node->getIntegerKind() == ConstrainedIntegerType_KIND;
+    }
+
+private:
+    RangeConstraint *constraint; ///< The constraints on this subtype.
+    IdentifierInfo *idInfo;      ///< The name of this subtype or null.
+};
+
+class UnconstrainedIntegerType : public IntegerType {
+
+public:
+    UnconstrainedIntegerType(RootIntegerType *rootType,
+                             IdentifierInfo *name = 0)
+        : IntegerType(UnconstrainedIntegerType_KIND, rootType),
+          idInfo(name) { }
+
+    /// Returns true if this is an anonymous subtype.
+    bool isAnonymous() const { return idInfo == 0; }
+
+    /// Returns the identifier which most appropriately names this subtype.
+    ///
+    /// If this is an anonymous subtype, the identifier returned is that of the
+    /// root type.
+    IdentifierInfo *getIdInfo() const {
+        return idInfo ? idInfo : getRootType()->getIdInfo();
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const UnconstrainedIntegerType *node) { return true; }
+    static bool classof(const IntegerType *node) {
+        return node->getIntegerKind() == UnconstrainedIntegerType_KIND;
+    }
+
+private:
+    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
+};
+
+} // end anonymous namespace.
+
+RootIntegerType::RootIntegerType(AstResource &resource,
+                                 IntegerDecl *decl,
+                                 const llvm::APInt &low,
+                                 const llvm::APInt &high)
+    : IntegerType(RootIntegerType_KIND, 0),
+      definingDecl(decl)
 {
     initBounds(low, high);
 
-    // Build the base unconstrained subtype node named "I'Base", where I is the
-    // defining identifier for the corresponding declaration.
-    llvm::Twine name(decl->getString());
+    // Build the base unconstrained subtype node.  This type is given the name
+    // "I'Base", where I is the defining identifier of the corresponding
+    // declaration.
+    llvm::Twine name(definingDecl->getString());
     name = name + "'Base";
     IdentifierInfo *id = resource.getIdentifierInfo(name.str());
-    baseSubType = resource.createIntegerSubType(id, this);
+    baseType = cast<UnconstrainedIntegerType>(
+        resource.createIntegerSubtype(id, this));
 }
 
-unsigned IntegerType::getWidthForRange(const llvm::APInt &low,
-                                       const llvm::APInt &high)
-{
-     return std::max(low.getMinSignedBits(), high.getMinSignedBits());
-}
-
-void IntegerType::initBounds(const llvm::APInt &low, const llvm::APInt &high)
+void RootIntegerType::initBounds(const llvm::APInt &low,
+                                 const llvm::APInt &high)
 {
     // The base range represents a two's-complement signed integer.  We must be
     // symmetric about zero and include the values of the bounds.  Therefore,
     // even for null ranges, our base range is at least 2**7-1 .. 2**7.
-    unsigned minimalWidth = getWidthForRange(low, high);
-    unsigned preferredWidth;
+    unsigned minimalWidth = std::max(low.getMinSignedBits(),
+                                     high.getMinSignedBits());
 
-    if (minimalWidth <= 8)
-        preferredWidth = 8;
-    else if (minimalWidth <= 16)
-        preferredWidth = 16;
-    else if (minimalWidth <= 32)
-        preferredWidth = 32;
-    else if (minimalWidth <= 64)
-        preferredWidth = 64;
-    else {
-        assert(false && "Range too wide to represent!");
-        preferredWidth = 64;
-    }
-
-    this->low = llvm::APInt::getSignedMinValue(preferredWidth);
-    this->high = llvm::APInt::getSignedMaxValue(preferredWidth);
+    unsigned preferredWidth = DiscreteType::getPreferredSize(minimalWidth);
+    lowerBound = llvm::APInt::getSignedMinValue(preferredWidth);
+    upperBound = llvm::APInt::getSignedMaxValue(preferredWidth);
 }
 
-bool IntegerType::contains(IntegerSubType *subtype) const
+IntegerType *IntegerType::create(AstResource &resource, IntegerDecl *decl,
+                                 const llvm::APInt &lower,
+                                 const llvm::APInt &upper)
 {
-    // If the given subtype is unconstrained, check if this type contains its
-    // base.
-    if (!subtype->isConstrained())
-        return contains(subtype->getTypeOf());
+    return new RootIntegerType(resource, decl, lower, upper);
+}
 
-    // Otherwise, the range of the subtype must be within the representational
-    // limits for this type.
-    Range *range = subtype->getConstraint();
+IntegerType *IntegerType::createSubtype(IntegerType *type,
+                                        IdentifierInfo *name)
+{
+    RootIntegerType *root = cast<RootIntegerType>(type->getRootType());
+    return new UnconstrainedIntegerType(root, name);
+}
 
-    // If the target range is not static, containment is only possible if this
-    // type contains the base.
-    if (!range->isStatic())
-        return contains(subtype->getTypeOf());
+IntegerType *IntegerType::createConstrainedSubtype(IntegerType *type,
+                                                   Expr *lowerBound,
+                                                   Expr *upperBound,
+                                                   IdentifierInfo *name)
+{
+    RootIntegerType *root = cast<RootIntegerType>(type->getRootType());
+    return new ConstrainedIntegerType(root, lowerBound, upperBound, name);
+}
 
-    // If the target range is null, we always contain such a type.
-    if (range->isNull())
-        return true;
+IntegerType *IntegerType::getBaseSubtype()
+{
+    RootIntegerType *root = cast<RootIntegerType>(this->getRootType());
+    return root->getBaseSubtype();
+}
 
-    // Obtain the lower and upper bounds of the range.  If the number of bits
-    // needed to represent the range bounds exceed the limits of this type, we
-    // cannot contain the type.
-    const llvm::APInt &targetLower = range->getStaticLowerBound();
-    const llvm::APInt &targetUpper = range->getStaticUpperBound();
-    unsigned width = getBitWidth();
+RangeConstraint *IntegerType::getConstraint()
+{
+    ConstrainedIntegerType *Ty;
+    Ty = dyn_cast<ConstrainedIntegerType>(this);
+    return Ty ? Ty->getConstraint() : 0;
+}
 
-    if ((targetLower.getMinSignedBits() > width) ||
-        (targetUpper.getMinSignedBits() > width))
-        return false;
-    return true;
+const RangeConstraint *IntegerType::getConstraint() const {
+    const ConstrainedIntegerType *Ty;
+    Ty = dyn_cast<ConstrainedIntegerType>(this);
+    return Ty ? Ty->getConstraint() : 0;
+}
+
+void IntegerType::getLowerLimit(llvm::APInt &res) const
+{
+    const RootIntegerType *root = cast<RootIntegerType>(getRootType());
+    root->getLowerLimit(res);
+}
+
+void IntegerType::getUpperLimit(llvm::APInt &res) const
+{
+    const RootIntegerType *root = cast<RootIntegerType>(getRootType());
+    root->getUpperLimit(res);
+}
+
+uint64_t IntegerType::getSize() const
+{
+    const RootIntegerType *root = cast<RootIntegerType>(getRootType());
+    return root->getSize();
 }
 
 //===----------------------------------------------------------------------===//
 // ArrayType
 
-ArrayType::ArrayType(unsigned rank, SubType **indices, Type *component,
-                     bool isConstrained)
-    : Type(AST_ArrayType),
-      rank(rank),
-      componentType(component)
+ArrayType::ArrayType(ArrayDecl *decl, unsigned rank, DiscreteType **indices,
+                     Type *component, bool isConstrained)
+    : PrimaryType(AST_ArrayType, 0, false),
+      constraint(indices, indices + rank),
+      componentType(component),
+      definingDecl(decl)
 {
     assert(rank != 0 && "Missing index types!");
+    assert(this->isRootType());
+}
 
-    // Use the bits field to record our status as a constrained type.
-    if (isConstrained)
-        bits |= CONSTRAINT_BIT;
+ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
+                     DiscreteType **indices)
+    : PrimaryType(AST_ArrayType, rootType, true),
+      constraint(indices, indices + rootType->getRank()),
+      componentType(rootType->getComponentType()),
+      definingDecl(name)
+{
+    setConstraintBit();
+    assert(this->isSubtype());
+}
 
-    // Build our own vector of index types.
-    indexTypes = new SubType*[rank];
-    std::copy(indices, indices + rank, indexTypes);
+ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType)
+    : PrimaryType(AST_ArrayType, rootType, true),
+      constraint(rootType->constraint),
+      componentType(rootType->getComponentType()),
+      definingDecl(name)
+{
+    assert(this->isSubtype());
+}
+
+IdentifierInfo *ArrayType::getIdInfo() const
+{
+    if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
+        return idInfo;
+    const ArrayType *root = getRootType();
+    return root->definingDecl.get<ArrayDecl*>()->getIdInfo();
 }
 
 uint64_t ArrayType::length() const
@@ -318,139 +783,22 @@ uint64_t ArrayType::length() const
     assert(isConstrained() &&
            "Cannot determine length of unconstrained arrays!");
 
-    SubType *indexTy = getIndexType(0);
+    const DiscreteType *indexTy = getIndexType(0);
+    const RangeConstraint *constraint = indexTy->getConstraint();
 
-    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
-        if (intTy->isNull())
-            return 0;
-        llvm::APInt lower(intTy->getLowerBound());
-        llvm::APInt upper(intTy->getUpperBound());
-        llvm::APInt length(upper - lower + 1);
-        return length.getZExtValue();
-    }
+    assert(constraint->isStatic() &&
+           "Cannot determine length using non-static index constraint!");
 
-    // FIXME: We do not support constrained enumeration types yet, so just use
-    // the number of elements in the base type.
-    EnumSubType *enumTy = cast<EnumSubType>(indexTy);
-    return enumTy->getTypeOf()->getNumElements();
+    if (constraint->isNull())
+        return 0;
+
+    /// FIXME: There is an problem with overflow here when the bounds are at the
+    /// limit for a signed 64 bit integer.  One solution is to have this method
+    /// return an APInt.  Another is to make the length undefined for arrays
+    /// with a null index and return a "zero based" result.
+    llvm::APInt lower(constraint->getStaticLowerBound());
+    llvm::APInt upper(constraint->getStaticUpperBound());
+    llvm::APInt length(upper - lower);
+    return length.getZExtValue() + 1;
 }
 
-//===----------------------------------------------------------------------===//
-// IntegerSubType
-
-bool IntegerSubType::contains(IntegerSubType *subtype) const
-{
-
-    // If this subtype is not constrained, check if the base type contains the
-    // target.
-    if (!isConstrained())
-        return getTypeOf()->contains(subtype);
-
-    // If this subtype has a null constraint it cannot contain any other type.
-    if (getConstraint()->isNull())
-        return false;
-
-    // If the target subtype is null, we certainly can contain it.
-    if (subtype->isConstrained() && subtype->getConstraint()->isNull())
-        return true;
-
-    // If this subtype does not have a static range we cannot determine
-    // containment.
-    if (!isStaticallyConstrained())
-        return false;
-
-    // Otherwise obtain bounds for the target subtype.  If the constraint is
-    // static or partially static, the bounds corrspond to the constraint, else
-    // to the base type limits.
-    llvm::APInt lowerTarget(subtype->getLowerBound());
-    llvm::APInt upperTarget(subtype->getUpperBound());
-
-    // This type is staticly constrained.  The following bounds are with repect
-    // to the range.
-    const llvm::APInt &lowerSource = getLowerBound();
-    const llvm::APInt &upperSource = getUpperBound();
-
-    // The domain of computation here is with respect to this types bit width.
-    // If the lower or upper target bounds exceed the width (bit wise) of this
-    // type, we cannot represent the target.  Otherwise, convert the target to
-    // this types representation width.
-    unsigned width = getTypeOf()->getBitWidth();
-
-    if (lowerTarget.getMinSignedBits() > width)
-        return false;
-    else
-        lowerTarget.sextOrTrunc(width);
-
-    if (upperTarget.getMinSignedBits() > width)
-        return false;
-    else
-        upperTarget.sextOrTrunc(width);
-
-    if (lowerTarget.slt(lowerSource) || upperSource.slt(upperTarget))
-        return false;
-    return true;
-}
-
-bool IntegerSubType::contains(IntegerType *type) const
-{
-    // If this subtype is unconstrained, check if the base type contains the
-    // target.
-    if (!isConstrained())
-        return getTypeOf()->contains(type);
-
-    // If this subtype does not have static bounds on its constraint we cannot
-    // determine containment.
-    if (!isStaticallyConstrained())
-        return false;
-
-    // Otherwise, compare the bounds of this subtypes range and the given types
-    // representation limits.
-    const llvm::APInt &lowerTarget = type->getLowerBound();
-    const llvm::APInt &upperTarget = type->getUpperBound();
-    llvm::APInt lowerSource(getLowerBound());
-    llvm::APInt upperSource(getUpperBound());
-
-    // The domain of computation here is with respect to the target types bit
-    // width.  If the lower or upper bounds of this type are smaller (bit wise)
-    // than the width of the target, we cannot represent the target.  Otherwise,
-    // convert this types bounds to the targets width.
-    unsigned width = type->getBitWidth();
-
-    if (lowerSource.getMinSignedBits() > width)
-        return false;
-    else
-        lowerSource.sextOrTrunc(width);
-
-    if (upperSource.getMinSignedBits() > width)
-        return false;
-    else
-        upperSource.sextOrTrunc(width);
-
-    if (lowerTarget.slt(lowerSource) || upperSource.slt(upperTarget))
-        return false;
-    return true;
-}
-
-//===----------------------------------------------------------------------===//
-// ArraySubType
-uint64_t ArraySubType::length() const
-{
-    if (!isConstrained())
-        return getTypeOf()->length();
-
-    SubType *indexTy = getIndexType(0);
-
-    if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexTy)) {
-        if (intTy->isNull())
-            return 0;
-        const llvm::APInt &lower = intTy->getLowerBound();
-        const llvm::APInt &upper = intTy->getUpperBound();
-        llvm::APInt length(upper - lower + 1);
-        return length.getZExtValue();
-    }
-
-    // FIXME: We do not support constrained enumeration types yet, so just use
-    // the number of elements in the base type.
-    EnumSubType *enumTy = cast<EnumSubType>(indexTy);
-    return enumTy->getTypeOf()->getNumElements();
-}

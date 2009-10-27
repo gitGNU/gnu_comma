@@ -74,11 +74,13 @@ void StringLiteral::init(const char *string, unsigned len)
 StringLiteral::const_component_iterator
 StringLiteral::findComponent(EnumerationType *type) const
 {
+    EnumerationType *root = type->getRootType();
+
     const_component_iterator I = begin_component_types();
     const_component_iterator E = end_component_types();
     for ( ; I != E; ++I) {
         const EnumerationDecl *decl = *I;
-        if (type == decl->getType()->getTypeOf())
+        if (root == decl->getType()->getRootType())
             return I;
     }
     return E;
@@ -87,11 +89,13 @@ StringLiteral::findComponent(EnumerationType *type) const
 StringLiteral::component_iterator
 StringLiteral::findComponent(EnumerationType *type)
 {
+    EnumerationType *root = type->getRootType();
+
     component_iterator I = begin_component_types();
     component_iterator E = end_component_types();
     for ( ; I != E; ++I) {
         EnumerationDecl *decl = *I;
-        if (type == decl->getType()->getTypeOf())
+        if (root == decl->getType()->getRootType())
             return I;
     }
     return E;

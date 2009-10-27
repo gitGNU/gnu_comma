@@ -21,9 +21,7 @@ using llvm::isa;
 
 void TypeVisitor::visitType(Type *node)
 {
-    if (SubType *subTy = dyn_cast<SubType>(node))
-        visitSubType(subTy);
-    else if (SubroutineType *srTy = dyn_cast<SubroutineType>(node))
+    if (SubroutineType *srTy = dyn_cast<SubroutineType>(node))
         visitSubroutineType(srTy);
     else if (DomainType *domTy = dyn_cast<DomainType>(node))
         visitDomainType(domTy);
@@ -33,23 +31,12 @@ void TypeVisitor::visitType(Type *node)
         visitArrayType(arrTy);
     else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(node))
         visitEnumerationType(enumTy);
+    else if (CarrierType *carrierTy = dyn_cast<CarrierType>(node))
+        visitCarrierType(carrierTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
 
-void TypeVisitor::visitSubType(SubType *node)
-{
-    if (CarrierType *carrierTy = dyn_cast<CarrierType>(node))
-        visitCarrierType(carrierTy);
-    else if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(node))
-        visitIntegerSubType(intTy);
-    else if (ArraySubType *arrTy = dyn_cast<ArraySubType>(node))
-        visitArraySubType(arrTy);
-    else if (EnumSubType *enumTy = dyn_cast<EnumSubType>(node))
-        visitEnumSubType(enumTy);
-    else
-        assert(false && "Cannot visit this kind of node!");
-}
 
 void TypeVisitor::visitSubroutineType(SubroutineType *node)
 {
@@ -69,9 +56,6 @@ void TypeVisitor::visitDomainType(DomainType *node) { }
 void TypeVisitor::visitFunctionType(FunctionType *node) { }
 void TypeVisitor::visitProcedureType(ProcedureType *node) { }
 void TypeVisitor::visitEnumerationType(EnumerationType *node) { }
-void TypeVisitor::visitEnumSubType(EnumSubType *node) { }
 void TypeVisitor::visitIntegerType(IntegerType *node) { }
-void TypeVisitor::visitIntegerSubType(IntegerSubType *node) { }
 void TypeVisitor::visitArrayType(ArrayType *node) { }
-void TypeVisitor::visitArraySubType(ArraySubType *node) { }
 

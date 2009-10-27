@@ -125,11 +125,11 @@ private:
     llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
                                     llvm::BasicBlock *predecessor = 0);
 
-    /// Emits a value representing the lower bound of the given scalar subtype.
-    llvm::Value *emitScalarLowerBound(IntegerSubType *Ty);
+    /// Emits a value representing the lower bound of the given scalar type.
+    llvm::Value *emitScalarLowerBound(IntegerType *Ty);
 
     /// Emits a value representing the upper bound of the given scalar subtype.
-    llvm::Value *emitScalarUpperBound(IntegerSubType *Ty);
+    llvm::Value *emitScalarUpperBound(IntegerType *Ty);
 
     llvm::Value *emitExpr(Expr *expr);
     llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
@@ -170,8 +170,7 @@ private:
                           std::vector<llvm::Value *> &args);
 
     // Conversion emitters.
-    llvm::Value *emitCheckedIntegerConversion(Expr *expr,
-                                              IntegerSubType *target);
+    llvm::Value *emitCheckedIntegerConversion(Expr *expr, IntegerType *target);
 
     llvm::Value *lookupDecl(Decl *decl);
 
@@ -201,8 +200,8 @@ private:
 
     /// Emits a scalar range check.
     void emitScalarRangeCheck(llvm::Value *sourceVal,
-                              IntegerSubType *sourceTy,
-                              IntegerSubType *targetTy);
+                              IntegerType *sourceTy,
+                              IntegerType *targetTy);
 
     /// Helper method for emitAbstractCall.
     ///
@@ -218,13 +217,13 @@ private:
     void emitPragmaAssert(PragmaAssert *pragma);
 
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
-                       ArraySubType *arrTy);
+                       ArrayType *arrTy);
 
     llvm::Value *emitArrayBounds(Expr *expr);
 
-    void initArrayBounds(llvm::Value *boundSlot, ArraySubType *arrTy);
+    void initArrayBounds(llvm::Value *boundSlot, ArrayType *arrTy);
 
-    llvm::Value *emitArrayLength(ArraySubType *arrTy);
+    llvm::Value *emitArrayLength(ArrayType *arrTy);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

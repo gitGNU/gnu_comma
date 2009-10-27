@@ -45,33 +45,25 @@ public:
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
-    const llvm::Type *lowerSubType(const SubType *type);
-
     const llvm::IntegerType *lowerIntegerType(const IntegerType *type);
-
-    const llvm::IntegerType *lowerIntegerSubType(const IntegerSubType *type) {
-        return lowerIntegerType(type->getTypeOf());
-    }
 
     const llvm::ArrayType *lowerArrayType(const ArrayType *type);
 
-    const llvm::ArrayType *lowerArraySubType(const ArraySubType *type);
-
     /// Returns the structure type used to hold the bounds of an unconstrained
     /// array.
-    const llvm::StructType *lowerArrayBounds(const ArraySubType *arrTy);
+    const llvm::StructType *lowerArrayBounds(const ArrayType *arrTy);
 
 private:
     CodeGen &CG;
 
-    typedef llvm::ScopedHashTable<Type*, Type*> RewriteMap;
-    typedef llvm::ScopedHashTableScope<Type*, Type*> RewriteScope;
+    typedef llvm::ScopedHashTable<const Type*, const Type*> RewriteMap;
+    typedef llvm::ScopedHashTableScope<const Type*, const Type*> RewriteScope;
     RewriteMap rewrites;
     RewriteScope topScope;
 
-    void addInstanceRewrites(DomainInstanceDecl *instance);
+    void addInstanceRewrites(const DomainInstanceDecl *instance);
 
-    const DomainType *rewriteAbstractDecl(AbstractDomainDecl *abstract);
+    const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
 

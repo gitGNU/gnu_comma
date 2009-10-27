@@ -28,7 +28,6 @@ class AbstractDomainDecl;
 class AddDecl;
 class ArrayBoundAE;
 class ArrayDecl;
-class ArraySubType;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -50,7 +49,6 @@ class DomainTypeDecl;
 class Domoid;
 class EnumerationDecl;
 class EnumLiteral;
-class EnumSubType;
 class EnumerationType;
 class Expr;
 class FirstAE;
@@ -66,7 +64,6 @@ class IndexedArrayExpr;
 class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
-class IntegerSubType;
 class IntegerType;
 class KeywordSelector;
 class LastAE;
@@ -98,7 +95,6 @@ class SubroutineCall;
 class SubroutineDecl;
 class SubroutineRef;
 class SubroutineType;
-class SubType;
 class Type;
 class ConversionExpr;
 class TypeDecl;
@@ -174,20 +170,13 @@ public:
         //
         // Type nodes.
         //
-        AST_DomainType,         ///< DomainType
         AST_FunctionType,       ///< FunctionType
         AST_ProcedureType,      ///< ProcedureType
+        AST_DomainType,         ///< DomainType
         AST_IntegerType,        ///< IntegerType
         AST_ArrayType,          ///< ArrayType
         AST_EnumerationType,    ///< EnumerationType
-
-        //
-        // SubType nodes.
-        //
         AST_CarrierType,        ///< CarrierType
-        AST_ArraySubType,       ///< ArraySubType
-        AST_EnumSubType,        ///< EnumSubType
-        AST_IntegerSubType,     ///< IntegerSubType
 
         //
         // Expr nodes.
@@ -248,14 +237,11 @@ public:
         FIRST_ValueDecl = AST_ParamValueDecl,
         LAST_ValueDecl = AST_ObjectDecl,
 
-        FIRST_Type = AST_DomainType,
-        LAST_Type = AST_IntegerSubType,
+        FIRST_Type = AST_FunctionType,
+        LAST_Type = AST_CarrierType,
 
-        FIRST_PrimaryType = AST_IntegerType,
-        LAST_PrimaryType = AST_EnumerationType,
-
-        FIRST_SubType = AST_CarrierType,
-        LAST_SubType = AST_IntegerSubType,
+        FIRST_PrimaryType = AST_DomainType,
+        LAST_PrimaryType = AST_CarrierType,
 
         FIRST_Expr = AST_ConversionExpr,
         LAST_Expr = AST_LastAE,
@@ -339,11 +325,6 @@ public:
     /// Returns true if this node denotes a PrimaryType.
     bool denotesPrimaryType() const {
         return (FIRST_PrimaryType <= kind && kind <= LAST_PrimaryType);
-    }
-
-    /// Returns true if this node denotes a named subtype.
-    bool denotesSubType() const {
-        return (FIRST_SubType <= kind && kind <= LAST_SubType);
     }
 
     /// Returns true if this node denotes a subroutine type (i.e. either a

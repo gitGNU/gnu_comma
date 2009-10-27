@@ -48,9 +48,6 @@ private:
         return AstDumperBase::printHeader(node);
     }
 
-    /// Print the name of the subtype with the header if available.
-    llvm::raw_ostream &printHeader(SubType *node);
-
     /// Visitor methods implementing the dump routines.  We use the default
     /// implementations for all inner node visitors since we are only concerned
     /// with concrete types.
@@ -66,11 +63,8 @@ private:
     void visitFunctionType(FunctionType *node);
     void visitProcedureType(ProcedureType *node);
     void visitEnumerationType(EnumerationType *node);
-    void visitEnumSubType(EnumSubType *node);
     void visitIntegerType(IntegerType *node);
-    void visitIntegerSubType(IntegerSubType *node);
     void visitArrayType(ArrayType *node);
-    void visitArraySubType(ArraySubType *node);
 };
 
 } // end comma namespace.

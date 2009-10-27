@@ -193,26 +193,47 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID, const Expr *arg,
 
 bool staticIntegerAttribExpr(const AttribExpr *expr, llvm::APInt &result)
 {
+    bool status = false;
+
     // Current attribute support is minimal.  Only First and Last are currently
-    // supported, and they are always static.
+    // supported.
     switch (expr->getKind()) {
 
     default:
         // The given attribute cannot be evaluated statically.
-        return false;
+        break;
 
     case Ast::AST_FirstAE: {
-        const IntegerSubType *subtype = cast<FirstAE>(expr)->getType();
-        result = subtype->getLowerBound();
-        return true;
+        const IntegerType *intTy = cast<FirstAE>(expr)->getType();
+        if (const RangeConstraint *constraint = intTy->getConstraint()) {
+            if (constraint->hasStaticLowerBound()) {
+                result = constraint->getStaticLowerBound();
+                status = true;
+            }
+        }
+        else if (intTy->isRootType()) {
+            intTy->getLowerLimit(result);
+            status = true;
+        }
+        break;
     }
 
     case Ast::AST_LastAE: {
-        const IntegerSubType *subtype = cast<LastAE>(expr)->getType();
-        result = subtype->getUpperBound();
-        return true;
+        const IntegerType *intTy = cast<LastAE>(expr)->getType();
+        if (const RangeConstraint *constraint = intTy->getConstraint()) {
+            if (constraint->hasStaticUpperBound()) {
+                result = constraint->getStaticUpperBound();
+                status = true;
+            }
+        }
+        else if (intTy->isRootType()) {
+            intTy->getUpperLimit(result);
+            status = true;
+        }
+        break;
     }
     };
+    return status;
 }
 
 void signExtend(llvm::APInt &x, llvm::APInt &y)

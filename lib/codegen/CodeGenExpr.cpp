@@ -146,12 +146,12 @@ void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
     else
         arg = emitValue(expr);
 
-    if (ArraySubType *arrTy = dyn_cast<ArraySubType>(paramTy)) {
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
         // When the expected type is an unconstrained array type, we might need
         // to cast the argument.  Unconstrained arrays are represented as
         // pointers to empty LLVM arrays (e.g. [0 x T]*), whereas constrained
-        // arrays have a defininte dimension.  Lower the target type and cast
-        // the argument if necessary.
+        // arrays have a definite dimension.  Lower the target type and cast the
+        // argument if necessary.
         const llvm::Type *contextTy;
         contextTy = CGT.lowerType(srDecl->getParamType(argPosition));
         contextTy = CG.getPointerType(contextTy);
@@ -437,7 +437,7 @@ llvm::Value *CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
     assert(expr->hasType() && "Unresolved string literal type!");
 
     // Build a constant array representing the literal.
-    const llvm::ArrayType *arrTy = CGT.lowerArraySubType(expr->getType());
+    const llvm::ArrayType *arrTy = CGT.lowerArrayType(expr->getType());
     const llvm::Type *elemTy = arrTy->getElementType();
     llvm::StringRef string = expr->getString();
 
@@ -466,17 +466,17 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
     llvm::Value *arrValue = lookupDecl(arrRefExpr->getDeclaration());
     llvm::Value *idxValue = emitValue(idxExpr);
 
-    ArraySubType *arrType = cast<ArraySubType>(arrRefExpr->getType());
+    ArrayType *arrType = cast<ArrayType>(arrRefExpr->getType());
 
     if (arrType->isConstrained()) {
         // Resolve the index type of the array (not the type of the index
         // expression).
-        SubType *indexType = arrType->getIndexType(0);
+        DiscreteType *indexType = arrType->getIndexType(0);
 
         // If the index type is an integer type adjust the index expression by
         // the lower bound.  If the bound happens to be a constant zero the
         // IRBuilder will fold the ajustment.
-        if (IntegerSubType *intTy = dyn_cast<IntegerSubType>(indexType)) {
+        if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
             llvm::Value *adjust = emitScalarLowerBound(intTy);
             idxValue = Builder.CreateSub(idxValue, adjust);
         }
@@ -513,7 +513,7 @@ llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 {
     // The only type of conversions we currently support are integer
     // conversions.
-    if (IntegerSubType *target = dyn_cast<IntegerSubType>(expr->getType())) {
+    if (IntegerType *target = dyn_cast<IntegerType>(expr->getType())) {
         return emitCheckedIntegerConversion(expr->getOperand(), target);
     }
 
@@ -523,18 +523,18 @@ llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 
 void
 CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
-                                     IntegerSubType *sourceTy,
-                                     IntegerSubType *targetTy)
+                                     IntegerType *sourceTy,
+                                     IntegerType *targetTy)
 {
-    IntegerType *targetBaseTy = targetTy->getAsIntegerType();
-    IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
+    IntegerType *targetRootTy = targetTy->getRootType();
+    IntegerType *sourceRootTy = sourceTy->getRootType();
     const llvm::IntegerType *boundTy;
 
     // Range checks need to be performed using the larger type (most often the
     // source type).  Find the appropriate type and sign extend the value if
     // needed.
-    if (targetBaseTy->getBitWidth() > sourceBaseTy->getBitWidth()) {
-        boundTy = CGT.lowerIntegerSubType(targetTy);
+    if (targetRootTy->getSize() > sourceRootTy->getSize()) {
+        boundTy = CGT.lowerIntegerType(targetTy);
         sourceVal = Builder.CreateSExt(sourceVal, boundTy);
     }
     else
@@ -553,8 +553,8 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
         upper = range->getStaticUpperBound();
     }
     else {
-        lower = targetBaseTy->getLowerBound();
-        upper = targetBaseTy->getUpperBound();
+        targetRootTy->getLowerLimit(lower);
+        targetRootTy->getUpperLimit(upper);
     }
 
     if (lower.getBitWidth() < boundTy->getBitWidth())
@@ -591,13 +591,11 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
 
 llvm::Value *
 CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
-                                             IntegerSubType *targetTy)
+                                             IntegerType *targetTy)
 {
-    IntegerSubType *sourceTy = expr->getType()->getAsIntegerSubType();
-    IntegerType *targetBaseTy = targetTy->getAsIntegerType();
-    IntegerType *sourceBaseTy = sourceTy->getAsIntegerType();
-    unsigned targetWidth = targetBaseTy->getBitWidth();
-    unsigned sourceWidth = sourceBaseTy->getBitWidth();
+    IntegerType *sourceTy = cast<IntegerType>(expr->getType());
+    unsigned targetWidth = targetTy->getSize();
+    unsigned sourceWidth = sourceTy->getSize();
 
     // Evaluate the source expression.
     llvm::Value *sourceVal = emitValue(expr);
@@ -625,7 +623,7 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
 }
 
 void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot,
-                                     ArraySubType *arrTy)
+                                     ArrayType *arrTy)
 {
     assert(arrTy->isConstrained() && "Expected constrained arrray!");
 
@@ -636,15 +634,19 @@ void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot,
 
     for (iterator I = constraint->begin(); I != constraint->end(); ++I) {
         // FIXME: Only integer index types are supported ATM.
-        IntegerSubType *idxTy = cast<IntegerSubType>(*I);
+        IntegerType *idxTy = cast<IntegerType>(*I);
 
+        // FIXME: This is wrong.  We need to evauate the actual constraint
+        // bounds.
+        llvm::APInt lower;
+        llvm::APInt upper;
+        idxTy->getLowerLimit(lower);
+        idxTy->getUpperLimit(upper);
+
+        // All bounds are represented using the root type of the index.
+        const llvm::IntegerType *boundTy;
         llvm::Value *bound;
-        int64_t lower = idxTy->getLowerBound().getSExtValue();
-        int64_t upper = idxTy->getUpperBound().getSExtValue();
-
-        // All bounds are represented using the base type for the index.
-        const llvm::IntegerType *boundTy =
-            cast<llvm::IntegerType>(CGT.lowerType(idxTy->getTypeOf()));
+        boundTy = cast<llvm::IntegerType>(CGT.lowerType(idxTy));
 
         bound = Builder.CreateStructGEP(bounds, boundIdx++);
         Builder.CreateStore(CG.getConstantInt(boundTy, lower), bound);
@@ -656,7 +658,7 @@ void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot,
 
 llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
 {
-    ArraySubType *arrTy = cast<ArraySubType>(expr->getType());
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
 
     // If the given expression is a reference to value declaration, obtain a
     // bounds structure describing the it.
@@ -694,12 +696,12 @@ llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
     return boundSlot;
 }
 
-llvm::Value *CodeGenRoutine::emitArrayLength(ArraySubType *arrTy)
+llvm::Value *CodeGenRoutine::emitArrayLength(ArrayType *arrTy)
 {
     assert(arrTy->isConstrained() && "Unconstrained array type!");
 
-    // FIXME: Support general scalar index types.
-    IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+    // FIXME: Support general discrete index types.
+    IntegerType *idxTy = cast<IntegerType>(arrTy->getIndexType(0));
     llvm::Value *lower = emitScalarLowerBound(idxTy);
     llvm::Value *upper = emitScalarUpperBound(idxTy);
     llvm::Value *length = Builder.CreateSub(upper, lower);
@@ -708,13 +710,14 @@ llvm::Value *CodeGenRoutine::emitArrayLength(ArraySubType *arrTy)
     return Builder.CreateAdd(length, CG.getConstantInt(loweredTy, 1));
 }
 
-llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
+llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGT.lowerIntegerSubType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerIntegerType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {
-        llvm::APInt bound(Ty->getTypeOf()->getLowerBound());
+        llvm::APInt bound;
+        Ty->getLowerLimit(bound);
         return CG.getConstantInt(loweredTy, bound);
     }
 
@@ -730,13 +733,14 @@ llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerSubType *Ty)
     return emitValue(range->getLowerBound());
 }
 
-llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerSubType *Ty)
+llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGT.lowerIntegerSubType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerIntegerType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {
-        llvm::APInt bound(Ty->getTypeOf()->getUpperBound());
+        llvm::APInt bound;
+        Ty->getUpperLimit(bound);
         return CG.getConstantInt(loweredTy, bound);
     }
 
@@ -766,7 +770,7 @@ llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
 {
-    IntegerSubType *Ty = AE->getType();
+    IntegerType *Ty = AE->getType();
     if (AE->isFirst())
         return emitScalarLowerBound(Ty);
     else
@@ -775,12 +779,12 @@ llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
 
 llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
 {
-    ArraySubType *arrTy = AE->getPrefixType();
+    ArrayType *arrTy = AE->getPrefixType();
 
     if (arrTy->isConstrained()) {
         // For constrained arrays the bound can be generated with reference to
         // the index subtype alone.
-        IntegerSubType *indexTy = AE->getType();
+        IntegerType *indexTy = AE->getType();
         if (AE->isFirst())
             return emitScalarLowerBound(indexTy);
         else

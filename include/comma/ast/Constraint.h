@@ -23,13 +23,13 @@
 namespace comma {
 
 class Expr;
-class SubType;
+class DiscreteType;
 
 //===----------------------------------------------------------------------===//
 // Constraint.
 //
 /// This class is the root of a small hierarchy which models the constraints
-/// that can be imposed on SubType nodes.
+/// that can be imposed on subtype nodes.
 class Constraint {
 
 public:
@@ -73,10 +73,10 @@ public:
 
 class IndexConstraint : public Constraint {
 
-    typedef llvm::SmallVector<SubType*, 4> ConstraintVec;
+    typedef llvm::SmallVector<DiscreteType*, 4> ConstraintVec;
 
 public:
-    IndexConstraint(SubType **constraints, unsigned numConstraints)
+    IndexConstraint(DiscreteType **constraints, unsigned numConstraints)
         : Constraint(Index_Constraint),
           indexConstraints(constraints, constraints + numConstraints) { }
 
@@ -85,9 +85,18 @@ public:
         : Constraint(Index_Constraint),
           indexConstraints(start, end) { }
 
+    IndexConstraint(const IndexConstraint &constraint)
+        : Constraint(Index_Constraint),
+          indexConstraints(constraint.begin(), constraint.end()) { }
+
     unsigned numConstraints() const { return indexConstraints.size(); }
 
-    SubType *getConstraint(unsigned i) const {
+    const DiscreteType *getConstraint(unsigned i) const {
+        assert(i < numConstraints() && "Index out of range!");
+        return indexConstraints[i];
+    }
+
+    DiscreteType *getConstraint(unsigned i) {
         assert(i < numConstraints() && "Index out of range!");
         return indexConstraints[i];
     }

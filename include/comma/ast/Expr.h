@@ -360,8 +360,8 @@ public:
     }
 
     /// Returns the type of this string literal once resolved.
-    ArraySubType *getType() const {
-        return llvm::cast<ArraySubType>(Expr::getType());
+    ArrayType *getType() const {
+        return llvm::cast<ArrayType>(Expr::getType());
     }
 
     /// Returns the underlying representation of this string literal.
@@ -406,10 +406,7 @@ public:
         return interps.count(decl);
     }
     bool containsComponentType(EnumerationType *type) const {
-        return findComponent(type) != end_component_types();
-    }
-    bool containsComponentType(EnumSubType *subtype) const {
-        return containsComponentType(subtype->getTypeOf());
+        return findComponent(type->getRootType()) != end_component_types();
     }
     //@}
 
@@ -419,9 +416,6 @@ public:
     /// returned.
     //@{
     bool resolveComponentType(EnumerationType *type);
-    bool resolveComponentType(EnumSubType *subtype) {
-        return resolveComponentType(subtype->getTypeOf());
-    }
     //@}
 
     /// Returns the number of component interpretations.

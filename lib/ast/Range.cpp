@@ -25,12 +25,12 @@ Range::Range(Expr *lower, Expr *upper)
     Type *lowerTy = lower->getType();
     Type *upperTy = upper->getType();
 
-    // If either of the types are subtypes, reduce to each to the underlying
-    // base.
-    if (SubType *subTy = dyn_cast<SubType>(lowerTy))
-        lowerTy = subTy->getTypeOf();
-    if (SubType *subTy = dyn_cast<SubType>(upperTy))
-        upperTy = subTy->getTypeOf();
+    // If either of the types are primary, reduce to each to the underlying
+    // root.
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(lowerTy))
+        lowerTy = primary->getRootType();
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(upperTy))
+        upperTy = primary->getRootType();
 
     // Both expressions must be of the same common discrete type.
     assert(lowerTy == upperTy && "Type mismatch in range bounds!");
@@ -38,7 +38,7 @@ Range::Range(Expr *lower, Expr *upper)
 
     // Currently, the type must be an IntegerType.
     IntegerType *rangeTy = cast<IntegerType>(lowerTy);
-    unsigned width = rangeTy->getBitWidth();
+    unsigned width = rangeTy->getSize();
 
     // Try to evaluate the upper and lower bounds as static integer valued
     // expressions.  Mark each bound as appropriate and convert the CTC to a
@@ -59,8 +59,8 @@ IntegerType *Range::getType()
 {
     Type *Ty = getLowerBound()->getType();
 
-    if (SubType *subTy = dyn_cast<SubType>(Ty))
-        Ty = subTy->getTypeOf();
+    if (PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
+        Ty = primary->getRootType();
 
     // Currently, all range types are integer types.
     return cast<IntegerType>(Ty);
@@ -70,8 +70,8 @@ const IntegerType *Range::getType() const
 {
     const Type *Ty = getLowerBound()->getType();
 
-    if (const SubType *subTy = dyn_cast<SubType>(Ty))
-        Ty = subTy->getTypeOf();
+    if (const PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
+        Ty = primary->getRootType();
 
     // Currently, all range types are integer types.
     return cast<IntegerType>(Ty);
@@ -98,7 +98,7 @@ bool Range::contains(const llvm::APInt &value) const
 
     llvm::APInt candidate(value);
 
-    unsigned rangeWidth = getType()->getBitWidth();
+    unsigned rangeWidth = getType()->getSize();
 
     if (candidate.getMinSignedBits() > rangeWidth)
         return false;

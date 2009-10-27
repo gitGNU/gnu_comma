@@ -524,12 +524,6 @@ private:
     /// declarations.
     bool checkApplicableArgument(Expr *expr, Type *targetType);
 
-    // Returns true if the source type is compatible with the target.  In this
-    // case the target denotes a signature, and so the source must be a domain
-    // which satisfies the signature constraint.  The supplied location
-    // indicates the position of the source type.
-    bool checkType(Type *source, SigInstanceDecl *target, Location loc);
-
     bool covers(Type *A, Type *B);
 
     bool subsumes(Type *A, Type *B);
@@ -605,7 +599,7 @@ private:
     void introduceImplicitDecls(DeclRegion *region);
 
     /// Utility routine for building TypeRef nodes over the given model.
-    static TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
+    TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
 
     /// Utility routine for building SubroutineRef nodes using the subroutine
     /// declarations provided by the given Resolver.
@@ -719,7 +713,7 @@ private:
 
     /// Returns a constrained array subtype derived from the given type \p arrTy
     /// and an array valued expression (typically an array initializer) \p init.
-    ArraySubType *getConstrainedArraySubType(ArraySubType *arrTy, Expr *init);
+    ArrayType *getConstrainedArraySubtype(ArrayType *arrTy, Expr *init);
 
     /// Creates a FunctionCallExpr or ProcedureCallStmt representing the given
     /// SubroutineRef, provided that \p ref admits declarations with arity zero.

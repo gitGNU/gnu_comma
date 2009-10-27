@@ -48,7 +48,7 @@ ArrayBoundAE::ArrayBoundAE(AstKind kind,
     assert(kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
     assert(dimension->isStaticIntegerExpr());
 
-    ArraySubType *arrTy = cast<ArraySubType>(prefix->getType());
+    ArrayType *arrTy = cast<ArrayType>(prefix->getType());
 
     llvm::APInt dim;
     dimension->staticIntegerValue(dim);
@@ -71,6 +71,6 @@ ArrayBoundAE::ArrayBoundAE(AstKind kind, Expr *prefix, Location loc)
       dimValue(0)
 {
     assert(kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
-    ArraySubType *arrTy = cast<ArraySubType>(prefix->getType());
+    ArrayType *arrTy = cast<ArrayType>(prefix->getType());
     setType(arrTy->getIndexType(0));
 }

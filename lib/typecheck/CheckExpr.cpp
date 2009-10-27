@@ -97,7 +97,7 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
         return true;
     }
 
-    IntegerSubType *subtype = dyn_cast<IntegerSubType>(context);
+    IntegerType *subtype = dyn_cast<IntegerType>(context);
     if (!subtype) {
         // FIXME: Need a better diagnostic here.
         report(intLit->getLocation(), diag::INCOMPATIBLE_TYPES);
@@ -112,8 +112,8 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     // width.  If the literal is in bounds, zero extend if needed to match the
     // base type.
     llvm::APInt &litValue = intLit->getValue();
-    IntegerType *intTy = subtype->getAsIntegerType();
-    unsigned targetWidth = intTy->getBitWidth();
+    IntegerType *rootTy = subtype->getRootType();
+    unsigned targetWidth = rootTy->getSize();
     unsigned literalWidth = litValue.getBitWidth();
     if (literalWidth < targetWidth)
         litValue.zext(targetWidth);
@@ -302,7 +302,7 @@ Node TypeCheck::acceptStringLiteral(const char *chars, unsigned len,
 bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
 {
     // First, ensure the type context is a string array type.
-    ArraySubType *arrTy = dyn_cast<ArraySubType>(context);
+    ArrayType *arrTy = dyn_cast<ArrayType>(context);
     if (!arrTy || !arrTy->isStringType()) {
         report(strLit->getLocation(), diag::INCOMPATIBLE_TYPES);
         return false;
@@ -312,7 +312,7 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     // resolve the context.  Perhaps we should assert that the supplied type is
     // constrained.  For now, construct an appropriate type for the literal.
     if (!arrTy->isConstrained() &&
-        !(arrTy = getConstrainedArraySubType(arrTy, strLit)))
+        !(arrTy = getConstrainedArraySubtype(arrTy, strLit)))
         return false;
 
     // The array is a string type.  Check that the string literal has at least
@@ -321,7 +321,8 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     //
     // FIXME: more work needs to be done here when the enumeration type is
     // constrained.
-    EnumSubType *enumTy = cast<EnumSubType>(arrTy->getComponentType());
+    EnumerationType *enumTy;
+    enumTy = cast<EnumerationType>(arrTy->getComponentType());
     if (!strLit->containsComponentType(enumTy)) {
         report(strLit->getLocation(), diag::STRING_COMPONENTS_DO_NOT_SATISFY)
             << enumTy->getIdInfo();

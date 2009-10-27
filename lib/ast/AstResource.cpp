@@ -91,12 +91,12 @@ void AstResource::initializeCharacter()
     IdentifierInfo *charId = getIdentifierInfo("Character");
 
     typedef std::pair<IdentifierInfo*, Location> IdLocPair;
-    llvm::SmallVector<IdLocPair, numNames> elems;
+    IdLocPair elems[numNames];
     for (unsigned i = 0; i < numNames; ++i) {
         IdentifierInfo *id = getIdentifierInfo(names[i]);
-        elems.push_back(IdLocPair(id, 0));
+        elems[i] = IdLocPair(id, 0);
     }
-    theCharacterDecl = createEnumDecl(charId, 0, &elems[0], elems.size(), 0);
+    theCharacterDecl = createEnumDecl(charId, 0, elems, numNames, 0);
     theCharacterDecl->markAsCharacterType();
 }
 
@@ -132,10 +132,11 @@ void AstResource::initializeNatural()
     // nodes.
     IdentifierInfo *name = getIdentifierInfo("Natural");
     IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
-    unsigned width = type->getBitWidth();
+    unsigned width = type->getSize();
     llvm::APInt low(width, 0, false);
-    llvm::APInt high(type->getUpperBound());
-    theNaturalType = createIntegerSubType(name, type, low, high);
+    llvm::APInt high;
+    type->getUpperLimit(high);
+    theNaturalType = createIntegerSubtype(name, type, low, high);
 }
 
 void AstResource::initializePositive()
@@ -144,48 +145,48 @@ void AstResource::initializePositive()
     // nodes.
     IdentifierInfo *name = getIdentifierInfo("Positive");
     IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
-    unsigned width = type->getBitWidth();
+    unsigned width = type->getSize();
     llvm::APInt low(width, 1, false);
-    llvm::APInt high(type->getUpperBound());
-    thePositiveType = createIntegerSubType(name, type, low, high);
+    llvm::APInt high;
+    type->getUpperLimit(high);
+    thePositiveType = createIntegerSubtype(name, type, low, high);
 }
 
 void AstResource::initializeString()
 {
     IdentifierInfo *name = getIdentifierInfo("String");
-    SubType *indexTy = thePositiveType;
+    DiscreteType *indexTy = thePositiveType;
     theStringDecl = createArrayDecl(name, 0, 1, &indexTy,
                                     getTheCharacterType(), false, 0);
 }
 
 /// Accessors to the language defined types.  We keep these out of line since we
 /// do not want a dependence on Decl.h in AstResource.h.
-EnumSubType *AstResource::getTheBooleanType() const
+EnumerationType *AstResource::getTheBooleanType() const
 {
     return theBooleanDecl->getType();
 }
 
-IntegerSubType *AstResource::getTheRootIntegerType() const
+IntegerType *AstResource::getTheRootIntegerType() const
 {
-    return theRootIntegerDecl->getBaseSubType();
+    return theRootIntegerDecl->getBaseSubtype();
 }
 
-IntegerSubType *AstResource::getTheIntegerType() const
+IntegerType *AstResource::getTheIntegerType() const
 {
     return theIntegerDecl->getType();
 }
 
-EnumSubType *AstResource::getTheCharacterType() const
+EnumerationType *AstResource::getTheCharacterType() const
 {
     return theCharacterDecl->getType();
 }
 
-ArraySubType *AstResource::getTheStringType() const
+ArrayType *AstResource::getTheStringType() const
 {
     return theStringDecl->getType();
 }
 
-/// Returns a uniqued FunctionType.
 FunctionType *AstResource::getFunctionType(Type **argTypes, unsigned numArgs,
                                            Type *returnType)
 {
@@ -201,7 +202,6 @@ FunctionType *AstResource::getFunctionType(Type **argTypes, unsigned numArgs,
     return res;
 }
 
-/// Returns a uniqued ProcedureType.
 ProcedureType *AstResource::getProcedureType(Type **argTypes, unsigned numArgs)
 {
     llvm::FoldingSetNodeID ID;
@@ -216,6 +216,34 @@ ProcedureType *AstResource::getProcedureType(Type **argTypes, unsigned numArgs)
     return res;
 }
 
+DomainType *AstResource::createDomainType(DomainTypeDecl *decl)
+{
+    DomainType *domTy;
+
+    // Construct the root type.
+    domTy = new DomainType(decl);
+    types.push_back(domTy);
+
+    // Construct a named first subtype of the root.
+    domTy = new DomainType(domTy, domTy->getIdInfo());
+    types.push_back(domTy);
+    return domTy;
+}
+
+CarrierType *AstResource::createCarrierType(CarrierDecl *decl,
+                                            PrimaryType *type)
+{
+    CarrierType *Ty = new CarrierType(decl, type);
+    types.push_back(Ty);
+    return Ty;
+}
+
+DomainType *AstResource::createDomainSubtype(DomainType *root,
+                                             IdentifierInfo *name)
+{
+    return new DomainType(root, name);
+}
+
 EnumerationDecl *
 AstResource::createEnumDecl(IdentifierInfo *name, Location loc,
                             std::pair<IdentifierInfo*, Location> *elems,
@@ -227,17 +255,27 @@ AstResource::createEnumDecl(IdentifierInfo *name, Location loc,
     return res;
 }
 
-EnumerationType *AstResource::createEnumType(unsigned numElements)
+EnumerationType *AstResource::createEnumType(EnumerationDecl *decl)
 {
-    EnumerationType *res = new EnumerationType(numElements);
+    EnumerationType *res = EnumerationType::create(*this, decl);
     types.push_back(res);
     return res;
 }
 
-EnumSubType *AstResource::createEnumSubType(IdentifierInfo *name,
-                                            EnumerationType *base)
+EnumerationType *AstResource::createEnumSubtype(IdentifierInfo *name,
+                                                EnumerationType *base)
 {
-    EnumSubType *res = new EnumSubType(name, base);
+    EnumerationType *res = EnumerationType::createSubtype(base, name);
+    types.push_back(res);
+    return res;
+}
+
+EnumerationType *AstResource::createEnumSubtype(IdentifierInfo *name,
+                                                EnumerationType *base,
+                                                Expr *low, Expr *high)
+{
+    EnumerationType *res;
+    res = EnumerationType::createConstrainedSubtype(base, low, high, name);
     types.push_back(res);
     return res;
 }
@@ -256,42 +294,53 @@ IntegerType *AstResource::createIntegerType(IntegerDecl *decl,
                                             const llvm::APInt &low,
                                             const llvm::APInt &high)
 {
-    IntegerType *res = new IntegerType(*this, decl, low, high);
+    IntegerType *res = IntegerType::create(*this, decl, low, high);
     types.push_back(res);
     return res;
 }
 
-IntegerSubType *AstResource::createIntegerSubType(IdentifierInfo *name,
-                                                  IntegerType *base,
-                                                  Expr *low, Expr *high)
+IntegerType *AstResource::createIntegerSubtype(IdentifierInfo *name,
+                                               IntegerType *base,
+                                               Expr *low, Expr *high)
 {
-    IntegerSubType *res = new IntegerSubType(name, base, low, high);
+    IntegerType *res;
+    res = IntegerType::createConstrainedSubtype(base, low, high, name);
     types.push_back(res);
     return res;
 }
 
-IntegerSubType *AstResource::createIntegerSubType(IdentifierInfo *name,
-                                                  IntegerType *base,
-                                                  const llvm::APInt &low,
-                                                  const llvm::APInt &high)
+IntegerType *AstResource::createIntegerSubtype(IdentifierInfo *name,
+                                               IntegerType *base,
+                                               const llvm::APInt &low,
+                                               const llvm::APInt &high)
 {
     Expr *lowExpr = new IntegerLiteral(low, base, 0);
     Expr *highExpr = new IntegerLiteral(high, base, 0);
-    IntegerSubType *res = new IntegerSubType(name, base, lowExpr, highExpr);
+    return createIntegerSubtype(name, base, lowExpr, highExpr);
+}
+
+IntegerType *AstResource::createIntegerSubtype(IdentifierInfo *name,
+                                               IntegerType *base)
+{
+    IntegerType *res = IntegerType::createSubtype(base, name);
     types.push_back(res);
     return res;
 }
 
-IntegerSubType *AstResource::createIntegerSubType(IdentifierInfo *name,
-                                                  IntegerType *base)
+DiscreteType *AstResource::createDiscreteSubtype(IdentifierInfo *name,
+                                                 DiscreteType *base,
+                                                 Expr *low, Expr *high)
 {
-    IntegerSubType *res = new IntegerSubType(name, base);
-    types.push_back(res);
-    return res;
+    if (IntegerType *intTy = dyn_cast<IntegerType>(base))
+        return createIntegerSubtype(name, intTy, low, high);
+
+    EnumerationType *enumTy = cast<EnumerationType>(base);
+    return createEnumSubtype(name, enumTy, low, high);
 }
+
 
 ArrayDecl *AstResource::createArrayDecl(IdentifierInfo *name, Location loc,
-                                        unsigned rank, SubType **indices,
+                                        unsigned rank, DiscreteType **indices,
                                         Type *component, bool isConstrained,
                                         DeclRegion *parent)
 {
@@ -301,19 +350,29 @@ ArrayDecl *AstResource::createArrayDecl(IdentifierInfo *name, Location loc,
     return res;
 }
 
-ArrayType *AstResource::createArrayType(unsigned rank, SubType **indices,
+ArrayType *AstResource::createArrayType(ArrayDecl *decl,
+                                        unsigned rank, DiscreteType **indices,
                                         Type *component, bool isConstrained)
 {
-    ArrayType *res = new ArrayType(rank, indices, component, isConstrained);
+    ArrayType *res;
+    res = new ArrayType(decl, rank, indices, component, isConstrained);
     types.push_back(res);
     return res;
 }
 
-ArraySubType *AstResource::createArraySubType(IdentifierInfo *name,
-                                              ArrayType *base,
-                                              IndexConstraint *constraint)
+ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
+                                           ArrayType *base,
+                                           DiscreteType **indices)
 {
-    ArraySubType *res = new ArraySubType(name, base, constraint);
+    ArrayType *res = new ArrayType(name, base, indices);
+    types.push_back(res);
+    return res;
+}
+
+ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
+                                           ArrayType *base)
+{
+    ArrayType *res = new ArrayType(name, base);
     types.push_back(res);
     return res;
 }

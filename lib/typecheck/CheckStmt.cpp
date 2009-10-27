@@ -54,9 +54,9 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
 
         // If the target type is an unconstrained array type, get a constrained
         // subtype suitable for the return expression.
-        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(targetType)) {
+        if (ArrayType *arrTy = dyn_cast<ArrayType>(targetType)) {
             if (!arrTy->isConstrained()) {
-                targetType = getConstrainedArraySubType(arrTy, retExpr);
+                targetType = getConstrainedArraySubtype(arrTy, retExpr);
                 if (!targetType)
                     return getInvalidNode();
             }

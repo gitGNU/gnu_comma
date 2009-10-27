@@ -133,10 +133,10 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
     unsigned rank = adecl->getRank();
     bool isConstrained = adecl->isConstrained();
     Type *component = rewriteType(adecl->getComponentType());
-    SubType *indices[rank];
+    DiscreteType *indices[rank];
 
     for (unsigned i = 0; i < rank; ++i)
-        indices[i] = cast<SubType>(rewriteType(adecl->getIndexType(i)));
+        indices[i] = cast<DiscreteType>(rewriteType(adecl->getIndexType(i)));
 
     ArrayDecl *result;
     AstResource &resource = getAstResource();
@@ -165,14 +165,14 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
     result->generateImplicitDeclarations(resource);
     result->setOrigin(idecl);
 
-    IntegerSubType *sourceTy = idecl->getType();
-    IntegerSubType *targetTy = result->getType();
+    IntegerType *sourceTy = idecl->getType();
+    IntegerType *targetTy = result->getType();
 
     // Provide mappings from the first subtypes and base types of the source and
     // target.
     addTypeRewrite(sourceTy, targetTy);
-    addTypeRewrite(sourceTy->getTypeOf()->getBaseSubType(),
-                   targetTy->getTypeOf()->getBaseSubType());
+    addTypeRewrite(sourceTy->getRootType()->getBaseSubtype(),
+                   targetTy->getRootType()->getBaseSubtype());
 
     addDeclRewrite(idecl, result);
     mirrorRegion(idecl, result);
@@ -246,8 +246,8 @@ AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
     AttribExpr *result = 0;
 
     if (ScalarBoundAE *bound = dyn_cast<ScalarBoundAE>(attrib)) {
-        IntegerSubType *prefix;
-        prefix = cast<IntegerSubType>(rewriteType(bound->getPrefix()));
+        IntegerType *prefix;
+        prefix = cast<IntegerType>(rewriteType(bound->getPrefix()));
 
         if (bound->isFirst())
             result = new FirstAE(prefix, 0);

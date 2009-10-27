@@ -484,7 +484,8 @@ public:
 
     const DomainInstanceDecl *getInstance(DomainTypeDecl **args,
                                           unsigned numArgs) const {
-        return const_cast<FunctorDecl*>(this)->getInstance(args, numArgs);
+        FunctorDecl *fdecl = const_cast<FunctorDecl*>(this);
+        return fdecl->getInstance(args, numArgs);
     }
 
     // Returns the AddDecl which implements this functor.
@@ -1067,7 +1068,7 @@ class TypeDecl : public Decl {
 public:
 
     // Returns the type of this TypeDecl.
-    Type *getType() const { return CorrespondingType; }
+    PrimaryType *getType() const { return CorrespondingType; }
 
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1076,7 +1077,8 @@ public:
 
 protected:
     // Constructs a TypeDecl node when a type is immediately available.
-    TypeDecl(AstKind kind, IdentifierInfo *name, Type *type, Location loc)
+    TypeDecl(AstKind kind, IdentifierInfo *name, PrimaryType *type,
+             Location loc)
         : Decl(kind, name, loc),
           CorrespondingType(type) {
         assert(this->denotesTypeDecl());
@@ -1090,7 +1092,7 @@ protected:
         assert(this->denotesTypeDecl());
     }
 
-    Type *CorrespondingType;
+    PrimaryType *CorrespondingType;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1098,25 +1100,23 @@ protected:
 //
 // Declaration of a domains carrier type.
 //
-// FIXME: A CarrierDecl should not be a TypeDecl, but rather a SubTypeDecl.
+// FIXME: A CarrierDecl should not be a TypeDecl, but rather a SubtypeDecl.
 class CarrierDecl : public TypeDecl {
 
 public:
-    CarrierDecl(IdentifierInfo *name, Type *type, Location loc)
-        : TypeDecl(AST_CarrierDecl, name, loc) {
-        CorrespondingType = new CarrierType(this, type);
-    }
+    CarrierDecl(AstResource &resource,
+                IdentifierInfo *name, PrimaryType *type, Location loc);
 
     CarrierType *getType() const {
         return llvm::cast<CarrierType>(CorrespondingType);
     }
 
     const Type *getRepresentationType() const {
-        return getType()->getParentType();
+        return getType()->getRootType();
     }
 
     Type *getRepresentationType() {
-        return getType()->getParentType();
+        return getType()->getRootType();
     }
 
     static bool classof(const CarrierDecl *node) { return true; }
@@ -1135,8 +1135,8 @@ public:
     /// gain access to the types operations.
     void generateImplicitDeclarations(AstResource &resource);
 
-    EnumSubType *getType() const {
-        return llvm::cast<EnumSubType>(CorrespondingType);
+    EnumerationType *getType() const {
+        return llvm::cast<EnumerationType>(CorrespondingType);
     }
 
     // Returns the number of EnumLiteral's associated with this enumeration.
@@ -1150,10 +1150,7 @@ public:
     //
     // This method should be called if any of the literals constituting this
     // declaration are character literals.
-    void markAsCharacterType() {
-        bits = 1;
-        getType()->getTypeOf()->markAsCharacterType();
-    }
+    void markAsCharacterType() { bits = 1; }
 
     // Returns true if this declaration denotes a character enumeration.
     bool isCharacterType() const { return bits == 1; }
@@ -1211,24 +1208,28 @@ public:
     ///
     /// This method returns the first subtype of this declaration, or in the
     /// special case of root_integer, the unconstrained base subtype.
-    IntegerSubType *getType() const {
-        return llvm::cast<IntegerSubType>(CorrespondingType);
+    IntegerType *getType() const {
+        return llvm::cast<IntegerType>(CorrespondingType);
     }
 
     /// Returns the base subtype of this integer type declaration.
-    IntegerSubType *getBaseSubType() const {
-        return getType()->getTypeOf()->getBaseSubType();
+    IntegerType *getBaseSubtype() {
+        return getType()->getRootType()->getBaseSubtype();
     }
 
-    /// Returns the expression forming the lower bound of this integer
+    //@{
+    /// Returns the expression denoting the lower bound of this integer
     /// declaration.
     Expr *getLowBoundExpr() { return lowExpr; }
     const Expr *getLowBoundExpr() const { return lowExpr; }
+    //@}
 
-    /// Returns the expression forming the upper bound of this integer
+    //@{
+    /// Returns the expression denoting the upper bound of this integer
     /// declaration.
     Expr *getHighBoundExpr() { return highExpr; }
     const Expr *getHighBoundExpr() const { return highExpr; }
+    //@}
 
     static bool classof(const IntegerDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1254,15 +1255,15 @@ private:
 class ArrayDecl : public TypeDecl, public DeclRegion {
 
 public:
-    ArraySubType *getType() const {
-        return llvm::cast<ArraySubType>(CorrespondingType);
+    ArrayType *getType() const {
+        return llvm::cast<ArrayType>(CorrespondingType);
     }
 
     /// Returns the rank of this array declaration.
     unsigned getRank() const { return getType()->getRank(); }
 
     /// Returns the type describing the i'th index of this array.
-    SubType *getIndexType(unsigned i) const {
+    DiscreteType *getIndexType(unsigned i) const {
         return getType()->getIndexType(i);
     }
 
@@ -1276,7 +1277,7 @@ public:
 
     //@{
     /// Iterators over the index types.
-    typedef SubType **index_iterator;
+    typedef ArrayType::index_iterator index_iterator;
     index_iterator begin_indices() { return getType()->begin_indices(); }
     index_iterator end_indices() { return getType()->end_indices(); }
     //@}
@@ -1291,7 +1292,7 @@ private:
     /// Private constructor for use by AstResource.
     ArrayDecl(AstResource &resource,
               IdentifierInfo *name, Location loc,
-              unsigned rank, SubType **indices,
+              unsigned rank, DiscreteType **indices,
               Type *component, bool isConstrained, DeclRegion *parent);
 
     friend class AstResource;
@@ -1322,7 +1323,8 @@ private:
 class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
-    DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc = 0);
+    DomainTypeDecl(AstKind kind, AstResource &resource,
+                   IdentifierInfo *name, Location loc = 0);
 
 public:
     virtual ~DomainTypeDecl() { }
@@ -1351,11 +1353,13 @@ public:
 class AbstractDomainDecl : public DomainTypeDecl {
 
 public:
-    AbstractDomainDecl(IdentifierInfo *name, Location loc,
+    AbstractDomainDecl(AstResource &resource,
+                       IdentifierInfo *name, Location loc,
                        SigInstanceDecl *sig);
 
-    AbstractDomainDecl(IdentifierInfo *name, Location loc)
-        : DomainTypeDecl(AST_AbstractDomainDecl, name, loc) { }
+    AbstractDomainDecl(AstResource &resource,
+                       IdentifierInfo *name, Location loc)
+        : DomainTypeDecl(AST_AbstractDomainDecl, resource, name, loc) { }
 
     /// Returns the SignatureSet of this abstract domain.
     const SignatureSet &getSignatureSet() const { return sigset; }
@@ -1384,9 +1388,9 @@ private:
 class DomainInstanceDecl : public DomainTypeDecl, public llvm::FoldingSetNode {
 
 public:
-    DomainInstanceDecl(DomainDecl *domain);
+    DomainInstanceDecl(AstResource &resource, DomainDecl *domain);
 
-    DomainInstanceDecl(FunctorDecl *functor,
+    DomainInstanceDecl(AstResource &resource, FunctorDecl *functor,
                        DomainTypeDecl **args, unsigned numArgs);
 
     /// Returns the Domoid defining this instance.

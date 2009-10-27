@@ -69,6 +69,22 @@ public:
     /// Returns a uniqued ProcedureType.
     ProcedureType *getProcedureType(Type **argTypes, unsigned numArgs);
 
+    /// \name Domain type constructors.
+    //@{
+
+    /// Creates a DomainType node.
+    ///
+    /// Constructs a root domain type and its first subtype.  Returns the first
+    /// subtype.
+    DomainType *createDomainType(DomainTypeDecl *decl);
+
+    /// Creates a subtype of the given domain type node.
+    DomainType *createDomainSubtype(DomainType *rootTy, IdentifierInfo *name);
+    //@}
+
+    /// Creates a carrier type node.
+    CarrierType *createCarrierType(CarrierDecl *decl, PrimaryType *type);
+
     /// \name Enumeration declaration and type constructors.
     //@{
     /// Creates an enumeration declaration node.
@@ -77,10 +93,16 @@ public:
                                     unsigned numElems, DeclRegion *parent);
 
     /// Returns an EnumerationType node.
-    EnumerationType *createEnumType(unsigned numElements);
+    EnumerationType *createEnumType(EnumerationDecl *decl);
 
-    /// Returns a subtype of the given EnumerationType.
-    EnumSubType *createEnumSubType(IdentifierInfo *name, EnumerationType *base);
+    /// Returns an unconstrained subtype of the given EnumerationType.
+    EnumerationType *createEnumSubtype(IdentifierInfo *name,
+                                       EnumerationType *base);
+
+    /// Returns a constrained enumeration subtype.
+    EnumerationType *createEnumSubtype(IdentifierInfo *name,
+                                       EnumerationType *base,
+                                       Expr *low, Expr *high);
     //@}
 
     /// \name Integer declaration and type constructors.
@@ -95,42 +117,52 @@ public:
                                    const llvm::APInt &low,
                                    const llvm::APInt &high);
 
-    /// Returns an IntegerSubType node with the given bounds.
-    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
-                                         IntegerType *base,
-                                         Expr *low, Expr *high);
+    /// Returns an integer subtype node with the given bounds.
+    IntegerType *createIntegerSubtype(IdentifierInfo *name,
+                                      IntegerType *base,
+                                      Expr *low, Expr *high);
 
-    /// Returns an IntegerSubType node constrained to the given bounds.
+    /// Returns an integer subtype node constrained to the given bounds.
     ///
     /// The resulting subtype will have IntegerLiteral expressions generated to
     /// encapsulate the provided constants.
-    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
-                                         IntegerType *base,
-                                         const llvm::APInt &low,
-                                         const llvm::APInt &high);
+    IntegerType *createIntegerSubtype(IdentifierInfo *name,
+                                      IntegerType *base,
+                                      const llvm::APInt &low,
+                                      const llvm::APInt &high);
 
-    /// Returns an unconstrained IntegerSubType.
-    IntegerSubType *createIntegerSubType(IdentifierInfo *name,
-                                         IntegerType *base);
+    /// Returns an unconstrained integer subtype.
+    IntegerType *createIntegerSubtype(IdentifierInfo *name,
+                                      IntegerType *base);
     //@}
+
+    /// Creates a discrete subtype which the given bounds as constraints.
+    ///
+    /// The actual type returned depends on the actual type of the given base.
+    DiscreteType *createDiscreteSubtype(IdentifierInfo *name,
+                                        DiscreteType *base,
+                                        Expr *low, Expr *high);
 
     /// \name Array declaration and type constructors.
     //@{
     /// Creates an Array declaration node.
     ArrayDecl *createArrayDecl(IdentifierInfo *name, Location loc,
-                               unsigned rank, SubType **indices,
+                               unsigned rank, DiscreteType **indices,
                                Type *component, bool isConstrained,
                                DeclRegion *parent);
 
     /// Returns an ArrayType node with the given index and component
     /// types.
-    ArrayType *createArrayType(unsigned rank,
-                               SubType **indices, Type *component,
-                               bool isConstrained);
+    ArrayType *createArrayType(ArrayDecl *decl,
+                               unsigned rank, DiscreteType **indices,
+                               Type *component, bool isConstrained);
 
-    /// Returns an ArraySubType node.
-    ArraySubType *createArraySubType(IdentifierInfo *name, ArrayType *base,
-                                     IndexConstraint *constraint);
+    /// Returns a constrained array subtype node.
+    ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base,
+                                  DiscreteType **indices);
+
+    /// Returns an unconstrained array subtype node.
+    ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base);
     //@}
 
     /// Creates a function declaration corresponding to the given primitive
@@ -160,22 +192,22 @@ public:
     /// primitive type.
     //@{
     EnumerationDecl *getTheBooleanDecl() const { return theBooleanDecl; }
-    EnumSubType *getTheBooleanType() const;
+    EnumerationType *getTheBooleanType() const;
 
     EnumerationDecl *getTheCharacterDecl() const { return theCharacterDecl; }
-    EnumSubType *getTheCharacterType() const;
+    EnumerationType *getTheCharacterType() const;
 
     IntegerDecl *getTheRootIntegerDecl() const { return theRootIntegerDecl; }
-    IntegerSubType *getTheRootIntegerType() const;
+    IntegerType *getTheRootIntegerType() const;
 
     IntegerDecl *getTheIntegerDecl() const { return theIntegerDecl; }
-    IntegerSubType *getTheIntegerType() const;
+    IntegerType *getTheIntegerType() const;
 
-    IntegerSubType *getTheNaturalType() const { return theNaturalType; }
-    IntegerSubType *getThePositiveType() const { return thePositiveType; }
+    IntegerType *getTheNaturalType() const { return theNaturalType; }
+    IntegerType *getThePositiveType() const { return thePositiveType; }
 
     ArrayDecl *getTheStringDecl() const { return theStringDecl; }
-    ArraySubType *getTheStringType() const;
+    ArrayType *getTheStringType() const;
     //@}
 
 private:
@@ -190,9 +222,9 @@ private:
     llvm::FoldingSet<FunctionType> functionTypes;
     llvm::FoldingSet<ProcedureType> procedureTypes;
 
-    /// SubType nodes corresponding to language defined types.
-    IntegerSubType *theNaturalType;
-    IntegerSubType *thePositiveType;
+    /// Subtype nodes corresponding to language defined types.
+    IntegerType *theNaturalType;
+    IntegerType *thePositiveType;
 
     /// Declaration nodes representing the language defined types.
     EnumerationDecl *theBooleanDecl;

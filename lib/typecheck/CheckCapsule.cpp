@@ -65,7 +65,7 @@ void TypeCheck::acceptFormalDomain(IdentifierInfo *name, Location loc,
     AbstractDomainDecl *decl;
 
     if (sigNode.isNull())
-        decl = new AbstractDomainDecl(name, loc);
+        decl = new AbstractDomainDecl(resource, name, loc);
     else {
         TypeRef *ref = lift_node<TypeRef>(sigNode);
 
@@ -77,7 +77,7 @@ void TypeCheck::acceptFormalDomain(IdentifierInfo *name, Location loc,
         sigNode.release();
         delete ref;
         SigInstanceDecl *sig = ref->getSigInstanceDecl();
-        decl = new AbstractDomainDecl(name, loc, sig);
+        decl = new AbstractDomainDecl(resource, name, loc, sig);
     }
 
 
@@ -272,7 +272,8 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
 
     if (TypeDecl *tyDecl = ensureTypeDecl(typeNode)) {
         // FIXME: We should not have to cast here.
-        CarrierDecl *carrier = new CarrierDecl(name, tyDecl->getType(), loc);
+        CarrierDecl *carrier;
+        carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
         if (Decl *conflict = scope->addDirectDecl(carrier)) {
             report(loc, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());

@@ -41,15 +41,6 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
     return S << ")";
 }
 
-llvm::raw_ostream &TypeDumper::printHeader(SubType *node)
-{
-    if (const char *name = node->getString())
-        AstDumperBase::printHeader(node) << llvm::format(" '%s'", name);
-    else
-        AstDumperBase::printHeader(node) << " <anon>";
-    return S;
-}
-
 void TypeDumper::visitCarrierType(CarrierType *node)
 {
     printHeader(node) << '>';
@@ -89,27 +80,12 @@ void TypeDumper::visitEnumerationType(EnumerationType *node)
     printHeader(node) << '>';
 }
 
-void TypeDumper::visitEnumSubType(EnumSubType *node)
-{
-    printHeader(node) << '>';
-}
-
 void TypeDumper::visitIntegerType(IntegerType *node)
 {
     printHeader(node) << '>';
 }
 
-void TypeDumper::visitIntegerSubType(IntegerSubType *node)
-{
-    printHeader(node) << '>';
-}
-
 void TypeDumper::visitArrayType(ArrayType *node)
-{
-    printHeader(node) << '>';
-}
-
-void TypeDumper::visitArraySubType(ArraySubType *node)
 {
     printHeader(node) << '>';
 }

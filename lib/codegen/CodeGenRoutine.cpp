@@ -123,7 +123,7 @@ void CodeGenRoutine::injectSubroutineArgs()
         argI->setName(param->getString());
         declTable[param] = argI;
 
-        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(param->getType())) {
+        if (ArrayType *arrTy = dyn_cast<ArrayType>(param->getType())) {
             if (!arrTy->isConstrained())
                 boundTable[param] = ++argI;
         }
@@ -217,7 +217,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
     if (objDecl->hasInitializer()) {
         llvm::Value *init = emitValue(objDecl->getInitializer());
-        if (ArraySubType *arrTy = dyn_cast<ArraySubType>(objDecl->getType())) {
+        if (ArrayType *arrTy = dyn_cast<ArrayType>(objDecl->getType())) {
             // FIXME: It would be very nice to optimize array assignment by
             // reusing any temporaries generated on the RHS.  However, LLVM's
             // optimizers can do the thinking for us here most of the time.
@@ -235,7 +235,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *destination,
-                                   ArraySubType *Ty)
+                                   ArrayType *Ty)
 {
     // Implement array copies via memcpy.
     llvm::Value *src;
@@ -294,12 +294,12 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
     ValueDecl *vDecl = cast<ValueDecl>(decl);
     Type *vTy = vDecl->getType();
 
-    if (ArraySubType *arrTy = dyn_cast<ArraySubType>(vTy)) {
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(vTy)) {
         assert(arrTy->isConstrained() && "Unconstrained value declaration!");
 
-        // FIXME: Support multidimensional arrays and general scalar index
+        // FIXME: Support multidimensional arrays and general discrete index
         // types.
-        IntegerSubType *idxTy = cast<IntegerSubType>(arrTy->getIndexType(0));
+        IntegerType *idxTy = cast<IntegerType>(arrTy->getIndexType(0));
         if (!idxTy->isStaticallyConstrained()) {
             const llvm::Type *type;
             type = CGT.lowerType(arrTy->getComponentType());
@@ -311,7 +311,7 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
 
             // The slot is a pointer to the component type.  Cast it as a
             // pointer to a variable length array.
-            type = CG.getPointerType(CGT.lowerArraySubType(arrTy));
+            type = CG.getPointerType(CGT.lowerArrayType(arrTy));
             stackSlot = Builder.CreatePointerCast(stackSlot, type);
 
             declTable[decl] = stackSlot;
@@ -367,7 +367,7 @@ llvm::Value *CodeGenRoutine::createBounds(ValueDecl *decl)
 {
     assert(!lookupBounds(decl) && "Decl already associated with bounds!");
 
-    ArraySubType *arrTy = cast<ArraySubType>(decl->getType());
+    ArrayType *arrTy = cast<ArrayType>(decl->getType());
     const llvm::StructType *boundTy = CGT.lowerArrayBounds(arrTy);
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 

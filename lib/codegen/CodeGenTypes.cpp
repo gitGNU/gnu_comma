@@ -25,9 +25,6 @@ using llvm::isa;
 
 const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 {
-    if (const SubType *subtype = dyn_cast<SubType>(type))
-        return lowerSubType(subtype);
-
     switch (type->getKind()) {
 
     default:
@@ -36,6 +33,9 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_DomainType:
         return lowerDomainType(cast<DomainType>(type));
+
+    case Ast::AST_CarrierType:
+        return lowerCarrierType(cast<CarrierType>(type));
 
     case Ast::AST_EnumerationType:
         return lowerEnumType(cast<EnumerationType>(type));
@@ -48,21 +48,22 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     }
 }
 
-void CodeGenTypes::addInstanceRewrites(DomainInstanceDecl *instance)
+void CodeGenTypes::addInstanceRewrites(const DomainInstanceDecl *instance)
 {
-    FunctorDecl *functor = instance->getDefiningFunctor();
+    const FunctorDecl *functor = instance->getDefiningFunctor();
     if (!functor)
         return;
 
     unsigned arity = functor->getArity();
     for (unsigned i = 0; i < arity; ++i) {
-        Type *key = functor->getFormalType(i);
-        Type *value = instance->getActualParamType(i);
+        const Type *key = functor->getFormalType(i);
+        const Type *value = instance->getActualParamType(i);
         rewrites.insert(key, value);
     }
 }
 
-const DomainType *CodeGenTypes::rewriteAbstractDecl(AbstractDomainDecl *abstract)
+const DomainType *
+CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
 {
     typedef RewriteMap::iterator iterator;
     iterator I = rewrites.begin(abstract->getType());
@@ -75,12 +76,12 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
     if (type->isAbstract())
         type = rewriteAbstractDecl(type->getAbstractDecl());
 
-    if (PercentDecl *percent = type->getPercentDecl()) {
+    if (const PercentDecl *percent = type->getPercentDecl()) {
         const Domoid *domoid = cast<Domoid>(percent->getDefinition());
         return lowerDomoidCarrier(domoid);
     }
 
-    DomainInstanceDecl *instance = type->getInstanceDecl();
+    const DomainInstanceDecl *instance = type->getInstanceDecl();
 
     if (instance->isParameterized()) {
         RewriteScope scope(rewrites);
@@ -100,7 +101,7 @@ const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)
 
 const llvm::Type *CodeGenTypes::lowerCarrierType(const CarrierType *type)
 {
-    return lowerType(type->getTypeOf());
+    return lowerType(type->getRootType());
 }
 
 const llvm::IntegerType *
@@ -108,7 +109,7 @@ CodeGenTypes::lowerEnumType(const EnumerationType *type)
 {
     // Enumeration types are lowered to an integer type with sufficient capacity
     // to hold each element of the enumeration.
-    unsigned numBits = llvm::Log2_32_Ceil(type->getNumElements());
+    unsigned numBits = llvm::Log2_32_Ceil(type->getNumLiterals());
     return getTypeForWidth(numBits);
 }
 
@@ -145,7 +146,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         const Type *paramTy = param->getType();
         const llvm::Type *loweredTy = lowerType(paramTy);
 
-        if (const ArraySubType *arrTy = dyn_cast<ArraySubType>(paramTy)) {
+        if (const ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
             // We never pass arrays by value, always by reference.  Therefore,
             // the parameter mode does not change how we pass an array.
             assert(isa<llvm::ArrayType>(loweredTy) &&
@@ -172,62 +173,12 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     return llvm::FunctionType::get(retTy, args, false);
 }
 
-const llvm::Type *CodeGenTypes::lowerSubType(const SubType *type)
-{
-    if (const ArraySubType *arrayTy = dyn_cast<ArraySubType>(type))
-        return lowerArraySubType(arrayTy);
-
-    return lowerType(type->getTypeOf());
-}
-
 const llvm::IntegerType *CodeGenTypes::lowerIntegerType(const IntegerType *type)
 {
-    return getTypeForWidth(type->getBitWidth());
+    return getTypeForWidth(type->getSize());
 }
 
 const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
-{
-    assert(type->getRank() == 1 &&
-           "Cannot codegen multidimensional arrays yet!");
-
-    Type *indexType = type->getIndexType(0);
-    uint64_t numElems = 0;
-
-    // Compute the number of elements.
-    if (SubType *subtype = dyn_cast<SubType>(indexType))
-        indexType = subtype->getTypeOf();
-
-    if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
-        llvm::APInt lower(intTy->getLowerBound());
-        llvm::APInt upper(intTy->getUpperBound());
-
-        // FIXME: Empty ranges are possible.  Should we accept them as indices?
-        assert(lower.slt(upper) && "Invalid range for array index!");
-
-        // Compute 'upper - lower + 1' to determine the number of elements in
-        // this type.
-        unsigned width = intTy->getBitWidth() + 1;
-        lower.sext(width);
-        upper.sext(width);
-        llvm::APInt range(upper);
-        range -= lower;
-        range++;
-
-        // If the range cannot fit in 64 bits, do not construct the type.
-        assert(range.getActiveBits() <= 64 &&
-               "Index type too wide for array type!");
-
-        numElems = range.getZExtValue();
-    }
-    else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(indexType)) {
-        numElems = enumTy->getNumElements();
-    }
-
-    const llvm::Type *elementTy = lowerType(type->getComponentType());
-    return llvm::ArrayType::get(elementTy, numElems);
-}
-
-const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
 {
     assert(type->getRank() == 1 &&
            "Cannot codegen multidimensional arrays yet!");
@@ -239,18 +190,17 @@ const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
     if (!type->isConstrained())
         return llvm::ArrayType::get(elementTy, 0);
 
-    SubType *constraint = type->getIndexConstraint(0);
-    assert(constraint->isDiscreteType() && "Bad type for array index!");
+    const DiscreteType *idxTy = type->getIndexType(0);
 
-    // Coumpute the bounds for the index.  If the index is itself range
+    // Compute the bounds for the index.  If the index is itself range
     // constrained use the bounds of the range, otherwise use the bounds of the
-    // base type.
-    llvm::APInt lowerBound;
-    llvm::APInt upperBound;
-    if (IntegerSubType *subTy = dyn_cast<IntegerSubType>(constraint)) {
+    // root type.
+    llvm::APInt lowerBound(idxTy->getSize(), 0);
+    llvm::APInt upperBound(idxTy->getSize(), 0);
+    if (const IntegerType *subTy = dyn_cast<IntegerType>(idxTy)) {
         if (subTy->isConstrained()) {
             if (subTy->isStaticallyConstrained()) {
-                Range *range = subTy->getConstraint();
+                const Range *range = subTy->getConstraint();
                 lowerBound = range->getStaticLowerBound();
                 upperBound = range->getStaticUpperBound();
             }
@@ -258,16 +208,17 @@ const llvm::ArrayType *CodeGenTypes::lowerArraySubType(const ArraySubType *type)
                 return llvm::ArrayType::get(elementTy, 0);
         }
         else {
-            IntegerType *intTy = subTy->getTypeOf();
-            lowerBound = intTy->getLowerBound();
-            upperBound = intTy->getUpperBound();
+            const IntegerType *rootTy = subTy->getRootType();
+            rootTy->getLowerLimit(lowerBound);
+            rootTy->getUpperLimit(upperBound);
         }
     }
     else {
-        EnumerationType *enumTy = constraint->getAsEnumType();
+        // FIXME: Use range constraints here.
+        const EnumerationType *enumTy = cast<EnumerationType>(idxTy);
         assert(enumTy && "Unexpected array index type!");
         lowerBound = 0;
-        upperBound = enumTy->getNumElements() - 1;
+        upperBound = enumTy->getNumLiterals() - 1;
     }
 
     uint64_t numElems = getArrayWidth(lowerBound, upperBound);
@@ -299,13 +250,12 @@ uint64_t CodeGenTypes::getArrayWidth(const llvm::APInt &low,
     return range.getZExtValue();
 }
 
-const llvm::StructType *
-CodeGenTypes::lowerArrayBounds(const ArraySubType *arrTy)
+const llvm::StructType *CodeGenTypes::lowerArrayBounds(const ArrayType *arrTy)
 {
     // FIXME: The width of the bounds is target dependent -- i32 for 32 bit
     // machines and i64 for 64 bit machines.
     std::vector<const llvm::Type*> elts;
-    ArrayType *baseTy = arrTy->getTypeOf();
+    const ArrayType *baseTy = arrTy->getRootType();
 
     for (unsigned i = 0; i < baseTy->getRank(); ++i) {
         const llvm::Type *boundTy = lowerType(baseTy->getIndexType(i));

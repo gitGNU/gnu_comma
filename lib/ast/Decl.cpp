@@ -276,7 +276,7 @@ DomainDecl::DomainDecl(AstResource &resource,
 DomainInstanceDecl *DomainDecl::getInstance()
 {
     if (instance == 0)
-        instance = new DomainInstanceDecl(this);
+        instance = new DomainInstanceDecl(getAstResource(), this);
     return instance;
 }
 
@@ -307,7 +307,7 @@ FunctorDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
     instance = instances.FindNodeOrInsertPos(id, insertPos);
     if (instance) return instance;
 
-    instance = new DomainInstanceDecl(this, args, numArgs);
+    instance = new DomainInstanceDecl(getAstResource(), this, args, numArgs);
     instances.InsertNode(instance, insertPos);
     return instance;
 }
@@ -556,20 +556,22 @@ void FunctionDecl::initializeCorrespondingType(AstResource &resource,
 //===----------------------------------------------------------------------===//
 // DomainTypeDecl
 
-DomainTypeDecl::DomainTypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
+DomainTypeDecl::DomainTypeDecl(AstKind kind, AstResource &resource,
+                               IdentifierInfo *name, Location loc)
     : TypeDecl(kind, name, loc),
       DeclRegion(kind)
 {
     assert(this->denotesDomainTypeDecl());
-    CorrespondingType = new DomainType(this);
+    CorrespondingType = resource.createDomainType(this);
 }
 
 //===----------------------------------------------------------------------===//
 // AbstractDomainDecl
 
-AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name, Location loc,
+AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
+                                       IdentifierInfo *name, Location loc,
                                        SigInstanceDecl *sig)
-    : DomainTypeDecl(AST_AbstractDomainDecl, name, loc)
+    : DomainTypeDecl(AST_AbstractDomainDecl, resource, name, loc)
 {
     Sigoid *sigoid = sig->getSigoid();
     AstRewriter rewriter(sigoid->getAstResource());
@@ -589,8 +591,9 @@ AbstractDomainDecl::AbstractDomainDecl(IdentifierInfo *name, Location loc,
 
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
-DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
-    : DomainTypeDecl(AST_DomainInstanceDecl, domain->getIdInfo()),
+DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
+                                       DomainDecl *domain)
+    : DomainTypeDecl(AST_DomainInstanceDecl, resource, domain->getIdInfo()),
       definition(domain)
 {
     PercentDecl *percent = domain->getPercent();
@@ -611,9 +614,10 @@ DomainInstanceDecl::DomainInstanceDecl(DomainDecl *domain)
         sigset.addDirectSignature(*I, rewriter);
 }
 
-DomainInstanceDecl::DomainInstanceDecl(FunctorDecl *functor,
+DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
+                                       FunctorDecl *functor,
                                        DomainTypeDecl **args, unsigned numArgs)
-    : DomainTypeDecl(AST_DomainInstanceDecl, functor->getIdInfo()),
+    : DomainTypeDecl(AST_DomainInstanceDecl, resource, functor->getIdInfo()),
       definition(functor)
 {
     assert(functor->getArity() == numArgs &&
@@ -686,7 +690,7 @@ void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
 // PercentDecl
 
 PercentDecl::PercentDecl(AstResource &resource, ModelDecl *model)
-    : DomainTypeDecl(AST_PercentDecl,
+    : DomainTypeDecl(AST_PercentDecl, resource,
                      resource.getIdentifierInfo("%"), model->getLocation()),
       underlyingModel(model) { }
 
@@ -718,6 +722,15 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
 }
 
 //===----------------------------------------------------------------------===//
+// CarrierDecl
+
+CarrierDecl::CarrierDecl(AstResource &resource,
+                         IdentifierInfo *name, PrimaryType *type, Location loc)
+    : TypeDecl(AST_CarrierDecl, name, loc) {
+    CorrespondingType = resource.createCarrierType(this, type);
+}
+
+//===----------------------------------------------------------------------===//
 // EnumLiteral
 EnumLiteral::EnumLiteral(AstResource &resource,
                          IdentifierInfo *name, Location loc, unsigned index,
@@ -741,13 +754,11 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
 {
     setDeclRegion(parent);
 
-    // First, build the type corresponding to this declaration.  Currently,
-    // enumeration types are defined only with respect to the number of
-    // underlying literals.
-    EnumerationType *base = resource.createEnumType(numElems);
+    // Build the root type corresponding to this declaration.
+    EnumerationType *base = resource.createEnumType(this);
 
     // Create the first named subtype of this decl.
-    CorrespondingType = resource.createEnumSubType(name, base);
+    CorrespondingType = resource.createEnumSubtype(name, base);
 
     // Construct enumeration literals for each Id/Location pair and add them to
     // this decls declarative region.
@@ -762,7 +773,7 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
 
 void EnumerationDecl::generateImplicitDeclarations(AstResource &resource)
 {
-    EnumSubType *type = getType();
+    EnumerationType *type = getType();
     Location loc = getLocation();
 
     addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
@@ -819,7 +830,7 @@ IntegerDecl::IntegerDecl(AstResource &resource,
 
     IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
     CorrespondingType =
-        resource.createIntegerSubType(name, base, lowVal, highVal);
+        resource.createIntegerSubtype(name, base, lowVal, highVal);
 }
 
 // Note that we could perform these initializations in the constructor, but it
@@ -827,7 +838,7 @@ IntegerDecl::IntegerDecl(AstResource &resource,
 // declared.  For now this is a separate method which called separately.
 void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
 {
-    IntegerSubType *type = getBaseSubType();
+    IntegerType *type = getBaseSubtype();
     Location loc = getLocation();
 
     addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
@@ -847,7 +858,7 @@ void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
 // ArrayDecl
 ArrayDecl::ArrayDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
-                     unsigned rank, SubType **indices,
+                     unsigned rank, DiscreteType **indices,
                      Type *component, bool isConstrained, DeclRegion *parent)
     : TypeDecl(AST_ArrayDecl, name, loc),
       DeclRegion(AST_ArrayDecl, parent)
@@ -860,12 +871,9 @@ ArrayDecl::ArrayDecl(AstResource &resource,
     for (unsigned i = 0; i < rank; ++i)
         assert(indices[i]->isScalarType());
 
-    ArrayType *base;
-    base = resource.createArrayType(rank, indices, component, isConstrained);
+    ArrayType *base = resource.createArrayType(
+        this, rank, indices, component, isConstrained);
 
     // Create the first subtype.
-    IndexConstraint *constraint = 0;
-    if (isConstrained)
-        constraint = new IndexConstraint(indices, rank);
-    CorrespondingType = resource.createArraySubType(name, base, constraint);
+    CorrespondingType = resource.createArraySubtype(name, base);
 }

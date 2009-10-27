@@ -37,7 +37,6 @@ public:
     ///
     //@{
     virtual void visitType(Type *node);
-    virtual void visitSubType(SubType *node);
     virtual void visitSubroutineType(SubroutineType *node);
     //@}
 
@@ -52,13 +51,9 @@ public:
     virtual void visitFunctionType(FunctionType *node);
     virtual void visitProcedureType(ProcedureType *node);
     virtual void visitEnumerationType(EnumerationType *node);
-    virtual void visitEnumSubType(EnumSubType *node);
     virtual void visitIntegerType(IntegerType *node);
-    virtual void visitIntegerSubType(IntegerSubType *node);
     virtual void visitArrayType(ArrayType *node);
-    virtual void visitArraySubType(ArraySubType *node);
     //@}
-
 };
 
 } // end comma namespace.
