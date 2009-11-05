@@ -8,6 +8,7 @@
 
 #include "CodeGenCapsule.h"
 #include "SRInfo.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
@@ -377,34 +378,76 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
 
 llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 {
-    if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
+    llvm::Value *result;
+
+    switch (expr->getKind()) {
+
+    default:
+        if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
+            result = emitAttribExpr(attrib);
+        else
+            assert(false && "Cannot codegen expression!");
+        break;
+
+    case Ast::AST_DeclRefExpr: {
+        DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
         Decl *refDecl = refExpr->getDeclaration();
         llvm::Value *exprValue = lookupDecl(refDecl);
 
-        // If the expression denotes an array type, just return the associated
-        // value.  All arrays are manipulated by reference.
-        if (expr->getType()->getAsArrayType())
-            return exprValue;
-
-        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+        if (expr->getType()->getAsArrayType()) {
+            // If the expression denotes an array type, just return the
+            // associated value.  All arrays are manipulated by reference.
+            result = exprValue;
+        }
+        else if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
             // If the parameter mode is either "out" or "in out" then load the
             // actual value.
             PM::ParameterMode paramMode = pvDecl->getParameterMode();
 
             if (paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT)
-                return Builder.CreateLoad(exprValue);
+                result = Builder.CreateLoad(exprValue);
             else
-                return exprValue;
+                result = exprValue;
         }
-
-        // Otherwise, we must have an ObjectDecl.  Just load from the alloca'd
-        // stack slot.
-        assert(isa<ObjectDecl>(refDecl) && "Unexpected decl kind!");
-        return Builder.CreateLoad(exprValue);
+        else {
+            // Otherwise, we must have an ObjectDecl.  Just load from the
+            // alloca'd stack slot.
+            assert(isa<ObjectDecl>(refDecl) && "Unexpected decl kind!");
+            result = Builder.CreateLoad(exprValue);
+        }
+        break;
     }
 
-    // FIXME:  This is not precise enough, but works for the remaining cases.
-    return emitExpr(expr);
+    case Ast::AST_FunctionCallExpr:
+        result = emitFunctionCall(cast<FunctionCallExpr>(expr));
+        break;
+
+    case Ast::AST_InjExpr:
+        result = emitInjExpr(cast<InjExpr>(expr));
+        break;
+
+    case Ast::AST_PrjExpr:
+        result = emitPrjExpr(cast<PrjExpr>(expr));
+        break;
+
+    case Ast::AST_IntegerLiteral:
+        result = emitIntegerLiteral(cast<IntegerLiteral>(expr));
+        break;
+
+    case Ast::AST_StringLiteral:
+        result = emitStringLiteral(cast<StringLiteral>(expr));
+        break;
+
+    case Ast::AST_IndexedArrayExpr:
+        result = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
+        break;
+
+    case Ast::AST_ConversionExpr:
+        result = emitConversionValue(cast<ConversionExpr>(expr));
+        break;
+    }
+
+    return result;
 }
 
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)

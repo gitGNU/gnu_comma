@@ -26,63 +26,6 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-llvm::Value *CodeGenRoutine::emitExpr(Expr *expr)
-{
-    llvm::Value *val = 0;
-
-    switch (expr->getKind()) {
-    default:
-        if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
-            val = emitAttribExpr(attrib);
-        else {
-            assert(false && "Cannot codegen expression!");
-            val = 0;
-        }
-        break;
-
-    case Ast::AST_DeclRefExpr:
-        val = emitDeclRefExpr(cast<DeclRefExpr>(expr));
-        break;
-
-    case Ast::AST_FunctionCallExpr:
-        val = emitFunctionCall(cast<FunctionCallExpr>(expr));
-        break;
-
-    case Ast::AST_InjExpr:
-        val = emitInjExpr(cast<InjExpr>(expr));
-        break;
-
-    case Ast::AST_PrjExpr:
-        val = emitPrjExpr(cast<PrjExpr>(expr));
-        break;
-
-    case Ast::AST_IntegerLiteral:
-        val = emitIntegerLiteral(cast<IntegerLiteral>(expr));
-        break;
-
-    case Ast::AST_StringLiteral:
-        val = emitStringLiteral(cast<StringLiteral>(expr));
-        break;
-
-    case Ast::AST_IndexedArrayExpr:
-        val = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
-        break;
-
-    case Ast::AST_ConversionExpr:
-        val = emitConversionValue(cast<ConversionExpr>(expr));
-        break;
-    }
-
-    return val;
-}
-
-llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
-{
-    llvm::Value *val = lookupDecl(expr->getDeclaration());
-    assert(val && "DeclRef lookup failed!");
-    return val;
-}
-
 llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 {
     assert(expr->isUnambiguous() && "Function call not fully resolved!");

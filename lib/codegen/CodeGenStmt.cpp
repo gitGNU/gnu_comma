@@ -128,7 +128,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
 void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 {
-    llvm::Value *condition = emitExpr(ite->getCondition());
+    llvm::Value *condition = emitValue(ite->getCondition());
     llvm::BasicBlock *thenBB = makeBasicBlock("then");
     llvm::BasicBlock *mergeBB = makeBasicBlock("merge");
     llvm::BasicBlock *elseBB;
@@ -159,7 +159,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         else
             elseBB = mergeBB;
         llvm::BasicBlock *bodyBB = makeBasicBlock("body");
-        llvm::Value *pred = emitExpr(I->getCondition());
+        llvm::Value *pred = emitValue(I->getCondition());
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
         emitStmt(I->getConsequent());

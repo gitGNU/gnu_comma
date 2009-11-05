@@ -131,8 +131,6 @@ private:
     /// Emits a value representing the upper bound of the given scalar subtype.
     llvm::Value *emitScalarUpperBound(IntegerType *Ty);
 
-    llvm::Value *emitExpr(Expr *expr);
-    llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
     llvm::Value *emitPrjExpr(PrjExpr *expr);
     llvm::Value *emitInjExpr(InjExpr *expr);
     llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
