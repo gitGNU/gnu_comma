@@ -233,41 +233,6 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
     }
 }
 
-void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
-                                   llvm::Value *destination,
-                                   ArrayType *Ty)
-{
-    // Implement array copies via memcpy.
-    llvm::Value *src;
-    llvm::Value *dst;
-    llvm::Value *len;
-    llvm::Constant *align;
-    llvm::Function *memcpy;
-    const llvm::PointerType *ptrTy;
-    const llvm::ArrayType *arrTy;
-
-    src = Builder.CreatePointerCast(source, CG.getInt8PtrTy());
-    dst = Builder.CreatePointerCast(destination, CG.getInt8PtrTy());
-    ptrTy = cast<llvm::PointerType>(source->getType());
-    arrTy = cast<llvm::ArrayType>(ptrTy->getElementType());
-
-    // If the array type is of variable length, use the Comma type to compute
-    // the number of elements to copy.
-    if (arrTy->getNumElements() == 0)
-        len = emitArrayLength(Ty);
-    else
-        len = llvm::ConstantExpr::getSizeOf(arrTy);
-
-    // Zero extend the length if not an i64.
-    if (len->getType() != CG.getInt64Ty())
-        len = Builder.CreateZExt(len, CG.getInt64Ty());
-
-    align = llvm::ConstantInt::get(CG.getInt32Ty(), 1);
-    memcpy = CG.getMemcpy64();
-
-    Builder.CreateCall4(memcpy, dst, src, len, align);
-}
-
 llvm::Value *CodeGenRoutine::emitScalarLoad(llvm::Value *ptr)
 {
     return Builder.CreateLoad(ptr);
