@@ -196,11 +196,23 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
     Expr *rhs = stmt->getAssignedExpr();
 
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(stmt->getTarget())) {
-        // The left hand side is a simple variable reference.  Just emit the
-        // left and right hand sides and form a store.
-        llvm::Value *target = emitVariableReference(ref);
-        llvm::Value *source = emitValue(rhs);
-        Builder.CreateStore(source, target);
+        Type *refTy = ref->getType();
+
+        if (isa<ArrayType>(refTy)) {
+            // Evaluate the rhs into the storage provided by the lhs.
+            llvm::Value *dst = lookupDecl(ref->getDeclaration());
+            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(rhs))
+                emitCompositeCall(call, dst);
+            else
+                emitArrayExpr(rhs, dst, false);
+        }
+        else {
+            // The left hand side is a simple variable reference.  Just emit the
+            // left and right hand sides and form a store.
+            llvm::Value *target = emitVariableReference(ref);
+            llvm::Value *source = emitValue(rhs);
+            Builder.CreateStore(source, target);
+        }
     }
     else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
