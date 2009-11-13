@@ -1,0 +1,29 @@
+-- Constrained array checks.
+
+domain D with
+   procedure P;
+add
+   type Idx is range 0 .. 2**8 - 1;
+   type Arr is array (Idx) of Integer;
+
+   function Make_Arr return Arr is
+      Result : Arr;
+   begin
+      return Result;
+   end Make_Arr;
+
+   procedure Mod_Arr (A : in out Arr) is
+   begin
+      A(A'First) := 0;
+   end Mod_Arr;
+
+   procedure P is
+      A : Arr := Make_Arr;
+   begin
+      Mod_Arr(A);
+   end P;
+
+end D;
+
+
+
