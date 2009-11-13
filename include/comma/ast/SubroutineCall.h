@@ -72,6 +72,15 @@ public:
     /// Returns true if this call is unambiguous.
     bool isUnambiguous() const { return !isAmbiguous(); }
 
+    /// Returns true if this call is primitive.
+    ///
+    /// This method returns true iff the call has been resolved (that is,
+    /// isUnambiguous() returns true), and if the connective of this call
+    /// denotes a primitive operation.
+    bool isPrimitive() const {
+        return isUnambiguous() && getConnective()->isPrimitive();
+    }
+
     /// Resolved the connective for this call.
     ///
     /// The supplied subroutine declaration must accept the exact number of

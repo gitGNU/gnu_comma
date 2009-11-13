@@ -1,0 +1,586 @@
+//===-- codegen/CodeGenCall.cpp ------------------------------- -*- C++ -*-===//
+//
+// This file is distributed under the MIT license. See LICENSE.txt for details.
+//
+// Copyright (C) 2009, Stephen Wilson
+//
+//===----------------------------------------------------------------------===//
+
+#include "CodeGenCapsule.h"
+#include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
+#include "CommaRT.h"
+#include "DependencySet.h"
+#include "SRInfo.h"
+#include "comma/ast/AstRewriter.h"
+#include "comma/ast/Expr.h"
+#include "comma/ast/Stmt.h"
+
+using namespace comma;
+
+using llvm::dyn_cast;
+using llvm::dyn_cast_or_null;
+using llvm::cast;
+using llvm::isa;
+
+namespace {
+
+class CallEmitter {
+
+public:
+    CallEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
+        : CGR(CGR),
+          CG(CGR.getCodeGen()),
+          CGC(CGR.getCGC()),
+          CGT(CGC.getTypeGenerator()),
+          Builder(Builder) { }
+
+    llvm::Value *emitSimpleCall(SubroutineCall *call);
+
+    void emitCompositeCall(SubroutineCall *call, llvm::Value *dst);
+
+    void emitProcedureCall(ProcedureCallStmt *call);
+
+private:
+    /// The code generation context.
+    CodeGenRoutine &CGR;
+    CodeGen &CG;
+    CodeGenCapsule &CGC;
+    CodeGenTypes &CGT;
+
+    /// The builder we are injecting code into.
+    llvm::IRBuilder<> &Builder;
+
+    /// The call expression to emit.
+    SubroutineCall *SRCall;
+
+    /// Arguments which are to be supplied to this function call.
+    std::vector<llvm::Value*> arguments;
+
+    /// Appends the actual arguments of the callExpr to the arguments vector.
+    ///
+    /// Note that this method does not generate any implicit first parameter
+    /// such as sret return values or domain instances.
+    void emitCallArguments();
+
+    /// Helper method for emitCallArguments.
+    ///
+    /// Evaluates the given expression with respect to the given type and
+    /// parameter mode, appending the resulting Value's to the arguments vector.
+    /// Note that two Value's might be generated if the given type is an
+    /// unconstrained array.
+    ///
+    /// \param expr The expression to evaluate.
+    ///
+    /// \param mode The mode of the associated formal parameter.
+    ///
+    /// \param type The target type of the parameter, which may be distinct from
+    /// the type of the argument.
+    void emitArgument(Expr *expr, PM::ParameterMode mode, Type *type);
+
+    /// Helper method for emitArg.
+    ///
+    /// Evaluates the given expression when the target type is an array.
+    ///
+    /// \see emitArg()
+    void emitCompositeArgument(Expr *expr, PM::ParameterMode mode,
+                               ArrayType *type);
+
+    /// Gernerates a call to a primitive subroutine, returning the computed
+    /// result.
+    llvm::Value *emitPrimitiveCall();
+
+    /// Helper method for emitPrimitiveCall.
+    ///
+    /// Generates a call into the Comma runtime to handle exponentiation.
+    llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
+
+    /// Generates any implicit first arguments for the current call expression
+    /// and resolves the associated SRInfo object.
+    SRInfo *prepareCall();
+
+    /// Appends the implicit domain instance needed for a local call and
+    /// returns the associated SRInfo.
+    SRInfo *prepareLocalCall();
+
+    /// Returns the SRInfo associated with a foreign call.
+    SRInfo *prepareForeignCall();
+
+    /// Appends the implicit domain instance needed for a direct call and
+    /// returns the associated SRInfo.
+    SRInfo *prepareDirectCall();
+
+    /// Appends the implicit domain instance needed for an abstract call and
+    /// returns the associated SRInfo.
+    SRInfo *prepareAbstractCall();
+
+    /// Helper method for prepareAbstractCall.
+    ///
+    /// Given an abstract domain \p abstract and a subroutine \p target provided
+    /// by the domain, resolve the corresponding declaration in \p instance
+    /// (which must be a fully resolved (non-dependent) instance corresponding
+    /// to the given abstract domain).
+    SubroutineDecl *
+    resolveAbstractSubroutine(DomainInstanceDecl *instance,
+                              AbstractDomainDecl *abstract,
+                              SubroutineDecl *target);
+};
+
+llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
+{
+    SRCall = call;
+
+    // Directly emit primitive operations.
+    if (SRCall->isPrimitive())
+        return emitPrimitiveCall();
+
+    // Prepare any implicit parameters and resolve the SRInfo corresponding to
+    // the call.
+    SRInfo *callInfo = prepareCall();
+    assert(!callInfo->hasSRet() && "Not a simple call!");
+
+    // Generate the actual arguments.
+    emitCallArguments();
+
+    // Synthesize the actual call instruction.
+    llvm::Function *fn = callInfo->getLLVMFunction();
+    return Builder.CreateCall(fn, arguments.begin(), arguments.end());
+}
+
+void CallEmitter::emitCompositeCall(SubroutineCall *call, llvm::Value *dst)
+{
+    SRCall = call;
+
+    // Push the destination pointer onto the argument vector.  SRet convention
+    // requires the return structure to appear before any implicit arguments.
+    arguments.push_back(dst);
+
+    // Prepare any implicit parameters and resolve the SRInfo corresponding to
+    // the call.
+    SRInfo *callInfo = prepareCall();
+    assert(callInfo->hasSRet() && "Not a composite call!");
+
+    // Generate the actual arguments.
+    emitCallArguments();
+
+    // Synthesize the actual call instruction.
+    llvm::Function *fn = callInfo->getLLVMFunction();
+    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+}
+
+void CallEmitter::emitProcedureCall(ProcedureCallStmt *call)
+{
+    SRCall = call;
+
+    // Prepare any implicit parameters and resolve the SRInfo corresponding to
+    // the call.
+    SRInfo *callInfo = prepareCall();
+    assert(!callInfo->hasSRet() && "Not a simple call!");
+
+    // Generate the actual arguments.
+    emitCallArguments();
+
+    // Synthesize the actual call instruction.
+    llvm::Function *fn = callInfo->getLLVMFunction();
+    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+}
+
+void CallEmitter::emitCallArguments()
+{
+    SubroutineDecl *SRDecl = SRCall->getConnective();
+
+    typedef SubroutineCall::arg_iterator iterator;
+    iterator Iter = SRCall->begin_arguments();
+    iterator E = SRCall->end_arguments();
+    for (unsigned i = 0; Iter != E; ++Iter, ++i) {
+        Expr *arg = *Iter;
+        PM::ParameterMode mode = SRDecl->getParamMode(i);
+        Type *type = SRDecl->getParamType(i);
+        emitArgument(arg, mode, type);
+    }
+}
+
+void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *paramTy)
+{
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(paramTy))
+        emitCompositeArgument(param, mode, arrTy);
+    else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
+        arguments.push_back(CGR.emitVariableReference(param));
+    else
+        arguments.push_back(CGR.emitValue(param));
+}
+
+void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
+                                        ArrayType *targetTy)
+{
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(param)) {
+        ArrayType *paramTy = cast<ArrayType>(param->getType());
+
+        // Only staticly constrained array types are delt with here.
+        assert(paramTy->isStaticallyConstrained());
+
+        // First, allocate a temporary as a destination for the sret value.
+        const llvm::Type *loweredTy = CGT.lowerArrayType(paramTy);
+        llvm::Value *dst = CGR.createTemp(loweredTy);
+
+        // Perform the function call and add the destination to the argument
+        // set.
+        CGR.emitCompositeCall(call, dst);
+        arguments.push_back(dst);
+
+        // If the target type is unconstrained, generate a second temporary
+        // stucture to represent the bounds.  Populate with constant values and
+        // form the call.
+        if (!targetTy->isConstrained()) {
+            llvm::Value *bounds = CGR.synthStaticArrayBounds(paramTy);
+            llvm::Value *boundsSlot = CGR.createTemp(bounds->getType());
+            Builder.CreateStore(bounds, boundsSlot);
+            arguments.push_back(boundsSlot);
+        }
+        return;
+    }
+
+    // FIXME: Currently, we do not pass arrays by copy (we should).
+    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
+    ArrPair pair = CGR.emitArrayExpr(param, 0, false);
+    llvm::Value *components = pair.first;
+    llvm::Value *bounds = pair.second;
+
+    if (targetTy->isConstrained()) {
+        // The target type is constrained.  We do not need to emit bounds for
+        // the argument in this case.  Simply pass the components.
+        arguments.push_back(components);
+    }
+    else {
+        // When the target type is an unconstrained array type, we might need to
+        // cast the argument.  Unconstrained arrays are represented as pointers
+        // to zero-length LLVM arrays (e.g. [0 x T]*), whereas constrained
+        // arrays have a definite dimension.  Lower the target type and cast the
+        // argument if necessary.
+        const llvm::Type *contextTy;
+        contextTy = CGT.lowerArrayType(targetTy);
+        contextTy = CG.getPointerType(contextTy);
+
+        if (contextTy != components->getType())
+            components = Builder.CreatePointerCast(components, contextTy);
+
+        // Pass the components plus the bounds.
+        arguments.push_back(components);
+        arguments.push_back(bounds);
+    }
+}
+
+llvm::Value *CallEmitter::emitPrimitiveCall()
+{
+    SubroutineDecl *srDecl = SRCall->getConnective();
+    PO::PrimitiveID ID = srDecl->getPrimitiveID();
+    assert(ID != PO::NotPrimitive && "Not a primitive call!");
+
+    // Primitive subroutines do not accept any implicit parameters, nor follow
+    // the sret calling convention.  Populate the argument vector with the
+    // values to apply the primitive call to.
+    emitCallArguments();
+
+    // Handle the unary and binary cases seperately.
+    llvm::Value *result = 0;
+    if (PO::denotesUnaryOp(ID)) {
+        assert(arguments.size() == 1 && "Arity mismatch!");
+        llvm::Value *arg = arguments[0];
+
+        switch (ID) {
+        default:
+            assert(false && "Cannot codegen primitive!");
+            break;
+
+        case PO::POS_op:
+            result = arg;       // POS is a no-op.
+            break;
+
+        case PO::NEG_op:
+            result = Builder.CreateNeg(arg);
+            break;
+        }
+    }
+    else if (PO::denotesBinaryOp(ID)) {
+        assert(arguments.size() == 2 && "Arity mismatch!");
+
+        llvm::Value *lhs = arguments[0];
+        llvm::Value *rhs = arguments[1];
+
+        switch (ID) {
+        default:
+            assert(false && "Cannot codegen primitive!");
+            break;
+
+        case PO::EQ_op:
+            result = Builder.CreateICmpEQ(lhs, rhs);
+            break;
+
+        case PO::NE_op:
+            result = Builder.CreateICmpNE(lhs, rhs);
+            break;
+
+        case PO::ADD_op:
+            result = Builder.CreateAdd(lhs, rhs);
+            break;
+
+        case PO::SUB_op:
+            result = Builder.CreateSub(lhs, rhs);
+            break;
+
+        case PO::MUL_op:
+            result = Builder.CreateMul(lhs, rhs);
+            break;
+
+        case PO::POW_op:
+            result = emitExponential(lhs, rhs);
+            break;
+
+        case PO::LT_op:
+            result = Builder.CreateICmpSLT(lhs, rhs);
+            break;
+
+        case PO::GT_op:
+            result = Builder.CreateICmpSGT(lhs, rhs);
+            break;
+
+        case PO::LE_op:
+            result = Builder.CreateICmpSLE(lhs, rhs);
+            break;
+
+        case PO::GE_op:
+            result = Builder.CreateICmpSGE(lhs, rhs);
+            break;
+        }
+    }
+    else {
+        // Currently, there is only one nullary primitive operation.
+        assert(ID == PO::ENUM_op && "Cannot codegen primitive!");
+        assert(arguments.size() == 0 && "Arity mismatch!");
+
+        EnumLiteral *lit = cast<EnumLiteral>(srDecl);
+        unsigned idx = lit->getIndex();
+        const llvm::Type *ty = CGT.lowerType(lit->getReturnType());
+        result = llvm::ConstantInt::get(ty, idx);
+    }
+    return result;
+}
+
+llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
+{
+    const CommaRT &CRT = CG.getRuntime();
+
+    // Depending on the width of the operands, call into a runtime routine to
+    // perform the operation.  Note the the power we raise to is always an i32.
+    const llvm::IntegerType *type = cast<llvm::IntegerType>(x->getType());
+    const llvm::IntegerType *i32Ty = CG.getInt32Ty();
+    const llvm::IntegerType *i64Ty = CG.getInt64Ty();
+    unsigned width = type->getBitWidth();
+    llvm::Value *result;
+
+    assert(cast<llvm::IntegerType>(n->getType()) == i32Ty &&
+           "Unexpected type for rhs of exponential!");
+
+    // Call into the runtime and truncate the results back to the original
+    // width.
+    if (width < 32) {
+        x = Builder.CreateSExt(x, i32Ty);
+        result = CRT.pow_i32_i32(Builder, x, n);
+        result = Builder.CreateTrunc(result, type);
+    }
+    else if (width == 32)
+        result = CRT.pow_i32_i32(Builder, x, n);
+    else if (width < 64) {
+        x = Builder.CreateSExt(x, i64Ty);
+        result = CRT.pow_i64_i32(Builder, x, n);
+        result = Builder.CreateTrunc(result, type);
+    }
+    else {
+        assert(width == 64 && "Integer type too wide!");
+        result = CRT.pow_i64_i32(Builder, x, n);
+    }
+
+    return result;
+}
+
+SRInfo *CallEmitter::prepareCall()
+{
+    if (CGR.isForeignCall(SRCall))
+        return prepareForeignCall();
+    else if (CGR.isLocalCall(SRCall))
+        return prepareLocalCall();
+    else if (CGR.isDirectCall(SRCall))
+        return prepareDirectCall();
+    else
+        return prepareAbstractCall();
+}
+
+SRInfo *CallEmitter::prepareLocalCall()
+{
+
+    // Insert the implicit first parameter, which for a local call is the
+    // context object handed to the current subroutine.
+    arguments.push_back(CGR.getImplicitContext());
+
+    // Resolve the info structure for called subroutine.
+    SubroutineDecl *srDecl = SRCall->getConnective();
+    DomainInstanceDecl *instance = CGR.getCGC().getInstance();
+    return CGR.getCodeGen().getSRInfo(instance, srDecl);
+}
+
+SRInfo *CallEmitter::prepareForeignCall()
+{
+    // Resolve the instance for the given declaration.
+    SubroutineDecl *srDecl = SRCall->getConnective();
+    DeclRegion *region = srDecl->getDeclRegion();
+    DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region);
+
+    if (!instance)
+        instance = CGR.getCGC().getInstance();
+
+    return CG.getSRInfo(instance, srDecl);
+}
+
+SRInfo *CallEmitter::prepareDirectCall()
+{
+    SubroutineDecl *srDecl = SRCall->getConnective();
+    const CommaRT &CRT = CG.getRuntime();
+
+    // Lookup the implicit context of the function we wish to call by indexing
+    // into the current subroutines implicit context.
+    //
+    // First, resolve the depencendy ID of the declaration context defining the
+    // function we wish to call.
+    DomainInstanceDecl *definingDecl
+        = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
+    const DependencySet &DSet = CG.getDependencySet(CGC.getCapsule());
+    DependencySet::iterator IDPos = DSet.find(definingDecl);
+    assert(IDPos != DSet.end() && "Failed to resolve dependency!");
+    unsigned instanceID = DSet.getDependentID(IDPos);
+
+    // Generate a lookup into the current subroutines implicit context using
+    // resolved ID.
+    llvm::Value *implicitCtx;
+    implicitCtx = CGR.getImplicitContext();
+    implicitCtx = CRT.getLocalCapsule(Builder, implicitCtx, instanceID);
+    arguments.push_back(implicitCtx);
+
+    // If the declaration context which provides this call is dependent (meaning
+    // that it involves percent or other generic parameters),  rewrite the
+    // declaration using the actual arguments supplied to this instance.
+    DomainInstanceDecl *targetInstance;
+    SubroutineDecl *targetRoutine;
+    if (definingDecl->isDependent()) {
+        AstRewriter rewriter(CG.getAstResource());
+
+        // Map the percent node of the capsule to the current instance.
+        rewriter.addTypeRewrite(CGC.getCapsule()->getPercentType(),
+                                CGC.getInstance()->getType());
+
+        // Map any generic formal parameters to the actual arguments of this instance.
+        const CodeGenCapsule::ParameterMap &paramMap = CGC.getParameterMap();
+        rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
+
+        // Rewrite the type of the defining declaration and extract the
+        // associated instance.
+        DomainType *targetTy = rewriter.rewriteType(definingDecl->getType());
+        targetInstance = targetTy->getInstanceDecl();
+
+        // Extend the rewriter with a rule to map the type of the defining
+        // declaration to the targetInstance.  Using this extended rewriter,
+        // rewrite the type of the subroutine we wish to call.  This rewritten
+        // type must match exactly one subrtouine provided by the target
+        // instance.
+        rewriter.addTypeRewrite(definingDecl->getType(), targetTy);
+        SubroutineType *srTy = rewriter.rewriteType(srDecl->getType());
+        Decl *resolvedDecl = targetInstance->findDecl(srDecl->getIdInfo(), srTy);
+        targetRoutine = cast<SubroutineDecl>(resolvedDecl);
+    }
+    else {
+        targetInstance = definingDecl;
+        targetRoutine = srDecl;
+    }
+
+    // Add the target instance to the code generators worklist.  This will
+    // generate SRInfo objects for this particular instance if they do not
+    // already exist and schedual the associated functions for generation.
+    CG.extendWorklist(targetInstance);
+
+    // Lookup the corresponding SRInfo object.
+    return CG.getSRInfo(targetInstance, targetRoutine);
+}
+
+SRInfo *CallEmitter::prepareAbstractCall()
+{
+    const CommaRT &CRT = CG.getRuntime();
+
+    // Resolve the abstract domain declaration providing this call.
+    SubroutineDecl *srDecl = SRCall->getConnective();
+    AbstractDomainDecl *abstract =
+        cast<AbstractDomainDecl>(srDecl->getDeclRegion());
+
+    // Resolve the abstract domain to a concrete type using the parameter map
+    // provided by the capsule context.
+    DomainInstanceDecl *instance = CGC.rewriteAbstractDecl(abstract);
+    assert(instance && "Failed to resolve abstract domain!");
+
+    // Add this instance to the code generators worklist, thereby ensuring
+    // forward declarations are generated and that the implementation will be
+    // codegened.
+    CG.extendWorklist(instance);
+
+    // Resolve the needed routine.
+    SubroutineDecl *resolvedRoutine
+        = resolveAbstractSubroutine(instance, abstract, srDecl);
+
+    // Index into the implicit context to obtain the the called functions
+    // context.
+    FunctorDecl *functor = cast<FunctorDecl>(CGC.getCapsule());
+    unsigned index = functor->getFormalIndex(abstract);
+    llvm::Value *context = CGR.getImplicitContext();
+    arguments.push_back(CRT.getCapsuleParameter(Builder, context, index));
+
+    // Lookup the associated SRInfo and return the llvm function.
+    return CG.getSRInfo(instance, resolvedRoutine);
+}
+
+SubroutineDecl *
+CallEmitter::resolveAbstractSubroutine(DomainInstanceDecl *instance,
+                                       AbstractDomainDecl *abstract,
+                                       SubroutineDecl *target)
+{
+    DomainType *abstractTy = abstract->getType();
+
+    // The instance must provide a subroutine declaration with a type matching
+    // that of the original, with the only exception being that occurrences of
+    // abstractTy are mapped to the type of the given instance.  Use an
+    // AstRewriter to obtain the required target type.
+    AstRewriter rewriter(CGR.getCodeGen().getAstResource());
+    rewriter.addTypeRewrite(abstractTy, instance->getType());
+    SubroutineType *targetTy = rewriter.rewriteType(target->getType());
+
+    // Lookup the target declaration directly in the instance.
+    Decl *resolvedDecl = instance->findDecl(target->getIdInfo(), targetTy);
+    return cast<SubroutineDecl>(resolvedDecl);
+}
+
+} // end anonymous namespace.
+
+llvm::Value *CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
+{
+    CallEmitter emitter(*this, Builder);
+    return emitter.emitSimpleCall(expr);
+}
+
+void CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
+                                       llvm::Value *dst)
+{
+    CallEmitter emitter(*this, Builder);
+    emitter.emitCompositeCall(expr, dst);
+}
+
+void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
+{
+    CallEmitter emitter(*this, Builder);
+    emitter.emitProcedureCall(stmt);
+}

@@ -204,6 +204,7 @@ Node Parser::parseRelationalOperator()
             return lhs;
 
         case Lexer::TKN_EQUAL:
+        case Lexer::TKN_NEQUAL:
         case Lexer::TKN_LESS:
         case Lexer::TKN_GREAT:
         case Lexer::TKN_LEQ:

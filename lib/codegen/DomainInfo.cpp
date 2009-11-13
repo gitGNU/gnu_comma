@@ -7,11 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenCapsule.h"
+#include "CommaRT.h"
 #include "DependencySet.h"
 #include "DomainInfo.h"
 #include "DomainInstance.h"
 #include "comma/ast/SignatureSet.h"
-#include "comma/codegen/CommaRT.h"
 #include "comma/codegen/Mangle.h"
 
 #include "llvm/ADT/IndexedMap.h"

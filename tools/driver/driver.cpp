@@ -9,7 +9,6 @@
 #include "comma/ast/Ast.h"
 #include "comma/ast/AstResource.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenRoutine.h"
 
 #include "llvm/Module.h"
 #include "llvm/Target/TargetData.h"

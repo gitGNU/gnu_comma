@@ -8,11 +8,11 @@
 
 #include "SRInfo.h"
 #include "CodeGenCapsule.h"
+#include "CommaRT.h"
 #include "DependencySet.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CommaRT.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;
@@ -279,15 +279,6 @@ llvm::GlobalVariable *CodeGen::emitInternString(const llvm::StringRef &elems,
     return new llvm::GlobalVariable(*M, string->getType(), isConstant,
                                     llvm::GlobalValue::InternalLinkage,
                                     string, name);
-}
-
-llvm::GlobalVariable *CodeGen::emitInternArray(llvm::Constant *init,
-                                               bool isConstant,
-                                               const std::string &name)
-{
-    return new llvm::GlobalVariable(*M, init->getType(), isConstant,
-                                    llvm::GlobalValue::InternalLinkage,
-                                    init, name);
 }
 
 llvm::BasicBlock *CodeGen::makeBasicBlock(const std::string &name,

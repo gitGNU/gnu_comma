@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
+#include "CommaRT.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/Stmt.h"
-#include "comma/codegen/CodeGenRoutine.h"
-#include "comma/codegen/CodeGenTypes.h"
-#include "comma/codegen/CommaRT.h"
 
 using namespace comma;
 
@@ -63,26 +63,40 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 
 void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
 {
-    if (ret->hasReturnExpr()) {
-        // Store the result into the return slot.
-        assert(returnValue && "Non-empty return from function!");
-        Expr *expr = ret->getReturnExpr();
-        llvm::Value *res = emitValue(ret->getReturnExpr());
-
-        // If the return value is composite, copy the result into the return
-        // value, otherwise a simple store suffices.
-        if (ArrayType *arrTy = dyn_cast<ArrayType>(expr->getType()))
-            emitArrayCopy(res, returnValue, arrTy);
-        else
-            Builder.CreateStore(res, returnValue);
-        Builder.CreateBr(returnBB);
-    }
-    else {
+    if (!ret->hasReturnExpr()) {
         // We should be emitting for a procedure.  Simply branch to the return
         // block.
         assert(returnValue == 0 && "Empty return from function!");
         Builder.CreateBr(returnBB);
+        return;
     }
+
+    FunctionDecl *fdecl = cast<FunctionDecl>(srCompletion);
+    FunctionType *fTy = fdecl->getType();
+    Type *targetTy = fTy->getReturnType();
+    Expr *expr = ret->getReturnExpr();
+
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(targetTy)) {
+        // Currently, only statically constrained arrays are supported as return
+        // values.
+        assert(arrTy->isStaticallyConstrained());
+
+        // The return slot corresponds to an sret return parameter.  Simply
+        // evaluate the return value into this slot.
+        if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
+            emitCompositeCall(call, returnValue);
+        else
+            emitArrayExpr(expr, returnValue, false);
+    }
+    else {
+        // Non-composite return values can be simply evaluated and stored into
+        // this subroutines return slot.
+        llvm::Value *res = emitValue(ret->getReturnExpr());
+        Builder.CreateStore(res, returnValue);
+    }
+
+    // Branch to the return block.
+    Builder.CreateBr(returnBB);
 }
 
 void CodeGenRoutine::emitStmtSequence(StmtSequence *seq)
@@ -177,48 +191,25 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     Builder.SetInsertPoint(mergeBB);
 }
 
-void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)
-{
-    ProcedureDecl *pdecl = stmt->getConnective();
-    std::vector<llvm::Value *> args;
-
-    typedef ProcedureCallStmt::arg_iterator iterator;
-    iterator I = stmt->begin_arguments();
-    iterator E = stmt->end_arguments();
-    for (unsigned i = 0; I != E; ++I, ++i)
-        emitCallArgument(pdecl, *I, i, args);
-
-    if (pdecl->hasPragma(pragma::Import))
-        emitForeignCall(pdecl, args);
-    else if (isLocalCall(stmt))
-        emitLocalCall(pdecl, args);
-    else if (isDirectCall(stmt))
-        emitDirectCall(pdecl, args);
-    else
-        emitAbstractCall(pdecl, args);
-}
-
 void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 {
-    llvm::Value *target;
-    llvm::Value *source;
     Expr *rhs = stmt->getAssignedExpr();
 
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(stmt->getTarget())) {
         // The left hand side is a simple variable reference.  Just emit the
         // left and right hand sides and form a store.
-        target = emitVariableReference(ref);
-        source = emitValue(rhs);
+        llvm::Value *target = emitVariableReference(ref);
+        llvm::Value *source = emitValue(rhs);
+        Builder.CreateStore(source, target);
     }
     else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
         // to the needed component and again, store in the right hand side.
         IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
-        target = emitIndexedArrayRef(arrIdx);
-        source = emitValue(rhs);
+        llvm::Value *target = emitIndexedArrayRef(arrIdx);
+        llvm::Value *source = emitValue(rhs);
+        Builder.CreateStore(source, target);
     }
-
-    Builder.CreateStore(source, target);
 }
 
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)

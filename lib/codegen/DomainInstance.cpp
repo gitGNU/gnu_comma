@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CommaRT.h"
 #include "DomainInstance.h"
-#include "comma/codegen/CommaRT.h"
 
 using namespace comma;
 

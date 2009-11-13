@@ -9,9 +9,9 @@
 #ifndef COMMA_CODEGEN_CODEGENCAPSULE_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENCAPSULE_HDR_GUARD
 
+#include "CodeGenTypes.h"
 #include "InstanceInfo.h"
 #include "comma/ast/AstBase.h"
-#include "comma/codegen/CodeGenTypes.h"
 
 #include <map>
 

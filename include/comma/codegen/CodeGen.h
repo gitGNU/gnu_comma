@@ -131,12 +131,6 @@ public:
                                            bool isConstant = true,
                                            const std::string &name = "");
 
-    /// \brief Emits an array with internal linkage, returning the global
-    /// variable for the associated data.
-    llvm::GlobalVariable *emitInternArray(llvm::Constant *init,
-                                          bool isConstant = true,
-                                          const std::string &name = "");
-
     /// Returns an llvm basic block.
     llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
                                      llvm::Function *parent = 0,
@@ -288,6 +282,11 @@ public:
     llvm::StructType *getStructTy(const std::vector<const llvm::Type*> &elts,
                                   bool isPacked = false) const {
         return llvm::StructType::get(getLLVMContext(), elts, isPacked);
+    }
+
+    /// Returns a variable length array type.
+    llvm::ArrayType *getVLArrayTy(const llvm::Type *componentTy) const {
+        return llvm::ArrayType::get(componentTy, 0);
     }
 
 private:

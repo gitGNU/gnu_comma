@@ -65,23 +65,45 @@ class CodeGenRoutine {
 public:
     CodeGenRoutine(CodeGenCapsule &CGC);
 
+    /// Returns the associated code generator context.
+    CodeGen &getCodeGen() { return CG; }
+
+    /// Returns the associated capsule generator context.
+    CodeGenCapsule &getCGC() { return CGC; }
+
+    /// \brief Returns the SRInfo object corresponding to the subroutine being
+    /// generated.
+    SRInfo *getSRInfo() { return srInfo; }
+
+    llvm::Value *getImplicitContext() const { return percent; }
+
     void emitSubroutine(SubroutineDecl *srDecl);
 
-    /// Returns true if the given call is "direct", meaning that the domain of
-    /// computation is staticly known.
-    static bool isDirectCall(const FunctionCallExpr *expr);
+    llvm::Value *emitValue(Expr *expr);
+    llvm::Value *emitVariableReference(Expr *expr);
+    std::pair<llvm::Value*, llvm::Value*>
+    emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+
+    llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
+    void emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
+
+    /// \brief Given an array type with statically constrained indices,
+    /// synthesizes a constant LLVM structure representing the bounds of the
+    /// array.
+    llvm::Constant *synthStaticArrayBounds(ArrayType *arrTy);
+
+    llvm::Value *createTemp(const llvm::Type *type);
 
     /// Returns true if the given call is "direct", meaning that the domain of
     /// computation is staticly known.
-    static bool isDirectCall(const ProcedureCallStmt *stmt);
+    static bool isDirectCall(const SubroutineCall *expr);
 
     /// Returns true if the given call is "local", meaning that the call is to a
-    /// function defined in the current capsule.
-    static bool isLocalCall(const FunctionCallExpr *expr);
+    /// subroutine defined in the current capsule.
+    static bool isLocalCall(const SubroutineCall *expr);
 
-    /// Returns true if the given call is "local", meaning that the call is to a
-    /// function defined in the current capsule.
-    static bool isLocalCall(const ProcedureCallStmt *stmt);
+    /// Returns true if the given call is forgien.
+    static bool isForeignCall(const SubroutineCall *call);
 
 private:
     // Returns the llvm function we are generating code for.
@@ -125,64 +147,36 @@ private:
     llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
                                     llvm::BasicBlock *predecessor = 0);
 
+    llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
+    llvm::Value *emitPrjExpr(PrjExpr *expr);
+    llvm::Value *emitInjExpr(InjExpr *expr);
+    llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
+    llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
+    llvm::Value *emitConversionValue(ConversionExpr *expr);
+    llvm::Value *emitAttribExpr(AttribExpr *expr);
+
+
+    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
+
+    llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
+    llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
+
     /// Emits a value representing the lower bound of the given scalar type.
     llvm::Value *emitScalarLowerBound(IntegerType *Ty);
 
     /// Emits a value representing the upper bound of the given scalar subtype.
     llvm::Value *emitScalarUpperBound(IntegerType *Ty);
 
-    llvm::Value *emitPrjExpr(PrjExpr *expr);
-    llvm::Value *emitInjExpr(InjExpr *expr);
-    llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
-    llvm::Value *emitStringLiteral(StringLiteral *expr);
-    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
-    llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
-    llvm::Value *emitConversionValue(ConversionExpr *expr);
-    llvm::Value *emitAttribExpr(AttribExpr *expr);
-    llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
-    llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
-
-    llvm::Value *emitFunctionCall(FunctionCallExpr *expr);
-
-    llvm::Value *emitPrimitiveCall(FunctionCallExpr *expr,
-                                   std::vector<llvm::Value *> &args);
-
-    llvm::Value *emitLocalCall(SubroutineDecl *srDecl,
-                               std::vector<llvm::Value *> &args);
-
-    llvm::Value *emitDirectCall(SubroutineDecl *srDecl,
-                                std::vector<llvm::Value *> &args);
-
-    llvm::Value *emitAbstractCall(SubroutineDecl *srDecl,
-                                  std::vector<llvm::Value *> &args);
-
-    llvm::Value *emitForeignCall(SubroutineDecl *srDecl,
-                                 std::vector<llvm::Value *> &args);
-
-    llvm::Value *emitCall(SubroutineType *srTy,
-                          llvm::Value *func, std::vector<llvm::Value *> &args);
-
-
-    void emitCallArgument(SubroutineDecl *srDecl, Expr *arg,
-                          unsigned argPosition,
-                          std::vector<llvm::Value *> &args);
-
     // Conversion emitters.
     llvm::Value *emitCheckedIntegerConversion(Expr *expr, IntegerType *target);
 
     llvm::Value *lookupDecl(Decl *decl);
 
-    llvm::Function *getOrCreateSubroutineDeclaration(SubroutineDecl *srDecl);
-
     llvm::Value *emitScalarLoad(llvm::Value *ptr);
 
     llvm::Value *getStackSlot(Decl *decl);
 
-    llvm::Value *createStackSlot(Decl *decl);
-
-    llvm::Value *getOrCreateStackSlot(Decl *decl);
-
-    llvm::Value *createTemporary(const llvm::Type *type);
+    llvm::Value *createStackSlot(ObjectDecl *decl);
 
     void associateStackSlot(Decl *decl, llvm::Value *value);
 
@@ -191,10 +185,6 @@ private:
     llvm::Value *createBounds(ValueDecl *decl);
 
     void associateBounds(ValueDecl *decl, llvm::Value *value);
-
-    llvm::Value *emitVariableReference(Expr *expr);
-
-    llvm::Value *emitValue(Expr *expr);
 
     /// Emits a scalar range check.
     void emitScalarRangeCheck(llvm::Value *sourceVal,
@@ -214,14 +204,16 @@ private:
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
+    std::pair<llvm::Value*, llvm::Value*>
+    emitStringLiteral(StringLiteral *expr);
+
+    llvm::Value *computeArrayLength(llvm::Value *bounds);
+
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        ArrayType *arrTy);
 
-    llvm::Value *emitArrayBounds(Expr *expr);
-
-    void initArrayBounds(llvm::Value *boundSlot, ArrayType *arrTy);
-
-    llvm::Value *emitArrayLength(ArrayType *arrTy);
+    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
+                       llvm::Value *bounds);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

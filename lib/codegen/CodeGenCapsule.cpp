@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenRoutine.h"
 #include "CodeGenCapsule.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenRoutine.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;

@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenTypes.h"
 #include "InstanceInfo.h"
 #include "SRInfo.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenTypes.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;

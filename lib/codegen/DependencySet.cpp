@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenRoutine.h"
 #include "DependencySet.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/ExprVisitor.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/StmtVisitor.h"
-#include "comma/codegen/CodeGenRoutine.h"
 
 #include <algorithm>
 

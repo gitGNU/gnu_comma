@@ -13,10 +13,10 @@
 /// aggregate values.
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
 #include "comma/ast/Type.h"
 #include "comma/ast/Expr.h"
-#include "comma/codegen/CodeGenRoutine.h"
-#include "comma/codegen/CodeGenTypes.h"
 
 using namespace comma;
 
@@ -24,97 +24,75 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-void CodeGenRoutine::initArrayBounds(llvm::Value *boundSlot, ArrayType *arrTy)
+llvm::Value *CodeGenRoutine::computeArrayLength(llvm::Value *bounds)
 {
-    assert(arrTy->isConstrained() && "Expected constrained arrray!");
+    // Interrogate the layout of the given bounds structure and compute the
+    // total length of the array.
+    const llvm::SequentialType *seqTy;
+    const llvm::StructType *strTy;
 
-    llvm::Value *bounds = Builder.CreateConstGEP1_32(boundSlot, 0);
-    unsigned boundIdx = 0;
-    IndexConstraint *constraint = arrTy->getConstraint();
-    typedef IndexConstraint::iterator iterator;
+    seqTy = cast<llvm::PointerType>(bounds->getType());
+    strTy = cast<llvm::StructType>(seqTy->getElementType());
 
-    for (iterator I = constraint->begin(); I != constraint->end(); ++I) {
-        // FIXME: Only integer index types are supported ATM.
-        IntegerType *idxTy = cast<IntegerType>(*I);
+    const llvm::IntegerType *sumTy = CG.getInt64Ty();
+    llvm::Value *length = llvm::ConstantInt::get(sumTy, int64_t(0));
+    unsigned idx = 0;
+    unsigned numElts = strTy->getNumElements();
 
-        // FIXME: This is wrong.  We need to evauate the actual constraint
-        // bounds.
-        llvm::APInt lower;
-        llvm::APInt upper;
-        idxTy->getLowerLimit(lower);
-        idxTy->getUpperLimit(upper);
+    while(idx < numElts) {
+        llvm::Value *lower = Builder.CreateStructGEP(bounds, idx++);
+        lower = Builder.CreateLoad(lower);
 
-        // All bounds are represented using the root type of the index.
-        const llvm::IntegerType *boundTy;
-        llvm::Value *bound;
-        boundTy = cast<llvm::IntegerType>(CGT.lowerType(idxTy));
+        llvm::Value *upper = Builder.CreateStructGEP(bounds, idx++);
+        upper = Builder.CreateLoad(upper);
 
-        bound = Builder.CreateStructGEP(bounds, boundIdx++);
-        Builder.CreateStore(CG.getConstantInt(boundTy, lower), bound);
-
-        bound = Builder.CreateStructGEP(bounds, boundIdx++);
-        Builder.CreateStore(CG.getConstantInt(boundTy, upper), bound);
-    }
-}
-
-llvm::Value *CodeGenRoutine::emitArrayBounds(Expr *expr)
-{
-    ArrayType *arrTy = cast<ArrayType>(expr->getType());
-
-    // If the given expression is a reference to value declaration, obtain a
-    // bounds structure describing the it.
-    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
-        if (llvm::Value *bounds = lookupBounds(ref->getDeclaration()))
-            return bounds;
-
-        // All array expressions have a constrained type except for the formal
-        // parameters to a subroutine.  However, all formal parameters are
-        // mapped to the bounds supplied to the function call and handled above.
-        // Therefore, expr must have a constrained array type at this point.
-        assert(arrTy->isConstrained() && "Unexpected unconstrained arrray!");
-
-        // There are no bounds currently associated with this value.  Create a
-        // new bound object and initialize.
+        // Sign extend the bounds if needed.
         //
-        // FIXME:  Initializing the bounds in the entryBB is not correct since
-        // this declaration could be in an inner declarative region, but we do
-        // not keep track of nested initialization scopes yet.
-        llvm::Value *boundSlot = createBounds(ref->getDeclaration());
-        llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-        Builder.SetInsertPoint(entryBB);
-        initArrayBounds(boundSlot, arrTy);
-        Builder.SetInsertPoint(savedBB);
-        return boundSlot;
-    }
+        // FIXME: Zero extend modular types here when implemented.
+        const llvm::IntegerType *boundTy;
+        boundTy = cast<llvm::IntegerType>(lower->getType());
+        if (boundTy->getBitWidth() < sumTy->getBitWidth()) {
+            lower = Builder.CreateSExt(lower, sumTy);
+            upper = Builder.CreateSExt(upper, sumTy);
+        }
 
-    // The expression refers to a temporary array.  Allocate a temporary to hold
-    // the bounds.
-    llvm::Value *boundSlot = createTemporary(CGT.lowerArrayBounds(arrTy));
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-    Builder.SetInsertPoint(entryBB);
-    initArrayBounds(boundSlot, arrTy);
-    Builder.SetInsertPoint(savedBB);
-    return boundSlot;
+        // The length of this array dimension is upper - lower + 1.
+        length = Builder.CreateAdd(length, upper);
+        length = Builder.CreateSub(length, lower);
+        length = Builder.CreateAdd(length,
+                                   llvm::ConstantInt::get(sumTy, int64_t(1)));
+    }
+    return length;
 }
 
-llvm::Value *CodeGenRoutine::emitArrayLength(ArrayType *arrTy)
+/// \brief Given an array type with statically constrained indices, synthesizes
+/// a constant LLVM structure representing the bounds of the array.
+llvm::Constant *CodeGenRoutine::synthStaticArrayBounds(ArrayType *arrTy)
 {
-    assert(arrTy->isConstrained() && "Unconstrained array type!");
+    const llvm::StructType *boundsTy = CGT.lowerArrayBounds(arrTy);
+    std::vector<llvm::Constant*> bounds;
 
-    // FIXME: Support general discrete index types.
-    IntegerType *idxTy = cast<IntegerType>(arrTy->getIndexType(0));
-    llvm::Value *lower = emitScalarLowerBound(idxTy);
-    llvm::Value *upper = emitScalarUpperBound(idxTy);
-    llvm::Value *length = Builder.CreateSub(upper, lower);
-    const llvm::IntegerType *loweredTy =
-        cast<llvm::IntegerType>(length->getType());
-    return Builder.CreateAdd(length, CG.getConstantInt(loweredTy, 1));
+    for (unsigned i = 0; i < arrTy->getRank(); ++i) {
+        DiscreteType *idxTy = arrTy->getIndexType(i);
+        Range *range = idxTy->getConstraint();
+
+        assert(idxTy->isStaticallyConstrained());
+        const llvm::APInt &lower = range->getStaticLowerBound();
+        const llvm::APInt &upper = range->getStaticUpperBound();
+
+        const llvm::Type *eltTy = boundsTy->getElementType(i);
+        bounds.push_back(llvm::ConstantInt::get(eltTy, lower));
+        bounds.push_back(llvm::ConstantInt::get(eltTy, upper));
+    }
+    return llvm::ConstantStruct::get(boundsTy, bounds);
 }
 
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *destination,
                                    ArrayType *Ty)
 {
+    assert(Ty->isStaticallyConstrained() && "Cannot copy unconstrained arrays!");
+
     // Implement array copies via memcpy.
     llvm::Value *src;
     llvm::Value *dst;
@@ -128,13 +106,7 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     dst = Builder.CreatePointerCast(destination, CG.getInt8PtrTy());
     ptrTy = cast<llvm::PointerType>(source->getType());
     arrTy = cast<llvm::ArrayType>(ptrTy->getElementType());
-
-    // If the array type is of variable length, use the Comma type to compute
-    // the number of elements to copy.
-    if (arrTy->getNumElements() == 0)
-        len = emitArrayLength(Ty);
-    else
-        len = llvm::ConstantExpr::getSizeOf(arrTy);
+    len = llvm::ConstantExpr::getSizeOf(arrTy);
 
     // Zero extend the length if not an i64.
     if (len->getType() != CG.getInt64Ty())
@@ -146,7 +118,37 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     Builder.CreateCall4(memcpy, dst, src, len, align);
 }
 
-llvm::Value *CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
+void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
+                                   llvm::Value *destination,
+                                   llvm::Value *length)
+{
+    // Scale the length by the size of the component type of the arrays.
+    const llvm::SequentialType *seqTy;
+    const llvm::Type *compTy;
+    llvm::Value *compSize;
+    seqTy = cast<llvm::PointerType>(destination->getType());
+    seqTy = cast<llvm::ArrayType>(seqTy->getElementType());
+    compTy = seqTy->getElementType();
+    compSize = llvm::ConstantExpr::getSizeOf(compTy);
+
+    // FIXME: compSize is of type i64.  Need to truncate on 32 bit arch.
+    length = Builder.CreateMul(length, compSize);
+
+    // Finally, perform a memcpy from the source to the destination.
+    //
+    // FIXME: Adjust the intrinsic used to fit the target arch.
+    llvm::Constant *align = llvm::ConstantInt::get(CG.getInt32Ty(), 1);
+    llvm::Function *memcpy = CG.getMemcpy64();
+
+    seqTy = CG.getInt8PtrTy();
+    llvm::Value *src = Builder.CreatePointerCast(source, seqTy);
+    llvm::Value *dst = Builder.CreatePointerCast(destination, seqTy);
+    Builder.CreateCall4(memcpy, dst, src, length, align);
+}
+
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
 {
     assert(expr->hasType() && "Unresolved string literal type!");
 
@@ -163,9 +165,79 @@ llvm::Value *CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
     }
 
     // Build a constant global array to represent this literal.
-    //
-    // FIXME:  It might be a better policy to return the constant representation
-    // here and let the use sites determine what to do with the data.
-    llvm::Constant *data = CG.getConstantArray(elemTy, elements);
-    return CG.emitInternArray(data);
+    llvm::Constant *arrData = CG.getConstantArray(elemTy, elements);
+    llvm::GlobalVariable *dataPtr =
+        new llvm::GlobalVariable(*CG.getModule(), arrData->getType(), true,
+                                 llvm::GlobalValue::InternalLinkage, arrData,
+                                 "string.data");
+
+    // Likewise, build a constant global to represent the bounds.  Emitting the
+    // bounds into memory should be slightly faster then building them on the
+    // stack in the majority of cases.  If the supplied bounds parameter is
+    // non-null, load the address of
+    llvm::Constant *boundData = synthStaticArrayBounds(expr->getType());
+    llvm::GlobalVariable *boundPtr =
+        new llvm::GlobalVariable(*CG.getModule(), boundData->getType(), true,
+                                 llvm::GlobalValue::InternalLinkage, boundData,
+                                 "bounds.data");
+
+    return std::pair<llvm::Value*, llvm::Value*>(dataPtr, boundPtr);
+}
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
+{
+    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
+
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    llvm::Value *components;
+    llvm::Value *bounds;
+
+    if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
+        ArrPair pair = emitStringLiteral(lit);
+        components = pair.first;
+        bounds = pair.second;
+    }
+    else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+        ValueDecl *decl = ref->getDeclaration();
+        components = lookupDecl(decl);
+        bounds = lookupBounds(decl);
+    }
+    else {
+        assert(false && "Invalid type of array expr!");
+        return ArrPair(0, 0);
+    }
+
+    // If dst is null and genTmp is true, build a stack allocated object to
+    // hold the components of this array.
+    if (dst == 0 && genTmp) {
+        llvm::BasicBlock *savedBB;
+        const llvm::Type *componentTy;
+        const llvm::Type *dstTy;
+        llvm::Value *dim;
+        llvm::Value *length;
+
+        savedBB = Builder.GetInsertBlock();
+        Builder.SetInsertPoint(entryBB);
+
+        componentTy = CGT.lowerType(arrTy->getComponentType());
+        dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+
+        // FIXME: The length is always computed as an i64, but an alloca
+        // instruction requires an i32.  Simply truncate for now.
+        length = computeArrayLength(bounds);
+        dim = Builder.CreateTrunc(length, CG.getInt32Ty());
+        dst = Builder.CreateAlloca(componentTy, dim);
+        dst = Builder.CreatePointerCast(dst, dstTy);
+        Builder.SetInsertPoint(savedBB);
+    }
+
+    // If a destination is available, fill it in with the associated array data.
+    if (dst) {
+        llvm::Value *length = computeArrayLength(bounds);
+        emitArrayCopy(components, dst, length);
+        return ArrPair(dst, bounds);
+    }
+    else
+        return ArrPair(components, bounds);
 }

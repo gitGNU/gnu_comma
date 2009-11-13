@@ -7,15 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenCapsule.h"
+#include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
+#include "CommaRT.h"
 #include "SRInfo.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/Stmt.h"
-#include "comma/codegen/CodeGenRoutine.h"
-#include "comma/codegen/CodeGenTypes.h"
-#include "comma/codegen/CommaRT.h"
 #include "comma/codegen/Mangle.h"
 
 #include "llvm/Analysis/Verifier.h"
@@ -125,8 +125,13 @@ void CodeGenRoutine::injectSubroutineArgs()
         declTable[param] = argI;
 
         if (ArrayType *arrTy = dyn_cast<ArrayType>(param->getType())) {
-            if (!arrTy->isConstrained())
-                boundTable[param] = ++argI;
+            if (!arrTy->isConstrained()) {
+                ++argI;
+                std::string boundName(param->getString());
+                boundName += ".bounds";
+                argI->setName(boundName);
+                boundTable[param] = argI;
+            }
         }
     }
 }
@@ -172,65 +177,82 @@ llvm::Value *CodeGenRoutine::lookupDecl(Decl *decl)
     return 0;
 }
 
-bool CodeGenRoutine::isDirectCall(const FunctionCallExpr *expr)
+bool CodeGenRoutine::isDirectCall(const SubroutineCall *call)
 {
-    const FunctionDecl *decl = expr->getConnective(0);
-    if (decl) {
-        const DeclRegion *region = decl->getDeclRegion();
-        return isa<DomainInstanceDecl>(region);
-    }
-    return false;
-}
+    if (call->isAmbiguous())
+        return false;
 
-bool CodeGenRoutine::isDirectCall(const ProcedureCallStmt *stmt)
-{
-    const ProcedureDecl *pdecl = stmt->getConnective();
-    const DeclRegion *region = pdecl->getDeclRegion();
+    const SubroutineDecl *decl = call->getConnective();
+    const DeclRegion *region = decl->getDeclRegion();
     return isa<DomainInstanceDecl>(region);
 }
 
-bool CodeGenRoutine::isLocalCall(const FunctionCallExpr *expr)
+bool CodeGenRoutine::isLocalCall(const SubroutineCall *call)
 {
-    const FunctionDecl *decl = expr->getConnective(0);
-    if (decl) {
-        // FIXME: This is a hack.  We rely here on the esoteric property that a
-        // local decl is declared in an "add" context.  Rather, check that the
-        // decl originates from the curent domain, or explicity tag decls as
-        // local in the AST.
-        const DeclRegion *region = decl->getDeclRegion();
-        return isa<AddDecl>(region);
-    }
-    return false;
-}
+    if (call->isAmbiguous())
+        return false;
 
-bool CodeGenRoutine::isLocalCall(const ProcedureCallStmt *stmt)
-{
     // FIXME: This is a hack.  We rely here on the esoteric property that a
     // local decl is declared in an "add" context.  Rather, check that the decl
     // originates from the curent domain, or explicity tag decls as local in the
     // AST.
-    const ProcedureDecl *pdecl = stmt->getConnective();
-    const DeclRegion *region = pdecl->getDeclRegion();
+    const SubroutineDecl *decl = call->getConnective();
+    const DeclRegion *region = decl->getDeclRegion();
     return isa<AddDecl>(region);
+}
+
+bool CodeGenRoutine::isForeignCall(const SubroutineCall *call)
+{
+    if (call->isAmbiguous())
+        return false;
+
+    const SubroutineDecl *srDecl = call->getConnective();
+    return srDecl->hasPragma(pragma::Import);
 }
 
 void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
-    if (objDecl->hasInitializer()) {
-        llvm::Value *init = emitValue(objDecl->getInitializer());
-        if (ArrayType *arrTy = dyn_cast<ArrayType>(objDecl->getType())) {
-            // FIXME: It would be very nice to optimize array assignment by
-            // reusing any temporaries generated on the RHS.  However, LLVM's
-            // optimizers can do the thinking for us here most of the time.
-            llvm::Value *slot = createStackSlot(objDecl);
-            emitArrayCopy(init, slot, arrTy);
+    Type *objTy = objDecl->getType();
+
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(objTy)) {
+        llvm::Value *bounds = createBounds(objDecl);
+        llvm::Value *slot = 0;
+
+        if (arrTy->isStaticallyConstrained())
+            slot = createStackSlot(objDecl);
+
+        if (objDecl->hasInitializer()) {
+            Expr *init = objDecl->getInitializer();
+            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init)) {
+                // Only staticly constrained array types are delt with here.
+                assert(arrTy->isStaticallyConstrained());
+
+                // Perform the function call and add the destination to the
+                // argument set.
+                emitCompositeCall(call, slot);
+
+                // Synthesize bounds for this declaration.
+                Builder.CreateStore(synthStaticArrayBounds(arrTy), bounds);
+            }
+            else {
+                std::pair<llvm::Value*, llvm::Value*> result;
+                result = emitArrayExpr(init, slot, true);
+                if (!slot)
+                    associateStackSlot(objDecl, result.first);
+                Builder.CreateStore(Builder.CreateLoad(result.second), bounds);
+            }
         }
         else
-            Builder.CreateStore(init, createStackSlot(objDecl));
+            Builder.CreateStore(synthStaticArrayBounds(arrTy), bounds);
+        return;
     }
-    else {
-        // FIXME:  We should be giving all objects default values here.
-        createStackSlot(objDecl);
+
+    // Otherwise, this is a simple non-composite type.  Allocate a stack slot
+    // and evaluate the initializer if present.
+    llvm::Value *slot = createStackSlot(objDecl);
+    if (objDecl->hasInitializer()) {
+        llvm::Value *value = emitValue(objDecl->getInitializer());
+        Builder.CreateStore(value, slot);
     }
 }
 
@@ -250,43 +272,12 @@ llvm::Value *CodeGenRoutine::getStackSlot(Decl *decl)
     return stackSlot;
 }
 
-llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
+llvm::Value *CodeGenRoutine::createStackSlot(ObjectDecl *decl)
 {
     assert(lookupDecl(decl) == 0 &&
            "Cannot create stack slot for preexisting decl!");
 
-    // The only kind of declaration we emit stack slots for are value
-    // declarations, hense the cast.
-    ValueDecl *vDecl = cast<ValueDecl>(decl);
-    Type *vTy = vDecl->getType();
-
-    if (ArrayType *arrTy = dyn_cast<ArrayType>(vTy)) {
-        assert(arrTy->isConstrained() && "Unconstrained value declaration!");
-
-        // FIXME: Support multidimensional arrays and general discrete index
-        // types.
-        IntegerType *idxTy = cast<IntegerType>(arrTy->getIndexType(0));
-        if (!idxTy->isStaticallyConstrained()) {
-            const llvm::Type *type;
-            type = CGT.lowerType(arrTy->getComponentType());
-
-            llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-            Builder.SetInsertPoint(entryBB);
-            llvm::Value *length = emitArrayLength(arrTy);
-            llvm::Value *stackSlot = Builder.CreateAlloca(type, length);
-
-            // The slot is a pointer to the component type.  Cast it as a
-            // pointer to a variable length array.
-            type = CG.getPointerType(CGT.lowerArrayType(arrTy));
-            stackSlot = Builder.CreatePointerCast(stackSlot, type);
-
-            declTable[decl] = stackSlot;
-            Builder.SetInsertPoint(savedBB);
-            return stackSlot;
-        }
-    }
-
-    const llvm::Type *type = CGT.lowerType(vDecl->getType());
+    const llvm::Type *type = CGT.lowerType(decl->getType());
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
     Builder.SetInsertPoint(entryBB);
@@ -296,15 +287,7 @@ llvm::Value *CodeGenRoutine::createStackSlot(Decl *decl)
     return stackSlot;
 }
 
-llvm::Value *CodeGenRoutine::getOrCreateStackSlot(Decl *decl)
-{
-    if (llvm::Value *stackSlot = lookupDecl(decl))
-        return stackSlot;
-    else
-        return createStackSlot(decl);
-}
-
-llvm::Value *CodeGenRoutine::createTemporary(const llvm::Type *type)
+llvm::Value *CodeGenRoutine::createTemp(const llvm::Type *type)
 {
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
@@ -340,6 +323,7 @@ llvm::Value *CodeGenRoutine::createBounds(ValueDecl *decl)
     Builder.SetInsertPoint(entryBB);
     llvm::Value *bounds = Builder.CreateAlloca(boundTy);
     Builder.SetInsertPoint(savedBB);
+    associateBounds(decl, bounds);
     return bounds;
 }
 
@@ -352,102 +336,64 @@ void CodeGenRoutine::associateBounds(ValueDecl *decl, llvm::Value *value)
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
-        Decl *refDecl = refExpr->getDeclaration();
+        ValueDecl *refDecl = refExpr->getDeclaration();
+        llvm::Value *addr = 0;
 
         if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-            PM::ParameterMode paramMode = pvDecl->getParameterMode();
-            // Enusure that the parameter has a mode consistent with reference
+            // Ensure that the parameter has a mode consistent with reference
             // emission.
+            PM::ParameterMode paramMode = pvDecl->getParameterMode();
             assert((paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
                    && "Cannot take reference to a parameter with mode IN!");
-            return lookupDecl(pvDecl);
+            addr = lookupDecl(pvDecl);
         }
-        if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(refDecl)) {
-            // Local object declarations are always generated with repect to a
-            // stack slot.
-            return getStackSlot(objDecl);
+        else {
+            // Otherwise, we must have a local object declaration.  Simply
+            // return the associated stack slot.
+            ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
+            addr = getStackSlot(objDecl);
         }
-        assert(false && "Cannot codegen reference for expression!");
+        return addr;
     }
     else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
         return emitIndexedArrayRef(idxExpr);
-    else {
-        assert(false && "Cannot codegen reference for expression!");
-    }
+
+    assert(false && "Cannot codegen reference for expression!");
+    return 0;
 }
 
 llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 {
-    llvm::Value *result;
-
     switch (expr->getKind()) {
 
     default:
         if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
-            result = emitAttribExpr(attrib);
+            return emitAttribExpr(attrib);
         else
             assert(false && "Cannot codegen expression!");
         break;
 
-    case Ast::AST_DeclRefExpr: {
-        DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
-        Decl *refDecl = refExpr->getDeclaration();
-        llvm::Value *exprValue = lookupDecl(refDecl);
-
-        if (expr->getType()->getAsArrayType()) {
-            // If the expression denotes an array type, just return the
-            // associated value.  All arrays are manipulated by reference.
-            result = exprValue;
-        }
-        else if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-            // If the parameter mode is either "out" or "in out" then load the
-            // actual value.
-            PM::ParameterMode paramMode = pvDecl->getParameterMode();
-
-            if (paramMode == PM::MODE_OUT or paramMode == PM::MODE_IN_OUT)
-                result = Builder.CreateLoad(exprValue);
-            else
-                result = exprValue;
-        }
-        else {
-            // Otherwise, we must have an ObjectDecl.  Just load from the
-            // alloca'd stack slot.
-            assert(isa<ObjectDecl>(refDecl) && "Unexpected decl kind!");
-            result = Builder.CreateLoad(exprValue);
-        }
-        break;
-    }
+    case Ast::AST_DeclRefExpr:
+        return emitDeclRefExpr(cast<DeclRefExpr>(expr));
 
     case Ast::AST_FunctionCallExpr:
-        result = emitFunctionCall(cast<FunctionCallExpr>(expr));
-        break;
+        return emitSimpleCall(cast<FunctionCallExpr>(expr));
 
     case Ast::AST_InjExpr:
-        result = emitInjExpr(cast<InjExpr>(expr));
-        break;
+        return emitInjExpr(cast<InjExpr>(expr));
 
     case Ast::AST_PrjExpr:
-        result = emitPrjExpr(cast<PrjExpr>(expr));
-        break;
+        return emitPrjExpr(cast<PrjExpr>(expr));
 
     case Ast::AST_IntegerLiteral:
-        result = emitIntegerLiteral(cast<IntegerLiteral>(expr));
-        break;
-
-    case Ast::AST_StringLiteral:
-        result = emitStringLiteral(cast<StringLiteral>(expr));
-        break;
+        return emitIntegerLiteral(cast<IntegerLiteral>(expr));
 
     case Ast::AST_IndexedArrayExpr:
-        result = emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
-        break;
+        return emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
 
     case Ast::AST_ConversionExpr:
-        result = emitConversionValue(cast<ConversionExpr>(expr));
-        break;
+        return emitConversionValue(cast<ConversionExpr>(expr));
     }
-
-    return result;
 }
 
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)

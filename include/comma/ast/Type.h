@@ -771,6 +771,18 @@ public:
     }
     //@}
 
+    /// Returns true if this array type is statically constrained.
+    bool isStaticallyConstrained() const {
+        if (!isConstrained())
+            return false;
+        for (index_iterator I = begin_indices(); I != end_indices(); ++I) {
+            DiscreteType *Ty = *I;
+            if (!Ty->isStaticallyConstrained())
+                return false;
+        }
+        return true;
+    }
+
     //@{
     /// Specialize PrimaryType::getRootType().
     ArrayType *getRootType() {

@@ -7,10 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenCapsule.h"
+#include "CodeGenTypes.h"
+#include "CommaRT.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/CodeGen.h"
-#include "comma/codegen/CodeGenTypes.h"
-#include "comma/codegen/CommaRT.h"
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/Target/TargetData.h"

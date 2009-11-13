@@ -18,6 +18,7 @@ enum PrimitiveID {
     NotPrimitive,
 
     EQ_op,
+    NE_op,
     LT_op,
     GT_op,
     LE_op,
@@ -71,6 +72,7 @@ inline const char *getOpName(PrimitiveID ID) {
         assert(false && "Not a primitive operator!");
         return 0;
     case EQ_op: return "=";
+    case NE_op: return "/=";
     case LT_op: return "<";
     case GT_op: return ">";
     case LE_op: return "<=";

@@ -116,6 +116,7 @@ public:
     static bool isFunctionGlyph(const Lexer::Token &tkn) {
         switch (tkn.getCode()) {
         case TKN_EQUAL:
+        case TKN_NEQUAL:
         case TKN_LESS:
         case TKN_LEQ:
         case TKN_GREAT:

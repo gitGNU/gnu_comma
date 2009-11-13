@@ -748,6 +748,9 @@ ArrayType::ArrayType(ArrayDecl *decl, unsigned rank, DiscreteType **indices,
 {
     assert(rank != 0 && "Missing index types!");
     assert(this->isRootType());
+
+    if (isConstrained)
+        setConstraintBit();
 }
 
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
@@ -768,6 +771,8 @@ ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType)
       definingDecl(name)
 {
     assert(this->isSubtype());
+    if (getRootType()->isConstrained())
+        setConstraintBit();
 }
 
 IdentifierInfo *ArrayType::getIdInfo() const

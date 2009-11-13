@@ -6,18 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenCapsule.h"
-#include "DependencySet.h"
-#include "SRInfo.h"
-#include "comma/ast/AstRewriter.h"
+#include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
+#include "CommaRT.h"
 #include "comma/ast/AttribExpr.h"
-#include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
-#include "comma/ast/Stmt.h"
-#include "comma/codegen/CodeGenRoutine.h"
-#include "comma/codegen/CodeGenTypes.h"
-#include "comma/codegen/CommaRT.h"
-#include "comma/codegen/Mangle.h"
 
 using namespace comma;
 
@@ -26,322 +19,33 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-llvm::Value *CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
+llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 {
-    assert(expr->isUnambiguous() && "Function call not fully resolved!");
-    FunctionDecl *fdecl = expr->getConnective();
-    std::vector<llvm::Value *> args;
+    DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
+    ValueDecl *refDecl = refExpr->getDeclaration();
+    llvm::Value *exprValue = lookupDecl(refDecl);
 
-    typedef FunctionCallExpr::arg_iterator iterator;
-    iterator Iter = expr->begin_arguments();
-    iterator E = expr->end_arguments();
-    for (unsigned i = 0; Iter != E; ++Iter, ++i) {
-        Expr *arg = *Iter;
-        emitCallArgument(fdecl, arg, i, args);
+    // If the expression is a composite type, just return the associated value.
+    if (expr->getType()->isCompositeType())
+        return exprValue;
+
+    // If the declaration references a parameter and the mode is either "out" or
+    // "in out", load the actual value.
+    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+        PM::ParameterMode paramMode = pvDecl->getParameterMode();
+
+        if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
+            exprValue = Builder.CreateLoad(exprValue);
+        else
+            exprValue = exprValue;
+
+        return exprValue;
     }
 
-    if (fdecl->isPrimitive())
-        return emitPrimitiveCall(expr, args);
-    else if (fdecl->hasPragma(pragma::Import))
-        return emitForeignCall(fdecl, args);
-    else if (isLocalCall(expr))
-        return emitLocalCall(fdecl, args);
-    else if (isDirectCall(expr))
-        return emitDirectCall(fdecl, args);
-    else
-        return emitAbstractCall(fdecl, args);
-}
-
-llvm::Value *CodeGenRoutine::emitCall(SubroutineType *srTy,
-                                      llvm::Value *func,
-                                      std::vector<llvm::Value *> &args)
-{
-    // If the given function follows the struct return convention, allocate a
-    // temporary to hold the results.
-    if (FunctionType *fnTy = dyn_cast<FunctionType>(srTy)) {
-        if (fnTy->getReturnType()->isCompositeType()) {
-            const llvm::PointerType *ptrTy;
-            const llvm::FunctionType *fnTy;
-            ptrTy = cast<llvm::PointerType>(func->getType());
-            fnTy = cast<llvm::FunctionType>(ptrTy->getElementType());
-            ptrTy = cast<llvm::PointerType>(fnTy->getParamType(0));
-
-            llvm::Value *slot = createTemporary(ptrTy->getElementType());
-            args.insert(args.begin(), slot);
-
-            Builder.CreateCall(func, args.begin(), args.end());
-            return slot;
-        }
-    }
-    return Builder.CreateCall(func, args.begin(), args.end());
-}
-
-void CodeGenRoutine::emitCallArgument(SubroutineDecl *srDecl, Expr *expr,
-                                      unsigned argPosition,
-                                      std::vector<llvm::Value *> &args)
-{
-    Type *paramTy = srDecl->getParamType(argPosition);
-    PM::ParameterMode mode = srDecl->getParamMode(argPosition);
-    llvm::Value *arg;
-
-    if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
-        arg = emitVariableReference(expr);
-    else
-        arg = emitValue(expr);
-
-    if (ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
-        // When the expected type is an unconstrained array type, we might need
-        // to cast the argument.  Unconstrained arrays are represented as
-        // pointers to empty LLVM arrays (e.g. [0 x T]*), whereas constrained
-        // arrays have a definite dimension.  Lower the target type and cast the
-        // argument if necessary.
-        const llvm::Type *contextTy;
-        contextTy = CGT.lowerType(srDecl->getParamType(argPosition));
-        contextTy = CG.getPointerType(contextTy);
-
-        if (contextTy != arg->getType())
-            arg = Builder.CreatePointerCast(arg, contextTy);
-
-        args.push_back(arg);
-
-        // Emit the bounds.
-        if (!arrTy->isConstrained())
-            args.push_back(emitArrayBounds(expr));
-    }
-    else
-        args.push_back(arg);
-}
-
-llvm::Value *CodeGenRoutine::emitLocalCall(SubroutineDecl *srDecl,
-                                           std::vector<llvm::Value *> &args)
-{
-    // Insert the implicit first parameter, which for a local call is the
-    // percent handed to the current subroutine.
-    args.insert(args.begin(), percent);
-
-    // Get the info structure for this declaration using the current instance as
-    // context.
-    DomainInstanceDecl *instance = CGC.getInstance();
-    SRInfo *info = CG.getSRInfo(instance, srDecl);
-    llvm::Value *func = info->getLLVMFunction();
-
-    return emitCall(srDecl->getType(), func, args);
-}
-
-llvm::Value *CodeGenRoutine::emitForeignCall(SubroutineDecl *srDecl,
-                                             std::vector<llvm::Value*> &args)
-{
-    // Resolve the instance for the given declaration.
-    DeclRegion *region = srDecl->getDeclRegion();
-    DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region);
-
-    if (!instance)
-        instance = CGC.getInstance();
-
-    SRInfo *info = CG.getSRInfo(instance, srDecl);
-    llvm::Value *func = info->getLLVMFunction();
-    return emitCall(srDecl->getType(), func, args);
-}
-
-llvm::Value *CodeGenRoutine::emitDirectCall(SubroutineDecl *srDecl,
-                                            std::vector<llvm::Value *> &args)
-{
-    DomainInstanceDecl *instance
-        = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
-
-    // Get the dependency ID for this instance and index into percent to obtain
-    // the appropriate domain_instance runtime object.
-    const DependencySet &DSet = CG.getDependencySet(CGC.getCapsule());
-    DependencySet::iterator IDPos = DSet.find(instance);
-    assert(IDPos != DSet.end() && "Failed to resolve dependency!");
-    unsigned instanceID = DSet.getDependentID(IDPos);
-    args.insert(args.begin(), CRT.getLocalCapsule(Builder, percent, instanceID));
-
-    AstRewriter rewriter(CG.getAstResource());
-    // Always map percent nodes from the current capsule to the instance.
-    rewriter.addTypeRewrite(CGC.getCapsule()->getPercentType(),
-                            CGC.getInstance()->getType());
-
-    // If the instance is dependent on formal parameters, rewrite using the
-    // current parameter map.
-    if (instance->isDependent()) {
-        const CodeGenCapsule::ParameterMap &paramMap = CGC.getParameterMap();
-        rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
-    }
-
-    DomainType *targetDomainTy = rewriter.rewriteType(instance->getType());
-    DomainInstanceDecl *targetInstance = targetDomainTy->getInstanceDecl();
-    assert(!targetInstance->isDependent() &&
-           "Instance rewriting did not remove all dependencies!");
-
-    // Add the target domain to the code generators worklist.  This will
-    // generate forward declarations for the type if they do not already
-    // exist.
-    CG.extendWorklist(targetInstance);
-
-    // Extend the rewriter with rules mapping the dependent instance type to
-    // the rewritten type.  Using this extended rewriter, get the concrete
-    // type for the subroutine decl we are calling, and locate it in the
-    // target instance (this operation must not fail).
-    rewriter.addTypeRewrite(instance->getType(), targetDomainTy);
-    SubroutineType *targetTy = rewriter.rewriteType(srDecl->getType());
-    srDecl = dyn_cast_or_null<SubroutineDecl>(
-        targetInstance->findDecl(srDecl->getIdInfo(), targetTy));
-    assert(srDecl && "Failed to resolve subroutine!");
-
-    // With our fully-resolved subroutine, get the corresponding SRInfo object
-    // and LLVM function.
-    SRInfo *info = CG.getSRInfo(targetInstance, srDecl);
-    llvm::Value *func = info->getLLVMFunction();
-    return emitCall(srDecl->getType(), func, args);
-}
-
-llvm::Value *CodeGenRoutine::emitPrimitiveCall(FunctionCallExpr *expr,
-                                               std::vector<llvm::Value *> &args)
-{
-    assert(expr->isUnambiguous() && "Function call not fully resolved!");
-    FunctionDecl *decl = expr->getConnective();
-
-    switch (decl->getPrimitiveID()) {
-
-    default:
-        assert(false && "Cannot codegen primitive!");
-        return 0;
-
-    case PO::EQ_op:
-        return Builder.CreateICmpEQ(args[0], args[1]);
-
-    case PO::ADD_op:
-        return Builder.CreateAdd(args[0], args[1]);
-
-    case PO::SUB_op:
-        return Builder.CreateSub(args[0], args[1]);
-
-    case PO::MUL_op:
-        return Builder.CreateMul(args[0], args[1]);
-
-    case PO::POW_op:
-        return emitExponential(args[0], args[1]);
-
-    case PO::POS_op:
-        return args[0];         // POS is a no-op.
-
-    case PO::NEG_op:
-        return Builder.CreateNeg(args[0]);
-
-    case PO::LT_op:
-        return Builder.CreateICmpSLT(args[0], args[1]);
-
-    case PO::GT_op:
-        return Builder.CreateICmpSGT(args[0], args[1]);
-
-    case PO::LE_op:
-        return Builder.CreateICmpSLE(args[0], args[1]);
-
-    case PO::GE_op:
-        return Builder.CreateICmpSGE(args[0], args[1]);
-
-    case PO::ENUM_op: {
-        EnumLiteral *lit = cast<EnumLiteral>(decl);
-        unsigned idx = lit->getIndex();
-        const llvm::Type *ty = CGT.lowerType(lit->getReturnType());
-        return llvm::ConstantInt::get(ty, idx);
-    }
-    };
-}
-
-llvm::Value *CodeGenRoutine::emitExponential(llvm::Value *x, llvm::Value *n)
-{
-    // Depending on the width of the operands, call into a runtime routine to
-    // perform the operation.  Note the the power we raise to is always an i32.
-    const llvm::IntegerType *type = cast<llvm::IntegerType>(x->getType());
-    const llvm::IntegerType *i32Ty = CG.getInt32Ty();
-    const llvm::IntegerType *i64Ty = CG.getInt64Ty();
-    unsigned width = type->getBitWidth();
-    llvm::Value *result;
-
-    assert(cast<llvm::IntegerType>(n->getType()) == i32Ty &&
-           "Unexpected type for rhs of exponential!");
-
-    // Call into the runtime and truncate the results back to the original
-    // width.
-    if (width < 32) {
-        x = Builder.CreateSExt(x, i32Ty);
-        result = CRT.pow_i32_i32(Builder, x, n);
-        result = Builder.CreateTrunc(result, type);
-    }
-    else if (width == 32)
-        result = CRT.pow_i32_i32(Builder, x, n);
-    else if (width < 64) {
-        x = Builder.CreateSExt(x, i64Ty);
-        result = CRT.pow_i64_i32(Builder, x, n);
-        result = Builder.CreateTrunc(result, type);
-    }
-    else {
-        assert(width == 64 && "Integer type too wide!");
-        result = CRT.pow_i64_i32(Builder, x, n);
-    }
-
-    return result;
-}
-
-llvm::Value *CodeGenRoutine::emitAbstractCall(SubroutineDecl *srDecl,
-                                              std::vector<llvm::Value *> &args)
-{
-    // Resolve the region for this declaration, which is asserted to be an
-    // AbstractDomainDecl.
-    AbstractDomainDecl *abstract =
-        cast<AbstractDomainDecl>(srDecl->getDeclRegion());
-
-    // Resolve the abstract domain to a concrete type using the parameter map
-    // provided by the capsule context.
-    DomainInstanceDecl *instance = CGC.rewriteAbstractDecl(abstract);
-    assert(instance && "Failed to resolve abstract domain!");
-
-    // Add this instance to the code generators worklist, thereby ensuring
-    // forward declarations are generated and that the implementation will be
-    // codegened.
-    CG.extendWorklist(instance);
-
-    // Resolve the needed routine.  This must not fail.
-    SubroutineDecl *resolvedRoutine
-        = resolveAbstractSubroutine(instance, abstract, srDecl);
-    assert(resolvedRoutine && "Failed to resolve abstract subroutine!");
-
-    // Index into percent to obtain the actual domain instance serving as a
-    // parameter.
-    FunctorDecl *functor = cast<FunctorDecl>(CGC.getCapsule());
-    unsigned index = functor->getFormalIndex(abstract);
-    llvm::Value *DOC = CRT.getCapsuleParameter(Builder, percent, index);
-
-    // Insert the DOC as the implicit first parameter for the call, obtain the
-    // actual llvm function representing the instances subroutine, and emit the
-    // call.
-    args.insert(args.begin(), DOC);
-    SRInfo *info = CG.getSRInfo(instance, resolvedRoutine);
-    llvm::Value *func = info->getLLVMFunction();
-    assert(func && "function lookup failed!");
-    return emitCall(resolvedRoutine->getType(), func, args);
-}
-
-SubroutineDecl *
-CodeGenRoutine::resolveAbstractSubroutine(DomainInstanceDecl *instance,
-                                          AbstractDomainDecl *abstract,
-                                          SubroutineDecl *target)
-{
-    DomainType *abstractTy = abstract->getType();
-
-    // The instance must provide a subroutine declaration with a type matching
-    // that of the original, with the only exception being that occurrences of
-    // abstractTy are mapped to the type of the given instance.  Use an
-    // AstRewriter to obtain the required target type.
-    AstRewriter rewriter(CG.getAstResource());
-    rewriter.addTypeRewrite(abstractTy, instance->getType());
-    SubroutineType *targetTy = rewriter.rewriteType(target->getType());
-
-    // Lookup the target declaration directly in the instance.
-    return dyn_cast_or_null<SubroutineDecl>(
-        instance->findDecl(target->getIdInfo(), targetTy));
+    // Otherwise, the given expression must reference an object declaration.
+    // All such declarations have a alloca'd stack slot.  Load the value.
+    exprValue = getStackSlot(cast<ObjectDecl>(refDecl));
+    return Builder.CreateLoad(exprValue);
 }
 
 llvm::Value *CodeGenRoutine::emitInjExpr(InjExpr *expr)
@@ -423,17 +127,16 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 {
-    llvm::Value *component = emitIndexedArrayRef(expr);
-    return Builder.CreateLoad(component);
+    llvm::Value *addr = emitIndexedArrayRef(expr);
+    return Builder.CreateLoad(addr);
 }
 
 llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 {
     // The only type of conversions we currently support are integer
     // conversions.
-    if (IntegerType *target = dyn_cast<IntegerType>(expr->getType())) {
+    if (IntegerType *target = dyn_cast<IntegerType>(expr->getType()))
         return emitCheckedIntegerConversion(expr->getOperand(), target);
-    }
 
     assert(false && "Cannot codegen given conversion yet!");
     return 0;
@@ -588,14 +291,18 @@ llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerType *Ty)
 
 llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 {
+    llvm::Value *result;
+
     if (ScalarBoundAE *scalarAE = dyn_cast<ScalarBoundAE>(expr))
-        return emitScalarBoundAE(scalarAE);
+        result = emitScalarBoundAE(scalarAE);
+    else if (ArrayBoundAE *arrayAE = dyn_cast<ArrayBoundAE>(expr))
+        result = emitArrayBoundAE(arrayAE);
+    else {
+        assert(false && "Cannot codegen attribute yet!");
+        result = 0;
+    }
 
-    if (ArrayBoundAE *arrayAE = dyn_cast<ArrayBoundAE>(expr))
-        return emitArrayBoundAE(arrayAE);
-
-    assert(false && "Cannot codegen attribute yet!");
-    return 0;
+    return result;
 }
 
 llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
@@ -627,7 +334,7 @@ llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
     DeclRefExpr *ref;
     ParamValueDecl *param;
 
-    ref = dyn_cast<DeclRefExpr>(AE->getPrefix());
+    ref = cast<DeclRefExpr>(AE->getPrefix());
     param = dyn_cast_or_null<ParamValueDecl>(ref->getDeclaration());
     if (!ref || !param) {
         assert(false && "Unconstrained array attribute not supported yet!");
