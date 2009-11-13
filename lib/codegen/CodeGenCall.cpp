@@ -95,6 +95,11 @@ private:
     /// Generates a call into the Comma runtime to handle exponentiation.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
+    /// Helper method for emitPrimitiveCall.
+    ///
+    /// Syntesizes a "mod" operation.
+    llvm::Value *emitMod(llvm::Value *lhs, llvm::Value *rhs);
+
     /// Generates any implicit first arguments for the current call expression
     /// and resolves the associated SRInfo object.
     SRInfo *prepareCall();
@@ -332,6 +337,14 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             result = Builder.CreateMul(lhs, rhs);
             break;
 
+        case PO::MOD_op:
+            result = emitMod(lhs, rhs);
+            break;
+
+        case PO::REM_op:
+            result = Builder.CreateSRem(lhs, rhs);
+            break;
+
         case PO::POW_op:
             result = emitExponential(lhs, rhs);
             break;
@@ -401,6 +414,34 @@ llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
     }
 
     return result;
+}
+
+llvm::Value *CallEmitter::emitMod(llvm::Value *lhs, llvm::Value *rhs)
+{
+    // FIXME: Raise an exception if rhs is zero.
+    const llvm::Type *doubleTy = Builder.getDoubleTy();
+    llvm::Constant *doubleZero = llvm::ConstantFP::get(doubleTy, 0.0);
+    llvm::Constant  *doubleOne = llvm::ConstantFP::get(doubleTy, 1.0);
+
+    // Convert lhs and rhs to floating point values.
+    llvm::Value *Flhs = Builder.CreateSIToFP(lhs, doubleTy);
+    llvm::Value *Frhs = Builder.CreateSIToFP(rhs, doubleTy);
+
+    // Divide Flhs by Frhs.
+    llvm::Value *floor;
+    floor = Builder.CreateFDiv(Flhs, Frhs);
+
+    // Test if the quotient is < 0.  If so, subtract 1.0 since truncation is
+    // towards zero.
+    llvm::Value *isNeg;
+    llvm::Value *bias;
+    isNeg = Builder.CreateFCmpOLT(floor, doubleZero);
+    bias  = Builder.CreateSelect(isNeg, doubleOne, doubleZero);
+    floor = Builder.CreateFSub(floor, bias);
+    floor = Builder.CreateFPToSI(floor, lhs->getType());
+
+    // Compute lhs - rhs * floor.
+    return Builder.CreateSub(lhs, Builder.CreateMul(rhs, floor));
 }
 
 SRInfo *CallEmitter::prepareCall()

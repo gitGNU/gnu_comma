@@ -851,6 +851,8 @@ void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
     addDecl(resource.createPrimitiveDecl(PO::ADD_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::SUB_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::MUL_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::MOD_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::REM_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::POW_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::NEG_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::POS_op, loc, type, this));

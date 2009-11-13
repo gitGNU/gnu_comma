@@ -108,6 +108,8 @@ Node Parser::parseMultiplicativeOperator()
 
         case Lexer::TKN_STAR:
         case Lexer::TKN_FSLASH:
+        case Lexer::TKN_MOD:
+        case Lexer::TKN_REM:
             loc    = currentLocation();
             opInfo = parseFunctionIdentifierInfo();
             break;

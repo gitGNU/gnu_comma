@@ -125,12 +125,13 @@ public:
         case TKN_STAR:
         case TKN_PLUS:
         case TKN_POW:
+        case TKN_MOD:
+        case TKN_REM:
             return true;
         default:
             return false;
         }
     }
-
 
     // Returns a static string representation of the given token code, or NULL
     // if no such representation is available.

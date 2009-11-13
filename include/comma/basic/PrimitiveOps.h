@@ -27,6 +27,8 @@ enum PrimitiveID {
     ADD_op,
     SUB_op,
     MUL_op,
+    MOD_op,
+    REM_op,
     POW_op,
 
     POS_op,
@@ -80,6 +82,8 @@ inline const char *getOpName(PrimitiveID ID) {
     case ADD_op: return "+";
     case SUB_op: return "-";
     case MUL_op: return "*";
+    case MOD_op: return "mod";
+    case REM_op: return "rem";
     case POW_op: return "**";
     case POS_op: return "+";
     case NEG_op: return "-";
