@@ -574,28 +574,11 @@ ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
         return 0;
     }
 
-    if (!exprTy->isConstrained()) {
-        // If the expression is unconstrained, we need to create a dynamicly
-        // constrained subtype.  These situations arise when the initializer is
-        // a function call returning an unconstrained array type, for example.
-        //
-        // The subtype is constructed using a range for each index of the type
-        // corresponding to X'First .. X'Last, where X is the given expression.
-
-        // FIXME: We should be creating a range attribute here.  This is
-        // important since a range attribute will not evaluate its prefix twice
-        // when computing the bounds.
-        FirstArrayAE *first = new FirstArrayAE(init, 0);
-        LastArrayAE *last = new LastArrayAE(init, 0);
-
-        DiscreteType *idxTy;
-        idxTy = arrTy->getIndexType(0);
-        idxTy = resource.createDiscreteSubtype(0, idxTy, first, last);
-        return resource.createArraySubtype(0, arrTy, &idxTy);
-    }
-
-    // The initializer is constrained.  Simply use the type of the initializer.
-    return exprTy;
+    // If the expression type is statically constrained, propogate the
+    // expression's type.  Otherwise, leave the type as unconstrained.
+    if (exprTy->isStaticallyConstrained())
+        return exprTy;
+    return arrTy;
 }
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
