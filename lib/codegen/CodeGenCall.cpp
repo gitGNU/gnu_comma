@@ -95,10 +95,11 @@ private:
     /// Generates a call into the Comma runtime to handle exponentiation.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
-    /// Helper method for emitPrimitiveCall.
-    ///
-    /// Syntesizes a "mod" operation.
+    /// Helper method for emitPrimitiveCall. Syntesizes a "mod" operation.
     llvm::Value *emitMod(llvm::Value *lhs, llvm::Value *rhs);
+
+    /// Helper method for emitPrimitiveCall. Syntesizes a "rem" operation.
+    llvm::Value *emitRem(llvm::Value *lhs, llvm::Value *rhs);
 
     /// Generates any implicit first arguments for the current call expression
     /// and resolves the associated SRInfo object.
@@ -342,7 +343,7 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             break;
 
         case PO::REM_op:
-            result = Builder.CreateSRem(lhs, rhs);
+            result = emitRem(lhs, rhs);
             break;
 
         case PO::POW_op:
@@ -442,6 +443,12 @@ llvm::Value *CallEmitter::emitMod(llvm::Value *lhs, llvm::Value *rhs)
 
     // Compute lhs - rhs * floor.
     return Builder.CreateSub(lhs, Builder.CreateMul(rhs, floor));
+}
+
+llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)
+{
+    // FIXME: Raise an exception if rhs is zero.
+    return Builder.CreateSRem(lhs, rhs);
 }
 
 SRInfo *CallEmitter::prepareCall()
