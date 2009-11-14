@@ -117,9 +117,6 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 
     // We have an unresolved argument expression.  If the expression is an
     // integer literal it is compatable if the target is an integer type.
-    //
-    // FIXME:  We should also check that the literal satisfies range contraints
-    // of the target.
     if (isa<IntegerLiteral>(arg))
         return targetType->isIntegerType();
 
@@ -138,7 +135,6 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     }
     return false;
 }
-
 
 /// Checks that the given subroutine decl accepts the provided positional
 /// arguments.
