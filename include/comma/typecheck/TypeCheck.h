@@ -526,9 +526,6 @@ private:
 
     bool covers(Type *A, Type *B);
 
-    bool subsumes(Type *A, Type *B);
-
-
     // Returns true if the given type is compatible with the given abstract
     // domain decl in the environment established by the given rewrites.
     //

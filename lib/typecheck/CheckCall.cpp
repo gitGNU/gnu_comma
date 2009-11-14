@@ -250,32 +250,11 @@ FunctionDecl *TypeCheck::resolvePreferredConnective(FunctionCallExpr *call,
 {
     typedef FunctionCallExpr::fun_iterator iterator;
 
-    FunctionDecl *preference = 0;
-
-    // First pass over the connectives attempts to identifiy a unique
-    // declaration with a return type which is subsumed by the given target.
+    // Build a vector of candidate declarations which are covered by the target
+    // type.
+    llvm::SmallVector<FunctionDecl *, 8> candidates;
     iterator I = call->begin_functions();
     iterator E = call->end_functions();
-    for ( ; I != E; ++I) {
-        FunctionDecl *candidate = *I;
-        Type *returnType = candidate->getReturnType();
-        if (subsumes(targetType, returnType)) {
-            if (preference) {
-                preference = 0; // No unique match.
-                break;
-            }
-            preference = candidate;
-        }
-    }
-
-    if (preference)
-        return preference;
-
-    // The second pass builds a vector of candidate declarations which are
-    // covered by the target type.
-    llvm::SmallVector<FunctionDecl *, 8> candidates;
-    I = call->begin_functions();
-    E = call->end_functions();
     for ( ; I != E; ++I) {
         FunctionDecl *candidate = *I;
         Type *returnType = candidate->getReturnType();
@@ -287,13 +266,13 @@ FunctionDecl *TypeCheck::resolvePreferredConnective(FunctionCallExpr *call,
     // there is one candidate, the call is resolved.  If there is more than one
     // candidate, attempt to refine even further by showing preference to the
     // primitive operators.
+    FunctionDecl *preference;
     if (candidates.empty())
         preference = 0;
     else if (candidates.size() == 1)
         preference = candidates.front();
     else
         preference = resolvePreferredOperator(candidates);
-
     return preference;
 }
 

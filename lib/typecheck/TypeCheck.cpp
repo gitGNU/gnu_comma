@@ -1041,28 +1041,9 @@ Location TypeCheck::getNodeLoc(Node node)
 
 bool TypeCheck::covers(Type *A, Type *B)
 {
-    if (subsumes(A, B))
-        return true;
-
-    // If B denotes the primitive type root_integer and A is any integer type,
-    // then A covers B.
-    if (dyn_cast<IntegerType>(B) == resource.getTheRootIntegerType())
-        return A->isIntegerType();
-
-    return false;
-}
-
-bool TypeCheck::subsumes(Type *A, Type *B)
-{
-    // A type subsumes itself.
+    // A type covers itself.
     if (A == B)
         return true;
-
-    // If A denotes the primitive type root_integer and B is any integer type,
-    // then A subsumes B.
-    if (dyn_cast<IntegerType>(A) == resource.getTheRootIntegerType())
-        if (B->isIntegerType())
-            return true;
 
     Type *rootTypeA = A;
     Type *rootTypeB = B;
