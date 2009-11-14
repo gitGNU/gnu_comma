@@ -366,7 +366,7 @@ bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
 
     // If the target mode is either "out" or "in out", ensure that the
     // argument provided is compatable.
-    if (targetMode == PM::MODE_OUT or targetMode == PM::MODE_IN_OUT) {
+    if (targetMode == PM::MODE_OUT || targetMode == PM::MODE_IN_OUT) {
         if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
             ValueDecl *vdecl = declRef->getDeclaration();
             if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(vdecl)) {
