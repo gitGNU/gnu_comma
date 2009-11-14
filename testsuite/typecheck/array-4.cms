@@ -1,0 +1,26 @@
+
+domain D with
+   procedure P;
+add
+   procedure Mod_Arr (A : in out String) is
+      C : Character := A(A'First);
+   begin
+      A(A'First) := A(A'Last);
+      A(A'Last)  := C;
+   end Mod_Arr;
+
+   procedure Pass_Arr (S : in out String) is
+      T : String := S;
+   begin
+      Mod_Arr(T);
+      S := T;
+   end Pass_Arr;
+
+   procedure P is
+      S : String := "XYZ";
+   begin
+      Pass_Arr(S);
+      pragma Assert(S(S'First) = 'Z');
+      pragma Assert(S(S'Last)  = 'X');
+   end P;
+end D;

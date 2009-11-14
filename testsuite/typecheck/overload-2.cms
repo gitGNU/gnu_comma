@@ -1,0 +1,21 @@
+-- MUST-FAIL: Check that the type of an integer literal is not resolved
+-- prematurely.
+
+domain D with
+   procedure P;
+add
+   type Int_A is range 0 .. 100;
+   type Int_B is range 0 .. 10_000;
+
+   procedure T (X : Int_A) is
+   begin end T;
+
+   procedure T (X : Int_B) is
+   begin end T;
+
+   procedure P is
+   begin
+      T(10_000);
+   end P;
+end D;
+
