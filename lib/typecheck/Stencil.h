@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 
 #ifndef COMMA_TYPECHECK_STENCIL_HDR_GUARD
-#define COMMA_TYPECHECK_STENCIL_HDT_GUARD
+#define COMMA_TYPECHECK_STENCIL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
 
