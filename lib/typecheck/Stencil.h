@@ -301,8 +301,12 @@ public:
         components.clear();
     }
 
+    void init(Location loc) {
+        ASTStencil::init(0, loc);
+    }
+
     /// Adds a component.
-    void addCopmonent(Expr *expr) { components.push_back(expr); }
+    void addComponent(Expr *expr) { components.push_back(expr); }
 
     /// Returns the number of components.
     unsigned numComponents() const { return components.size(); }
