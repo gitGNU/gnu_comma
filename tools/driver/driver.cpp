@@ -2,25 +2,25 @@
 // This tool is temporary.  It drives the lexer, parser, and type checker over
 // the contents of a single file.
 
-#include "comma/basic/TextProvider.h"
-#include "comma/basic/IdentifierPool.h"
-#include "comma/parser/Parser.h"
-#include "comma/typecheck/Checker.h"
 #include "comma/ast/Ast.h"
 #include "comma/ast/AstResource.h"
+#include "comma/basic/TextProvider.h"
+#include "comma/basic/IdentifierPool.h"
 #include "comma/codegen/CodeGen.h"
+#include "comma/parser/Parser.h"
+#include "comma/typecheck/Checker.h"
 
 #include "llvm/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/System/Host.h"
+#include "llvm/System/Path.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/System/Host.h"
-#include "llvm/System/Path.h"
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 using namespace comma;
 using llvm::dyn_cast;
