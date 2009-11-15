@@ -21,6 +21,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
     IdentifierPool idPool;
     AstResource resource(tp, idPool);
     CompilationUnit cu(path);
-    Checker *check = Checker::create(diag, resource, &cu);
+    std::auto_ptr<Checker> check(Checker::create(diag, resource, &cu));
     Parser p(tp, idPool, *check, diag);
     bool status;
 
