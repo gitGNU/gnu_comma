@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Scope.h"
-#include "comma/typecheck/TypeCheck.h"
+#include "TypeCheck.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DeclRewriter.h"
 #include "comma/ast/TypeRef.h"

@@ -5,7 +5,7 @@
 #include "comma/basic/TextProvider.h"
 #include "comma/basic/IdentifierPool.h"
 #include "comma/parser/Parser.h"
-#include "comma/typecheck/TypeCheck.h"
+#include "comma/typecheck/Checker.h"
 #include "comma/ast/Ast.h"
 #include "comma/ast/AstResource.h"
 #include "comma/codegen/CodeGen.h"
@@ -110,12 +110,12 @@ int main(int argc, char **argv)
     IdentifierPool idPool;
     AstResource resource(tp, idPool);
     CompilationUnit cu(path);
-    TypeCheck tc(diag, resource, &cu);
-    Parser p(tp, idPool, tc, diag);
+    Checker *check = Checker::create(diag, resource, &cu);
+    Parser p(tp, idPool, *check, diag);
     bool status;
 
     while (p.parseTopLevelDeclaration());
-    status = !p.parseSuccessful() || !tc.checkSuccessful();
+    status = !p.parseSuccessful() || !check->checkSuccessful();
 
 
     if (!status && !SyntaxOnly) {

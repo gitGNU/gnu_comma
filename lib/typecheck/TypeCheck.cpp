@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "Stencil.h"
+#include "TypeCheck.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
@@ -17,7 +18,6 @@
 #include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
-#include "comma/typecheck/TypeCheck.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -1166,3 +1166,10 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
     return 0;
 }
 
+
+Checker *Checker::create(Diagnostic      &diag,
+                         AstResource     &resource,
+                         CompilationUnit *cunit)
+{
+    return new TypeCheck(diag, resource, cunit);
+}

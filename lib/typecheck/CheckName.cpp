@@ -7,12 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Scope.h"
+#include "TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 #include "comma/basic/Attributes.h"
-#include "comma/typecheck/TypeCheck.h"
 
 using namespace comma;
 using llvm::dyn_cast;

@@ -7,10 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Scope.h"
+#include "TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
-#include "comma/typecheck/TypeCheck.h"
 
 #include <algorithm>
 

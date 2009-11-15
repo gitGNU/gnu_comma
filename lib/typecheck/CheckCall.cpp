@@ -12,10 +12,10 @@
 /// \brief Routines specific to the checking of subroutine calls.
 //===----------------------------------------------------------------------===//
 
+#include "TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
-#include "comma/typecheck/TypeCheck.h"
 
 using namespace comma;
 using llvm::dyn_cast;

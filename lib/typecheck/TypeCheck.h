@@ -15,7 +15,7 @@
 #include "comma/ast/Type.h"
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
-#include "comma/parser/ParseClient.h"
+#include "comma/typecheck/Checker.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -36,7 +36,7 @@ class ArrayDeclStencil;
 class EnumDeclStencil;
 class SRDeclStencil;
 
-class TypeCheck : public ParseClient {
+class TypeCheck : public Checker {
 
 public:
     TypeCheck(Diagnostic      &diag,
@@ -194,6 +194,8 @@ public:
     /// \brief Returns true if the type checker has not encountered an error and
     /// false otherwise.
     bool checkSuccessful() const { return !diagnostic.reportsGenerated(); }
+
+    CompilationUnit *getCompilationUnit() const { return compUnit; }
 
     /// Returns true if the type \p source requires a conversion to be
     /// compatable with the type \p target.

@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "TypeCheck.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/TypeRef.h"
-#include "comma/typecheck/TypeCheck.h"
 
 using namespace comma;
 using llvm::dyn_cast_or_null;
