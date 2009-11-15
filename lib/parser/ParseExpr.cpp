@@ -298,9 +298,9 @@ Node Parser::parseAggregate(AggregateKind kind)
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
     assert(kind != NOT_AN_AGGREGATE);
-    ignoreToken();
+    Location loc = ignoreToken();
 
-    client.beginAggregate();
+    client.beginAggregate(loc);
     if (kind == POSITIONAL_AGGREGATE) {
         do {
             Node node = parseExpr();

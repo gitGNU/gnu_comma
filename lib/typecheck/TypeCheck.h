@@ -99,7 +99,7 @@ public:
 
     Node finishName(Node name);
 
-    void beginAggregate();
+    void beginAggregate(Location loc);
     void acceptAggregateComponent(Node component);
     Node endAggregate();
 

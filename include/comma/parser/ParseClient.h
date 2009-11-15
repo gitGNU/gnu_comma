@@ -382,7 +382,9 @@ public:
     //@{
 
     /// Signals that an aggregate expression is about to be processed.
-    virtual void beginAggregate() = 0;
+    ///
+    /// \param loc Location of opening paren starting the aggregate.
+    virtual void beginAggregate(Location loc) = 0;
 
     /// Provides a Node describing a component of the aggregate.
     virtual void acceptAggregateComponent(Node component) = 0;

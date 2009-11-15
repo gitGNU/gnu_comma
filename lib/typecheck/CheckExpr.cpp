@@ -358,7 +358,7 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     return true;
 }
 
-void TypeCheck::beginAggregate() { }
+void TypeCheck::beginAggregate(Location loc) { }
 void TypeCheck::acceptAggregateComponent(Node nodeComponent) { }
 Node TypeCheck::endAggregate() { return getInvalidNode(); }
 
