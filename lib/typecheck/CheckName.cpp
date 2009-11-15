@@ -66,7 +66,7 @@ SubroutineRef *TypeCheck::buildSubroutineRef(Location loc, Resolver &resolver)
 Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
                                  bool forStatement)
 {
-    Resolver &resolver = scope->getResolver();
+    Resolver &resolver = scope.getResolver();
 
     if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;

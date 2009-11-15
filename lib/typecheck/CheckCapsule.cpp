@@ -28,10 +28,10 @@ using llvm::isa;
 
 void TypeCheck::beginCapsule()
 {
-    assert(scope->getLevel() == 0 && "Cannot typecheck nested capsules!");
+    assert(scope.getLevel() == 0 && "Cannot typecheck nested capsules!");
 
     // Push a scope for the upcoming capsule and reset our per-capsule state.
-    scope->push(MODEL_SCOPE);
+    scope.push(MODEL_SCOPE);
     GenericFormalDecls.clear();
     declarativeRegion = 0;
     currentModel = 0;
@@ -39,11 +39,11 @@ void TypeCheck::beginCapsule()
 
 void TypeCheck::endCapsule()
 {
-    assert(scope->getKind() == MODEL_SCOPE);
-    scope->pop();
+    assert(scope.getKind() == MODEL_SCOPE);
+    scope.pop();
 
     ModelDecl *result = getCurrentModel();
-    if (Decl *conflict = scope->addDirectDecl(result)) {
+    if (Decl *conflict = scope.addDirectDecl(result)) {
         // NOTE: The result model could be freed here.
         report(result->getLocation(), diag::CONFLICTING_DECLARATION)
             << result->getIdInfo() << getSourceLoc(conflict->getLocation());
@@ -81,7 +81,7 @@ void TypeCheck::acceptFormalDomain(IdentifierInfo *name, Location loc,
     }
 
 
-    if (scope->addDirectDecl(decl)) {
+    if (scope.addDirectDecl(decl)) {
         // The only conflict possible is with respect to a previous generic
         // parameter.
         report(loc, diag::DUPLICATE_FORMAL_PARAM) << name;
@@ -121,7 +121,7 @@ void TypeCheck::beginSignatureDecl(IdentifierInfo *name, Location loc)
 
 void TypeCheck::initializeForModelDeclaration()
 {
-    assert(scope->getKind() == MODEL_SCOPE);
+    assert(scope.getKind() == MODEL_SCOPE);
 
     // Set the current declarative region to be the percent node of the current
     // model.
@@ -137,7 +137,7 @@ void TypeCheck::initializeForModelDeclaration()
 
     // Bring the model itself into the current scope.  This should never result
     // in a conflict.
-    scope->addDirectDeclNoConflicts(currentModel);
+    scope.addDirectDeclNoConflicts(currentModel);
 }
 
 void TypeCheck::acceptSupersignature(Node typeNode)
@@ -194,7 +194,7 @@ void TypeCheck::acquireImplicitDeclarations(Decl *decl)
 
     iterator E = region->endDecls();
     for (iterator I = region->beginDecls(); I != E; ++I)
-        scope->addDirectDeclNoConflicts(*I);
+        scope.addDirectDeclNoConflicts(*I);
 }
 
 void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
@@ -216,7 +216,7 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
         Decl *candidate = rewrites.rewriteDecl(*I);
 
         // Ensure there are no conflicts.
-        if (Decl *conflict = scope->addDirectDecl(candidate)) {
+        if (Decl *conflict = scope.addDirectDecl(candidate)) {
             // If either the conflict or candidate is not immediate, resolve the
             // original declaration.  Non-immediate declarations are implicitly
             // generated and we want our diagnostics to point at the relevant
@@ -274,7 +274,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
         // FIXME: We should not have to cast here.
         CarrierDecl *carrier;
         carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
-        if (Decl *conflict = scope->addDirectDecl(carrier)) {
+        if (Decl *conflict = scope.addDirectDecl(carrier)) {
             report(loc, diag::CONFLICTING_DECLARATION)
                 << name << getSourceLoc(conflict->getLocation());
             return;

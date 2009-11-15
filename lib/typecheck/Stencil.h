@@ -86,11 +86,11 @@ protected:
 /// its constructor runs.
 class ASTStencilReseter {
 public:
-    ASTStencilReseter(ASTStencil *stencil) : stencil(stencil) { }
+    ASTStencilReseter(ASTStencil &stencil) : stencil(stencil) { }
 
-    ~ASTStencilReseter() { stencil->reset(); }
+    ~ASTStencilReseter() { stencil.reset(); }
 private:
-    ASTStencil *stencil;
+    ASTStencil &stencil;
 };
 
 //===----------------------------------------------------------------------===//

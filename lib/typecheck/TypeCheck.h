@@ -9,6 +9,9 @@
 #ifndef COMMA_TYPECHECK_TYPECHECK_HDR_GUARD
 #define COMMA_TYPECHECK_TYPECHECK_HDR_GUARD
 
+
+#include "Scope.h"
+#include "Stencil.h"
 #include "comma/ast/AstBase.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Cunit.h"
@@ -28,13 +31,6 @@ class APInt;
 } // end llvm namespace.
 
 namespace comma {
-
-class Resolver;
-class Scope;
-
-class ArrayDeclStencil;
-class EnumDeclStencil;
-class SRDeclStencil;
 
 class TypeCheck : public Checker {
 
@@ -207,16 +203,16 @@ private:
     CompilationUnit *compUnit;
     DeclRegion      *declarativeRegion;
     ModelDecl       *currentModel;
-    Scope           *scope;
+    Scope            scope;
 
     /// The set of AbstractDomainDecls serving as parameters to the current
     /// capsule.
     llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
 
     /// Stencil classes used to hold intermediate results.
-    ArrayDeclStencil *arrayStencil;
-    EnumDeclStencil *enumStencil;
-    SRDeclStencil *routineStencil;
+    ArrayDeclStencil arrayStencil;
+    EnumDeclStencil enumStencil;
+    SRDeclStencil routineStencil;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.

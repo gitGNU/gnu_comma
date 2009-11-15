@@ -29,12 +29,12 @@ using llvm::isa;
 
 void TypeCheck::beginFunctionDeclaration(IdentifierInfo *name, Location loc)
 {
-    routineStencil->init(name, loc, SRDeclStencil::FUNCTION_Stencil);
+    routineStencil.init(name, loc, SRDeclStencil::FUNCTION_Stencil);
 }
 
 void TypeCheck::beginProcedureDeclaration(IdentifierInfo *name, Location loc)
 {
-    routineStencil->init(name, loc, SRDeclStencil::PROCEDURE_Stencil);
+    routineStencil.init(name, loc, SRDeclStencil::PROCEDURE_Stencil);
 }
 
 void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
@@ -43,82 +43,82 @@ void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
     TypeDecl *tyDecl = ensureTypeDecl(declNode);
 
     if (!tyDecl) {
-        routineStencil->markInvalid();
+        routineStencil.markInvalid();
         return;
     }
 
     // If we are building a function declaration, ensure that the parameter is
     // of mode "in".
-    if (routineStencil->denotesFunction() &&
+    if (routineStencil.denotesFunction() &&
         (mode != PM::MODE_IN) && (mode != PM::MODE_DEFAULT)) {
         report(loc, diag::OUT_MODE_IN_FUNCTION);
-        routineStencil->markInvalid();
+        routineStencil.markInvalid();
         return;
     }
 
     // Check that this parameters name does not conflict with any previous
     // parameters.
     typedef SRDeclStencil::param_iterator iterator;
-    for (iterator I = routineStencil->begin_params();
-         I != routineStencil->end_params(); ++I) {
+    for (iterator I = routineStencil.begin_params();
+         I != routineStencil.end_params(); ++I) {
         ParamValueDecl *previousParam = *I;
         if (previousParam->getIdInfo() == formal) {
             report(loc, diag::DUPLICATE_FORMAL_PARAM) << formal;
-            routineStencil->markInvalid();
+            routineStencil.markInvalid();
             return;
         }
     }
 
     // Check that the parameter name does not conflict with the subroutine
     // declaration itself.
-    if (formal == routineStencil->getIdInfo()) {
+    if (formal == routineStencil.getIdInfo()) {
         report(loc, diag::CONFLICTING_DECLARATION)
-            << formal << getSourceLoc(routineStencil->getLocation());
-        routineStencil->markInvalid();
+            << formal << getSourceLoc(routineStencil.getLocation());
+        routineStencil.markInvalid();
         return;
     }
 
     Type *paramTy = tyDecl->getType();
     ParamValueDecl *paramDecl = new ParamValueDecl(formal, paramTy, mode, loc);
-    routineStencil->addParameter(paramDecl);
+    routineStencil.addParameter(paramDecl);
 }
 
 void TypeCheck::acceptFunctionReturnType(Node typeNode)
 {
-    assert(routineStencil->denotesFunction() &&
+    assert(routineStencil.denotesFunction() &&
            "Inconsitent state for function returns!");
 
     if (typeNode.isNull()) {
-        routineStencil->markInvalid();
+        routineStencil.markInvalid();
         return;
     }
 
     TypeDecl *returnDecl = ensureTypeDecl(typeNode);
     if (!returnDecl) {
-        routineStencil->markInvalid();
+        routineStencil.markInvalid();
         return;
     }
 
-    routineStencil->setReturnType(returnDecl);
+    routineStencil.setReturnType(returnDecl);
 }
 
 Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 {
-    IdentifierInfo *name = routineStencil->getIdInfo();
-    Location location = routineStencil->getLocation();
-    SRDeclStencil::ParamVec &params = routineStencil->getParams();
+    IdentifierInfo *name = routineStencil.getIdInfo();
+    Location location = routineStencil.getLocation();
+    SRDeclStencil::ParamVec &params = routineStencil.getParams();
 
     // Ensure the stencil is reset once this method returns.
     ASTStencilReseter reseter(routineStencil);
 
     // If the subroutine stencil has not checked out thus far, do not construct
     // a subroutine declaration for it.
-    if (routineStencil->isInvalid())
+    if (routineStencil.isInvalid())
         return getInvalidNode();
 
     // Ensure that if this function names a binary or unary operator it has the
     // required arity.
-    if (routineStencil->denotesFunction()) {
+    if (routineStencil.denotesFunction()) {
         if (namesUnaryFunction(name)) {
             if (params.size() != 1 && !namesBinaryFunction(name))
                 report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
@@ -133,8 +133,8 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
     SubroutineDecl *routineDecl = 0;
     DeclRegion *region = currentDeclarativeRegion();
-    if (routineStencil->denotesFunction()) {
-        Type *returnType = routineStencil->getReturnType()->getType();
+    if (routineStencil.denotesFunction()) {
+        Type *returnType = routineStencil.getReturnType()->getType();
         routineDecl = new FunctionDecl(resource, name, location,
                                        params.data(), params.size(),
                                        returnType, region);
@@ -146,7 +146,7 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
     // Ensure this new declaration does not conflict with any other currently in
     // scope.
-    if (Decl *conflict = scope->addDirectDecl(routineDecl)) {
+    if (Decl *conflict = scope.addDirectDecl(routineDecl)) {
         // If the conflict is a subroutine, check if the current declaration can
         // serve as a completion.
         SubroutineDecl *fwdDecl = dyn_cast<SubroutineDecl>(conflict);
@@ -189,12 +189,12 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
     // Enter a scope for the subroutine definition.  Add the subroutine itself
     // as an element of the new scope and add the formal parameters.  This
     // should never result in conflicts.
-    scope->push(FUNCTION_SCOPE);
-    scope->addDirectDeclNoConflicts(srDecl);
+    scope.push(FUNCTION_SCOPE);
+    scope.addDirectDeclNoConflicts(srDecl);
     typedef SubroutineDecl::param_iterator param_iterator;
     for (param_iterator I = srDecl->begin_params();
          I != srDecl->end_params(); ++I)
-        scope->addDirectDeclNoConflicts(*I);
+        scope.addDirectDeclNoConflicts(*I);
 
     // Allocate a BlockStmt for the subroutines body and make this block the
     // current declarative region.
@@ -216,13 +216,13 @@ void TypeCheck::acceptSubroutineStmt(Node stmt)
 
 void TypeCheck::endSubroutineDefinition()
 {
-    assert(scope->getKind() == FUNCTION_SCOPE);
+    assert(scope.getKind() == FUNCTION_SCOPE);
 
     // We established two levels of declarative regions in
     // beginSubroutineDefinition: one for the BlockStmt constituting the body
     // and another corresponding to the subroutine itself.  Pop them both.
     declarativeRegion = declarativeRegion->getParent()->getParent();
-    scope->pop();
+    scope.pop();
 }
 
 /// Returns true if the given parameter is of mode "in", and thus capatable with

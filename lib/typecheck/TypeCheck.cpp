@@ -35,29 +35,19 @@ TypeCheck::TypeCheck(Diagnostic      &diag,
                      CompilationUnit *cunit)
     : diagnostic(diag),
       resource(resource),
-      compUnit(cunit),
-      scope(new Scope),
-      arrayStencil(new ArrayDeclStencil()),
-      enumStencil(new EnumDeclStencil()),
-      routineStencil(new SRDeclStencil())
+      compUnit(cunit)
 {
     populateInitialEnvironment();
 }
 
-TypeCheck::~TypeCheck()
-{
-    delete scope;
-    delete arrayStencil;
-    delete enumStencil;
-    delete routineStencil;
-}
+TypeCheck::~TypeCheck() { }
 
 // Called when then type checker is constructed.  Populates the top level scope
 // with an initial environment.
 void TypeCheck::populateInitialEnvironment()
 {
     EnumerationDecl *theBoolDecl = resource.getTheBooleanDecl();
-    scope->addDirectDecl(theBoolDecl);
+    scope.addDirectDecl(theBoolDecl);
     introduceImplicitDecls(theBoolDecl);
 
     // We do not add root_integer into scope, since it is an anonymous language
@@ -66,15 +56,15 @@ void TypeCheck::populateInitialEnvironment()
     introduceImplicitDecls(theRootIntegerDecl);
 
     IntegerDecl *theIntegerDecl = resource.getTheIntegerDecl();
-    scope->addDirectDecl(theIntegerDecl);
+    scope.addDirectDecl(theIntegerDecl);
     introduceImplicitDecls(theIntegerDecl);
 
     EnumerationDecl *theCharacterDecl = resource.getTheCharacterDecl();
-    scope->addDirectDecl(theCharacterDecl);
+    scope.addDirectDecl(theCharacterDecl);
     introduceImplicitDecls(theCharacterDecl);
 
     ArrayDecl *theStringDecl = resource.getTheStringDecl();
-    scope->addDirectDecl(theStringDecl);
+    scope.addDirectDecl(theStringDecl);
 }
 
 void TypeCheck::deleteNode(Node &node)
@@ -280,7 +270,7 @@ Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
         }
     }
     else {
-        Resolver &resolver = scope->getResolver();
+        Resolver &resolver = scope.getResolver();
         if (resolver.resolve(name)) {
             if (resolver.hasDirectType())
                 result = resolver.getDirectType();
@@ -639,7 +629,7 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 
     initializerNode.release();
 
-    if (Decl *conflict = scope->addDirectDecl(decl)) {
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
         SourceLocation sloc = getSourceLoc(conflict->getLocation());
         report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
         return false;
@@ -665,7 +655,7 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
         return false;
     }
 
-    scope->addImport(domain);
+    scope.addImport(domain);
 
     // FIXME:  We need to stitch this import declaration into the current
     // context.
@@ -675,7 +665,7 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
 
 void TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)
 {
-    enumStencil->init(name, loc);
+    enumStencil.init(name, loc);
 }
 
 void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
@@ -686,7 +676,7 @@ void TypeCheck::acceptEnumerationIdentifier(IdentifierInfo *name, Location loc)
 void TypeCheck::acceptEnumerationCharacter(IdentifierInfo *name, Location loc)
 {
     if (acceptEnumerationLiteral(name, loc))
-        enumStencil->markAsCharacterType();
+        enumStencil.markAsCharacterType();
 }
 
 bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
@@ -694,11 +684,11 @@ bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
     // Check that the given element name has yet to appear in the set of
     // elements.  If it exists, mark the stencil as invalid and ignore the
     // element.
-    EnumDeclStencil::elem_iterator I = enumStencil->begin_elems();
-    EnumDeclStencil::elem_iterator E = enumStencil->end_elems();
+    EnumDeclStencil::elem_iterator I = enumStencil.begin_elems();
+    EnumDeclStencil::elem_iterator E = enumStencil.end_elems();
     for ( ; I != E; ++I) {
         if (I->first == name) {
-            enumStencil->markInvalid();
+            enumStencil.markInvalid();
             report(loc, diag::MULTIPLE_ENUMERATION_LITERALS) << name;
             return false;
         }
@@ -706,23 +696,23 @@ bool TypeCheck::acceptEnumerationLiteral(IdentifierInfo *name, Location loc)
 
     // Check that the element does not conflict with the name of the enumeration
     // decl itself.
-    if (name == enumStencil->getIdInfo()) {
+    if (name == enumStencil.getIdInfo()) {
         report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(enumStencil->getLocation());
+            << name << getSourceLoc(enumStencil.getLocation());
         return false;
     }
 
-    enumStencil->addElement(name, loc);
+    enumStencil.addElement(name, loc);
     return true;
 }
 
 void TypeCheck::endEnumeration()
 {
-    IdentifierInfo *name = enumStencil->getIdInfo();
-    Location loc = enumStencil->getLocation();
+    IdentifierInfo *name = enumStencil.getIdInfo();
+    Location loc = enumStencil.getLocation();
     DeclRegion *region = currentDeclarativeRegion();
-    EnumDeclStencil::IdLocPair *elems = enumStencil->getElements().data();
-    unsigned numElems = enumStencil->numElements();
+    EnumDeclStencil::IdLocPair *elems = enumStencil.getElements().data();
+    unsigned numElems = enumStencil.numElements();
     EnumerationDecl *decl;
 
     ASTStencilReseter reseter(enumStencil);
@@ -736,7 +726,7 @@ void TypeCheck::endEnumeration()
 
     // Check that the enumeration does not conflict with any other in the
     // current scope.
-    if (Decl *conflict = scope->addDirectDecl(decl)) {
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(conflict->getLocation());
         return;
@@ -744,7 +734,7 @@ void TypeCheck::endEnumeration()
 
     // Mark the declaration as a character type if any character literals were
     // used to define it.
-    if (enumStencil->isCharacterType())
+    if (enumStencil.isCharacterType())
         decl->markAsCharacterType();
 
     region->addDecl(decl);
@@ -802,7 +792,7 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     IntegerDecl *decl;
     decl = resource.createIntegerDecl(name, loc, lowExpr, highExpr, region);
 
-    if (Decl *conflict = scope->addDirectDecl(decl)) {
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(conflict->getLocation());
         return;
@@ -818,26 +808,26 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
 
 void TypeCheck::beginArray(IdentifierInfo *name, Location loc)
 {
-    arrayStencil->init(name, loc);
+    arrayStencil.init(name, loc);
 }
 
 void TypeCheck::acceptUnconstrainedArrayIndex(Node indexNode)
 {
     // The parser guarantees that all index definitions will be unconstrained or
     // constrained.  Assert this fact for ourselves.
-    if (arrayStencil->numIndices())
-        assert(!arrayStencil->isConstrained() &&
+    if (arrayStencil.numIndices())
+        assert(!arrayStencil.isConstrained() &&
                "Conflicting array index definitions!");
 
     TypeRef *index = lift_node<TypeRef>(indexNode);
     if (!index) {
-        arrayStencil->markInvalid();
+        arrayStencil.markInvalid();
         report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
         return;
     }
 
     indexNode.release();
-    arrayStencil->addIndex(index);
+    arrayStencil.addIndex(index);
 }
 
 void TypeCheck::acceptArrayIndex(Node indexNode)
@@ -845,33 +835,33 @@ void TypeCheck::acceptArrayIndex(Node indexNode)
     // The parser guarantees that all index definitions will be unconstrained or
     // constrained.  Assert this fact for ourselves by ensuring that if the
     // current array stencil is not constrained.
-    assert(!arrayStencil->isConstrained() &&
+    assert(!arrayStencil.isConstrained() &&
            "Conflicting array index definitions!");
 
     TypeRef *index = lift_node<TypeRef>(indexNode);
     if (!index) {
-        arrayStencil->markInvalid();
+        arrayStencil.markInvalid();
         report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
         return;
     }
 
     indexNode.release();
-    arrayStencil->markAsConstrained();
-    arrayStencil->addIndex(index);
+    arrayStencil.markAsConstrained();
+    arrayStencil.addIndex(index);
 }
 
 void TypeCheck::acceptArrayComponent(Node componentNode)
 {
-    assert(arrayStencil->getComponentType() == 0 &&
+    assert(arrayStencil.getComponentType() == 0 &&
            "Array component type already initialized!");
 
     TypeDecl *componentTy = ensureTypeDecl(componentNode);
 
     if (!componentTy) {
-        arrayStencil->markInvalid();
+        arrayStencil.markInvalid();
         return;
     }
-    arrayStencil->setComponentType(componentTy);
+    arrayStencil.setComponentType(componentTy);
 }
 
 void TypeCheck::endArray()
@@ -879,30 +869,30 @@ void TypeCheck::endArray()
     ASTStencilReseter reseter(arrayStencil);
 
     // If the array stencil is invalid, do not construct the declaration.
-    if (arrayStencil->isInvalid())
+    if (arrayStencil.isInvalid())
         return;
 
     // Ensure that at least one index has been associated with this stencil.  It
     // is possible that the parser could not parse the index components.  Just
     // return in this case, since the parser would have already posted a
     // diagnostic.
-    if (arrayStencil->numIndices() == 0)
+    if (arrayStencil.numIndices() == 0)
         return;
 
     // Likewise, it is possible that the parser could not complete the component
     // type declaration.
-    if (arrayStencil->getComponentType() == 0)
+    if (arrayStencil.getComponentType() == 0)
         return;
 
-    IdentifierInfo *name = arrayStencil->getIdInfo();
-    Location loc = arrayStencil->getLocation();
+    IdentifierInfo *name = arrayStencil.getIdInfo();
+    Location loc = arrayStencil.getLocation();
 
     // Ensure that each index type is a discrete type.  Build a vector of all
     // valid SubTypes for each index.
     llvm::SmallVector<DiscreteType*, 4> indices;
     typedef ArrayDeclStencil::index_iterator index_iterator;
-    for (index_iterator I = arrayStencil->begin_indices();
-         I != arrayStencil->end_indices(); ++I) {
+    for (index_iterator I = arrayStencil.begin_indices();
+         I != arrayStencil.end_indices(); ++I) {
         TypeRef *ref = *I;
         TypeDecl *tyDecl = dyn_cast_or_null<TypeDecl>(ref->getTypeDecl());
 
@@ -918,11 +908,11 @@ void TypeCheck::endArray()
     }
 
     // Do not create the array declaration unless all indices checked out.
-    if (indices.size() != arrayStencil->numIndices())
+    if (indices.size() != arrayStencil.numIndices())
         return;
 
-    Type *component = arrayStencil->getComponentType()->getType();
-    bool isConstrained = arrayStencil->isConstrained();
+    Type *component = arrayStencil.getComponentType()->getType();
+    bool isConstrained = arrayStencil.isConstrained();
     DeclRegion *region = currentDeclarativeRegion();
     ArrayDecl *array;
     array = resource.createArrayDecl(name, loc,
@@ -930,7 +920,7 @@ void TypeCheck::endArray()
                                      component, isConstrained, region);
 
     // Check for conflicts.
-    if (Decl *conflict = scope->addDirectDecl(array)) {
+    if (Decl *conflict = scope.addDirectDecl(array)) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(conflict->getLocation());
         return;
@@ -969,7 +959,7 @@ void TypeCheck::introduceImplicitDecls(DeclRegion *region)
     typedef DeclRegion::DeclIter iterator;
     for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
         Decl *decl = *I;
-        if (Decl *conflict = scope->addDirectDecl(decl)) {
+        if (Decl *conflict = scope.addDirectDecl(decl)) {
             report(decl->getLocation(), diag::CONFLICTING_DECLARATION)
                 << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
         }
@@ -1101,7 +1091,7 @@ void TypeCheck::acceptPragmaImport(Location pragmaLoc,
         return;
     }
 
-    Resolver &resolver = scope->getResolver();
+    Resolver &resolver = scope.getResolver();
     if (!resolver.resolve(entity) || !resolver.hasDirectOverloads()) {
         report(entityLoc, diag::NAME_NOT_VISIBLE) << entity;
         return;

@@ -206,7 +206,7 @@ Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
     BlockStmt  *block  = new BlockStmt(loc, region, label);
 
     declarativeRegion = block;
-    scope->push();
+    scope.push();
     return getNode(block);
 }
 
@@ -225,7 +225,7 @@ void TypeCheck::acceptBlockStmt(Node blockNode, Node stmtNode)
 void TypeCheck::endBlockStmt(Node blockNode)
 {
     declarativeRegion = currentDeclarativeRegion()->getParent();
-    scope->pop();
+    scope.pop();
 }
 
 Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,

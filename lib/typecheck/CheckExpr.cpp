@@ -270,7 +270,7 @@ Node TypeCheck::acceptStringLiteral(const char *chars, unsigned len,
     while (I != E) {
         buff[1] = *I;
         IdentifierInfo *id = resource.getIdentifierInfo(&buff[0], 3);
-        Resolver &resolver = scope->getResolver();
+        Resolver &resolver = scope.getResolver();
         LitVec literals;
 
         ++I;
