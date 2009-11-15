@@ -373,6 +373,26 @@ public:
     virtual Node finishName(Node name) = 0;
     //@}
 
+    /// \name Aggregate Callbacks.
+    ///
+    /// The start of an aggregate expression is communicated to the client with
+    /// a call to beginAggregate().  For each component of the aggregate
+    /// acceptAggregateComponent() is called.  The end of the aggregate
+    /// expression is voiced with a call to endAggregate().
+    //@{
+
+    /// Signals that an aggregate expression is about to be processed.
+    virtual void beginAggregate() = 0;
+
+    /// Provides a Node describing a component of the aggregate.
+    virtual void acceptAggregateComponent(Node component) = 0;
+
+    /// Signals that an aggregate expression has completed.
+    ///
+    /// \return A Node representing the accumulated aggregate expression.
+    virtual Node endAggregate() = 0;
+    //@}
+
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;
 

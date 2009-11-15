@@ -237,12 +237,19 @@ Node Parser::parseRelationalOperator()
 Node Parser::parseParenExpr()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
-    ignoreToken();
 
-    Node result = parseExpr();
-    if (!reduceToken(Lexer::TKN_RPAREN))
-        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
-    return result;
+    AggregateKind aggKind = aggregateFollows();
+
+    if (aggKind == NOT_AN_AGGREGATE) {
+        ignoreToken();          // Consume the opening paren.
+        Node result = parseExpr();
+        if (!reduceToken(Lexer::TKN_RPAREN))
+            report(diag::UNEXPECTED_TOKEN_WANTED) <<
+                currentTokenString() << ")";
+        return result;
+    }
+    else
+        return parseAggregate(aggKind);
 }
 
 Node Parser::parsePrimaryExpr()
@@ -287,3 +294,23 @@ Node Parser::parseStringLiteral()
     return client.acceptStringLiteral(rep, repLen, loc);
 }
 
+Node Parser::parseAggregate(AggregateKind kind)
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    assert(kind != NOT_AN_AGGREGATE);
+    ignoreToken();
+
+    client.beginAggregate();
+    if (kind == POSITIONAL_AGGREGATE) {
+        do {
+            Node node = parseExpr();
+            if (node.isValid())
+                client.acceptAggregateComponent(node);
+        } while (reduceToken(Lexer::TKN_COMMA));
+        requireToken(Lexer::TKN_RPAREN);
+    }
+    else {
+        assert(false && "Keyed aggregates are not supported!");
+    }
+    return client.endAggregate();
+}

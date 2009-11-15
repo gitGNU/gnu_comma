@@ -284,6 +284,21 @@ private:
     // upcoming on the token stream.
     bool selectedComponentFollows();
 
+    // The following enumeration serves to identify aggregate expressions.
+    enum AggregateKind {
+        NOT_AN_AGGREGATE,
+        POSITIONAL_AGGREGATE,
+        KEYED_AGGREGATE
+    };
+
+    // Returns the kind of an aggregate expression.
+    //
+    // This method must be called when the current token is TOK_LPAREN.  An
+    // aggregate expression is identified by the presence of a TOK_COMMA or
+    // TOK_RDARROW token at the same level as the opening paren, and preceeding
+    // the matching close paren.
+    AggregateKind aggregateFollows();
+
     // Returns true is a block statement follows on the token stream.
     //
     // More precisely, returns true is the current token is
@@ -300,6 +315,7 @@ private:
     Node parseBinaryAdditiveOperator(Node lhs);
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
+    Node parseAggregate(AggregateKind kind);
 
     Node parsePragmaAssert(IdentifierInfo *name, Location loc);
 

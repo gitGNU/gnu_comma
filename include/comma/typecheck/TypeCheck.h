@@ -103,6 +103,10 @@ public:
 
     Node finishName(Node name);
 
+    void beginAggregate();
+    void acceptAggregateComponent(Node component);
+    Node endAggregate();
+
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
 

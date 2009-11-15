@@ -287,6 +287,43 @@ private:
     TypeDecl *component;    ///< Component declaration node.
 };
 
+//===----------------------------------------------------------------------===//
+// AggregateStencil
+//
+/// A stencil to represent aggregate expressions.
+class AggregateStencil : public ASTStencil {
+
+public:
+    AggregateStencil() { reset(); }
+
+    void reset() {
+        ASTStencil::reset();
+        components.clear();
+    }
+
+    /// Adds a component.
+    void addCopmonent(Expr *expr) { components.push_back(expr); }
+
+    /// Returns the number of components.
+    unsigned numComponents() const { return components.size(); }
+
+    /// Returns the i'th component.
+    Expr *getComponent(unsigned i) {
+        assert(i < numComponents() && "Index out of range!");
+        return components[i];
+    }
+
+    //@{
+    /// Iterators over the components of this aggregate.
+    typedef std::vector<Expr*>::iterator component_iterator;
+    component_iterator begin_components() { return components.begin(); }
+    component_iterator end_components() { return components.end(); }
+    //@}
+
+private:
+    std::vector<Expr*> components;
+};
+
 } // end comma namespace.
 
 #endif

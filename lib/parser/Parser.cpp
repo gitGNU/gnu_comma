@@ -380,6 +380,39 @@ bool Parser::selectedComponentFollows()
     return status;
 }
 
+Parser::AggregateKind Parser::aggregateFollows()
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+
+    AggregateKind result = NOT_AN_AGGREGATE;
+    Lexer::Token savedToken = currentToken();
+
+    lexer.beginExcursion();
+    ignoreToken();              // Ignore the left paren.
+
+SEEK:
+    if (seekTokens(Lexer::TKN_LPAREN, Lexer::TKN_COMMA,
+                   Lexer::TKN_RDARROW, Lexer::TKN_RPAREN)) {
+
+        Lexer::Code code = currentTokenCode();
+        if (code == Lexer::TKN_COMMA)
+            result = POSITIONAL_AGGREGATE;
+        else if (code == Lexer::TKN_RDARROW)
+            result = KEYED_AGGREGATE;
+        else {
+            if (code == Lexer::TKN_LPAREN) {
+                ignoreToken();
+                if (seekCloseParen())
+                    goto SEEK;
+            }
+        }
+    }
+
+    lexer.endExcursion();
+    setCurrentToken(savedToken);
+    return result;
+}
+
 bool Parser::blockStmtFollows()
 {
     switch (currentTokenCode()) {

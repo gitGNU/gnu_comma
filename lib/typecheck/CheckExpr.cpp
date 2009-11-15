@@ -357,3 +357,8 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     strLit->setType(arrTy);
     return true;
 }
+
+void TypeCheck::beginAggregate() { }
+void TypeCheck::acceptAggregateComponent(Node nodeComponent) { }
+Node TypeCheck::endAggregate() { return getInvalidNode(); }
+
