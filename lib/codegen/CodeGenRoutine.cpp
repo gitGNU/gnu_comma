@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "BoundsEmitter.h"
 #include "CodeGenCapsule.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
@@ -215,6 +216,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
     Type *objTy = objDecl->getType();
 
     if (ArrayType *arrTy = dyn_cast<ArrayType>(objTy)) {
+        BoundsEmitter emitter(*this);
         llvm::Value *bounds = createBounds(objDecl);
         llvm::Value *slot = 0;
 
@@ -232,7 +234,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
                 emitCompositeCall(call, slot);
 
                 // Synthesize bounds for this declaration.
-                Builder.CreateStore(synthStaticArrayBounds(arrTy), bounds);
+                emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
             }
             else {
                 std::pair<llvm::Value*, llvm::Value*> result;
@@ -243,7 +245,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
             }
         }
         else
-            Builder.CreateStore(synthStaticArrayBounds(arrTy), bounds);
+            emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
         return;
     }
 

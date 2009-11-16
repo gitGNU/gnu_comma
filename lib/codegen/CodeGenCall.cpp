@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "BoundsEmitter.h"
 #include "CodeGenCapsule.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
@@ -238,9 +239,9 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
         // stucture to represent the bounds.  Populate with constant values and
         // form the call.
         if (!targetTy->isConstrained()) {
-            llvm::Value *bounds = CGR.synthStaticArrayBounds(paramTy);
-            llvm::Value *boundsSlot = CGR.createTemp(bounds->getType());
-            Builder.CreateStore(bounds, boundsSlot);
+            BoundsEmitter emitter(CGR);
+            llvm::Value *boundsSlot = CGR.createTemp(emitter.getType(paramTy));
+            emitter.synthStaticArrayBounds(Builder, paramTy, boundsSlot);
             arguments.push_back(boundsSlot);
         }
         return;

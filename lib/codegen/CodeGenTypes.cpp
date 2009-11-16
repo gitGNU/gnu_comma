@@ -252,8 +252,6 @@ uint64_t CodeGenTypes::getArrayWidth(const llvm::APInt &low,
 
 const llvm::StructType *CodeGenTypes::lowerArrayBounds(const ArrayType *arrTy)
 {
-    // FIXME: The width of the bounds is target dependent -- i32 for 32 bit
-    // machines and i64 for 64 bit machines.
     std::vector<const llvm::Type*> elts;
     const ArrayType *baseTy = arrTy->getRootType();
 

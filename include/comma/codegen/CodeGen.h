@@ -191,6 +191,9 @@ public:
     /// Returns a function declaration for the llvm.memcpy.i64 intrinsic.
     llvm::Function *getMemcpy64() const;
 
+    /// Returns a function declaration for the llvm.memcpy.i32 intrinsic.
+    llvm::Function *getMemcpy32() const;
+
     /// Returns a pointer to a global exception object.
     llvm::GlobalVariable *getEHInfo();
 

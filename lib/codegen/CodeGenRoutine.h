@@ -87,11 +87,6 @@ public:
     llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
     void emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
 
-    /// \brief Given an array type with statically constrained indices,
-    /// synthesizes a constant LLVM structure representing the bounds of the
-    /// array.
-    llvm::Constant *synthStaticArrayBounds(ArrayType *arrTy);
-
     llvm::Value *createTemp(const llvm::Type *type);
 
     /// Returns true if the given call is "direct", meaning that the domain of
@@ -155,7 +150,6 @@ private:
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
 
-
     llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
@@ -207,8 +201,6 @@ private:
     std::pair<llvm::Value*, llvm::Value*>
     emitStringLiteral(StringLiteral *expr);
 
-    llvm::Value *computeArrayLength(llvm::Value *bounds);
-
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        ArrayType *arrTy);
 
@@ -217,8 +209,6 @@ private:
 
     std::pair<llvm::Value*, llvm::Value*>
     emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);
-
-    llvm::Value *synthAggregateBounds(AggregateExpr *agg);
 
     void emitArrayConversion(ConversionExpr *convert,
                              llvm::Value *components, llvm::Value *bounds);

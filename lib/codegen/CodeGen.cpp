@@ -189,6 +189,12 @@ llvm::Function *CodeGen::getMemcpy64() const
     return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
 }
 
+llvm::Function *CodeGen::getMemcpy32() const
+{
+    const llvm::Type *Tys[1] = { getInt32Ty() };
+    return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
+}
+
 InstanceInfo *CodeGen::createInstanceInfo(DomainInstanceDecl *instance)
 {
     assert(!lookupInstanceInfo(instance) &&
