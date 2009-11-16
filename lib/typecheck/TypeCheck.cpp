@@ -578,16 +578,9 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
 {
     ArrayType *arrTy = arrDecl->getType();
 
-    if (!arrTy->isConstrained()) {
-        // Unconstrained arrays require initialization.
-        if (init == 0) {
-            report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
-            return 0;
-        }
-
-        // Generate a new subtype for the object which matches the initializer.
-        if (!(arrTy = getConstrainedArraySubtype(arrTy, init)))
-            return 0;
+    if (!arrTy->isConstrained() && (init == 0)) {
+        report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
+        return 0;
     }
 
     if (init && !checkExprInContext(init, arrTy))

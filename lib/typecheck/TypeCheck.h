@@ -23,6 +23,7 @@
 #include "llvm/Support/Casting.h"
 
 #include <iosfwd>
+#include <stack>
 
 namespace llvm {
 
@@ -102,6 +103,8 @@ public:
     void beginAggregate(Location loc);
     void acceptAggregateComponent(Node component);
     Node endAggregate();
+
+    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
@@ -213,6 +216,10 @@ private:
     ArrayDeclStencil arrayStencil;
     EnumDeclStencil enumStencil;
     SRDeclStencil routineStencil;
+
+    /// Aggregates can nest.  The following stack is used to maintain the
+    /// current context when processing aggregate expressions.
+    std::stack<AggregateStencil> aggregateStack;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.
@@ -402,9 +409,9 @@ private:
     // Typechecks the given expression in the given type context.  This method
     // can update the expression (by resolving overloaded function calls, or
     // assigning a type to an integer literal, for example).  Returns true if
-    // the expression was successfully checked.  Otherwise, false is returned
-    // and appropriate diagnostics are emitted.
-    bool checkExprInContext(Expr *expr, Type *context);
+    // the expression was successfully checked.  Otherwise, false is returned and
+    // appropriate diagnostics are emitted.
+    bool checkExprInContext(Expr *&expr, Type *context);
 
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.

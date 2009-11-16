@@ -92,6 +92,11 @@ public:
     /// This Range must be static for this function to return true.
     bool contains(const llvm::APInt &value) const;
 
+    /// Returns the number of values representable by this range.
+    ///
+    /// This method will assert if this is not a static range.
+    uint64_t length() const;
+
     // Support isa/dyn_cast.
     static bool classof(const Range *node) { return true; }
     static bool classof(const Ast *node) {

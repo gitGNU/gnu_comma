@@ -215,6 +215,14 @@ private:
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        llvm::Value *bounds);
 
+    std::pair<llvm::Value*, llvm::Value*>
+    emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);
+
+    llvm::Value *synthAggregateBounds(AggregateExpr *agg);
+
+    void emitArrayConversion(ConversionExpr *convert,
+                             llvm::Value *components, llvm::Value *bounds);
+
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 

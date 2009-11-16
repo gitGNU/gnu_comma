@@ -250,7 +250,6 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
     typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
     ArrPair pair = CGR.emitArrayExpr(param, 0, false);
     llvm::Value *components = pair.first;
-    llvm::Value *bounds = pair.second;
 
     if (targetTy->isConstrained()) {
         // The target type is constrained.  We do not need to emit bounds for
@@ -271,8 +270,11 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
             components = Builder.CreatePointerCast(components, contextTy);
 
         // Pass the components plus the bounds.
+        llvm::Value *bounds = pair.second;
+        llvm::Value *boundsSlot = CGR.createTemp(bounds->getType());
+        Builder.CreateStore(bounds, boundsSlot);
         arguments.push_back(components);
-        arguments.push_back(bounds);
+        arguments.push_back(boundsSlot);
     }
 }
 

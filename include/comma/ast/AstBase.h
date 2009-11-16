@@ -26,6 +26,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class AggregateExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayType;
@@ -181,6 +182,7 @@ public:
         //
         // Expr nodes.
         //
+        AST_AggregateExpr,      ///< AggregateExpr
         AST_ConversionExpr,     ///< ConversionExpr
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
@@ -243,7 +245,7 @@ public:
         FIRST_PrimaryType = AST_DomainType,
         LAST_PrimaryType = AST_CarrierType,
 
-        FIRST_Expr = AST_ConversionExpr,
+        FIRST_Expr = AST_AggregateExpr,
         LAST_Expr = AST_LastAE,
 
         FIRST_AttribExpr = AST_FirstAE,

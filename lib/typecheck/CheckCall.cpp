@@ -448,9 +448,6 @@ bool TypeCheck::checkSubroutineCallArguments(SubroutineCall *call)
     return status;
 }
 
-// Resolves the given call expression to one which satisfies the given target
-// type and returns true.  Otherwise, false is returned and the appropriate
-// diagnostics are emitted.
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
     if (!call->isAmbiguous()) {

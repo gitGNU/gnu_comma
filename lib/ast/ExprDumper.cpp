@@ -66,6 +66,22 @@ void ExprDumper::visitStringLiteral(StringLiteral *node)
     printHeader(node) << " \"" << node->getString() << "\">";
 }
 
+void ExprDumper::visitAggregateExpr(AggregateExpr *node)
+{
+    typedef AggregateExpr::component_iter iterator;
+    iterator I = node->begin_components();
+    iterator E = node->end_components();
+
+    printHeader(node);
+    indent();
+    for ( ; I != E; ++I) {
+        S << '\n';
+        dump(*I, indentLevel);
+    }
+    dedent();
+    S << ">";
+}
+
 void ExprDumper::visitConversionExpr(ConversionExpr *node)
 {
     printHeader(node) << " ";

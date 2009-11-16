@@ -47,7 +47,7 @@ public:
 
 protected:
     /// Constructs an AttribExpr when the type of the attribute is known.
-    AttribExpr(AstKind kind, Ast *prefix, Type *type, Location loc)
+    AttribExpr(AstKind kind, Ast *prefix, PrimaryType *type, Location loc)
         : Expr(kind, type, loc),
           prefix(prefix) {
         bits = correspondingID(kind);

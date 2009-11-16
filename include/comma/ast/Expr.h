@@ -39,6 +39,8 @@ public:
         assert(this->denotesExpr());
     }
 
+    virtual ~Expr() { }
+
     /// Returns the location of this expression.
     Location getLocation() const { return location; }
 
@@ -51,7 +53,7 @@ public:
     // pending resolution in the type checker.
     //
     // If this expression has a single well-known type, this method returns it.
-    // However, if the type is not know, this method will assert.  One can call
+    // However, if the type is not known, this method will assert.  One can call
     // Expr::hasType to know if a type is available.
     Type *getType() const {
         assert(hasType() && "Expr does not have an associated type!");
@@ -93,7 +95,7 @@ public:
     }
 
 private:
-    Type    *type;
+    Type *type;
     Location location;
 };
 
@@ -490,6 +492,47 @@ public:
 
 private:
     Expr *operand;              ///< The expression to convert.
+};
+
+//===----------------------------------------------------------------------===//
+// AggregateExpr
+//
+/// Ast nodes representing both record and array aggregate expressions.
+class AggregateExpr : public Expr {
+
+    /// Type used to store the component expressions.
+    typedef std::vector<Expr*> ComponentVec;
+
+public:
+    template<class Iter>
+    AggregateExpr(Iter I, Iter E, Location loc)
+        : Expr(AST_AggregateExpr, loc),
+          components(I, E) { }
+
+    // Returns the number of components in this aggregate.
+    unsigned numComponents() const { return components.size(); }
+
+    /// \name Component Iterators.
+    //@{
+    typedef ComponentVec::iterator component_iter;
+    component_iter begin_components() { return components.begin(); }
+    component_iter end_components() { return components.end(); }
+
+    typedef ComponentVec::const_iterator const_component_iter;
+    const_component_iter begin_components() const { return components.begin(); }
+    const_component_iter end_components() const { return components.end(); }
+    //@}
+
+    // Support isa and dyn_cast.
+    static bool classof(const AggregateExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AggregateExpr;
+    }
+
+private:
+    // Vector of expressions forming the components of this aggregate
+    // expression.
+    std::vector<Expr*> components;
 };
 
 } // End comma namespace.

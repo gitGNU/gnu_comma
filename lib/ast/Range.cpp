@@ -110,6 +110,29 @@ bool Range::contains(const llvm::APInt &value) const
 
     const llvm::APInt &lower = getStaticLowerBound();
     const llvm::APInt &upper = getStaticUpperBound();
-
     return lower.sle(candidate) && candidate.sle(upper);
+}
+
+uint64_t Range::length() const
+{
+    assert(isStatic() && "Cannot compute length of non-static range!");
+
+    if (isNull())
+        return 0;
+
+    int64_t lower = getStaticLowerBound().getSExtValue();
+    int64_t upper = getStaticUpperBound().getSExtValue();
+
+    if (lower < 0) {
+        uint64_t lowElems = -lower;
+        if (upper >= 0)
+            return uint64_t(upper) + lowElems + 1;
+        else {
+            uint64_t upElems = -upper;
+            return lowElems - upElems + 1;
+        }
+    }
+
+    // The range is non-null, so upper > 0 and lower >= 0.
+    return uint64_t(upper - lower) + 1;
 }

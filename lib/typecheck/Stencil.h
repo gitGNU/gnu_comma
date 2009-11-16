@@ -26,6 +26,7 @@
 #define COMMA_TYPECHECK_STENCIL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/Expr.h"
 
 #include "llvm/ADT/SmallVector.h"
 
@@ -304,6 +305,9 @@ public:
     void init(Location loc) {
         ASTStencil::init(0, loc);
     }
+
+    /// Returns true if there are no components associated with this stencil.
+    bool empty() const { return components.empty(); }
 
     /// Adds a component.
     void addComponent(Expr *expr) { components.push_back(expr); }

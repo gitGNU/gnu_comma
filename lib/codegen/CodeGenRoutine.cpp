@@ -239,7 +239,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
                 result = emitArrayExpr(init, slot, true);
                 if (!slot)
                     associateStackSlot(objDecl, result.first);
-                Builder.CreateStore(Builder.CreateLoad(result.second), bounds);
+                Builder.CreateStore(result.second, bounds);
             }
         }
         else

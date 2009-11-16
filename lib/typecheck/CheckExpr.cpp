@@ -57,22 +57,24 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
     return new IndexedArrayExpr(arrExpr, &indices[0], numIndices);
 }
 
-// Typechecks the given expression in the given type context.  This method can
-// update the expression (by resolving overloaded function calls, or assigning a
-// type to an integer literal, for example).  Returns true if the expression was
-// successfully checked.  Otherwise, false is returned and appropriate
-// diagnostics are emitted.
-bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
+bool TypeCheck::checkExprInContext(Expr *&expr, Type *context)
 {
-    // Three types of expressions are "sensitive" to context, meaning that we
-    // might need to patch up the AST so that it conforms to the context --
-    // FunctionCallExpr, IntegerLiteral, and StringLiteral.
+    // The following sequence dispatches over the types of expressions which are
+    // "sensitive" to context, meaning that we might need to patch up the AST so
+    // that it conforms to the context.
     if (FunctionCallExpr *fcall = dyn_cast<FunctionCallExpr>(expr))
         return resolveFunctionCall(fcall, context);
     if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(expr))
         return resolveIntegerLiteral(intLit, context);
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(expr))
         return resolveStringLiteral(strLit, context);
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
+        if (Expr *res = resolveAggregateExpr(agg, context)) {
+            expr = res;
+            return true;
+        }
+        return false;
+    }
 
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
@@ -85,10 +87,6 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
     return false;
 }
 
-// Resolves the type of the given integer literal, and ensures that the given
-// type context is itself compatible with the literal provided.  Returns true if
-// the literal was successfully checked.  Otherwise, false is returned and
-// appropriate diagnostics are posted.
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
     if (intLit->hasType()) {
@@ -358,7 +356,107 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     return true;
 }
 
-void TypeCheck::beginAggregate(Location loc) { }
-void TypeCheck::acceptAggregateComponent(Node nodeComponent) { }
-Node TypeCheck::endAggregate() { return getInvalidNode(); }
+void TypeCheck::beginAggregate(Location loc)
+{
+    aggregateStack.push(AggregateStencil());
+    aggregateStack.top().init(loc);
+}
 
+void TypeCheck::acceptAggregateComponent(Node nodeComponent)
+{
+    Expr *component = cast_node<Expr>(nodeComponent);
+    AggregateStencil &stencil = aggregateStack.top();
+    nodeComponent.release();
+    stencil.addComponent(component);
+}
+
+Node TypeCheck::endAggregate()
+{
+    typedef AggregateStencil::component_iterator iterator;
+    AggregateStencil &stencil = aggregateStack.top();
+    iterator I = stencil.begin_components();
+    iterator E = stencil.end_components();
+    Location loc = stencil.getLocation();
+
+    // It is possible that the parser could not generate a single valid
+    // component, or that every parsed component did not make it thru the type
+    // checker.  If we have an empty stencil, or one which is otherwise invalid,
+    // clean up any accumulated data and return an invalid node.
+    if (stencil.empty() || stencil.isInvalid()) {
+        for ( ; I != E; ++I)
+            delete *I;
+        aggregateStack.pop();
+        return getInvalidNode();
+    }
+
+    AggregateExpr *agg = new AggregateExpr(I, E, loc);
+    aggregateStack.pop();
+    return getNode(agg);
+}
+
+Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
+{
+    // Nothing to do if the given aggregate has already been resolved.
+    if (agg->hasType())
+        return agg;
+
+    // Currently, only array aggregates are supported.  If the context type is
+    // not an array type, the aggregate is invalid.
+    ArrayType *arrTy = dyn_cast<ArrayType>(context);
+    if (!arrTy) {
+        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
+        return 0;
+    }
+
+    // FIXME: Support multidimensional arrays.
+    assert(arrTy->isVector() && "No support for multidimensional arrays!");
+    Type *componentType = arrTy->getComponentType();
+
+    // Check each component of the aggregate with respect to the component type
+    // of the context.
+    typedef AggregateExpr::component_iter iterator;
+    iterator I = agg->begin_components();
+    iterator E = agg->end_components();
+    bool allOK = true;
+    for ( ; I != E; ++I)
+        allOK = checkExprInContext(*I, componentType) && allOK;
+
+    if (!allOK)
+        return 0;
+
+    unsigned numComponents = agg->numComponents();
+
+    // If the context type is statically constrained ensure that the aggregate
+    // is within the bounds of corresponding index type.
+    if (arrTy->isStaticallyConstrained()) {
+        DiscreteType *idxTy = arrTy->getIndexType(0);
+        Range *range = idxTy->getConstraint();
+        uint64_t length = range->length();
+
+        if (length < numComponents) {
+            report(agg->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+                << arrTy->getIdInfo();
+            return 0;
+        }
+
+        // We do not support "others" yet.
+        if (length > numComponents) {
+            report(agg->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
+                << arrTy->getIdInfo();
+            return 0;
+        }
+
+        // Associate the context type with this array aggregate.
+        agg->setType(arrTy);
+        return agg;
+    }
+
+    // When the context is dynamically constrained or unconstrained, assign an
+    // unconstrained type to the aggregate and wrap it in a conversion
+    // expression.
+    //
+    // FIXME: In the unconstrained case we can still perform static checks.
+    ArrayType *aggTy = resource.createArraySubtype(0, arrTy);
+    agg->setType(aggTy);
+    return new ConversionExpr(agg, arrTy);
+}

@@ -52,6 +52,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumerationType",
     "CarrierType",
 
+    "AggregateExpr",
     "ConversionExpr",
     "DeclRefExpr",
     "FunctionCallExpr",

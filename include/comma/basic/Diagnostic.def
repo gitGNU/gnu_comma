@@ -209,3 +209,7 @@ DIAGNOSTIC(OVERLOADED_IMPORT_NOT_SUPPORTED, ERROR,
            "Overloaded imports are not yet supported.")
 DIAGNOSTIC(DUPLICATE_IMPORT_PRAGMAS, ERROR,
            "Duplicate import pragmas for entity `%0'.")
+DIAGNOSTIC(INCONSISTENT_AGGREGATE_TYPE, ERROR,
+           "Inconsitent type for aggregate component.")
+DIAGNOSTIC(INVALID_CONTEXT_FOR_AGGREGATE, ERROR,
+           "Invalid type context for aggregate expression.")

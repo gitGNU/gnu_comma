@@ -189,20 +189,29 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
 
-    ArrayType *arrTy = cast<ArrayType>(expr->getType());
     llvm::Value *components;
     llvm::Value *bounds;
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    ConversionExpr *convert = dyn_cast<ConversionExpr>(expr);
+
+    if (convert) {
+        ArrPair result = emitArrayExpr(convert->getOperand(), dst, genTmp);
+        emitArrayConversion(convert, result.first, result.second);
+        return result;
+    }
 
     if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
         ArrPair pair = emitStringLiteral(lit);
         components = pair.first;
-        bounds = pair.second;
+        bounds = Builder.CreateLoad(pair.second);
     }
     else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = lookupDecl(decl);
-        bounds = lookupBounds(decl);
+        bounds = Builder.CreateLoad(lookupBounds(decl));
     }
+    else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+        return emitAggregate(agg, dst, genTmp);
     else {
         assert(false && "Invalid type of array expr!");
         return ArrPair(0, 0);
@@ -240,4 +249,108 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else
         return ArrPair(components, bounds);
+}
+
+llvm::Value *CodeGenRoutine::synthAggregateBounds(AggregateExpr *agg)
+{
+    llvm::Value *bounds = 0;
+    ArrayType *arrTy = cast<ArrayType>(agg->getType());
+
+    if (arrTy->isStaticallyConstrained())
+        bounds = synthStaticArrayBounds(arrTy);
+    else if (arrTy->isConstrained())
+        assert(false && "Cannot codegen dynamicly constrained aggregates yet!");
+    else {
+        // The index type for the aggregate is unconstrained.
+        llvm::APInt bound;
+        std::vector<llvm::Constant*> boundValues;
+        DiscreteType *idxTy = arrTy->getIndexType(0);
+        llvm::LLVMContext &context = CG.getLLVMContext();
+
+        // The lower bound is derived directly from the index type.
+        if (Range *range = idxTy->getConstraint()) {
+            assert(range->isStatic() && "Cannot codegen dynamic ranges.");
+            bound = range->getStaticLowerBound();
+            boundValues.push_back(llvm::ConstantInt::get(context, bound));
+        }
+        else {
+            idxTy->getLowerLimit(bound);
+            boundValues.push_back(llvm::ConstantInt::get(context, bound));
+        }
+
+        // The upper bound is the sum of the lower bound and the length of the
+        // aggregate, minus one.
+        llvm::APInt length(bound.getBitWidth(), agg->numComponents());
+        bound += --length;
+        boundValues.push_back(llvm::ConstantInt::get(context, bound));
+
+        // Obtain a constant structure object corresponding to the computed
+        // bounds.
+        const llvm::StructType *boundsTy = CGT.lowerArrayBounds(arrTy);
+        bounds = llvm::ConstantStruct::get(boundsTy, boundValues);
+    }
+    return bounds;
+}
+
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
+                              bool genTmp)
+{
+    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
+    typedef AggregateExpr::component_iter iterator;
+
+    llvm::Value *bounds = synthAggregateBounds(expr);
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+
+    std::vector<llvm::Value*> components;
+
+    if (!dst && genTmp) {
+        // Compute the length of the array using the bounds.
+        llvm::Value *lower = Builder.CreateExtractValue(bounds, 0);
+        llvm::Value *upper = Builder.CreateExtractValue(bounds, 1);
+
+        // FIXME: LLVM alloca's are currently performed using i32 (though this
+        // might change).  The bounds may be a wider type.  We need to insert
+        // checks the array bounds do not overflow using this precision.
+        const llvm::IntegerType *boundTy
+            = cast<llvm::IntegerType>(lower->getType());
+
+        if (boundTy->getBitWidth() < 32) {
+            lower = Builder.CreateSExt(lower, CG.getInt32Ty());
+            upper = Builder.CreateSExt(upper, CG.getInt32Ty());
+        }
+        else if (boundTy->getBitWidth() > 32) {
+            lower = Builder.CreateTrunc(lower, CG.getInt32Ty());
+            upper = Builder.CreateTrunc(upper, CG.getInt32Ty());
+        }
+
+        llvm::Value *size = Builder.CreateSub(upper, lower);
+        llvm::Value *one = llvm::ConstantInt::get(size->getType(), 1);
+        size = Builder.CreateAdd(size, one);
+
+        const llvm::Type *elemTy = CGT.lowerType(arrTy->getComponentType());
+        const llvm::Type *dstTy = CG.getPointerType(CG.getVLArrayTy(elemTy));
+        dst = Builder.CreateAlloca(elemTy, size);
+        dst = Builder.CreatePointerCast(dst, dstTy);
+    }
+
+    iterator I = expr->begin_components();
+    iterator E = expr->end_components();
+    for ( ; I != E; ++I)
+        components.push_back(emitValue(*I));
+
+    for (unsigned i = 0; i < components.size(); ++i) {
+        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, i);
+        Builder.CreateStore(components[i], idx);
+    }
+
+    return ArrPair(dst, bounds);
+}
+
+void CodeGenRoutine::emitArrayConversion(ConversionExpr *conver,
+                                         llvm::Value *components,
+                                         llvm::Value *bounds)
+{
+    // FIXME: Implement.
 }

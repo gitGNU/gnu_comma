@@ -114,8 +114,7 @@ public:
     }
 
 protected:
-    SubroutineType(AstKind kind,
-                   Type **argTypes, unsigned numArgs)
+    SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
         : Type(kind),
           argumentTypes(0),
           numArguments(numArgs) {
