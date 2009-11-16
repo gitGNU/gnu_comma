@@ -59,8 +59,8 @@ Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)
                 candidate = TD->getType();
             else if (SubroutineDecl *SD = dyn_cast<SubroutineDecl>(decl))
                 candidate = SD->getType();
-            else if (EnumLiteral *EL = dyn_cast<EnumLiteral>(decl))
-                candidate = EL->getType();
+            else if (ValueDecl *VD = dyn_cast<ValueDecl>(decl))
+                candidate = VD->getType();
 
             if (candidate && type == candidate)
                 return decl;

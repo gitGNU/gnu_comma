@@ -391,7 +391,8 @@ Parser::AggregateKind Parser::aggregateFollows()
     ignoreToken();              // Ignore the left paren.
 
 SEEK:
-    if (seekTokens(Lexer::TKN_LPAREN, Lexer::TKN_COMMA,
+    if (seekTokens(Lexer::TKN_LPAREN,
+                   Lexer::TKN_COMMA, Lexer::TKN_OTHERS,
                    Lexer::TKN_RDARROW, Lexer::TKN_RPAREN)) {
 
         Lexer::Code code = currentTokenCode();

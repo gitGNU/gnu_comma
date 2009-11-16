@@ -299,10 +299,31 @@ Node Parser::parseAggregate(AggregateKind kind)
     assert(currentTokenIs(Lexer::TKN_LPAREN));
     assert(kind != NOT_AN_AGGREGATE);
     Location loc = ignoreToken();
+    bool componentSeen = false;
 
     client.beginAggregate(loc);
     if (kind == POSITIONAL_AGGREGATE) {
         do {
+            // If an others token is on the stream, parse the construct and
+            // terminate the processing of the aggregate.
+            if (currentTokenIs(Lexer::TKN_OTHERS)) {
+                // The POSITIONAL_AGGREGATE kind should ensure that a component
+                // precedes a TKN_OTHERS token, hense the following assertion.
+                assert(componentSeen);
+
+                Location loc = ignoreToken();
+                if (requireToken(Lexer::TKN_RDARROW)) {
+                    Node node = parseExpr();
+                    if (node.isValid()) {
+                        client.acceptAggregateOthers(loc, node);
+                        break;
+                    }
+                }
+                seekCloseParen();
+                break;
+            }
+
+            componentSeen = true;
             Node node = parseExpr();
             if (node.isValid())
                 client.acceptAggregateComponent(node);

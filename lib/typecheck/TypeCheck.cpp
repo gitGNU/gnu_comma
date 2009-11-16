@@ -621,6 +621,7 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 
 
     initializerNode.release();
+    refNode.release();
 
     if (Decl *conflict = scope.addDirectDecl(decl)) {
         SourceLocation sloc = getSourceLoc(conflict->getLocation());

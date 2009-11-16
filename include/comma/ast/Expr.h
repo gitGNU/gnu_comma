@@ -504,13 +504,55 @@ class AggregateExpr : public Expr {
     typedef std::vector<Expr*> ComponentVec;
 
 public:
+    AggregateExpr(Location loc)
+        : Expr(AST_AggregateExpr, loc),
+          othersLoc(0), othersComponent(0) { }
+
     template<class Iter>
     AggregateExpr(Iter I, Iter E, Location loc)
         : Expr(AST_AggregateExpr, loc),
-          components(I, E) { }
+          components(I, E),
+          othersLoc(0), othersComponent(0) { }
 
-    // Returns the number of components in this aggregate.
+    /// Returns true if an "others" component is associated with this aggregate.
+    bool hasOthers() const { return othersComponent != 0; }
+
+    //@{
+    /// Returns the expression associated with an "others" component.
+    ///
+    /// If hasOthers() returns false, then this method returns null.
+    Expr *getOthersExpr() { return othersComponent; }
+    const Expr *getOthersExpr() const { return othersComponent; }
+    //@}
+
+    /// \brief Returns the location of the "others" reserved word, or an invalid
+    /// location if hasOthers() returns false.
+    Location getOthersLoc() const { return othersLoc; }
+
+    /// Adds an "others" component to this aggregate.
+    ///
+    /// Aggregates cannot hold multiple "others" components.  This method will
+    /// assert if called more than once.
+    ///
+    /// \param loc Location of the "others" reserved word.
+    ///
+    /// \param component The expression associated with "others".
+    void addOthers(Location loc, Expr *component) {
+        assert(!hasOthers() && "Others component already set!");
+        othersLoc = loc;
+        othersComponent = component;
+    }
+
+    /// Returns the number of components in this aggregate.
     unsigned numComponents() const { return components.size(); }
+
+    /// Returns true if this aggregate is empty.
+
+    /// Adds a component to this aggregate expression.
+    ///
+    /// The order in which this method is called determines the order of the
+    /// components.
+    void addComponent(Expr *expr) { components.push_back(expr); }
 
     /// \name Component Iterators.
     //@{
@@ -523,6 +565,13 @@ public:
     const_component_iter end_components() const { return components.end(); }
     //@}
 
+    /// \brief Returns true if this aggregate expression has not been populated
+    /// with any components.
+    ///
+    /// Note that this predicate will return false if an "others" component is
+    /// present.
+    bool empty() const { return numComponents() == 0 && !hasOthers(); }
+
     // Support isa and dyn_cast.
     static bool classof(const AggregateExpr *node) { return true; }
     static bool classof(const Ast *node) {
@@ -533,6 +582,12 @@ private:
     // Vector of expressions forming the components of this aggregate
     // expression.
     std::vector<Expr*> components;
+
+    // Location of the "others" reserved word.
+    Location othersLoc;
+
+    // Expression associated with an "others" component.
+    Expr *othersComponent;
 };
 
 } // End comma namespace.

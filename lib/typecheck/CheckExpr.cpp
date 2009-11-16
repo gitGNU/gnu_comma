@@ -130,7 +130,7 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
             }
         }
         if (range->hasStaticUpperBound()) {
-            if (litValue.slt(range->getStaticLowerBound())) {
+            if (litValue.sgt(range->getStaticUpperBound())) {
                 report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
                     << subtype->getIdInfo();
             }
@@ -358,39 +358,37 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
 
 void TypeCheck::beginAggregate(Location loc)
 {
-    aggregateStack.push(AggregateStencil());
-    aggregateStack.top().init(loc);
+    aggregateStack.push(new AggregateExpr(loc));
 }
 
 void TypeCheck::acceptAggregateComponent(Node nodeComponent)
 {
     Expr *component = cast_node<Expr>(nodeComponent);
-    AggregateStencil &stencil = aggregateStack.top();
+    AggregateExpr *agg = aggregateStack.top();
     nodeComponent.release();
-    stencil.addComponent(component);
+    agg->addComponent(component);
+}
+
+void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
+{
+    Expr *component = cast_node<Expr>(nodeComponent);
+    AggregateExpr *agg = aggregateStack.top();
+    nodeComponent.release();
+    agg->addOthers(loc, component);
 }
 
 Node TypeCheck::endAggregate()
 {
-    typedef AggregateStencil::component_iterator iterator;
-    AggregateStencil &stencil = aggregateStack.top();
-    iterator I = stencil.begin_components();
-    iterator E = stencil.end_components();
-    Location loc = stencil.getLocation();
+    AggregateExpr *agg = aggregateStack.top();
+    aggregateStack.pop();
 
     // It is possible that the parser could not generate a single valid
     // component, or that every parsed component did not make it thru the type
-    // checker.  If we have an empty stencil, or one which is otherwise invalid,
-    // clean up any accumulated data and return an invalid node.
-    if (stencil.empty() || stencil.isInvalid()) {
-        for ( ; I != E; ++I)
-            delete *I;
-        aggregateStack.pop();
+    // checker.  Deallocate.
+    if (agg->empty()) {
+        delete agg;
         return getInvalidNode();
     }
-
-    AggregateExpr *agg = new AggregateExpr(I, E, loc);
-    aggregateStack.pop();
     return getNode(agg);
 }
 
@@ -424,6 +422,12 @@ Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
     if (!allOK)
         return 0;
 
+    // Check the others component if present.
+    if (Expr *others = agg->getOthersExpr()) {
+        if (!checkExprInContext(others, componentType))
+            return 0;
+    }
+
     unsigned numComponents = agg->numComponents();
 
     // If the context type is statically constrained ensure that the aggregate
@@ -439,8 +443,7 @@ Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
             return 0;
         }
 
-        // We do not support "others" yet.
-        if (length > numComponents) {
+        if (length > numComponents && !agg->hasOthers()) {
             report(agg->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
                 << arrTy->getIdInfo();
             return 0;
@@ -449,6 +452,13 @@ Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
         // Associate the context type with this array aggregate.
         agg->setType(arrTy);
         return agg;
+    }
+
+    // If the context type is unconstrained, ensure that an others component is
+    // not present.
+    if (!arrTy->isConstrained() && agg->hasOthers()) {
+        report(agg->getOthersLoc(), diag::OTHERS_IN_UNCONSTRAINED_CONTEXT);
+        return 0;
     }
 
     // When the context is dynamically constrained or unconstrained, assign an

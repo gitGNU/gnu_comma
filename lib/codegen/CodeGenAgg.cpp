@@ -131,9 +131,9 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     llvm::Value *components;
     llvm::Value *bounds;
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
-    ConversionExpr *convert = dyn_cast<ConversionExpr>(expr);
+    BoundsEmitter emitter(*this);
 
-    if (convert) {
+    if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr)) {
         ArrPair result = emitArrayExpr(convert->getOperand(), dst, genTmp);
         emitArrayConversion(convert, result.first, result.second);
         return result;
@@ -147,7 +147,11 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = lookupDecl(decl);
-        bounds = lookupBounds(decl);
+
+        /// FIXME: Bounds lookup will fail when the decl is a ParamValueDecl of
+        /// unconstrained type.  A better API will replace this hack.
+        if (!(bounds = lookupBounds(decl)))
+            bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
     }
     else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst, genTmp);
@@ -158,7 +162,6 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 
     // If dst is null build a stack allocated object to hold the components of
     // this array.
-    BoundsEmitter emitter(*this);
     if (dst == 0 && genTmp) {
         llvm::BasicBlock *savedBB;
         const llvm::Type *componentTy;
@@ -171,7 +174,8 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
         componentTy = CGT.lowerType(arrTy->getComponentType());
         dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
 
-        bounds = Builder.CreateLoad(bounds);
+        if (isa<llvm::PointerType>(bounds->getType()))
+            bounds = Builder.CreateLoad(bounds);
         length = emitter.computeTotalBoundLength(Builder, bounds);
         dst = Builder.CreateAlloca(componentTy, length);
         dst = Builder.CreatePointerCast(dst, dstTy);
@@ -179,7 +183,8 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
 
     // If a destination is available, fill it in with the associated array data.
-    bounds = Builder.CreateLoad(bounds);
+    if (isa<llvm::PointerType>(bounds->getType()))
+        bounds = Builder.CreateLoad(bounds);
     if (dst) {
         llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
         emitArrayCopy(components, dst, length);

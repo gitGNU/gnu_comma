@@ -102,6 +102,7 @@ public:
 
     void beginAggregate(Location loc);
     void acceptAggregateComponent(Node component);
+    void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
     Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
@@ -219,7 +220,7 @@ private:
 
     /// Aggregates can nest.  The following stack is used to maintain the
     /// current context when processing aggregate expressions.
-    std::stack<AggregateStencil> aggregateStack;
+    std::stack<AggregateExpr*> aggregateStack;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.

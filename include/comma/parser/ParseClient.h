@@ -389,6 +389,12 @@ public:
     /// Provides a Node describing a component of the aggregate.
     virtual void acceptAggregateComponent(Node component) = 0;
 
+    /// Indicates an "others" component.  This is always the last component
+    /// processed by the parser.
+    ///
+    /// \param loc Location of the "others" reserved word.
+    virtual void acceptAggregateOthers(Location loc, Node component) = 0;
+
     /// Signals that an aggregate expression has completed.
     ///
     /// \return A Node representing the accumulated aggregate expression.
