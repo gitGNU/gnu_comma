@@ -131,12 +131,17 @@ void AstResource::initializeNatural()
     // FIXME: This is a temporary hack until we have actual subtype declaration
     // nodes.
     IdentifierInfo *name = getIdentifierInfo("Natural");
-    IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
+    IntegerType *type = theIntegerDecl->getType();
     unsigned width = type->getSize();
-    llvm::APInt low(width, 0, false);
-    llvm::APInt high;
-    type->getUpperLimit(high);
-    theNaturalType = createIntegerSubtype(name, type, low, high);
+    llvm::APInt lowInt(width, 0, false);
+    llvm::APInt highInt;
+    type->getUpperLimit(highInt);
+
+    // Allocate static expressions for the bounds.
+    Expr *low = new IntegerLiteral(lowInt, type, 0);
+    Expr *high = new IntegerLiteral(highInt, type, 0);
+
+    theNaturalDecl = createIntegerSubtypeDecl(name, 0, type, low, high, 0);
 }
 
 void AstResource::initializePositive()
@@ -144,18 +149,23 @@ void AstResource::initializePositive()
     // FIXME: This is a temporary hack until we have actual subtype declaration
     // nodes.
     IdentifierInfo *name = getIdentifierInfo("Positive");
-    IntegerType *type = theIntegerDecl->getType()->getAsIntegerType();
+    IntegerType *type = theIntegerDecl->getType();
     unsigned width = type->getSize();
-    llvm::APInt low(width, 1, false);
-    llvm::APInt high;
-    type->getUpperLimit(high);
-    thePositiveType = createIntegerSubtype(name, type, low, high);
+    llvm::APInt lowInt(width, 1, false);
+    llvm::APInt highInt;
+    type->getUpperLimit(highInt);
+
+    // Allocate static expressions for the bounds.
+    Expr *low = new IntegerLiteral(lowInt, type, 0);
+    Expr *high = new IntegerLiteral(highInt, type, 0);
+
+    thePositiveDecl = createIntegerSubtypeDecl(name, 0, type, low, high, 0);
 }
 
 void AstResource::initializeString()
 {
     IdentifierInfo *name = getIdentifierInfo("String");
-    DiscreteType *indexTy = thePositiveType;
+    DiscreteType *indexTy = getThePositiveType();
     theStringDecl = createArrayDecl(name, 0, 1, &indexTy,
                                     getTheCharacterType(), false, 0);
 }
@@ -175,6 +185,16 @@ IntegerType *AstResource::getTheRootIntegerType() const
 IntegerType *AstResource::getTheIntegerType() const
 {
     return theIntegerDecl->getType();
+}
+
+IntegerType *AstResource::getTheNaturalType() const
+{
+    return theNaturalDecl->getType();
+}
+
+IntegerType *AstResource::getThePositiveType() const
+{
+    return thePositiveDecl->getType();
 }
 
 EnumerationType *AstResource::getTheCharacterType() const
@@ -255,6 +275,29 @@ AstResource::createEnumDecl(IdentifierInfo *name, Location loc,
     return res;
 }
 
+EnumSubtypeDecl *
+AstResource::createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+                                   EnumerationType *subtype,
+                                   Expr *lower, Expr *upper,
+                                   DeclRegion *region)
+{
+    EnumSubtypeDecl *res;
+    res = new EnumSubtypeDecl(*this, name, loc, subtype, lower, upper, region);
+    decls.push_back(res);
+    return res;
+}
+
+EnumSubtypeDecl *
+AstResource::createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+                                   EnumerationType *subtype,
+                                   DeclRegion *region)
+{
+    EnumSubtypeDecl *res;
+    res = new EnumSubtypeDecl(*this, name, loc, subtype, region);
+    decls.push_back(res);
+    return res;
+}
+
 EnumerationType *AstResource::createEnumType(EnumerationDecl *decl)
 {
     EnumerationType *res = EnumerationType::create(*this, decl);
@@ -286,6 +329,29 @@ IntegerDecl *AstResource::createIntegerDecl(IdentifierInfo *name, Location loc,
 {
     IntegerDecl *res;
     res = new IntegerDecl(*this, name, loc, lowRange, highRange, parent);
+    decls.push_back(res);
+    return res;
+}
+
+IntegerSubtypeDecl *
+AstResource::createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                                      IntegerType *subtype,
+                                      Expr *lower, Expr *upper,
+                                      DeclRegion *parent)
+{
+    IntegerSubtypeDecl *res;
+    res = new IntegerSubtypeDecl(
+        *this, name, loc, subtype, lower, upper, parent);
+    decls.push_back(res);
+    return res;
+}
+
+IntegerSubtypeDecl *
+AstResource::createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                                      IntegerType *subtype, DeclRegion *parent)
+{
+    IntegerSubtypeDecl *res;
+    res = new IntegerSubtypeDecl(*this, name, loc, subtype, parent);
     decls.push_back(res);
     return res;
 }
@@ -392,8 +458,8 @@ AstResource::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
 
     if (ID == PO::POW_op) {
         params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
-        params.push_back(
-            new ParamValueDecl(left, theNaturalType, PM::MODE_DEFAULT, 0));
+        params.push_back(new ParamValueDecl(
+                             left, getTheNaturalType(), PM::MODE_DEFAULT, 0));
     } else if (PO::denotesBinaryOp(ID)) {
         params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
         params.push_back(new ParamValueDecl(right, type, PM::MODE_DEFAULT, 0));

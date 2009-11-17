@@ -1066,7 +1066,6 @@ private:
 class TypeDecl : public Decl {
 
 public:
-
     // Returns the type of this TypeDecl.
     PrimaryType *getType() const { return CorrespondingType; }
 
@@ -1078,16 +1077,17 @@ public:
 protected:
     // Constructs a TypeDecl node when a type is immediately available.
     TypeDecl(AstKind kind, IdentifierInfo *name, PrimaryType *type,
-             Location loc)
-        : Decl(kind, name, loc),
+             Location loc, DeclRegion *region = 0)
+        : Decl(kind, name, loc, region),
           CorrespondingType(type) {
         assert(this->denotesTypeDecl());
     }
 
     // Constructs a TypeDecl node when a type is not immediately available.
     // Users of this constructor must set the corresponding type.
-    TypeDecl(AstKind kind, IdentifierInfo *name, Location loc)
-        : Decl(kind, name, loc),
+    TypeDecl(AstKind kind, IdentifierInfo *name, Location loc,
+             DeclRegion *region = 0)
+        : Decl(kind, name, loc, region),
           CorrespondingType(0) {
         assert(this->denotesTypeDecl());
     }
@@ -1193,6 +1193,61 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// EnumSubtypeDecl
+//
+/// Representation of enumeration subtype declaration nodes.
+class EnumSubtypeDecl : public TypeDecl {
+
+public:
+    /// Returns the subtype defined by this declaration.
+    EnumerationType *getType() const {
+        return llvm::cast<EnumerationType>(CorrespondingType);
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const EnumSubtypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_EnumSubtypeDecl;
+    }
+
+private:
+    /// \name Constructors
+    ///
+    /// The following constructors are provided for use by AstResource.
+    ///
+    /// All constructors take the following arguments.
+    ///
+    ///   - A reference to the AstResource which is performing the allocation.
+    ///
+    ///   - An IdentifierInfo naming the declaration.
+    ///
+    ///   - A location denoting the position of the defining identifier in the
+    ///     source.
+    ///
+    ///   - An EnumerationType node denoting the subtype this declaration
+    ///     extends.
+    ///
+    ///   - The declarative region in which the subtype declaration appears.
+    //@{
+
+    /// Constructs an unconstrained enumeration subtype declaration.
+    EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                    EnumerationType *subtype, DeclRegion *region);
+
+    /// Constructs a constrained enumeration subtype declaration.
+    ///
+    /// \p lower Expression denoting the lower constraint on this type.
+    ///
+    /// \p upper Expression denoting the upper constraint on this type.
+    EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                    EnumerationType *subtype,
+                    Expr *lower, Expr *upper, DeclRegion *region);
+    //@}
+
+    friend class AstResource;
+};
+
+//===----------------------------------------------------------------------===//
 // IntegerDecl
 //
 // These nodes represent integer type declarations.
@@ -1237,7 +1292,22 @@ public:
     }
 
 private:
-    /// Private constructor for use by AstResource.
+    /// Constructs an Integer type declaration (for use by AstResource).
+    ///
+    /// \p resource A reference to the AstResource which is performing the
+    ///    allocation.
+    ///
+    /// \p name IdentifierInfo naming the declaration.
+    ///
+    /// \p loc Location denoting the position of the declarations name in the
+    ///    source.
+    ///
+    /// \p lower Expression denoting the lower bound of this integer type.
+    ///
+    /// \p upper Expression denoting the upper bounds of this integer type.
+    ///
+    /// \p parent The declarative region in which the integer type declaration
+    ///    appears.
     IntegerDecl(AstResource &resource,
                 IdentifierInfo *name, Location loc,
                 Expr *lower, Expr *upper, DeclRegion *parent);
@@ -1246,6 +1316,65 @@ private:
 
     Expr *lowExpr;              ///< Expr forming the lower bound.
     Expr *highExpr;             ///< Expr forming the high bound.
+};
+
+//===----------------------------------------------------------------------===//
+// IntegerSubtypeDecl
+//
+/// These nodes represent integer subtype declarations.
+class IntegerSubtypeDecl : public TypeDecl {
+
+public:
+    /// Returns the subtype defined by this declaration.
+    IntegerType *getType() const {
+        return llvm::cast<IntegerType>(CorrespondingType);
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const IntegerSubtypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IntegerSubtypeDecl;
+    }
+
+private:
+    /// \name Constructors.
+    ///
+    /// The following constructors are provided for use by AstResource.
+    ///
+    /// All constructors take the following arguments:
+    ///
+    ///    - A reference to the AstResource which is performing the allocation.
+    ///
+    ///    - An IdentifierInfo naming the declaration.
+    ///
+    ///    - A location denoting the position of the declarations name in the
+    ///    source.
+    ///
+    ///    - The declarative region in which the subtype declaration appears.
+    //@{
+
+    /// Constructs an unconstrained integer subtype declaration.
+    ///
+    /// \p subtype The subtype which this subtype declaration extends.
+    IntegerSubtypeDecl(AstResource &resource,
+                       IdentifierInfo *name, Location loc,
+                       IntegerType *subtype, DeclRegion *parent);
+
+    /// Constructs a constrained integer subtype declaration.
+    ///
+    /// \p subtype The subtype which this subtype constrains.
+    ///
+    /// \p lower Expression denoting the lower constraint of this integer type.
+    ///
+    /// \p upper Expression denoting the upper constraint of this integer type.
+    IntegerSubtypeDecl(AstResource &resource,
+                       IdentifierInfo *name, Location loc,
+                       IntegerType *subtype,
+                       Expr *lower, Expr *upper, DeclRegion *parent);
+    //@}
+
+    friend class AstResource;
+
 };
 
 //===----------------------------------------------------------------------===//

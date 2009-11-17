@@ -51,6 +51,7 @@ class Domoid;
 class EnumerationDecl;
 class EnumLiteral;
 class EnumerationType;
+class EnumSubtypeDecl;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
@@ -65,6 +66,7 @@ class IndexedArrayExpr;
 class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
+class IntegerSubtypeDecl;
 class IntegerType;
 class KeywordSelector;
 class LastAE;
@@ -152,7 +154,9 @@ public:
 
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
+        AST_EnumSubtypeDecl,    ///< EnumSubtypeDecl
         AST_IntegerDecl,        ///< IntegerDecl
+        AST_IntegerSubtypeDecl, ///< IntegerSubtypeDecl
         AST_ArrayDecl,          ///< ArrayDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl

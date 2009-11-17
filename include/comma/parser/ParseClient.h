@@ -533,14 +533,35 @@ public:
     virtual void endEnumeration() = 0;
     //@}
 
-    /// Called to process integer type definitions.
+    /// Called to process integer type declarations.
     ///
     /// For example, given a definition of the form <tt>type T is range
     /// X..Y;</tt>, this callback is invoked with \p name set to the identifier
     /// \c T, \p loc set to the location of \p name, \p low set to the
     /// expression \c X, and \p high set to the expression \c Y.
-    virtual void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
-                                      Node low, Node high) = 0;
+    virtual void acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
+                                       Node low, Node high) = 0;
+
+    /// Called to process a range constrained discrete subtype declaration.
+    ///
+    /// For example, given a declaration of the form <tt>subtype S is T range
+    /// X..Y;</tt>, this callback is invoked with \p name set to the identifier
+    /// \c S, \p loc set to the location of \p name, and \p subtype set to the
+    /// subtype indication \c T, and the last two arguments (\p low and \p high)
+    /// represent the lower and upper bounds of the range constraint.
+    virtual void acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
+                                         Node subtype,
+                                         Node low, Node high) = 0;
+
+    /// Called to process an unconstrained subtype declaration.
+    ///
+    /// For example, given a declaration of the form <tt>subtype S is T;</tt>,
+    /// this callback is invoked with \p name set to the identifier \c S, \p loc
+    /// set to the location of \p name, and \p subtype set to the subtype
+    /// indication \c T.
+    virtual void acceptSubtypeDecl(IdentifierInfo *name, Location loc,
+                                   Node subtype) = 0;
+
 
     /// \name Array Callbacks.
     ///

@@ -173,14 +173,14 @@ public:
     void acceptEnumerationCharacter(IdentifierInfo *name, Location loc);
     void endEnumeration();
 
-    /// Called to process integer type definitions.
-    ///
-    /// For example, given a definition of the form <tt>type T is range
-    /// X..Y;</tt>, this callback is invoked with \p name set to the identifier
-    /// \c T, \p loc set to the location of \p name, \p low set to the
-    /// expression \c X, and \p high set to the expression \c Y.
-    void acceptIntegerTypedef(IdentifierInfo *name, Location loc,
-                              Node low, Node high);
+    void acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
+                               Node low, Node high);
+
+    void acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
+                                 Node subtype, Node low, Node high);
+
+    void acceptSubtypeDecl(IdentifierInfo *name, Location loc, Node subtype);
+
 
     void beginArray(IdentifierInfo *name, Location loc);
     void acceptUnconstrainedArrayIndex(Node indexNode);

@@ -810,6 +810,26 @@ const EnumLiteral *EnumerationDecl::findCharacterLiteral(char ch) const
 }
 
 //===----------------------------------------------------------------------===//
+// EnumSubtypeDecl
+
+EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
+                                 Location loc,
+                                 EnumerationType *subtype, DeclRegion *region)
+    : TypeDecl(AST_EnumSubtypeDecl, name, loc, region)
+{
+    CorrespondingType = resource.createEnumSubtype(name, subtype);
+}
+
+EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
+                                 Location loc,
+                                 EnumerationType *subtype,
+                                 Expr *lower, Expr *upper, DeclRegion *region)
+    : TypeDecl(AST_EnumSubtypeDecl, name, loc, region)
+{
+    CorrespondingType = resource.createEnumSubtype(name, subtype, lower, upper);
+}
+
+//===----------------------------------------------------------------------===//
 // IntegerDecl
 
 IntegerDecl::IntegerDecl(AstResource &resource,
@@ -820,6 +840,9 @@ IntegerDecl::IntegerDecl(AstResource &resource,
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lower), highExpr(upper)
 {
+    // Clear the subclass bits.
+    Ast::bits = 0;
+
     llvm::APInt lowVal;
     llvm::APInt highVal;
 
@@ -856,6 +879,28 @@ void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
     addDecl(resource.createPrimitiveDecl(PO::POW_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::NEG_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::POS_op, loc, type, this));
+}
+
+//===----------------------------------------------------------------------===//
+// IntegerSubtypeDecl
+
+IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
+                                       IdentifierInfo *name, Location loc,
+                                       IntegerType *subtype, DeclRegion *parent)
+    : TypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
+{
+    CorrespondingType = resource.createIntegerSubtype(name, subtype);
+}
+
+IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
+                                       IdentifierInfo *name, Location loc,
+                                       IntegerType *subtype,
+                                       Expr *lower, Expr *upper,
+                                       DeclRegion *parent)
+    : TypeDecl(AST_IntegerDecl, name, loc, parent)
+{
+    CorrespondingType =
+        resource.createIntegerSubtype(name, subtype, lower, upper);
 }
 
 //===----------------------------------------------------------------------===//

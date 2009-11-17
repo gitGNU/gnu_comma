@@ -92,6 +92,17 @@ public:
                                     std::pair<IdentifierInfo*, Location> *elems,
                                     unsigned numElems, DeclRegion *parent);
 
+    /// Creates a constrained enumeration subtype declaration node.
+    EnumSubtypeDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+                                           EnumerationType *subtype,
+                                           Expr *low, Expr *high,
+                                           DeclRegion *parent);
+
+    /// Creates an unconstrained enumeration subtype declaration node.
+    EnumSubtypeDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+                                           EnumerationType *subtype,
+                                           DeclRegion *parent);
+
     /// Returns an EnumerationType node.
     EnumerationType *createEnumType(EnumerationDecl *decl);
 
@@ -111,6 +122,19 @@ public:
     IntegerDecl *createIntegerDecl(IdentifierInfo *name, Location loc,
                                    Expr *lowRange, Expr *highRange,
                                    DeclRegion *parent);
+
+    /// Creates a constrained integer subtype declaration node.
+    IntegerSubtypeDecl *
+    createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                             IntegerType *subtype,
+                             Expr *lower, Expr *upper,
+                             DeclRegion *parent);
+
+    /// Creates an unconstrained integer subtype declaration node.
+    IntegerSubtypeDecl *
+    createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                             IntegerType *subtype,
+                             DeclRegion *parent);
 
     /// Returns an IntegerType node with the given static bounds.
     IntegerType *createIntegerType(IntegerDecl *decl,
@@ -203,8 +227,11 @@ public:
     IntegerDecl *getTheIntegerDecl() const { return theIntegerDecl; }
     IntegerType *getTheIntegerType() const;
 
-    IntegerType *getTheNaturalType() const { return theNaturalType; }
-    IntegerType *getThePositiveType() const { return thePositiveType; }
+    IntegerSubtypeDecl *getTheNaturalDecl() const { return theNaturalDecl; }
+    IntegerType *getTheNaturalType() const;
+
+    IntegerSubtypeDecl *getThePositiveDecl() const { return thePositiveDecl; }
+    IntegerType *getThePositiveType() const;
 
     ArrayDecl *getTheStringDecl() const { return theStringDecl; }
     ArrayType *getTheStringType() const;
@@ -223,14 +250,14 @@ private:
     llvm::FoldingSet<ProcedureType> procedureTypes;
 
     /// Subtype nodes corresponding to language defined types.
-    IntegerType *theNaturalType;
-    IntegerType *thePositiveType;
 
     /// Declaration nodes representing the language defined types.
     EnumerationDecl *theBooleanDecl;
     EnumerationDecl *theCharacterDecl;
     IntegerDecl *theRootIntegerDecl;
     IntegerDecl *theIntegerDecl;
+    IntegerSubtypeDecl *theNaturalDecl;
+    IntegerSubtypeDecl *thePositiveDecl;
     ArrayDecl *theStringDecl;
 
     /// \name Language Defined Type Initialization.

@@ -87,8 +87,12 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
         visitCarrierDecl(carrier);
     else if (EnumerationDecl *enumeration = dyn_cast<EnumerationDecl>(node))
         visitEnumerationDecl(enumeration);
+    else if (EnumSubtypeDecl *enumDecl = dyn_cast<EnumSubtypeDecl>(node))
+        visitEnumSubtypeDecl(enumDecl);
     else if (IntegerDecl *integer = dyn_cast<IntegerDecl>(node))
         visitIntegerDecl(integer);
+    else if (IntegerSubtypeDecl *integer = dyn_cast<IntegerSubtypeDecl>(node))
+        visitIntegerSubtypeDecl(integer);
     else if (ArrayDecl *array = dyn_cast<ArrayDecl>(node))
         visitArrayDecl(array);
     else
@@ -137,5 +141,7 @@ void DeclVisitor::visitParamValueDecl(ParamValueDecl *node) { }
 void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }
 void DeclVisitor::visitEnumLiteral(EnumLiteral *node) { }
 void DeclVisitor::visitEnumerationDecl(EnumerationDecl *node) { }
+void DeclVisitor::visitEnumSubtypeDecl(EnumSubtypeDecl *node) { }
 void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
+void DeclVisitor::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }

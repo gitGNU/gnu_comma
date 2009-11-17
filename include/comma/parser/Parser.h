@@ -96,6 +96,7 @@ public:
     Node parseAttribute(Node prefix);
 
     bool parseType();
+    bool parseSubtype();
     void parseEnumerationList();
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
 

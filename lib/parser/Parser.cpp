@@ -632,6 +632,10 @@ void Parser::parseWithProfile()
         case Lexer::TKN_TYPE:
             status = parseType();
             break;
+
+        case Lexer::TKN_SUBTYPE:
+            status = parseSubtype();
+            break;
         }
 
         if (!status)
@@ -698,6 +702,10 @@ void Parser::parseAddComponents()
 
         case Lexer::TKN_TYPE:
             parseType();
+            break;
+
+        case Lexer::TKN_SUBTYPE:
+            parseSubtype();
             break;
 
         case Lexer::TKN_PRAGMA:
@@ -1086,6 +1094,49 @@ bool Parser::parseType()
     return false;
 }
 
+bool Parser::parseSubtype()
+{
+    assert(currentTokenIs(Lexer::TKN_SUBTYPE));
+    ignoreToken();
+
+    Location loc = currentLocation();
+    IdentifierInfo *name = parseIdentifierInfo();
+
+    if (!name || !requireToken(Lexer::TKN_IS)) {
+        seekSemi();
+        return false;
+    }
+
+    Node subtype = parseName(false);
+
+    if (subtype.isInvalid()) {
+        seekSemi();
+        return false;
+    }
+
+    if (currentTokenIs(Lexer::TKN_SEMI)) {
+        client.acceptSubtypeDecl(name, loc, subtype);
+        return true;
+    }
+
+    // The only kind of subtype constraints we contend with at the moment are
+    // range constraints.
+    Node low = parseExpr();
+    if (low.isInvalid() or !requireToken(Lexer::TKN_DDOT)) {
+        seekSemi();
+        return false;
+    }
+
+    Node high = parseExpr();
+    if (high.isInvalid()) {
+        seekSemi();
+        return false;
+    }
+
+    client.acceptRangedSubtypeDecl(name, loc, subtype, low, high);
+    return true;
+}
+
 void Parser::parseEnumerationList()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
@@ -1135,7 +1186,7 @@ bool Parser::parseIntegerRange(IdentifierInfo *name, Location loc)
         return false;
     }
 
-    client.acceptIntegerTypedef(name, loc, low, high);
+    client.acceptIntegerTypeDecl(name, loc, low, high);
     return true;
 }
 

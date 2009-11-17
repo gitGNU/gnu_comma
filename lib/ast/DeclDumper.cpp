@@ -160,7 +160,17 @@ void DeclDumper::visitEnumerationDecl(EnumerationDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitEnumSubtypeDecl(EnumSubtypeDecl *node)
+{
+    printHeader(node) << '>';
+}
+
 void DeclDumper::visitIntegerDecl(IntegerDecl *node)
+{
+    printHeader(node) << '>';
+}
+
+void DeclDumper::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node)
 {
     printHeader(node) << '>';
 }

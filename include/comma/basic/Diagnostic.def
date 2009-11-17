@@ -215,3 +215,9 @@ DIAGNOSTIC(INVALID_CONTEXT_FOR_AGGREGATE, ERROR,
            "Invalid type context for aggregate expression.")
 DIAGNOSTIC(OTHERS_IN_UNCONSTRAINED_CONTEXT, ERROR,
            "\"others\" may not appear in an unconstrained type context.")
+DIAGNOSTIC(DOES_NOT_DENOTE_A_TYPE, ERROR,
+           "Expression does not denote a type.")
+DIAGNOSTIC(INVALID_SUBTYPE_INDICATION, ERROR,
+           "Invalid subtype indication.")
+DIAGNOSTIC(EXPECTED_DISCRETE_SUBTYPE, ERROR,
+           "Expected discrete subtype.")

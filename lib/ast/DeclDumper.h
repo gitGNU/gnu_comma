@@ -78,7 +78,9 @@ private:
     void visitObjectDecl(ObjectDecl *node);
     void visitEnumLiteral(EnumLiteral *node);
     void visitEnumerationDecl(EnumerationDecl *node);
+    void visitEnumSubtypeDecl(EnumSubtypeDecl *node);
     void visitIntegerDecl(IntegerDecl *node);
+    void visitIntegerSubtypeDecl(IntegerSubtypeDecl *node);
     void visitArrayDecl(ArrayDecl *node);
 };
 

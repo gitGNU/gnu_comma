@@ -41,8 +41,8 @@ public:
 
     //@{
     /// Returns the type of this range.  This is always a base scalar type.
-    IntegerType *getType();
-    const IntegerType *getType() const;
+    DiscreteType *getType();
+    const DiscreteType *getType() const;
     //@}
 
     //@{

@@ -78,7 +78,9 @@ public:
     virtual void visitObjectDecl(ObjectDecl *node);
     virtual void visitEnumLiteral(EnumLiteral *node);
     virtual void visitEnumerationDecl(EnumerationDecl *node);
+    virtual void visitEnumSubtypeDecl(EnumSubtypeDecl *node);
     virtual void visitIntegerDecl(IntegerDecl *node);
+    virtual void visitIntegerSubtypeDecl(IntegerSubtypeDecl *node);
     virtual void visitArrayDecl(ArrayDecl *node);
     ///@}
 };

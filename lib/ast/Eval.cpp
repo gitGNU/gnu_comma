@@ -130,11 +130,15 @@ bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
         const Expr *arg = *I;
         return staticIntegerUnaryValue(ID, arg, result);
     }
-    else {
+    else if (PO::denotesBinaryOp(ID)) {
         assert(expr->getNumArgs() == 2);
         const Expr *lhs = *I;
         const Expr *rhs = *(++I);
         return staticIntegerBinaryValue(ID, lhs, rhs, result);
+    }
+    else {
+        // All other primitives do not denote integer valued expressions.
+        return false;
     }
 }
 

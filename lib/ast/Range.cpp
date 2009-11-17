@@ -36,8 +36,9 @@ Range::Range(Expr *lower, Expr *upper)
     assert(lowerTy == upperTy && "Type mismatch in range bounds!");
     assert(lowerTy->isDiscreteType() && "Non discrete type of range!");
 
-    // Currently, the type must be an IntegerType.
-    IntegerType *rangeTy = cast<IntegerType>(lowerTy);
+    // FIXME: Currently, the type must be a discrete type.  We should allow any
+    // scalar type here.
+    DiscreteType *rangeTy = cast<DiscreteType>(lowerTy);
     unsigned width = rangeTy->getSize();
 
     // Try to evaluate the upper and lower bounds as static integer valued
@@ -55,26 +56,26 @@ Range::Range(Expr *lower, Expr *upper)
     }
 }
 
-IntegerType *Range::getType()
+DiscreteType *Range::getType()
 {
     Type *Ty = getLowerBound()->getType();
 
     if (PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
         Ty = primary->getRootType();
 
-    // Currently, all range types are integer types.
-    return cast<IntegerType>(Ty);
+    // Currently, all range types have a discrete type.
+    return cast<DiscreteType>(Ty);
 }
 
-const IntegerType *Range::getType() const
+const DiscreteType *Range::getType() const
 {
     const Type *Ty = getLowerBound()->getType();
 
     if (const PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
         Ty = primary->getRootType();
 
-    // Currently, all range types are integer types.
-    return cast<IntegerType>(Ty);
+    // Currently, all range types have a discrete type.
+    return cast<DiscreteType>(Ty);
 }
 
 bool Range::isNull() const

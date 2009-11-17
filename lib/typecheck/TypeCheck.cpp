@@ -59,6 +59,13 @@ void TypeCheck::populateInitialEnvironment()
     scope.addDirectDecl(theIntegerDecl);
     introduceImplicitDecls(theIntegerDecl);
 
+    // Positive and Natural are subtypes of Integer, and so do not export
+    // any additional declarations.
+    IntegerSubtypeDecl *thePositiveDecl = resource.getThePositiveDecl();
+    scope.addDirectDecl(thePositiveDecl);
+    IntegerSubtypeDecl *theNaturalDecl = resource.getTheNaturalDecl();
+    scope.addDirectDecl(theNaturalDecl);
+
     EnumerationDecl *theCharacterDecl = resource.getTheCharacterDecl();
     scope.addDirectDecl(theCharacterDecl);
     introduceImplicitDecls(theCharacterDecl);
@@ -736,14 +743,8 @@ void TypeCheck::endEnumeration()
     introduceImplicitDecls(decl);
 }
 
-/// Called to process integer type definitions.
-///
-/// For example, given a definition of the form <tt>type T is range X..Y;</tt>,
-/// this callback is invoked with \p name set to the identifier \c T, \p loc set
-/// to the location of \p name, \p low set to the expression \c X, and \p high
-/// set to the expression \c Y.
-void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
-                                     Node lowNode, Node highNode)
+void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
+                                      Node lowNode, Node highNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
     Expr *lowExpr = cast_node<Expr>(lowNode);
@@ -795,6 +796,126 @@ void TypeCheck::acceptIntegerTypedef(IdentifierInfo *name, Location loc,
     region->addDecl(decl);
     decl->generateImplicitDeclarations(resource);
     introduceImplicitDecls(decl);
+}
+
+void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
+                                        Node subtypeNode, Node lowNode, Node highNode)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+
+    TypeRef *tyRef = lift_node<TypeRef>(subtypeNode);
+    if (!tyRef) {
+        report(getNodeLoc(subtypeNode), diag::DOES_NOT_DENOTE_A_TYPE);
+        return;
+    }
+
+    TypeDecl *tyDecl = tyRef->getTypeDecl();
+    if (!tyDecl) {
+        report(tyRef->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return;
+    }
+
+    DiscreteType *baseTy = dyn_cast<DiscreteType>(tyDecl->getType());
+    if (!baseTy) {
+        report(tyRef->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return;
+    }
+
+    // Convert each of the constraints to the expressions and evaluate them in
+    // the context of the subtype indication.
+    Expr *lower = cast_node<Expr>(lowNode);
+    Expr *upper = cast_node<Expr>(highNode);
+
+    if (!checkExprInContext(lower, baseTy) ||
+        !checkExprInContext(upper, baseTy))
+        return;
+
+    // Construct the specific subtype declaration.
+    Decl *decl;
+
+    switch (baseTy->getKind()) {
+    default:
+        assert(false && "Unexpected discrete type!");
+        decl = 0;
+
+    case Ast::AST_IntegerType: {
+        IntegerType *intTy = cast<IntegerType>(baseTy);
+        decl = resource.createIntegerSubtypeDecl(
+            name, loc, intTy, lower, upper, region);
+        break;
+    }
+
+    case Ast::AST_EnumerationType: {
+        EnumerationType *enumTy = cast<EnumerationType>(baseTy);
+        decl = resource.createEnumSubtypeDecl(
+            name, loc, enumTy, lower, upper, region);
+        break;
+    }
+    }
+
+    subtypeNode.release();
+    lowNode.release();
+    highNode.release();
+
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
+    region->addDecl(decl);
+}
+
+void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
+                                  Node subtypeNode)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    TypeRef *subtype = lift_node<TypeRef>(subtypeNode);
+
+    if (!subtype) {
+        report(getNodeLoc(subtypeNode), diag::DOES_NOT_DENOTE_A_TYPE);
+        return;
+    }
+
+    /// FIXME: The only kind of unconstrained subtype declarations we currently
+    /// support are discrete subtypes.
+    DiscreteType *baseTy = 0;
+
+    if (TypeDecl *tyDecl = subtype->getTypeDecl()) {
+        baseTy = dyn_cast<DiscreteType>(tyDecl->getType());
+    }
+
+    if (!baseTy) {
+        report(subtype->getLocation(), diag::INVALID_SUBTYPE_INDICATION);
+        return;
+    }
+
+    Decl *decl = 0;
+
+    switch (baseTy->getKind()) {
+    default:
+        assert(false && "Unexpected subtype indication!");
+        break;
+
+    case Ast::AST_IntegerType: {
+        IntegerType *intTy = cast<IntegerType>(baseTy);
+        decl = resource.createIntegerSubtypeDecl(name, loc, intTy, region);
+        break;
+    }
+
+    case Ast::AST_EnumerationType : {
+        EnumerationType *enumTy = cast<EnumerationType>(baseTy);
+        decl = resource.createEnumSubtypeDecl(name, loc, enumTy, region);
+        break;
+    }
+    }
+
+    subtypeNode.release();
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
+    region->addDecl(decl);
 }
 
 //===----------------------------------------------------------------------===//
