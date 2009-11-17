@@ -333,7 +333,7 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     // If this is a function returning a composit type, mark it as using the
     // struct return calling convention.
     if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
-        Type *retTy = fDecl->getReturnType();
+        const Type *retTy = fDecl->getReturnType();
         if (retTy->isCompositeType())
             fn->addAttribute(1, llvm::Attribute::StructRet);
     }

@@ -1002,7 +1002,11 @@ public:
         return llvm::cast_or_null<FunctionDecl>(forward);
     }
 
-    Type *getReturnType() const { return getType()->getReturnType(); }
+    //@{
+    /// Provides the return type of this function.
+    const Type *getReturnType() const { return getType()->getReturnType(); }
+    Type *getReturnType() { return getType()->getReturnType(); }
+    //@}
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
@@ -1035,10 +1039,15 @@ public:
     /// Returns the index (or value) of this EnumLiteral.
     unsigned getIndex() const { return index; }
 
+    //@{
     /// Provides the return type of this EnumLiteral.
-    EnumerationType *getReturnType() const {
+    const EnumerationType *getReturnType() const {
         return llvm::cast<EnumerationType>(FunctionDecl::getReturnType());
     }
+    EnumerationType *getReturnType() {
+        return llvm::cast<EnumerationType>(FunctionDecl::getReturnType());
+    }
+    //@}
 
     //@{
     /// Returns the EnumerationDecl this literal belongs to.
