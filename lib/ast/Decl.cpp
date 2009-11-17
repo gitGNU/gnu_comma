@@ -846,11 +846,11 @@ IntegerDecl::IntegerDecl(AstResource &resource,
     llvm::APInt lowVal;
     llvm::APInt highVal;
 
-    assert(lower->isStaticIntegerExpr());
-    assert(upper->isStaticIntegerExpr());
+    assert(lower->isStaticDiscreteExpr());
+    assert(upper->isStaticDiscreteExpr());
 
-    lower->staticIntegerValue(lowVal);
-    upper->staticIntegerValue(highVal);
+    lower->staticDiscreteValue(lowVal);
+    upper->staticDiscreteValue(highVal);
 
     IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
     CorrespondingType =

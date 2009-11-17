@@ -487,7 +487,8 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
-    if (expr->staticIntegerValue(result))
+    if (isa<IntegerType>(expr->getType()) &&
+        expr->staticDiscreteValue(result))
         return true;
 
     report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);
@@ -496,7 +497,8 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr)
 {
-    if (expr->isStaticIntegerExpr())
+    if (isa<IntegerType>(expr->getType()) &&
+        expr->isStaticDiscreteExpr())
         return true;
 
     report(expr->getLocation(), diag::NON_STATIC_EXPRESSION);

@@ -46,12 +46,12 @@ ArrayBoundAE::ArrayBoundAE(AstKind kind,
       dimExpr(dimension)
 {
     assert(kind == AST_FirstArrayAE || kind == AST_LastArrayAE);
-    assert(dimension->isStaticIntegerExpr());
+    assert(dimension->isStaticDiscreteExpr());
 
     ArrayType *arrTy = cast<ArrayType>(prefix->getType());
 
     llvm::APInt dim;
-    dimension->staticIntegerValue(dim);
+    dimension->staticDiscreteValue(dim);
     assert(dim.getMinSignedBits() <= sizeof(unsigned)*8 &&
            "Cannot represent dimension!");
 

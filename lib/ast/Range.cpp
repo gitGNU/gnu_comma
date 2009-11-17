@@ -41,15 +41,15 @@ Range::Range(Expr *lower, Expr *upper)
     DiscreteType *rangeTy = cast<DiscreteType>(lowerTy);
     unsigned width = rangeTy->getSize();
 
-    // Try to evaluate the upper and lower bounds as static integer valued
+    // Try to evaluate the upper and lower bounds as static discrete
     // expressions.  Mark each bound as appropriate and convert the CTC to a
     // width that matches this ranges type.
-    if (lower->staticIntegerValue(lowerValue)) {
+    if (lower->staticDiscreteValue(lowerValue)) {
         markLowerAsStatic();
         assert(lowerValue.getMinSignedBits() <= width && "Bounds too wide!");
         lowerValue.sextOrTrunc(width);
     }
-    if (upper->staticIntegerValue(upperValue)) {
+    if (upper->staticDiscreteValue(upperValue)) {
         markUpperAsStatic();
         assert(upperValue.getMinSignedBits() <= width && "Bounds too wide!");
         upperValue.sextOrTrunc(width);

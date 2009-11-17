@@ -22,7 +22,7 @@ using llvm::isa;
 
 namespace {
 
-/// Attempts to evaluate a static integer-valued function call.
+/// Attempts to evaluate a static discrete valued function call.
 ///
 /// \param expr A function call expression.
 ///
@@ -30,10 +30,10 @@ namespace {
 /// computed value.
 ///
 /// \return True if \p expr was static and \p result was set. False otherwise.
-bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
-                                llvm::APInt &result);
+bool staticDiscreteFunctionValue(const FunctionCallExpr *expr,
+                                 llvm::APInt &result);
 
-/// Attempts to evaluate a static, unary, integer-valued function call.
+/// Attempts to evaluate a static, unary, discrete valued function call.
 ///
 /// \param ID The primitive unary operation to evaluate.
 ///
@@ -43,10 +43,10 @@ bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
 /// computed value.
 ///
 /// \return True if \p arg was static and \p result was set.  False otherwise.
-bool staticIntegerUnaryValue(PO::PrimitiveID ID,
+bool staticDiscreteUnaryValue(PO::PrimitiveID ID,
                              const Expr *expr, llvm::APInt &result);
 
-/// Attempts to evaluate a static, binary, integer-valued function call.
+/// Attempts to evaluate a static, binary, discrete valued function call.
 ///
 /// \param ID The primitive binary operation to evaluate.
 ///
@@ -58,17 +58,17 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID,
 /// to the computed value.
 ///
 /// \return True if the evaluation was successful.
-bool staticIntegerBinaryValue(PO::PrimitiveID ID,
-                              const Expr *x, const Expr *y,
-                              llvm::APInt &result);
+bool staticDiscreteBinaryValue(PO::PrimitiveID ID,
+                               const Expr *x, const Expr *y,
+                               llvm::APInt &result);
 
-/// Attempts to evaluate a static integer-valued attribute expression.
+/// Attempts to evaluate a static discrete valued attribute expression.
 ///
 /// \param expr The attribute to evaluate.
 ///
 /// \param result If \p expr was successfully exvaluated, \p result is set to
 /// the computed value.
-bool staticIntegerAttribExpr(const AttribExpr *expr, llvm::APInt &result);
+bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result);
 
 PO::PrimitiveID getCallPrimitive(const FunctionCallExpr *call)
 {
@@ -115,8 +115,8 @@ llvm::APInt exponentiate(llvm::APInt x, llvm::APInt y);
 //===----------------------------------------------------------------------===//
 // Implementations.
 
-bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
-                                llvm::APInt &result)
+bool staticDiscreteFunctionValue(const FunctionCallExpr *expr,
+                                 llvm::APInt &result)
 {
     PO::PrimitiveID ID = getCallPrimitive(expr);
 
@@ -128,26 +128,33 @@ bool staticIntegerFunctionValue(const FunctionCallExpr *expr,
     if (PO::denotesUnaryOp(ID)) {
         assert(expr->getNumArgs() == 1);
         const Expr *arg = *I;
-        return staticIntegerUnaryValue(ID, arg, result);
+        return staticDiscreteUnaryValue(ID, arg, result);
     }
     else if (PO::denotesBinaryOp(ID)) {
         assert(expr->getNumArgs() == 2);
         const Expr *lhs = *I;
         const Expr *rhs = *(++I);
-        return staticIntegerBinaryValue(ID, lhs, rhs, result);
+        return staticDiscreteBinaryValue(ID, lhs, rhs, result);
     }
-    else {
+    else if (ID == PO::ENUM_op) {
+        const EnumLiteral *lit = cast<EnumLiteral>(expr->getConnective());
+        const EnumerationType *enumTy = lit->getReturnType();
+        unsigned idx = lit->getIndex();
+        unsigned size = enumTy->getSize();
+        result = llvm::APInt(size, idx);
+        return true;
+    }
+    else
         // All other primitives do not denote integer valued expressions.
         return false;
-    }
 }
 
-bool staticIntegerBinaryValue(PO::PrimitiveID ID,
-                              const Expr *x, const Expr *y,
-                              llvm::APInt &result)
+bool staticDiscreteBinaryValue(PO::PrimitiveID ID,
+                               const Expr *x, const Expr *y,
+                               llvm::APInt &result)
 {
     llvm::APInt LHS, RHS;
-    if (!x->staticIntegerValue(LHS) || !y->staticIntegerValue(RHS))
+    if (!x->staticDiscreteValue(LHS) || !y->staticDiscreteValue(RHS))
         return false;
 
     switch (ID) {
@@ -174,10 +181,10 @@ bool staticIntegerBinaryValue(PO::PrimitiveID ID,
     return true;
 }
 
-bool staticIntegerUnaryValue(PO::PrimitiveID ID, const Expr *arg,
-                             llvm::APInt &result)
+bool staticDiscreteUnaryValue(PO::PrimitiveID ID, const Expr *arg,
+                              llvm::APInt &result)
 {
-    if (!arg->staticIntegerValue(result))
+    if (!arg->staticDiscreteValue(result))
         return false;
 
     // There are only two unary operations to consider.  Negation and the
@@ -195,7 +202,7 @@ bool staticIntegerUnaryValue(PO::PrimitiveID ID, const Expr *arg,
     return true;
 }
 
-bool staticIntegerAttribExpr(const AttribExpr *expr, llvm::APInt &result)
+bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result)
 {
     bool status = false;
 
@@ -307,7 +314,7 @@ llvm::APInt exponentiate(llvm::APInt x, llvm::APInt y)
 
 } // end anonymous namespace.
 
-bool Expr::staticIntegerValue(llvm::APInt &result) const
+bool Expr::staticDiscreteValue(llvm::APInt &result) const
 {
     if (const IntegerLiteral *ILit = dyn_cast<IntegerLiteral>(this)) {
         result = ILit->getValue();
@@ -315,21 +322,21 @@ bool Expr::staticIntegerValue(llvm::APInt &result) const
     }
 
     if (const FunctionCallExpr *FCall = dyn_cast<FunctionCallExpr>(this))
-        return staticIntegerFunctionValue(FCall, result);
+        return staticDiscreteFunctionValue(FCall, result);
 
     if (const ConversionExpr *CExpr = dyn_cast<ConversionExpr>(this))
-        return CExpr->getOperand()->staticIntegerValue(result);
+        return CExpr->getOperand()->staticDiscreteValue(result);
 
     if (const AttribExpr *AExpr = dyn_cast<AttribExpr>(this))
-        return staticIntegerAttribExpr(AExpr, result);
+        return staticDiscreteAttribExpr(AExpr, result);
 
     return false;
 }
 
-bool Expr::isStaticIntegerExpr() const
+bool Expr::isStaticDiscreteExpr() const
 {
     llvm::APInt tmp;
-    return staticIntegerValue(tmp);
+    return staticDiscreteValue(tmp);
 }
 
 bool Expr::staticStringValue(std::string &result) const

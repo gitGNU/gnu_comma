@@ -14,7 +14,6 @@
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace comma;
 
@@ -109,8 +108,7 @@ CodeGenTypes::lowerEnumType(const EnumerationType *type)
 {
     // Enumeration types are lowered to an integer type with sufficient capacity
     // to hold each element of the enumeration.
-    unsigned numBits = llvm::Log2_32_Ceil(type->getNumLiterals());
-    return getTypeForWidth(numBits);
+    return getTypeForWidth(type->getSize());
 }
 
 const llvm::FunctionType *

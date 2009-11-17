@@ -1035,6 +1035,12 @@ public:
     /// Returns the index (or value) of this EnumLiteral.
     unsigned getIndex() const { return index; }
 
+    /// Provides the return type of this EnumLiteral.
+    EnumerationType *getReturnType() const {
+        return llvm::cast<EnumerationType>(FunctionDecl::getReturnType());
+    }
+
+    //@{
     /// Returns the EnumerationDecl this literal belongs to.
     EnumerationDecl *getDeclRegion() {
         return llvm::cast<EnumerationDecl>(context);
@@ -1042,7 +1048,9 @@ public:
     const EnumerationDecl *getDeclRegion() const {
         return llvm::cast<EnumerationDecl>(context);
     }
+    //@}
 
+    // Support isa/dyn_cast.
     static bool classof(const EnumLiteral *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumLiteral;
@@ -1141,6 +1149,10 @@ public:
 
     // Returns the number of EnumLiteral's associated with this enumeration.
     unsigned getNumLiterals() const { return numLiterals; }
+
+    // Returns the minimum number of bits needed to represent elements of this
+    // enumeration.
+    unsigned genBitsNeeded() const;
 
     // Returns the literal with the given name, or null if no such literal is a
     // member of this enumeration.

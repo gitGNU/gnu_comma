@@ -589,7 +589,7 @@ protected:
         bits = kind;
     }
 
-    /// Returns the underlying enumeration declaration.
+    /// Returns the underlying enumeration declaration for this type.
     const EnumerationDecl *getDeclaration() const;
 
 public:
