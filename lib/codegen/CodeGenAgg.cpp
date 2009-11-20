@@ -128,11 +128,11 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
     BoundsEmitter emitter(*this);
 
-    if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr)) {
-        ArrPair result = emitArrayExpr(convert->getOperand(), dst, genTmp);
-        emitArrayConversion(convert, result.first, result.second);
-        return result;
-    }
+    if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
+        return emitArrayConversion(convert, dst, genTmp);
+
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+        return emitAggregate(agg, dst, genTmp);
 
     if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
         ArrPair pair = emitStringLiteral(lit);
@@ -148,8 +148,6 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
         if (!(bounds = SRF->lookup(decl, activation::Bounds)))
             bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
     }
-    else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
-        return emitAggregate(agg, dst, genTmp);
     else {
         assert(false && "Invalid type of array expr!");
         return ArrPair(0, 0);
@@ -222,9 +220,10 @@ CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
     return ArrPair(dst, bounds);
 }
 
-void CodeGenRoutine::emitArrayConversion(ConversionExpr *conver,
-                                         llvm::Value *components,
-                                         llvm::Value *bounds)
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
+                                    bool genTmp)
 {
     // FIXME: Implement.
+    return emitArrayExpr(convert->getOperand(), dst, genTmp);
 }

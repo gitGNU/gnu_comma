@@ -169,8 +169,8 @@ private:
     std::pair<llvm::Value*, llvm::Value*>
     emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);
 
-    void emitArrayConversion(ConversionExpr *convert,
-                             llvm::Value *components, llvm::Value *bounds);
+    std::pair<llvm::Value*, llvm::Value*>
+    emitArrayConversion(ConversionExpr *convert, llvm::Value *dst, bool genTmp);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
