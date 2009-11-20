@@ -52,16 +52,6 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
         Expr *retExpr = cast_node<Expr>(retNode);
         Type *targetType = fdecl->getReturnType();
 
-        // If the target type is an unconstrained array type, get a constrained
-        // subtype suitable for the return expression.
-        if (ArrayType *arrTy = dyn_cast<ArrayType>(targetType)) {
-            if (!arrTy->isConstrained()) {
-                targetType = getConstrainedArraySubtype(arrTy, retExpr);
-                if (!targetType)
-                    return getInvalidNode();
-            }
-        }
-
         if (checkExprInContext(retExpr, targetType)) {
             retNode.release();
             return getNode(new ReturnStmt(loc, retExpr));
