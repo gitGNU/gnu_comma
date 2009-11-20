@@ -797,25 +797,25 @@ public:
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
 
     SubroutineDecl *getDefiningDeclaration() {
-        if (!declarationLink.getInt())
+        if (declarationLink.getInt() == DEFINITION_TAG)
             return declarationLink.getPointer();
         return 0;
     }
 
     const SubroutineDecl *getDefiningDeclaration() const {
-        if (!declarationLink.getInt())
+        if (declarationLink.getInt() == DEFINITION_TAG)
             return declarationLink.getPointer();
         return 0;
     }
 
     SubroutineDecl *getForwardDeclaration() {
-        if (declarationLink.getInt())
+        if (declarationLink.getInt() == FORWARD_TAG)
             return declarationLink.getPointer();
         return 0;
     }
 
     const SubroutineDecl *getForwardDeclaration() const {
-        if (declarationLink.getInt())
+        if (declarationLink.getInt() == FORWARD_TAG)
             return declarationLink.getPointer();
         return 0;
     }
@@ -885,7 +885,14 @@ protected:
     unsigned numParameters;
     ParamValueDecl **parameters;
     BlockStmt *body;
-    llvm::PointerIntPair<SubroutineDecl*, 1> declarationLink;
+
+    /// Enumeration used to tag the declaration link.
+    enum DeclLinkTag {
+        FORWARD_TAG,            // Link points to a forward declaration.
+        DEFINITION_TAG          // Link points to a completion.
+    };
+
+    llvm::PointerIntPair<SubroutineDecl*, 1, DeclLinkTag> declarationLink;
     llvm::iplist<Pragma> pragmas;
 };
 

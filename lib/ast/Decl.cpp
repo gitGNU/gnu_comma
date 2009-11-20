@@ -372,7 +372,7 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       numParameters(numParams),
       parameters(0),
       body(0),
-      declarationLink(0, 0)
+      declarationLink(0, FORWARD_TAG)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -396,7 +396,7 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
       numParameters(type->getArity()),
       parameters(0),
       body(0),
-      declarationLink(0, 0)
+      declarationLink(0, FORWARD_TAG)
 {
     assert(this->denotesSubroutineDecl());
 
@@ -472,8 +472,9 @@ void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
     assert(routineDecl->declarationLink.getPointer() == 0);
 
     declarationLink.setPointer(routineDecl);
+    declarationLink.setInt(DEFINITION_TAG);
     routineDecl->declarationLink.setPointer(this);
-    routineDecl->declarationLink.setInt(1);
+    routineDecl->declarationLink.setInt(FORWARD_TAG);
 }
 
 bool SubroutineDecl::hasBody() const
