@@ -62,7 +62,7 @@ llvm::Value *BoundsEmitter::computeTotalBoundLength(llvm::IRBuilder<> &Builder,
 
     for (unsigned idx = 0; idx < numElts; ++idx) {
         llvm::Value *partial = computeBoundLength(Builder, bounds, idx);
-        Builder.CreateAdd(length, partial);
+        length = Builder.CreateAdd(length, partial);
     }
     return length;
 }
