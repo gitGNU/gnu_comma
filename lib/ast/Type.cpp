@@ -274,7 +274,9 @@ unsigned DiscreteType::getPreferredSize(uint64_t bits)
 {
     unsigned size;
 
-    if (bits <= 8)
+    if (bits <= 1)
+        size = 1;
+    else if (bits <= 8)
         size = 8;
     else if (bits <= 16)
         size = 16;
