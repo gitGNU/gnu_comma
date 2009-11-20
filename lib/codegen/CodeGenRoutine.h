@@ -172,6 +172,8 @@ private:
     std::pair<llvm::Value*, llvm::Value*>
     emitArrayConversion(ConversionExpr *convert, llvm::Value *dst, bool genTmp);
 
+    void emitArrayObjectDecl(ObjectDecl *objDecl);
+
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
