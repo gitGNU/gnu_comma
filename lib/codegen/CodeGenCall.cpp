@@ -280,27 +280,40 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(param)) {
         ArrayType *paramTy = cast<ArrayType>(param->getType());
 
-        // Only staticly constrained array types are delt with here.
-        assert(paramTy->isStaticallyConstrained());
+        if (paramTy->isStaticallyConstrained()) {
+            // First, allocate a temporary as a destination for the sret value.
+            const llvm::Type *loweredTy = CGT.lowerArrayType(paramTy);
+            llvm::Value *dst = CGR.getSRFrame()->createTemp(loweredTy);
 
-        // First, allocate a temporary as a destination for the sret value.
-        const llvm::Type *loweredTy = CGT.lowerArrayType(paramTy);
-        llvm::Value *dst = CGR.getSRFrame()->createTemp(loweredTy);
+            // Perform the function call and add the destination to the argument
+            // set.
+            CGR.emitCompositeCall(call, dst);
+            arguments.push_back(dst);
 
-        // Perform the function call and add the destination to the argument
-        // set.
-        CGR.emitCompositeCall(call, dst);
-        arguments.push_back(dst);
+            // If the target type is unconstrained, generate a second temporary
+            // stucture to represent the bounds.  Populate with constant values
+            // and form the call.
+            if (!targetTy->isConstrained()) {
+                BoundsEmitter emitter(CGR);
+                const llvm::Type *ty = emitter.getType(paramTy);
+                llvm::Value *bounds = CGR.getSRFrame()->createTemp(ty);
+                emitter.synthStaticArrayBounds(Builder, paramTy, bounds);
+                arguments.push_back(bounds);
+            }
+        }
+        else {
+            // We do not have dynamically constrained types yet.
+            assert(!paramTy->isConstrained());
 
-        // If the target type is unconstrained, generate a second temporary
-        // stucture to represent the bounds.  Populate with constant values and
-        // form the call.
-        if (!targetTy->isConstrained()) {
-            BoundsEmitter emitter(CGR);
-            const llvm::Type *ty = emitter.getType(paramTy);
-            llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(ty);
-            emitter.synthStaticArrayBounds(Builder, paramTy, boundsSlot);
-            arguments.push_back(boundsSlot);
+            // Simply emit the call using the vstack and pass the resulting
+            // temporaries to the
+            std::pair<llvm::Value*, llvm::Value*> arrPair =
+                CGR.emitVStackCall(call);
+
+            arguments.push_back(arrPair.first);
+
+            if (!targetTy->isConstrained())
+                arguments.push_back(arrPair.second);
         }
         return;
     }
