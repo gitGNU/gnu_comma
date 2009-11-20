@@ -43,8 +43,9 @@ void CodeGenCapsule::emit()
         typedef DeclRegion::DeclIter iterator;
         for (iterator I = add->beginDecls(); I != add->endDecls(); ++I) {
             if (SubroutineDecl *SR = dyn_cast<SubroutineDecl>(*I)) {
-                CodeGenRoutine CGR(*this);
-                CGR.emitSubroutine(SR);
+                SRInfo *info = CG.getSRInfo(getInstance(), SR);
+                CodeGenRoutine CGR(*this, info);
+                CGR.emit();
             }
         }
     }

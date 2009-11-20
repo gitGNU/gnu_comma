@@ -117,6 +117,10 @@ void CommaRT::generateRuntimeFunctions()
     defineRaiseException();
     define_pow_i32_i32();
     define_pow_i64_i32();
+    define_vstack();
+    define_vstack_alloc();
+    define_vstack_push();
+    define_vstack_pop();
 }
 
 // Builds a declaration in LLVM IR for the get_domain runtime function.
@@ -212,6 +216,44 @@ void CommaRT::define_pow_i64_i32()
     pow_i64_i32_Fn = CG.makeFunction(fnTy, pow_i64_i32_Name);
 }
 
+void CommaRT::define_vstack_alloc()
+{
+    // void _comma_vstack_alloc(int32_t);
+    std::vector<const llvm::Type*> args;
+    args.push_back(CG.getInt32Ty());
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(CG.getVoidTy(), args, false);
+    vstack_alloc_Fn = CG.makeFunction(fnTy, "_comma_vstack_alloc");
+}
+
+void CommaRT::define_vstack_push()
+{
+    // void _comma_vstack_push(char *, int32_t);
+    std::vector<const llvm::Type*> args;
+    args.push_back(CG.getInt8PtrTy());
+    args.push_back(CG.getInt32Ty());
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(CG.getVoidTy(), args, false);
+    vstack_push_Fn = CG.makeFunction(fnTy, "_comma_vstack_push");
+}
+
+void CommaRT::define_vstack_pop()
+{
+    // void _comma_vstack_pop();
+    std::vector<const llvm::Type*> args;
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(CG.getVoidTy(), args, false);
+    vstack_pop_Fn = CG.makeFunction(fnTy, "_comma_vstack_pop");
+}
+
+void CommaRT::define_vstack()
+{
+    vstack_Var =
+        new llvm::GlobalVariable(*CG.getModule(), CG.getInt8PtrTy(), true,
+                                 llvm::GlobalValue::ExternalLinkage,
+                                 0, "_comma_vstack");
+}
+
 llvm::GlobalVariable *CommaRT::registerCapsule(Domoid *domoid)
 {
     return DInfo->emit(domoid);
@@ -267,6 +309,33 @@ llvm::Value *CommaRT::pow_i64_i32(llvm::IRBuilder<> &builder,
                                   llvm::Value *x, llvm::Value *n) const
 {
     return builder.CreateCall2(pow_i64_i32_Fn, x, n);
+}
+
+void CommaRT::vstack_alloc(llvm::IRBuilder<> &builder, llvm::Value *size) const
+{
+    builder.CreateCall(vstack_alloc_Fn, size);
+}
+
+void CommaRT::vstack_push(llvm::IRBuilder<> &builder,
+                          llvm::Value *data, llvm::Value *size) const
+{
+    data = builder.CreatePointerCast(data, CG.getInt8PtrTy());
+    builder.CreateCall2(vstack_push_Fn, data, size);
+}
+
+void CommaRT::vstack_pop(llvm::IRBuilder<> &builder) const
+{
+    builder.CreateCall(vstack_pop_Fn);
+}
+
+llvm::Value *CommaRT::vstack(llvm::IRBuilder<> &builder,
+                             const llvm::Type *type) const
+{
+    // Always perform a volatile load of the vstack pointer as it is most often
+    // accessed between calls to _comma_vstack_pop.
+    const llvm::PointerType *ptrTy = cast<llvm::PointerType>(type);
+    llvm::Value *stack_data = builder.CreateLoad(vstack_Var, true);
+    return builder.CreatePointerCast(stack_data, ptrTy);
 }
 
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,

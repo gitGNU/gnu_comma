@@ -9,6 +9,7 @@
 #ifndef COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 
+#include "Frame.h"
 #include "comma/ast/AstBase.h"
 #include "comma/codegen/CodeGen.h"
 
@@ -33,37 +34,17 @@ class CodeGenRoutine {
     CodeGenTypes   &CGT;
     const CommaRT  &CRT;
 
+    // The info node for the subroutine we are emitting code for.
+    SRInfo *SRI;
+
     // Builder object used to construct LLVM IR.
     llvm::IRBuilder<> Builder;
 
-    // The info node for the subroutine we are emitting code for.
-    SRInfo *srInfo;
-
-    // The declaration node which is the completion of the current subroutine.
-    SubroutineDecl *srCompletion;
-
-    // The first (implicit) argument to this function (%).
-    llvm::Value *percent;
-
-    // The entry block for the subroutine.
-    llvm::BasicBlock *entryBB;
-
-    // The return block for the subroutine.
-    llvm::BasicBlock *returnBB;
-
-    // The return value for the subroutine, represented as an alloca'd stack
-    // slot.  If we generating a procedure, this member is null.
-    llvm::Value *returnValue;
-
-    // Map from Comma decl's to corresponding LLVM values.
-    typedef llvm::DenseMap<Decl *, llvm::Value *> DeclMap;
-    DeclMap declTable;
-
-    // Map from array objects to bound structures.
-    DeclMap boundTable;
+    // Frame encapsulating this functions IR.
+    SRFrame *SRF;
 
 public:
-    CodeGenRoutine(CodeGenCapsule &CGC);
+    CodeGenRoutine(CodeGenCapsule &CGC, SRInfo *info);
 
     /// Returns the associated code generator context.
     CodeGen &getCodeGen() { return CG; }
@@ -73,11 +54,17 @@ public:
 
     /// \brief Returns the SRInfo object corresponding to the subroutine being
     /// generated.
-    SRInfo *getSRInfo() { return srInfo; }
+    SRInfo *getSRInfo() { return SRI; }
 
-    llvm::Value *getImplicitContext() const { return percent; }
+    /// Returns the SRFrame object corresponding to the subroutine being
+    /// generated.
+    SRFrame *getSRFrame() { return SRF; }
 
-    void emitSubroutine(SubroutineDecl *srDecl);
+    llvm::Value *getImplicitContext() const {
+        return SRF->getImplicitContext();
+    }
+
+    void emit();
 
     llvm::Value *emitValue(Expr *expr);
     llvm::Value *emitVariableReference(Expr *expr);
@@ -85,9 +72,11 @@ public:
     emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
     llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
+
     void emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
 
-    llvm::Value *createTemp(const llvm::Type *type);
+    std::pair<llvm::Value*, llvm::Value*>
+    emitVStackCall(FunctionCallExpr *expr);
 
     /// Returns true if the given call is "direct", meaning that the domain of
     /// computation is staticly known.
@@ -100,23 +89,15 @@ public:
     /// Returns true if the given call is forgien.
     static bool isForeignCall(const SubroutineCall *call);
 
+    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
+                       ArrayType *arrTy);
+
+    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
+                       llvm::Value *length, const llvm::Type *componentTy);
+
 private:
     // Returns the llvm function we are generating code for.
     llvm::Function *getLLVMFunction() const;
-
-    // Emits the prologue for the current subroutine given a basic block
-    // representing the body of the function.
-    void emitPrologue(llvm::BasicBlock *body);
-
-    // Emits the epilogue for the current subroutine.
-    void emitEpilogue();
-
-    /// Given the current SubroutineDecl and llvm::Function, initialize
-    /// CodeGenRoutine::percent with the llvm value corresponding to the first
-    /// (implicit) argument.  Also, name the llvm arguments after the source
-    /// formals, and populate the lookup tables such that a search for a
-    /// parameter decl yields the corresponding llvm value.
-    void injectSubroutineArgs();
 
     /// Generates code for the current subroutines body.
     void emitSubroutineBody();
@@ -164,22 +145,6 @@ private:
     // Conversion emitters.
     llvm::Value *emitCheckedIntegerConversion(Expr *expr, IntegerType *target);
 
-    llvm::Value *lookupDecl(Decl *decl);
-
-    llvm::Value *emitScalarLoad(llvm::Value *ptr);
-
-    llvm::Value *getStackSlot(Decl *decl);
-
-    llvm::Value *createStackSlot(ObjectDecl *decl);
-
-    void associateStackSlot(Decl *decl, llvm::Value *value);
-
-    llvm::Value *lookupBounds(ValueDecl *decl);
-
-    llvm::Value *createBounds(ValueDecl *decl);
-
-    void associateBounds(ValueDecl *decl, llvm::Value *value);
-
     /// Emits a scalar range check.
     void emitScalarRangeCheck(llvm::Value *sourceVal,
                               IntegerType *sourceTy,
@@ -200,12 +165,6 @@ private:
 
     std::pair<llvm::Value*, llvm::Value*>
     emitStringLiteral(StringLiteral *expr);
-
-    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
-                       ArrayType *arrTy);
-
-    void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
-                       llvm::Value *bounds);
 
     std::pair<llvm::Value*, llvm::Value*>
     emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);

@@ -111,6 +111,26 @@ public:
                              llvm::Value *x, llvm::Value *n) const;
     //@}
 
+
+    /// Variable stack routines.
+    //@{
+    /// Allocates \p size bytes of uninitialized data onto the vstack
+    /// (accessable thru vstack()).
+    void vstack_alloc(llvm::IRBuilder<> &builder, llvm::Value *size) const;
+
+    /// Pushes \p size bytes from \p data onto the variable stack.
+    void vstack_push(llvm::IRBuilder<> &builder,
+                     llvm::Value *data, llvm::Value *size) const;
+
+    /// Pops the last item pushed from the variable stack.
+    void vstack_pop(llvm::IRBuilder<> &builder) const;
+
+    /// Returns a pointer to the most recent data pushed onto the variable
+    /// stack cast to the given type.
+    llvm::Value *vstack(llvm::IRBuilder<> &builder,
+                        const llvm::Type *ptrTy) const;
+    //@}
+
 private:
     CodeGen &CG;
 
@@ -145,6 +165,12 @@ private:
     llvm::Function *raiseExceptionFn;
     llvm::Function *pow_i32_i32_Fn;
     llvm::Function *pow_i64_i32_Fn;
+    llvm::Function *vstack_alloc_Fn;
+    llvm::Function *vstack_push_Fn;
+    llvm::Function *vstack_pop_Fn;
+
+    // Runtime global variables.
+    llvm::GlobalVariable *vstack_Var;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();
@@ -157,6 +183,10 @@ private:
     void defineRaiseException();
     void define_pow_i32_i32();
     void define_pow_i64_i32();
+    void define_vstack_alloc();
+    void define_vstack_push();
+    void define_vstack_pop();
+    void define_vstack();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
     void generateRuntimeTypes();

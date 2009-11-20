@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "BoundsEmitter.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -64,29 +65,57 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
 {
     if (!ret->hasReturnExpr()) {
-        // We should be emitting for a procedure.  Simply branch to the return
-        // block.
-        assert(returnValue == 0 && "Empty return from function!");
-        Builder.CreateBr(returnBB);
+        SRF->emitReturn();
         return;
     }
 
-    FunctionDecl *fdecl = cast<FunctionDecl>(srCompletion);
+    FunctionDecl *fdecl = cast<FunctionDecl>(SRI->getDeclaration());
     FunctionType *fTy = fdecl->getType();
     Type *targetTy = fTy->getReturnType();
     Expr *expr = ret->getReturnExpr();
+    llvm::Value *returnValue = SRF->getReturnValue();
 
     if (ArrayType *arrTy = dyn_cast<ArrayType>(targetTy)) {
-        // Currently, only statically constrained arrays are supported as return
-        // values.
-        assert(arrTy->isStaticallyConstrained());
+        if (arrTy->isConstrained()) {
+            // The return slot corresponds to an sret return parameter.
+            // Evaluate the return value into this slot.
+            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
+                emitCompositeCall(call, returnValue);
+            else
+                emitArrayExpr(expr, returnValue, false);
+        }
+        else {
+            // Unconstrained array types are returned via the vstack.
+            assert(returnValue == 0);
+            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr)) {
+                // Perform a "tail call" using the vstack.
+                emitSimpleCall(call);
+            }
+            else {
+                BoundsEmitter emitter(*this);
+                std::pair<llvm::Value*, llvm::Value*> arrayPair =
+                    emitArrayExpr(expr, 0, true);
+                // First push the data, then the bounds.  This allows the bounds
+                // to be accessed first by the callee and the size of the data
+                // computed before the data itself is retrieved.
+                llvm::Value *data = arrayPair.first;
+                llvm::Value *bounds = arrayPair.second;
+                llvm::Value *dataSize =
+                    emitter.computeTotalBoundLength(Builder, bounds);
+                llvm::Value *boundSize =
+                    llvm::ConstantExpr::getSizeOf(bounds->getType());
+                llvm::Value *boundSlot = SRF->createTemp(bounds->getType());
 
-        // The return slot corresponds to an sret return parameter.  Simply
-        // evaluate the return value into this slot.
-        if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
-            emitCompositeCall(call, returnValue);
-        else
-            emitArrayExpr(expr, returnValue, false);
+                // getSizeOf returns an i64 but vstack_push requires an i32.
+                boundSize = Builder.CreateTrunc(boundSize, CG.getInt32Ty());
+
+                // Store the expressions bounds into a the allocated slot.
+                Builder.CreateStore(bounds, boundSlot);
+
+                CRT.vstack_push(Builder, data, dataSize);
+                CRT.vstack_push(Builder, boundSlot, boundSize);
+            }
+        }
     }
     else {
         // Non-composite return values can be simply evaluated and stored into
@@ -96,7 +125,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
     }
 
     // Branch to the return block.
-    Builder.CreateBr(returnBB);
+    SRF->emitReturn();
 }
 
 void CodeGenRoutine::emitStmtSequence(StmtSequence *seq)
@@ -117,17 +146,9 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
     llvm::BasicBlock *BB = makeBasicBlock(label);
 
-    if (predecessor == 0) {
-        // If we are not supplied a predecessor, terminate the current
-        // insertion block with a direct branch to the new one.
-        predecessor = Builder.GetInsertBlock();
+    if (predecessor)
+        BB->moveAfter(predecessor);
 
-        assert(!predecessor->getTerminator() &&
-               "Current insertion block already terminated!");
-        Builder.CreateBr(BB);
-    }
-
-    BB->moveAfter(predecessor);
     Builder.SetInsertPoint(BB);
 
     // Generate any object declarations provided by this block, followed by the
@@ -200,7 +221,8 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 
         if (isa<ArrayType>(refTy)) {
             // Evaluate the rhs into the storage provided by the lhs.
-            llvm::Value *dst = lookupDecl(ref->getDeclaration());
+            llvm::Value *dst =
+                SRF->lookup(ref->getDeclaration(), activation::Slot);
             if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(rhs))
                 emitCompositeCall(call, dst);
             else

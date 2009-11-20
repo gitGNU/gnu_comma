@@ -68,6 +68,9 @@ public:
     /// Returns the LLVM Function implementing the subroutine.
     llvm::Function *getLLVMFunction() const { return llvmFn; }
 
+    /// Returns the LLVM Module this subroutine is defined/declared in.
+    llvm::Module *getLLVMModule() const { return llvmFn->getParent(); }
+
     /// Returns true if this info corresponds to a Comma function.
     bool isaFunction() const { return llvm::isa<FunctionDecl>(srDecl); }
 
@@ -77,6 +80,18 @@ public:
     /// \brief Returns true if this subroutine follows the structure return
     /// calling convention.
     bool hasSRet() const { return llvmFn->hasStructRetAttr(); }
+
+    /// \brief Returns true if this subroutine uses the vstack for its return
+    /// value(s).
+    bool usesVRet() const {
+        const FunctionDecl *fdecl;
+        if ((fdecl = llvm::dyn_cast<FunctionDecl>(getDeclaration()))) {
+            const Type *retTy = fdecl->getReturnType();
+            if (const ArrayType *arrTy = llvm::cast<ArrayType>(retTy))
+                return !arrTy->isConstrained();
+        }
+        return false;
+    }
 
     /// \brief Returns true if this subroutine is imported from an external
     /// library.

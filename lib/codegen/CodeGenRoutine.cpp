@@ -28,154 +28,50 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC)
+CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC, SRInfo *info)
     : CG(CGC.getCodeGen()),
       CGC(CGC),
       CGT(CGC.getTypeGenerator()),
       CRT(CG.getRuntime()),
+      SRI(info),
       Builder(CG.getLLVMContext()),
-      entryBB(0),
-      returnBB(0),
-      returnValue(0) { }
+      SRF(0) { }
 
-void CodeGenRoutine::emitSubroutine(SubroutineDecl *srDecl)
+void CodeGenRoutine::emit()
 {
-    // Remember the declaration we are processing.
-    srInfo = CG.getSRInfo(CGC.getInstance(), srDecl);
-
     // If this declaration is imported (pragma import as completion), we are
     // done.
-    if (srInfo->isImported())
+    if (SRI->isImported())
         return;
 
-    // Resolve the completion for this subroutine, if needed.
-    srCompletion = srDecl->getDefiningDeclaration();
-    if (!srCompletion)
-        srCompletion = srDecl;
-
-    injectSubroutineArgs();
+    // We need to codegen this subroutine.  Obtain a frame.
+    std::auto_ptr<SRFrame> SRFHandle(new SRFrame(SRI, Builder));
+    SRF = SRFHandle.get();
     emitSubroutineBody();
-    llvm::verifyFunction(*srInfo->getLLVMFunction());
+    llvm::verifyFunction(*SRI->getLLVMFunction());
 }
 
-/// Generates code for the current subroutines body.
 void CodeGenRoutine::emitSubroutineBody()
 {
-    // Create the return block.
-    returnBB = makeBasicBlock("return");
-
-    // Create the entry block and set it as the current insertion point for our
-    // IRBuilder.
-    entryBB = makeBasicBlock("entry", returnBB);
-    Builder.SetInsertPoint(entryBB);
-
-    // If we are generating a function which is using the struct return calling
-    // convention map the return value to the first parameter of this function.
-    // Otherwise allocate a stack slot for the return value.
-    if (srInfo->isaFunction()) {
-        llvm::Function *SRFn = getLLVMFunction();
-        if (srInfo->hasSRet())
-            returnValue = SRFn->arg_begin();
-        else
-            returnValue = Builder.CreateAlloca(SRFn->getReturnType());
-    }
+    // Resolve the completion for this subroutine, if needed.
+    SubroutineDecl *SRDecl = SRI->getDeclaration();
+    if (SRDecl->getDefiningDeclaration())
+        SRDecl = SRDecl->getDefiningDeclaration();
 
     // Codegen the function body.  If the resulting insertion context is not
     // properly terminated, create a branch to the return BB.
-    BlockStmt *body = srCompletion->getBody();
-    llvm::BasicBlock *bodyBB = emitBlockStmt(body, entryBB);
+    BlockStmt *body = SRDecl->getBody();
+    llvm::BasicBlock *bodyBB = emitBlockStmt(body, 0);
     if (!Builder.GetInsertBlock()->getTerminator())
-        Builder.CreateBr(returnBB);
+        SRF->emitReturn();
 
-    emitPrologue(bodyBB);
-    emitEpilogue();
-}
-
-/// Given the current SubroutineDecl and llvm::Function, initialize
-/// CodeGenRoutine::percent with the llvm value corresponding to the first
-/// (implicit) argument.  Also, name the llvm arguments after the source
-/// formals, and populate the lookup tables such that a search for a parameter
-/// decl yields the corresponding llvm value.
-void CodeGenRoutine::injectSubroutineArgs()
-{
-    llvm::Function *SRFn = getLLVMFunction();
-    llvm::Function::arg_iterator argI = SRFn->arg_begin();
-
-    // If this function uses the SRet convention, name the return argument.
-    if (srInfo->hasSRet()) {
-        argI->setName("return.arg");
-        ++argI;
-    }
-
-    // The next argument is the domain instance structure.  Name the arg
-    // "percent".
-    argI->setName("percent");
-    percent = argI++;
-
-    // For each formal argument, locate the corresponding llvm argument.  This
-    // is mostly a one-to-one mapping except when unconstrained arrays are
-    // present, in which case there are two arguments (one to the array and one
-    // to the bounds).
-    //
-    // Set the name of each argument to match the corresponding formal.
-    SubroutineDecl::const_param_iterator paramI = srCompletion->begin_params();
-    SubroutineDecl::const_param_iterator paramE = srCompletion->end_params();
-    for ( ; paramI != paramE; ++paramI, ++argI) {
-        ParamValueDecl *param = *paramI;
-        argI->setName(param->getString());
-        declTable[param] = argI;
-
-        if (ArrayType *arrTy = dyn_cast<ArrayType>(param->getType())) {
-            if (!arrTy->isConstrained()) {
-                ++argI;
-                std::string boundName(param->getString());
-                boundName += ".bounds";
-                argI->setName(boundName);
-                boundTable[param] = argI;
-            }
-        }
-    }
+    SRF->emitPrologue(bodyBB);
+    SRF->emitEpilogue();
 }
 
 llvm::Function *CodeGenRoutine::getLLVMFunction() const
 {
-    return srInfo->getLLVMFunction();
-}
-
-void CodeGenRoutine::emitPrologue(llvm::BasicBlock *bodyBB)
-{
-    // FIXME:  In the future, we will have accumulated much state about what the
-    // prologue should contain.  For now, just branch to the entry block for the
-    // body.
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
-    Builder.SetInsertPoint(entryBB);
-    Builder.CreateBr(bodyBB);
-    Builder.SetInsertPoint(savedBB);
-}
-
-void CodeGenRoutine::emitEpilogue()
-{
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
-    Builder.SetInsertPoint(returnBB);
-
-    if (returnValue && !srInfo->hasSRet()) {
-        llvm::Value *V = Builder.CreateLoad(returnValue);
-        Builder.CreateRet(V);
-    }
-    else
-        Builder.CreateRetVoid();
-    Builder.SetInsertPoint(savedBB);
-}
-
-llvm::Value *CodeGenRoutine::lookupDecl(Decl *decl)
-{
-    DeclMap::iterator iter = declTable.find(decl);
-
-    if (iter != declTable.end())
-        return iter->second;
-    return 0;
+    return SRI->getLLVMFunction();
 }
 
 bool CodeGenRoutine::isDirectCall(const SubroutineCall *call)
@@ -214,125 +110,67 @@ bool CodeGenRoutine::isForeignCall(const SubroutineCall *call)
 void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
     Type *objTy = objDecl->getType();
+    const llvm::Type *loweredTy = CGT.lowerType(objTy);
 
     if (ArrayType *arrTy = dyn_cast<ArrayType>(objTy)) {
         BoundsEmitter emitter(*this);
-        llvm::Value *bounds = createBounds(objDecl);
+        const llvm::Type *boundTy = CGT.lowerArrayBounds(arrTy);
+        llvm::Value *bounds = 0;
         llvm::Value *slot = 0;
 
         if (arrTy->isStaticallyConstrained())
-            slot = createStackSlot(objDecl);
+            slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
 
         if (objDecl->hasInitializer()) {
             Expr *init = objDecl->getInitializer();
             if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init)) {
-                // Only staticly constrained array types are delt with here.
-                assert(arrTy->isStaticallyConstrained());
+                if (arrTy->isStaticallyConstrained()) {
+                    // Perform the function call and add the destination to the
+                    // argument set.
+                    emitCompositeCall(call, slot);
 
-                // Perform the function call and add the destination to the
-                // argument set.
-                emitCompositeCall(call, slot);
-
-                // Synthesize bounds for this declaration.
-                emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+                    // Synthesize bounds for this declaration.
+                    bounds =
+                        SRF->createEntry(objDecl, activation::Bounds, boundTy);
+                    emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+                }
+                else {
+                    // FIXME: Checks are needed when the initializer is
+                    // unconstrained but the declaration is.  However, this
+                    // currently cannot happen, hence the assert.
+                    assert(slot == 0);
+                    std::pair<llvm::Value*, llvm::Value*> result;
+                    result = emitVStackCall(call);
+                    bounds = result.second;
+                    SRF->associate(objDecl, activation::Slot, result.first);
+                    SRF->associate(objDecl, activation::Bounds, bounds);
+                }
             }
             else {
                 std::pair<llvm::Value*, llvm::Value*> result;
                 result = emitArrayExpr(init, slot, true);
                 if (!slot)
-                    associateStackSlot(objDecl, result.first);
+                    SRF->associate(objDecl, activation::Slot, result.first);
+                if (!bounds)
+                    bounds =
+                        SRF->createEntry(objDecl, activation::Bounds, boundTy);
                 Builder.CreateStore(result.second, bounds);
             }
         }
-        else
+        else {
+            bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
             emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+        }
         return;
     }
 
     // Otherwise, this is a simple non-composite type.  Allocate a stack slot
     // and evaluate the initializer if present.
-    llvm::Value *slot = createStackSlot(objDecl);
+    llvm::Value *slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
     if (objDecl->hasInitializer()) {
         llvm::Value *value = emitValue(objDecl->getInitializer());
         Builder.CreateStore(value, slot);
     }
-}
-
-llvm::Value *CodeGenRoutine::emitScalarLoad(llvm::Value *ptr)
-{
-    return Builder.CreateLoad(ptr);
-}
-
-llvm::Value *CodeGenRoutine::getStackSlot(Decl *decl)
-{
-    // FIXME: We should be more precise.  Subroutine parameters, for example,
-    // are accessible via lookupDecl.  There is no way (ATM) to distinguish a
-    // parameter from a alloca'd local.  The lookup methods should provide finer
-    // grained resolution.
-    llvm::Value *stackSlot = lookupDecl(decl);
-    assert(stackSlot && "Lookup failed!");
-    return stackSlot;
-}
-
-llvm::Value *CodeGenRoutine::createStackSlot(ObjectDecl *decl)
-{
-    assert(lookupDecl(decl) == 0 &&
-           "Cannot create stack slot for preexisting decl!");
-
-    const llvm::Type *type = CGT.lowerType(decl->getType());
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
-    Builder.SetInsertPoint(entryBB);
-    llvm::Value *stackSlot = Builder.CreateAlloca(type);
-    declTable[decl] = stackSlot;
-    Builder.SetInsertPoint(savedBB);
-    return stackSlot;
-}
-
-llvm::Value *CodeGenRoutine::createTemp(const llvm::Type *type)
-{
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
-    Builder.SetInsertPoint(entryBB);
-    llvm::Value *stackSlot = Builder.CreateAlloca(type);
-    Builder.SetInsertPoint(savedBB);
-    return stackSlot;
-}
-
-void CodeGenRoutine::associateStackSlot(Decl *decl, llvm::Value *value)
-{
-    assert(!lookupDecl(decl) && "Decl already associated with a stack slot!");
-    declTable[decl] = value;
-}
-
-llvm::Value *CodeGenRoutine::lookupBounds(ValueDecl *decl)
-{
-    DeclMap::iterator iter = boundTable.find(decl);
-
-    if (iter != boundTable.end())
-        return iter->second;
-    return 0;
-}
-
-llvm::Value *CodeGenRoutine::createBounds(ValueDecl *decl)
-{
-    assert(!lookupBounds(decl) && "Decl already associated with bounds!");
-
-    ArrayType *arrTy = cast<ArrayType>(decl->getType());
-    const llvm::StructType *boundTy = CGT.lowerArrayBounds(arrTy);
-    llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
-    Builder.SetInsertPoint(entryBB);
-    llvm::Value *bounds = Builder.CreateAlloca(boundTy);
-    Builder.SetInsertPoint(savedBB);
-    associateBounds(decl, bounds);
-    return bounds;
-}
-
-void CodeGenRoutine::associateBounds(ValueDecl *decl, llvm::Value *value)
-{
-    assert(!lookupBounds(decl) && "Decl already associated with bounds!");
-    boundTable[decl] = value;
 }
 
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
@@ -347,13 +185,13 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
             PM::ParameterMode paramMode = pvDecl->getParameterMode();
             assert((paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
                    && "Cannot take reference to a parameter with mode IN!");
-            addr = lookupDecl(pvDecl);
+            addr = SRF->lookup(pvDecl, activation::Slot);
         }
         else {
             // Otherwise, we must have a local object declaration.  Simply
             // return the associated stack slot.
             ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
-            addr = getStackSlot(objDecl);
+            addr = SRF->lookup(objDecl, activation::Slot);
         }
         return addr;
     }

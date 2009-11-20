@@ -23,7 +23,7 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 {
     DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
     ValueDecl *refDecl = refExpr->getDeclaration();
-    llvm::Value *exprValue = lookupDecl(refDecl);
+    llvm::Value *exprValue = SRF->lookup(refDecl, activation::Slot);
 
     // If the expression is a composite type, just return the associated value.
     if (expr->getType()->isCompositeType())
@@ -44,7 +44,6 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
     // Otherwise, the given expression must reference an object declaration.
     // All such declarations have a alloca'd stack slot.  Load the value.
-    exprValue = getStackSlot(cast<ObjectDecl>(refDecl));
     return Builder.CreateLoad(exprValue);
 }
 
@@ -85,8 +84,9 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
 
     DeclRefExpr *arrRefExpr = expr->getArrayExpr();
     Expr *idxExpr = expr->getIndex(0);
-    llvm::Value *arrValue = lookupDecl(arrRefExpr->getDeclaration());
     llvm::Value *idxValue = emitValue(idxExpr);
+    llvm::Value *arrValue =
+        SRF->lookup(arrRefExpr->getDeclaration(), activation::Slot);
 
     ArrayType *arrType = cast<ArrayType>(arrRefExpr->getType());
 
@@ -107,7 +107,7 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
         // The array expression is unconstrained.  Lookup the bounds for the
         // array and adjust the index if needed.
         ValueDecl *decl = expr->getArrayExpr()->getDeclaration();
-        llvm::Value *boundSlot = lookupBounds(decl);
+        llvm::Value *boundSlot = SRF->lookup(decl, activation::Bounds);
         assert(boundSlot && "Could not retrieve array bounds!");
 
         // Grab the lower bound and subtract it from the index.
@@ -328,20 +328,17 @@ llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
             return emitScalarUpperBound(indexTy);
     }
 
-    // Unconstrained arrays come in two flavours:  As actual parameters to a
-    // subroutine or as the value of a function call.  We only cope with the
-    // first possibility ATM.
-    DeclRefExpr *ref;
-    ParamValueDecl *param;
+    // FIXME:  Only a DeclRefExpr prefix is supported for unconstrained arrays
+    // at the moment.
+    DeclRefExpr *ref = dyn_cast<DeclRefExpr>(AE->getPrefix());
 
-    ref = cast<DeclRefExpr>(AE->getPrefix());
-    param = dyn_cast_or_null<ParamValueDecl>(ref->getDeclaration());
-    if (!ref || !param) {
+    if (!ref) {
         assert(false && "Unconstrained array attribute not supported yet!");
         return 0;
     }
 
-    llvm::Value *bounds = lookupBounds(param);
+    llvm::Value *bounds = SRF->lookup(ref->getDeclaration(),
+                                      activation::Bounds);
     unsigned offset = AE->getDimension() * 2;
 
     // The bounds structure is organized as a set of low/high pairs.  Offset

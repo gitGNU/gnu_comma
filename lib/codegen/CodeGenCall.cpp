@@ -40,6 +40,9 @@ public:
 
     void emitCompositeCall(SubroutineCall *call, llvm::Value *dst);
 
+    std::pair<llvm::Value*, llvm::Value*>
+    emitVStackCall(FunctionCallExpr *call);
+
     void emitProcedureCall(ProcedureCallStmt *call);
 
 private:
@@ -175,6 +178,60 @@ void CallEmitter::emitCompositeCall(SubroutineCall *call, llvm::Value *dst)
     Builder.CreateCall(fn, arguments.begin(), arguments.end());
 }
 
+std::pair<llvm::Value*, llvm::Value*>
+CallEmitter::emitVStackCall(FunctionCallExpr *call)
+{
+    const CommaRT &CRT = CG.getRuntime();
+    SRCall = call;
+
+    // Prepare any implicit parameters and resolve the SRInfo corresponding to
+    // the call.
+    SRInfo *callInfo = prepareCall();
+
+    // Generate the actual arguments.
+    emitCallArguments();
+
+    // Synthesize the actual call instruction.
+    llvm::Function *fn = callInfo->getLLVMFunction();
+    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+
+    // Emit a temporary to hold the bounds.
+    ArrayType *arrTy = cast<ArrayType>(call->getType());
+    const llvm::Type *boundsTy = CGT.lowerArrayBounds(arrTy);
+    const llvm::Type *boundsPtrTy = CG.getPointerType(boundsTy);
+    llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(boundsTy);
+    llvm::Value *dataSlot;
+    llvm::Value *vstack;
+    llvm::Value *bounds;
+
+    // Cast the top of the vstack to the bounds type and store it in the
+    // temporary.  Pop the stack.
+    vstack = CRT.vstack(Builder, boundsPtrTy);
+    bounds = Builder.CreateLoad(vstack);
+    Builder.CreateStore(bounds, boundsSlot);
+    CRT.vstack_pop(Builder);
+
+    // Compute the length of the returned array, mark the frame as stacksave,
+    // and allocate a temporary slot for the result.
+    BoundsEmitter emitter(CGR);
+    CGR.getSRFrame()->stacksave();
+    const llvm::Type *componentTy = CGT.lowerType(arrTy->getComponentType());
+    llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
+    dataSlot = Builder.CreateAlloca(componentTy, length);
+
+    // Copy the vstack data into the temporary and pop the vstack.
+    vstack = CRT.vstack(Builder, CG.getInt8PtrTy());
+    CGR.emitArrayCopy(vstack, dataSlot, length, componentTy);
+    CRT.vstack_pop(Builder);
+
+    // Cast the data slot to a pointer to VLArray type.
+    const llvm::Type *dataTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+    dataSlot = Builder.CreatePointerCast(dataSlot, dataTy);
+
+    // Return the temps.
+    return std::pair<llvm::Value*, llvm::Value*>(dataSlot, boundsSlot);
+}
+
 void CallEmitter::emitProcedureCall(ProcedureCallStmt *call)
 {
     SRCall = call;
@@ -228,7 +285,7 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
 
         // First, allocate a temporary as a destination for the sret value.
         const llvm::Type *loweredTy = CGT.lowerArrayType(paramTy);
-        llvm::Value *dst = CGR.createTemp(loweredTy);
+        llvm::Value *dst = CGR.getSRFrame()->createTemp(loweredTy);
 
         // Perform the function call and add the destination to the argument
         // set.
@@ -240,7 +297,8 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
         // form the call.
         if (!targetTy->isConstrained()) {
             BoundsEmitter emitter(CGR);
-            llvm::Value *boundsSlot = CGR.createTemp(emitter.getType(paramTy));
+            const llvm::Type *ty = emitter.getType(paramTy);
+            llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(ty);
             emitter.synthStaticArrayBounds(Builder, paramTy, boundsSlot);
             arguments.push_back(boundsSlot);
         }
@@ -252,9 +310,9 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
     ArrPair pair = CGR.emitArrayExpr(param, 0, false);
     llvm::Value *components = pair.first;
 
-    if (targetTy->isConstrained()) {
-        // The target type is constrained.  We do not need to emit bounds for
-        // the argument in this case.  Simply pass the components.
+    if (targetTy->isStaticallyConstrained()) {
+        // The target type is statically constrained.  We do not need to emit
+        // bounds for the argument in this case.  Simply pass the components.
         arguments.push_back(components);
     }
     else {
@@ -272,7 +330,8 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
 
         // Pass the components plus the bounds.
         llvm::Value *bounds = pair.second;
-        llvm::Value *boundsSlot = CGR.createTemp(bounds->getType());
+        const llvm::Type *boundTy = bounds->getType();
+        llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(boundTy);
         Builder.CreateStore(bounds, boundsSlot);
         arguments.push_back(components);
         arguments.push_back(boundsSlot);
@@ -628,6 +687,13 @@ void CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
 {
     CallEmitter emitter(*this, Builder);
     emitter.emitCompositeCall(expr, dst);
+}
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitVStackCall(FunctionCallExpr *expr)
+{
+    CallEmitter emitter(*this, Builder);
+    return emitter.emitVStackCall(expr);
 }
 
 void CodeGenRoutine::emitProcedureCallStmt(ProcedureCallStmt *stmt)

@@ -117,14 +117,28 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     std::vector<const llvm::Type*> args;
     const llvm::Type *retTy = 0;
 
-    // If the return type is an aggregate, use the struct return calling
-    // convention.
+    // If the return type is a statically constrained aggregate, use the struct
+    // return calling convention.
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-        retTy = lowerType(fdecl->getReturnType());
-        if (isa<llvm::StructType>(retTy) || isa<llvm::ArrayType>(retTy)) {
-            args.push_back(CG.getPointerType(retTy));
-            retTy = CG.getVoidTy();
+        const ArrayType *arrTy = dyn_cast<ArrayType>(fdecl->getReturnType());
+        if (arrTy) {
+            if (arrTy->isConstrained()) {
+                const llvm::Type *sretTy;
+                sretTy = lowerArrayType(arrTy);
+                sretTy = CG.getPointerType(retTy);
+                args.push_back(sretTy);
+
+                // Sret convetion implies a void return type.
+                retTy = CG.getVoidTy();
+            }
+            else {
+                // Unconstrained array returns go thru the vstack.  Set the
+                // return type to void.
+                retTy = CG.getVoidTy();
+            }
         }
+        else
+            retTy = lowerType(fdecl->getReturnType());
     }
     else
         retTy = CG.getVoidTy();
@@ -153,7 +167,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
 
             args.push_back(loweredTy);
 
-            // If the array is unconstrained, generate an implicit second
+            // If the array is not constrained, generate an implicit second
             // argument for the bounds.
             if (!arrTy->isConstrained())
                 args.push_back(CG.getPointerType(lowerArrayBounds(arrTy)));

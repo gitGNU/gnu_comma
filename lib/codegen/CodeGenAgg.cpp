@@ -58,19 +58,14 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
 
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *destination,
-                                   llvm::Value *length)
+                                   llvm::Value *length,
+                                   const llvm::Type *componentTy)
 {
-    // Scale the length by the size of the component type of the arrays.
-    const llvm::SequentialType *seqTy;
-    const llvm::Type *compTy;
-    llvm::Value *compSize;
-    seqTy = cast<llvm::PointerType>(destination->getType());
-    seqTy = cast<llvm::ArrayType>(seqTy->getElementType());
-    compTy = seqTy->getElementType();
-    compSize = llvm::ConstantExpr::getSizeOf(compTy);
-
-    // The current convention is that array lengths are represented as i32's.
+    // Scale the length by the size of the component type of the arrays.  The
+    // current convention is that array lengths are represented as i32's.
     // Truncate the component size (an i64).
+    llvm::Value *compSize;
+    compSize = llvm::ConstantExpr::getSizeOf(componentTy);
     compSize = Builder.CreateTrunc(compSize, CG.getInt32Ty());
     length = Builder.CreateMul(length, compSize);
 
@@ -80,9 +75,9 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     llvm::Constant *align = llvm::ConstantInt::get(CG.getInt32Ty(), 1);
     llvm::Function *memcpy = CG.getMemcpy32();
 
-    seqTy = CG.getInt8PtrTy();
-    llvm::Value *src = Builder.CreatePointerCast(source, seqTy);
-    llvm::Value *dst = Builder.CreatePointerCast(destination, seqTy);
+    const llvm::Type *i8PtrTy = CG.getInt8PtrTy();
+    llvm::Value *src = Builder.CreatePointerCast(source, i8PtrTy);
+    llvm::Value *dst = Builder.CreatePointerCast(destination, i8PtrTy);
     Builder.CreateCall4(memcpy, dst, src, length, align);
 }
 
@@ -146,11 +141,11 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
-        components = lookupDecl(decl);
+        components = SRF->lookup(decl, activation::Slot);
 
         /// FIXME: Bounds lookup will fail when the decl is a ParamValueDecl of
-        /// unconstrained type.  A better API will replace this hack.
-        if (!(bounds = lookupBounds(decl)))
+        /// a statically constrained type.  A better API will replace this hack.
+        if (!(bounds = SRF->lookup(decl, activation::Bounds)))
             bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
     }
     else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
@@ -162,32 +157,31 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 
     // If dst is null build a stack allocated object to hold the components of
     // this array.
+    llvm::Value *length = 0;
+    const llvm::Type *componentTy = 0;
     if (dst == 0 && genTmp) {
-        llvm::BasicBlock *savedBB;
-        const llvm::Type *componentTy;
         const llvm::Type *dstTy;
-        llvm::Value *length;
-
-        savedBB = Builder.GetInsertBlock();
-        Builder.SetInsertPoint(entryBB);
-
         componentTy = CGT.lowerType(arrTy->getComponentType());
         dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+        SRF->stacksave();
 
         if (isa<llvm::PointerType>(bounds->getType()))
             bounds = Builder.CreateLoad(bounds);
+
         length = emitter.computeTotalBoundLength(Builder, bounds);
         dst = Builder.CreateAlloca(componentTy, length);
         dst = Builder.CreatePointerCast(dst, dstTy);
-        Builder.SetInsertPoint(savedBB);
     }
 
     // If a destination is available, fill it in with the associated array data.
     if (isa<llvm::PointerType>(bounds->getType()))
         bounds = Builder.CreateLoad(bounds);
     if (dst) {
-        llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
-        emitArrayCopy(components, dst, length);
+        if (length == 0)
+            length = emitter.computeTotalBoundLength(Builder, bounds);
+        if (componentTy == 0)
+            componentTy = CGT.lowerType(arrTy->getComponentType());
+        emitArrayCopy(components, dst, length, componentTy);
         return ArrPair(dst, bounds);
     }
     else
