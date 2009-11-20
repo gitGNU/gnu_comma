@@ -330,14 +330,14 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     std::string fnName = mangle::getLinkName(instance, srDecl);
     llvm::Function *fn = makeFunction(fnTy, fnName);
 
-    // If this is a function returning a composit type, mark it as using the
-    // struct return calling convention.
+    // If this is a function returning a constrained array type, mark it as
+    // using the struct return calling convention.
     if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
         const Type *retTy = fDecl->getReturnType();
-        if (retTy->isCompositeType())
-            fn->addAttribute(1, llvm::Attribute::StructRet);
+        if (const ArrayType *arrTy = dyn_cast<ArrayType>(retTy))
+            if (arrTy->isConstrained())
+                fn->addAttribute(1, llvm::Attribute::StructRet);
     }
-
     return fn;
 }
 
