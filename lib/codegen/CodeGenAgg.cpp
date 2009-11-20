@@ -237,45 +237,45 @@ void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)
     llvm::Value *bounds = 0;
     llvm::Value *slot = 0;
 
+    if (!objDecl->hasInitializer()) {
+        bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
+        emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+        return;
+    }
+
     if (arrTy->isStaticallyConstrained())
         slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
 
-    if (objDecl->hasInitializer()) {
-        Expr *init = objDecl->getInitializer();
-        if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init)) {
-            if (arrTy->isStaticallyConstrained()) {
-                // Perform the function call and add the destination to the
-                // argument set.
-                emitCompositeCall(call, slot);
+    Expr *init = objDecl->getInitializer();
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init)) {
+        if (arrTy->isStaticallyConstrained()) {
+            // Perform the function call and add the destination to the argument
+            // set.
+            emitCompositeCall(call, slot);
 
-                // Synthesize bounds for this declaration.
-                bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-                emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
-            }
-            else {
-                // FIXME: Checks are needed when the initializer is
-                // unconstrained but the declaration is.  However, this
-                // currently cannot happen, hence the assert.
-                assert(slot == 0);
-                std::pair<llvm::Value*, llvm::Value*> result;
-                result = emitVStackCall(call);
-                bounds = result.second;
-                SRF->associate(objDecl, activation::Slot, result.first);
-                SRF->associate(objDecl, activation::Bounds, bounds);
-            }
+            // Synthesize bounds for this declaration.
+            bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
+            emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
         }
         else {
+            // FIXME: Checks are needed when the initializer is unconstrained
+            // but the declaration is.  However, this currently cannot happen,
+            // hence the assert.
+            assert(slot == 0);
             std::pair<llvm::Value*, llvm::Value*> result;
-            result = emitArrayExpr(init, slot, true);
-            if (!slot)
-                SRF->associate(objDecl, activation::Slot, result.first);
-            if (!bounds)
-                bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-            Builder.CreateStore(result.second, bounds);
+            result = emitVStackCall(call);
+            bounds = result.second;
+            SRF->associate(objDecl, activation::Slot, result.first);
+            SRF->associate(objDecl, activation::Bounds, bounds);
         }
     }
     else {
-        bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-        emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+        std::pair<llvm::Value*, llvm::Value*> result;
+        result = emitArrayExpr(init, slot, true);
+        if (!slot)
+            SRF->associate(objDecl, activation::Slot, result.first);
+        if (!bounds)
+            bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
+        Builder.CreateStore(result.second, bounds);
     }
 }
