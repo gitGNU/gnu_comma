@@ -28,13 +28,24 @@ namespace attrib {
 /// UNKNOWN_ATTRIBUTE is a special marker which does not map to any attribute.
 enum AttributeID {
     UNKNOWN_ATTRIBUTE,
+
+    //
+    // Expression attributes.
+    //
     First,
-    Range,
     Last,
+
+    //
+    // Non-expression attributes.
+    //
+    Range,
 
     // Markers delimiting special attribute subgroups.
     FIRST_ATTRIB = First,
-    LAST_ATTRIB = Last
+    LAST_ATTRIB = Range,
+
+    FIRST_EXPR_ATTRIB = First,
+    LAST_EXPR_ATTRIB = Last
 };
 
 /// Marks all of the identifiers in the given pool with their associated
@@ -54,6 +65,11 @@ inline AttributeID getAttributeID(llvm::StringRef &name) {
 /// Returns a null terminated string naming the given attribute.
 /// UNKNOWN_ATTRBIUTE is not a valid ID in this case.
 const char *getAttributeString(AttributeID ID);
+
+/// Returns true if the given attribute ID can appear in an expression.
+inline bool isExprAttibute(AttributeID ID) {
+    return (FIRST_EXPR_ATTRIB <= ID) && (ID <= LAST_EXPR_ATTRIB);
+}
 
 } // end attrib namespace.
 

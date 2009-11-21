@@ -117,6 +117,14 @@ Node Parser::parseAttribute(Node prefix)
         report(loc, diag::UNKNOWN_ATTRIBUTE) << name;
         return getInvalidNode();
     }
+
+    /// Names can be parsed in a variety of contexts.  However, Range attributes
+    /// are a special case as there are special parse rules which consume them.
+    if (name->getAttributeID() == attrib::Range) {
+        report(loc, diag::INVALID_ATTRIBUTE_CONTEXT) << name;
+        return getInvalidNode();
+    }
+
     return client.acceptAttribute(prefix, name, loc);
 }
 
