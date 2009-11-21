@@ -75,6 +75,7 @@ public:
     Node parseAssignmentStmt();
     Node parseBlockStmt();
     Node parseWhileStmt();
+    Node parseForStmt();
     Node parsePragmaStmt();
 
     Node parseProcedureCallStatement();
@@ -88,12 +89,26 @@ public:
     Node parseIntegerLiteral();
     Node parseStringLiteral();
 
-    Node parseName(bool forStatement);
-    Node parseDirectName(bool forStatement);
-    Node parseSelectedComponent(Node prefix, bool forStatement);
+    /// The following enumeration is used to control how names are parsed.
+    enum NameOption {
+        /// Indicates that none of the following options apply.
+        No_Option,
+
+        /// Indicates that the name is to be used as a statement (i.e. a
+        /// procedure).
+        Statement_Name,
+
+        /// Indicates that Range attributes are valid (e.g. a the control in a
+        /// \c for statement.
+        Accept_Range_Attribute,
+    };
+
+    Node parseName(NameOption option = No_Option);
+    Node parseDirectName(NameOption option);
+    Node parseSelectedComponent(Node prefix, NameOption option);
     Node parseApplication(Node prefix);
     Node parseParameterAssociation();
-    Node parseAttribute(Node prefix);
+    Node parseAttribute(Node prefix, NameOption option);
 
     bool parseType();
     bool parseSubtype();

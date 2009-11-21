@@ -10,7 +10,7 @@
 
 using namespace comma;
 
-Node Parser::parseDirectName(bool forStatement)
+Node Parser::parseDirectName(NameOption option)
 {
     Location loc = currentLocation();
 
@@ -23,7 +23,7 @@ Node Parser::parseDirectName(bool forStatement)
     if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         IdentifierInfo *name = parseIdentifierInfo();
         if (name)
-            return client.acceptDirectName(name, loc, forStatement);
+            return client.acceptDirectName(name, loc, option);
     }
 
     if (reduceToken(Lexer::TKN_PERCENT))
@@ -34,13 +34,15 @@ Node Parser::parseDirectName(bool forStatement)
     return getInvalidNode();
 }
 
-Node Parser::parseSelectedComponent(Node prefix, bool forStatement)
+Node Parser::parseSelectedComponent(Node prefix, NameOption option)
 {
     Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifierOrCharacter();
 
-    if (name)
+    if (name) {
+        bool forStatement = (option == Statement_Name);
         return client.acceptSelectedComponent(prefix, name, loc, forStatement);
+    }
 
     seekNameEnd();
     return getInvalidNode();
@@ -108,7 +110,7 @@ Node Parser::parseParameterAssociation()
         return getInvalidNode();
 }
 
-Node Parser::parseAttribute(Node prefix)
+Node Parser::parseAttribute(Node prefix, NameOption option)
 {
     Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
@@ -120,7 +122,8 @@ Node Parser::parseAttribute(Node prefix)
 
     /// Names can be parsed in a variety of contexts.  However, Range attributes
     /// are a special case as there are special parse rules which consume them.
-    if (name->getAttributeID() == attrib::Range) {
+    if ((name->getAttributeID() == attrib::Range) &&
+        (option != Accept_Range_Attribute)) {
         report(loc, diag::INVALID_ATTRIBUTE_CONTEXT) << name;
         return getInvalidNode();
     }
@@ -128,12 +131,12 @@ Node Parser::parseAttribute(Node prefix)
     return client.acceptAttribute(prefix, name, loc);
 }
 
-Node Parser::parseName(bool forStatement)
+Node Parser::parseName(NameOption option)
 {
     Location loc = currentLocation();
 
     // All names start with a direct name.
-    Node prefix = parseDirectName(forStatement);
+    Node prefix = parseDirectName(option);
 
     if (prefix.isInvalid())
         return prefix;
@@ -144,12 +147,12 @@ Node Parser::parseName(bool forStatement)
         else if (reduceToken(Lexer::TKN_DOT)) {
             prefix = client.finishName(prefix);
             if (prefix.isValid())
-                prefix = parseSelectedComponent(prefix, forStatement);
+                prefix = parseSelectedComponent(prefix, option);
         }
         else if (reduceToken(Lexer::TKN_QUOTE)) {
             prefix = client.finishName(prefix);
             if (prefix.isValid())
-                prefix = parseAttribute(prefix);
+                prefix = parseAttribute(prefix, option);
         }
         else
             break;

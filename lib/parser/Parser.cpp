@@ -568,7 +568,7 @@ void Parser::parseGenericFormalDomain()
     }
 
     if (reduceToken(Lexer::TKN_IS)) {
-        Node sig = parseName(false);
+        Node sig = parseName();
         if (sig.isValid())
             client.acceptFormalDomain(name, loc, sig);
     }
@@ -598,7 +598,7 @@ void Parser::parseSupersignatureProfile()
     ignoreToken();
 
     do {
-        Node super = parseName(false);
+        Node super = parseName();
 
         if (super.isValid())
             client.acceptSupersignature(super);
@@ -664,7 +664,7 @@ void Parser::parseCarrier()
         return;
     }
 
-    Node type = parseName(false);
+    Node type = parseName();
 
     if (type.isInvalid()) {
         seekToken(Lexer::TKN_SEMI);
@@ -800,7 +800,7 @@ bool Parser::parseSubroutineParameter()
     if (!requireToken(Lexer::TKN_COLON)) return false;
 
     mode = parseParameterMode();
-    Node type = parseName(false);
+    Node type = parseName();
     if (type.isInvalid()) return false;
 
     client.acceptSubroutineParameter(formal, location, type, mode);
@@ -875,7 +875,7 @@ Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
 
     Node returnNode = getNullNode();
     if (reduceToken(Lexer::TKN_RETURN)) {
-        returnNode = parseName(false);
+        returnNode = parseName();
         if (returnNode.isInvalid()) {
             seekTokens(Lexer::TKN_SEMI, Lexer::TKN_IS);
             returnNode = getNullNode();
@@ -1029,7 +1029,7 @@ bool Parser::parseObjectDeclaration()
         return false;
     }
 
-    Node type = parseName(false);
+    Node type = parseName();
 
     if (type.isValid()) {
         Node init = getNullNode();
@@ -1049,7 +1049,7 @@ bool Parser::parseImportDeclaration()
     assert(currentTokenIs(Lexer::TKN_IMPORT));
     ignoreToken();
 
-    Node importedType = parseName(false);
+    Node importedType = parseName();
 
     if (importedType.isValid()) {
         client.acceptImportDeclaration(importedType);
@@ -1107,7 +1107,7 @@ bool Parser::parseSubtype()
         return false;
     }
 
-    Node subtype = parseName(false);
+    Node subtype = parseName();
 
     if (subtype.isInvalid()) {
         seekSemi();
@@ -1205,7 +1205,7 @@ void Parser::parseArrayIndexProfile()
     bool isConstrained = false; // True when we have seen a constrained index.
     do {
         Location loc = currentLocation();
-        Node index = parseName(false);
+        Node index = parseName();
         if (index.isInvalid())
             continue;
 
@@ -1262,7 +1262,7 @@ bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
         return false;
     }
 
-    Node component = parseName(false);
+    Node component = parseName();
     if (component.isValid()) {
         client.acceptArrayComponent(component);
         client.endArray();

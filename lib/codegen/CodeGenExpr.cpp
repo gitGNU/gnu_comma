@@ -25,6 +25,10 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
     ValueDecl *refDecl = refExpr->getDeclaration();
     llvm::Value *exprValue = SRF->lookup(refDecl, activation::Slot);
 
+    // LoopDecl's are always associated directly with their value.
+    if (isa<LoopDecl>(refDecl))
+        return exprValue;
+
     // If the expression is a composite type, just return the associated value.
     if (expr->getType()->isCompositeType())
         return exprValue;
@@ -36,14 +40,11 @@ llvm::Value *CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
         if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
             exprValue = Builder.CreateLoad(exprValue);
-        else
-            exprValue = exprValue;
-
         return exprValue;
     }
 
-    // Otherwise, the given expression must reference an object declaration.
-    // All such declarations have a alloca'd stack slot.  Load the value.
+    // Otherwise, the given expression must reference an object declaration
+    // (which are always alloca'd).  Load the value.
     return Builder.CreateLoad(exprValue);
 }
 

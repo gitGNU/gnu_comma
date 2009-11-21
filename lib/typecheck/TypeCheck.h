@@ -105,6 +105,10 @@ public:
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
+    Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
+                      Node control, bool isReversed);
+    Node endForStmt(Node forNode, NodeVector &bodyNodes);
+
     Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,

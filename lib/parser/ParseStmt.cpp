@@ -37,6 +37,10 @@ Node Parser::parseStatement()
         node = parseWhileStmt();
         break;
 
+    case Lexer::TKN_FOR:
+        node = parseForStmt();
+        break;
+
     case Lexer::TKN_RETURN:
         node = parseReturnStmt();
         break;
@@ -54,7 +58,7 @@ Node Parser::parseStatement()
 
 Node Parser::parseProcedureCallStatement()
 {
-    Node name = parseName(true);
+    Node name = parseName(Statement_Name);
     if (name.isValid())
         return client.acceptProcedureCall(name);
     return getInvalidNode();
@@ -80,7 +84,7 @@ Node Parser::parseAssignmentStmt()
 {
     assert(assignmentFollows());
 
-    Node target = parseName(false);
+    Node target = parseName();
 
     if (target.isInvalid())
         return getInvalidNode();
@@ -225,13 +229,55 @@ Node Parser::parseWhileStmt()
         Node stmt = parseStatement();
         if (stmt.isValid())
             stmts.push_back(stmt);
-    } while (!currentTokenIs(Lexer::TKN_END) and
+    } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!requireToken(Lexer::TKN_END) or !requireToken(Lexer::TKN_LOOP))
+    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
         return getInvalidNode();
 
     return client.acceptWhileStmt(loc, condition, stmts);
+}
+
+Node Parser::parseForStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_FOR));
+    Location forLoc = ignoreToken();
+
+    Location iterLoc = currentLocation();
+    IdentifierInfo *iterName = parseIdentifierInfo();
+
+    if (!iterName || !requireToken(Lexer::TKN_IN)) {
+        seekEndLoop();
+        return getInvalidNode();
+    }
+
+    bool isReversed = reduceToken(Lexer::TKN_REVERSE);
+    Node control = parseName(Accept_Range_Attribute);
+
+    if (control.isInvalid() || !requireToken(Lexer::TKN_LOOP)) {
+        seekEndLoop();
+        return getInvalidNode();
+    }
+
+    NodeVector stmts;
+    Node forNode = client.beginForStmt(forLoc, iterName, iterLoc,
+                                       control, isReversed);
+    do {
+        Node stmt = parseStatement();
+        if (stmt.isValid())
+            stmts.push_back(stmt);
+    } while (!currentTokenIs(Lexer::TKN_END) &&
+             !currentTokenIs(Lexer::TKN_EOT));
+
+    // Provide the client with the complete set of statements immediately since
+    // we must match the call to beginForStmt with the following call to
+    // endForStmt;
+    forNode = client.endForStmt(forNode, stmts);
+
+    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
+        return getInvalidNode();
+
+    return forNode;
 }
 
 Node Parser::parsePragmaStmt()

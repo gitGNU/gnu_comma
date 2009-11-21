@@ -12,7 +12,7 @@
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Pragma.h"
-#include "comma/ast/Qualifier.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/Type.h"
 
@@ -236,6 +236,65 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
     conditionNode.release();
     stmtNodes.release();
     return getNode(new WhileStmt(loc, condition, body));
+}
+
+Node TypeCheck::beginForStmt(Location loc,
+                             IdentifierInfo *iterName, Location iterLoc,
+                             Node control, bool isReversed)
+{
+    // FIXME: Only range attributes are currently supported as loop control.
+    RangeAttrib *attrib = lift_node<RangeAttrib>(control);
+
+    if (!attrib) {
+        report(getNodeLoc(control), diag::INVALID_FOR_LOOP_CONTROL);
+        return getInvalidNode();
+    }
+
+    // FIXME: Generalize to scalar types.
+    DiscreteType *iterTy = attrib->getType();
+    LoopDecl *iter = new LoopDecl(iterName, iterTy, iterLoc);
+    ForStmt *loop = new ForStmt(loc, iter, attrib);
+
+    if (isReversed)
+        loop->markAsReversed();
+
+    // Push a scope for the for loop and then add the loop parameter.
+    scope.push();
+    scope.addDirectDecl(iter);
+    control.release();
+    return getNode(loop);
+}
+
+Node TypeCheck::endForStmt(Node forNode, NodeVector &bodyNodes)
+{
+    // Pop the scope we entered for this loop.
+    scope.pop();
+
+    // The parser _always_ gives us the node we provided in the call to
+    // beginForStmt.  This is one of only times when the parser might pass us an
+    // invalid node.
+    if (forNode.isInvalid())
+        return getInvalidNode();
+
+    // It is possible that the body is empty due to parse/semantic errors.  Do
+    // not construct empty for loops.
+    if (bodyNodes.empty())
+        return getInvalidNode();
+
+    // There is nothing to do but embed the body statements into the for loop.
+    bodyNodes.release();
+    ForStmt *loop = cast_node<ForStmt>(forNode);
+    StmtSequence *body = loop->getBody();
+
+    NodeVector::iterator I = bodyNodes.begin();
+    NodeVector::iterator E = bodyNodes.end();
+    for ( ; I != E; ++I) {
+        Stmt *S = cast_node<Stmt>(*I);
+        body->addStmt(S);
+    }
+
+    // Just reuse the given forNode as it now references the updated AST.
+    return forNode;
 }
 
 Node TypeCheck::acceptPragmaStmt(IdentifierInfo *name, Location loc,

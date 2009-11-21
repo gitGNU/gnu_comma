@@ -223,3 +223,5 @@ DIAGNOSTIC(INVALID_SUBTYPE_INDICATION, ERROR,
            "Invalid subtype indication.")
 DIAGNOSTIC(EXPECTED_DISCRETE_SUBTYPE, ERROR,
            "Expected discrete subtype.")
+DIAGNOSTIC(INVALID_FOR_LOOP_CONTROL, ERROR,
+           "Invalid loop control.  A discrete type or range is required.")

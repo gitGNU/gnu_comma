@@ -13,6 +13,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 
 using namespace comma;
@@ -50,6 +51,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 
     case Ast::AST_WhileStmt:
         emitWhileStmt(cast<WhileStmt>(stmt));
+        break;
+
+    case Ast::AST_ForStmt:
+        emitForStmt(cast<ForStmt>(stmt));
         break;
 
     case Ast::AST_ReturnStmt:
@@ -272,6 +277,108 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
         Builder.CreateBr(entryBB);
 
     // Finally, set mergeBB the current insertion point.
+    Builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenRoutine::emitForStmt(ForStmt *loop)
+{
+    const llvm::Type *iterTy;   // Type of the iteration variable and bound.
+    llvm::Value *iter;          // Iteration variable for the loop.
+    llvm::Value *sentinal;      // Iteration bound.
+
+    // FIXME: Currently, only range attributes are supported as the loop
+    // control.
+    RangeAttrib *control = cast<RangeAttrib>(loop->getControl());
+
+    iterTy = CGT.lowerType(control->getType());
+
+    // FIXME: We should have an AttributeEmitter.  For now, just inline the
+    // logic here.
+    typedef std::pair<llvm::Value*, llvm::Value*> ValuePair;
+    BoundsEmitter emitter(*this);
+    if (ArrayRangeAttrib *attrib = dyn_cast<ArrayRangeAttrib>(control)) {
+        ValuePair arrayPair = emitArrayExpr(attrib->getPrefix(), 0, false);
+        ValuePair boundPair = emitter.getBounds(Builder, arrayPair.second, 0);
+        iter = boundPair.first;
+        sentinal = boundPair.second;
+    }
+    else {
+        // FIXME: This evaluation is wrong.  All types should be elaborated and
+        // the range information accessible.  The following is effectively a
+        // "re-elaboration" of the prefix type.
+        ScalarRangeAttrib *attrib = cast<ScalarRangeAttrib>(control);
+        DiscreteType *attribTy = attrib->getType();
+        ValuePair boundPair = emitter.getScalarBounds(Builder, attribTy);
+        iter = boundPair.first;
+        sentinal = boundPair.second;
+    }
+
+    // If the loop is reversed, exchange the iteration variable and bound.
+    if (loop->isReversed())
+        std::swap(iter, sentinal);
+
+    // We have the initial value for the iteration variable and the bound for
+    // the iteration.  Emit an entry, iterate, body, and merge block for the
+    // loop.
+    llvm::BasicBlock *dominatorBB = Builder.GetInsertBlock();
+    llvm::BasicBlock *entryBB = makeBasicBlock("for.top");
+    llvm::BasicBlock *iterBB = makeBasicBlock("for.iter");
+    llvm::BasicBlock *bodyBB = makeBasicBlock("for.body");
+    llvm::BasicBlock *mergeBB = makeBasicBlock("for.merge");
+    llvm::Value *pred;
+    llvm::Value *iterSlot;
+    llvm::Value *next;
+    llvm::PHINode *phi;
+
+    // First, allocate a temporary to hold the iteration variable and
+    // initialize.
+    iterSlot = SRF->createTemp(iterTy);
+    Builder.CreateStore(iter, iterSlot);
+
+    // First, check if the iteration variable is outside the bound, respecting
+    // the direction of the iteration.  This condition arrises when we have a
+    // null range.  When the range is non-null the iteration variable is valid
+    // for at least one loop, hense the branch directly into the body.
+    if (loop->isReversed())
+        pred = Builder.CreateICmpSLT(iter, sentinal);
+    else
+        pred = Builder.CreateICmpSGT(iter, sentinal);
+    Builder.CreateCondBr(pred, mergeBB, bodyBB);
+
+    // Emit the iteration test.  Since the body has been executed once, a test
+    // for equality between the iteration variable and sentinal determines loop
+    // termination.  If the iteration continues, we branch to iterBB and
+    // increment the iteration variable for the next pass thru the body.  Note
+    // too that we must load the iteration value from its slot to pick up its
+    // adjusted value.
+    Builder.SetInsertPoint(entryBB);
+    next = Builder.CreateLoad(iterSlot);
+    pred = Builder.CreateICmpEQ(next, sentinal);
+    Builder.CreateCondBr(pred, mergeBB, iterBB);
+
+    // Adjust the iteration variable respecting the iteration direction.
+    Builder.SetInsertPoint(iterBB);
+    if (loop->isReversed())
+        next = Builder.CreateSub(next, llvm::ConstantInt::get(iterTy, 1));
+    else
+        next = Builder.CreateAdd(next, llvm::ConstantInt::get(iterTy, 1));
+    Builder.CreateStore(next, iterSlot);
+    Builder.CreateBr(bodyBB);
+
+    // Emit the body of the loop and terminate the resulting insertion point
+    // with a branch to the entry block.
+    //
+    // FIXME: Once nested frames are available, the iteration binding should be
+    // scoped.
+    Builder.SetInsertPoint(bodyBB);
+    phi = Builder.CreatePHI(iterTy, "loop.param");
+    phi->addIncoming(iter, dominatorBB);
+    phi->addIncoming(next, iterBB);
+    SRF->associate(loop->getLoopDecl(), activation::Slot, phi);
+    emitStmtSequence(loop->getBody());
+    Builder.CreateBr(entryBB);
+
+    // Finally, set the insertion point to the mergeBB.
     Builder.SetInsertPoint(mergeBB);
 }
 

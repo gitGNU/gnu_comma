@@ -111,6 +111,7 @@ private:
     void emitProcedureCallStmt(ProcedureCallStmt *stmt);
     void emitAssignmentStmt(AssignmentStmt *stmt);
     void emitWhileStmt(WhileStmt *stmt);
+    void emitForStmt(ForStmt *stmt);
     void emitPragmaStmt(PragmaStmt *stmt);
 
     /// Generates code for the given BlockStmt.

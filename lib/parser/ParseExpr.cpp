@@ -257,7 +257,7 @@ Node Parser::parsePrimaryExpr()
     switch (currentTokenCode()) {
 
     default:
-        return parseName(false);
+        return parseName();
 
     case Lexer::TKN_LPAREN:
         return parseParenExpr();

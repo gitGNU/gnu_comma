@@ -150,7 +150,7 @@ RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
         // attempt to resolve it wrt a Type::Classification of CLASS_Array.
         assert(expr->hasType() && "Cannot resolve array prefix yet!");
 
-        if (!isa<ArrayType>(expr)) {
+        if (!isa<ArrayType>(expr->getType())) {
             report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
             return 0;
         }

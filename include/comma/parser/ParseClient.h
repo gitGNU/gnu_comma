@@ -401,6 +401,45 @@ public:
     virtual Node endAggregate() = 0;
     //@}
 
+
+    /// \name For Statement Callbacks.
+    ///
+    /// A \c for statement is introduced to the client with a call to
+    /// beginForStmt().  The parser processes each statement in the loop body
+    /// and terminates the construct with a call to endForStmt().
+    //@{
+
+    /// Begins a \c for statement.
+    ///
+    /// \param loc Location of the \c for reserved word.
+    ///
+    /// \param iterName Defining identifier for the loop parameter.
+    ///
+    /// \param iterLoc Location of \p iterName.
+    ///
+    /// \param control A node representing the subtype definition, range, or
+    /// range attribute controlling this loop.
+    ///
+    /// \param isReversed Set to true when the \c reverse reserved word was
+    /// present in the loop specification.
+    ///
+    /// \return A node representing the \c for loop being processed.  The
+    /// returned value is supplied to the corresponding endForStmt() call.
+    virtual Node beginForStmt(Location loc,
+                              IdentifierInfo *iterName, Location iterLoc,
+                              Node control, bool isReversed) = 0;
+
+    /// Terminates a \c for statement.
+    ///
+    /// \param forNode The Node returned by the previous call to beginForStmt().
+    ///
+    /// \param bodyNodes A vector of nodes corresponding to each statement in
+    /// the loop body.
+    ///
+    /// \return A node representing the completed \c for stmt.
+    virtual Node endForStmt(Node forNode, NodeVector &bodyNodes) = 0;
+    //@}
+
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;
 
