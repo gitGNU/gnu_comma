@@ -292,6 +292,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_GENERIC;
         else if (strncmp(str, "subtype", length) == 0)
             code = TKN_SUBTYPE;
+        else if (strncmp(str, "reverse", length) == 0)
+            code = TKN_REVERSE;
         break;
 
     case 8:
