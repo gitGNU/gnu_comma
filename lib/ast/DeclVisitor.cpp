@@ -35,6 +35,8 @@ void DeclVisitor::visitDecl(Decl *node)
         visitTypeDecl(typed);
     else if (SigInstanceDecl *instance = dyn_cast<SigInstanceDecl>(node))
         visitSigInstanceDecl(instance);
+    else if (ValueDecl *value = dyn_cast<ValueDecl>(node))
+        visitValueDecl(value);
     else
         assert(false && "Cannot visit this kind of node!");
 }
