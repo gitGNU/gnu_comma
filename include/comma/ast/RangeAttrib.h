@@ -32,6 +32,12 @@ public:
     /// Returns the location of this attribute.
     Location getLocation() const { return loc; }
 
+    //@{
+    /// Returns the type of this range attribute.
+    virtual const DiscreteType *getType() const = 0;
+    virtual DiscreteType *getType() = 0;
+    //@}
+
     // Support isa/dyn_cast.
     static bool classof(const RangeAttrib *node) { return true; }
     static bool classof(const Ast *node) {
@@ -108,6 +114,19 @@ public:
     /// Returns the zero based dimension associated with this attribute.
     unsigned getDimension() const { return dimValue; }
 
+    //@{
+    /// Returns the type of this range attribute.
+    const DiscreteType *getType() const {
+        const ArrayType *arrTy = llvm::cast<ArrayType>(getPrefix()->getType());
+        return arrTy->getIndexType(dimValue);
+    };
+
+    DiscreteType *getType() {
+        ArrayType *arrTy = llvm::cast<ArrayType>(getPrefix()->getType());
+        return arrTy->getIndexType(dimValue);
+    }
+    //@}
+
     // Support isa/dyn_cast.
     static bool classof(const ArrayRangeAttrib *node) { return true; }
     static bool classof(const Ast *node) {
@@ -142,6 +161,12 @@ public:
     DiscreteType *getPrefix() {
         return llvm::cast<DiscreteType>(RangeAttrib::getPrefix());
     }
+    //@}
+
+    //@{
+    /// Returns the type of this range attribute.
+    const DiscreteType *getType() const { return getPrefix(); }
+    DiscreteType *getType() { return getPrefix(); }
     //@}
 
     // Support isa/dyn_cast.
