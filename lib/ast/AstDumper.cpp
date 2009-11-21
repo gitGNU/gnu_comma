@@ -13,6 +13,7 @@
 #include "TypeDumper.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/Type.h"
 
@@ -101,6 +102,12 @@ llvm::raw_ostream &AstDumper::dumpType(Type *node)
     return TDumper->dump(node, indentLevel);
 }
 
+llvm::raw_ostream &AstDumper::dumpRangeAttrib(RangeAttrib *node)
+{
+    printHeader(node) << ' ';
+    return dump(node->getPrefix(), indentLevel) << '>';
+}
+
 llvm::raw_ostream &AstDumper::dump(Ast *node, unsigned level)
 {
     unsigned savedLevel = indentLevel;
@@ -114,8 +121,17 @@ llvm::raw_ostream &AstDumper::dump(Ast *node, unsigned level)
     else if (Type *type = dyn_cast<Type>(node))
         dumpType(type);
     else {
-        // FIXME: Handle miscellaneous nodes.
-        assert(false && "Cannot dump this kind of node yet!");
+        switch (node->getKind()) {
+
+        default:
+            assert(false && "Cannot dump this kind of node yet!");
+            break;
+
+        case Ast::AST_ArrayRangeAttrib:
+        case Ast::AST_ScalarRangeAttrib:
+            dumpRangeAttrib(cast<RangeAttrib>(node));
+            break;
+        };
     }
     indentLevel = savedLevel;
     return S;

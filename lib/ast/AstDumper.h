@@ -27,6 +27,7 @@ namespace comma {
 class Ast;
 class Decl;
 class Expr;
+class RangeAttrib;
 class Stmt;
 class Type;
 
@@ -114,6 +115,9 @@ private:
     /// Dumps the given type thru the TypeDumper, forwarding the current
     /// indentation level.
     llvm::raw_ostream &dumpType(Type *node);
+
+    /// Dumpts a range attribute.
+    llvm::raw_ostream &dumpRangeAttrib(RangeAttrib *node);
 };
 
 } // end comma namespace.
