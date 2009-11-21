@@ -83,12 +83,15 @@ static int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
     typedef DeclRegion::DeclIter decl_iterator;
     for (decl_iterator I = instance->beginDecls();
          I != instance->endDecls(); ++I) {
-        if (!(proc = dyn_cast<ProcedureDecl>(*I)))
+        ProcedureDecl *candidate = dyn_cast<ProcedureDecl>(*I);
+        if (!candidate)
             continue;
-        if (procName != proc->getString())
+        if (procName != candidate->getString())
             continue;
-        if (proc->getArity() == 0)
+        if (candidate->getArity() == 0) {
+            proc = candidate;
             break;
+        }
     }
 
     if (!proc) {
