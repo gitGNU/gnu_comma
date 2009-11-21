@@ -17,7 +17,8 @@ namespace {
 
 static const char *attributeNames[] = {
     "First",
-    "Last"
+    "Range",
+    "Last",
 };
 
 } // end anonymous namespace.

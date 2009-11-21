@@ -207,6 +207,7 @@ public:
     ArrayType *getPrefixType() {
         return llvm::cast<ArrayType>(getPrefix()->getType());
     }
+    //@}
 
     //@{
     /// Specializations of Expr::getType().

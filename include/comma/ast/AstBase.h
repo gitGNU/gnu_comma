@@ -29,6 +29,7 @@ class AddDecl;
 class AggregateExpr;
 class ArrayBoundAE;
 class ArrayDecl;
+class ArrayRangeAttrib;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -86,8 +87,10 @@ class ProcedureDecl;
 class ProcedureType;
 class Qualifier;
 class Range;
+class RangeAttrib;
 class ReturnStmt;
 class ScalarBoundAE;
+class ScalarRangeAttrib;
 class Sigoid;
 class SignatureDecl;
 class SigInstanceDecl;
@@ -220,6 +223,8 @@ public:
         AST_KeywordSelector,    ///< KeywordSelector
         AST_Qualifier,          ///< Qualifier
         AST_Range,              ///< Range
+        AST_ArrayRangeAttrib,   ///< ArrayRangeAttrib
+        AST_ScalarRangeAttrib,  ///< ScalarRangeAttrib
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
 

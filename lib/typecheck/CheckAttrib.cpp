@@ -8,6 +8,7 @@
 
 #include "TypeCheck.h"
 #include "comma/ast/AttribExpr.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/TypeRef.h"
 
 using namespace comma;
@@ -56,6 +57,9 @@ private:
     /// Helper for checkBound().  Handles array First and Last attributes.
     ArrayBoundAE *checkArrayBound(Expr *prefix, Location loc);
 
+    /// Checks a range attribute.
+    RangeAttrib *checkRange(Ast *prefix, Location loc);
+
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);
     }
@@ -77,6 +81,10 @@ Ast *AttributeChecker::checkAttribute(Ast *prefix, Location loc)
     case attrib::First:
     case attrib::Last:
         result = checkBound(prefix, loc);
+        break;
+
+    case attrib::Range:
+        result = checkRange(prefix, loc);
         break;
     };
     return result;
@@ -131,6 +139,41 @@ ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
         return new FirstArrayAE(prefix, loc);
     else
         return new LastArrayAE(prefix, loc);
+}
+
+RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
+{
+    // If the prefix denotes an expression, it must be of array type.
+    if (Expr *expr = dyn_cast<Expr>(prefix)) {
+
+        // FIXME: If the prefix expression does not have a type, then we should
+        // attempt to resolve it wrt a Type::Classification of CLASS_Array.
+        assert(expr->hasType() && "Cannot resolve array prefix yet!");
+
+        if (!isa<ArrayType>(expr)) {
+            report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
+            return 0;
+        }
+        return new ArrayRangeAttrib(expr, loc);
+    }
+
+    // Otherwise, the prefix must be a TypeRef resolving to a scalar type.
+    TypeRef *ref = dyn_cast<TypeRef>(prefix);
+
+    if (!ref || !ref->referencesTypeDecl()) {
+        report(loc, diag::INVALID_ATTRIB_PREFIX) << attributeName();
+        return 0;
+    }
+
+    TypeDecl *tyDecl = ref->getTypeDecl();
+    DiscreteType *prefixTy = dyn_cast<DiscreteType>(tyDecl->getType());
+
+    if (!prefixTy) {
+        report(loc, diag::INVALID_ATTRIB_PREFIX) << attributeName();
+        return 0;
+    }
+
+    return new ScalarRangeAttrib(prefixTy, loc);
 }
 
 } // end anonymous namespace.

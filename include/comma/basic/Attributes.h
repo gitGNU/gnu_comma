@@ -29,6 +29,7 @@ namespace attrib {
 enum AttributeID {
     UNKNOWN_ATTRIBUTE,
     First,
+    Range,
     Last,
 
     // Markers delimiting special attribute subgroups.

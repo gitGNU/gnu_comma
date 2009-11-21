@@ -23,6 +23,9 @@
 
 namespace comma {
 
+//===----------------------------------------------------------------------===//
+// Range
+//
 /// The Range class represents a subset of values belonging to some scalar type.
 class Range : public Ast {
 
