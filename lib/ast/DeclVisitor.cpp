@@ -107,6 +107,8 @@ void DeclVisitor::visitValueDecl(ValueDecl *node)
         visitParamValueDecl(paramValue);
     else if (ObjectDecl *object = dyn_cast<ObjectDecl>(node))
         visitObjectDecl(object);
+    else if (LoopDecl *loop = dyn_cast<LoopDecl>(node))
+        visitLoopDecl(loop);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -137,6 +139,7 @@ void DeclVisitor::visitCarrierDecl(CarrierDecl *node) { }
 void DeclVisitor::visitDomainTypeDecl(DomainTypeDecl *node) { }
 void DeclVisitor::visitAbstractDomainDecl(AbstractDomainDecl *node) { }
 void DeclVisitor::visitDomainInstanceDecl(DomainInstanceDecl *node) { }
+void DeclVisitor::visitLoopDecl(LoopDecl *node) { }
 void DeclVisitor::visitParamValueDecl(ParamValueDecl *node) { }
 void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }
 void DeclVisitor::visitEnumLiteral(EnumLiteral *node) { }

@@ -56,6 +56,7 @@ class EnumSubtypeDecl;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
+class ForStmt;
 class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
@@ -72,6 +73,7 @@ class IntegerType;
 class KeywordSelector;
 class LastAE;
 class LastArrayAE;
+class LoopDecl;
 class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
@@ -167,6 +169,10 @@ public:
 
         AST_SigInstanceDecl,    ///< SigInstanceDecl
 
+        //
+        // Value declaration nodes.
+        //
+        AST_LoopDecl,           ///< LoopDecl
         AST_ParamValueDecl,     ///< ParamValueDecl
         AST_ObjectDecl,         ///< ObjectDecl
 
@@ -210,6 +216,7 @@ public:
         //
         AST_AssignmentStmt,     ///< AssignmentStmt
         AST_BlockStmt,          ///< BlockStmt
+        AST_ForStmt,            ///< ForStmt
         AST_IfStmt,             ///< IfStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_ReturnStmt,         ///< ReturnStmt
@@ -245,7 +252,7 @@ public:
         FIRST_DomainType = AST_AbstractDomainDecl,
         LAST_DomainType = AST_PercentDecl,
 
-        FIRST_ValueDecl = AST_ParamValueDecl,
+        FIRST_ValueDecl = AST_LoopDecl,
         LAST_ValueDecl = AST_ObjectDecl,
 
         FIRST_Type = AST_FunctionType,

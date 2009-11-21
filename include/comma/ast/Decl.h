@@ -695,6 +695,23 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// LoopDecl
+//
+/// These specialized nodes represent the iteration variable in a for loop.
+class LoopDecl : public ValueDecl {
+
+public:
+    LoopDecl(IdentifierInfo *name, Type *type, Location loc)
+        : ValueDecl(AST_LoopDecl, name, type, loc) { }
+
+    // Support isa/dyn_cast.
+    static bool classof(const LoopDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_LoopDecl;
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // SubroutineDecl
 //
 // Base class for representing procedures and functions.

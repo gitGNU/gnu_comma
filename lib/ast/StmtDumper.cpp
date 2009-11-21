@@ -154,6 +154,18 @@ void StmtDumper::visitWhileStmt(WhileStmt *node)
     printHeader(node) << '>';
 }
 
+void StmtDumper::visitForStmt(ForStmt *node)
+{
+    printHeader(node) << ' ';
+    dumpAST(node->getLoopDecl()) << '\n';
+    indent();
+    printIndentation();
+    dumpAST(node->getControl()) << '\n';
+    visitStmtSequence(node->getBody());
+    dedent();
+    S << '>';
+}
+
 void StmtDumper::visitPragmaStmt(PragmaStmt *node)
 {
     printHeader(node) << '>';

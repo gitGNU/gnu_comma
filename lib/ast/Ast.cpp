@@ -38,6 +38,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "SigInstanceDecl",
 
+    "LoopDecl",
     "ParamValueDecl",
     "ObjectDecl",
 
@@ -71,6 +72,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "AssignmentStmt",
     "BlockStmt",
+    "ForStmt",
     "IfStmt",
     "ProcedureCallStmt",
     "ReturnStmt",

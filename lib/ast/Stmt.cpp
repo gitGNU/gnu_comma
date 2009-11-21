@@ -8,6 +8,7 @@
 
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 
 #include <iostream>
@@ -34,4 +35,18 @@ ProcedureCallStmt::ProcedureCallStmt(SubroutineRef *ref,
 ReturnStmt::~ReturnStmt()
 {
     if (returnExpr) delete returnExpr;
+}
+
+//===----------------------------------------------------------------------===//
+// ForStmt
+
+// The getControl methods are out of line to avoid inclusion of RangeAttrib.h.
+const Ast *ForStmt::getControl() const
+{
+    return control;
+}
+
+Ast *ForStmt::getControl()
+{
+    return control;
 }

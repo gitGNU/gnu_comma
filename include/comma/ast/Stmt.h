@@ -337,6 +337,75 @@ private:
     StmtSequence *body;
 };
 
+//===----------------------------------------------------------------------===//
+// ForStmt
+//
+/// This node represents the "for" loop iteration scheme.
+class ForStmt : public Stmt {
+
+public:
+    /// Constructs a for-loop statement over a range attribute.
+    ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range)
+        : Stmt(AST_ForStmt),
+          location(loc),
+          iterationDecl(iterationDecl),
+          control(range) { }
+
+    //@{
+    /// Returns the LoopDecl corresponding to the iteration value of this loop.
+    const LoopDecl *getLoopDecl() const { return iterationDecl; }
+    LoopDecl *getLoopDecl() { return iterationDecl; }
+    //@}
+
+    //@{
+    /// Returns the subtype, range, or range attribute controlling this loop.
+    const Ast *getControl() const;
+    Ast *getControl();
+    //@}
+
+    //@{
+    /// Returns the range attribute this loop was specified over, or null if the
+    /// controlling subtype is not a range.
+    const RangeAttrib *getRangeControl() const { return control; }
+    RangeAttrib *getRangeControl() { return control; }
+    //@}
+
+    /// Returns true if this loop is controlled by a range attribute.
+    bool isRangeControlled() const { return true; }
+
+    /// Returns true if the controlling scheme is reversed.
+    bool isReversed() const { return bits == 1; }
+
+    /// Marks that this loop is reversed.
+    void markAsReversed() { bits = 1; }
+
+    /// Returns the location of the 'for' reserved word.
+    Location getLocation() { return location; }
+
+    //@{
+    /// Retururns the StmtSequence forming the body of this loop.
+    ///
+    /// Initially, this sequence is empty and must be populated via explicit
+    /// calls to StmtSequence::addStmt().
+    const StmtSequence *getBody() const { return &body; }
+    StmtSequence *getBody() { return &body; }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const ForStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ForStmt;
+    }
+
+private:
+    Location location;
+    LoopDecl *iterationDecl;
+
+    // FIXME: This will be a pointer union when other subtype definitions are
+    // supported as the control for loops.
+    RangeAttrib *control;
+    StmtSequence body;
+};
 
 //===----------------------------------------------------------------------===//
 // PragmaStmt

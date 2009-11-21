@@ -137,6 +137,12 @@ void DeclDumper::visitParamValueDecl(ParamValueDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitLoopDecl(LoopDecl *node)
+{
+    printHeader(node) << ' ';
+    S << node->getIdInfo() << '>';
+}
+
 void DeclDumper::visitObjectDecl(ObjectDecl *node)
 {
     printHeader(node);

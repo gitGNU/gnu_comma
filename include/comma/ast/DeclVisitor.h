@@ -74,6 +74,7 @@ public:
     virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitAbstractDomainDecl(AbstractDomainDecl *node);
     virtual void visitDomainInstanceDecl(DomainInstanceDecl *node);
+    virtual void visitLoopDecl(LoopDecl *node);
     virtual void visitParamValueDecl(ParamValueDecl *node);
     virtual void visitObjectDecl(ObjectDecl *node);
     virtual void visitEnumLiteral(EnumLiteral *node);
