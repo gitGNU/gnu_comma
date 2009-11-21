@@ -89,13 +89,11 @@ bool CodeGenRoutine::isLocalCall(const SubroutineCall *call)
     if (call->isAmbiguous())
         return false;
 
-    // FIXME: This is a hack.  We rely here on the esoteric property that a
-    // local decl is declared in an "add" context.  Rather, check that the decl
-    // originates from the curent domain, or explicity tag decls as local in the
-    // AST.
+    // If the declarative region maps to an add or a percent decl then this is a
+    // local call.
     const SubroutineDecl *decl = call->getConnective();
     const DeclRegion *region = decl->getDeclRegion();
-    return isa<AddDecl>(region);
+    return isa<AddDecl>(region) || isa<PercentDecl>(region);
 }
 
 bool CodeGenRoutine::isForeignCall(const SubroutineCall *call)
