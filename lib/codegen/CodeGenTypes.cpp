@@ -276,6 +276,16 @@ const llvm::StructType *CodeGenTypes::lowerArrayBounds(const ArrayType *arrTy)
     return CG.getStructTy(elts);
 }
 
+const llvm::StructType *
+CodeGenTypes::lowerScalarBounds(const DiscreteType *type)
+{
+    std::vector<const llvm::Type*> elts;
+    const llvm::Type *elemTy = lowerType(type);
+    elts.push_back(elemTy);
+    elts.push_back(elemTy);
+    return CG.getStructTy(elts);
+}
+
 const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
 {
     // Promote the bit width to a power of two.

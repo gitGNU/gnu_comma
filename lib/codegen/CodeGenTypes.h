@@ -53,6 +53,10 @@ public:
     /// array.
     const llvm::StructType *lowerArrayBounds(const ArrayType *arrTy);
 
+    /// Returns the structure type used to hold the bounds of the given scalar
+    /// type.
+    const llvm::StructType *lowerScalarBounds(const DiscreteType *type);
+
 private:
     CodeGen &CG;
 
