@@ -161,6 +161,7 @@ void StmtDumper::visitForStmt(ForStmt *node)
     indent();
     printIndentation();
     dumpAST(node->getControl()) << '\n';
+    printIndentation();
     visitStmtSequence(node->getBody());
     dedent();
     S << '>';
