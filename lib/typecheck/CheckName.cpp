@@ -19,6 +19,22 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+namespace {
+
+/// Utility routine for building SubroutineRef nodes using the subroutine
+/// declarations provided by the given Resolver.
+SubroutineRef *buildSubroutineRef(Location loc, Resolver &resolver)
+{
+    llvm::SmallVector<SubroutineDecl *, 8> routines;
+    resolver.getVisibleSubroutines(routines);
+
+    if (routines.empty())
+        return 0;
+    return new SubroutineRef(loc, &routines[0], routines.size());
+}
+
+} // end anonymous namespace.
+
 Node TypeCheck::acceptIndirectName(Location loc, Resolver &resolver)
 {
     // Check if there is a unique indirect type.
@@ -51,17 +67,6 @@ Node TypeCheck::acceptIndirectName(Location loc, Resolver &resolver)
     report(loc, diag::NAME_REQUIRES_QUAL) << resolver.getIdInfo();
     return getInvalidNode();
 }
-
-SubroutineRef *TypeCheck::buildSubroutineRef(Location loc, Resolver &resolver)
-{
-    llvm::SmallVector<SubroutineDecl *, 8> routines;
-    resolver.getVisibleSubroutines(routines);
-
-    if (routines.empty())
-        return 0;
-    return new SubroutineRef(loc, &routines[0], routines.size());
-}
-
 
 Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
                                  bool forStatement)
@@ -353,11 +358,6 @@ SubroutineCall *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
                                                        NodeVector &argNodes)
 {
     unsigned numArgs = argNodes.size();
-
-    // FIXME: Perhaps SubroutineRef's should always hold onto their defining
-    // identifier once constructed.  If we do not cache the identifier now, we
-    // will hit an assertion if the following filter reduces the ref to an empty
-    // ref.
     IdentifierInfo *refName = ref->getIdInfo();
 
     if (!ref->keepSubroutinesWithArity(numArgs)) {

@@ -612,15 +612,10 @@ private:
     /// Utility routine for building TypeRef nodes over the given model.
     TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
 
-    /// Utility routine for building SubroutineRef nodes using the subroutine
-    /// declarations provided by the given Resolver.
-    static SubroutineRef *buildSubroutineRef(Location loc, Resolver &resolver);
-
     /// Processes the indirect names in the given resolver.  If no indirect
     /// names could be found, a diagnostic is posted and an invalid Node is
     /// returned.
     Node acceptIndirectName(Location loc, Resolver &resolver);
-
 
     /// Checks that the given TypeRef can be applied to the given arguments.
     ///
