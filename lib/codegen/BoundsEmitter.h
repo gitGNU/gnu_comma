@@ -34,7 +34,8 @@ class BoundsEmitter {
 
 public:
     BoundsEmitter(CodeGenRoutine &CGR)
-        : CG(CGR.getCodeGen()),
+        : CGR(CGR),
+          CG(CGR.getCodeGen()),
           CGT(CGR.getCGC().getTypeGenerator()) { }
 
     /// \brief Returns the LLVM type which represents the bounds of the given
@@ -43,6 +44,54 @@ public:
     /// \note This is simply a convinience wrapper around
     /// CodeGenTypes::lowerArrayBounds().
     const llvm::StructType *getType(const ArrayType *arrTy);
+
+    /// Returns the lower bound at the given index.
+    static llvm::Value *getLowerBound(llvm::IRBuilder<> &Builder,
+                                      llvm::Value *bounds, unsigned index) {
+        llvm::Value *res;
+        index = 2 * index;
+        if (llvm::isa<llvm::PointerType>(bounds->getType())) {
+            res = Builder.CreateConstInBoundsGEP2_32(bounds, 0, index);
+            res = Builder.CreateLoad(res);
+        }
+        else
+            res = Builder.CreateExtractValue(bounds, index);
+        return res;
+    }
+
+    /// Returns the upper bound at the given index.
+    static llvm::Value *getUpperBound(llvm::IRBuilder<> &Builder,
+                                      llvm::Value *bounds, unsigned index) {
+        llvm::Value *res;
+        index = 2 * index + 1;
+        if (llvm::isa<llvm::PointerType>(bounds->getType())) {
+            res = Builder.CreateConstInBoundsGEP2_32(bounds, 0, index);
+            res = Builder.CreateLoad(res);
+        }
+        else
+            res = Builder.CreateExtractValue(bounds, index);
+        return res;
+    }
+
+    /// Convenience method to pack the results of getLowerBound() and
+    /// getUpperBound() into a std::pair.
+    static std::pair<llvm::Value*, llvm::Value*>
+    getBounds(llvm::IRBuilder<> &Builder, llvm::Value *bounds, unsigned index) {
+        std::pair<llvm::Value*, llvm::Value*> res;
+        res.first = getLowerBound(Builder, bounds, index);
+        res.second = getUpperBound(Builder, bounds, index);
+        return res;
+    }
+
+    /// Evaluates the range of the given scalar type and returns a bounds
+    /// structure.
+    llvm::Value *synthScalarBounds(llvm::IRBuilder<> &Builder,
+                                   const DiscreteType *type);
+
+    /// Evaluates the range of the given scalar type and returns the lower and
+    /// upper bounds as a pair.
+    std::pair<llvm::Value*, llvm::Value*>
+    getScalarBounds(llvm::IRBuilder<> &Builder, const DiscreteType *type);
 
     /// Emits code which computes the length of the given bounds value.
     ///
@@ -81,6 +130,7 @@ public:
                                       AggregateExpr *agg, llvm::Value *dst = 0);
 
 private:
+    CodeGenRoutine &CGR;        // Routine generator.
     CodeGen &CG;                // Code generation context.
     CodeGenTypes &CGT;          // Type generator.
 };

@@ -19,22 +19,88 @@ const llvm::StructType *BoundsEmitter::getType(const ArrayType *arrTy)
     return CGT.lowerArrayBounds(arrTy);
 }
 
+llvm::Value *BoundsEmitter::synthScalarBounds(llvm::IRBuilder<> &Builder,
+                                              const DiscreteType *type)
+{
+    std::pair<llvm::Value*, llvm::Value*> pair = getScalarBounds(Builder, type);
+
+    llvm::Value *lower = pair.first;
+    llvm::Value *upper = pair.second;
+    const llvm::StructType *boundTy = CGT.lowerScalarBounds(type);
+
+    // If both the bounds are constants, build a constant structure.
+    if (isa<llvm::Constant>(lower) && isa<llvm::Constant>(upper)) {
+        std::vector<llvm::Constant*> elts;
+        elts.push_back(cast<llvm::Constant>(lower));
+        elts.push_back(cast<llvm::Constant>(upper));
+        return llvm::ConstantStruct::get(boundTy, elts);
+    }
+
+    // Otherwise, populate an an undef object with the bounds.
+    llvm::Value *bounds = llvm::UndefValue::get(boundTy);
+    Builder.CreateInsertValue(bounds, lower, 0);
+    Builder.CreateInsertValue(bounds, upper, 0);
+    return bounds;
+}
+
+std::pair<llvm::Value*, llvm::Value*>
+BoundsEmitter::getScalarBounds(llvm::IRBuilder<> &Builder,
+                               const DiscreteType *type)
+{
+    llvm::Value *lower;
+    llvm::Value *upper;
+    const llvm::Type *loweredTy = CGT.lowerType(type);
+
+    if (type->isConstrained()) {
+        const Range *range = type->getConstraint();
+
+        if (range->hasStaticLowerBound()) {
+            const llvm::APInt &bound = range->getStaticLowerBound();
+            lower = llvm::ConstantInt::get(loweredTy, bound);
+        }
+        else {
+            Expr *expr = const_cast<Expr*>(range->getLowerBound());
+            lower = CGR.emitValue(expr);
+        }
+
+        if (range->hasStaticUpperBound()) {
+            const llvm::APInt &bound = range->getStaticUpperBound();
+            upper = llvm::ConstantInt::get(loweredTy, bound);
+        }
+        else {
+            Expr *expr = const_cast<Expr*>(range->getUpperBound());
+            upper = CGR.emitValue(expr);
+        }
+    }
+    else {
+        llvm::APInt bound;
+        type->getLowerLimit(bound);
+        lower = llvm::ConstantInt::get(loweredTy, bound);
+
+        type->getUpperLimit(bound);
+        upper = llvm::ConstantInt::get(loweredTy, bound);
+    }
+
+    return std::pair<llvm::Value*, llvm::Value*>(lower, upper);
+}
+
 llvm::Value *BoundsEmitter::computeBoundLength(llvm::IRBuilder<> &Builder,
                                                llvm::Value *bounds,
                                                unsigned index)
 {
-    index = index * 2;
-    llvm::Value *lower = Builder.CreateExtractValue(bounds, index);
-    llvm::Value *upper = Builder.CreateExtractValue(bounds, index + 1);
+    llvm::Value *lower = getLowerBound(Builder, bounds, index);
+    llvm::Value *upper = getUpperBound(Builder, bounds, index);
 
     // FIXME: We always return the length of an array as an i32.  The main
     // motivation for this choice is that LLVM alloca's are currently restricted
     // to this size (though this might change).  Since the bounds may be of a
     // wider type, we need to generate checks that the following calculations do
     // not overflow.
-    const llvm::IntegerType *boundTy
-        = cast<llvm::IntegerType>(lower->getType());
-    const llvm::IntegerType *i32Ty = CG.getInt32Ty();
+    const llvm::IntegerType *boundTy;
+    const llvm::IntegerType *i32Ty;
+
+    boundTy = cast<llvm::IntegerType>(lower->getType());
+    i32Ty = CG.getInt32Ty();
 
     if (boundTy->getBitWidth() < 32) {
         lower = Builder.CreateSExt(lower, i32Ty);
@@ -54,11 +120,15 @@ llvm::Value *BoundsEmitter::computeTotalBoundLength(llvm::IRBuilder<> &Builder,
                                                     llvm::Value *bounds)
 {
     const llvm::StructType *strTy;
-    strTy = cast<llvm::StructType>(bounds->getType());
+    const llvm::IntegerType *sumTy;
+    llvm::Value *length;
+    unsigned numElts;
 
-    const llvm::IntegerType *sumTy = CG.getInt32Ty();
-    llvm::Value *length = llvm::ConstantInt::get(sumTy, int64_t(0));
-    unsigned numElts = strTy->getNumElements() / 2;
+    strTy = cast<llvm::StructType>(bounds->getType());
+    sumTy = CG.getInt32Ty();
+
+    length = llvm::ConstantInt::get(sumTy, int64_t(0));
+    numElts = strTy->getNumElements() / 2;
 
     for (unsigned idx = 0; idx < numElts; ++idx) {
         llvm::Value *partial = computeBoundLength(Builder, bounds, idx);
@@ -70,9 +140,8 @@ llvm::Value *BoundsEmitter::computeTotalBoundLength(llvm::IRBuilder<> &Builder,
 llvm::Value *BoundsEmitter::computeIsNull(llvm::IRBuilder<> &Builder,
                                           llvm::Value *bounds, unsigned index)
 {
-    index = index * 2;
-    llvm::Value *lower = Builder.CreateExtractValue(bounds, index);
-    llvm::Value *upper = Builder.CreateExtractValue(bounds, index + 1);
+    llvm::Value *lower = getLowerBound(Builder, bounds, index);
+    llvm::Value *upper = getUpperBound(Builder, bounds, index);
     return Builder.CreateICmpSLT(upper, lower);
 }
 
