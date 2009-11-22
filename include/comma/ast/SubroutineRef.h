@@ -78,6 +78,14 @@ public:
     /// Extends this reference with another declaration.
     void addDeclaration(SubroutineDecl *srDecl);
 
+    /// Extends this reference with the set of declarations given by a pair of
+    /// iterators.
+    template <class Iter>
+    void addDeclarations(Iter I, Iter E) {
+        for ( ; I != E; ++I)
+            addDeclaration(*I);
+    }
+
     /// Returns true if this references more than one declaration.
     bool isOverloaded() const { return numDeclarations() > 1; }
 
