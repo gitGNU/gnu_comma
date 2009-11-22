@@ -29,6 +29,13 @@ FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective,
     setTypeForConnective();
 }
 
+FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective)
+    : Expr(AST_FunctionCallExpr, connective->getLocation()),
+      SubroutineCall(connective, 0, 0, 0, 0)
+{
+    setTypeForConnective();
+}
+
 void FunctionCallExpr::setTypeForConnective()
 {
     if (isUnambiguous()) {
@@ -46,7 +53,7 @@ void FunctionCallExpr::resolveConnective(FunctionDecl *decl)
 //===----------------------------------------------------------------------===//
 // IndexedArrayExpr
 
-IndexedArrayExpr::IndexedArrayExpr(DeclRefExpr *arrExpr,
+IndexedArrayExpr::IndexedArrayExpr(Expr *arrExpr,
                                    Expr **indices, unsigned numIndices)
     : Expr(AST_IndexedArrayExpr, arrExpr->getLocation()),
       indexedArray(arrExpr),
@@ -54,8 +61,10 @@ IndexedArrayExpr::IndexedArrayExpr(DeclRefExpr *arrExpr,
 {
     assert(numIndices != 0 && "Missing indices!");
 
-    ArrayType *arrTy = arrExpr->getType()->getAsArrayType();
-    setType(arrTy->getComponentType());
+    if (arrExpr->hasType()) {
+        ArrayType *arrTy = cast<ArrayType>(arrExpr->getType());
+        setType(arrTy->getComponentType());
+    }
 
     indexExprs = new Expr*[numIndices];
     std::copy(indices, indices + numIndices, indexExprs);

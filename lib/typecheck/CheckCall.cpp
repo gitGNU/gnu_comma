@@ -171,17 +171,21 @@ TypeCheck::routineAcceptsArgs(SubroutineDecl *decl,
     return true;
 }
 
-SubroutineCall*
-TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
-                                SVImpl<Expr*>::Type &positionalArgs,
-                                SVImpl<KeywordSelector*>::Type &keyedArgs)
+Ast* TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
+                                     SVImpl<Expr*>::Type &positionalArgs,
+                                     SVImpl<KeywordSelector*>::Type &keyedArgs)
 {
     Location loc = ref->getLocation();
     unsigned numPositional = positionalArgs.size();
     unsigned numKeys = keyedArgs.size();
 
-    if (ref->isResolved())
-        return checkSubroutineCall(ref, positionalArgs, keyedArgs);
+    // If there is only one interpretation as a call check it immediately and
+    // return a resolved call node if successful.
+    if (ref->isResolved()) {
+        SubroutineCall *call;
+        call = checkSubroutineCall(ref, positionalArgs, keyedArgs);
+        return call ? call->asAst() : 0;
+    }
 
     // Reduce the subroutine reference to include only those which can accept
     // the keyword selectors provided.
@@ -231,8 +235,11 @@ TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
     }
 
     // If we have a unique declaration, check the matching call.
-    if (ref->isResolved())
-        return checkSubroutineCall(ref, positionalArgs, keyedArgs);
+    if (ref->isResolved()) {
+        SubroutineCall *call;
+        call = checkSubroutineCall(ref, positionalArgs, keyedArgs);
+        return call ? call->asAst() : 0;
+    }
 
     // If we are dealing with procedures the call is ambiguous since we cannot
     // use a return type to resolve any further.
@@ -241,8 +248,11 @@ TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
         return 0;
     }
 
-    return makeSubroutineCall(ref, positionalArgs.data(), numPositional,
-                              keyedArgs.data(), numKeys);
+    SubroutineCall *call =
+        makeSubroutineCall(ref,
+                           positionalArgs.data(), numPositional,
+                           keyedArgs.data(), numKeys);
+    return call->asAst();
 }
 
 FunctionDecl *TypeCheck::resolvePreferredConnective(FunctionCallExpr *call,
@@ -307,7 +317,7 @@ TypeCheck::resolvePreferredOperator(SVImpl<FunctionDecl*>::Type &decls)
     return preference;
 }
 
-SubroutineCall*
+SubroutineCall *
 TypeCheck::checkSubroutineCall(SubroutineRef *ref,
                                SVImpl<Expr*>::Type &posArgs,
                                SVImpl<KeywordSelector*>::Type &keyArgs)

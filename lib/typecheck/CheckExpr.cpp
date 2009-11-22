@@ -19,13 +19,20 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
+IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
                                                 SVImpl<Expr*>::Type &indices)
 {
-    Location loc = ref->getLocation();
-    ValueDecl *vdecl = ref->getDeclaration();
-    ArrayType *arrTy = vdecl->getType()->getAsArrayType();
+    Location loc = expr->getLocation();
 
+    if (!expr->hasType()) {
+        // If the expression is ambiguous we must wait for the top-down pass and
+        // the accompanying type context.  Since we will be checking the node
+        // entirely at that time simply construct the expression with an
+        // unresolved type without checks.
+        return new IndexedArrayExpr(expr, &indices[0], indices.size());
+    }
+
+    ArrayType *arrTy = dyn_cast<ArrayType>(expr->getType());
     if (!arrTy) {
         report(loc, diag::EXPECTED_ARRAY_FOR_INDEX);
         return 0;
@@ -51,10 +58,7 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
     if (!allOK)
         return 0;
 
-    // Create a DeclRefExpr to represent the array value and return a fresh
-    // expression.
-    DeclRefExpr *arrExpr = new DeclRefExpr(vdecl, loc);
-    return new IndexedArrayExpr(arrExpr, &indices[0], numIndices);
+    return new IndexedArrayExpr(expr, &indices[0], numIndices);
 }
 
 bool TypeCheck::checkExprInContext(Expr *&expr, Type *context)

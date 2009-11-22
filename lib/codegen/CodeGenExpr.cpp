@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "BoundsEmitter.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -83,47 +84,23 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
     assert(expr->getNumIndices() == 1 &&
            "Multidimensional arrays are not yet supported!");
 
-    DeclRefExpr *arrRefExpr = expr->getArrayExpr();
+    Expr *arrExpr = expr->getArrayExpr();
     Expr *idxExpr = expr->getIndex(0);
     llvm::Value *idxValue = emitValue(idxExpr);
-    llvm::Value *arrValue =
-        SRF->lookup(arrRefExpr->getDeclaration(), activation::Slot);
+    std::pair<llvm::Value*, llvm::Value*> arrPair =
+        emitArrayExpr(arrExpr, 0, true);
 
-    ArrayType *arrType = cast<ArrayType>(arrRefExpr->getType());
-
-    if (arrType->isConstrained()) {
-        // Resolve the index type of the array (not the type of the index
-        // expression).
-        DiscreteType *indexType = arrType->getIndexType(0);
-
-        // If the index type is an integer type adjust the index expression by
-        // the lower bound.  If the bound happens to be a constant zero the
-        // IRBuilder will fold the ajustment.
-        if (IntegerType *intTy = dyn_cast<IntegerType>(indexType)) {
-            llvm::Value *adjust = emitScalarLowerBound(intTy);
-            idxValue = Builder.CreateSub(idxValue, adjust);
-        }
-    }
-    else {
-        // The array expression is unconstrained.  Lookup the bounds for the
-        // array and adjust the index if needed.
-        ValueDecl *decl = expr->getArrayExpr()->getDeclaration();
-        llvm::Value *boundSlot = SRF->lookup(decl, activation::Bounds);
-        assert(boundSlot && "Could not retrieve array bounds!");
-
-        // Grab the lower bound and subtract it from the index.
-        llvm::Value *bounds = Builder.CreateConstGEP1_32(boundSlot, 0);
-        llvm::Value *lower = Builder.CreateStructGEP(bounds, 0);
-        llvm::Value *adjust = Builder.CreateLoad(lower);
-        idxValue = Builder.CreateSub(idxValue, adjust);
-    }
+    // Adjust the index by the lower bound of the array.
+    llvm::Value *lowerBound =
+        BoundsEmitter::getLowerBound(Builder, arrPair.second, 0);
+    idxValue = Builder.CreateSub(idxValue, lowerBound);
 
     // Arrays are always represented as pointers to the aggregate. GEP the
     // component.
     llvm::Value *indices[2];
     indices[0] = llvm::ConstantInt::get(CG.getInt32Ty(), (uint64_t)0);
     indices[1] = idxValue;
-    return Builder.CreateGEP(arrValue, indices, indices + 2);
+    return Builder.CreateInBoundsGEP(arrPair.first, indices, indices + 2);
 }
 
 llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)

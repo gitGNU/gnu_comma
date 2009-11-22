@@ -454,10 +454,10 @@ private:
     /// nodes.
     ///
     /// \return An SubroutineCall node representing the result of the
-    /// application.  This is either a FunctionCallExpr, a ProcedureCallExpr, or
-    /// null if the call did not type check.
-    SubroutineCall *acceptSubroutineApplication(SubroutineRef *ref,
-                                                NodeVector &argNodes);
+    /// application, an IndexedArrayExpr, or null if the call did not type
+    /// check.
+    Ast *acceptSubroutineApplication(SubroutineRef *ref,
+                                     NodeVector &argNodes);
 
     /// Given a vector \p argNodes of Node's representing the arguments to a
     /// subroutine call, extracts the AST nodes and fills in the vectors \p
@@ -506,17 +506,15 @@ private:
     bool routineAcceptsArgs(SubroutineDecl *decl,
                             SVImpl<KeywordSelector*>::Type &args);
 
-    /// Given a possibly ambiguous (overloaded) SubroutineRef \p ref, and a set
-    /// of positional and keyed arguments, checks the arguments and builds an
-    /// AST node representing the call.
+    /// Checks a possibly ambiguous (overloaded) SubroutineRef \p ref given a
+    /// set of positional and keyed arguments.
     ///
     /// \return A general AST node which is either a FunctionCallExpr,
-    /// ProcedureCallStmt, or null if the call did not type check.
-    SubroutineCall *
-    acceptSubroutineCall(SubroutineRef *ref,
-                         SVImpl<Expr*>::Type &positionalArgs,
-                         SVImpl<KeywordSelector*>::Type &keyedArgs);
-
+    /// ProcedureCallStmt, ArrayIndexExpr, or null if the call did not type
+    /// check.
+    Ast *acceptSubroutineCall(SubroutineRef *ref,
+                              SVImpl<Expr*>::Type &positionalArgs,
+                              SVImpl<KeywordSelector*>::Type &keyedArgs);
 
     /// Given a resolved (not overloaded) SubroutineRef \p ref, and a set of
     /// positional and keyed arguments, checks the arguments and builds an AST
@@ -677,13 +675,12 @@ private:
 
     /// Builds an IndexedArrayExpr.
     ///
-    /// Checks that the given DeclRefExpr \p ref is of array type, and ensures
-    /// that the given argument nodes can serve as indexes into \ref.
+    /// Checks that \p expr is of array type, and ensures that the given
+    /// argument nodes can serve as indexes into \p expr.
     ///
     /// \return An IndexedArrayExpr if the expression is valid and null
     /// otherwise.
-    IndexedArrayExpr *acceptIndexedArray(DeclRefExpr *ref,
-                                         NodeVector &argNodes);
+    IndexedArrayExpr *acceptIndexedArray(Expr *ref, NodeVector &argNodes);
 
     /// Checks that the given nodes are generally valid as array indices
     /// (meaning that they must all resolve to denote Expr's).  Fills in the
@@ -696,9 +693,8 @@ private:
     /// Typechecks an indexed array expression.
     ///
     /// \return An IndexedArrayExpr on success or null on failure.
-    IndexedArrayExpr *acceptIndexedArray(DeclRefExpr *ref,
+    IndexedArrayExpr *acceptIndexedArray(Expr *ref,
                                          SVImpl<Expr*>::Type &indices);
-
 
     /// Checks an object declaration of array type.  This method is a special
     /// case version of acceptObjectDeclaration().

@@ -278,6 +278,11 @@ protected:
     /// Returns the index of the given expression in the keyed argument array,
     /// or -1 if the expression does not exists.
     int keyExprIndex(Expr *expr) const;
+
+private:
+    /// Helper for the constructors.  Initializes the argument data.
+    void initializeArguments(Expr **posArgs, unsigned numPos,
+                             KeywordSelector **keyArgs, unsigned numKeys);
 };
 
 } // end comma namespace.

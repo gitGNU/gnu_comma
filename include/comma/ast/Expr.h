@@ -147,6 +147,10 @@ public:
                      Expr **positionalArgs, unsigned numPositional,
                      KeywordSelector **keyedArgs, unsigned numKeys);
 
+    /// Create a nullary function call expression using the given SubroutineRef
+    /// as connective.
+    FunctionCallExpr(SubroutineRef *connective);
+
     /// Returns the location of this function call.
     ///
     /// Implementation required by SubroutineCall.
@@ -215,12 +219,12 @@ private:
 class IndexedArrayExpr : public Expr {
 
 public:
-    IndexedArrayExpr(DeclRefExpr *arrExpr, Expr **indices, unsigned numIndices);
+    IndexedArrayExpr(Expr *arrExpr, Expr **indices, unsigned numIndices);
 
     ///@{
     /// Returns the expression denoting the array to index.
-    DeclRefExpr *getArrayExpr() { return indexedArray; }
-    const DeclRefExpr *getArrayExpr() const { return indexedArray; }
+    Expr *getArrayExpr() { return indexedArray; }
+    const Expr *getArrayExpr() const { return indexedArray; }
     ///@}
 
     /// Returns the number of indicies serving as subscripts.
@@ -261,7 +265,7 @@ private:
     /// FIXME: The overwhelming majority of array index expressions will involve
     /// only a single dimension.  The representation should be optimized for
     /// this case.
-    DeclRefExpr *indexedArray;
+    Expr *indexedArray;
     unsigned numIndices;
     Expr **indexExprs;
 };

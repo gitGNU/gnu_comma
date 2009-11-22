@@ -23,6 +23,13 @@ SubroutineCall::SubroutineCall(SubroutineRef *connective,
       numPositional(numPos),
       numKeys(numKeys)
 {
+    initializeArguments(posArgs, numPos, keyArgs, numKeys);
+}
+
+void
+SubroutineCall::initializeArguments(Expr **posArgs, unsigned numPos,
+                                    KeywordSelector **keyArgs, unsigned numKeys)
+{
     unsigned numArgs = numPositional + numKeys;
 
     if (numArgs) {

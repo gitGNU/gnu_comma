@@ -277,11 +277,10 @@ Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
     //
     //   - The prefix is a DeclRefExpr resolving to an object of ArrayType.
     if (SubroutineRef *ref = lift_node<SubroutineRef>(prefix)) {
-        SubroutineCall *call = acceptSubroutineApplication(ref, argNodes);
-        if (call) {
+        if (Ast *call = acceptSubroutineApplication(ref, argNodes)) {
             prefix.release();
             argNodes.release();
-            return getNode(call->asAst());
+            return getNode(call);
         }
         return getInvalidNode();
     }
@@ -354,24 +353,81 @@ TypeCheck::checkSubroutineArgumentNodes(NodeVector &argNodes,
     return true;
 }
 
-SubroutineCall *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
-                                                       NodeVector &argNodes)
+Ast *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
+                                            NodeVector &argNodes)
 {
-    unsigned numArgs = argNodes.size();
     IdentifierInfo *refName = ref->getIdInfo();
 
-    if (!ref->keepSubroutinesWithArity(numArgs)) {
-        report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
-            << refName;
+    llvm::SmallVector<Expr *, 8> posArgs;
+    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
+    llvm::SmallVector<FunctionDecl*, 4> interps;
+
+    if (!checkSubroutineArgumentNodes(argNodes, posArgs, keyedArgs))
         return 0;
+
+    if (ref->referencesFunctions() && keyedArgs.empty()) {
+        // We are potentially processing a nullary function call followed by an
+        // array index.  Collect the set of nullary functions returning an array
+        // type with a dimensionality matching the number of positional
+        // arguments.
+        unsigned numArgs = posArgs.size();
+        SubroutineRef::fun_iterator I = ref->begin_functions();
+        SubroutineRef::fun_iterator E = ref->end_functions();
+
+        for ( ; I != E; ++I) {
+            FunctionDecl *fdecl = *I;
+            Type *retTy = fdecl->getReturnType();
+            if (fdecl->getArity() != 0)
+                continue;
+            if (ArrayType *arrTy = dyn_cast<ArrayType>(retTy)) {
+                if (arrTy->getRank() == numArgs)
+                    interps.push_back(fdecl);
+            }
+        }
+
+        // Reduce the set of connectives wrt arity.
+        if (!ref->keepSubroutinesWithArity(argNodes.size())) {
+
+            // If there are no array interpretations the call cannot be
+            // resolved.  Report an arity mismatch.
+            if (interps.empty()) {
+                report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
+                    << refName;
+                return 0;
+            }
+
+            // If there is a unique array interpretation, form a nullary call
+            // expression and continue checking as an indexed array expression.
+            if (interps.size() == 1) {
+                FunctionCallExpr *call;
+                IndexedArrayExpr *iae;
+                ref->addDeclaration(interps[0]);
+                call = new FunctionCallExpr(ref);
+                if (!(iae = acceptIndexedArray(call, posArgs)))
+                    delete call;
+                return iae;
+            }
+
+            // There are several array interpretations.  Form an ambiguous call
+            // expression containing them all and wrap with an indexed array
+            // expression.
+            FunctionCallExpr *call;
+            ref->addDeclarations(interps.begin(), interps.end());
+            call = new FunctionCallExpr(ref);
+            return new IndexedArrayExpr(call, posArgs.data(), posArgs.size());
+        }
+    }
+    else {
+        // This call cannot be interpreted as an indexed array expression.
+        // Filter wrt arity.
+        if (!ref->keepSubroutinesWithArity(argNodes.size())) {
+            report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_SUBROUTINE)
+                << refName;
+            return 0;
+        }
     }
 
-    llvm::SmallVector<Expr *, 8> positionalArgs;
-    llvm::SmallVector<KeywordSelector *, 8> keyedArgs;
-    if (!checkSubroutineArgumentNodes(argNodes, positionalArgs, keyedArgs))
-        return 0;
-
-    return acceptSubroutineCall(ref, positionalArgs, keyedArgs);
+    return acceptSubroutineCall(ref, posArgs, keyedArgs);
 }
 
 bool TypeCheck::checkTypeArgumentNodes(NodeVector &argNodes,
@@ -467,13 +523,13 @@ bool TypeCheck::checkArrayIndexNodes(NodeVector &argNodes,
     return true;
 }
 
-IndexedArrayExpr *TypeCheck::acceptIndexedArray(DeclRefExpr *ref,
+IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
                                                 NodeVector &argNodes)
 {
     llvm::SmallVector<Expr*, 4> indices;
     if (!checkArrayIndexNodes(argNodes, indices))
         return 0;
-    return acceptIndexedArray(ref, indices);
+    return acceptIndexedArray(expr, indices);
 }
 
 Node TypeCheck::acceptAttribute(Node prefixNode,
