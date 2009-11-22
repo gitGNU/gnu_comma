@@ -65,7 +65,7 @@ void DeclVisitor::visitDomoid(Domoid *node)
 {
     if (DomainDecl *domain = dyn_cast<DomainDecl>(node))
         visitDomainDecl(domain);
-    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(functor))
+    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(node))
         visitFunctorDecl(functor);
     else
         assert(false && "Cannot visit this kind of node!");
