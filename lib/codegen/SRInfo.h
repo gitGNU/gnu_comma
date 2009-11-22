@@ -87,7 +87,7 @@ public:
         const FunctionDecl *fdecl;
         if ((fdecl = llvm::dyn_cast<FunctionDecl>(getDeclaration()))) {
             const Type *retTy = fdecl->getReturnType();
-            if (const ArrayType *arrTy = llvm::cast<ArrayType>(retTy))
+            if (const ArrayType *arrTy = llvm::dyn_cast<ArrayType>(retTy))
                 return !arrTy->isConstrained();
         }
         return false;
