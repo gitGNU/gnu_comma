@@ -78,53 +78,60 @@ Node TypeCheck::acceptEmptyReturnStmt(Location loc)
 Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
 {
     Expr *value = cast_node<Expr>(valueNode);
-    Expr *target = 0;
+    Expr *target = cast_node<Expr>(targetNode);
+    Type *targetTy = 0;
+    DeclRefExpr *arrayRef = 0;
 
-    if (DeclRefExpr *ref = lift_node<DeclRefExpr>(targetNode)) {
-        ValueDecl *targetDecl = ref->getDeclaration();
-
-        // If the target decl is a parameter, ensure that it is not of mode
-        // "in".
-        if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
-            if (param->getParameterMode() == PM::MODE_IN) {
-                Location loc = ref->getLocation();
-                IdentifierInfo *name = param->getIdInfo();
-                report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
-                return getInvalidNode();
-            }
-        }
-        target = ref;
+    // Currently, a valid target must resolve to a DeclRefExpr which is either a
+    // parameter with a mutable mode or an object decl.  Resolve the general
+    // declaration reference.
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(target)) {
+        arrayRef = ref;
+        targetTy = ref->getType();
     }
-    else if (IndexedArrayExpr *idx = lift_node<IndexedArrayExpr>(targetNode)) {
-        DeclRefExpr *arrayRef = idx->getArrayExpr();
-        ValueDecl *arrayDecl = arrayRef->getDeclaration();
-
-        // Again, ensure that if the array is a formal parameter, that it is not
-        // of mode "in".
-        if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(arrayDecl)) {
-            if (param->getParameterMode() == PM::MODE_IN) {
-                Location loc = idx->getLocation();
-                IdentifierInfo *name = param->getIdInfo();
-                report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
-                return getInvalidNode();
-            }
-        }
-        target = idx;
+    else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(target)) {
+        arrayRef = dyn_cast<DeclRefExpr>(iae->getArrayExpr());
+        targetTy = cast<ArrayType>(arrayRef->getType())->getComponentType();
     }
-    else {
+
+    if (!arrayRef) {
         report(getNodeLoc(targetNode), diag::INVALID_LHS_FOR_ASSIGNMENT);
         return getInvalidNode();
     }
 
+    ValueDecl *targetDecl = arrayRef->getDeclaration();
+
+    if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
+        // Ensure parameter decls are not of mode "in".
+        if (param->getParameterMode() == PM::MODE_IN) {
+            Location loc = arrayRef->getLocation();
+            IdentifierInfo *name = param->getIdInfo();
+            report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
+            return getInvalidNode();
+        }
+    }
+    else if (LoopDecl *loop = dyn_cast<LoopDecl>(targetDecl)) {
+        // Loop declarations cannot be assigned to.
+        IdentifierInfo *name = loop->getIdInfo();
+        Location loc = loop->getLocation();
+        report(loc, diag::ASSIGNMENT_TO_LOOP_PARAM) << name;
+        return getInvalidNode();
+    }
+    else {
+        // The only other option is an ObjectDecl, which is always a valid
+        // target.
+        assert(isa<ObjectDecl>(targetDecl) && "Unexpected ValueDecl!");
+    }
+
     // Check that the value is compatable with the type of the target.
-    if (!checkExprInContext(value, target->getType()))
+    if (!checkExprInContext(value, targetTy))
         return getInvalidNode();
 
     valueNode.release();
     targetNode.release();
 
-    if (conversionRequired(value->getType(), target->getType()))
-        value = new ConversionExpr(value, target->getType());
+    if (conversionRequired(value->getType(), targetTy))
+        value = new ConversionExpr(value, targetTy);
     return getNode(new AssignmentStmt(target, value));
 }
 
