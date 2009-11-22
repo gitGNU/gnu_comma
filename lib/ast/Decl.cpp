@@ -105,6 +105,7 @@ AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i) const
            "Parameterized decls must implement this method!");
     assert(false &&
            "Cannot retrieve formal decls from a non-parameterized model!");
+    return 0;
 }
 
 /// Returns the index of the given AbstractDomainDecl which must be a formal
