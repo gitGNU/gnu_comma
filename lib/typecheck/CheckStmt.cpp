@@ -91,7 +91,8 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
     }
     else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(target)) {
         arrayRef = dyn_cast<DeclRefExpr>(iae->getArrayExpr());
-        targetTy = cast<ArrayType>(arrayRef->getType())->getComponentType();
+        if (arrayRef)
+            targetTy = cast<ArrayType>(arrayRef->getType())->getComponentType();
     }
 
     if (!arrayRef) {
