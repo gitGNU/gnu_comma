@@ -49,8 +49,11 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
 
     if (checkingFunction()) {
         FunctionDecl *fdecl = getCurrentFunction();
-        Expr *retExpr = cast_node<Expr>(retNode);
         Type *targetType = fdecl->getReturnType();
+        Expr *retExpr = ensureExpr(retNode);
+
+        if (!retExpr)
+            return getInvalidNode();
 
         if (checkExprInContext(retExpr, targetType)) {
             retNode.release();

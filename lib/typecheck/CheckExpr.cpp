@@ -19,6 +19,24 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+Expr *TypeCheck::ensureExpr(Node node)
+{
+    Expr *expr = lift_node<Expr>(node);
+
+    if (expr)
+        return expr;
+
+    // Statements and declarations are parsed and typechecked in a controlled
+    // manner.  We should never have to cope with either of these things where
+    // an expression is expected.
+    //
+    // The only case currently diagnosed is when the node denotes a type
+    // (by far the most common case).
+    TypeRef *ref = cast_node<TypeRef>(node);
+    report(ref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
+    return 0;
+}
+
 IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
                                                 SVImpl<Expr*>::Type &indices)
 {

@@ -397,6 +397,10 @@ private:
     /// is returned and diagnostics are posted.
     bool ensureStaticIntegerExpr(Expr *expr);
 
+    /// Checks if \p node resolves to an expression and returns that expression
+    /// on success.  Else null is returned and diagnostics are posted.
+    Expr *ensureExpr(Node node);
+
     /// Resolves a visible declarative region associated with a qualifier.
     ///
     /// Qualifiers can name signature components, but such qualifiers are

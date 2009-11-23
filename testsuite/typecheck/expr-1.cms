@@ -1,0 +1,8 @@
+-- MUST-FAIL: Ensure types are not valid in expression contexts.
+
+domain D add
+   function F return Integer is
+   begin
+      return Bool;
+   end F;
+end D;
