@@ -286,6 +286,15 @@ CodeGenTypes::lowerScalarBounds(const DiscreteType *type)
     return CG.getStructTy(elts);
 }
 
+const llvm::StructType *CodeGenTypes::lowerRange(const Range *range)
+{
+    std::vector<const llvm::Type*> elts;
+    const llvm::Type *elemTy = lowerType(range->getType());
+    elts.push_back(elemTy);
+    elts.push_back(elemTy);
+    return CG.getStructTy(elts);
+}
+
 const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
 {
     // Promote the bit width to a power of two.

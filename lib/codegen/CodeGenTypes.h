@@ -57,6 +57,9 @@ public:
     /// type.
     const llvm::StructType *lowerScalarBounds(const DiscreteType *type);
 
+    /// Returns the structure type used to hold the bounds of the given range.
+    const llvm::StructType *lowerRange(const Range *range);
+
 private:
     CodeGen &CG;
 
