@@ -90,7 +90,7 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
 
     // Values for the array components and bounds.
     llvm::Value *data;
-    llvm::Value *bounds ;
+    llvm::Value *bounds;
 
     // Lowered types for the array components and bounds.
     const llvm::ArrayType *dataTy = CGT.lowerArrayType(arrTy);

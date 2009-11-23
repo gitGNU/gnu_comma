@@ -240,6 +240,11 @@ void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)
     if (!objDecl->hasInitializer()) {
         bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
         emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
+
+        // FIXME: Support dynamicly sized arrays and default initialization.
+        assert(arrTy->isStaticallyConstrained() &&
+               "Cannot codegen non-static arrays without initializer!");
+        SRF->createEntry(objDecl, activation::Slot, loweredTy);
         return;
     }
 
