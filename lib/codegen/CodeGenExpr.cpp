@@ -79,28 +79,90 @@ llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     return llvm::ConstantInt::get(CG.getLLVMContext(), val);
 }
 
-llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *expr)
+llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
 {
-    assert(expr->getNumIndices() == 1 &&
+    assert(IAE->getNumIndices() == 1 &&
            "Multidimensional arrays are not yet supported!");
 
-    Expr *arrExpr = expr->getArrayExpr();
-    Expr *idxExpr = expr->getIndex(0);
-    llvm::Value *idxValue = emitValue(idxExpr);
-    std::pair<llvm::Value*, llvm::Value*> arrPair =
-        emitArrayExpr(arrExpr, 0, true);
+    Expr *arrExpr = IAE->getArrayExpr();
+    Expr *idxExpr = IAE->getIndex(0);
+    ArrayType *arrTy = cast<ArrayType>(arrExpr->getType());
 
-    // Adjust the index by the lower bound of the array.
-    llvm::Value *lowerBound =
-        BoundsEmitter::getLowerBound(Builder, arrPair.second, 0);
-    idxValue = Builder.CreateSub(idxValue, lowerBound);
+    // Values for the array components and bounds.
+    llvm::Value *data;
+    llvm::Value *bounds ;
+
+    // Lowered types for the array components and bounds.
+    const llvm::ArrayType *dataTy = CGT.lowerArrayType(arrTy);
+    const llvm::Type *boundTy = CGT.lowerArrayBounds(arrTy);
+
+    // Set to true if the vstack needs popping after the indexed component is
+    // loaded (this happens when the prefix is a function call returning an
+    // unconstrained array value).
+    bool popVstack = false;
+
+    BoundsEmitter BE(*this);
+
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(arrExpr)) {
+        if (!arrTy->isConstrained()) {
+            // Perform a simple call.  This leaves the vstack alone, so the
+            // bounds and data are still available.
+            emitSimpleCall(call);
+
+            // Load the bounds from the top of the vstack.
+            bounds = CRT.vstack(Builder, CG.getPointerType(boundTy));
+            bounds = Builder.CreateLoad(bounds);
+            CRT.vstack_pop(Builder);
+
+            // Set the array data to the current top of the stack.
+            data = CRT.vstack(Builder, CG.getPointerType(dataTy));
+            popVstack = true;
+        }
+        else {
+            // FIXME: Otherwise, only statically constraind array types are
+            // supported.
+            assert(arrTy->isStaticallyConstrained() &&
+                   "Cannot codegen dynamicly constrained arrays yet!");
+
+            // Synthesize the bounds and generate a temporary to hold the sret
+            // result.
+            bounds = BE.synthStaticArrayBounds(Builder, arrTy);
+            data = SRF->createTemp(dataTy);
+            emitCompositeCall(call, data);
+        }
+    }
+    else {
+        std::pair<llvm::Value*, llvm::Value*> arrPair;
+        arrPair = emitArrayExpr(arrExpr, 0, false);
+        data = arrPair.first;
+        bounds = arrPair.second;
+    }
+
+    // Emit and adjust the index by the lower bound of the array.
+    llvm::Value *index = emitValue(idxExpr);
+    llvm::Value *lowerBound = BE.getLowerBound(Builder, bounds, 0);
+    index = Builder.CreateSub(index, lowerBound);
 
     // Arrays are always represented as pointers to the aggregate. GEP the
     // component.
+    llvm::Value *component;
     llvm::Value *indices[2];
     indices[0] = llvm::ConstantInt::get(CG.getInt32Ty(), (uint64_t)0);
-    indices[1] = idxValue;
-    return Builder.CreateInBoundsGEP(arrPair.first, indices, indices + 2);
+    indices[1] = index;
+    component = Builder.CreateInBoundsGEP(data, indices, indices + 2);
+
+    // If popVstack is true, we must allocate a temporary to hold the component
+    // before we pop the vstack.  Since we are generating a reference to the
+    // indexed component, return the pointer to the slot.  Otherwise, just
+    // return the result of the GEP.
+    if (popVstack) {
+        llvm::Value *componentSlot = SRF->createTemp(dataTy->getElementType());
+        Builder.CreateStore(Builder.CreateLoad(component), componentSlot);
+        CRT.vstack_pop(Builder);
+        return componentSlot;
+    }
+    else
+        return component;
 }
 
 llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
