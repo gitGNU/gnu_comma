@@ -14,20 +14,14 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-const llvm::StructType *BoundsEmitter::getType(const ArrayType *arrTy)
+namespace {
+
+/// Synthesizes a bounds structure of the given type with the given lower and
+/// upper bounds.
+llvm::Value *synthBounds(llvm::IRBuilder<> &Builder,
+                         const llvm::StructType *boundTy,
+                         llvm::Value *lower, llvm::Value *upper)
 {
-    return CGT.lowerArrayBounds(arrTy);
-}
-
-llvm::Value *BoundsEmitter::synthScalarBounds(llvm::IRBuilder<> &Builder,
-                                              const DiscreteType *type)
-{
-    std::pair<llvm::Value*, llvm::Value*> pair = getScalarBounds(Builder, type);
-
-    llvm::Value *lower = pair.first;
-    llvm::Value *upper = pair.second;
-    const llvm::StructType *boundTy = CGT.lowerScalarBounds(type);
-
     // If both the bounds are constants, build a constant structure.
     if (isa<llvm::Constant>(lower) && isa<llvm::Constant>(upper)) {
         std::vector<llvm::Constant*> elts;
@@ -43,45 +37,83 @@ llvm::Value *BoundsEmitter::synthScalarBounds(llvm::IRBuilder<> &Builder,
     return bounds;
 }
 
-std::pair<llvm::Value*, llvm::Value*>
+} // end anonymous namespace.
+
+const llvm::StructType *BoundsEmitter::getType(const ArrayType *arrTy)
+{
+    return CGT.lowerArrayBounds(arrTy);
+}
+
+llvm::Value *BoundsEmitter::synthScalarBounds(llvm::IRBuilder<> &Builder,
+                                              const DiscreteType *type)
+{
+    LUPair LU = getScalarBounds(Builder, type);
+    llvm::Value *lower = LU.first;
+    llvm::Value *upper = LU.second;
+    const llvm::StructType *boundTy = CGT.lowerScalarBounds(type);
+    return synthBounds(Builder, boundTy, lower, upper);
+}
+
+BoundsEmitter::LUPair
 BoundsEmitter::getScalarBounds(llvm::IRBuilder<> &Builder,
                                const DiscreteType *type)
 {
-    llvm::Value *lower;
-    llvm::Value *upper;
-    const llvm::Type *loweredTy = CGT.lowerType(type);
+    LUPair LU;
 
     if (type->isConstrained()) {
         const Range *range = type->getConstraint();
-
-        if (range->hasStaticLowerBound()) {
-            const llvm::APInt &bound = range->getStaticLowerBound();
-            lower = llvm::ConstantInt::get(loweredTy, bound);
-        }
-        else {
-            Expr *expr = const_cast<Expr*>(range->getLowerBound());
-            lower = CGR.emitValue(expr);
-        }
-
-        if (range->hasStaticUpperBound()) {
-            const llvm::APInt &bound = range->getStaticUpperBound();
-            upper = llvm::ConstantInt::get(loweredTy, bound);
-        }
-        else {
-            Expr *expr = const_cast<Expr*>(range->getUpperBound());
-            upper = CGR.emitValue(expr);
-        }
+        LU = getRange(Builder, range);
     }
     else {
+        const llvm::Type *loweredTy = CGT.lowerType(type);
         llvm::APInt bound;
+
         type->getLowerLimit(bound);
-        lower = llvm::ConstantInt::get(loweredTy, bound);
+        LU.first = llvm::ConstantInt::get(loweredTy, bound);
 
         type->getUpperLimit(bound);
-        upper = llvm::ConstantInt::get(loweredTy, bound);
+        LU.second = llvm::ConstantInt::get(loweredTy, bound);
     }
 
-    return std::pair<llvm::Value*, llvm::Value*>(lower, upper);
+    return LU;
+}
+
+llvm::Value *BoundsEmitter::synthRange(llvm::IRBuilder<> &Builder,
+                                       const Range *range)
+{
+    LUPair LU = getRange(Builder, range);
+    llvm::Value *lower = LU.first;
+    llvm::Value *upper = LU.second;
+    const llvm::StructType *boundTy = CGT.lowerRange(range);
+    return synthBounds(Builder, boundTy, lower, upper);
+}
+
+BoundsEmitter::LUPair BoundsEmitter::getRange(llvm::IRBuilder<> &Builder,
+                                              const Range *range)
+{
+    llvm::Value *lower;
+    llvm::Value *upper;
+    const llvm::Type *elemTy = CGT.lowerType(range->getType());
+
+    if (range->hasStaticLowerBound()) {
+        const llvm::APInt &bound = range->getStaticLowerBound();
+        lower = llvm::ConstantInt::get(elemTy, bound);
+    }
+    else {
+        Expr *expr = const_cast<Expr*>(range->getLowerBound());
+        lower = CGR.emitValue(expr);
+    }
+
+    if (range->hasStaticUpperBound()) {
+        const llvm::APInt &bound = range->getStaticUpperBound();
+        upper = llvm::ConstantInt::get(elemTy, bound);
+    }
+    else {
+        Expr *expr = const_cast<Expr*>(range->getUpperBound());
+        upper = CGR.emitValue(expr);
+    }
+
+    return LUPair(lower, upper);
 }
 
 llvm::Value *BoundsEmitter::computeBoundLength(llvm::IRBuilder<> &Builder,

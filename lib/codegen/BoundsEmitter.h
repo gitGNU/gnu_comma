@@ -21,6 +21,8 @@
 
 namespace comma {
 
+class Range;
+
 /// \class
 ///
 /// \brief The BoundsEmitter class provides methods for the creation and
@@ -37,6 +39,12 @@ public:
         : CGR(CGR),
           CG(CGR.getCodeGen()),
           CGT(CGR.getCGC().getTypeGenerator()) { }
+
+    /// Several methods return a std::pair of values representing a range.  The
+    /// following typedef provides a shorthand.  The first component of such a
+    /// pair contains the lower bound and the second component contains the
+    /// upper bound.
+    typedef std::pair<llvm::Value*, llvm::Value*> LUPair;
 
     /// \brief Returns the LLVM type which represents the bounds of the given
     /// Comma array type.
@@ -75,23 +83,29 @@ public:
 
     /// Convenience method to pack the results of getLowerBound() and
     /// getUpperBound() into a std::pair.
-    static std::pair<llvm::Value*, llvm::Value*>
-    getBounds(llvm::IRBuilder<> &Builder, llvm::Value *bounds, unsigned index) {
+    static LUPair getBounds(llvm::IRBuilder<> &Builder, llvm::Value *bounds,
+                            unsigned index) {
         std::pair<llvm::Value*, llvm::Value*> res;
         res.first = getLowerBound(Builder, bounds, index);
         res.second = getUpperBound(Builder, bounds, index);
         return res;
     }
 
-    /// Evaluates the range of the given scalar type and returns a bounds
-    /// structure.
+    /// Evaluates the range of the given scalar type and returns a corresponding
+    /// bounds structure.
     llvm::Value *synthScalarBounds(llvm::IRBuilder<> &Builder,
                                    const DiscreteType *type);
 
     /// Evaluates the range of the given scalar type and returns the lower and
     /// upper bounds as a pair.
-    std::pair<llvm::Value*, llvm::Value*>
-    getScalarBounds(llvm::IRBuilder<> &Builder, const DiscreteType *type);
+    LUPair getScalarBounds(llvm::IRBuilder<> &Builder,
+                           const DiscreteType *type);
+
+    /// Evaluates a range and returns a corresponding bounds structure.
+    llvm::Value *synthRange(llvm::IRBuilder<> &Builder, const Range *range);
+
+    /// Evaluates a range and returns the lower and upper bounds as a pair.
+    LUPair getRange(llvm::IRBuilder<> &Builder, const Range *range);
 
     /// Emits code which computes the length of the given bounds value.
     ///
