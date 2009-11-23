@@ -125,7 +125,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
             if (arrTy->isConstrained()) {
                 const llvm::Type *sretTy;
                 sretTy = lowerArrayType(arrTy);
-                sretTy = CG.getPointerType(retTy);
+                sretTy = CG.getPointerType(sretTy);
                 args.push_back(sretTy);
 
                 // Sret convetion implies a void return type.
