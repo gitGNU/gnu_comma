@@ -61,6 +61,14 @@ public:
     ConstDeclIter beginDecls() const { return declarations.begin(); }
     ConstDeclIter endDecls()   const { return declarations.end(); }
 
+    typedef DeclarationTable::reverse_iterator reverse_decl_iter;
+    reverse_decl_iter rbegin_decls() { return declarations.rbegin(); }
+    reverse_decl_iter rend_decls()   { return declarations.rend(); }
+
+    typedef DeclarationTable::const_reverse_iterator const_reverse_decl_iter;
+    const_reverse_decl_iter rbegin_decls() const { return declarations.rbegin(); }
+    const_reverse_decl_iter rend_decls() const { return declarations.rend(); }
+
     //===------------------------------------------------------------------===//
     // PredIter
     //
