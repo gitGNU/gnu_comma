@@ -36,6 +36,13 @@ FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective)
     setTypeForConnective();
 }
 
+FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective, Location loc)
+    : Expr(AST_FunctionCallExpr, loc),
+      SubroutineCall(connective, 0, 0, 0, 0)
+{
+    setTypeForConnective();
+}
+
 void FunctionCallExpr::setTypeForConnective()
 {
     if (isUnambiguous()) {

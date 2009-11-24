@@ -41,6 +41,12 @@ public:
                    Expr **positionalArgs, unsigned numPositional,
                    KeywordSelector **keyedArgs, unsigned numKeys);
 
+    /// Constructs a subroutine call over a single connective.  This constructor
+    /// always results in a fully resolved call node.
+    SubroutineCall(SubroutineDecl *connective,
+                   Expr **positionalArgs, unsigned numPositional,
+                   KeywordSelector **keyedArgs, unsigned numKeys);
+
     virtual ~SubroutineCall();
 
     /// Returns true if this is a function call expression.

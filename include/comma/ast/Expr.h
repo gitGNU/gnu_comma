@@ -151,6 +151,10 @@ public:
     /// as connective.
     FunctionCallExpr(SubroutineRef *connective);
 
+    /// Create a nullary function call expression using the given FunctionDecl
+    /// as connective.
+    FunctionCallExpr(FunctionDecl *connective, Location loc);
+
     /// Returns the location of this function call.
     ///
     /// Implementation required by SubroutineCall.

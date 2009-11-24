@@ -26,6 +26,18 @@ SubroutineCall::SubroutineCall(SubroutineRef *connective,
     initializeArguments(posArgs, numPos, keyArgs, numKeys);
 }
 
+// FIXME: It would be nice to have a representation where a resolved call
+// disposes of the reference node and replaces it directly with the declaration.
+SubroutineCall::SubroutineCall(SubroutineDecl *connective,
+                               Expr **posArgs, unsigned numPos,
+                               KeywordSelector **keyArgs, unsigned numKeys)
+    : connective(new SubroutineRef(0, connective)),
+      numPositional(numPos),
+      numKeys(numKeys)
+{
+    initializeArguments(posArgs, numPos, keyArgs, numKeys);
+}
+
 void
 SubroutineCall::initializeArguments(Expr **posArgs, unsigned numPos,
                                     KeywordSelector **keyArgs, unsigned numKeys)
