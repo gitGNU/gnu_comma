@@ -811,6 +811,35 @@ const EnumLiteral *EnumerationDecl::findCharacterLiteral(char ch) const
     return 0;
 }
 
+const EnumLiteral *EnumerationDecl::getFirstLiteral() const
+{
+    return const_cast<EnumerationDecl*>(this)->getFirstLiteral();
+}
+
+EnumLiteral *EnumerationDecl::getFirstLiteral() {
+    for (DeclIter I = beginDecls(); I != endDecls(); ++I) {
+        if (EnumLiteral *lit = dyn_cast<EnumLiteral>(*I))
+            return lit;
+    }
+    assert(false && "Enumeration decl does not contain any literals!");
+    return 0;
+}
+
+const EnumLiteral *EnumerationDecl::getLastLiteral() const
+{
+    return const_cast<EnumerationDecl*>(this)->getLastLiteral();
+}
+
+EnumLiteral *EnumerationDecl::getLastLiteral()
+{
+    for (reverse_decl_iter I = rbegin_decls(); I != rend_decls(); ++I) {
+        if (EnumLiteral *lit = dyn_cast<EnumLiteral>(*I))
+            return lit;
+    }
+    assert(false && "Enumeration decl does not contain any literals!");
+    return 0;
+}
+
 //===----------------------------------------------------------------------===//
 // EnumSubtypeDecl
 

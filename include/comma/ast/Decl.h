@@ -1191,6 +1191,18 @@ public:
     // member of this enumeration.
     EnumLiteral *findLiteral(IdentifierInfo *name);
 
+    //@{
+    /// Returns the first enumeration literal defined by this declaration.
+    const EnumLiteral *getFirstLiteral() const;
+    EnumLiteral *getFirstLiteral();
+    //@}
+
+    //@{
+    /// Returns the last enumeration literal defined by this declaration.
+    const EnumLiteral *getLastLiteral() const;
+    EnumLiteral *getLastLiteral();
+    //@}
+
     // Marks this declaration as a character enumeration.
     //
     // This method should be called if any of the literals constituting this
