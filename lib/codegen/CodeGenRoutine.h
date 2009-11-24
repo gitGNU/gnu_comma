@@ -178,6 +178,9 @@ private:
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
+    /// Returns the lower and upper bounds of the given range attribute.
+    std::pair<llvm::Value*, llvm::Value*> emitRangeAttrib(RangeAttrib *attrib);
+
     //===------------------------------------------------------------------===//
     // Helper methods to generate LLVM IR.
 

@@ -261,7 +261,6 @@ Node TypeCheck::beginForStmt(Location loc,
         return getInvalidNode();
     }
 
-    // FIXME: Generalize to scalar types.
     DiscreteType *iterTy = attrib->getType();
     LoopDecl *iter = new LoopDecl(iterName, iterTy, iterLoc);
     ForStmt *loop = new ForStmt(loc, iter, attrib);
@@ -273,6 +272,92 @@ Node TypeCheck::beginForStmt(Location loc,
     scope.push();
     scope.addDirectDecl(iter);
     control.release();
+    return getNode(loop);
+}
+
+Node TypeCheck::beginForStmt(Location loc,
+                             IdentifierInfo *iterName, Location iterLoc,
+                             Node lowerNode, Node upperNode, bool isReversed)
+{
+    Expr *lower = ensureExpr(lowerNode);
+    Expr *upper = ensureExpr(upperNode);
+
+    if (!(lower && upper))
+        return getInvalidNode();
+
+    // The bounds of the range must resolve to some discrete type without using
+    // any additional context (but with the preference for root_integer).
+
+    // FIXME: The following is not general enough.  We really need a
+    // checkExprInContext method which accepts a type class as context.
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(lower)) {
+        if (!resolveFunctionCall(call, Type::CLASS_Discrete))
+            return getInvalidNode();
+    }
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(upper)) {
+        if (!resolveFunctionCall(call, Type::CLASS_Discrete))
+            return getInvalidNode();
+    }
+
+    // If one of the bounds is an integer literal, use the type of the other
+    // side (which must be an integer type).  If both are literals, prefer
+    // root_integer.
+    if (isa<IntegerLiteral>(lower)) {
+        if (upper->hasType()) {
+            IntegerType *type = dyn_cast<IntegerType>(upper->getType());
+            if (!type) {
+                report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
+                return getInvalidNode();
+            }
+            lower->setType(type);
+        }
+        else if (isa<IntegerLiteral>(upper)) {
+            lower->setType(resource.getTheRootIntegerType());
+            upper->setType(resource.getTheRootIntegerType());
+        }
+    }
+    else if (isa<IntegerLiteral>(upper)) {
+        if (lower->hasType()) {
+            IntegerType *type = dyn_cast<IntegerType>(lower->getType());
+            if (!type) {
+                report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
+                return getInvalidNode();
+            }
+            upper->setType(type);
+        }
+    }
+
+    // Ensure both bounds have been resolved to compatable discrete types.
+    DiscreteType *boundTy = dyn_cast<DiscreteType>(lower->getType());
+
+    if (!boundTy) {
+        report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return getInvalidNode();
+    }
+
+    if (!isa<DiscreteType>(upper->getType())) {
+        report(upper->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return getInvalidNode();
+    }
+
+    if (!covers(boundTy, upper->getType())) {
+        report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
+        return getInvalidNode();
+    }
+
+    // Create the loop statement node.
+    LoopDecl *iter = new LoopDecl(iterName, boundTy, iterLoc);
+    Range *range = new Range(lower, upper);
+    ForStmt *loop = new ForStmt(loc, iter, range);
+
+    if (isReversed)
+        loop->markAsReversed();
+
+    // Push a scope for the for loop and then add the loop parameter.
+    scope.push();
+    scope.addDirectDecl(iter);
+    lowerNode.release();
+    upperNode.release();
     return getNode(loop);
 }
 

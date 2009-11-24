@@ -1,3 +1,4 @@
+
 //===-- parser/ParseName.cpp ---------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
@@ -9,6 +10,9 @@
 #include "comma/parser/Parser.h"
 
 using namespace comma;
+
+//===----------------------------------------------------------------------===//
+// Name Parsing.
 
 Node Parser::parseDirectName(NameOption option)
 {
@@ -187,4 +191,46 @@ void Parser::seekNameEnd()
             seekCloseParen();
         };
     }
+}
+
+bool Parser::consumeName()
+{
+    // Identify direct names.  If we cannot consume a direct name we simple
+    // return false.
+    switch (currentTokenCode()) {
+    default:
+        return false;
+    case Lexer::TKN_CHARACTER:
+    case Lexer::TKN_IDENTIFIER:
+    case Lexer::TKN_PERCENT:
+        break;
+    }
+
+    // OK. Consume the direct name.
+    ignoreToken();
+
+    // From this point on we will invariably return true since a name was
+    // consumed.  Just drive the token stream as far as we can assuming all
+    // tokens are valid.
+    bool consume = true;
+    while (consume) {
+        if (reduceToken(Lexer::TKN_LPAREN))
+            consume = seekCloseParen();
+        else if (reduceToken(Lexer::TKN_DOT)) {
+            switch (currentTokenCode()) {
+            default:
+                consume = false;
+                break;
+            case Lexer::TKN_IDENTIFIER:
+            case Lexer::TKN_CHARACTER:
+                break;
+            };
+        }
+        else {
+            consume = (reduceToken(Lexer::TKN_QUOTE) &&
+                       reduceToken(Lexer::TKN_IDENTIFIER));
+        }
+    }
+
+    return true;
 }

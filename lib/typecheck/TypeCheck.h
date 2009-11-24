@@ -107,6 +107,8 @@ public:
 
     Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
                       Node control, bool isReversed);
+    Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
+                      Node lower, Node upper, bool isReversed);
     Node endForStmt(Node forNode, NodeVector &bodyNodes);
 
     Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);

@@ -285,6 +285,12 @@ private:
     // Seeks to the end of a Comma name.
     void seekNameEnd();
 
+    // If a name follows on the token stream, consume it and return true
+    // (without invoking any client callbacks). This method is useful for
+    // tentative parsing.  However, it is not full parser.  For example, it
+    // skips over mathing pairs of parenthesis.
+    bool consumeName();
+
     // Returns true if a matching pair of parens "()" is next on the stream of
     // tokens.
     bool unitExprFollows();

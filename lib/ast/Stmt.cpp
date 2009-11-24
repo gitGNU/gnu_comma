@@ -40,13 +40,36 @@ ReturnStmt::~ReturnStmt()
 //===----------------------------------------------------------------------===//
 // ForStmt
 
-// The getControl methods are out of line to avoid inclusion of RangeAttrib.h.
+// The following methods are defined out of line to avoid inclusion of
+// RangeAttrib.h.
+
+ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range)
+    : Stmt(AST_ForStmt),
+      location(loc),
+      iterationDecl(iterationDecl),
+      control(range, Range_Attribute_Control) { }
+
 const Ast *ForStmt::getControl() const
 {
-    return control;
+    return control.getPointer();
 }
 
 Ast *ForStmt::getControl()
 {
-    return control;
+    return control.getPointer();
 }
+
+const RangeAttrib *ForStmt::getAttribControl() const
+{
+    if (control.getInt() == Range_Attribute_Control)
+        return llvm::cast<RangeAttrib>(control.getPointer());
+    return 0;
+}
+
+RangeAttrib *ForStmt::getAttribControl()
+{
+    if (control.getInt() == Range_Attribute_Control)
+        return llvm::cast<RangeAttrib>(control.getPointer());
+    return 0;
+}
+

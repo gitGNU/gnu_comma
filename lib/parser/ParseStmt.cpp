@@ -252,16 +252,67 @@ Node Parser::parseForStmt()
     }
 
     bool isReversed = reduceToken(Lexer::TKN_REVERSE);
-    Node control = parseName(Accept_Range_Attribute);
 
-    if (control.isInvalid() || !requireToken(Lexer::TKN_LOOP)) {
-        seekEndLoop();
-        return getInvalidNode();
+    Lexer::Token savedToken = currentToken();
+    lexer.beginExcursion();
+
+    // Attempt to consume a name from the token stream.  If the parse is
+    // successful, store the code of the token immediately following the name in
+    // ctxCode.
+    Lexer::Code ctxCode = Lexer::UNUSED_ID;
+
+    if (consumeName())
+        ctxCode = currentTokenCode();
+
+    lexer.endExcursion();
+    setCurrentToken(savedToken);
+
+    // Inspect the context code to determine the next action.  We have the
+    // following cases:
+    //
+    //    - TKN_LOOP : The name constitues the entire control expression,
+    //      which means it is either a simple subtype mark or a range
+    //      attribute.
+    //
+    //    - TKN_DDOT : The name consitutes the lower bound of a range.
+    //
+    //    - TKN_RANGE, TKN_DIGITS, TKN_DELTA : The name denotes a subtype
+    //      mark in a discrete subtype indication.
+    //
+    // FIXME: Note that we do not support the last case yet.  As a consequence,
+    // the following code does not use the context information fully.  We simply
+    // check for the first case and assume the second, for now.
+    Node forNode = getNullNode();
+    if (ctxCode == Lexer::TKN_LOOP) {
+        Node control = parseName(Accept_Range_Attribute);
+
+        if (control.isInvalid() || !requireToken(Lexer::TKN_LOOP)) {
+            seekEndLoop();
+            return getInvalidNode();
+        }
+
+        forNode = client.beginForStmt(forLoc, iterName, iterLoc,
+                                      control, isReversed);
+    }
+    else {
+        // FIXME:  We should be parsing simple expressions here.
+        Node lower = parseExpr();
+        if (lower.isInvalid() || !requireToken(Lexer::TKN_DDOT)) {
+            seekEndLoop();
+            return getInvalidNode();
+        }
+
+        Node upper = parseExpr();
+        if (upper.isInvalid() || !requireToken(Lexer::TKN_LOOP)) {
+            seekEndLoop();
+            return getInvalidNode();
+        }
+
+        forNode = client.beginForStmt(forLoc, iterName, iterLoc,
+                                      lower, upper, isReversed);
     }
 
     NodeVector stmts;
-    Node forNode = client.beginForStmt(forLoc, iterName, iterLoc,
-                                       control, isReversed);
     do {
         Node stmt = parseStatement();
         if (stmt.isValid())

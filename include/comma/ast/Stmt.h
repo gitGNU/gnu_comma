@@ -343,13 +343,28 @@ private:
 /// This node represents the "for" loop iteration scheme.
 class ForStmt : public Stmt {
 
+    /// For statements are controlled by discrete subtype definitions which have
+    /// several ast representations .  The following enumeration encodes the
+    /// type of the control, which is munged into the low order bits of a
+    /// generic Ast pointer.
+    enum ControlKind {
+        Range_Attribute_Control, // Range attribute.
+        Range_Control            // Simple range.
+    };
+
+    /// The type used to manage the control node for this loop.
+    typedef llvm::PointerIntPair<Ast*, 2, ControlKind> TaggedControl;
+
 public:
     /// Constructs a for-loop statement over a range attribute.
-    ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range)
+    ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range);
+
+    /// Constructs a for-loop statement over a range.
+    ForStmt(Location loc, LoopDecl *iterationDecl, Range *range)
         : Stmt(AST_ForStmt),
           location(loc),
           iterationDecl(iterationDecl),
-          control(range) { }
+          control(range, Range_Control) { }
 
     //@{
     /// Returns the LoopDecl corresponding to the iteration value of this loop.
@@ -365,13 +380,35 @@ public:
 
     //@{
     /// Returns the range attribute this loop was specified over, or null if the
-    /// controlling subtype is not a range.
-    const RangeAttrib *getRangeControl() const { return control; }
-    RangeAttrib *getRangeControl() { return control; }
+    /// controlling subtype is not a range attribute.
+    const RangeAttrib *getAttribControl() const;
+    RangeAttrib *getAttribControl();
     //@}
 
     /// Returns true if this loop is controlled by a range attribute.
-    bool isRangeControlled() const { return true; }
+    bool isAttribControlled() const {
+        return control.getInt() == Range_Attribute_Control;
+    }
+
+    //@{
+    /// Returns the controlling range of this loop, or null if the controlling
+    /// subtype is not a range.
+    const Range *getRangeControl() const {
+        if (control.getInt() == Range_Control)
+            return llvm::cast<Range>(control.getPointer());
+        return 0;
+    }
+    Range *getRangeControl() {
+        if (control.getInt() == Range_Control)
+            return llvm::cast<Range>(control.getPointer());
+        return 0;
+    }
+    //@}
+
+    /// Returns true if this loop is controlled by a range.
+    bool isRangeControlled() const {
+        return control.getInt() == Range_Control;
+    }
 
     /// Returns true if the controlling scheme is reversed.
     bool isReversed() const { return bits == 1; }
@@ -400,10 +437,7 @@ public:
 private:
     Location location;
     LoopDecl *iterationDecl;
-
-    // FIXME: This will be a pointer union when other subtype definitions are
-    // supported as the control for loops.
-    RangeAttrib *control;
+    TaggedControl control;
     StmtSequence body;
 };
 

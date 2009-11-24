@@ -16,6 +16,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 #include "comma/codegen/Mangle.h"
 
@@ -207,6 +208,29 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 
     // Switch to the continuation block.
     Builder.SetInsertPoint(passBB);
+}
+
+// FIXME: We should have an AttributeEmitter to handle all attribute codegen.
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitRangeAttrib(RangeAttrib *attrib)
+{
+    typedef std::pair<llvm::Value*, llvm::Value*> BoundPair;
+    BoundsEmitter emitter(*this);
+    BoundPair bounds;
+
+    if (ArrayRangeAttrib *arrayRange = dyn_cast<ArrayRangeAttrib>(attrib)) {
+        BoundPair arrayPair = emitArrayExpr(arrayRange->getPrefix(), 0, false);
+        bounds = emitter.getBounds(Builder, arrayPair.second, 0);
+    }
+    else {
+        // FIXME: This evaluation is wrong.  All types should be elaborated
+        // and the range information accessible.  The following is
+        // effectively a "re-elaboration" of the prefix type.
+        ScalarRangeAttrib *scalarRange = cast<ScalarRangeAttrib>(attrib);
+        DiscreteType *scalarTy = scalarRange->getType();
+        bounds = emitter.getScalarBounds(Builder, scalarTy);
+    }
+    return bounds;
 }
 
 //===----------------------------------------------------------------------===//

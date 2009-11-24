@@ -282,35 +282,19 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 
 void CodeGenRoutine::emitForStmt(ForStmt *loop)
 {
-    const llvm::Type *iterTy;   // Type of the iteration variable and bound.
     llvm::Value *iter;          // Iteration variable for the loop.
     llvm::Value *sentinal;      // Iteration bound.
 
-    // FIXME: Currently, only range attributes are supported as the loop
-    // control.
-    RangeAttrib *control = cast<RangeAttrib>(loop->getControl());
-
-    iterTy = CGT.lowerType(control->getType());
-
-    // FIXME: We should have an AttributeEmitter.  For now, just inline the
-    // logic here.
-    typedef std::pair<llvm::Value*, llvm::Value*> ValuePair;
-    BoundsEmitter emitter(*this);
-    if (ArrayRangeAttrib *attrib = dyn_cast<ArrayRangeAttrib>(control)) {
-        ValuePair arrayPair = emitArrayExpr(attrib->getPrefix(), 0, false);
-        ValuePair boundPair = emitter.getBounds(Builder, arrayPair.second, 0);
-        iter = boundPair.first;
-        sentinal = boundPair.second;
+    if (RangeAttrib *control = loop->getAttribControl()) {
+        std::pair<llvm::Value*, llvm::Value*> bounds;
+        bounds = emitRangeAttrib(control);
+        iter = bounds.first;
+        sentinal = bounds.second;
     }
     else {
-        // FIXME: This evaluation is wrong.  All types should be elaborated and
-        // the range information accessible.  The following is effectively a
-        // "re-elaboration" of the prefix type.
-        ScalarRangeAttrib *attrib = cast<ScalarRangeAttrib>(control);
-        DiscreteType *attribTy = attrib->getType();
-        ValuePair boundPair = emitter.getScalarBounds(Builder, attribTy);
-        iter = boundPair.first;
-        sentinal = boundPair.second;
+        Range *range = loop->getRangeControl();
+        iter = emitValue(range->getLowerBound());
+        sentinal = emitValue(range->getUpperBound());
     }
 
     // If the loop is reversed, exchange the iteration variable and bound.
@@ -329,6 +313,7 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     llvm::Value *iterSlot;
     llvm::Value *next;
     llvm::PHINode *phi;
+    const llvm::Type *iterTy = iter->getType();
 
     // First, allocate a temporary to hold the iteration variable and
     // initialize.

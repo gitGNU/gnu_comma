@@ -229,3 +229,5 @@ DIAGNOSTIC(INVALID_FOR_LOOP_CONTROL, ERROR,
            "Invalid loop control.  A discrete type or range is required.")
 DIAGNOSTIC(TYPE_FOUND_EXPECTED_EXPRESSION, ERROR,
            "Type in expression context.")
+DIAGNOSTIC(INCOMPATIBLE_RANGE_TYPES, ERROR,
+           "Incompatible types in range.")

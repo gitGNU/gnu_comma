@@ -429,6 +429,11 @@ public:
                               IdentifierInfo *iterName, Location iterLoc,
                               Node control, bool isReversed) = 0;
 
+    /// Begins a \c for statement with a range control.
+    virtual Node beginForStmt(Location loc,
+                              IdentifierInfo *iterName, Location iterLoc,
+                              Node lower, Node upper, bool isReversed) = 0;
+
     /// Terminates a \c for statement.
     ///
     /// \param forNode The Node returned by the previous call to beginForStmt().
