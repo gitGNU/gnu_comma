@@ -41,6 +41,10 @@ Node Parser::parseStatement()
         node = parseForStmt();
         break;
 
+    case Lexer::TKN_LOOP:
+        node = parseLoopStmt();
+        break;
+
     case Lexer::TKN_RETURN:
         node = parseReturnStmt();
         break;
@@ -236,6 +240,26 @@ Node Parser::parseWhileStmt()
         return getInvalidNode();
 
     return client.acceptWhileStmt(loc, condition, stmts);
+}
+
+Node Parser::parseLoopStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_LOOP));
+
+    Location loc = ignoreToken();
+    NodeVector stmts;
+
+    do {
+        Node stmt = parseStatement();
+        if (stmt.isValid())
+            stmts.push_back(stmt);
+    } while (!currentTokenIs(Lexer::TKN_END) &&
+             !currentTokenIs(Lexer::TKN_EOT));
+
+    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
+        return getInvalidNode();
+
+    return client.acceptLoopStmt(loc, stmts);
 }
 
 Node Parser::parseForStmt()

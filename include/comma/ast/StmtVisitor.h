@@ -55,6 +55,7 @@ public:
     virtual void visitIfStmt(IfStmt *node);
     virtual void visitWhileStmt(WhileStmt *node);
     virtual void visitForStmt(ForStmt *node);
+    virtual void visitLoopStmt(LoopStmt *node);
     virtual void visitPragmaStmt(PragmaStmt *node);
     ///@}
 };

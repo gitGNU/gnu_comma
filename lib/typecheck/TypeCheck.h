@@ -167,6 +167,8 @@ public:
 
     Node acceptWhileStmt(Location loc, Node condition, NodeVector &stmtNodes);
 
+    Node acceptLoopStmt(Location loc, NodeVector &stmtNodes);
+
     Node acceptPragmaStmt(IdentifierInfo *name, Location loc, NodeVector &args);
 
     void acceptPragmaImport(Location pragmaLoc,

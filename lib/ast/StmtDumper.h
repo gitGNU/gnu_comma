@@ -63,6 +63,7 @@ private:
     void visitIfStmt(IfStmt *node);
     void visitWhileStmt(WhileStmt *node);
     void visitForStmt(ForStmt *node);
+    void visitLoopStmt(LoopStmt *node);
     void visitPragmaStmt(PragmaStmt *node);
 };
 

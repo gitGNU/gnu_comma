@@ -507,6 +507,9 @@ public:
     virtual Node acceptWhileStmt(Location loc, Node condition,
                                  NodeVector &stmtNodes) = 0;
 
+    /// Called to inform the client of a loop statement.
+    virtual Node acceptLoopStmt(Location loc, NodeVector &stmtNodes) = 0;
+
     /// Called when a pragma is encountered within a sequence of statements.
     virtual Node acceptPragmaStmt(IdentifierInfo *name, Location loc,
                                   NodeVector &pragmaArgs) = 0;

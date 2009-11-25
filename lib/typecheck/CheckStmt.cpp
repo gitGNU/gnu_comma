@@ -249,6 +249,19 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
     return getNode(new WhileStmt(loc, condition, body));
 }
 
+Node TypeCheck::acceptLoopStmt(Location loc, NodeVector &stmtNodes)
+{
+    typedef NodeCaster<Stmt> caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+
+    iterator I(stmtNodes.begin(), caster());
+    iterator E(stmtNodes.end(), caster());
+    StmtSequence *body = new StmtSequence(I, E);
+
+    stmtNodes.release();
+    return getNode(new LoopStmt(loc, body));
+}
+
 Node TypeCheck::beginForStmt(Location loc,
                              IdentifierInfo *iterName, Location iterLoc,
                              Node control, bool isReversed)

@@ -151,7 +151,24 @@ void StmtDumper::visitIfStmt(IfStmt *node)
 
 void StmtDumper::visitWhileStmt(WhileStmt *node)
 {
-    printHeader(node) << '>';
+    printHeader(node) << '\n';
+    indent();
+    printIndentation();
+    dumpAST(node->getCondition()) << '\n';
+    printIndentation();
+    visitStmtSequence(node->getBody());
+    dedent();
+    S << '>';
+}
+
+void StmtDumper::visitLoopStmt(LoopStmt *node)
+{
+    printHeader(node) << '\n';
+    indent();
+    printIndentation();
+    visitStmtSequence(node->getBody());
+    dedent();
+    S << '>';
 }
 
 void StmtDumper::visitForStmt(ForStmt *node)

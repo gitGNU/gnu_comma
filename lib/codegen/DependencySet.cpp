@@ -48,6 +48,7 @@ private:
     void visitAssignmentStmt(AssignmentStmt *node);
     void visitIfStmt(IfStmt *node);
     void visitWhileStmt(WhileStmt *node);
+    void visitLoopStmt(LoopStmt *node);
     //@}
 
     /// \name Expression visitors.
@@ -159,6 +160,11 @@ void DependencyScanner::visitIfStmt(IfStmt *node)
 void DependencyScanner::visitWhileStmt(WhileStmt *node)
 {
     visitExpr(node->getCondition());
+    visitStmtSequence(node->getBody());
+}
+
+void DependencyScanner::visitLoopStmt(LoopStmt *node)
+{
     visitStmtSequence(node->getBody());
 }
 

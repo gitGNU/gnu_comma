@@ -74,6 +74,7 @@ class KeywordSelector;
 class LastAE;
 class LastArrayAE;
 class LoopDecl;
+class LoopStmt;
 class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
@@ -218,6 +219,7 @@ public:
         AST_BlockStmt,          ///< BlockStmt
         AST_ForStmt,            ///< ForStmt
         AST_IfStmt,             ///< IfStmt
+        AST_LoopStmt,           ///< LoopStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_ReturnStmt,         ///< ReturnStmt
         AST_StmtSequence,       ///< StmtSequence

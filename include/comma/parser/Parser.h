@@ -75,6 +75,7 @@ public:
     Node parseAssignmentStmt();
     Node parseBlockStmt();
     Node parseWhileStmt();
+    Node parseLoopStmt();
     Node parseForStmt();
     Node parsePragmaStmt();
 

@@ -57,6 +57,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
         emitForStmt(cast<ForStmt>(stmt));
         break;
 
+    case Ast::AST_LoopStmt:
+        emitLoopStmt(cast<LoopStmt>(stmt));
+        break;
+
     case Ast::AST_ReturnStmt:
         emitReturnStmt(cast<ReturnStmt>(stmt));
         break;
@@ -364,6 +368,27 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     Builder.CreateBr(entryBB);
 
     // Finally, set the insertion point to the mergeBB.
+    Builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
+{
+    llvm::BasicBlock *bodyBB = makeBasicBlock("loop.body");
+    llvm::BasicBlock *mergeBB = makeBasicBlock("loop.merge");
+
+    // Branch unconditionally from the current insertion point to the loop body.
+    Builder.CreateBr(bodyBB);
+    Builder.SetInsertPoint(bodyBB);
+
+    // Generate the body.
+    emitStmt(stmt->getBody());
+
+    // If the current insertion point does not have a terminator,
+    // unconditionally branch back to the start of the body.
+    if (!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(bodyBB);
+
+    // Finally, set mergeBB as the current insertion point.
     Builder.SetInsertPoint(mergeBB);
 }
 

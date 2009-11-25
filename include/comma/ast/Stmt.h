@@ -442,6 +442,38 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// LoopStmt
+//
+/// This class represents the simple "loop" statement.
+class LoopStmt : public Stmt {
+
+public:
+    LoopStmt(Location loc, StmtSequence *body)
+        : Stmt(AST_LoopStmt),
+          location(loc),
+          body(body) { }
+
+    //@{
+    /// Returns the body of this loop.
+    const StmtSequence *getBody() const { return body; }
+    StmtSequence *getBody() { return body; }
+    //@}
+
+    /// Returns the location of the 'loop' reserved word.
+    Location getLocation() { return location; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const LoopStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_LoopStmt;
+    }
+
+private:
+    Location location;
+    StmtSequence *body;
+};
+
+//===----------------------------------------------------------------------===//
 // PragmaStmt
 //
 // This is a simple Stmt node which wraps a pragma so that it can appear within
