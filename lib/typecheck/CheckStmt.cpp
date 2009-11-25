@@ -347,7 +347,7 @@ Node TypeCheck::beginForStmt(Location loc,
 
     // Create the loop statement node.
     LoopDecl *iter = new LoopDecl(iterName, boundTy, iterLoc);
-    Range *range = new Range(lower, upper);
+    Range *range = new Range(lower, upper, boundTy);
     ForStmt *loop = new ForStmt(loc, iter, range);
 
     if (isReversed)

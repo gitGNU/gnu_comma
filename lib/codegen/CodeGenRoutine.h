@@ -138,10 +138,10 @@ private:
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
 
     /// Emits a value representing the lower bound of the given scalar type.
-    llvm::Value *emitScalarLowerBound(IntegerType *Ty);
+    llvm::Value *emitScalarLowerBound(DiscreteType *Ty);
 
     /// Emits a value representing the upper bound of the given scalar subtype.
-    llvm::Value *emitScalarUpperBound(IntegerType *Ty);
+    llvm::Value *emitScalarUpperBound(DiscreteType *Ty);
 
     // Conversion emitters.
     llvm::Value *emitCheckedIntegerConversion(Expr *expr, IntegerType *target);

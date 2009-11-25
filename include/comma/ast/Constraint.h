@@ -57,9 +57,9 @@ private:
 class RangeConstraint : public Constraint, public Range {
 
 public:
-    RangeConstraint(Expr *lower, Expr *upper)
+    RangeConstraint(Expr *lower, Expr *upper, DiscreteType *type)
         : Constraint(Range_Constraint),
-          Range(lower, upper) { }
+          Range(lower, upper, type) { }
 
     // Support isa and dyn_cast.
     static bool classof(const RangeConstraint *constraint) { return true; }

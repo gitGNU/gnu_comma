@@ -45,7 +45,7 @@ public:
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
-    const llvm::IntegerType *lowerIntegerType(const IntegerType *type);
+    const llvm::IntegerType *lowerDiscreteType(const DiscreteType *type);
 
     const llvm::ArrayType *lowerArrayType(const ArrayType *type);
 

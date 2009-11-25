@@ -8,6 +8,7 @@
 
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/AstResource.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
@@ -413,6 +414,19 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
     }
 }
 
+SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                               DeclRegion *parent)
+    : Decl(kind, name, loc, parent),
+      DeclRegion(kind, parent),
+      opID(PO::NotPrimitive),
+      numParameters(0),
+      parameters(0),
+      body(0),
+      declarationLink(0, FORWARD_TAG)
+{
+    assert(this->denotesSubroutineDecl());
+}
+
 SubroutineDecl::~SubroutineDecl()
 {
     if (parameters) {
@@ -538,9 +552,8 @@ FunctionDecl::FunctionDecl(AstResource &resource,
 
 FunctionDecl::FunctionDecl(AstKind kind, AstResource &resource,
                            IdentifierInfo *name, Location loc,
-                           ParamValueDecl **params, unsigned numParams,
-                           Type *returnType, DeclRegion *parent)
-    : SubroutineDecl(kind, name, loc, params, numParams, parent)
+                           EnumerationType *returnType, DeclRegion *parent)
+    : SubroutineDecl(kind, name, loc, parent)
 {
     initializeCorrespondingType(resource, returnType);
 }
@@ -736,9 +749,8 @@ CarrierDecl::CarrierDecl(AstResource &resource,
 // EnumLiteral
 EnumLiteral::EnumLiteral(AstResource &resource,
                          IdentifierInfo *name, Location loc, unsigned index,
-                         EnumerationDecl *parent)
-    : FunctionDecl(AST_EnumLiteral, resource,
-                   name, loc, 0, 0, parent->getType(), parent),
+                         EnumerationType *type, EnumerationDecl *parent)
+    : FunctionDecl(AST_EnumLiteral, resource, name, loc, type, parent),
       index(index)
 {
     setAsPrimitive(PO::ENUM_op);
@@ -757,18 +769,42 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
     setDeclRegion(parent);
 
     // Build the root type corresponding to this declaration.
-    EnumerationType *base = resource.createEnumType(this);
+    EnumerationType *root = resource.createEnumType(this);
 
-    // Create the first named subtype of this decl.
-    CorrespondingType = resource.createEnumSubtype(name, base);
+    // Now, we have a bootstrap issue here to contend with.  We need to perform
+    // the following sequence of actions:
+    //
+    //    - Build the root type of this declaration.
+    //
+    //    - Build the first constrained subtype of the root type.
+    //
+    //    - Build the set of EnumLiteral's associated with this declaration,
+    //      each of which has the first constrained subtype as type.
+    //
+    // However, in order to construct the first subtype we need the literals to
+    // be available so that we may form the constraint, but we also need the
+    // first subtype available to construct the literals.
+    //
+    // The solution to this circularity is to specify the constraint of the
+    // first subtype as attribute expressions over the base subtype.  In source
+    // code, the constraint would be similar to "E'Base'First .. E'Base'Last".
+    // Note that these attributes are static expressions.
+    EnumerationType *base = root->getBaseSubtype();
+    Expr *lower = new FirstAE(base, 0);
+    Expr *upper = new LastAE(base, 0);
+
+    // Construct the subtype.
+    EnumerationType *subtype;
+    subtype = resource.createEnumSubtype(name, root, lower, upper);
+    CorrespondingType = subtype;
 
     // Construct enumeration literals for each Id/Location pair and add them to
     // this decls declarative region.
     for (unsigned i = 0; i < numElems; ++i) {
         IdentifierInfo *name = elems[i].first;
         Location loc = elems[i].second;
-
-        EnumLiteral *elem = new EnumLiteral(resource, name, loc, i, this);
+        EnumLiteral *elem =
+            new EnumLiteral(resource, name, loc, i, subtype, this);
         addDecl(elem);
     }
 }

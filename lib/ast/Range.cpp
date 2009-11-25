@@ -17,33 +17,16 @@ using llvm::cast;
 using llvm::isa;
 
 
-Range::Range(Expr *lower, Expr *upper)
+Range::Range(Expr *lower, Expr *upper, DiscreteType *type)
     : Ast(AST_Range),
       lowerBound(lower, 0),
-      upperBound(upper, 0)
+      upperBound(upper, 0),
+      rangeTy(type->getRootType())
 {
-    Type *lowerTy = lower->getType();
-    Type *upperTy = upper->getType();
-
-    // If either of the types are primary, reduce to each to the underlying
-    // root.
-    if (PrimaryType *primary = dyn_cast<PrimaryType>(lowerTy))
-        lowerTy = primary->getRootType();
-    if (PrimaryType *primary = dyn_cast<PrimaryType>(upperTy))
-        upperTy = primary->getRootType();
-
-    // Both expressions must be of the same common discrete type.
-    assert(lowerTy == upperTy && "Type mismatch in range bounds!");
-    assert(lowerTy->isDiscreteType() && "Non discrete type of range!");
-
-    // FIXME: Currently, the type must be a discrete type.  We should allow any
-    // scalar type here.
-    DiscreteType *rangeTy = cast<DiscreteType>(lowerTy);
-    unsigned width = rangeTy->getSize();
-
     // Try to evaluate the upper and lower bounds as static discrete
-    // expressions.  Mark each bound as appropriate and convert the CTC to a
-    // width that matches this ranges type.
+    // expressions.  Mark each bound as appropriate and convert the computed
+    // value to a width that matches this ranges type.
+    unsigned width = rangeTy->getSize();
     if (lower->staticDiscreteValue(lowerValue)) {
         markLowerAsStatic();
         assert(lowerValue.getMinSignedBits() <= width && "Bounds too wide!");
@@ -54,28 +37,6 @@ Range::Range(Expr *lower, Expr *upper)
         assert(upperValue.getMinSignedBits() <= width && "Bounds too wide!");
         upperValue.sextOrTrunc(width);
     }
-}
-
-DiscreteType *Range::getType()
-{
-    Type *Ty = getLowerBound()->getType();
-
-    if (PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
-        Ty = primary->getRootType();
-
-    // Currently, all range types have a discrete type.
-    return cast<DiscreteType>(Ty);
-}
-
-const DiscreteType *Range::getType() const
-{
-    const Type *Ty = getLowerBound()->getType();
-
-    if (const PrimaryType *primary = dyn_cast<PrimaryType>(Ty))
-        Ty = primary->getRootType();
-
-    // Currently, all range types have a discrete type.
-    return cast<DiscreteType>(Ty);
 }
 
 bool Range::isNull() const

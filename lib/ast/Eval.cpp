@@ -215,14 +215,14 @@ bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result)
         break;
 
     case Ast::AST_FirstAE: {
-        const IntegerType *intTy = cast<FirstAE>(expr)->getType();
+        const DiscreteType *intTy = cast<FirstAE>(expr)->getType();
         if (const RangeConstraint *constraint = intTy->getConstraint()) {
             if (constraint->hasStaticLowerBound()) {
                 result = constraint->getStaticLowerBound();
                 status = true;
             }
         }
-        else if (intTy->isRootType()) {
+        else {
             intTy->getLowerLimit(result);
             status = true;
         }
@@ -230,14 +230,14 @@ bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result)
     }
 
     case Ast::AST_LastAE: {
-        const IntegerType *intTy = cast<LastAE>(expr)->getType();
+        const DiscreteType *intTy = cast<LastAE>(expr)->getType();
         if (const RangeConstraint *constraint = intTy->getConstraint()) {
             if (constraint->hasStaticUpperBound()) {
                 result = constraint->getStaticUpperBound();
                 status = true;
             }
         }
-        else if (intTy->isRootType()) {
+        else {
             intTy->getUpperLimit(result);
             status = true;
         }

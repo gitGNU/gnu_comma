@@ -37,10 +37,8 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
         return lowerCarrierType(cast<CarrierType>(type));
 
     case Ast::AST_EnumerationType:
-        return lowerEnumType(cast<EnumerationType>(type));
-
     case Ast::AST_IntegerType:
-        return lowerIntegerType(cast<IntegerType>(type));
+        return lowerDiscreteType(cast<DiscreteType>(type));
 
     case Ast::AST_ArrayType:
         return lowerArrayType(cast<ArrayType>(type));
@@ -101,14 +99,6 @@ const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)
 const llvm::Type *CodeGenTypes::lowerCarrierType(const CarrierType *type)
 {
     return lowerType(type->getRootType());
-}
-
-const llvm::IntegerType *
-CodeGenTypes::lowerEnumType(const EnumerationType *type)
-{
-    // Enumeration types are lowered to an integer type with sufficient capacity
-    // to hold each element of the enumeration.
-    return getTypeForWidth(type->getSize());
 }
 
 const llvm::FunctionType *
@@ -185,7 +175,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     return llvm::FunctionType::get(retTy, args, false);
 }
 
-const llvm::IntegerType *CodeGenTypes::lowerIntegerType(const IntegerType *type)
+const llvm::IntegerType *CodeGenTypes::lowerDiscreteType(const DiscreteType *type)
 {
     return getTypeForWidth(type->getSize());
 }

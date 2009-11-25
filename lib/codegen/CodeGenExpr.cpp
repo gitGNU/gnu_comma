@@ -195,7 +195,7 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
     // source type).  Find the appropriate type and sign extend the value if
     // needed.
     if (targetRootTy->getSize() > sourceRootTy->getSize()) {
-        boundTy = CGT.lowerIntegerType(targetTy);
+        boundTy = CGT.lowerDiscreteType(targetTy);
         sourceVal = Builder.CreateSExt(sourceVal, boundTy);
     }
     else
@@ -283,9 +283,9 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
     return sourceVal;
 }
 
-llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerType *Ty)
+llvm::Value *CodeGenRoutine::emitScalarLowerBound(DiscreteType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGT.lowerIntegerType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerDiscreteType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {
@@ -306,9 +306,9 @@ llvm::Value *CodeGenRoutine::emitScalarLowerBound(IntegerType *Ty)
     return emitValue(range->getLowerBound());
 }
 
-llvm::Value *CodeGenRoutine::emitScalarUpperBound(IntegerType *Ty)
+llvm::Value *CodeGenRoutine::emitScalarUpperBound(DiscreteType *Ty)
 {
-    const llvm::IntegerType *loweredTy = CGT.lowerIntegerType(Ty);
+    const llvm::IntegerType *loweredTy = CGT.lowerDiscreteType(Ty);
 
     // If unconstrained, emit the lower limit of the base type.
     if (!Ty->isConstrained()) {
@@ -347,7 +347,7 @@ llvm::Value *CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
 {
-    IntegerType *Ty = AE->getType();
+    DiscreteType *Ty = AE->getType();
     if (AE->isFirst())
         return emitScalarLowerBound(Ty);
     else

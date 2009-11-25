@@ -897,6 +897,9 @@ protected:
                    IdentifierInfo **keywords, SubroutineType *type,
                    DeclRegion *parent);
 
+    SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                   DeclRegion *parent);
+
     PO::PrimitiveID opID : 8;   ///< Identifies the type of operation.
 
     unsigned numParameters;
@@ -1040,12 +1043,10 @@ public:
     }
 
 protected:
-    // Constructor used by derived function-like declarations (EnumLiteral, in
-    // particular).
+    // Constructor for use by EnumLiteral.
     FunctionDecl(AstKind kind, AstResource &resource,
                  IdentifierInfo *name, Location loc,
-                 ParamValueDecl **params, unsigned numParams,
-                 Type *returnType, DeclRegion *parent);
+                 EnumerationType *returnType, DeclRegion *parent);
 
 private:
     FunctionType *correspondingType;
@@ -1093,7 +1094,7 @@ private:
     // Enumeration literals are constructed by their containing enumeration decl
     // node.
     EnumLiteral(AstResource &resource, IdentifierInfo *name, Location loc,
-                unsigned index, EnumerationDecl *parent);
+                unsigned index, EnumerationType *type, EnumerationDecl *parent);
 
     friend class EnumerationDecl;
 

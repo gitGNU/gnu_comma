@@ -104,6 +104,21 @@ EnumerationType *Type::getAsEnumType()
 }
 
 //===----------------------------------------------------------------------===//
+// SubroutineType
+
+SubroutineType::SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
+    : Type(kind),
+      argumentTypes(0),
+      numArguments(numArgs)
+{
+    assert(this->denotesSubroutineType());
+    if (numArgs > 0) {
+        argumentTypes = new Type*[numArgs];
+        std::copy(argTypes, argTypes + numArgs, argumentTypes);
+    }
+}
+
+//===----------------------------------------------------------------------===//
 // CarrierType
 
 CarrierType::CarrierType(CarrierDecl *carrier, PrimaryType *type)
@@ -325,8 +340,11 @@ public:
     /// For root enumeration types the size is either 8, 16, 32, or 64.
     uint64_t getSize() const;
 
-    /// Returns the base subtype.
-    const EnumerationType *getBaseSubtype();
+    //@{
+    /// Returns the unconstrained base subtype.
+    const EnumerationType *getBaseSubtype() const;
+    EnumerationType *getBaseSubtype();
+    //@}
 
     /// Returns the lower limit of this type.
     void getLowerLimit(llvm::APInt &res) const {
@@ -386,7 +404,7 @@ public:
                         Expr *lowerBound, Expr *upperBound,
                         IdentifierInfo *name = 0)
         : EnumerationType(ConstrainedEnumType_KIND, rootType),
-          constraint(new RangeConstraint(lowerBound, upperBound)),
+          constraint(new RangeConstraint(lowerBound, upperBound, rootType)),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -443,7 +461,12 @@ uint64_t RootEnumType::getSize() const
     return DiscreteType::getPreferredSize(numBits);
 }
 
-const EnumerationType *RootEnumType::getBaseSubtype()
+const EnumerationType *RootEnumType::getBaseSubtype() const
+{
+    return baseType;
+}
+
+EnumerationType *RootEnumType::getBaseSubtype()
 {
     return baseType;
 }
@@ -491,6 +514,17 @@ void EnumerationType::getUpperLimit(llvm::APInt &res) const
 uint64_t EnumerationType::getSize() const
 {
     return cast<RootEnumType>(this->getRootType())->getSize();
+}
+
+const EnumerationType *EnumerationType::getBaseSubtype() const
+{
+    return const_cast<EnumerationType*>(this)->getBaseSubtype();
+}
+
+EnumerationType *EnumerationType::getBaseSubtype()
+{
+    RootEnumType *root = cast<RootEnumType>(this->getRootType());
+    return root->getBaseSubtype();
 }
 
 EnumerationType *EnumerationType::create(AstResource &resource,
@@ -579,7 +613,7 @@ public:
                            Expr *lowerBound, Expr *upperBound,
                            IdentifierInfo *name = 0)
         : IntegerType(ConstrainedIntegerType_KIND, rootType),
-          constraint(new RangeConstraint(lowerBound, upperBound)),
+          constraint(new RangeConstraint(lowerBound, upperBound, rootType)),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.

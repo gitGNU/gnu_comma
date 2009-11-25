@@ -89,21 +89,21 @@ public:
 
     //@{
     /// Specializations of AttribExpr::getPrefix().
-    const IntegerType *getPrefix() const {
-        return llvm::cast<IntegerType>(prefix);
+    const DiscreteType *getPrefix() const {
+        return llvm::cast<DiscreteType>(prefix);
     }
-    IntegerType *getPrefix() {
-        return llvm::cast<IntegerType>(prefix);
+    DiscreteType *getPrefix() {
+        return llvm::cast<DiscreteType>(prefix);
     }
     //@}
 
     //@{
     /// Specializations of Expr::getType().
-    const IntegerType *getType() const {
-        return llvm::cast<IntegerType>(Expr::getType());
+    const DiscreteType *getType() const {
+        return llvm::cast<DiscreteType>(Expr::getType());
     }
-    IntegerType *getType() {
-        return llvm::cast<IntegerType>(Expr::getType());
+    DiscreteType *getType() {
+        return llvm::cast<DiscreteType>(Expr::getType());
     }
     //@}
 
@@ -115,7 +115,7 @@ public:
     }
 
 protected:
-    ScalarBoundAE(AstKind kind, IntegerType *prefix, Location loc)
+    ScalarBoundAE(AstKind kind, DiscreteType *prefix, Location loc)
         : AttribExpr(kind, prefix, prefix, loc) {
         assert(kind == AST_FirstAE || kind == AST_LastAE);
     }
@@ -131,7 +131,7 @@ protected:
 class FirstAE : public ScalarBoundAE {
 
 public:
-    FirstAE(IntegerType *prefix, Location loc)
+    FirstAE(DiscreteType *prefix, Location loc)
         : ScalarBoundAE(AST_FirstAE, prefix, loc) { }
 
     // Support isa and dyn_cast.
@@ -151,7 +151,7 @@ public:
 class LastAE : public ScalarBoundAE {
 
 public:
-    LastAE(IntegerType *prefix, Location loc)
+    LastAE(DiscreteType *prefix, Location loc)
         : ScalarBoundAE(AST_LastAE, prefix, loc) { }
 
     // Support isa and dyn_cast.

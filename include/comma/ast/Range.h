@@ -33,19 +33,19 @@ public:
     /// Constructs a Range given expressions for the lower and upper bounds.
     /// The types of both bounds must be identical, for they determine the type
     /// of the Range itself.
-    Range(Expr *lower, Expr *upper);
+    Range(Expr *lower, Expr *upper, DiscreteType *type);
 
     /// Constructs a Range given expressions for the lower and upper bounds.
     /// The types of both bounds must be identical, for they determine the type
     /// of the Range itself.
-    static Range *create(Expr *lower, Expr *upper) {
-        return new Range(lower, upper);
+    static Range *create(Expr *lower, Expr *upper, DiscreteType *type) {
+        return new Range(lower, upper, type);
     }
 
     //@{
-    /// Returns the type of this range.  This is always a base scalar type.
-    DiscreteType *getType();
-    const DiscreteType *getType() const;
+    /// Returns the type of this range.  This is always a root discrete type.
+    DiscreteType *getType() { return rangeTy; }
+    const DiscreteType *getType() const { return rangeTy; }
     //@}
 
     //@{
@@ -122,6 +122,7 @@ private:
     PtrInt upperBound;          ///< Upper bound expression.
     llvm::APInt lowerValue;     ///< static lower value.
     llvm::APInt upperValue;     ///< static upper value.
+    DiscreteType *rangeTy;      ///< the type of this range.
 };
 
 } // end comma namespace.

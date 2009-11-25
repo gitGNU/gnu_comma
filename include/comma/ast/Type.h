@@ -114,16 +114,7 @@ public:
     }
 
 protected:
-    SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
-        : Type(kind),
-          argumentTypes(0),
-          numArguments(numArgs) {
-        assert(this->denotesSubroutineType());
-        if (numArgs > 0) {
-            argumentTypes = new Type*[numArgs];
-            std::copy(argTypes, argTypes + numArgs, argumentTypes);
-        }
-    }
+    SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs);
 
     Type **argumentTypes;
     unsigned numArguments;
@@ -154,8 +145,7 @@ private:
     /// Function types are constructed thru an AstResource.
     friend class AstResource;
 
-    FunctionType(Type **argTypes, unsigned numArgs,
-                 Type *returnType)
+    FunctionType(Type **argTypes, unsigned numArgs, Type *returnType)
         : SubroutineType(AST_FunctionType, argTypes, numArgs),
           returnType(returnType) { }
 
@@ -455,6 +445,16 @@ public:
     bool contains(const DiscreteType *target) const;
 
     //@{
+    /// Specialization of PrimaryType::getRootType().
+    const DiscreteType *getRootType() const {
+        return llvm::cast<DiscreteType>(PrimaryType::getRootType());
+    }
+    DiscreteType *getRootType() {
+        return llvm::cast<DiscreteType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    //@{
     /// Specialization of PrimaryType::getConstraint().
     virtual RangeConstraint *getConstraint() = 0;
     virtual const RangeConstraint *getConstraint() const = 0;
@@ -536,6 +536,12 @@ public:
     const EnumerationType *getRootType() const {
         return llvm::cast<EnumerationType>(PrimaryType::getRootType());
     }
+    //@}
+
+    //@{
+    /// Returns the base (unconstrained) subtype of this enumeration type.
+    EnumerationType *getBaseSubtype();
+    const EnumerationType *getBaseSubtype() const;
     //@}
 
     // Support isa and dyn_cast.
