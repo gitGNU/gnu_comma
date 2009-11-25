@@ -124,6 +124,7 @@ public:
         case TKN_MINUS:
         case TKN_STAR:
         case TKN_PLUS:
+        case TKN_FSLASH:
         case TKN_POW:
         case TKN_MOD:
         case TKN_REM:
