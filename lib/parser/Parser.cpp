@@ -585,8 +585,8 @@ void Parser::parseSignatureProfile()
     if (currentTokenIs(Lexer::TKN_IS))
         parseSupersignatureProfile();
 
-    if (currentTokenIs(Lexer::TKN_WITH))
-        parseWithProfile();
+    if (reduceToken(Lexer::TKN_WITH))
+        parseWithComponents();
 
     client.endSignatureProfile();
 }
@@ -595,8 +595,26 @@ void Parser::parseSignatureProfile()
 void Parser::parseSupersignatureProfile()
 {
     assert(currentTokenIs(Lexer::TKN_IS));
-    ignoreToken();
+    Location isLoc = ignoreToken();
 
+    // Check for a resonably common case of writing "is" where one ment "with".
+    switch (currentTokenCode()) {
+    default:
+        break;
+    case Lexer::TKN_PROCEDURE:
+    case Lexer::TKN_FUNCTION:
+    case Lexer::TKN_TYPE:
+    case Lexer::TKN_SUBTYPE:
+        // Report that we expected a "with" token and continue parsing as though
+        // we had a "with".
+        report(isLoc, diag::UNEXPECTED_TOKEN_WANTED)
+            << Lexer::tokenString(Lexer::TKN_IS)
+            << Lexer::tokenString(Lexer::TKN_WITH);
+        parseWithComponents();
+        return;
+    }
+
+    // Otherwise, parse the super signature list.
     do {
         Node super = parseName();
 
@@ -609,11 +627,8 @@ void Parser::parseSupersignatureProfile()
     } while (reduceToken(Lexer::TKN_AND));
 }
 
-void Parser::parseWithProfile()
+void Parser::parseWithComponents()
 {
-    assert(currentTokenIs(Lexer::TKN_WITH));
-    ignoreToken();
-
     bool status = false;
 
     for (;;) {
@@ -931,6 +946,16 @@ void Parser::parseSubroutineBody(Node declarationNode)
 
     while (!currentTokenIs(Lexer::TKN_BEGIN) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
+
+        // Check for the common error of only specifying a declarative part
+        // without a body.
+        if (currentTokenIs(Lexer::TKN_END)) {
+            report(diag::UNEXPECTED_TOKEN_WANTED)
+                << currentToken().getString()
+                << Lexer::tokenString(Lexer::TKN_BEGIN);
+            goto PARSE_END_TAG;
+        }
+
         parseDeclaration();
         requireToken(Lexer::TKN_SEMI);
     }
@@ -944,6 +969,7 @@ void Parser::parseSubroutineBody(Node declarationNode)
             client.acceptSubroutineStmt(stmt);
     }
 
+PARSE_END_TAG:
     EndTagEntry tagEntry = endTagStack.top();
     assert(tagEntry.kind == NAMED_TAG && "Inconsistent end tag stack!");
 

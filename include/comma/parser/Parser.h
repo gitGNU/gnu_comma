@@ -46,7 +46,7 @@ public:
 
     void parseSignatureProfile();
     void parseSupersignatureProfile();
-    void parseWithProfile();
+    void parseWithComponents();
 
     bool parseSubroutineParameter();
     void parseSubroutineParameters();
