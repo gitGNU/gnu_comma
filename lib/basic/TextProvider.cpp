@@ -146,7 +146,7 @@ unsigned TextProvider::getLine(Location loc) const
 
     // Check that loc is within the known range of the line vector. If not,
     // extend the vector with all lines upto this location.
-    if (loc > maxLineIndex) {
+    if (loc >= maxLineIndex) {
         unsigned line;
         const char* cursor = &buffer[lines.back()];
         while (cursor != &buffer[loc]) {
@@ -195,8 +195,9 @@ unsigned TextProvider::getLine(Location loc) const
                     start = ++mid;
                     continue;
                 }
+                return ++mid;
             }
-            return ++mid;
+            return mid;
         }
         end = --mid;
     }
