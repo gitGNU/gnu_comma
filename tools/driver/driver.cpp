@@ -110,6 +110,12 @@ int main(int argc, char **argv)
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
     llvm::sys::Path path(InputFile);
+
+    if (!path.canRead()) {
+        llvm::errs() << "Cannot open `" << path <<"'\n";
+        return 1;
+    }
+
     TextProvider tp(path);
     IdentifierPool idPool;
     AstResource resource(tp, idPool);
