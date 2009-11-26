@@ -54,9 +54,7 @@ Node Parser::parseStatement()
         break;
     }
 
-    if (node.isInvalid() || !requireToken(Lexer::TKN_SEMI))
-        seekAndConsumeToken(Lexer::TKN_SEMI);
-
+    requireToken(Lexer::TKN_SEMI);
     return node;
 }
 
@@ -90,8 +88,10 @@ Node Parser::parseAssignmentStmt()
 
     Node target = parseName();
 
-    if (target.isInvalid())
+    if (target.isInvalid()) {
+        seekSemi();
         return getInvalidNode();
+    }
 
     ignoreToken();              // Ignore the `:='.
 
@@ -99,8 +99,10 @@ Node Parser::parseAssignmentStmt()
 
     if (value.isValid())
         return client.acceptAssignmentStmt(target, value);
-
-    return getInvalidNode();
+    else {
+        seekSemi();
+        return getInvalidNode();
+    }
 }
 
 Node Parser::parseIfStmt()
@@ -363,14 +365,17 @@ Node Parser::parsePragmaStmt()
     Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifierInfo();
 
-    if (!name)
+    if (!name) {
+        seekSemi();
         return getInvalidNode();
+    }
 
     llvm::StringRef ref(name->getString());
     pragma::PragmaID ID = pragma::getPragmaID(ref);
 
     if (ID == pragma::UNKNOWN_PRAGMA) {
         report(loc, diag::UNKNOWN_PRAGMA) << name;
+        seekSemi();
         return getInvalidNode();
     }
 
@@ -379,6 +384,7 @@ Node Parser::parsePragmaStmt()
     // parse the arguments.
     switch (ID) {
     default:
+        seekSemi();
         report(loc, diag::INVALID_PRAGMA_CONTEXT) << name;
         return getInvalidNode();
 
@@ -394,12 +400,13 @@ Node Parser::parsePragmaAssert(IdentifierInfo *name, Location loc)
         Node condition = parseExpr();
 
         if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
-            seekTokens(Lexer::TKN_RPAREN);
+            seekToken(Lexer::TKN_RPAREN);
             return getInvalidNode();
         }
 
         args.push_back(condition);
         return client.acceptPragmaStmt(name, loc, args);
     }
-   return getInvalidNode();
+    seekSemi();
+    return getInvalidNode();
 }
