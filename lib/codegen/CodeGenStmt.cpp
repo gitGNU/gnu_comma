@@ -42,7 +42,7 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
         break;
 
     case Ast::AST_BlockStmt:
-        emitBlockStmt(cast<BlockStmt>(stmt));
+        emitBlockStmt(cast<BlockStmt>(stmt), Builder.GetInsertBlock());
         break;
 
     case Ast::AST_IfStmt:
@@ -155,8 +155,10 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
     llvm::BasicBlock *BB = makeBasicBlock(label);
 
-    if (predecessor)
+    if (predecessor) {
+        Builder.CreateBr(BB);
         BB->moveAfter(predecessor);
+    }
 
     Builder.SetInsertPoint(BB);
 
