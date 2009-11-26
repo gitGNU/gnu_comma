@@ -341,9 +341,9 @@ Node TypeCheck::beginForStmt(Location loc,
     }
 
     // Ensure both bounds have been resolved to compatable discrete types.
-    DiscreteType *boundTy = dyn_cast<DiscreteType>(lower->getType());
+    DiscreteType *rangeTy = dyn_cast<DiscreteType>(lower->getType());
 
-    if (!boundTy) {
+    if (!rangeTy) {
         report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
         return getInvalidNode();
     }
@@ -353,14 +353,24 @@ Node TypeCheck::beginForStmt(Location loc,
         return getInvalidNode();
     }
 
-    if (!covers(boundTy, upper->getType())) {
+    if (!covers(rangeTy, upper->getType())) {
         report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
         return getInvalidNode();
     }
 
+    // If the type of the range has been resolved to root_integer, further
+    // refine it to a subtype of Integer (ARM 3.6.18).
+    if (rangeTy == resource.getTheRootIntegerType()) {
+        IntegerType *intTy = resource.getTheIntegerType();
+        lower = new ConversionExpr(lower, intTy, lower->getLocation());
+        upper = new ConversionExpr(upper, intTy, upper->getLocation());
+        rangeTy = resource.createIntegerSubtype(
+            intTy->getIdInfo(), intTy, lower, upper);
+    }
+
     // Create the loop statement node.
-    LoopDecl *iter = new LoopDecl(iterName, boundTy, iterLoc);
-    Range *range = new Range(lower, upper, boundTy);
+    LoopDecl *iter = new LoopDecl(iterName, rangeTy, iterLoc);
+    Range *range = new Range(lower, upper, rangeTy);
     ForStmt *loop = new ForStmt(loc, iter, range);
 
     if (isReversed)

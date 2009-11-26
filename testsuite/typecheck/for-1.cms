@@ -1,0 +1,16 @@
+-- Ensure loop ranges default to an Integer subtype.
+
+domain D with
+   function F return Integer;
+add
+   function F return Integer is
+      Sum : Integer := 0;
+   begin
+      for I in 1 .. 10 loop
+         Sum := Sum + I;
+      end loop;
+   end F;
+end D;
+
+
+
