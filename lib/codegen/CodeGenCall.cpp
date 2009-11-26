@@ -413,6 +413,11 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             result = Builder.CreateMul(lhs, rhs);
             break;
 
+        case PO::DIV_op:
+            // FIXME: Check for division by zero.
+            result = Builder.CreateSDiv(lhs, rhs);
+            break;
+
         case PO::MOD_op:
             result = emitMod(lhs, rhs);
             break;
