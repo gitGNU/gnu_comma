@@ -386,8 +386,14 @@ public:
     /// \param loc Location of opening paren starting the aggregate.
     virtual void beginAggregate(Location loc) = 0;
 
-    /// Provides a Node describing a component of the aggregate.
+    /// Provides a Node describing a positional component of the aggregate.
     virtual void acceptAggregateComponent(Node component) = 0;
+
+    /// Provides a ranged keyed component of the form <tt>L .. P => E</tt> where
+    /// \p lower correponds to \c L, \p upper corresponds to \c P, and \p expr
+    /// corresponds to \p E.
+    virtual void acceptAggregateComponent(Node lower, Node upper,
+                                          Node expr) = 0;
 
     /// Indicates an "others" component.  This is always the last component
     /// processed by the parser.

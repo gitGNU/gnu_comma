@@ -391,6 +391,20 @@ void TypeCheck::acceptAggregateComponent(Node nodeComponent)
     agg->addComponent(component);
 }
 
+void TypeCheck::acceptAggregateComponent(Node lowerNode, Node upperNode,
+                                         Node exprNode)
+{
+    Expr *lower = ensureExpr(lowerNode);
+    Expr *upper = ensureExpr(upperNode);
+    Expr *expr = ensureExpr(exprNode);
+
+    if (!(lower && upper && expr))
+        return;
+
+    // FIXME: Implement.
+    return;
+}
+
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 {
     AggregateExpr *agg = aggregateStack.top();

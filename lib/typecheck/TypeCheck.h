@@ -102,6 +102,7 @@ public:
 
     void beginAggregate(Location loc);
     void acceptAggregateComponent(Node component);
+    void acceptAggregateComponent(Node lower, Node upper, Node expr);
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 

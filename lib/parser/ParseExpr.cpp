@@ -359,7 +359,48 @@ Node Parser::parsePositionalAggregate()
 
 Node Parser::parseKeyedAggregate()
 {
-    assert(false && "Keyed aggregates not yet supported!");
-    return getInvalidNode();
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+    Location loc = ignoreToken();
+
+    client.beginAggregate(loc);
+    do {
+        // Note that "others" clauses which appear as the one and only component
+        // of an aggregate litteral are categorized as keyed aggregates by the
+        // grammer.
+        if (currentTokenIs(Lexer::TKN_OTHERS)) {
+            Location loc = currentLocation();
+            Node others = parseOthersExpr();
+
+            if (others.isValid())
+                client.acceptAggregateOthers(loc, others);
+            else
+                seekCloseParen();
+            break;
+        }
+
+        // FIXME:  The following is limited to ranges.
+        Node lower = parseExpr();
+        if (lower.isInvalid() || !requireToken(Lexer::TKN_DDOT)) {
+            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+            continue;
+        }
+
+        Node upper = parseExpr();
+        if (upper.isInvalid() || !requireToken(Lexer::TKN_RDARROW)) {
+            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+            continue;
+        }
+
+        Node expr = parseExpr();
+        if (expr.isInvalid()) {
+            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+            continue;
+        }
+
+        client.acceptAggregateComponent(lower, upper, expr);
+    } while (reduceToken(Lexer::TKN_COMMA));
+
+    requireToken(Lexer::TKN_RPAREN);
+    return client.endAggregate();
 }
 
