@@ -1023,7 +1023,7 @@ bool Parser::parseDeclaration()
     switch (currentTokenCode()) {
     default:
         report(diag::UNEXPECTED_TOKEN) << currentTokenString();
-        seekAndConsumeToken(Lexer::TKN_SEMI);
+        seekToken(Lexer::TKN_SEMI);
         return false;
 
     case Lexer::TKN_IDENTIFIER:
