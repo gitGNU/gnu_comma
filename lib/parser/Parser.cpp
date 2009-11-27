@@ -1037,6 +1037,9 @@ bool Parser::parseDeclaration()
 
     case Lexer::TKN_IMPORT:
         return parseImportDeclaration();
+
+    case Lexer::TKN_TYPE:
+        return parseType();
     }
 }
 
