@@ -574,7 +574,7 @@ public:
 
 protected:
     AggregateExpr(AstKind kind, Location loc)
-        : Expr(kind, loc) {
+        : Expr(kind, loc), othersLoc(0), othersComponent(0) {
         assert(denotesAggregateExpr(kind));
         bits = Others_None;
     }
