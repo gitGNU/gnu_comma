@@ -79,7 +79,7 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
     return new IndexedArrayExpr(expr, &indices[0], numIndices);
 }
 
-bool TypeCheck::checkExprInContext(Expr *&expr, Type *context)
+bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
 {
     // The following sequence dispatches over the types of expressions which are
     // "sensitive" to context, meaning that we might need to patch up the AST so
