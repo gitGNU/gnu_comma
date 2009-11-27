@@ -304,6 +304,20 @@ Node Parser::parseAggregate(AggregateKind kind)
     return getInvalidNode();
 }
 
+Node Parser::parseOthersExpr()
+{
+    assert(currentTokenIs(Lexer::TKN_OTHERS));
+    ignoreToken();
+
+    if (!requireToken(Lexer::TKN_RDARROW))
+        return getInvalidNode();
+
+    if (reduceToken(Lexer::TKN_DIAMOND))
+        return getNullNode();
+
+    return parseExpr();
+}
+
 Node Parser::parsePositionalAggregate()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
@@ -314,23 +328,21 @@ Node Parser::parsePositionalAggregate()
     do {
         // If an others token is on the stream, parse the construct and
         // terminate the processing of the aggregate.
+        //
+        // FIXME: This code assumes the caller inspected the token stream via a
+        // call to aggregateFollows().  That predicate ensures that a component
+        // precedes a TKN_OTHERS token, hence the following assert.  It would be
+        // much better to generate a diagnostic here rather than rely on this
+        // condition.
         if (currentTokenIs(Lexer::TKN_OTHERS)) {
-            // The POSITIONAL_AGGREGATE kind should ensure that a component
-            // precedes a TKN_OTHERS token, hense the following assertion.
             assert(componentSeen);
+            Location loc = currentLocation();
+            Node others = parseOthersExpr();
 
-            Location loc = ignoreToken();
-            if (requireToken(Lexer::TKN_RDARROW)) {
-                if (reduceToken(Lexer::TKN_DIAMOND))
-                    client.acceptAggregateOthers(loc, getNullNode());
-                else {
-                    Node node = parseExpr();
-                    if (node.isValid())
-                        client.acceptAggregateOthers(loc, node);
-                }
-                break;
-            }
-            seekCloseParen();
+            if (others.isValid())
+                client.acceptAggregateOthers(loc, others);
+            else
+                seekCloseParen();
             break;
         }
 

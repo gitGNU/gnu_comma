@@ -343,6 +343,15 @@ private:
     Node parsePositionalAggregate();
     Node parseKeyedAggregate();
 
+    /// Parses an \c others construct of the form <tt>others => [expr |
+    /// <>]</tt>.
+    ///
+    /// \return If the parse failed, or the expression (if present) was not
+    /// accepted by the client, an invalid node is returned.  If a TKN_DIAMOND
+    /// is on the right hand side then a null node is returned.  Otherwise, a
+    /// valid node representing the expression is returned.
+    Node parseOthersExpr();
+
     Node parsePragmaAssert(IdentifierInfo *name, Location loc);
 
     // Parses a pragma in a declaration context.
