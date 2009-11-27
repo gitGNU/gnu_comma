@@ -507,29 +507,13 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// PositionalAggExpr
+// AggregateExpr
 //
-/// Ast node representing both record and array aggregate expressions with
-/// components provided positionally.
-class PositionalAggExpr : public Expr {
-
-    /// Type used to store the component expressions.
-    typedef std::vector<Expr*> ComponentVec;
+/// A common base class for all aggregate expressions.
+class AggregateExpr : public Expr {
 
 public:
-    PositionalAggExpr(Location loc)
-        : Expr(AST_PositionalAggExpr, loc),
-          othersLoc(0), othersComponent(0) {
-        bits = Others_None;
-    }
-
-    template<class Iter>
-    PositionalAggExpr(Iter I, Iter E, Location loc)
-        : Expr(AST_PositionalAggExpr, loc),
-          components(I, E),
-          othersLoc(0), othersComponent(0) {
-        bits = Others_None;
-    }
+    virtual ~AggregateExpr() { delete othersComponent; }
 
     /// An enumeration defining the kind of "others" component associated with
     /// this aggregate.
@@ -582,10 +566,52 @@ public:
         bits = Others_Undef;
     }
 
+    // Support isa/dyn_cast.
+    static bool classof(const AggregateExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return denotesAggregateExpr(node->getKind());
+    }
+
+protected:
+    AggregateExpr(AstKind kind, Location loc)
+        : Expr(kind, loc) {
+        assert(denotesAggregateExpr(kind));
+        bits = Others_None;
+    }
+
+private:
+    static bool denotesAggregateExpr(AstKind kind) {
+        return kind == AST_PositionalAggExpr;
+    }
+
+    // Location of the "others" reserved word.
+    Location othersLoc;
+
+    // Expression associated with an "others" component.
+    Expr *othersComponent;
+};
+
+//===----------------------------------------------------------------------===//
+// PositionalAggExpr
+//
+/// Ast node representing both record and array aggregate expressions with
+/// components provided positionally.
+class PositionalAggExpr : public AggregateExpr {
+
+    /// Type used to store the component expressions.
+    typedef std::vector<Expr*> ComponentVec;
+
+public:
+    PositionalAggExpr(Location loc)
+        : AggregateExpr(AST_PositionalAggExpr, loc) { }
+
+    template<class Iter>
+    PositionalAggExpr(Iter I, Iter E, Location loc)
+        : AggregateExpr(AST_PositionalAggExpr, loc),
+          components(I, E) { }
+
     /// Returns the number of components in this aggregate.
     unsigned numComponents() const { return components.size(); }
-
-    /// Returns true if this aggregate is empty.
 
     /// Adds a component to this aggregate expression.
     ///
@@ -623,12 +649,6 @@ private:
     // Vector of expressions forming the components of this aggregate
     // expression.
     std::vector<Expr*> components;
-
-    // Location of the "others" reserved word.
-    Location othersLoc;
-
-    // Expression associated with an "others" component.
-    Expr *othersComponent;
 };
 
 } // End comma namespace.

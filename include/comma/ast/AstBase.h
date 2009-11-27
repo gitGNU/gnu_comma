@@ -26,6 +26,7 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
+class AggregateExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayRangeAttrib;
