@@ -295,45 +295,59 @@ Node Parser::parseStringLiteral()
 
 Node Parser::parseAggregate(AggregateKind kind)
 {
+    if (kind == POSITIONAL_AGGREGATE)
+        return parsePositionalAggregate();
+    else if (kind == KEYED_AGGREGATE)
+        return parseKeyedAggregate();
+
+    assert(false && "Bad AggregateKind!");
+    return getInvalidNode();
+}
+
+Node Parser::parsePositionalAggregate()
+{
     assert(currentTokenIs(Lexer::TKN_LPAREN));
-    assert(kind != NOT_AN_AGGREGATE);
     Location loc = ignoreToken();
     bool componentSeen = false;
 
     client.beginAggregate(loc);
-    if (kind == POSITIONAL_AGGREGATE) {
-        do {
-            // If an others token is on the stream, parse the construct and
-            // terminate the processing of the aggregate.
-            if (currentTokenIs(Lexer::TKN_OTHERS)) {
-                // The POSITIONAL_AGGREGATE kind should ensure that a component
-                // precedes a TKN_OTHERS token, hense the following assertion.
-                assert(componentSeen);
+    do {
+        // If an others token is on the stream, parse the construct and
+        // terminate the processing of the aggregate.
+        if (currentTokenIs(Lexer::TKN_OTHERS)) {
+            // The POSITIONAL_AGGREGATE kind should ensure that a component
+            // precedes a TKN_OTHERS token, hense the following assertion.
+            assert(componentSeen);
 
-                Location loc = ignoreToken();
-                if (requireToken(Lexer::TKN_RDARROW)) {
-                    if (reduceToken(Lexer::TKN_DIAMOND))
-                        client.acceptAggregateOthers(loc, getNullNode());
-                    else {
-                        Node node = parseExpr();
-                        if (node.isValid())
-                            client.acceptAggregateOthers(loc, node);
-                    }
-                    break;
+            Location loc = ignoreToken();
+            if (requireToken(Lexer::TKN_RDARROW)) {
+                if (reduceToken(Lexer::TKN_DIAMOND))
+                    client.acceptAggregateOthers(loc, getNullNode());
+                else {
+                    Node node = parseExpr();
+                    if (node.isValid())
+                        client.acceptAggregateOthers(loc, node);
                 }
-                seekCloseParen();
                 break;
             }
+            seekCloseParen();
+            break;
+        }
 
-            componentSeen = true;
-            Node node = parseExpr();
-            if (node.isValid())
-                client.acceptAggregateComponent(node);
-        } while (reduceToken(Lexer::TKN_COMMA));
-        requireToken(Lexer::TKN_RPAREN);
-    }
-    else {
-        assert(false && "Keyed aggregates are not supported!");
-    }
+        componentSeen = true;
+        Node node = parseExpr();
+        if (node.isValid())
+            client.acceptAggregateComponent(node);
+    } while (reduceToken(Lexer::TKN_COMMA));
+
+    requireToken(Lexer::TKN_RPAREN);
     return client.endAggregate();
 }
+
+
+Node Parser::parseKeyedAggregate()
+{
+    assert(false && "Keyed aggregates not yet supported!");
+    return getInvalidNode();
+}
+

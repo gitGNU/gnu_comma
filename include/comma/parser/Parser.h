@@ -338,7 +338,10 @@ private:
     Node parseBinaryAdditiveOperator(Node lhs);
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
+
     Node parseAggregate(AggregateKind kind);
+    Node parsePositionalAggregate();
+    Node parseKeyedAggregate();
 
     Node parsePragmaAssert(IdentifierInfo *name, Location loc);
 
