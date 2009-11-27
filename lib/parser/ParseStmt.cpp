@@ -54,7 +54,8 @@ Node Parser::parseStatement()
         break;
     }
 
-    requireToken(Lexer::TKN_SEMI);
+    if (!requireToken(Lexer::TKN_SEMI))
+        seekAndConsumeToken(Lexer::TKN_SEMI);
     return node;
 }
 
