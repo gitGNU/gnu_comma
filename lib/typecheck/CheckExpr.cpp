@@ -90,7 +90,7 @@ bool TypeCheck::checkExprInContext(Expr *&expr, Type *context)
         return resolveIntegerLiteral(intLit, context);
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(expr))
         return resolveStringLiteral(strLit, context);
-    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
+    if (PositionalAggExpr *agg = dyn_cast<PositionalAggExpr>(expr)) {
         if (Expr *res = resolveAggregateExpr(agg, context)) {
             expr = res;
             return true;
@@ -380,13 +380,13 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
 
 void TypeCheck::beginAggregate(Location loc)
 {
-    aggregateStack.push(new AggregateExpr(loc));
+    aggregateStack.push(new PositionalAggExpr(loc));
 }
 
 void TypeCheck::acceptAggregateComponent(Node nodeComponent)
 {
     Expr *component = cast_node<Expr>(nodeComponent);
-    AggregateExpr *agg = aggregateStack.top();
+    PositionalAggExpr *agg = aggregateStack.top();
     nodeComponent.release();
     agg->addComponent(component);
 }
@@ -407,7 +407,7 @@ void TypeCheck::acceptAggregateComponent(Node lowerNode, Node upperNode,
 
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 {
-    AggregateExpr *agg = aggregateStack.top();
+    PositionalAggExpr *agg = aggregateStack.top();
 
     if (nodeComponent.isNull())
         agg->addOthersUndef(loc);
@@ -420,7 +420,7 @@ void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 
 Node TypeCheck::endAggregate()
 {
-    AggregateExpr *agg = aggregateStack.top();
+    PositionalAggExpr *agg = aggregateStack.top();
     aggregateStack.pop();
 
     // It is possible that the parser could not generate a single valid
@@ -433,7 +433,7 @@ Node TypeCheck::endAggregate()
     return getNode(agg);
 }
 
-Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
+Expr *TypeCheck::resolveAggregateExpr(PositionalAggExpr *agg, Type *context)
 {
     // Nothing to do if the given aggregate has already been resolved.
     if (agg->hasType())
@@ -453,7 +453,7 @@ Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
 
     // Check each component of the aggregate with respect to the component type
     // of the context.
-    typedef AggregateExpr::component_iter iterator;
+    typedef PositionalAggExpr::component_iter iterator;
     iterator I = agg->begin_components();
     iterator E = agg->end_components();
     bool allOK = true;

@@ -26,7 +26,6 @@ namespace comma {
 //
 class AbstractDomainDecl;
 class AddDecl;
-class AggregateExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayRangeAttrib;
@@ -79,6 +78,7 @@ class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
+class PositionalAggExpr;
 class Pragma;
 class PragmaAssert;
 class PragmaImport;
@@ -196,13 +196,13 @@ public:
         //
         // Expr nodes.
         //
-        AST_AggregateExpr,      ///< AggregateExpr
         AST_ConversionExpr,     ///< ConversionExpr
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
+        AST_PositionalAggExpr,  ///< PositionalAggExpr
         AST_PrjExpr,            ///< PrjExpr
         AST_StringLiteral,      ///< StringLiteral
 
@@ -263,7 +263,7 @@ public:
         FIRST_PrimaryType = AST_DomainType,
         LAST_PrimaryType = AST_CarrierType,
 
-        FIRST_Expr = AST_AggregateExpr,
+        FIRST_Expr = AST_ConversionExpr,
         LAST_Expr = AST_LastAE,
 
         FIRST_AttribExpr = AST_FirstAE,

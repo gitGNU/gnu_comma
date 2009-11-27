@@ -56,7 +56,7 @@ private:
     void visitFunctionCallExpr(FunctionCallExpr *node);
     void visitInjExpr(InjExpr *node);
     void visitPrjExpr(PrjExpr *node);
-    void visitAggregateExpr(AggregateExpr *node);
+    void visitPositionalAggExpr(PositionalAggExpr *node);
     //@}
 
     void addDependents(const DomainInstanceDecl *instance);
@@ -195,9 +195,9 @@ void DependencyScanner::visitPrjExpr(PrjExpr *node)
     visitExpr(node->getOperand());
 }
 
-void DependencyScanner::visitAggregateExpr(AggregateExpr *node)
+void DependencyScanner::visitPositionalAggExpr(PositionalAggExpr *node)
 {
-    typedef AggregateExpr::component_iter iterator;
+    typedef PositionalAggExpr::component_iter iterator;
     iterator I = node->begin_components();
     iterator E = node->end_components();
     for ( ; I != E; ++I)

@@ -66,9 +66,9 @@ void ExprDumper::visitStringLiteral(StringLiteral *node)
     printHeader(node) << " \"" << node->getString() << "\">";
 }
 
-void ExprDumper::visitAggregateExpr(AggregateExpr *node)
+void ExprDumper::visitPositionalAggExpr(PositionalAggExpr *node)
 {
-    typedef AggregateExpr::component_iter iterator;
+    typedef PositionalAggExpr::component_iter iterator;
     iterator I = node->begin_components();
     iterator E = node->end_components();
 

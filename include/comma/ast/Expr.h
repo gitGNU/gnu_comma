@@ -507,24 +507,25 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// AggregateExpr
+// PositionalAggExpr
 //
-/// Ast nodes representing both record and array aggregate expressions.
-class AggregateExpr : public Expr {
+/// Ast node representing both record and array aggregate expressions with
+/// components provided positionally.
+class PositionalAggExpr : public Expr {
 
     /// Type used to store the component expressions.
     typedef std::vector<Expr*> ComponentVec;
 
 public:
-    AggregateExpr(Location loc)
-        : Expr(AST_AggregateExpr, loc),
+    PositionalAggExpr(Location loc)
+        : Expr(AST_PositionalAggExpr, loc),
           othersLoc(0), othersComponent(0) {
         bits = Others_None;
     }
 
     template<class Iter>
-    AggregateExpr(Iter I, Iter E, Location loc)
-        : Expr(AST_AggregateExpr, loc),
+    PositionalAggExpr(Iter I, Iter E, Location loc)
+        : Expr(AST_PositionalAggExpr, loc),
           components(I, E),
           othersLoc(0), othersComponent(0) {
         bits = Others_None;
@@ -613,9 +614,9 @@ public:
     }
 
     // Support isa and dyn_cast.
-    static bool classof(const AggregateExpr *node) { return true; }
+    static bool classof(const PositionalAggExpr *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_AggregateExpr;
+        return node->getKind() == AST_PositionalAggExpr;
     }
 
 private:

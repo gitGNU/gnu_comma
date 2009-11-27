@@ -204,7 +204,7 @@ BoundsEmitter::synthStaticArrayBounds(llvm::IRBuilder<> &Builder,
 }
 
 llvm::Value *BoundsEmitter::synthAggregateBounds(llvm::IRBuilder<> &Builder,
-                                                 AggregateExpr *agg,
+                                                 PositionalAggExpr *agg,
                                                  llvm::Value *dst)
 {
     llvm::Value *bounds = 0;

@@ -112,7 +112,7 @@ public:
                       Node lower, Node upper, bool isReversed);
     Node endForStmt(Node forNode, NodeVector &bodyNodes);
 
-    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
+    Expr *resolveAggregateExpr(PositionalAggExpr *agg, Type *context);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
@@ -229,7 +229,7 @@ private:
 
     /// Aggregates can nest.  The following stack is used to maintain the
     /// current context when processing aggregate expressions.
-    std::stack<AggregateExpr*> aggregateStack;
+    std::stack<PositionalAggExpr*> aggregateStack;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.

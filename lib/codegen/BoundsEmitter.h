@@ -141,7 +141,8 @@ public:
     /// If \p dst is non-null the dynthesized bounds are stored into the given
     /// location.
     llvm::Value *synthAggregateBounds(llvm::IRBuilder<> &Builder,
-                                      AggregateExpr *agg, llvm::Value *dst = 0);
+                                      PositionalAggExpr *agg,
+                                      llvm::Value *dst = 0);
 
 private:
     CodeGenRoutine &CGR;        // Routine generator.

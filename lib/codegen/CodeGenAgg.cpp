@@ -131,7 +131,7 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
         return emitArrayConversion(convert, dst, genTmp);
 
-    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+    if (PositionalAggExpr *agg = dyn_cast<PositionalAggExpr>(expr))
         return emitAggregate(agg, dst, genTmp);
 
     if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
@@ -187,11 +187,11 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 }
 
 std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
+CodeGenRoutine::emitAggregate(PositionalAggExpr *expr, llvm::Value *dst,
                               bool genTmp)
 {
     typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
-    typedef AggregateExpr::component_iter iterator;
+    typedef PositionalAggExpr::component_iter iterator;
 
     BoundsEmitter emitter(*this);
     llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
