@@ -90,7 +90,7 @@ bool TypeCheck::checkExprInContext(Expr *&expr, Type *context)
         return resolveIntegerLiteral(intLit, context);
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(expr))
         return resolveStringLiteral(strLit, context);
-    if (PositionalAggExpr *agg = dyn_cast<PositionalAggExpr>(expr)) {
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
         if (Expr *res = resolveAggregateExpr(agg, context)) {
             expr = res;
             return true;
@@ -378,15 +378,15 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     return true;
 }
 
-void TypeCheck::beginAggregate(Location loc)
+void TypeCheck::beginAggregate(Location loc, bool isPositional)
 {
     aggregateStack.push(new PositionalAggExpr(loc));
 }
 
 void TypeCheck::acceptAggregateComponent(Node nodeComponent)
 {
-    Expr *component = cast_node<Expr>(nodeComponent);
-    PositionalAggExpr *agg = aggregateStack.top();
+    Expr *component = ensureExpr(nodeComponent);
+    PositionalAggExpr *agg = cast<PositionalAggExpr>(aggregateStack.top());
     nodeComponent.release();
     agg->addComponent(component);
 }
@@ -407,7 +407,7 @@ void TypeCheck::acceptAggregateComponent(Node lowerNode, Node upperNode,
 
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 {
-    PositionalAggExpr *agg = aggregateStack.top();
+    AggregateExpr *agg = aggregateStack.top();
 
     if (nodeComponent.isNull())
         agg->addOthersUndef(loc);
@@ -420,7 +420,7 @@ void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 
 Node TypeCheck::endAggregate()
 {
-    PositionalAggExpr *agg = aggregateStack.top();
+    PositionalAggExpr *agg = cast<PositionalAggExpr>(aggregateStack.top());
     aggregateStack.pop();
 
     // It is possible that the parser could not generate a single valid
@@ -433,7 +433,17 @@ Node TypeCheck::endAggregate()
     return getNode(agg);
 }
 
-Expr *TypeCheck::resolveAggregateExpr(PositionalAggExpr *agg, Type *context)
+Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
+{
+    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(agg))
+        return resolvePositionalAggExpr(PAE, context);
+    else {
+        assert(false && "Aggregate expression not yet supported!");
+        return 0;
+    }
+}
+
+Expr *TypeCheck::resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context)
 {
     // Nothing to do if the given aggregate has already been resolved.
     if (agg->hasType())

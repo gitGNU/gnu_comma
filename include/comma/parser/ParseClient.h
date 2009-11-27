@@ -384,7 +384,10 @@ public:
     /// Signals that an aggregate expression is about to be processed.
     ///
     /// \param loc Location of opening paren starting the aggregate.
-    virtual void beginAggregate(Location loc) = 0;
+    ///
+    /// \param isPositional True if the upcomming aggregate will be processed
+    /// using positional components and false if "keyed" components are used.
+    virtual void beginAggregate(Location loc, bool isPositional) = 0;
 
     /// Provides a Node describing a positional component of the aggregate.
     virtual void acceptAggregateComponent(Node component) = 0;
@@ -395,8 +398,8 @@ public:
     virtual void acceptAggregateComponent(Node lower, Node upper,
                                           Node expr) = 0;
 
-    /// Indicates an "others" component.  This is always the last component
-    /// processed by the parser.
+    /// Indicates an "others" component.  If this callback is invoked, it is
+    /// always the last component processed by the parser.
     ///
     /// \param loc Location of the "others" reserved word.
     ///

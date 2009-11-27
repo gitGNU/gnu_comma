@@ -324,7 +324,7 @@ Node Parser::parsePositionalAggregate()
     Location loc = ignoreToken();
     bool componentSeen = false;
 
-    client.beginAggregate(loc);
+    client.beginAggregate(loc, true);
     do {
         // If an others token is on the stream, parse the construct and
         // terminate the processing of the aggregate.
@@ -362,7 +362,7 @@ Node Parser::parseKeyedAggregate()
     assert(currentTokenIs(Lexer::TKN_LPAREN));
     Location loc = ignoreToken();
 
-    client.beginAggregate(loc);
+    client.beginAggregate(loc, false);
     do {
         // Note that "others" clauses which appear as the one and only component
         // of an aggregate litteral are categorized as keyed aggregates by the

@@ -100,7 +100,7 @@ public:
 
     Node finishName(Node name);
 
-    void beginAggregate(Location loc);
+    void beginAggregate(Location loc, bool isPositional);
     void acceptAggregateComponent(Node component);
     void acceptAggregateComponent(Node lower, Node upper, Node expr);
     void acceptAggregateOthers(Location loc, Node component);
@@ -112,7 +112,8 @@ public:
                       Node lower, Node upper, bool isReversed);
     Node endForStmt(Node forNode, NodeVector &bodyNodes);
 
-    Expr *resolveAggregateExpr(PositionalAggExpr *agg, Type *context);
+    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
+    Expr *resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
@@ -229,7 +230,7 @@ private:
 
     /// Aggregates can nest.  The following stack is used to maintain the
     /// current context when processing aggregate expressions.
-    std::stack<PositionalAggExpr*> aggregateStack;
+    std::stack<AggregateExpr*> aggregateStack;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.
