@@ -518,41 +518,67 @@ class AggregateExpr : public Expr {
 public:
     AggregateExpr(Location loc)
         : Expr(AST_AggregateExpr, loc),
-          othersLoc(0), othersComponent(0) { }
+          othersLoc(0), othersComponent(0) {
+        bits = Others_None;
+    }
 
     template<class Iter>
     AggregateExpr(Iter I, Iter E, Location loc)
         : Expr(AST_AggregateExpr, loc),
           components(I, E),
-          othersLoc(0), othersComponent(0) { }
+          othersLoc(0), othersComponent(0) {
+        bits = Others_None;
+    }
 
-    /// Returns true if an "others" component is associated with this aggregate.
-    bool hasOthers() const { return othersComponent != 0; }
+    /// An enumeration defining the kind of "others" component associated with
+    /// this aggregate.
+    enum OthersKind {
+        Others_None,            //< There is no \c others component.
+        Others_Undef,           //< Indicates a <tt>others => <></tt> component.
+        Others_Expr             //< An expression has been given for \c others.
+    };
+
+    /// Returns the kind of \c others component associated with this aggregate.
+    OthersKind getOthersKind() const { return static_cast<OthersKind>(bits); }
+
+    /// Returns true if this aggregate has a \c others component.
+    bool hasOthers() const { return getOthersKind() != Others_None; }
 
     //@{
-    /// Returns the expression associated with an "others" component.
+    /// Returns the expression associated with a \c others component.
     ///
-    /// If hasOthers() returns false, then this method returns null.
+    /// \returns If hasOthers() returns \c Others_Expr then this method returns
+    /// the associated expression.  Otherwise, this method returns null.
     Expr *getOthersExpr() { return othersComponent; }
     const Expr *getOthersExpr() const { return othersComponent; }
     //@}
 
-    /// \brief Returns the location of the "others" reserved word, or an invalid
-    /// location if hasOthers() returns false.
+    /// \brief Returns the location of the \c others reserved word, or an
+    /// invalid location if hasOthers() returns false.
     Location getOthersLoc() const { return othersLoc; }
 
-    /// Adds an "others" component to this aggregate.
+    /// Associates an expression with the \c others component of this aggregate.
     ///
-    /// Aggregates cannot hold multiple "others" components.  This method will
+    /// Aggregates cannot hold multiple \c others components.  This method will
     /// assert if called more than once.
     ///
-    /// \param loc Location of the "others" reserved word.
+    /// \param loc Location of the \c others reserved word.
     ///
-    /// \param component The expression associated with "others".
-    void addOthers(Location loc, Expr *component) {
+    /// \param component The expression associated with \c others.
+    void addOthersExpr(Location loc, Expr *component) {
         assert(!hasOthers() && "Others component already set!");
         othersLoc = loc;
         othersComponent = component;
+        bits = Others_Expr;
+    }
+
+    /// Associates an undefined \c others component with this aggregate.
+    ///
+    /// \param loc Location of the \c others reserved word.
+    void addOthersUndef(Location loc) {
+        assert(!hasOthers() && "Others component already set!");
+        othersLoc = loc;
+        bits = Others_Undef;
     }
 
     /// Returns the number of components in this aggregate.
@@ -582,7 +608,9 @@ public:
     ///
     /// Note that this predicate will return false if an "others" component is
     /// present.
-    bool empty() const { return numComponents() == 0 && !hasOthers(); }
+    bool empty() const {
+        return (numComponents() == 0) && (getOthersKind() != Others_None);
+    }
 
     // Support isa and dyn_cast.
     static bool classof(const AggregateExpr *node) { return true; }

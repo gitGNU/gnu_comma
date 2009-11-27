@@ -306,6 +306,12 @@ unsigned DiscreteType::getPreferredSize(uint64_t bits)
     return size;
 }
 
+bool DiscreteType::isSigned() const
+{
+    // Integer types are signed but enumerations are not.
+    return isa<IntegerType>(this);
+}
+
 //===----------------------------------------------------------------------===//
 // EnumerationType
 //

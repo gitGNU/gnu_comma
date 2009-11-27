@@ -393,10 +393,15 @@ void TypeCheck::acceptAggregateComponent(Node nodeComponent)
 
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 {
-    Expr *component = cast_node<Expr>(nodeComponent);
     AggregateExpr *agg = aggregateStack.top();
-    nodeComponent.release();
-    agg->addOthers(loc, component);
+
+    if (nodeComponent.isNull())
+        agg->addOthersUndef(loc);
+    else {
+        Expr *component = ensureExpr(nodeComponent);
+        nodeComponent.release();
+        agg->addOthersExpr(loc, component);
+    }
 }
 
 Node TypeCheck::endAggregate()

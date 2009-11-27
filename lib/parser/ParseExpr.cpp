@@ -312,11 +312,14 @@ Node Parser::parseAggregate(AggregateKind kind)
 
                 Location loc = ignoreToken();
                 if (requireToken(Lexer::TKN_RDARROW)) {
-                    Node node = parseExpr();
-                    if (node.isValid()) {
-                        client.acceptAggregateOthers(loc, node);
-                        break;
+                    if (reduceToken(Lexer::TKN_DIAMOND))
+                        client.acceptAggregateOthers(loc, getNullNode());
+                    else {
+                        Node node = parseExpr();
+                        if (node.isValid())
+                            client.acceptAggregateOthers(loc, node);
                     }
+                    break;
                 }
                 seekCloseParen();
                 break;

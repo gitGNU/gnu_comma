@@ -217,6 +217,74 @@ CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
         Builder.CreateStore(components[i], idx);
     }
 
+    // If this aggregate does not specify an others component we are done.
+    //
+    // FIXME: If an undefined others component is specified we should be
+    // initializing the components with their default value (if any).
+    Expr *othersExpr = expr->getOthersExpr();
+    if (!othersExpr)
+        return ArrPair(dst, bounds);
+
+    // If there were no positional components emitted, emit a single "others"
+    // expression.  This simplifies emission of the remaining elements since we
+    // can "count from zero" and compare against the upper bound without
+    // worrying about overflow.
+    unsigned numComponents = components.size();
+    if (numComponents == 0) {
+        llvm::Value *component = emitValue(othersExpr);
+        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, 0);
+        Builder.CreateStore(component, idx);
+        numComponents = 1;
+    }
+
+    // Synthesize a loop to populate the remaining components.  Note that a
+    // memset is not possible here since we must re-evaluate the associated
+    // expression for each component.
+    llvm::BasicBlock *checkBB = makeBasicBlock("others.check");
+    llvm::BasicBlock *bodyBB = makeBasicBlock("others.body");
+    llvm::BasicBlock *mergeBB = makeBasicBlock("others.merge");
+
+    // Compute the number of "other" components minus one that we need to emit.
+    llvm::Value *lower = BoundsEmitter::getLowerBound(Builder, bounds, 0);
+    llvm::Value *upper = BoundsEmitter::getUpperBound(Builder, bounds, 0);
+    llvm::Value *max = Builder.CreateSub(upper, lower);
+
+    // Obtain a stack location for the index variable used to perform the
+    // iteration and initialize to the number of components we have already
+    // emitted minus one (which is always valid since we guaranteed above that
+    // at least one component has been generated).
+    const llvm::Type *idxTy = upper->getType();
+    llvm::Value *idxSlot = SRF->createTemp(idxTy);
+    llvm::Value *idx = llvm::ConstantInt::get(idxTy, numComponents - 1);
+    Builder.CreateStore(idx, idxSlot);
+
+    // Branch to the check BB and test if the index is equal to max.  If it is
+    // we are done.
+    Builder.CreateBr(checkBB);
+    Builder.SetInsertPoint(checkBB);
+    idx = Builder.CreateLoad(idxSlot);
+    Builder.CreateCondBr(Builder.CreateICmpEQ(idx, max), mergeBB, bodyBB);
+
+    // Move to the body block.  Increment our index and store it for use in the
+    // next iteration.
+    Builder.SetInsertPoint(bodyBB);
+    idx = Builder.CreateAdd(idx, llvm::ConstantInt::get(idxTy, 1));
+    Builder.CreateStore(idx, idxSlot);
+
+    // Emit the expression associated with the others clause and store it in the
+    // destination array.  Branch back to the test.
+    //
+    // FIXME: This code only works with non-composite values.
+    llvm::Value *indices[2];
+    indices[0] = llvm::ConstantInt::get(idxTy, 0);
+    indices[1] = idx;
+    llvm::Value *component = emitValue(othersExpr);
+    llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+    Builder.CreateStore(component, ptr);
+    Builder.CreateBr(checkBB);
+
+    // Set the insert point to the merge BB and return.
+    Builder.SetInsertPoint(mergeBB);
     return ArrPair(dst, bounds);
 }
 

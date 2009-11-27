@@ -77,9 +77,6 @@ private:
     // Lowers the carrier type defined for the given domoid.
     const llvm::Type *lowerDomoidCarrier(const Domoid *domoid);
 
-    /// Returns the number of elements for an array with a range bounded by the
-    /// given values.
-    uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high);
 };
 
 }; // end comma namespace

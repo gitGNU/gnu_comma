@@ -47,7 +47,10 @@ bool Range::isNull() const
     const llvm::APInt &lower = getStaticLowerBound();
     const llvm::APInt &upper = getStaticUpperBound();
 
-    return upper.slt(lower);
+    if (getType()->isSigned())
+        return upper.slt(lower);
+    else
+        return upper.ult(lower);
 }
 
 bool Range::contains(const llvm::APInt &value) const
@@ -82,8 +85,18 @@ uint64_t Range::length() const
     if (isNull())
         return 0;
 
-    int64_t lower = getStaticLowerBound().getSExtValue();
-    int64_t upper = getStaticUpperBound().getSExtValue();
+    int64_t lower;
+    int64_t upper;
+
+    // Extract the bounds of this range according to the type.
+    if (getType()->isSigned()) {
+        lower = getStaticLowerBound().getSExtValue();
+        upper = getStaticUpperBound().getSExtValue();
+    }
+    else {
+        lower = getStaticLowerBound().getZExtValue();
+        upper = getStaticUpperBound().getZExtValue();
+    }
 
     if (lower < 0) {
         uint64_t lowElems = -lower;

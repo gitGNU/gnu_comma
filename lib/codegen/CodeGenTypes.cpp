@@ -21,6 +21,50 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+namespace {
+
+/// Returns the number of elements for an array with a range bounded by the
+/// given values.  If isSigned is true, treat the bounds as signed quantities,
+/// otherwise as unsigned.
+uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high,
+                       bool isSigned)
+{
+    llvm::APInt lower(low);
+    llvm::APInt upper(high);
+
+    // Check if this is a null range.
+    if (isSigned) {
+        if (upper.slt(lower))
+            return 0;
+    }
+    else {
+        if (upper.ult(lower))
+            return 0;
+    }
+
+    // Compute 'upper - lower + 1' to determine the number of elements in
+    // this type.
+    unsigned width = std::max(lower.getBitWidth(), upper.getBitWidth()) + 1;
+
+    if (isSigned) {
+        lower.sext(width);
+        upper.sext(width);
+    }
+    else {
+        lower.zext(width);
+        upper.zext(width);
+    }
+
+    llvm::APInt range(upper);
+    range -= lower;
+    range++;
+
+    // Ensure the range can fit in 64 bits.
+    assert(range.getActiveBits() <= 64 && "Index too wide for array type!");
+    return range.getZExtValue();
+}
+
+} // end anonymous namespace.
 
 const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 {
@@ -223,33 +267,9 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
         upperBound = enumTy->getNumLiterals() - 1;
     }
 
-    uint64_t numElems = getArrayWidth(lowerBound, upperBound);
+    uint64_t numElems;
+    numElems = getArrayWidth(lowerBound, upperBound, idxTy->isSigned());
     return llvm::ArrayType::get(elementTy, numElems);
-}
-
-uint64_t CodeGenTypes::getArrayWidth(const llvm::APInt &low,
-                                     const llvm::APInt &high)
-{
-    llvm::APInt lower(low);
-    llvm::APInt upper(high);
-
-    // FIXME: Handle null ranges.
-    assert(lower.slt(upper) && "Cannot codegen null ranges!");
-
-    // Compute 'upper - lower + 1' to determine the number of elements in
-    // this type.
-    unsigned width = std::max(lower.getBitWidth(), upper.getBitWidth()) + 1;
-    lower.sext(width);
-    upper.sext(width);
-    llvm::APInt range(upper);
-    range -= lower;
-    range++;
-
-    // Ensure the range can fit in 64 bits.
-    assert(range.getActiveBits() <= 64 &&
-           "Index type too wide for array type!");
-
-    return range.getZExtValue();
 }
 
 const llvm::StructType *CodeGenTypes::lowerArrayBounds(const ArrayType *arrTy)

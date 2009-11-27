@@ -393,6 +393,9 @@ public:
     /// processed by the parser.
     ///
     /// \param loc Location of the "others" reserved word.
+    ///
+    /// \param component An expression denoting the default value for this
+    /// aggregate, or a null node if <tt>others => <></tt> was parsed.
     virtual void acceptAggregateOthers(Location loc, Node component) = 0;
 
     /// Signals that an aggregate expression has completed.

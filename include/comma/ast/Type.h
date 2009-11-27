@@ -444,6 +444,11 @@ public:
     /// root type of the target.
     bool contains(const DiscreteType *target) const;
 
+    /// Returns true if this denotes a signed discrete type.
+    ///
+    /// Currently, Integers are signed while enumerations are unsigned.
+    bool isSigned() const;
+
     //@{
     /// Specialization of PrimaryType::getRootType().
     const DiscreteType *getRootType() const {
