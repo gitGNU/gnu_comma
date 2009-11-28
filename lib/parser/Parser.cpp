@@ -1040,6 +1040,9 @@ bool Parser::parseDeclaration()
 
     case Lexer::TKN_TYPE:
         return parseType();
+
+    case Lexer::TKN_SUBTYPE:
+        return parseSubtype();
     }
 }
 
@@ -1150,20 +1153,26 @@ bool Parser::parseSubtype()
 
     // The only kind of subtype constraints we contend with at the moment are
     // range constraints.
-    Node low = parseExpr();
-    if (low.isInvalid() or !requireToken(Lexer::TKN_DDOT)) {
+    if (requireToken(Lexer::TKN_RANGE)) {
+        Node low = parseExpr();
+        if (low.isInvalid() or !requireToken(Lexer::TKN_DDOT)) {
+            seekSemi();
+            return false;
+        }
+
+        Node high = parseExpr();
+        if (high.isInvalid()) {
+            seekSemi();
+            return false;
+        }
+
+        client.acceptRangedSubtypeDecl(name, loc, subtype, low, high);
+        return true;
+    }
+    else {
         seekSemi();
         return false;
     }
-
-    Node high = parseExpr();
-    if (high.isInvalid()) {
-        seekSemi();
-        return false;
-    }
-
-    client.acceptRangedSubtypeDecl(name, loc, subtype, low, high);
-    return true;
 }
 
 void Parser::parseEnumerationList()
