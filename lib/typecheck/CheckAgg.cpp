@@ -202,7 +202,7 @@ Expr *AggregateChecker::resolvePositionalAggExpr(PositionalAggExpr *agg,
     unsigned numComponents = agg->numComponents();
 
     // If the context type is statically constrained ensure that the aggregate
-    // is within the bounds of corresponding index type.
+    // is within the bounds of the corresponding index type.
     if (context->isStaticallyConstrained()) {
         DiscreteType *idxTy = context->getIndexType(0);
         Range *range = idxTy->getConstraint();
