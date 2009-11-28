@@ -238,18 +238,32 @@ public:
     }
     //@}
 
-    //@{
-    /// \brief Returns the constraint associated with this type, or null if this
-    /// is an unconstrained type.
-    ///
-    /// Note that only subtypes have constraints.  If this is a root type, then
-    /// this method will always return null.
-    virtual Constraint *getConstraint() = 0;
-    virtual const Constraint *getConstraint() const = 0;
-    //@}
-
     /// Returns true if this type is constrained.
-    bool isConstrained() const { return getConstraint() != 0; }
+    ///
+    /// \note Default implementation returns false.
+    virtual bool isConstrained() const { return false; }
+
+    /// \brief Returns true if this type is constrained, but specificly by an
+    /// initial value.
+    ///
+    /// \note Types which are constrained by an initial value do not have an
+    /// associated Constraint object.
+    ///
+    /// \note Default implementation returns false.
+    virtual bool isConstrainedByInitialValue() const { return false; }
+
+    //@{
+    /// \brief Returns the Constraint object associated with this type, or null
+    /// if there is no associated constraint.
+    ///
+    /// Only subtypes have constraints.  If this is a root type, then this
+    /// method will always return null.  Also, if this type is constrained by an
+    /// initial value, there a Constraint object is not available.
+    ///
+    /// \note Default implementation returns null.
+    virtual Constraint *getConstraint() { return 0; }
+    virtual const Constraint *getConstraint() const { return 0; }
+    //@}
 
     /// Returns true if this type is a subtype of the given type.
     ///
@@ -351,14 +365,6 @@ public:
     /// null.
     const AbstractDomainDecl *getAbstractDecl() const;
     AbstractDomainDecl *getAbstractDecl();
-    //@}
-
-    //@{
-    /// Implementation of PrimaryType::getConstraint().
-    ///
-    /// \note Domain types are never constrained.
-    Constraint *getConstraint() { return 0; }
-    const Constraint *getConstraint() const { return 0; }
     //@}
 
     //@{
@@ -526,6 +532,9 @@ public:
     /// Returns true if this enumeration type is a character type.
     bool isCharacterType() const;
 
+    /// Returns true if this type is constrained.
+    bool isConstrained() const { return getConstraint() != 0; }
+
     //@{
     /// \brief Returns the RangeConstraint associated with this EnumerationType,
     /// or null if this is an unconstrained type.
@@ -642,6 +651,9 @@ public:
     /// The base subtype is a distinguished unconstrained subtype corresponding
     /// to the attribute S'Base.
     IntegerType *getBaseSubtype();
+
+    /// Returns true if this type is constrained.
+    bool isConstrained() const { return getConstraint() != 0; }
 
     //@{
     /// \brief Returns the RangeConstraint associated with this IntegerType, or
@@ -763,20 +775,22 @@ public:
     /// Returns the component type of this array.
     Type *getComponentType() const { return componentType; }
 
+    /// Returns true if this type is constrained.
+    bool isConstrained() const { return constraintBit(); }
+
+    /// Returns true if this type is constrained by an initial value.
+    bool isConstrainedByInitialValue() const { return constrainedByInitBit(); }
+
     //@{
     /// Specialization of PrimaryType::getConstraint();
     IndexConstraint *getConstraint() {
-        // We cannot use isConstrained() here since infinite recursion would be
-        // the result.
-        if (constraintBit())
+        if (isConstrained())
             return &constraint;
         return 0;
     }
 
     const IndexConstraint *getConstraint() const {
-        // We cannot use isConstrained() here since infinite recursion would be
-        // the result.
-        if (constraintBit())
+        if (isConstrained())
             return &constraint;
         return 0;
     }
@@ -824,15 +838,34 @@ private:
 
     friend class AstResource;
 
+    /// The following enumeration defines propertys of an array type which are
+    /// encoded into the bits field of the node.
+    enum PropertyTags {
+        /// Set if the type is constrained.
+        Constrained_PROP = 1,
+
+        /// Set if the type is constrained by its initial value (Constraint_PROP
+        /// is always set if this flag is true).
+        Constrained_By_Init_PROP = 2
+    };
+
     /// Returns true if this is a constrained array.
-    ///
-    /// This predicate is needed since PrimaryType::isConstrained is implemented
-    /// using getConstraint, which in this case needs to know if this is a
-    /// constrained type.
-    bool constraintBit() const { return bits; }
+    bool constraintBit() const { return bits & Constrained_PROP; }
 
     /// Marks this as a constrained array type.
-    void setConstraintBit() { bits = 1; }
+    void setConstraintBit() { bits |= Constrained_PROP; }
+
+    /// Returns true if this type is constrained by an initial value.
+    bool constrainedByInitBit() const {
+        return bits & Constrained_By_Init_PROP;
+    }
+
+    /// Marks this as being constrained by an initial value (sets
+    /// Constrained_PROP as well).
+    void setConstrainedByInitBit() {
+        setConstraintBit();
+        bits |= Constrained_By_Init_PROP;
+    }
 
     /// This class `abuses' the IndexConstraint class, using it to represent the
     /// index types for both constrained and unconstrained arrays.
