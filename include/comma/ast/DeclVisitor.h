@@ -47,6 +47,7 @@ public:
     virtual void visitDomoid(Domoid *node);
     virtual void visitSubroutineDecl(SubroutineDecl *node);
     virtual void visitTypeDecl(TypeDecl *node);
+    virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitValueDecl(ValueDecl *node);
     ///@}
 
@@ -71,9 +72,9 @@ public:
     virtual void visitFunctionDecl(FunctionDecl *node);
     virtual void visitProcedureDecl(ProcedureDecl *node);
     virtual void visitCarrierDecl(CarrierDecl *node);
-    virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitAbstractDomainDecl(AbstractDomainDecl *node);
     virtual void visitDomainInstanceDecl(DomainInstanceDecl *node);
+    virtual void visitPercentDecl(PercentDecl *node);
     virtual void visitLoopDecl(LoopDecl *node);
     virtual void visitParamValueDecl(ParamValueDecl *node);
     virtual void visitObjectDecl(ObjectDecl *node);
