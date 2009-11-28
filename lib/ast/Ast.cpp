@@ -61,6 +61,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IndexedArrayExpr",
     "InjExpr",
     "IntegerLiteral",
+    "KeyedAggExpr",
     "PositionalAggExpr",
     "PrjExpr",
     "StringLiteral",

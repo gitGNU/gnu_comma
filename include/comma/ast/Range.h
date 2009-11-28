@@ -9,8 +9,7 @@
 //===----------------------------------------------------------------------===//
 /// \file
 ///
-/// \brief This file defines AST nodes which represent ranges and range
-/// attributes.
+/// \brief This file defines the AST representation of ranges.
 //===----------------------------------------------------------------------===//
 
 #ifndef COMMA_AST_RANGE_HDR_GUARD
@@ -30,20 +29,39 @@ namespace comma {
 class Range : public Ast {
 
 public:
-    /// Constructs a Range given expressions for the lower and upper bounds.
-    /// The types of both bounds must be identical, for they determine the type
-    /// of the Range itself.
-    Range(Expr *lower, Expr *upper, DiscreteType *type);
+    /// Constructs a Range given expressions for the lower and upper bounds and
+    /// an overall type for the range.
+    ///
+    /// A range can be constructed without specifying a type.  However, without
+    /// a type this class cannot compute a uniform reprepresentation for any
+    /// static bounds.  More precisely, without a type, static bounds may have
+    /// inconsistent bit widths.  Therefore, it is advisable to resolve the type
+    /// of the range before performing calculations using any static bound
+    /// expressions.
+    ///
+    /// \see hasType()
+    /// \see setType()
+    Range(Expr *lower, Expr *upper, DiscreteType *type = 0);
 
-    /// Constructs a Range given expressions for the lower and upper bounds.
-    /// The types of both bounds must be identical, for they determine the type
-    /// of the Range itself.
-    static Range *create(Expr *lower, Expr *upper, DiscreteType *type) {
-        return new Range(lower, upper, type);
+    /// Returns the location of the lower bound of this range.
+    Location getLowerLocation() const;
+
+    /// Returns the location of the upper bound of this range.
+    Location getUpperLocation() const;
+
+    /// Returns true if this range has a type associated with it.
+    bool hasType() const { return rangeTy != 0; }
+
+    /// Sets the type of this range.  This method will assert if a type has
+    /// already been associated with this range.
+    void setType(DiscreteType *type) {
+        assert(!hasType() && "Range already associated with a type!");
+        rangeTy = type;
+        checkAndAdjustLimits();
     }
 
     //@{
-    /// Returns the type of this range.  This is always a root discrete type.
+    /// Returns the type of this range.
     DiscreteType *getType() { return rangeTy; }
     const DiscreteType *getType() const { return rangeTy; }
     //@}
@@ -108,6 +126,17 @@ public:
 
 private:
     Range(const Range &);       // Do not implement.
+
+    /// Attempts to evaluate the upper and lower expressions as static
+    /// expressions.  If the type of the range is not set, the static values are
+    /// potentially inconsistent wrt bit width.
+    void initializeStaticBounds();
+
+    /// If a bound is static, checks to ensure that the value falls within the
+    /// representational limits of this ranges type.  Also, adjusts the value to
+    /// a bit width that is inline with the type representation.  Again, the
+    /// type of the range must be set before this method is called.
+    void checkAndAdjustLimits();
 
     /// Munges the low order bit of \c lowerBound to encode the fact that a
     /// static interpretaion of the value has been computed.

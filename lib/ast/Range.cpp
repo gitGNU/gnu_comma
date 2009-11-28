@@ -21,19 +21,49 @@ Range::Range(Expr *lower, Expr *upper, DiscreteType *type)
     : Ast(AST_Range),
       lowerBound(lower, 0),
       upperBound(upper, 0),
-      rangeTy(type->getRootType())
+      rangeTy(type)
 {
+    initializeStaticBounds();
+}
+
+Location Range::getLowerLocation() const
+{
+    return getLowerBound()->getLocation();
+}
+
+Location Range::getUpperLocation() const
+{
+    return getUpperBound()->getLocation();
+}
+
+void Range::initializeStaticBounds()
+{
+    Expr *lower = getLowerBound();
+    Expr *upper = getUpperBound();
+
     // Try to evaluate the upper and lower bounds as static discrete
-    // expressions.  Mark each bound as appropriate and convert the computed
-    // value to a width that matches this ranges type.
-    unsigned width = rangeTy->getSize();
-    if (lower->staticDiscreteValue(lowerValue)) {
+    // expressions and mark each bound as appropriate.
+    if (lower->staticDiscreteValue(lowerValue))
         markLowerAsStatic();
+    if (upper->staticDiscreteValue(upperValue))
+        markUpperAsStatic();
+
+    // If a type is associated with this range, resolve the width of the static
+    // bounds (if available).
+    if (hasType())
+        checkAndAdjustLimits();
+}
+
+void Range::checkAndAdjustLimits()
+{
+    assert(rangeTy && "Range type not set!");
+
+    unsigned width = rangeTy->getSize();
+    if (hasStaticLowerBound()) {
         assert(lowerValue.getMinSignedBits() <= width && "Bounds too wide!");
         lowerValue.sextOrTrunc(width);
     }
-    if (upper->staticDiscreteValue(upperValue)) {
-        markUpperAsStatic();
+    if (hasStaticUpperBound()) {
         assert(upperValue.getMinSignedBits() <= width && "Bounds too wide!");
         upperValue.sextOrTrunc(width);
     }

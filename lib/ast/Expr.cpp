@@ -129,3 +129,57 @@ bool StringLiteral::resolveComponentType(EnumerationType *type)
     interps.insert(decl);
     return true;
 }
+
+//===----------------------------------------------------------------------===//
+// KeyedAggExpr
+
+KeyedAggExpr::ChoiceList::ChoiceList(Ast **choices, unsigned choiceEntries,
+                                     Expr *expr)
+  : choiceData(reinterpret_cast<Ast**>(this + 1)),
+    choiceEntries(choiceEntries),
+    expr(expr)
+{
+    std::copy(choices, choices + choiceEntries, choiceData);
+}
+
+KeyedAggExpr::ChoiceList *
+KeyedAggExpr::ChoiceList::create(Ast **choices, unsigned numChoices, Expr *expr)
+{
+    assert(numChoices != 0 && "At leaast one choice must be present!");
+
+    // Calculate the size of the needed ChoiceList and allocate the raw memory.
+    unsigned size = sizeof(ChoiceList) + sizeof(Ast*) * numChoices;
+    char *raw = new char[size];
+
+    // Placement operator new using the classes constructor initializes the
+    // internal structure.
+    return new (raw) ChoiceList(choices, numChoices, expr);
+}
+
+void KeyedAggExpr::ChoiceList::dispose(ChoiceList *CL)
+{
+    // Deallocate the associated AST nodes.
+    delete CL->expr;
+    for (iterator I = CL->begin(); I != CL->end(); ++I)
+        delete *I;
+
+    // Cast CL back to a raw pointer to char and deallocate.
+    char *raw = reinterpret_cast<char *>(CL);
+    delete [] raw;
+}
+
+KeyedAggExpr::~KeyedAggExpr()
+{
+    for (cl_iterator I = cl_begin(); I != cl_end(); ++I)
+        ChoiceList::dispose(*I);
+}
+
+unsigned KeyedAggExpr::numChoices() const
+{
+    unsigned result = 0;
+    for (const_cl_iterator I = cl_begin(); I != cl_end(); ++I)
+        result += (*I)->numChoices();
+    return result;
+}
+
+

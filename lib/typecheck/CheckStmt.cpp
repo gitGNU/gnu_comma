@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "RangeChecker.h"
 #include "Scope.h"
 #include "TypeCheck.h"
 #include "comma/ast/Decl.h"
@@ -294,84 +295,22 @@ Node TypeCheck::beginForStmt(Location loc,
 {
     Expr *lower = ensureExpr(lowerNode);
     Expr *upper = ensureExpr(upperNode);
+    RangeChecker rangeCheck(*this);
+    DiscreteType *subtype = 0;
 
     if (!(lower && upper))
         return getInvalidNode();
 
-    // The bounds of the range must resolve to some discrete type without using
-    // any additional context (but with the preference for root_integer).
-
-    // FIXME: The following is not general enough.  We really need a
-    // checkExprInContext method which accepts a type class as context.
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(lower)) {
-        if (!resolveFunctionCall(call, Type::CLASS_Discrete))
-            return getInvalidNode();
-    }
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(upper)) {
-        if (!resolveFunctionCall(call, Type::CLASS_Discrete))
-            return getInvalidNode();
-    }
-
-    // If one of the bounds is an integer literal, use the type of the other
-    // side (which must be an integer type).  If both are literals, prefer
-    // root_integer.
-    if (isa<IntegerLiteral>(lower)) {
-        if (upper->hasType()) {
-            IntegerType *type = dyn_cast<IntegerType>(upper->getType());
-            if (!type) {
-                report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
-                return getInvalidNode();
-            }
-            lower->setType(type);
-        }
-        else if (isa<IntegerLiteral>(upper)) {
-            lower->setType(resource.getTheRootIntegerType());
-            upper->setType(resource.getTheRootIntegerType());
-        }
-    }
-    else if (isa<IntegerLiteral>(upper)) {
-        if (lower->hasType()) {
-            IntegerType *type = dyn_cast<IntegerType>(lower->getType());
-            if (!type) {
-                report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
-                return getInvalidNode();
-            }
-            upper->setType(type);
-        }
-    }
-
-    // Ensure both bounds have been resolved to compatable discrete types.
-    DiscreteType *rangeTy = dyn_cast<DiscreteType>(lower->getType());
-
-    if (!rangeTy) {
-        report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+    if (!(subtype = rangeCheck.checkLoopRange(lower, upper)))
         return getInvalidNode();
-    }
-
-    if (!isa<DiscreteType>(upper->getType())) {
-        report(upper->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
-        return getInvalidNode();
-    }
-
-    if (!covers(rangeTy, upper->getType())) {
-        report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
-        return getInvalidNode();
-    }
-
-    // If the type of the range has been resolved to root_integer, further
-    // refine it to a subtype of Integer (ARM 3.6.18).
-    if (rangeTy == resource.getTheRootIntegerType()) {
-        IntegerType *intTy = resource.getTheIntegerType();
-        lower = new ConversionExpr(lower, intTy, lower->getLocation());
-        upper = new ConversionExpr(upper, intTy, upper->getLocation());
-        rangeTy = resource.createIntegerSubtype(
-            intTy->getIdInfo(), intTy, lower, upper);
-    }
 
     // Create the loop statement node.
-    LoopDecl *iter = new LoopDecl(iterName, rangeTy, iterLoc);
-    Range *range = new Range(lower, upper, rangeTy);
-    ForStmt *loop = new ForStmt(loc, iter, range);
+    //
+    // FIXME: A ForStmt should take a discrete type as its control argument
+    // instead of an expression (the range is owned by the subtype in this
+    // case).
+    LoopDecl *iter = new LoopDecl(iterName, subtype, iterLoc);
+    ForStmt *loop = new ForStmt(loc, iter, subtype->getConstraint());
 
     if (isReversed)
         loop->markAsReversed();

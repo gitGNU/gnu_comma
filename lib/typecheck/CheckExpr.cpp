@@ -109,6 +109,63 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
     return false;
 }
 
+bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
+{
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr)) {
+        return resolveFunctionCall(call, ID);
+    }
+    else if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(expr)) {
+        return resolveIntegerLiteral(lit, ID);
+    }
+    else if (AggregateExpr *expr = dyn_cast<AggregateExpr>(expr)) {
+        // Classification is never a rich enough context to resolve aggregate
+        // expressions.
+        report(expr->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
+        return false;
+    }
+
+    // Otherwise, the expression must have a resolved type which belongs to the
+    // given classification.
+    Type *exprTy = expr->getType();
+    assert(exprTy && "Expression does not have a resolved type!");
+
+    if (!exprTy->memberOf(ID)) {
+        // FIXME: Need a better diagnostic here.
+        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+    return true;
+}
+
+bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,
+                                      Type::Classification ID)
+{
+    if (!lit->hasType()) {
+        IntegerType *rootTy = resource.getTheRootIntegerType();
+
+        if (!rootTy->memberOf(ID)) {
+            report(lit->getLocation(), diag::INCOMPATIBLE_TYPES);
+            return false;
+        }
+
+        if (!rootTy->baseContains(lit->getValue())) {
+            report(lit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+                << rootTy->getIdInfo();
+            return false;
+        }
+
+        lit->setType(rootTy);
+        return true;
+    }
+
+    // FIXME: Need a better diagnostic here.
+    if (!lit->getType()->memberOf(ID)) {
+        report(lit->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return false;
+    }
+    return true;
+}
+
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
     if (intLit->hasType()) {
@@ -232,292 +289,4 @@ Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
         value.zext(value.getBitWidth() + 1);
 
     return getNode(new IntegerLiteral(value, loc));
-}
-
-namespace {
-
-/// Helper function for acceptStringLiteral().  Extracts the enumeration
-/// declarations resulting from the lookup of a character literal.
-void getVisibleEnumerations(Resolver &resolver,
-                            llvm::SmallVectorImpl<EnumerationDecl*> &enums)
-{
-    typedef llvm::SmallVector<SubroutineDecl*, 8> RoutineBuff;
-    RoutineBuff routines;
-
-    resolver.getVisibleSubroutines(routines);
-
-    RoutineBuff::iterator I = routines.begin();
-    RoutineBuff::iterator E = routines.end();
-    for ( ; I != E; ++I) {
-        EnumLiteral *lit = cast<EnumLiteral>(*I);
-        enums.push_back(lit->getDeclRegion());
-    }
-}
-
-/// Helper function for acceptStringLiteral().  Forms the intersection of
-/// component enumeration types for a string literal.
-void intersectComponentTypes(StringLiteral *string,
-                             llvm::SmallVectorImpl<EnumerationDecl*> &enums)
-{
-    typedef StringLiteral::component_iterator iterator;
-    iterator I = string->begin_component_types();
-    while (I != string->end_component_types()) {
-        EnumerationDecl *decl = *I;
-        ++I;
-        if (std::find(enums.begin(), enums.end(), decl) == enums.end())
-            string->removeComponentType(decl);
-    }
-}
-
-} // end anonymous namespace.
-
-Node TypeCheck::acceptStringLiteral(const char *chars, unsigned len,
-                                    Location loc)
-{
-    // The parser provides us with a string which includes the quotation marks.
-    // This means that the given length is at least 2.  Our internal
-    // representation drops the outer quotes.
-    assert(len >= 2 && chars[0] == '"' && chars[len - 1] == '"' &&
-           "Unexpected string format!");
-
-    const char *I = chars + 1;
-    const char *E = chars + len - 1;
-    StringLiteral *string = new StringLiteral(I, E, loc);
-
-    char buff[3] = { '\'', 0, '\'' };
-    typedef llvm::SmallVector<EnumerationDecl*, 8> LitVec;
-
-    while (I != E) {
-        buff[1] = *I;
-        IdentifierInfo *id = resource.getIdentifierInfo(&buff[0], 3);
-        Resolver &resolver = scope.getResolver();
-        LitVec literals;
-
-        ++I;
-        resolver.resolve(id);
-        getVisibleEnumerations(resolver, literals);
-
-        // We should always have a set of visible subroutines.  Character
-        // literals are modeled as functions with "funny" names (therefore, they
-        // cannot conflict with any other kind of declaration), and the language
-        // defined character types are always visible (unless hidden by a
-        // character declaration of the name name).
-        assert(!literals.empty() && "Failed to resolve character literal!");
-
-        // If the string literal has zero interpretaions this must be the first
-        // character in the string.  Add each resolved declaration.
-        if (string->zeroComponentTypes()) {
-            string->addComponentTypes(literals.begin(), literals.end());
-            continue;
-        }
-
-        // Form the intersection of the current component types with the
-        // resolved types.
-        intersectComponentTypes(string, literals);
-
-        // The result of the interesction should never be zero since the
-        // language defined character types supply declarations for all possible
-        // literals.
-        assert(!string->zeroComponentTypes() && "Disjoint character types!");
-    }
-
-    return getNode(string);
-}
-
-bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
-{
-    // First, ensure the type context is a string array type.
-    ArrayType *arrTy = dyn_cast<ArrayType>(context);
-    if (!arrTy || !arrTy->isStringType()) {
-        report(strLit->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
-    }
-
-    // FIXME: Typically all contexts which involve unconstrained array types
-    // resolve the context.  Perhaps we should assert that the supplied type is
-    // constrained.  For now, construct an appropriate type for the literal.
-    if (!arrTy->isConstrained() &&
-        !(arrTy = getConstrainedArraySubtype(arrTy, strLit)))
-        return false;
-
-    // The array is a string type.  Check that the string literal has at least
-    // one interpretation of its components which matches the component type of
-    // the target.
-    //
-    // FIXME: more work needs to be done here when the enumeration type is
-    // constrained.
-    EnumerationType *enumTy;
-    enumTy = cast<EnumerationType>(arrTy->getComponentType());
-    if (!strLit->containsComponentType(enumTy)) {
-        report(strLit->getLocation(), diag::STRING_COMPONENTS_DO_NOT_SATISFY)
-            << enumTy->getIdInfo();
-        return false;
-    }
-
-    // If the array type is statically constrained, ensure that the string is of
-    // the proper width.  Currently, all constrained array indices are
-    // statically constrained.
-    uint64_t arrLength = arrTy->length();
-    uint64_t strLength = strLit->length();
-
-    if (arrLength < strLength) {
-        report(strLit->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
-            << arrTy->getIdInfo();
-        return false;
-    }
-    if (arrLength > strLength) {
-        report(strLit->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
-            << arrTy->getIdInfo();
-        return false;
-    }
-
-    /// Resolve the component type of the literal to the component type of
-    /// the array and set the type of the literal to the type of the array.
-    strLit->resolveComponentType(enumTy);
-    strLit->setType(arrTy);
-    return true;
-}
-
-void TypeCheck::beginAggregate(Location loc, bool isPositional)
-{
-    aggregateStack.push(new PositionalAggExpr(loc));
-}
-
-void TypeCheck::acceptAggregateComponent(Node nodeComponent)
-{
-    Expr *component = ensureExpr(nodeComponent);
-    PositionalAggExpr *agg = cast<PositionalAggExpr>(aggregateStack.top());
-    nodeComponent.release();
-    agg->addComponent(component);
-}
-
-void TypeCheck::acceptAggregateComponent(Node lowerNode, Node upperNode,
-                                         Node exprNode)
-{
-    Expr *lower = ensureExpr(lowerNode);
-    Expr *upper = ensureExpr(upperNode);
-    Expr *expr = ensureExpr(exprNode);
-
-    if (!(lower && upper && expr))
-        return;
-
-    // FIXME: Implement.
-    return;
-}
-
-void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
-{
-    AggregateExpr *agg = aggregateStack.top();
-
-    if (nodeComponent.isNull())
-        agg->addOthersUndef(loc);
-    else {
-        Expr *component = ensureExpr(nodeComponent);
-        nodeComponent.release();
-        agg->addOthersExpr(loc, component);
-    }
-}
-
-Node TypeCheck::endAggregate()
-{
-    PositionalAggExpr *agg = cast<PositionalAggExpr>(aggregateStack.top());
-    aggregateStack.pop();
-
-    // It is possible that the parser could not generate a single valid
-    // component, or that every parsed component did not make it thru the type
-    // checker.  Deallocate.
-    if (agg->empty()) {
-        delete agg;
-        return getInvalidNode();
-    }
-    return getNode(agg);
-}
-
-Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
-{
-    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(agg))
-        return resolvePositionalAggExpr(PAE, context);
-    else {
-        assert(false && "Aggregate expression not yet supported!");
-        return 0;
-    }
-}
-
-Expr *TypeCheck::resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context)
-{
-    // Nothing to do if the given aggregate has already been resolved.
-    if (agg->hasType())
-        return agg;
-
-    // Currently, only array aggregates are supported.  If the context type is
-    // not an array type, the aggregate is invalid.
-    ArrayType *arrTy = dyn_cast<ArrayType>(context);
-    if (!arrTy) {
-        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
-        return 0;
-    }
-
-    // FIXME: Support multidimensional arrays.
-    assert(arrTy->isVector() && "No support for multidimensional arrays!");
-    Type *componentType = arrTy->getComponentType();
-
-    // Check each component of the aggregate with respect to the component type
-    // of the context.
-    typedef PositionalAggExpr::component_iter iterator;
-    iterator I = agg->begin_components();
-    iterator E = agg->end_components();
-    bool allOK = true;
-    for ( ; I != E; ++I)
-        allOK = checkExprInContext(*I, componentType) && allOK;
-
-    if (!allOK)
-        return 0;
-
-    // Check the others component if present.
-    if (Expr *others = agg->getOthersExpr()) {
-        if (!checkExprInContext(others, componentType))
-            return 0;
-    }
-
-    unsigned numComponents = agg->numComponents();
-
-    // If the context type is statically constrained ensure that the aggregate
-    // is within the bounds of corresponding index type.
-    if (arrTy->isStaticallyConstrained()) {
-        DiscreteType *idxTy = arrTy->getIndexType(0);
-        Range *range = idxTy->getConstraint();
-        uint64_t length = range->length();
-
-        if (length < numComponents) {
-            report(agg->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
-                << arrTy->getIdInfo();
-            return 0;
-        }
-
-        if (length > numComponents && !agg->hasOthers()) {
-            report(agg->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
-                << arrTy->getIdInfo();
-            return 0;
-        }
-
-        // Associate the context type with this array aggregate.
-        agg->setType(arrTy);
-        return agg;
-    }
-
-    // If the context type is unconstrained, ensure that an others component is
-    // not present.
-    if (!arrTy->isConstrained() && agg->hasOthers()) {
-        report(agg->getOthersLoc(), diag::OTHERS_IN_UNCONSTRAINED_CONTEXT);
-        return 0;
-    }
-
-    // When the context is dynamically constrained or unconstrained, assign an
-    // unconstrained type to the aggregate and wrap it in a conversion
-    // expression.
-    //
-    // FIXME: In the unconstrained case we can still perform static checks.
-    ArrayType *aggTy = resource.createArraySubtype(0, arrTy);
-    agg->setType(aggTy);
-    return new ConversionExpr(agg, arrTy);
 }

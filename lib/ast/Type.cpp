@@ -772,6 +772,33 @@ void IntegerType::getUpperLimit(llvm::APInt &res) const
     root->getUpperLimit(res);
 }
 
+bool IntegerType::baseContains(const llvm::APInt &value) const
+{
+    uint64_t activeBits = value.getMinSignedBits();
+    uint64_t width = getSize();
+
+    if (activeBits > width)
+        return false;
+
+    llvm::APInt lower;
+    llvm::APInt upper;
+    getLowerLimit(lower);
+    getUpperLimit(upper);
+
+    // If this type was specified with a null range we cannot contain any
+    // values.
+    if (lower.sgt(upper))
+        return false;
+
+    // Compute a copy of the given value and sign extended to the width of the
+    // base type if needed.
+    llvm::APInt candidate(value);
+    if (activeBits < width)
+        candidate.sext(width);
+
+    return lower.sle(candidate) && candidate.sle(upper);
+}
+
 uint64_t IntegerType::getSize() const
 {
     const RootIntegerType *root = cast<RootIntegerType>(getRootType());

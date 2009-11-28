@@ -529,6 +529,13 @@ public:
     /// Returns true if this aggregate has a \c others component.
     bool hasOthers() const { return getOthersKind() != Others_None; }
 
+    /// Returns true if this aggregate is empty.
+    ///
+    /// An aggregate is empty if there are no components associated with the
+    /// expression and no others clause.  Aggregate expression nodes should
+    /// never be empty in a well-formed Comma program.
+    virtual bool empty() const = 0;
+
     //@{
     /// Returns the expression associated with a \c others component.
     ///
@@ -581,7 +588,7 @@ protected:
 
 private:
     static bool denotesAggregateExpr(AstKind kind) {
-        return kind == AST_PositionalAggExpr;
+        return (kind == AST_PositionalAggExpr || kind == AST_KeyedAggExpr);
     }
 
     // Location of the "others" reserved word.
@@ -621,13 +628,13 @@ public:
 
     /// \name Component Iterators.
     //@{
-    typedef ComponentVec::iterator component_iter;
-    component_iter begin_components() { return components.begin(); }
-    component_iter end_components() { return components.end(); }
+    typedef ComponentVec::iterator iterator;
+    iterator begin_components() { return components.begin(); }
+    iterator end_components() { return components.end(); }
 
-    typedef ComponentVec::const_iterator const_component_iter;
-    const_component_iter begin_components() const { return components.begin(); }
-    const_component_iter end_components() const { return components.end(); }
+    typedef ComponentVec::const_iterator const_iterator;
+    const_iterator begin_components() const { return components.begin(); }
+    const_iterator end_components() const { return components.end(); }
     //@}
 
     /// \brief Returns true if this aggregate expression has not been populated
@@ -649,6 +656,243 @@ private:
     // Vector of expressions forming the components of this aggregate
     // expression.
     std::vector<Expr*> components;
+};
+
+//===----------------------------------------------------------------------===//
+// KeyedAggExpr
+//
+/// A KeyedAggExpr represents aggregate expressions where the components are
+/// specified using discrete choice lists.
+class KeyedAggExpr : public AggregateExpr {
+
+public:
+    /// Constructs and empty Keyed aggregate expression.
+    ///
+    /// \param loc Location of the opening parenthesis for this aggregate.
+    KeyedAggExpr(Location loc) :
+        AggregateExpr(AST_KeyedAggExpr, loc) { }
+
+    ~KeyedAggExpr();
+
+    /// \class
+    ///
+    /// The following class represents a discrete choice list and the associated
+    /// expression.
+    class ChoiceList {
+
+        /// KeyedAggExpr is the sole class permited to construct and destruct
+        /// ChoiceList objects.  The following private part defines the
+        /// interface which KeyedAggExpr is expected to limit itself to.
+        friend class KeyedAggExpr;
+
+        /// Constructs a ChoiceList over the given set of discrete choices.
+        /// This factory method is intended to be used by KeyedAggExpr
+        /// exclusively.  Each discrete choice must yield an ast node which is
+        /// either:
+        ///
+        ///   - a range;
+        ///
+        ///   - an expression;
+        ///
+        ///   - or a discrete subtype declaration.
+        ///
+        /// In addition, there must be at least one choice provided.
+        static ChoiceList *create(Ast **choices, unsigned numChoices,
+                                  Expr *expr);
+
+        /// Deallocates a ChoiceList.
+        static void dispose(ChoiceList *CL);
+
+    public:
+        //@{
+        /// Returns the expression associated with this ChoiceList.
+        const Expr *getExpr() const { return expr; }
+        Expr *getExpr() { return expr; }
+        //@}
+
+        /// Returns the number of choices associated with this ChoiceList.
+        unsigned numChoices() const { return choiceEntries; }
+
+        /// \name Choice Accessors by Index.
+        ///
+        /// Returns the i'th choice associated with this list, using
+        /// llvm::dyn_cast to resolve the type.  In other words, if the choice
+        /// at the given index is not of the supplied type, this method returns
+        /// null.  Usage example:
+        ///
+        /// \code
+        ///   if (Range *range = CL.getChoice<Range>(i)) { ... }
+        /// \endcode
+        //@{
+        template <class T>
+        T *getChoice(unsigned i) {
+            assert(i < choiceEntries && "Index out of range!");
+            return llvm::dyn_cast<T>(choiceData[i]);
+        }
+
+        template <class T>
+        const T *getChoice(unsigned i) const {
+            assert(i < choiceEntries && "Index out of range!");
+            return llvm::dyn_cast<T>(choiceData[i]);
+        }
+        //@}
+
+        //@{
+        /// \name Choice Iterators.
+        ///
+        /// \brief Iterators over each choice provided by this ChoiceList.
+        typedef Ast **iterator;
+        iterator begin() { return choiceData; }
+        iterator end() { return &choiceData[choiceEntries]; }
+
+        typedef Ast *const *const_iterator;
+        const_iterator begin() const { return choiceData; }
+        const_iterator end() const { return &choiceData[choiceEntries]; }
+        //@}
+
+        // Support isa/dyn_cast.
+        static bool classof(const KeyedAggExpr *node) { return true; }
+        static bool classof(const Ast *node) {
+            return node->getKind() == AST_KeyedAggExpr;
+        }
+
+    private:
+        /// Constructor for use by ChoiceList::create.
+        ChoiceList(Ast **choices, unsigned choiceEntries, Expr *expr);
+
+        ChoiceList(const ChoiceList &CL);             // Do not implement.
+        ChoiceList &operator =(const ChoiceList &CL); // Likewise.
+
+        /// Internally, ChoiceList's are allocated with the actual ast
+        /// expressions allocated immediately after the node itself.  Hense
+        /// choiceData points to address <tt>this + 1</tt>.
+        Ast **choiceData;
+        unsigned choiceEntries;
+        Expr *expr;
+    };
+
+    /// Adds a discrete choice list to this KeyedAggExpr.  Each element of \p
+    /// choices corresponds to a particular discrete choice, each of which must
+    /// yield an ast node that is either:
+    ///
+    ///   - a range;
+    ///
+    ///   - an expression;
+    ///
+    ///   - or a discrete subtype declaration.
+    ///
+    /// In addition, there must be at least one choice provided.
+    void addDiscreteChoice(Ast **choices, unsigned numChoices, Expr *expr) {
+        this->choices.push_back(ChoiceList::create(choices, numChoices, expr));
+    }
+
+    /// Returns the number of dicrete choice lists provided by this aggregate.
+    unsigned numDiscreteChoiceLists() const { return choices.size(); }
+
+    /// Returns the total number of choices provided by this aggregate.
+    ///
+    /// \note This method scans the entire aggregate and recomputes the number
+    /// of choices on each call.  Use sparingly as aggregates can potentially be
+    /// quite large.
+    unsigned numChoices() const;
+
+    /// Returns true if this aggregate is empty, meaning there are no components
+    /// defined and no others clause.
+    bool empty() const { return numDiscreteChoiceLists() == 0 && !hasOthers(); }
+
+    /// \name ChoiceList Iterators.
+    ///
+    /// \brief Iterators over the choice lists associated with this aggregate.
+    //@{
+    typedef std::vector<ChoiceList*>::iterator cl_iterator;
+    cl_iterator cl_begin() { return choices.begin(); }
+    cl_iterator cl_end() { return choices.end(); }
+
+    typedef std::vector<ChoiceList*>::const_iterator const_cl_iterator;
+    const_cl_iterator cl_begin() const { return choices.begin(); }
+    const_cl_iterator cl_end() const { return choices.end(); }
+    //@}
+
+private:
+    /// \class
+    ///
+    /// The following class provides a simple forward iterator over each
+    /// discrete choice provided by an aggregate expression.
+    class ChoiceIterator {
+        std::vector<ChoiceList*> &choices;
+        unsigned choiceIdx;     // Index into the choices vector.
+        unsigned listIdx;       // Index into the corresponding ChoiceList.
+
+        /// Internal constructor used for the generation of sentinel iterators.
+        ChoiceIterator(std::vector<ChoiceList*> &choices,
+                       unsigned choiceIdx, unsigned listIdx)
+            : choices(choices), choiceIdx(choiceIdx), listIdx(listIdx) { }
+
+        /// Constructor for use by KeyedAggExpr.
+        ChoiceIterator(std::vector<ChoiceList*> &choices)
+            : choices(choices), choiceIdx(0), listIdx(0) { }
+
+        /// Sentinel producing method for use by KeyedAggExpr.
+        static ChoiceIterator getSentinel(std::vector<ChoiceList*> &choices) {
+            return ChoiceIterator(choices, choices.size(), 0);
+        }
+
+        friend class KeyedAggExpr;
+
+    public:
+
+        bool operator ==(const ChoiceIterator &iter) {
+            return choiceIdx == iter.choiceIdx && listIdx == iter.listIdx;
+        }
+
+        bool operator !=(const ChoiceIterator &iter) {
+            return !this->operator==(iter);
+        }
+
+        ChoiceIterator &operator++() {
+            listIdx = listIdx + 1;
+            if (listIdx == choices[choiceIdx]->numChoices()) {
+                choiceIdx = choiceIdx + 1;
+                listIdx = 0;
+            }
+            return *this;
+        }
+
+        ChoiceIterator operator++(int) {
+            ChoiceIterator res = *this;
+            this->operator++();
+            return res;
+        }
+
+        Ast *operator*() {
+            return choices[choiceIdx]->getChoice<Ast>(listIdx);
+        }
+    };
+
+public:
+    /// \name Choice Iterators.
+    ///
+    /// \brief Iterators over each discrete choice associated with this
+    /// aggregate.
+    ///
+    /// These iterators traverse the set of choices in the order they were added
+    /// to the aggregate node.
+    //@{
+    typedef ChoiceIterator choice_iterator;
+    choice_iterator choice_begin() { return ChoiceIterator(choices); }
+    choice_iterator choice_end() {
+        return ChoiceIterator::getSentinel(choices);
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const KeyedAggExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_KeyedAggExpr;
+    }
+
+private:
+    std::vector<ChoiceList*> choices;
 };
 
 } // End comma namespace.

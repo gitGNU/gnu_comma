@@ -70,6 +70,7 @@ class IntegerDecl;
 class IntegerLiteral;
 class IntegerSubtypeDecl;
 class IntegerType;
+class KeyedAggExpr;
 class KeywordSelector;
 class LastAE;
 class LastArrayAE;
@@ -203,6 +204,7 @@ public:
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
+        AST_KeyedAggExpr,       ///< KeyedAggExpr
         AST_PositionalAggExpr,  ///< PositionalAggExpr
         AST_PrjExpr,            ///< PrjExpr
         AST_StringLiteral,      ///< StringLiteral

@@ -131,7 +131,7 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
         return emitArrayConversion(convert, dst, genTmp);
 
-    if (PositionalAggExpr *agg = dyn_cast<PositionalAggExpr>(expr))
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst, genTmp);
 
     if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
@@ -187,11 +187,24 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 }
 
 std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitAggregate(PositionalAggExpr *expr, llvm::Value *dst,
+CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
                               bool genTmp)
 {
+    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(expr))
+        return emitPositionalAgg(PAE, dst, genTmp);
+    else {
+        KeyedAggExpr *KAE = cast<KeyedAggExpr>(expr);
+        return emitKeyedAgg(KAE, dst, genTmp);
+    }
+}
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitPositionalAgg(PositionalAggExpr *expr,
+                                  llvm::Value *dst,
+                                  bool genTmp)
+{
     typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
-    typedef PositionalAggExpr::component_iter iterator;
+    typedef PositionalAggExpr::iterator iterator;
 
     BoundsEmitter emitter(*this);
     llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
@@ -286,6 +299,14 @@ CodeGenRoutine::emitAggregate(PositionalAggExpr *expr, llvm::Value *dst,
     // Set the insert point to the merge BB and return.
     Builder.SetInsertPoint(mergeBB);
     return ArrPair(dst, bounds);
+}
+
+std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst,
+                             bool genTmp)
+{
+    assert(false && "Keyed aggregates are not yet supported!");
+    return std::pair<llvm::Value*, llvm::Value*>(0, 0);
 }
 
 std::pair<llvm::Value*, llvm::Value*>

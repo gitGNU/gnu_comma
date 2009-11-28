@@ -28,6 +28,7 @@ public:
 
     virtual void visitAst(Ast *node);
     virtual void visitExpr(Expr *node);
+    virtual void visitAggregateExpr(AggregateExpr *node);
     virtual void visitAttribExpr(AttribExpr *node);
     virtual void visitDeclRefExpr(DeclRefExpr *node);
     virtual void visitFunctionCallExpr(FunctionCallExpr *node);
@@ -37,6 +38,7 @@ public:
     virtual void visitIntegerLiteral(IntegerLiteral *node);
     virtual void visitStringLiteral(StringLiteral *node);
     virtual void visitPositionalAggExpr(PositionalAggExpr *node);
+    virtual void visitKeyedAggExpr(KeyedAggExpr *node);
     virtual void visitConversionExpr(ConversionExpr *node);
 
     /// Visitors over AttribExpr nodes.

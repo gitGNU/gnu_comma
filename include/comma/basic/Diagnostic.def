@@ -216,7 +216,7 @@ DIAGNOSTIC(DUPLICATE_IMPORT_PRAGMAS, ERROR,
 DIAGNOSTIC(INCONSISTENT_AGGREGATE_TYPE, ERROR,
            "Inconsitent type for aggregate component.")
 DIAGNOSTIC(INVALID_CONTEXT_FOR_AGGREGATE, ERROR,
-           "Invalid type context for aggregate expression.")
+           "Invalid context for aggregate expression.")
 DIAGNOSTIC(OTHERS_IN_UNCONSTRAINED_CONTEXT, ERROR,
            "\"others\" may not appear in an unconstrained type context.")
 DIAGNOSTIC(DOES_NOT_DENOTE_A_TYPE, ERROR,
@@ -231,3 +231,9 @@ DIAGNOSTIC(TYPE_FOUND_EXPECTED_EXPRESSION, ERROR,
            "Type in expression context.")
 DIAGNOSTIC(INCOMPATIBLE_RANGE_TYPES, ERROR,
            "Incompatible types in range.")
+DIAGNOSTIC(DYNAMIC_CHOICE_NOT_UNIQUE, ERROR,
+           "Dynamic choice in aggregate must be unique.")
+DIAGNOSTIC(NULL_CHOICE_NOT_UNIQUE, ERROR,
+           "Null choice in aggregate must be unique.")
+DIAGNOSTIC(DUPLICATED_CHOICE_VALUE, ERROR,
+           "Choice value duplicated at `%0'.")

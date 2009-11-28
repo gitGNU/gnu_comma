@@ -42,6 +42,12 @@ public:
 
     ~TypeCheck();
 
+    /// \name ParseClient Requirements.
+    ///
+    /// \brief Declaration of the ParseClient interface.
+    ///
+    /// \see ParseClient.
+    //@{
     void beginCapsule();
     void endCapsule();
 
@@ -83,7 +89,6 @@ public:
     Node acceptDirectName(IdentifierInfo *name, Location loc,
                           bool forStatement);
 
-
     Node acceptCharacterLiteral(IdentifierInfo *lit, Location loc);
 
     Node acceptSelectedComponent(Node prefix,
@@ -111,9 +116,6 @@ public:
     Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
                       Node lower, Node upper, bool isReversed);
     Node endForStmt(Node forNode, NodeVector &bodyNodes);
-
-    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
-    Expr *resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
@@ -200,16 +202,60 @@ public:
 
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
+    //@}
+
+    /// \name Generic Accessors and Predicates.
+    ///
+    //@{
 
     /// \brief Returns true if the type checker has not encountered an error and
     /// false otherwise.
     bool checkSuccessful() const { return !diagnostic.reportsGenerated(); }
 
+    /// Returns the compilation which this type checker populates with well
+    /// formed top-level nodes.
     CompilationUnit *getCompilationUnit() const { return compUnit; }
+
+    /// Returns the Diagnostic object thru which diagnostics are posted.
+    Diagnostic &getDiagnostic() { return diagnostic; }
+
+    /// Returns the AstResource used by the type checker to construct AST nodes.
+    AstResource &getAstResource() { return resource; }
+    //@}
+
+    /// \name General Semantic Analysis.
+    //@{
 
     /// Returns true if the type \p source requires a conversion to be
     /// compatable with the type \p target.
     static bool conversionRequired(Type *source, Type *target);
+
+    /// Typechecks the given expression in the given type context.  Returns true
+    /// if the expression was successfully checked.  Otherwise, false is
+    /// returned and appropriate diagnostics are emitted.
+    bool checkExprInContext(Expr *expr, Type *context);
+
+    /// Typechecks the given expression using the given type classification as
+    /// context.  This method returns true if the expression was successfully
+    /// checked.  Otherwise, false is returned an diagnostics are emitted.
+    bool checkExprInContext(Expr *expr, Type::Classification ID);
+
+    /// Returns true if \p expr is a static integer expression.  If so,
+    /// initializes \p result to a signed value which can accommodate the given
+    /// static expression.
+    bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
+
+    /// Returns true if \p expr is a static integer expression.  Otherwise false
+    /// is returned and diagnostics are posted.
+    bool ensureStaticIntegerExpr(Expr *expr);
+
+    /// Checks if \p node resolves to an expression and returns that expression
+    /// on success.  Else null is returned and diagnostics are posted.
+    Expr *ensureExpr(Node node);
+
+    /// Basic type equality predicate.
+    static bool covers(Type *A, Type *B);
+    //@}
 
 private:
     Diagnostic      &diagnostic;
@@ -394,19 +440,6 @@ private:
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
-    /// Returns true if \p expr is a static integer expression.  If so,
-    /// initializes \p result to a signed value which can accommodate the given
-    /// static expression.
-    bool ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result);
-
-    /// Returns true if \p expr is a static integer expression.  Otherwise false
-    /// is returned and diagnostics are posted.
-    bool ensureStaticIntegerExpr(Expr *expr);
-
-    /// Checks if \p node resolves to an expression and returns that expression
-    /// on success.  Else null is returned and diagnostics are posted.
-    Expr *ensureExpr(Node node);
-
     /// Resolves a visible declarative region associated with a qualifier.
     ///
     /// Qualifiers can name signature components, but such qualifiers are
@@ -421,16 +454,17 @@ private:
     Decl *resolveTypeOrModelDecl(IdentifierInfo *name,
                                  Location loc, DeclRegion *region = 0);
 
-    // Typechecks the given expression in the given type context.  Returns true
-    // if the expression was successfully checked.  Otherwise, false is returned
-    // and appropriate diagnostics are emitted.
-    bool checkExprInContext(Expr *expr, Type *context);
-
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.
     // Returns true if the literal was successfully checked.  Otherwise, false
     // is returned and appropriate diagnostics are posted.
     bool resolveIntegerLiteral(IntegerLiteral *intLit, Type *context);
+
+    // Resolved the type of the given integer literal with respect to the given
+    // type classification.  Returns true if the literal was successfully
+    // checked.  Otherwise false is returned and appropriate diagnostics are
+    // posted.
+    bool resolveIntegerLiteral(IntegerLiteral *intLit, Type::Classification ID);
 
     // Resolves the type of the given string literal, and ensures that the given
     // type context is itself compatible with the literal provided.  Returns
@@ -543,8 +577,6 @@ private:
     /// check of a subroutine argument when resolving a set of overloaded
     /// declarations.
     bool checkApplicableArgument(Expr *expr, Type *targetType);
-
-    bool covers(Type *A, Type *B);
 
     // Returns true if the given type is compatible with the given abstract
     // domain decl in the environment established by the given rewrites.
@@ -736,10 +768,23 @@ private:
     /// posted.
     bool finishTypeRef(TypeRef *ref);
 
+    /// Checks and returns a Range node for the given lower and upper bounds.
+    ///
+    /// The range is checked wrt to the given class, which must be rooted in
+
+
     /// Checks an assert pragma with the given arguments.
     PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);
 
     Ast *checkAttribute(attrib::AttributeID, Ast *prefix, Location loc);
+
+
+    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
+    Expr *resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context);
+    Expr *resolveKeyedAggExpr(KeyedAggExpr *agg, Type *context);
+    bool checkAggChoiceList(KeyedAggExpr::ChoiceList *CL, DiscreteType *indexTy,
+                            Type *componentTy);
+    bool checkAggOthers(AggregateExpr *agg, ArrayType *context);
 
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);

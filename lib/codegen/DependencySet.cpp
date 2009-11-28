@@ -197,7 +197,7 @@ void DependencyScanner::visitPrjExpr(PrjExpr *node)
 
 void DependencyScanner::visitPositionalAggExpr(PositionalAggExpr *node)
 {
-    typedef PositionalAggExpr::component_iter iterator;
+    typedef PositionalAggExpr::iterator iterator;
     iterator I = node->begin_components();
     iterator E = node->end_components();
     for ( ; I != E; ++I)

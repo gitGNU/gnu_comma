@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "RangeChecker.h"
 #include "Scope.h"
 #include "Stencil.h"
 #include "TypeCheck.h"
@@ -749,37 +750,12 @@ void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
                                       Node lowNode, Node highNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
-    Expr *lowExpr = cast_node<Expr>(lowNode);
-    Expr *highExpr = cast_node<Expr>(highNode);
+    Expr *lower = cast_node<Expr>(lowNode);
+    Expr *upper = cast_node<Expr>(highNode);
+    RangeChecker rangeCheck(*this);
 
-    // If the bounds are function calls it is possible that they have not been
-    // fully resolved since no target context has been seen for these
-    // expressions.  We demand that the expressions be of any integer type.
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(lowExpr)) {
-        if (!resolveFunctionCall(call, Type::CLASS_Integer))
-            return;
-    }
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(highExpr)) {
-        if (!resolveFunctionCall(call, Type::CLASS_Integer))
-            return;
-    }
-
-    // If the bounds are integer literals, they have yet to have their type
-    // resolved.  Use root_integer in this case.
-    if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(lowExpr)) {
-        if (!lit->hasType())
-            lit->setType(resource.getTheRootIntegerType());
-    }
-    if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(highExpr)) {
-        if (!lit->hasType())
-            lit->setType(resource.getTheRootIntegerType());
-    }
-
-    if (!ensureStaticIntegerExpr(lowExpr) || !ensureStaticIntegerExpr(highExpr))
+    if (!rangeCheck.checkDeclarationRange(lower, upper))
         return;
-
-    // FIXME: Check that the bound expressions are within the targets
-    // representational limits.
 
     // Obtain an integer type to represent the base type of this declaration and
     // release the range expressions as they are now owned by this new
@@ -787,7 +763,7 @@ void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
     lowNode.release();
     highNode.release();
     IntegerDecl *decl;
-    decl = resource.createIntegerDecl(name, loc, lowExpr, highExpr, region);
+    decl = resource.createIntegerDecl(name, loc, lower, upper, region);
 
     if (Decl *conflict = scope.addDirectDecl(decl)) {
         report(loc, diag::CONFLICTING_DECLARATION)

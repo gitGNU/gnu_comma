@@ -401,6 +401,9 @@ private:
 class DiscreteType : public PrimaryType {
 
 public:
+    /// Returns the defining identifier for this type.
+    virtual IdentifierInfo *getIdInfo() const = 0;
+
     /// Returns the upper limit for this type.
     ///
     /// The upper limit is the greatest value which can be represented by the
@@ -501,9 +504,6 @@ class EnumerationType : public DiscreteType {
 
 public:
     virtual ~EnumerationType() { }
-
-    /// Returns the defining identifier for this enumeration type.
-    virtual IdentifierInfo *getIdInfo() const = 0;
 
     /// Returns the lower limit for this type.
     ///
@@ -618,9 +618,6 @@ class IntegerType : public DiscreteType {
 public:
     virtual ~IntegerType() { }
 
-    /// Returns the defining identifier for this type.
-    virtual IdentifierInfo *getIdInfo() const = 0;
-
     /// Returns the lower limit for this type.
     ///
     /// \see DiscreteType::getLowerLimit().
@@ -630,6 +627,10 @@ public:
     ///
     /// \see DiscreteType::getUpperLimit().
     void getUpperLimit(llvm::APInt &res) const;
+
+    /// Returns true if the base integer type can represent the given value
+    /// (interpreted as signed).
+    bool baseContains(const llvm::APInt &value) const;
 
     /// Returns the number of bits needed to represent this type.
     ///
