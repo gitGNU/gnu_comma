@@ -185,4 +185,14 @@ void DeclDumper::visitArrayDecl(ArrayDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitArraySubtypeDecl(ArraySubtypeDecl *node)
+{
+    printHeader(node) << '\n';
+    indent();
+    printIndentation();
+    dumpAST(node->getType());
+    dedent();
+    S << '>';
+}
+
 

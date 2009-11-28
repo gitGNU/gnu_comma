@@ -83,6 +83,7 @@ private:
     void visitIntegerDecl(IntegerDecl *node);
     void visitIntegerSubtypeDecl(IntegerSubtypeDecl *node);
     void visitArrayDecl(ArrayDecl *node);
+    void visitArraySubtypeDecl(ArraySubtypeDecl *node);
 };
 
 } // end comma namespace.

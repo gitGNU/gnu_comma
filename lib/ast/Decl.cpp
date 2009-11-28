@@ -994,3 +994,25 @@ ArrayDecl::ArrayDecl(AstResource &resource,
     // Create the first subtype.
     CorrespondingType = resource.createArraySubtype(name, base);
 }
+
+//===----------------------------------------------------------------------===//
+// ArraySubtypeDecl
+
+ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
+                                   IdentifierInfo *name, Location loc,
+                                   ArrayType *subtype, DeclRegion *parent)
+    : TypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
+{
+    CorrespondingType = resource.createArraySubtype(name, subtype);
+}
+
+ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
+                                   IdentifierInfo *name, Location loc,
+                                   ArrayType *subtype, DiscreteType **indices,
+                                   DeclRegion *parent)
+    : TypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
+{
+    CorrespondingType = resource.createArraySubtype(name, subtype, indices);
+}
+
+

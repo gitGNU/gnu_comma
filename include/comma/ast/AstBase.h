@@ -30,6 +30,7 @@ class AggregateExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayRangeAttrib;
+class ArraySubtypeDecl;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -166,6 +167,7 @@ public:
         AST_IntegerDecl,        ///< IntegerDecl
         AST_IntegerSubtypeDecl, ///< IntegerSubtypeDecl
         AST_ArrayDecl,          ///< ArrayDecl
+        AST_ArraySubtypeDecl,   ///< ArraySubtypeDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_PercentDecl,        ///< PercentDecl

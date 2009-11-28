@@ -1486,6 +1486,64 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// ArraySubtypeDecl
+//
+/// These nodes represent array subtype declarations.
+class ArraySubtypeDecl : public TypeDecl {
+
+public:
+    /// Returns the subtype defined by this declaration.
+    ArrayType *getType() const {
+        return llvm::cast<ArrayType>(CorrespondingType);
+    }
+
+    // Support isa/dyn_cast.
+    static bool classof(const ArraySubtypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ArraySubtypeDecl;
+    }
+
+private:
+    /// \name Constructors.
+    ///
+    /// The following constructors are provided for use by AstResource.
+    ///
+    /// All constructors take the following arguments.
+    ///
+    ///   - A reference to the AstResource which is performing the allocation.
+    ///
+    ///   - An IdentifierInfo naming the declaration.
+    ///
+    ///   - A location denoting the position of the declarations  name in the
+    ///     source.
+    ///
+    ///   - An ArrayType node representing the parent type of this subtype.
+    ///
+    ///   - The declarative region in which the subtype declaration appears.
+
+    //@{
+
+    /// Constructs an unconstrained array subtype declaration (effecively an
+    /// alias for \p subtype).
+    ArraySubtypeDecl(AstResource &resource,
+                     IdentifierInfo *name, Location loc,
+                     ArrayType *subtype, DeclRegion *parent);
+
+    /// Constructs a constrained array subtype declaration.
+    ///
+    /// \p indices A set of discrete types which constrain the indices of this
+    /// array type.  The number of indices supplied must match the
+    /// dimensionality of \p subtype.
+    ArraySubtypeDecl(AstResource &resource,
+                     IdentifierInfo *name, Location loc,
+                     ArrayType *subtype, DiscreteType **indeices,
+                     DeclRegion *parent);
+    //@}
+
+    friend class AstResource;
+};
+
+//===----------------------------------------------------------------------===//
 // DomainTypeDecl
 //
 // This class represents implicit domain declarations which correspond to a

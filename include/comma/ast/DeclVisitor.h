@@ -83,6 +83,7 @@ public:
     virtual void visitIntegerDecl(IntegerDecl *node);
     virtual void visitIntegerSubtypeDecl(IntegerSubtypeDecl *node);
     virtual void visitArrayDecl(ArrayDecl *node);
+    virtual void visitArraySubtypeDecl(ArraySubtypeDecl *node);
     ///@}
 };
 

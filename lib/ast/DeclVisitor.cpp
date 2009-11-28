@@ -97,6 +97,8 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
         visitIntegerSubtypeDecl(integer);
     else if (ArrayDecl *array = dyn_cast<ArrayDecl>(node))
         visitArrayDecl(array);
+    else if (ArraySubtypeDecl *array = dyn_cast<ArraySubtypeDecl>(node))
+        visitArraySubtypeDecl(array);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -150,3 +152,4 @@ void DeclVisitor::visitEnumSubtypeDecl(EnumSubtypeDecl *node) { }
 void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
 void DeclVisitor::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }
+void DeclVisitor::visitArraySubtypeDecl(ArraySubtypeDecl *node) { }
