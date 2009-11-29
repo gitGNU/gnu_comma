@@ -451,8 +451,11 @@ public:
         return const_cast<DomainDecl*>(this)->getInstance();
     }
 
-    // Returns the AddDecl which implements this domain.
+    //@{
+    /// Returns the AddDecl which implements this domain.
     const AddDecl *getImplementation() const { return implementation; }
+    AddDecl *getImplementation() { return implementation; }
+    //@}
 
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
@@ -839,6 +842,10 @@ public:
 
     const bool hasForwardDeclaration() const {
         return getForwardDeclaration() != 0;
+    }
+
+    const bool isForwardDeclaration() const {
+        return getDefiningDeclaration() != 0;
     }
 
     bool hasBody() const;

@@ -56,9 +56,10 @@ void StmtDumper::visitBlockStmt(BlockStmt *node)
         S << llvm::format(" '%s'", node->getLabel()->getString());
 
     if (node->countDecls()) {
+        indent();
         S << '\n';
         printIndentation();
-        S << "<declare";
+        S << ":Declare";
         indent();
         for (BlockStmt::DeclIter I = node->beginDecls();
              I != node->endDecls(); ++I) {
@@ -67,17 +68,24 @@ void StmtDumper::visitBlockStmt(BlockStmt *node)
             dumpAST(*I);
         }
         dedent();
-        S << '>';
+        dedent();
     }
 
-    indent();
-    for (StmtSequence::StmtIter I = node->beginStatements();
-         I != node->endStatements(); ++I) {
+    if (node->size()) {
+        indent();
         S << '\n';
         printIndentation();
-        visitStmt(*I);
+        S << ":Body";
+        indent();
+        for (StmtSequence::StmtIter I = node->beginStatements();
+             I != node->endStatements(); ++I) {
+            S << '\n';
+            printIndentation();
+            visitStmt(*I);
+        }
+        dedent();
+        dedent();
     }
-    dedent();
     S << '>';
 }
 

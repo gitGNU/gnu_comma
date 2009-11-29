@@ -18,6 +18,14 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+llvm::raw_ostream &TypeDumper::printHeader(Type *node)
+{
+    AstDumperBase::printHeader(node);
+    if (DiscreteType *discrete = dyn_cast<DiscreteType>(node))
+        S << " '" << discrete->getIdInfo()->getString() << '\'';
+    return S;
+}
+
 llvm::raw_ostream &TypeDumper::dump(Type *type, unsigned level)
 {
     unsigned savedLevel = indentLevel;

@@ -43,10 +43,8 @@ private:
     /// space.
     llvm::raw_ostream &dumpParameters(SubroutineType *node);
 
-    /// Locally re-declare to allow resolution of our local specializations.
-    llvm::raw_ostream &printHeader(Ast *node) {
-        return AstDumperBase::printHeader(node);
-    }
+    /// Specialization for types.
+    llvm::raw_ostream &printHeader(Type *node);
 
     /// Visitor methods implementing the dump routines.  We use the default
     /// implementations for all inner node visitors since we are only concerned

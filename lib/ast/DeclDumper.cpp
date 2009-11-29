@@ -60,12 +60,35 @@ void DeclDumper::visitSigInstanceDecl(SigInstanceDecl *node)
 
 void DeclDumper::visitAddDecl(AddDecl *node)
 {
-    printHeader(node) << '>';
+    printHeader(node);
+
+    if (node->countDecls()) {
+        indent();
+        DeclRegion::DeclRegion::DeclIter I = node->beginDecls();
+        DeclRegion::DeclRegion::DeclIter E = node->endDecls();
+        for ( ; I != E; ++I) {
+            S << '\n';
+            printIndentation();
+            visitDecl(*I);
+        }
+        dedent();
+    }
+    S << '>';
 }
 
 void DeclDumper::visitDomainDecl(DomainDecl *node)
 {
-    printHeader(node) << '>';
+    printHeader(node) << '\n';
+    indent();
+    printIndentation();
+    visitPercentDecl(node->getPercent());
+
+    if (AddDecl *add = node->getImplementation()) {
+        S << '\n';
+        printIndentation();
+        visitAddDecl(add);
+    }
+    S << '>';
 }
 
 void DeclDumper::visitFunctorDecl(FunctorDecl *node)
@@ -79,7 +102,7 @@ void DeclDumper::visitSubroutineDecl(SubroutineDecl *node)
     indent();
     printIndentation();
     dumpAST(node->getType());
-    if (node->hasBody()) {
+    if (!node->isForwardDeclaration() && node->hasBody()) {
         S << '\n';
         printIndentation();
         dumpAST(node->getBody());
@@ -122,13 +145,37 @@ void DeclDumper::visitDomainInstanceDecl(DomainInstanceDecl *node)
 {
     printHeader(node);
 
-    indent();
-    for (unsigned i = 0; i < node->getArity(); ++i) {
+    if (unsigned arity = node->getArity()) {
         S << '\n';
-        printIndentation();
-        visitDomainTypeDecl(node->getActualParam(i));
+        indent();
+        printIndentation() << ":Params";
+        indent();
+        for (unsigned i = 0; i < arity; ++i) {
+            S << '\n';
+            printIndentation();
+            visitDomainTypeDecl(node->getActualParam(i));
+        }
+        dedent();
+        dedent();
     }
-    dedent();
+    S << '>';
+}
+
+void DeclDumper::visitPercentDecl(PercentDecl *node)
+{
+    printHeader(node);
+
+    if (node->countDecls()) {
+        indent();
+        DeclRegion::DeclRegion::DeclIter I = node->beginDecls();
+        DeclRegion::DeclRegion::DeclIter E = node->endDecls();
+        for ( ; I != E; ++I) {
+            S << '\n';
+            printIndentation();
+            visitDecl(*I);
+        }
+        dedent();
+    }
     S << '>';
 }
 

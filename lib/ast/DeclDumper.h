@@ -74,6 +74,7 @@ private:
     void visitDomainTypeDecl(DomainTypeDecl *node);
     void visitAbstractDomainDecl(AbstractDomainDecl *node);
     void visitDomainInstanceDecl(DomainInstanceDecl *node);
+    void visitPercentDecl(PercentDecl *node);
     void visitLoopDecl(LoopDecl *node);
     void visitParamValueDecl(ParamValueDecl *node);
     void visitObjectDecl(ObjectDecl *node);
