@@ -56,7 +56,7 @@ Node TypeCheck::acceptReturnStmt(Location loc, Node retNode)
         if (!retExpr)
             return getInvalidNode();
 
-        if (checkExprInContext(retExpr, targetType)) {
+        if ((retExpr = checkExprInContext(retExpr, targetType))) {
             retNode.release();
             return getNode(new ReturnStmt(loc, retExpr));
         }
@@ -129,7 +129,7 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
     }
 
     // Check that the value is compatable with the type of the target.
-    if (!checkExprInContext(value, targetTy))
+    if (!(value = checkExprInContext(value, targetTy)))
         return getInvalidNode();
 
     valueNode.release();
@@ -146,16 +146,16 @@ Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
     typedef NodeCaster<Stmt> caster;
     typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
 
-    Expr *condition = cast_node<Expr>(conditionNode);
+    Expr *pred = cast_node<Expr>(conditionNode);
 
-    if (checkExprInContext(condition, resource.getTheBooleanType())) {
+    if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
         StmtSequence *consequents = new StmtSequence(I, E);
 
         conditionNode.release();
         consequentNodes.release();
-        return getNode(new IfStmt(loc, condition, consequents));
+        return getNode(new IfStmt(loc, pred, consequents));
     }
     return getInvalidNode();
 }
@@ -185,14 +185,14 @@ Node TypeCheck::acceptElsifStmt(Location loc, Node ifNode, Node conditionNode,
     typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
 
     IfStmt *cond = cast_node<IfStmt>(ifNode);
-    Expr *condition = cast_node<Expr>(conditionNode);
+    Expr *pred = cast_node<Expr>(conditionNode);
 
-    if (checkExprInContext(condition, resource.getTheBooleanType())) {
+    if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
         StmtSequence *consequents = new StmtSequence(I, E);
 
-        cond->addElsif(loc, condition, consequents);
+        cond->addElsif(loc, pred, consequents);
         conditionNode.release();
         consequentNodes.release();
         return ifNode;
@@ -236,9 +236,9 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
     typedef NodeCaster<Stmt> caster;
     typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
 
-    Expr *condition = cast_node<Expr>(conditionNode);
+    Expr *pred = cast_node<Expr>(conditionNode);
 
-    if (!checkExprInContext(condition, resource.getTheBooleanType()))
+    if (!(pred = checkExprInContext(pred, resource.getTheBooleanType())))
         return getInvalidNode();
 
     iterator I(stmtNodes.begin(), caster());
@@ -247,7 +247,7 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
 
     conditionNode.release();
     stmtNodes.release();
-    return getNode(new WhileStmt(loc, condition, body));
+    return getNode(new WhileStmt(loc, pred, body));
 }
 
 Node TypeCheck::acceptLoopStmt(Location loc, NodeVector &stmtNodes)

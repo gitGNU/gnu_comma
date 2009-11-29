@@ -78,6 +78,12 @@ public:
     const Expr *getUpperBound() const { return upperBound.getPointer(); }
     //@}
 
+    /// Resets the lower bound of this range.
+    void setLowerBound(Expr *expr);
+
+    /// Resets the upper bound of this range.
+    void setUpperBound(Expr *expr);
+
     /// Returns true if the lower bound is static.
     bool hasStaticLowerBound() const { return lowerBound.getInt(); }
 
@@ -138,13 +144,18 @@ private:
     /// type of the range must be set before this method is called.
     void checkAndAdjustLimits();
 
+    //@{
     /// Munges the low order bit of \c lowerBound to encode the fact that a
     /// static interpretaion of the value has been computed.
     void markLowerAsStatic() { lowerBound.setInt(1); }
-
-    /// Munges the low order bit of \c upperBound to encode the fact that a
-    /// static interpretaion of the value has been computed.
     void markUpperAsStatic() { upperBound.setInt(1); }
+    //@}
+
+    //@{
+    /// Marks the corresponding bound as non-static.
+    void markLowerAsDynamic() { lowerBound.setInt(0); }
+    void markUpperAsDynamic() { upperBound.setInt(0); }
+    //@}
 
     typedef llvm::PointerIntPair<Expr *, 1> PtrInt;
     PtrInt lowerBound;          ///< lower bound expression.

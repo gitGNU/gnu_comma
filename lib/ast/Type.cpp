@@ -216,15 +216,16 @@ AbstractDomainDecl *DomainType::getAbstractDecl()
 //===----------------------------------------------------------------------===//
 // DiscreteType
 
-bool DiscreteType::contains(const DiscreteType *target) const
+DiscreteType::ContainmentResult
+DiscreteType::contains(const DiscreteType *target) const
 {
     // All types trivially contain themselves.
     if (this == target)
-        return true;
+        return Is_Contained;
 
     // Check that the categories of both types match.
     if (this->getKind() != target->getKind())
-        return false;
+        return Not_Contained;
 
     // Obtain the bounds for this type.
     llvm::APInt min;
@@ -234,11 +235,11 @@ bool DiscreteType::contains(const DiscreteType *target) const
         // If this type has a non-static constraint we cannot compute
         // containment.
         if (!constraint->isStatic())
-            return false;
+            return Maybe_Contained;
 
         // If this type has a null range, we cannot contain the target.
         if (constraint->isNull())
-            return false;
+            return Not_Contained;
 
         min = constraint->getStaticLowerBound();
         max = constraint->getStaticUpperBound();
@@ -265,7 +266,7 @@ bool DiscreteType::contains(const DiscreteType *target) const
         // If the target is constrained to a null range, we can always contain
         // it.
         if (constraint->isNull())
-            return true;
+            return Is_Contained;
 
         lower = constraint->getStaticLowerBound();
         upper = constraint->getStaticUpperBound();
@@ -282,7 +283,51 @@ bool DiscreteType::contains(const DiscreteType *target) const
     max.sextOrTrunc(width);
     lower.sextOrTrunc(width);
     upper.sextOrTrunc(width);
-    return (min.sle(lower) && upper.sle(max));
+    if (min.sle(lower) && upper.sle(max))
+        return Is_Contained;
+    else
+        return Not_Contained;
+}
+
+DiscreteType::ContainmentResult
+DiscreteType::contains(const llvm::APInt &value) const
+{
+    ContainmentResult result = Not_Contained;
+
+    if (const Range *constraint = getConstraint()) {
+        if (constraint->isStatic())
+            result = constraint->contains(value) ? Is_Contained : Not_Contained;
+        else
+            result = Maybe_Contained;
+    }
+    else {
+        llvm::APInt lower;
+        llvm::APInt upper;
+        llvm::APInt candidate(value);
+
+        getLowerLimit(lower);
+        getUpperLimit(upper);
+
+        // Adjust the collected values so that they are of equal widths and
+        // compare.
+        unsigned width = std::max(getSize(), uint64_t(value.getBitWidth()));
+        if (isSigned()) {
+            lower.sextOrTrunc(width);
+            upper.sextOrTrunc(width);
+            candidate.sextOrTrunc(width);
+            result = lower.sle(candidate) && candidate.sle(upper)
+                ? Is_Contained : Not_Contained;
+        }
+        else {
+            lower.zextOrTrunc(width);
+            upper.zextOrTrunc(width);
+            candidate.zextOrTrunc(width);
+            result = lower.ule(candidate) && candidate.ule(upper)
+                ? Is_Contained : Not_Contained;
+        }
+    }
+
+    return result;
 }
 
 unsigned DiscreteType::getPreferredSize(uint64_t bits)

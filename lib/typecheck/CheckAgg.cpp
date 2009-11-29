@@ -193,8 +193,12 @@ Expr *AggregateChecker::resolvePositionalAggExpr(PositionalAggExpr *agg,
     iterator I = agg->begin_components();
     iterator E = agg->end_components();
     bool allOK = true;
-    for ( ; I != E; ++I)
-        allOK = TC.checkExprInContext(*I, componentType) && allOK;
+    for ( ; I != E; ++I) {
+        if (Expr *component = TC.checkExprInContext(*I, componentType))
+            *I = component;
+        else
+            allOK = false;
+    }
 
     if (!allOK || !checkOthers(agg, context))
         return 0;
@@ -303,7 +307,12 @@ bool AggregateChecker::checkAggChoiceList(KeyedAggExpr::ChoiceList *CL,
     }
 
     // Ensure that the associated expression satisfies the component type.
-    return TC.checkExprInContext(CL->getExpr(), componentTy) && allOK;
+    if (Expr *expr = TC.checkExprInContext(CL->getExpr(), componentTy))
+        CL->setExpr(expr);
+    else
+        allOK = false;
+
+    return allOK;
 }
 
 bool AggregateChecker::ensureStaticChoices(KeyedAggExpr *agg)
@@ -426,9 +435,11 @@ bool AggregateChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
 {
     // Check the others component if present with respect to the component type
     // of the array.
-    if (Expr *others = agg->getOthersExpr()) {
-        if (!TC.checkExprInContext(others, context->getComponentType()))
+    if (Expr *expr = agg->getOthersExpr()) {
+        if (!(expr = TC.checkExprInContext(expr, context->getComponentType())))
             return false;
+        else
+            agg->setOthersExpr(expr);
     }
 
     // If the context type is unconstrained, ensure that an others component is
@@ -579,13 +590,13 @@ Node TypeCheck::acceptStringLiteral(const char *chars, unsigned len,
     return getNode(string);
 }
 
-bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
+Expr *TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
 {
     // First, ensure the type context is a string array type.
     ArrayType *arrTy = dyn_cast<ArrayType>(context);
     if (!arrTy || !arrTy->isStringType()) {
         report(strLit->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
+        return 0;
     }
 
     // FIXME: Typically all contexts which involve unconstrained array types
@@ -593,7 +604,7 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     // constrained.  For now, construct an appropriate type for the literal.
     if (!arrTy->isConstrained() &&
         !(arrTy = getConstrainedArraySubtype(arrTy, strLit)))
-        return false;
+        return 0;
 
     // The array is a string type.  Check that the string literal has at least
     // one interpretation of its components which matches the component type of
@@ -606,7 +617,7 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     if (!strLit->containsComponentType(enumTy)) {
         report(strLit->getLocation(), diag::STRING_COMPONENTS_DO_NOT_SATISFY)
             << enumTy->getIdInfo();
-        return false;
+        return 0;
     }
 
     // If the array type is statically constrained, ensure that the string is of
@@ -618,17 +629,17 @@ bool TypeCheck::resolveStringLiteral(StringLiteral *strLit, Type *context)
     if (arrLength < strLength) {
         report(strLit->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
             << arrTy->getIdInfo();
-        return false;
+        return 0;
     }
     if (arrLength > strLength) {
         report(strLit->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
             << arrTy->getIdInfo();
-        return false;
+        return 0;
     }
 
     /// Resolve the component type of the literal to the component type of
     /// the array and set the type of the literal to the type of the array.
     strLit->resolveComponentType(enumTy);
     strLit->setType(arrTy);
-    return true;
+    return strLit;
 }

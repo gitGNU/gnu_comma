@@ -69,6 +69,28 @@ void Range::checkAndAdjustLimits()
     }
 }
 
+void Range::setLowerBound(Expr *expr)
+{
+    if (expr->staticDiscreteValue(lowerValue)) {
+        markLowerAsStatic();
+        if (hasType())
+            checkAndAdjustLimits();
+    }
+    else
+        markLowerAsDynamic();
+}
+
+void Range::setUpperBound(Expr *expr)
+{
+    if (expr->staticDiscreteValue(upperValue)) {
+        markUpperAsStatic();
+        if (hasType())
+            checkAndAdjustLimits();
+    }
+    else
+        markUpperAsDynamic();
+}
+
 bool Range::isNull() const
 {
     if (!isStatic())

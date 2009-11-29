@@ -67,19 +67,18 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
     // not check, continue checking each remaining index.
     bool allOK = true;
     for (unsigned i = 0; i < numIndices; ++i) {
-        Expr *index = indices[i];
-        if (!checkExprInContext(index, arrTy->getIndexType(i)))
+        Expr *index = checkExprInContext(indices[i], arrTy->getIndexType(i));
+        if (!(indices[i] = index))
             allOK = false;
     }
 
-    // If the indices did not all check out, do not build the expression.
-    if (!allOK)
+    if (allOK)
+        return new IndexedArrayExpr(expr, &indices[0], numIndices);
+    else
         return 0;
-
-    return new IndexedArrayExpr(expr, &indices[0], numIndices);
 }
 
-bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
+Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
 {
     // The following sequence dispatches over the types of expressions which are
     // "sensitive" to context, meaning that we might need to patch up the AST so
@@ -90,23 +89,18 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveIntegerLiteral(intLit, context);
     if (StringLiteral *strLit = dyn_cast<StringLiteral>(expr))
         return resolveStringLiteral(strLit, context);
-    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
-        if (Expr *res = resolveAggregateExpr(agg, context)) {
-            expr = res;
-            return true;
-        }
-        return false;
-    }
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+        return resolveAggregateExpr(agg, context);
 
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
 
     if (covers(context, exprTy))
-        return true;
+        return expr;
 
     // FIXME: Need a better diagnostic here.
     report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
-    return false;
+    return 0;
 }
 
 bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
@@ -166,19 +160,19 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,
     return true;
 }
 
-bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
+Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
     if (intLit->hasType()) {
         assert(intLit->getType() == context &&
                "Cannot resolve literal to different type!");
-        return true;
+        return 0;
     }
 
     IntegerType *subtype = dyn_cast<IntegerType>(context);
     if (!subtype) {
         // FIXME: Need a better diagnostic here.
         report(intLit->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
+        return 0;
     }
 
     // Since integer types are always signed, the literal is within the bounds
@@ -186,38 +180,49 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     // width.  If the literal is in bounds, sign extend if needed to match the
     // base type.
     llvm::APInt &litValue = intLit->getValue();
-    IntegerType *rootTy = subtype->getRootType();
-    unsigned targetWidth = rootTy->getSize();
+    unsigned targetWidth = subtype->getSize();
     unsigned literalWidth = litValue.getBitWidth();
     if (literalWidth < targetWidth)
         litValue.sext(targetWidth);
     else if (literalWidth > targetWidth) {
         report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
             << subtype->getIdInfo();
-        return false;
+        return 0;
     }
 
-    // If the target subtype is constrained, check that the literal is in
-    // bounds.  Note that the range bounds will be of the same width as the base
-    // type since the "type of a range" is the "type of the subtype".
-    if (subtype->isConstrained()) {
-        Range *range = subtype->getConstraint();
-        if (range->hasStaticLowerBound()) {
-            if (litValue.slt(range->getStaticLowerBound())) {
-                report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
-                    << subtype->getIdInfo();
-            }
-        }
-        if (range->hasStaticUpperBound()) {
-            if (litValue.sgt(range->getStaticUpperBound())) {
-                report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
-                    << subtype->getIdInfo();
-            }
-        }
+    DiscreteType::ContainmentResult containment = subtype->contains(litValue);
+
+    // If the value is contained by the context type simply set the type of the
+    // literal to the context and return.
+    if (containment == DiscreteType::Is_Contained) {
+        intLit->setType(context);
+        return intLit;
     }
 
-    intLit->setType(context);
-    return true;
+    // If the value is definitely not contained by the context return null.
+    if (containment == DiscreteType::Not_Contained) {
+        report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+            << subtype->getIdInfo();
+        return 0;
+    }
+
+    // Otherwise check that the literal is representable as root_integer and, if
+    // so, set its type to root_integer and wrap it in a conversion expression.
+    //
+    // FIXME: It would probably be better to check if the literal fits within
+    // the base type of the context.  This would be more efficient for codegen
+    // as it would remove unnecessary truncations.
+    IntegerType *rootTy = resource.getTheRootIntegerType();
+    containment = rootTy->contains(litValue);
+
+    if (containment == DiscreteType::Not_Contained) {
+        report(intLit->getLocation(), diag::VALUE_NOT_IN_RANGE_FOR_TYPE)
+            << subtype->getIdInfo();
+        return 0;
+    }
+
+    intLit->setType(rootTy);
+    return new ConversionExpr(intLit, context);
 }
 
 Node TypeCheck::acceptInj(Location loc, Node exprNode)
@@ -232,7 +237,7 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
     // Check that the given expression is of the current domain type.
     DomainType *domTy = domoid->getPercentType();
     Expr *expr = cast_node<Expr>(exprNode);
-    if (!checkExprInContext(expr, domTy))
+    if (!(expr = checkExprInContext(expr, domTy)))
         return getInvalidNode();
 
     // Check that the carrier type has been defined.
@@ -264,7 +269,7 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
 
     Type *carrierTy = carrier->getRepresentationType();
     Expr *expr = cast_node<Expr>(exprNode);
-    if (!checkExprInContext(expr, carrierTy))
+    if (!(expr = checkExprInContext(expr, carrierTy)))
         return getInvalidNode();
 
     exprNode.release();

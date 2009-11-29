@@ -230,10 +230,12 @@ public:
     /// compatable with the type \p target.
     static bool conversionRequired(Type *source, Type *target);
 
-    /// Typechecks the given expression in the given type context.  Returns true
-    /// if the expression was successfully checked.  Otherwise, false is
-    /// returned and appropriate diagnostics are emitted.
-    bool checkExprInContext(Expr *expr, Type *context);
+    /// \brief Typechecks the given expression in the given type context.
+    ///
+    /// This is a main entry point into the top-down phase of the type checker.
+    /// This method returns a potentially different expression from its argument
+    /// on success and null on failure.
+    Expr *checkExprInContext(Expr *expr, Type *context);
 
     /// Typechecks the given expression using the given type classification as
     /// context.  This method returns true if the expression was successfully
@@ -456,9 +458,10 @@ private:
 
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.
-    // Returns true if the literal was successfully checked.  Otherwise, false
-    // is returned and appropriate diagnostics are posted.
-    bool resolveIntegerLiteral(IntegerLiteral *intLit, Type *context);
+    // Returns a valid expression node (possibly different from \p intLit) if
+    // the literal was successfully checked.  Otherwise, null is returned and
+    // appropriate diagnostics are posted.
+    Expr *resolveIntegerLiteral(IntegerLiteral *intLit, Type *context);
 
     // Resolved the type of the given integer literal with respect to the given
     // type classification.  Returns true if the literal was successfully
@@ -467,15 +470,23 @@ private:
     bool resolveIntegerLiteral(IntegerLiteral *intLit, Type::Classification ID);
 
     // Resolves the type of the given string literal, and ensures that the given
-    // type context is itself compatible with the literal provided.  Returns
-    // true if the literal was successfully checked.  Otherwise, false is
-    // returned and appropriate diagnostics are posted.
-    bool resolveStringLiteral(StringLiteral *strLit, Type *context);
+    // type context is itself compatible with the literal provided.  Returns a
+    // valid expression if the literal was successfully checked (possibly
+    // different from \p strLit).  Otherwise, null is returned and appropriate
+    // diagnostics are posted.
+    Expr *resolveStringLiteral(StringLiteral *strLit, Type *context);
+
+    // Resolves the type of the given aggregate expression with respect to the
+    // given type context.  Returns a valid expression if the aggregate was
+    // successfully checked (possibly different from \p agg).  Otherwise, null
+    // is returned and appropriate diagnostics are posted.
+    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
 
     // Resolves the given call expression to one which satisfies the given
-    // target type and returns true.  Otherwise, false is returned and the
-    // appropriate diagnostics are emitted.
-    bool resolveFunctionCall(FunctionCallExpr *call, Type *type);
+    // target type.  Returns a valid expression if the call was successfully
+    // checked (possibly different from \p call).  Otherwise, null is returned
+    // and the appropriate diagnostics are emitted.
+    Expr *resolveFunctionCall(FunctionCallExpr *call, Type *type);
 
     // Resolves the given call expression to one which satisfies the given type
     // classification and returns true.  Otherwise, false is returned and the
@@ -516,10 +527,10 @@ private:
 
     /// Checks that the given expression \p arg satisifes the type \p
     /// targetType.  Also ensures that \p arg is compatable with the given
-    /// parameter mode.  Returns true if the checks succeed, other wise false is
-    /// returned and diagnostics are posted.
-    bool checkSubroutineArgument(Expr *arg, Type *targetType,
-                                 PM::ParameterMode targetMode);
+    /// parameter mode.  Returns a possibly updated expression node if the check
+    /// succeed and null otherwise.
+    Expr *checkSubroutineArgument(Expr *arg, Type *targetType,
+                                  PM::ParameterMode targetMode);
 
     /// Applys checkSubroutineArgument() to each argument of the given call node
     /// (which must be resolved).
@@ -768,23 +779,10 @@ private:
     /// posted.
     bool finishTypeRef(TypeRef *ref);
 
-    /// Checks and returns a Range node for the given lower and upper bounds.
-    ///
-    /// The range is checked wrt to the given class, which must be rooted in
-
-
     /// Checks an assert pragma with the given arguments.
     PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);
 
     Ast *checkAttribute(attrib::AttributeID, Ast *prefix, Location loc);
-
-
-    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
-    Expr *resolvePositionalAggExpr(PositionalAggExpr *agg, Type *context);
-    Expr *resolveKeyedAggExpr(KeyedAggExpr *agg, Type *context);
-    bool checkAggChoiceList(KeyedAggExpr::ChoiceList *CL, DiscreteType *indexTy,
-                            Type *componentTy);
-    bool checkAggOthers(AggregateExpr *agg, ArrayType *context);
 
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);

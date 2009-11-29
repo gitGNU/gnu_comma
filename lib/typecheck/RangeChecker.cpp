@@ -49,7 +49,7 @@ DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
     if (!lower->hasType() && !upper->hasType()) {
         if (!TC.checkExprInContext(lower, Type::CLASS_Discrete))
             return 0;
-        if (!TC.checkExprInContext(upper, lower->getType()))
+        if (!(upper = TC.checkExprInContext(upper, lower->getType())))
             return 0;
     }
     else if (lower->hasType() && !upper->hasType()) {
@@ -57,7 +57,7 @@ DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
             report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return 0;
         }
-        if (!TC.checkExprInContext(upper, lower->getType()))
+        if (!(upper = TC.checkExprInContext(upper, lower->getType())))
             return 0;
     }
     else if (upper->hasType() && !lower->hasType()) {
@@ -65,7 +65,7 @@ DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
             report(upper->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return 0;
         }
-        if (!TC.checkExprInContext(lower, upper->getType()))
+        if (!(lower = TC.checkExprInContext(lower, upper->getType())))
             return 0;
     }
     else {
@@ -110,10 +110,12 @@ bool RangeChecker::resolveRange(Range *range, DiscreteType *type)
     Expr *lower = range->getLowerBound();
     Expr *upper = range->getUpperBound();
 
-    if (!TC.checkExprInContext(lower, type) ||
-        !TC.checkExprInContext(upper, type))
+    if (!(lower = TC.checkExprInContext(lower, type)) ||
+        !(upper = TC.checkExprInContext(upper, type)))
         return false;
 
+    range->setLowerBound(lower);
+    range->setUpperBound(upper);
     range->setType(cast<DiscreteType>(lower->getType()));
     return true;
 }

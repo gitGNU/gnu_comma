@@ -573,6 +573,9 @@ public:
         bits = Others_Undef;
     }
 
+    /// Replaces an existing others expression.
+    void setOthersExpr(Expr *expr) { othersComponent = expr; }
+
     // Support isa/dyn_cast.
     static bool classof(const AggregateExpr *node) { return true; }
     static bool classof(const Ast *node) {
@@ -709,6 +712,9 @@ public:
         const Expr *getExpr() const { return expr; }
         Expr *getExpr() { return expr; }
         //@}
+
+        /// Sets the expression associated with this ChoiceList.
+        void setExpr(Expr *expr) { this->expr = expr; }
 
         /// Returns the number of choices associated with this ChoiceList.
         unsigned numChoices() const { return choiceEntries; }

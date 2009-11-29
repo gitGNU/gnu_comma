@@ -341,13 +341,10 @@ TypeCheck::checkSubroutineCall(SubroutineRef *ref,
                               keyArgs.data(), keyArgs.size());
 }
 
-bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
-                                        PM::ParameterMode targetMode)
+Expr *TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
+                                         PM::ParameterMode targetMode)
 {
     Location argLoc = arg->getLocation();
-
-    if (!checkExprInContext(arg, targetType))
-        return false;
 
     // If the target mode is either "out" or "in out", ensure that the
     // argument provided is compatable.
@@ -375,7 +372,7 @@ bool TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
             return false;
         }
     }
-    return true;
+    return checkExprInContext(arg, targetType);
 }
 
 bool
@@ -391,8 +388,10 @@ TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
         Type *targetType = decl->getParamType(i);
         PM::ParameterMode targetMode = decl->getParamMode(i);
 
-        if (!checkSubroutineArgument(arg, targetType, targetMode))
+        if (!(arg = checkSubroutineArgument(arg, targetType, targetMode)))
             return false;
+        else
+            *PI = arg;
     }
 
     // Check each keyed argument.
@@ -434,8 +433,10 @@ TypeCheck::checkSubroutineArguments(SubroutineDecl *decl,
         // Ensure the type of the selected expression is compatible.
         Type *targetType = decl->getParamType(argIndex);
         PM::ParameterMode targetMode = decl->getParamMode(argIndex);
-        if (!checkSubroutineArgument(arg, targetType, targetMode))
+        if (!(arg = checkSubroutineArgument(arg, targetType, targetMode)))
             return false;
+        else
+            selector->setRHS(arg);
     }
     return true;
 }
@@ -453,22 +454,26 @@ bool TypeCheck::checkSubroutineCallArguments(SubroutineCall *call)
     for (unsigned i = 0; I != E; ++I, ++i) {
         PM::ParameterMode targetMode = decl->getParamMode(i);
         Type *targetType = decl->getParamType(i);
-        status = status && checkSubroutineArgument(*I, targetType, targetMode);
+        Expr *arg = *I;
+        if (!(arg = checkSubroutineArgument(*I, targetType, targetMode)))
+            status = false;
+        else
+            call->setArgument(I, arg);
     }
     return status;
 }
 
-bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
+Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
     if (!call->isAmbiguous()) {
         // The function call is not ambiguous.  Ensure that the return type of
         // the call is covered by the target type.
         if (covers(targetType, call->getType()))
-            return true;
+            return call;
 
         // FIXME: Need a better diagnostic here.
         report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return false;
+        return 0;
     }
 
     FunctionDecl *preference = resolvePreferredConnective(call, targetType);
@@ -476,16 +481,16 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     if (!preference)  {
         // FIXME:  Actually print something informative here.
         report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
-        return false;
+        return 0;
     }
 
     // Resolve the call and check its final interpretation.  Inject any implicit
     // conversions needed by the arguments.
     call->resolveConnective(preference);
     if (!checkSubroutineCallArguments(call))
-        return false;
+        return 0;
     convertSubroutineCallArguments(call);
-    return true;
+    return call;
 }
 
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,

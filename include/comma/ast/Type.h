@@ -432,7 +432,16 @@ public:
     /// values of this type at runtime.
     virtual uint64_t getSize() const = 0;
 
-    /// Returns true if this DiscreteType contains another.
+    /// The following enumeration is used to report the result of containment
+    /// predicates.  These values define a ternary logic.
+    enum ContainmentResult {
+        Is_Contained,
+        Not_Contained,
+        Maybe_Contained
+    };
+
+    /// Returns a ContainmenResult indicating if this DiscreteType contains
+    /// another.
     ///
     /// This type and the target type must be of the same category.  That is,
     /// both must be integer, enumeration, or (when implemented) modular types.
@@ -443,15 +452,18 @@ public:
     ///
     /// If this type is constrained to a null range it can never contain the
     /// target, including other null types (with the only exception being that
-    /// all types trivially contains themselves).  If this type is not
-    /// constrained to a null range, then it always contains target type that
+    /// all types trivially contain themselves).  If this type is not
+    /// constrained to a null range, then it always contains a target type that
     /// is.
     ///
     /// If this type has a non-static constraint, this method always returns
-    /// false.  If the target has a non-static constraint but the bounds for
-    /// this type are known, containment is known only if this type contains the
-    /// root type of the target.
-    bool contains(const DiscreteType *target) const;
+    /// Maby_Contained.  If the target has a non-static constraint but the
+    /// bounds for this type are known, containment is known only if this type
+    /// contains the root type of the target.
+    ContainmentResult contains(const DiscreteType *target) const;
+
+    /// Returns a ContainmentResult for the given integer value.
+    ContainmentResult contains(const llvm::APInt &value) const;
 
     /// Returns true if this denotes a signed discrete type.
     ///

@@ -593,7 +593,7 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
         return 0;
     }
 
-    if (init && !checkExprInContext(init, arrTy))
+    if (init && !(init = checkExprInContext(init, arrTy)))
         return 0;
 
     return new ObjectDecl(name, arrTy, loc, init);
@@ -618,13 +618,10 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
     }
     else {
         Type *objTy = tyDecl->getType();
-
         if (init) {
-            if (!checkExprInContext(init, objTy))
+            init = checkExprInContext(init, objTy);
+            if (!init)
                 return false;
-
-            if (conversionRequired(init->getType(), objTy))
-                init = new ConversionExpr(init, objTy);
         }
         decl = new ObjectDecl(name, objTy, loc, init);
     }
@@ -804,8 +801,8 @@ void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
     Expr *lower = cast_node<Expr>(lowNode);
     Expr *upper = cast_node<Expr>(highNode);
 
-    if (!checkExprInContext(lower, baseTy) ||
-        !checkExprInContext(upper, baseTy))
+    if (!(lower = checkExprInContext(lower, baseTy)) ||
+        !(upper = checkExprInContext(upper, baseTy)))
         return;
 
     // Construct the specific subtype declaration.
@@ -1197,11 +1194,11 @@ void TypeCheck::acceptPragmaImport(Location pragmaLoc,
     }
 
     // Resolve the external name to a static string expression.
-    Expr *externalNameExpr = cast_node<Expr>(externalNameNode);
-    if (!checkExprInContext(externalNameExpr, resource.getTheStringType()))
+    Expr *name = cast_node<Expr>(externalNameNode);
+    if (!(name = checkExprInContext(name, resource.getTheStringType())))
         return;
-    if (!externalNameExpr->isStaticStringExpr()) {
-        report(externalNameExpr->getLocation(), diag::NON_STATIC_EXPRESSION);
+    if (!name->isStaticStringExpr()) {
+        report(name->getLocation(), diag::NON_STATIC_EXPRESSION);
         return;
     }
 
@@ -1220,8 +1217,7 @@ void TypeCheck::acceptPragmaImport(Location pragmaLoc,
     // with the convention (does not involve unconstrained array types, for
     // example).
     externalNameNode.release();
-    PragmaImport *pragma =
-        new PragmaImport(pragmaLoc, ID, entity, externalNameExpr);
+    PragmaImport *pragma = new PragmaImport(pragmaLoc, ID, entity, name);
     srDecl->attachPragma(pragma);
 }
 
@@ -1230,9 +1226,9 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
     // Currently, assert pragmas take a single boolean valued argument.  The
     // parser knows this.
     assert(args.size() == 1 && "Wrong number of arguments for pragma Assert!");
-    Expr *condition = cast_node<Expr>(args[0]);
+    Expr *pred = cast_node<Expr>(args[0]);
 
-    if (checkExprInContext(condition, resource.getTheBooleanType())) {
+    if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         // Get a string representing the source location of the assertion.
         //
         // FIXME: We should be calling a utility routine to parse the source
@@ -1244,11 +1240,10 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
         stream << "Assertion failed at "
                << identity << ":"
                << sloc.getLine() << ":" << sloc.getColumn() << ".\n";
-        return new PragmaAssert(loc, condition, stream.str());
+        return new PragmaAssert(loc, pred, stream.str());
     }
     return 0;
 }
-
 
 Checker *Checker::create(Diagnostic      &diag,
                          AstResource     &resource,
