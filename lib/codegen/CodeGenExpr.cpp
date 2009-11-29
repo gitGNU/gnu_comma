@@ -266,7 +266,7 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
         return sourceVal;
 
     // If the target type contains the source type then a range check is unnessary.
-    if (targetTy->contains(sourceTy)) {
+    if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
         if (targetWidth == sourceWidth)
             return sourceVal;
         if (targetWidth > sourceWidth)
