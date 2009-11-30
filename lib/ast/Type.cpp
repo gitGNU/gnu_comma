@@ -256,20 +256,20 @@ DiscreteType::contains(const DiscreteType *target) const
     llvm::APInt upper;
 
     if (const RangeConstraint *constraint = target->getConstraint()) {
-        // If the target constraint is non-static, use the representational
-        // limits.
-        if (!constraint->isStatic()) {
+        if (constraint->isStatic()) {
+            // If the target is constrained to a null range, we can always
+            // contain it.
+            if (constraint->isNull())
+                return Is_Contained;
+
+            lower = constraint->getStaticLowerBound();
+            upper = constraint->getStaticUpperBound();
+        }
+        else {
+            // For dynamic constrains use the representational limits.
             target->getLowerLimit(lower);
             target->getUpperLimit(upper);
         }
-
-        // If the target is constrained to a null range, we can always contain
-        // it.
-        if (constraint->isNull())
-            return Is_Contained;
-
-        lower = constraint->getStaticLowerBound();
-        upper = constraint->getStaticUpperBound();
     }
     else {
         // Use the representational limits.
