@@ -32,8 +32,8 @@ llvm::Value *synthBounds(llvm::IRBuilder<> &Builder,
 
     // Otherwise, populate an an undef object with the bounds.
     llvm::Value *bounds = llvm::UndefValue::get(boundTy);
-    Builder.CreateInsertValue(bounds, lower, 0);
-    Builder.CreateInsertValue(bounds, upper, 0);
+    bounds = Builder.CreateInsertValue(bounds, lower, 0);
+    bounds = Builder.CreateInsertValue(bounds, upper, 1);
     return bounds;
 }
 
