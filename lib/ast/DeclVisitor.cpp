@@ -122,6 +122,18 @@ void DeclVisitor::visitValueDecl(ValueDecl *node)
     };
 }
 
+void DeclVisitor::visitSubtypeDecl(SubtypeDecl *node)
+{
+    switch (node->getKind()) {
+    default:
+        assert(false && "Cannot visit this kind of node!");
+        break;
+    case DISPATCH(ArraySubtypeDecl, node);
+    case DISPATCH(EnumSubtypeDecl, node);
+    case DISPATCH(IntegerSubtypeDecl, node);
+    }
+}
+
 void DeclVisitor::visitDomainTypeDecl(DomainTypeDecl *node)
 {
     switch (node->getKind()) {

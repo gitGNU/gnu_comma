@@ -107,6 +107,7 @@ class SubroutineCall;
 class SubroutineDecl;
 class SubroutineRef;
 class SubroutineType;
+class SubtypeDecl;
 class Type;
 class ConversionExpr;
 class TypeDecl;
@@ -163,14 +164,15 @@ public:
 
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
-        AST_EnumSubtypeDecl,    ///< EnumSubtypeDecl
         AST_IntegerDecl,        ///< IntegerDecl
-        AST_IntegerSubtypeDecl, ///< IntegerSubtypeDecl
         AST_ArrayDecl,          ///< ArrayDecl
-        AST_ArraySubtypeDecl,   ///< ArraySubtypeDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_PercentDecl,        ///< PercentDecl
+
+        AST_ArraySubtypeDecl,   ///< ArraySubtypeDecl
+        AST_EnumSubtypeDecl,    ///< EnumSubtypeDecl
+        AST_IntegerSubtypeDecl, ///< IntegerSubtypeDecl
 
         AST_SigInstanceDecl,    ///< SigInstanceDecl
 
@@ -254,7 +256,10 @@ public:
         LAST_ModelDecl = AST_FunctorDecl,
 
         FIRST_TypeDecl = AST_CarrierDecl,
-        LAST_TypeDecl = AST_PercentDecl,
+        LAST_TypeDecl = AST_IntegerSubtypeDecl,
+
+        FIRST_SubtypeDecl = AST_ArraySubtypeDecl,
+        LAST_SubtypeDecl = AST_IntegerSubtypeDecl,
 
         FIRST_DomainType = AST_AbstractDomainDecl,
         LAST_DomainType = AST_PercentDecl,
@@ -322,6 +327,11 @@ public:
     /// Returns true if this node denotes a type declaration.
     bool denotesTypeDecl() const {
         return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
+    }
+
+    /// Returns true if this node denotes a subtype declaration.
+    bool denotesSubtypeDecl() const {
+        return (FIRST_SubtypeDecl <= kind && kind <= LAST_SubtypeDecl);
     }
 
     /// Returns true if this node denotes a subroutine decl (i.e. either

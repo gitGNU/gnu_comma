@@ -882,7 +882,7 @@ EnumLiteral *EnumerationDecl::getLastLiteral()
 EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
                                  Location loc,
                                  EnumerationType *subtype, DeclRegion *region)
-    : TypeDecl(AST_EnumSubtypeDecl, name, loc, region)
+    : SubtypeDecl(AST_EnumSubtypeDecl, name, loc, region)
 {
     CorrespondingType = resource.createEnumSubtype(name, subtype);
 }
@@ -891,7 +891,7 @@ EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
                                  Location loc,
                                  EnumerationType *subtype,
                                  Expr *lower, Expr *upper, DeclRegion *region)
-    : TypeDecl(AST_EnumSubtypeDecl, name, loc, region)
+    : SubtypeDecl(AST_EnumSubtypeDecl, name, loc, region)
 {
     CorrespondingType = resource.createEnumSubtype(name, subtype, lower, upper);
 }
@@ -955,7 +955,7 @@ void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
 IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
                                        IdentifierInfo *name, Location loc,
                                        IntegerType *subtype, DeclRegion *parent)
-    : TypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
+    : SubtypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
 {
     CorrespondingType = resource.createIntegerSubtype(name, subtype);
 }
@@ -965,7 +965,7 @@ IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
                                        IntegerType *subtype,
                                        Expr *lower, Expr *upper,
                                        DeclRegion *parent)
-    : TypeDecl(AST_IntegerDecl, name, loc, parent)
+    : SubtypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
 {
     CorrespondingType =
         resource.createIntegerSubtype(name, subtype, lower, upper);
@@ -1001,7 +1001,7 @@ ArrayDecl::ArrayDecl(AstResource &resource,
 ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
                                    IdentifierInfo *name, Location loc,
                                    ArrayType *subtype, DeclRegion *parent)
-    : TypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
+    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
 {
     CorrespondingType = resource.createArraySubtype(name, subtype);
 }
@@ -1010,7 +1010,7 @@ ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
                                    IdentifierInfo *name, Location loc,
                                    ArrayType *subtype, DiscreteType **indices,
                                    DeclRegion *parent)
-    : TypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
+    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
 {
     CorrespondingType = resource.createArraySubtype(name, subtype, indices);
 }

@@ -1145,6 +1145,37 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// SubtypeDecl
+//
+/// Common base class for all subtype declaration nodes.
+class SubtypeDecl : public TypeDecl {
+
+public:
+    virtual ~SubtypeDecl() { }
+
+    static bool classof(const SubtypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesSubtypeDecl();
+    }
+
+protected:
+    // Constructs a SubtypeDecl node when a type is immediately available.
+    SubtypeDecl(AstKind kind, IdentifierInfo *name, PrimaryType *type,
+                Location loc, DeclRegion *region = 0)
+        : TypeDecl(kind, name, loc, region) {
+        assert(this->denotesSubtypeDecl());
+    }
+
+    // Constructs a SubtypeDecl node when a type is not immediately available.
+    // Users of this constructor must set the corresponding type.
+    SubtypeDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                DeclRegion *region = 0)
+        : TypeDecl(kind, name, loc, region) {
+        assert(this->denotesSubtypeDecl());
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // CarrierDecl
 //
 // Declaration of a domains carrier type.
@@ -1261,7 +1292,7 @@ private:
 // EnumSubtypeDecl
 //
 /// Representation of enumeration subtype declaration nodes.
-class EnumSubtypeDecl : public TypeDecl {
+class EnumSubtypeDecl : public SubtypeDecl {
 
 public:
     /// Returns the subtype defined by this declaration.
@@ -1387,13 +1418,18 @@ private:
 // IntegerSubtypeDecl
 //
 /// These nodes represent integer subtype declarations.
-class IntegerSubtypeDecl : public TypeDecl {
+class IntegerSubtypeDecl : public SubtypeDecl {
 
 public:
+    //@{
     /// Returns the subtype defined by this declaration.
-    IntegerType *getType() const {
+    const IntegerType *getType() const {
         return llvm::cast<IntegerType>(CorrespondingType);
     }
+    IntegerType *getType() {
+        return llvm::cast<IntegerType>(CorrespondingType);
+    }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const IntegerSubtypeDecl *node) { return true; }
@@ -1496,7 +1532,7 @@ private:
 // ArraySubtypeDecl
 //
 /// These nodes represent array subtype declarations.
-class ArraySubtypeDecl : public TypeDecl {
+class ArraySubtypeDecl : public SubtypeDecl {
 
 public:
     /// Returns the subtype defined by this declaration.
