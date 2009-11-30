@@ -1166,6 +1166,13 @@ bool TypeCheck::conversionRequired(Type *source, Type *target)
     return true;
 }
 
+Expr *TypeCheck::convertIfNeeded(Expr *expr, Type *target)
+{
+    if (conversionRequired(expr->getType(), target))
+        return new ConversionExpr(expr, target);
+    return expr;
+}
+
 void TypeCheck::acceptPragmaImport(Location pragmaLoc,
                                    IdentifierInfo *convention,
                                    Location conventionLoc,

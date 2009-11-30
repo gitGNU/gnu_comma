@@ -230,6 +230,9 @@ public:
     /// compatable with the type \p target.
     static bool conversionRequired(Type *source, Type *target);
 
+    /// Wraps the given expression in a ConversionExpr if needed.
+    static Expr *convertIfNeeded(Expr *expr, Type *target);
+
     /// \brief Typechecks the given expression in the given type context.
     ///
     /// This is a main entry point into the top-down phase of the type checker.

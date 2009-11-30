@@ -153,7 +153,15 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
         if (fwdDecl && definitionFollows &&
             compatibleSubroutineDecls(fwdDecl, routineDecl)) {
 
-            // Link this routine as the completion of the forward declaration.
+            // If the conflict does not already have a completion link in this
+            // routine.
+            if (fwdDecl->hasDefiningDeclaration()) {
+                report(location, diag::SUBROUTINE_REDECLARATION)
+                    << fwdDecl->getIdInfo()
+                    << getSourceLoc(fwdDecl->getLocation());
+                return getInvalidNode();
+            }
+
             fwdDecl->setDefiningDeclaration(routineDecl);
 
             // If the forward declaration is present in the current region we do

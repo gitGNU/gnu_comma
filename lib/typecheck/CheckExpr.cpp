@@ -92,15 +92,10 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return resolveAggregateExpr(agg, context);
 
-    Type *exprTy = expr->getType();
-    assert(exprTy && "Expression does not have a resolved type!");
+    assert(expr->hasType() && "Expression does not have a resolved type!");
 
-    if (covers(context, exprTy)) {
-        if (conversionRequired(exprTy, context))
-            return new ConversionExpr(expr, context);
-        else
-            return expr;
-    }
+    if (covers(context, expr->getType()))
+        return convertIfNeeded(expr, context);
 
     // FIXME: Need a better diagnostic here.
     report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);

@@ -71,8 +71,7 @@ convertSubroutineArguments(SubroutineDecl *decl,
     for (unsigned i = 0; PI != posArgs.end(); ++PI, ++i) {
         Expr *arg = *PI;
         Type *targetType = decl->getParamType(i);
-        if (TypeCheck::conversionRequired(arg->getType(), targetType))
-            *PI = new ConversionExpr(arg, targetType);
+        *PI = TypeCheck::convertIfNeeded(arg, targetType);
     }
 
     typedef llvm::SmallVectorImpl<KeywordSelector*>::iterator key_iterator;
@@ -82,8 +81,7 @@ convertSubroutineArguments(SubroutineDecl *decl,
         Expr *arg = selector->getExpression();
         unsigned index = unsigned(decl->getKeywordIndex(selector));
         Type *targetType = decl->getParamType(index);
-        if (arg->getType() != targetType)
-            selector->setRHS(new ConversionExpr(arg, targetType));
+        selector->setRHS(TypeCheck::convertIfNeeded(arg, targetType));
     }
 }
 
@@ -101,8 +99,7 @@ void convertSubroutineCallArguments(SubroutineCall *call)
     for (unsigned i = 0; I != E; ++I, ++i) {
         Expr *arg = *I;
         Type *targetType = decl->getParamType(i);
-        if (TypeCheck::conversionRequired(arg->getType(), targetType))
-            call->setArgument(I, new ConversionExpr(arg, targetType));
+        call->setArgument(I, TypeCheck::convertIfNeeded(arg, targetType));
     }
 }
 
@@ -469,12 +466,8 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
         // The function call is not ambiguous.  Ensure that the return type of
         // the call is covered by the target type and generate a conversion if
         // necessary.
-        if (covers(targetType, call->getType())) {
-            if (conversionRequired(call->getType(), targetType))
-                return new ConversionExpr(call, targetType);
-            else
-                return call;
-        }
+        if (covers(targetType, call->getType()))
+            return convertIfNeeded(call, targetType);
 
         // FIXME: Need a better diagnostic here.
         report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
@@ -495,10 +488,7 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     if (!checkSubroutineCallArguments(call))
         return 0;
     convertSubroutineCallArguments(call);
-    if (conversionRequired(call->getType(), targetType))
-        return new ConversionExpr(call, targetType);
-    else
-        return call;
+    return convertIfNeeded(call, targetType);
 }
 
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,

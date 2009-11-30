@@ -135,8 +135,7 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
     valueNode.release();
     targetNode.release();
 
-    if (conversionRequired(value->getType(), targetTy))
-        value = new ConversionExpr(value, targetTy);
+    value = convertIfNeeded(value, targetTy);
     return getNode(new AssignmentStmt(target, value));
 }
 
