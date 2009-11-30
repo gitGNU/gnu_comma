@@ -609,7 +609,7 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
     if (!tyDecl) return false;
 
     if (!initializerNode.isNull())
-        init = cast_node<Expr>(initializerNode);
+        init = ensureExpr(initializerNode);
 
     if (ArrayDecl *arrDecl = dyn_cast<ArrayDecl>(tyDecl)) {
         decl = acceptArrayObjectDeclaration(loc, name, arrDecl, init);
