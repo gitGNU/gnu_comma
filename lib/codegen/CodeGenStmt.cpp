@@ -162,12 +162,28 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
     Builder.SetInsertPoint(BB);
 
-    // Generate any object declarations provided by this block, followed by the
-    // blocks sequence of statements.
+    // Generate any declarations provided by this block, followed by the blocks
+    // sequence of statements.
     typedef DeclRegion::DeclIter iterator;
-    for (iterator I = block->beginDecls(); I != block->endDecls(); ++I)
-        if (ObjectDecl *objDecl = dyn_cast<ObjectDecl>(*I))
-            emitObjectDecl(objDecl);
+    for (iterator I = block->beginDecls(); I != block->endDecls(); ++I) {
+        Decl *decl = *I;
+        switch (decl->getKind()) {
+        default:
+            break;
+
+        case Ast::AST_ObjectDecl:
+            emitObjectDecl(cast<ObjectDecl>(decl));
+            break;
+
+        case Ast::AST_IntegerSubtypeDecl:
+            emitIntegerSubtypeDecl(cast<IntegerSubtypeDecl>(decl));
+            break;
+
+        case Ast::AST_EnumSubtypeDecl:
+            emitEnumSubtypeDecl(cast<EnumSubtypeDecl>(decl));
+            break;
+        }
+    }
     emitStmtSequence(block);
     return BB;
 }

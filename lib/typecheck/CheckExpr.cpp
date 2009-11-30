@@ -95,8 +95,12 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
     Type *exprTy = expr->getType();
     assert(exprTy && "Expression does not have a resolved type!");
 
-    if (covers(context, exprTy))
-        return expr;
+    if (covers(context, exprTy)) {
+        if (conversionRequired(exprTy, context))
+            return new ConversionExpr(expr, context);
+        else
+            return expr;
+    }
 
     // FIXME: Need a better diagnostic here.
     report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);

@@ -59,9 +59,8 @@ SRFrame::SRFrame(SRInfo *routineInfo, llvm::IRBuilder<> &Builder)
 
 SRFrame::~SRFrame()
 {
-    typedef EntryMap::iterator iterator;
-    iterator I = entryTable.begin();
-    iterator E = entryTable.end();
+    EntryMap::iterator I = entryTable.begin();
+    EntryMap::iterator E = entryTable.end();
     for ( ; I != E; ++I)
         delete I->second;
 }
@@ -132,6 +131,32 @@ void SRFrame::associate(ValueDecl *decl, activation::Tag tag, llvm::Value *slot)
 llvm::Value *SRFrame::lookup(ValueDecl *decl, activation::Tag tag)
 {
     EntryMap::iterator iter = entryTable.find(decl);
+
+    if (iter != entryTable.end()) {
+        ActivationEntry *entry = iter->second;
+        if (Property *prop = entry->find(tag))
+            return prop->getValue();
+    }
+    return 0;
+}
+
+void SRFrame::associate(PrimaryType *type, activation::Tag tag,
+                        llvm::Value *value)
+{
+    assert(tag != activation::Slot && "Cannot associate types with slots!");
+    EntryMap::value_type &pair = entryTable.FindAndConstruct(type);
+    ActivationEntry *&entry = pair.second;
+
+    if (!entry)
+        entry = new ActivationEntry();
+    assert(!entry->find(tag) && "Type allready associated with tag!");
+
+    entry->add(new Property(tag, value));
+}
+
+llvm::Value *SRFrame::lookup(PrimaryType *type, activation::Tag tag)
+{
+    EntryMap::iterator iter = entryTable.find(type);
 
     if (iter != entryTable.end()) {
         ActivationEntry *entry = iter->second;

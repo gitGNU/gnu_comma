@@ -467,9 +467,14 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
     if (!call->isAmbiguous()) {
         // The function call is not ambiguous.  Ensure that the return type of
-        // the call is covered by the target type.
-        if (covers(targetType, call->getType()))
-            return call;
+        // the call is covered by the target type and generate a conversion if
+        // necessary.
+        if (covers(targetType, call->getType())) {
+            if (conversionRequired(call->getType(), targetType))
+                return new ConversionExpr(call, targetType);
+            else
+                return call;
+        }
 
         // FIXME: Need a better diagnostic here.
         report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
@@ -485,12 +490,15 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     }
 
     // Resolve the call and check its final interpretation.  Inject any implicit
-    // conversions needed by the arguments.
+    // conversions needed by the arguments and on the return value.
     call->resolveConnective(preference);
     if (!checkSubroutineCallArguments(call))
         return 0;
     convertSubroutineCallArguments(call);
-    return call;
+    if (conversionRequired(call->getType(), targetType))
+        return new ConversionExpr(call, targetType);
+    else
+        return call;
 }
 
 bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,

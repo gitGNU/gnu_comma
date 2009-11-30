@@ -173,59 +173,64 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 {
-    // The only type of conversions we currently support are integer
-    // conversions.
-    if (IntegerType *target = dyn_cast<IntegerType>(expr->getType()))
-        return emitCheckedIntegerConversion(expr->getOperand(), target);
+    // The only type of conversions we currently support are those which involve
+    // discrete types.
+    if (DiscreteType *target = dyn_cast<DiscreteType>(expr->getType()))
+        return emitDiscreteConversion(expr->getOperand(), target);
 
     assert(false && "Cannot codegen given conversion yet!");
     return 0;
 }
 
 void
-CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
-                                     IntegerType *sourceTy,
-                                     IntegerType *targetTy)
+CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
+                                       DiscreteType *sourceTy,
+                                       DiscreteType *targetTy)
 {
-    IntegerType *targetRootTy = targetTy->getRootType();
-    IntegerType *sourceRootTy = sourceTy->getRootType();
-    const llvm::IntegerType *boundTy;
+    DiscreteType *targetRootTy = targetTy->getRootType();
+    DiscreteType *sourceRootTy = sourceTy->getRootType();
+
+    // The "domain of computation" used for performing the range check.
+    const llvm::IntegerType *docTy;
 
     // Range checks need to be performed using the larger type (most often the
-    // source type).  Find the appropriate type and sign extend the value if
-    // needed.
+    // source type).  Find the appropriate type and extend the value if needed.
     if (targetRootTy->getSize() > sourceRootTy->getSize()) {
-        boundTy = CGT.lowerDiscreteType(targetTy);
-        sourceVal = Builder.CreateSExt(sourceVal, boundTy);
+        docTy = CGT.lowerDiscreteType(targetTy);
+        if (sourceTy->isSigned())
+            sourceVal = Builder.CreateSExt(sourceVal, docTy);
+        else
+            sourceVal = Builder.CreateZExt(sourceVal, docTy);
     }
     else
-        boundTy = cast<llvm::IntegerType>(sourceVal->getType());
+        docTy = cast<llvm::IntegerType>(sourceVal->getType());
 
-    llvm::APInt lower;
-    llvm::APInt upper;
+    llvm::Value *lower = 0;
+    llvm::Value *upper = 0;
 
-    // If the target subtype is constrained, extract the bounds of the
-    // constraint.  Otherwise, use the bounds of the base type.
-    //
-    // FIXME: Support dynmaic ranges.
-    if (Range *range = targetTy->getConstraint()) {
-        assert(range->isStatic() && "Dynamic ranges not supported yet!");
-        lower = range->getStaticLowerBound();
-        upper = range->getStaticUpperBound();
+    if (llvm::Value *bounds = SRF->lookup(targetTy, activation::Bounds)) {
+        lower = BoundsEmitter::getLowerBound(Builder, bounds, 0);
+        upper = BoundsEmitter::getUpperBound(Builder, bounds, 0);
     }
     else {
-        targetRootTy->getLowerLimit(lower);
-        targetRootTy->getUpperLimit(upper);
+        BoundsEmitter emitter(*this);
+        BoundsEmitter::LUPair bounds =
+            emitter.getScalarBounds(Builder, targetTy);
+        lower = bounds.first;
+        upper = bounds.second;
     }
 
-    if (lower.getBitWidth() < boundTy->getBitWidth())
-        lower.sext(boundTy->getBitWidth());
-    if (upper.getBitWidth() < boundTy->getBitWidth())
-        upper.sext(boundTy->getBitWidth());
-
-    // Obtain constants for the bounds.
-    llvm::Constant *lowBound = llvm::ConstantInt::get(boundTy, lower);
-    llvm::Constant *highBound = llvm::ConstantInt::get(boundTy, upper);
+    // Extend the bounds if needed.
+    if (targetTy->getSize() < docTy->getBitWidth()) {
+        if (sourceTy->isSigned()) {
+            lower = Builder.CreateSExt(lower, docTy);
+            upper = Builder.CreateSExt(upper, docTy);
+        }
+        else {
+            lower = Builder.CreateZExt(lower, docTy);
+            upper = Builder.CreateZExt(upper, docTy);
+        }
+    }
 
     // Build our basic blocks.
     llvm::BasicBlock *checkHighBB = makeBasicBlock("high.check");
@@ -233,12 +238,20 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
     llvm::BasicBlock *checkMergeBB = makeBasicBlock("check.merge");
 
     // Check the low bound.
-    llvm::Value *lowPass = Builder.CreateICmpSLE(lowBound, sourceVal);
+    llvm::Value *lowPass;
+    if (targetTy->isSigned())
+        lowPass = Builder.CreateICmpSLE(lower, sourceVal);
+    else
+        lowPass = Builder.CreateICmpULE(lower, sourceVal);
     Builder.CreateCondBr(lowPass, checkHighBB, checkFailBB);
 
     // Check the high bound.
     Builder.SetInsertPoint(checkHighBB);
-    llvm::Value *highPass = Builder.CreateICmpSLE(sourceVal, highBound);
+    llvm::Value *highPass;
+    if (targetTy->isSigned())
+        highPass = Builder.CreateICmpSLE(sourceVal, upper);
+    else
+        highPass = Builder.CreateICmpULE(sourceVal, upper);
     Builder.CreateCondBr(highPass, checkMergeBB, checkFailBB);
 
     // Raise an exception if the check failed.
@@ -250,11 +263,10 @@ CodeGenRoutine::emitScalarRangeCheck(llvm::Value *sourceVal,
     Builder.SetInsertPoint(checkMergeBB);
 }
 
-llvm::Value *
-CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
-                                             IntegerType *targetTy)
+llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
+                                                    DiscreteType *targetTy)
 {
-    IntegerType *sourceTy = cast<IntegerType>(expr->getType());
+    DiscreteType *sourceTy = cast<DiscreteType>(expr->getType());
     unsigned targetWidth = targetTy->getSize();
     unsigned sourceWidth = sourceTy->getSize();
 
@@ -269,17 +281,25 @@ CodeGenRoutine::emitCheckedIntegerConversion(Expr *expr,
     if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
         if (targetWidth == sourceWidth)
             return sourceVal;
-        if (targetWidth > sourceWidth)
-            return Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
+        else if (targetWidth > sourceWidth) {
+            if (targetTy->isSigned())
+                return Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
+            else
+                return Builder.CreateZExt(sourceVal, CGT.lowerType(targetTy));
+        }
     }
 
-    emitScalarRangeCheck(sourceVal, sourceTy, targetTy);
+    emitDiscreteRangeCheck(sourceVal, sourceTy, targetTy);
 
     // Truncate/extend the value if needed to the target size.
     if (targetWidth < sourceWidth)
         sourceVal = Builder.CreateTrunc(sourceVal, CGT.lowerType(targetTy));
-    if (targetWidth > sourceWidth)
-        sourceVal = Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
+    else if (targetWidth > sourceWidth) {
+        if (targetTy->isSigned())
+            sourceVal = Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
+        else
+            sourceVal = Builder.CreateZExt(sourceVal, CGT.lowerType(targetTy));
+    }
     return sourceVal;
 }
 

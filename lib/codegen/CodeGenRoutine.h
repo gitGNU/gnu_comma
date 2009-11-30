@@ -145,12 +145,12 @@ private:
     llvm::Value *emitScalarUpperBound(DiscreteType *Ty);
 
     // Conversion emitters.
-    llvm::Value *emitCheckedIntegerConversion(Expr *expr, IntegerType *target);
+    llvm::Value *emitDiscreteConversion(Expr *expr, DiscreteType *target);
 
-    /// Emits a scalar range check.
-    void emitScalarRangeCheck(llvm::Value *sourceVal,
-                              IntegerType *sourceTy,
-                              IntegerType *targetTy);
+    /// Emits a range check over discrete types.
+    void emitDiscreteRangeCheck(llvm::Value *sourceVal,
+                                DiscreteType *sourceTy,
+                                DiscreteType *targetTy);
 
     /// Helper method for emitAbstractCall.
     ///
@@ -181,6 +181,9 @@ private:
     emitArrayConversion(ConversionExpr *convert, llvm::Value *dst, bool genTmp);
 
     void emitArrayObjectDecl(ObjectDecl *objDecl);
+
+    void emitIntegerSubtypeDecl(IntegerSubtypeDecl *subDecl);
+    void emitEnumSubtypeDecl(EnumSubtypeDecl *subDecl);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

@@ -66,9 +66,8 @@ public:
     /// subroutine.
     llvm::IRBuilder<> &getIRBuilder() { return Builder; }
 
-    //
-    // Allocation methods.
-    //
+    /// \name Allocation methods.
+    //@{
     llvm::Value *createTemp(const llvm::Type *type);
 
     void associate(ValueDecl *decl, activation::Tag tag, llvm::Value *slot);
@@ -81,7 +80,16 @@ public:
         associate(decl, tag, slot);
         return slot;
     }
+    //@}
 
+    /// \name Type insert/lookup.
+    //@{
+    void associate(PrimaryType *type, activation::Tag tag, llvm::Value *value);
+
+    llvm::Value *lookup(PrimaryType *type, activation::Tag tag);
+    //@}
+
+    /// Marks this frame as a stacksave frame.
     void stacksave() { isSaved = true; }
 
     void emitReturn() { Builder.CreateBr(returnBB); }
@@ -138,8 +146,8 @@ private:
         llvm::iplist<activation::Property> plist;
     };
 
-    // Map from Comma ValueDecl's to AllocaEntry's.
-    typedef llvm::DenseMap<Decl*, ActivationEntry*> EntryMap;
+    // Map from Comma Decl's and Type's to AllocaEntry's.
+    typedef llvm::DenseMap<Ast*, ActivationEntry*> EntryMap;
     EntryMap entryTable;
 
     /// Initialize the implicit first parameter.  Also, name the llvm arguments
