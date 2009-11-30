@@ -816,6 +816,10 @@ public:
 
     void setDefiningDeclaration(SubroutineDecl *routineDecl);
 
+    bool hasDefiningDeclaration() const {
+        return getDefiningDeclaration() != 0;
+    }
+
     SubroutineDecl *getDefiningDeclaration() {
         if (declarationLink.getInt() == DEFINITION_TAG)
             return declarationLink.getPointer();
