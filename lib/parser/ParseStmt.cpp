@@ -215,6 +215,7 @@ Node Parser::parseBlockStmt()
         }
     }
 
+    client.endBlockStmt(block);
     seekAndConsumeEndTag(label);
     return getInvalidNode();
 }
