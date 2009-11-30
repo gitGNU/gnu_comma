@@ -388,16 +388,8 @@ private:
 
     // Called when then type checker is constructed.  Populates the top level
     // scope with the default environment specified by Comma (declarations of
-    // primitive types like Bool, for example).
+    // primitive types like Boolean, for example).
     void populateInitialEnvironment();
-
-    // Creates a new procedure or function declaration.
-    ///
-    // Given a subroutine decl, rewrite its type using the supplied rewrites and
-    // create a new declaration within the given region.
-    static SubroutineDecl *
-    makeSubroutineDecl(SubroutineDecl *SRDecl, const AstRewriter &rewrites,
-                       DeclRegion *region);
 
     /// Helper to beginDomainDecl and beginSignatureDecl.
     ///

@@ -245,39 +245,6 @@ bool TypeCheck::checkFunctionParameter(ParamValueDecl *param)
     return false;
 }
 
-
-// Creates a procedure or function decl depending on the kind of the
-// supplied type.
-SubroutineDecl *
-TypeCheck::makeSubroutineDecl(SubroutineDecl *SRDecl,
-                              const AstRewriter &rewrites, DeclRegion *region)
-{
-    IdentifierInfo *name = SRDecl->getIdInfo();
-    SubroutineType *SRType = rewrites.rewriteType(SRDecl->getType());
-    unsigned arity = SRDecl->getArity();
-
-    llvm::SmallVector<IdentifierInfo*, 8> keys;
-    for (unsigned i = 0; i < arity; ++i)
-        keys.push_back(SRDecl->getParamKeyword(i));
-
-    SubroutineDecl *result;
-    if (FunctionType *ftype = dyn_cast<FunctionType>(SRType))
-        result =  new FunctionDecl(name, 0, keys.data(), ftype, region);
-    else {
-        ProcedureType *ptype = cast<ProcedureType>(SRType);
-        result = new ProcedureDecl(name, 0, keys.data(), ptype, region);
-    }
-
-    // Ensure the result declaration has the same parameter modes as the
-    // original;
-    for (unsigned i = 0; i < arity; ++i) {
-        ParamValueDecl *param = result->getParam(i);
-        param->setParameterMode(SRDecl->getExplicitParamMode(i));
-    }
-
-    return result;
-}
-
 bool
 TypeCheck::compatibleSubroutineDecls(SubroutineDecl *X, SubroutineDecl *Y)
 {
