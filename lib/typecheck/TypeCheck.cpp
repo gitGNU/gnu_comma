@@ -16,7 +16,6 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Pragma.h"
-#include "comma/ast/Qualifier.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 

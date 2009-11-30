@@ -137,10 +137,6 @@ public:
     // expr is its argument.
     Node acceptPrj(Location loc, Node expr);
 
-    Node acceptQualifier(Node qualifierType);
-
-    Node acceptNestedQualifier(Node qualifier, Node qualifierType);
-
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
 
     Node acceptStringLiteral(const char *string, unsigned len, Location loc);
@@ -444,14 +440,6 @@ private:
 
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
-
-    /// Resolves a visible declarative region associated with a qualifier.
-    ///
-    /// Qualifiers can name signature components, but such qualifiers are
-    /// permitted in certain contexts -- such qualifiers do not denote ordinary
-    /// visible names.  Posts a diagnostic when the qualifier names a signature
-    /// and returns null.
-    DeclRegion *resolveVisibleQualifiedRegion(Qualifier *qual);
 
     // Returns the TypeDecl or ModelDecl corresponding to the given name.  If
     // the name is not visible, or if the name is ambiguous, this method returns

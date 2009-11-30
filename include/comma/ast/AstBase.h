@@ -91,7 +91,6 @@ class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
-class Qualifier;
 class Range;
 class RangeAttrib;
 class ReturnStmt;
@@ -237,7 +236,6 @@ public:
         // Miscellaneous helper nodes.
         //
         AST_KeywordSelector,    ///< KeywordSelector
-        AST_Qualifier,          ///< Qualifier
         AST_Range,              ///< Range
         AST_ArrayRangeAttrib,   ///< ArrayRangeAttrib
         AST_ScalarRangeAttrib,  ///< ScalarRangeAttrib
