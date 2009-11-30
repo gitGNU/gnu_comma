@@ -493,6 +493,14 @@ public:
         return false;
     }
 
+    /// Returns true if this type is constrained and at least one component of
+    /// the constraint is dynamic.
+    bool isDynamicallyConstrained() const {
+        if (const Range *range = getConstraint())
+            return !range->isStatic();
+        return false;
+    }
+
     // Support isa/dyn_cast.
     static bool classof(const DiscreteType *node) { return true; }
     static bool classof(const Ast *node) {
