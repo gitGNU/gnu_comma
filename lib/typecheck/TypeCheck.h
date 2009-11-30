@@ -22,7 +22,6 @@
 
 #include "llvm/Support/Casting.h"
 
-#include <iosfwd>
 #include <stack>
 
 namespace llvm {
