@@ -258,49 +258,6 @@ TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
     return rewriter.rewriteSigInstance(target);
 }
 
-Decl *TypeCheck::resolveTypeOrModelDecl(IdentifierInfo *name,
-                                        Location loc, DeclRegion *region)
-{
-    Decl *result = 0;
-
-    if (region) {
-        DeclRegion::PredRange range = region->findDecls(name);
-        // Search the region for a type of the given name.  Type names do not
-        // overload so if the type exists, it is unique, and the first match is
-        // accepted.
-        for (DeclRegion::PredIter iter = range.first;
-             iter != range.second; ++iter) {
-            Decl *candidate = *iter;
-            if ((result = dyn_cast<ModelDecl>(candidate)) or
-                (result = dyn_cast<TypeDecl>(candidate)))
-                break;
-        }
-    }
-    else {
-        Resolver &resolver = scope.getResolver();
-        if (resolver.resolve(name)) {
-            if (resolver.hasDirectType())
-                result = resolver.getDirectType();
-            else if (resolver.hasDirectCapsule())
-                result = resolver.getDirectCapsule();
-            else if (resolver.hasIndirectTypes()) {
-                // For the lookup not to be ambiguous, there must only be one
-                // indirect type name accessible.
-                if (resolver.numIndirectTypes() > 1 ||
-                    resolver.hasIndirectOverloads() ||
-                    resolver.hasIndirectValues()) {
-                    report(loc, diag::NAME_REQUIRES_QUAL) << name;
-                    return 0;
-                }
-                result = resolver.getIndirectType(0);
-            }
-        }
-    }
-    if (result == 0)
-        report(loc, diag::TYPE_NOT_VISIBLE) << name;
-    return result;
-}
-
 // Ensures that the given TypeRef is of a sort compatible with the
 // parameterization of a variety or functor (e.g. the TypeRef resolves to a
 // DomainTypeDecl).  Returns the resolved DomainTypeDecl on sucess.  Otherwise

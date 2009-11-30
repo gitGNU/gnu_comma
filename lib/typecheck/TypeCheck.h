@@ -441,12 +441,6 @@ private:
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
-    // Returns the TypeDecl or ModelDecl corresponding to the given name.  If
-    // the name is not visible, or if the name is ambiguous, this method returns
-    // null and posts appropritate diagnostics.
-    Decl *resolveTypeOrModelDecl(IdentifierInfo *name,
-                                 Location loc, DeclRegion *region = 0);
-
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.
     // Returns a valid expression node (possibly different from \p intLit) if
