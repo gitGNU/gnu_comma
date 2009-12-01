@@ -18,24 +18,67 @@ Node Parser::parseDirectName(NameOption option)
 {
     Location loc = currentLocation();
 
-    if (currentTokenIs(Lexer::TKN_CHARACTER)) {
-        IdentifierInfo *name = parseCharacter();
-        if (name)
-            return client.acceptCharacterLiteral(name, loc);
-    }
+    switch (currentTokenCode()) {
+    default:
+        report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+        seekNameEnd();
+        break;
 
-    if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        IdentifierInfo *name = parseIdentifierInfo();
-        if (name)
+    case Lexer::TKN_IDENTIFIER:
+        if (IdentifierInfo *name = parseIdentifierInfo())
             return client.acceptDirectName(name, loc, option);
+        break;
+
+    case Lexer::TKN_CHARACTER:
+        if (IdentifierInfo *name = parseCharacter())
+            return client.acceptCharacterLiteral(name, loc);
+        break;
+
+    case Lexer::TKN_PERCENT:
+        return client.acceptPercent(ignoreToken());
+
+    case Lexer::TKN_INJ:
+        return parseInj();
+
+    case Lexer::TKN_PRJ:
+        return parsePrj();
+    };
+
+    return getInvalidNode();
+}
+
+Node Parser::parseInj()
+{
+    assert(currentTokenIs(Lexer::TKN_INJ));
+    Location loc = ignoreToken();
+
+    if (!requireToken(Lexer::TKN_LPAREN))
+        return getInvalidNode();
+
+    Node expr = parseExpr();
+
+    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
+        return getInvalidNode();
+
+    return client.acceptInj(loc, expr);
+}
+
+Node Parser::parsePrj()
+{
+    assert(currentTokenIs(Lexer::TKN_PRJ));
+    Location loc = ignoreToken();
+
+    if (!requireToken(Lexer::TKN_LPAREN))
+        return getInvalidNode();
+
+    Node expr = parseExpr();
+
+    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
+        seekCloseParen();
+        return getInvalidNode();
     }
 
-    if (reduceToken(Lexer::TKN_PERCENT))
-        return client.acceptPercent(loc);
-
-    report(diag::UNEXPECTED_TOKEN) << currentTokenString();
-    seekNameEnd();
-    return getInvalidNode();
+    return client.acceptPrj(loc, expr);
 }
 
 Node Parser::parseSelectedComponent(Node prefix, NameOption option)

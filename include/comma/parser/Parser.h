@@ -84,8 +84,6 @@ public:
     Node parseExpr();
     Node parsePrimaryExpr();
     Node parseParenExpr();
-    Node parseInjExpr();
-    Node parsePrjExpr();
     Node parseOperatorExpr();
     Node parseIntegerLiteral();
     Node parseStringLiteral();
@@ -110,6 +108,8 @@ public:
     Node parseApplication(Node prefix);
     Node parseParameterAssociation();
     Node parseAttribute(Node prefix, NameOption option);
+    Node parseInj();
+    Node parsePrj();
 
     bool parseType();
     bool parseSubtype();

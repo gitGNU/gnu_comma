@@ -80,7 +80,9 @@ Node Parser::parseReturnStmt()
 
     if (expr.isValid())
         return client.acceptReturnStmt(loc, expr);
-    return expr;
+
+    seekSemi();
+    return getInvalidNode();
 }
 
 Node Parser::parseAssignmentStmt()

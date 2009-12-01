@@ -16,42 +16,9 @@ using namespace comma;
 
 Node Parser::parseExpr()
 {
-    switch (currentTokenCode()) {
-
-    default:
-        return parseOperatorExpr();
-
-    case Lexer::TKN_INJ:
-        return parseInjExpr();
-
-    case Lexer::TKN_PRJ:
-        return parsePrjExpr();
-    }
+    return parseOperatorExpr();
 }
 
-Node Parser::parseInjExpr()
-{
-    assert(currentTokenIs(Lexer::TKN_INJ));
-
-    Location loc  = ignoreToken();
-    Node     expr = parseExpr();
-
-    if (expr.isValid())
-        return client.acceptInj(loc, expr);
-    return getInvalidNode();
-}
-
-Node Parser::parsePrjExpr()
-{
-    assert(currentTokenIs(Lexer::TKN_PRJ));
-
-    Location loc  = ignoreToken();
-    Node     expr = parseExpr();
-
-    if (expr.isValid())
-        return client.acceptPrj(loc, expr);
-    return getInvalidNode();
-}
 
 Node Parser::parseOperatorExpr()
 {
