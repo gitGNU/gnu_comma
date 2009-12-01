@@ -203,7 +203,7 @@ class PrimaryType : public Type {
 
 public:
     /// Returns true if this node denotes a subtype.
-    bool isSubtype() const { return rootOrParentType.getInt(); }
+    bool isSubtype() const { return typeChain.getInt(); }
 
     /// Returns true if this node denotes a root type.
     bool isRootType() const { return !isSubtype(); }
@@ -212,17 +212,20 @@ public:
     /// Returns the root type of this type.  If this is a root type, returns a
     /// pointer to this, otherwise the type of this subtype is returned.
     const PrimaryType *getRootType() const {
-        return isRootType() ? this : rootOrParentType.getPointer();
+        return const_cast<PrimaryType*>(this)->getRootType();
     }
     PrimaryType *getRootType() {
-        return isRootType() ? this : rootOrParentType.getPointer();
+        PrimaryType *cursor = this;
+        while (cursor->isSubtype())
+            cursor = cursor->typeChain.getPointer();
+        return cursor;
     }
     //@}
 
     /// Returns true if this is a derived type.
     bool isDerivedType() const {
         const PrimaryType *root = getRootType();
-        return root->rootOrParentType.getPointer() != 0;
+        return root->typeChain.getPointer() != 0;
     }
 
     //@{
@@ -230,11 +233,11 @@ public:
     /// returns false.
     PrimaryType *getParentType() {
         PrimaryType *root = getRootType();
-        return root->rootOrParentType.getPointer();
+        return root->typeChain.getPointer();
     }
     const PrimaryType *getParentType() const {
         const PrimaryType *root = getRootType();
-        return root->rootOrParentType.getPointer();
+        return root->typeChain.getPointer();
     }
     //@}
 
@@ -269,7 +272,13 @@ public:
     ///
     /// All types are considered to be subtypes of themselves.
     bool isSubtypeOf(const PrimaryType *type) const {
-        return (type == this || getRootType() == type->getRootType());
+        const PrimaryType *cursor = this;
+        while (cursor->isSubtype()) {
+            if (cursor == type)
+                return true;
+            cursor = cursor->typeChain.getPointer();
+        }
+        return cursor == type;
     }
 
     // Support isa/dyn_cast.
@@ -293,24 +302,19 @@ protected:
     PrimaryType(AstKind kind, PrimaryType *rootOrParent, bool subtype)
         : Type(kind) {
         assert(this->denotesPrimaryType());
-        if (subtype) {
-            rootOrParentType.setPointer(rootOrParent->getRootType());
-            rootOrParentType.setInt(true);
-        }
-        else {
-            rootOrParentType.setPointer(rootOrParent);
-            rootOrParentType.setInt(false);
-        }
+        typeChain.setPointer(rootOrParent);
+        typeChain.setInt(subtype);
     }
 
 private:
     /// The following field encapsulates a bit which marks this node as either a
-    /// subtype or root type, and a pointer to the parent type or root type.
+    /// subtype or root type, and a pointer to this types ancestor (if any).
     ///
     /// When this type denotes a subtype, the following field contains a link to
-    /// the root type (the type of the subtype).  Otherwise, this is a root type
-    /// and rootOrParentType points to the parent type or null.
-    llvm::PointerIntPair<PrimaryType*, 1, bool> rootOrParentType;
+    /// the root type (the type of the subtype) or the immediate ancestor of the
+    /// subtype.  Otherwise, this is a root type and typeChain points to the
+    /// parent type or null.
+    llvm::PointerIntPair<PrimaryType*, 1, bool> typeChain;
 };
 
 

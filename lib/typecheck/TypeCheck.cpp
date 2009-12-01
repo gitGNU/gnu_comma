@@ -1093,32 +1093,27 @@ bool TypeCheck::covers(Type *A, Type *B)
     return rootTypeA == rootTypeB;
 }
 
-bool TypeCheck::conversionRequired(Type *source, Type *target)
+bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
 {
-    if (source == target)
+    if (sourceTy == targetTy)
         return false;
 
-    if (PrimaryType *sourceSubTy = dyn_cast<PrimaryType>(source)) {
-        // If the target is the root type of the source a conversion is not
-        // required.
-        if (sourceSubTy->getRootType() == target)
-            return false;
+    PrimaryType *source = dyn_cast<PrimaryType>(sourceTy);
+    PrimaryType *target = dyn_cast<PrimaryType>(targetTy);
 
-        // If the target is an unconstrained subtype of a common base, a
-        // conversion is not needed.
-        if (PrimaryType *targetSubTy = dyn_cast<PrimaryType>(target)) {
-            if ((sourceSubTy->getRootType() == targetSubTy->getRootType()) &&
-                !targetSubTy->isConstrained())
-                return false;
-        }
-    }
-    else if (PrimaryType *targetSubTy = dyn_cast<PrimaryType>(target)) {
-        // If the target type is an unconstrained subtype of the source, a
-        // conversion is not needed.
-        if ((targetSubTy->getRootType() == source) &&
-            !targetSubTy->isConstrained())
-            return false;
-    }
+    if (!(source && target))
+        return false;
+
+    // If the source is a subtype of the target a conversion is not required.
+    if (source->isSubtypeOf(target))
+        return false;
+
+    // If the target is an unconstrained subtype of a common base, a conversion
+    // is not needed.
+    if ((source->getRootType() == target->getRootType()) &&
+        !target->isConstrained())
+        return false;
+
     return true;
 }
 
