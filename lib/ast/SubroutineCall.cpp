@@ -190,3 +190,44 @@ void SubroutineCall::setArgument(key_iterator I, Expr *expr)
     if ((index = argExprIndex(target)) >= 0)
         arguments[index] = expr;
 }
+
+bool SubroutineCall::isDirectCall() const
+{
+    if (isAmbiguous())
+        return false;
+
+    const SubroutineDecl *decl = getConnective();
+    const DeclRegion *region = decl->getDeclRegion();
+    return isa<DomainInstanceDecl>(region);
+}
+
+bool SubroutineCall::isLocalCall() const
+{
+    if (isAmbiguous())
+        return false;
+
+    // If the declarative region maps to an add or a percent decl then this is a
+    // local call.
+    const SubroutineDecl *decl = getConnective();
+    const DeclRegion *region = decl->getDeclRegion();
+    return isa<AddDecl>(region) || isa<PercentDecl>(region);
+}
+
+bool SubroutineCall::isAbstractCall() const
+{
+    if (isAmbiguous())
+        return false;
+
+    const SubroutineDecl *decl = getConnective();
+    const DeclRegion *region = decl->getDeclRegion();
+    return isa<AbstractDomainDecl>(region);
+}
+
+bool SubroutineCall::isForeignCall() const
+{
+    if (isAmbiguous())
+        return false;
+
+    const SubroutineDecl *srDecl = getConnective();
+    return srDecl->hasPragma(pragma::Import);
+}

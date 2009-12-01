@@ -115,7 +115,7 @@ void DependencyScanner::visitBlockStmt(BlockStmt *node)
 void DependencyScanner::visitProcedureCallStmt(ProcedureCallStmt *node)
 {
     /// Add the connective as a dependency iff the call is direct.
-    if (CodeGenRoutine::isDirectCall(node)) {
+    if (node->isDirectCall()) {
         ProcedureDecl *proc = node->getConnective();
         DomainInstanceDecl *instance =
             cast<DomainInstanceDecl>(proc->getDeclRegion());
@@ -171,7 +171,7 @@ void DependencyScanner::visitLoopStmt(LoopStmt *node)
 void DependencyScanner::visitFunctionCallExpr(FunctionCallExpr *node)
 {
     /// Add the connective as a dependency iff the call is direct.
-    if (CodeGenRoutine::isDirectCall(node)) {
+    if (node->isDirectCall()) {
         FunctionDecl *fn = node->getConnective(0);
         DomainInstanceDecl *instance =
             cast<DomainInstanceDecl>(fn->getDeclRegion());

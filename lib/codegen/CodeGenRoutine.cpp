@@ -75,37 +75,6 @@ llvm::Function *CodeGenRoutine::getLLVMFunction() const
     return SRI->getLLVMFunction();
 }
 
-bool CodeGenRoutine::isDirectCall(const SubroutineCall *call)
-{
-    if (call->isAmbiguous())
-        return false;
-
-    const SubroutineDecl *decl = call->getConnective();
-    const DeclRegion *region = decl->getDeclRegion();
-    return isa<DomainInstanceDecl>(region);
-}
-
-bool CodeGenRoutine::isLocalCall(const SubroutineCall *call)
-{
-    if (call->isAmbiguous())
-        return false;
-
-    // If the declarative region maps to an add or a percent decl then this is a
-    // local call.
-    const SubroutineDecl *decl = call->getConnective();
-    const DeclRegion *region = decl->getDeclRegion();
-    return isa<AddDecl>(region) || isa<PercentDecl>(region);
-}
-
-bool CodeGenRoutine::isForeignCall(const SubroutineCall *call)
-{
-    if (call->isAmbiguous())
-        return false;
-
-    const SubroutineDecl *srDecl = call->getConnective();
-    return srDecl->hasPragma(pragma::Import);
-}
-
 void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
     Type *objTy = objDecl->getType();

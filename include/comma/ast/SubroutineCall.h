@@ -87,6 +87,40 @@ public:
         return isUnambiguous() && getConnective()->isPrimitive();
     }
 
+    /// \name Call Types.
+    ///
+    /// The following predicates provide a classification of calls from the
+    /// perspective of the caller.  For any given \em unambiguous call node, one
+    /// (and only one) of the following predicates returns true.  For an
+    /// ambiguous call node \em all of the following predicates return false.
+    //@{
+
+    /// Returns true if this is a local call.
+    ///
+    /// A local call is one which references a subroutine declaration which is
+    /// internal to a capsule.  A consequence of beeing local is that callee
+    /// must be local to the capsule as well.
+    bool isLocalCall() const;
+
+    /// Returns true if this is a direct call.
+    ///
+    /// A direct call is one which references a subroutine declaration provided
+    /// by a concrete (non-abstract) domain, and is not a local call.
+    bool isDirectCall() const;
+
+    /// Returns true if this is an abstract call.
+    ///
+    /// A call is abstract if it references a subroutine declaration provided by
+    /// an abstract domain.
+    bool isAbstractCall() const;
+
+    /// Returns true if this is a foreign call.
+    ///
+    /// A foreign call is one which references a subroutine declaration which
+    /// has an Import pragma attached to it.
+    bool isForeignCall() const;
+    //@}
+
     /// Resolved the connective for this call.
     ///
     /// The supplied subroutine declaration must accept the exact number of

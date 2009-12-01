@@ -533,14 +533,18 @@ llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)
 
 SRInfo *CallEmitter::prepareCall()
 {
-    if (CGR.isForeignCall(SRCall))
+    if (SRCall->isForeignCall())
         return prepareForeignCall();
-    else if (CGR.isLocalCall(SRCall))
+    else if (SRCall->isLocalCall())
         return prepareLocalCall();
-    else if (CGR.isDirectCall(SRCall))
+    else if (SRCall->isDirectCall())
         return prepareDirectCall();
-    else
+    else if (SRCall->isAbstractCall())
         return prepareAbstractCall();
+    else {
+        assert(false && "Unsupported call type!");
+        return 0;
+    }
 }
 
 SRInfo *CallEmitter::prepareLocalCall()

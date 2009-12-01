@@ -78,17 +78,6 @@ public:
     std::pair<llvm::Value*, llvm::Value*>
     emitVStackCall(FunctionCallExpr *expr);
 
-    /// Returns true if the given call is "direct", meaning that the domain of
-    /// computation is staticly known.
-    static bool isDirectCall(const SubroutineCall *expr);
-
-    /// Returns true if the given call is "local", meaning that the call is to a
-    /// subroutine defined in the current capsule.
-    static bool isLocalCall(const SubroutineCall *expr);
-
-    /// Returns true if the given call is forgien.
-    static bool isForeignCall(const SubroutineCall *call);
-
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        ArrayType *arrTy);
 
