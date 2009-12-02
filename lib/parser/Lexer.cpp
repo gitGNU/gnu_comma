@@ -742,11 +742,15 @@ void Lexer::scanToken()
         if (scanNumeric())   return;
         if (scanCharacter()) return;
 
-        // For invalid data, simply emit a diagnostic and continue to scan for a
-        // token.
+        // For invalid character data emit a diagnostic and abort the scan.
+        //
+        // FIXME: There should be an isSourceChar function to check if the
+        // character belongs to the source character set.  Scanning could just
+        // skip legal characters.  Characters which do not fall into the
+        // expected character set should likely have their hex value printed.
         report(diag::INVALID_CHARACTER) << static_cast<char>(peekStream());
         ignoreStream();
-        continue;
+        abortScanning();
     }
 }
 
