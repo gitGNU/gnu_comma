@@ -271,7 +271,6 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
     }
 
     if (TypeDecl *tyDecl = ensureTypeDecl(typeNode)) {
-        // FIXME: We should not have to cast here.
         CarrierDecl *carrier;
         carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
         if (Decl *conflict = scope.addDirectDecl(carrier)) {
