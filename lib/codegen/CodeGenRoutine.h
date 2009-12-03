@@ -84,6 +84,8 @@ public:
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        llvm::Value *length, const llvm::Type *componentTy);
 
+    PrimaryType *resolveType(Type *type);
+
 private:
     // Returns the llvm function we are generating code for.
     llvm::Function *getLLVMFunction() const;

@@ -330,10 +330,19 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     std::string fnName = mangle::getLinkName(instance, srDecl);
     llvm::Function *fn = makeFunction(fnTy, fnName);
 
+    // All instances should be fully resolved.
+    assert(!instance->isDependent() && "Unexpected dependent instance!");
+
     // If this is a function returning a constrained array type, mark it as
     // using the struct return calling convention.
     if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
         const Type *retTy = fDecl->getReturnType();
+
+        // Since the instance is resolved, all of its types must be so too.  The
+        // consequence is that all domain types are fully resolved instances.
+        if (const DomainType *domTy = dyn_cast<DomainType>(retTy))
+            retTy = domTy->getRepresentationType();
+
         if (const ArrayType *arrTy = dyn_cast<ArrayType>(retTy))
             if (arrTy->isConstrained())
                 fn->addAttribute(1, llvm::Attribute::StructRet);

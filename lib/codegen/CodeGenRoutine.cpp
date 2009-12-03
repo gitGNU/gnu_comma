@@ -77,7 +77,7 @@ llvm::Function *CodeGenRoutine::getLLVMFunction() const
 
 void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
-    Type *objTy = objDecl->getType();
+    Type *objTy = resolveType(objDecl->getType());
 
     if (isa<ArrayType>(objTy))
         emitArrayObjectDecl(objDecl);
@@ -200,6 +200,26 @@ CodeGenRoutine::emitRangeAttrib(RangeAttrib *attrib)
         bounds = emitter.getScalarBounds(Builder, scalarTy);
     }
     return bounds;
+}
+
+PrimaryType *CodeGenRoutine::resolveType(Type *type)
+{
+    if (DomainType *domTy = dyn_cast<DomainType>(type)) {
+        DomainInstanceDecl *instance;
+
+        // AbstractDecl's resolve wrt the current instances arguments,
+        // PercentDecl's resolve to the current instance, and
+        // DomainInstanceDecl's simply resolve to themselves.
+        if (AbstractDomainDecl *decl = domTy->getAbstractDecl())
+            instance = CGC.rewriteAbstractDecl(decl);
+        else if (domTy->getPercentDecl())
+            instance = CGC.getInstance();
+        else
+            instance = domTy->getInstanceDecl();
+
+        return instance->getRepresentationType();
+    }
+    return cast<PrimaryType>(type);
 }
 
 //===----------------------------------------------------------------------===//

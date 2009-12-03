@@ -125,14 +125,20 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 
     llvm::Value *components;
     llvm::Value *bounds;
-    ArrayType *arrTy = cast<ArrayType>(expr->getType());
     BoundsEmitter emitter(*this);
+    ArrayType *arrTy = cast<ArrayType>(resolveType(expr->getType()));
 
     if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
         return emitArrayConversion(convert, dst, genTmp);
 
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst, genTmp);
+
+    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
+        return emitArrayExpr(inj->getOperand(), dst, genTmp);
+
+    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
+        return emitArrayExpr(prj->getOperand(), dst, genTmp);
 
     if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
         ArrPair pair = emitStringLiteral(lit);
@@ -320,7 +326,7 @@ CodeGenRoutine::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
 void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)
 {
     BoundsEmitter emitter(*this);
-    ArrayType *arrTy = cast<ArrayType>(objDecl->getType());
+    ArrayType *arrTy = cast<ArrayType>(resolveType(objDecl->getType()));
     const llvm::Type *boundTy = CGT.lowerArrayBounds(arrTy);
     const llvm::Type *loweredTy = CGT.lowerArrayType(arrTy);
     llvm::Value *bounds = 0;

@@ -28,10 +28,10 @@ class CodeGen;
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(CodeGen &CG) : CG(CG), topScope(rewrites) { }
+    CodeGenTypes(CodeGen &CG) : CG(CG), topScope(rewrites), context(0) { }
 
     CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context)
-        : CG(CG), topScope(rewrites) {
+        : CG(CG), topScope(rewrites), context(context) {
         addInstanceRewrites(context);
     }
 
@@ -65,15 +65,13 @@ private:
     typedef llvm::ScopedHashTableScope<const Type*, const Type*> RewriteScope;
     RewriteMap rewrites;
     RewriteScope topScope;
+    DomainInstanceDecl *context;
 
     void addInstanceRewrites(const DomainInstanceDecl *instance);
 
     const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
-
-    // Lowers the carrier type defined for the given domoid.
-    const llvm::Type *lowerDomoidCarrier(const Domoid *domoid);
 };
 
 }; // end comma namespace

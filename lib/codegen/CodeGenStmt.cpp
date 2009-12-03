@@ -80,7 +80,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
 
     FunctionDecl *fdecl = cast<FunctionDecl>(SRI->getDeclaration());
     FunctionType *fTy = fdecl->getType();
-    Type *targetTy = fTy->getReturnType();
+    Type *targetTy = resolveType(fTy->getReturnType());
     Expr *expr = ret->getReturnExpr();
     llvm::Value *returnValue = SRF->getReturnValue();
 

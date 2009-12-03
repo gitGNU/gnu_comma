@@ -264,9 +264,11 @@ void CallEmitter::emitCallArguments()
     }
 }
 
-void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *paramTy)
+void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *targetTy)
 {
-    if (ArrayType *arrTy = dyn_cast<ArrayType>(paramTy))
+    targetTy = CGR.resolveType(targetTy);
+
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(targetTy))
         emitCompositeArgument(param, mode, arrTy);
     else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
         arguments.push_back(CGR.emitVariableReference(param));
@@ -278,7 +280,8 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
                                         ArrayType *targetTy)
 {
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(param)) {
-        ArrayType *paramTy = cast<ArrayType>(param->getType());
+
+        ArrayType *paramTy = cast<ArrayType>(CGR.resolveType(param->getType()));
 
         if (paramTy->isStaticallyConstrained()) {
             // First, allocate a temporary as a destination for the sret value.

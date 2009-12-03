@@ -115,8 +115,9 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
         type = rewriteAbstractDecl(type->getAbstractDecl());
 
     if (const PercentDecl *percent = type->getPercentDecl()) {
-        const Domoid *domoid = cast<Domoid>(percent->getDefinition());
-        return lowerDomoidCarrier(domoid);
+        assert(percent->getDefinition() == context->getDefinition() &&
+               "Inconsistent context for PercentDecl!");
+        return lowerType(context->getRepresentationType());
     }
 
     const DomainInstanceDecl *instance = type->getInstanceDecl();
@@ -124,17 +125,10 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
     if (instance->isParameterized()) {
         RewriteScope scope(rewrites);
         addInstanceRewrites(instance);
-        return lowerDomoidCarrier(instance->getDefinition());
+        return lowerType(instance->getRepresentationType());
     }
     else
-        return lowerDomoidCarrier(instance->getDefinition());
-}
-
-const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)
-{
-    const AddDecl *add = domoid->getImplementation();
-    assert(add->hasCarrier() && "Cannot codegen domains without carriers!");
-    return lowerType(add->getCarrier()->getType());
+        return lowerType(instance->getRepresentationType());
 }
 
 const llvm::FunctionType *
@@ -146,25 +140,26 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     // If the return type is a statically constrained aggregate, use the struct
     // return calling convention.
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-        const ArrayType *arrTy = dyn_cast<ArrayType>(fdecl->getReturnType());
-        if (arrTy) {
+
+        // If the return type is a domain, resolve to the representation type.
+        const Type *targetTy = fdecl->getReturnType();
+        if (const DomainType *domTy = dyn_cast<DomainType>(targetTy))
+            targetTy = domTy->getRepresentationType();
+
+        if (const ArrayType *arrTy = dyn_cast<ArrayType>(targetTy)) {
             if (arrTy->isConstrained()) {
                 const llvm::Type *sretTy;
                 sretTy = lowerArrayType(arrTy);
                 sretTy = CG.getPointerType(sretTy);
                 args.push_back(sretTy);
+            }
 
-                // Sret convetion implies a void return type.
-                retTy = CG.getVoidTy();
-            }
-            else {
-                // Unconstrained array returns go thru the vstack.  Set the
-                // return type to void.
-                retTy = CG.getVoidTy();
-            }
+            // All arrays go thru the sret convetion or the vstack, hense a void
+            // return type.
+            retTy = CG.getVoidTy();
         }
         else
-            retTy = lowerType(fdecl->getReturnType());
+            retTy = lowerType(targetTy);
     }
     else
         retTy = CG.getVoidTy();
@@ -183,6 +178,10 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         const ParamValueDecl *param = *I;
         const Type *paramTy = param->getType();
         const llvm::Type *loweredTy = lowerType(paramTy);
+
+        // If the parameter type is a domain, resolve it's representation.
+        if (const DomainType *domTy = dyn_cast<DomainType>(paramTy))
+            paramTy = domTy->getRepresentationType();
 
         if (const ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
             // We never pass arrays by value, always by reference.  Therefore,
