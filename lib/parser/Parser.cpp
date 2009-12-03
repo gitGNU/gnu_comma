@@ -395,17 +395,27 @@ SEEK:
                    Lexer::TKN_COMMA, Lexer::TKN_OTHERS,
                    Lexer::TKN_RDARROW, Lexer::TKN_RPAREN)) {
 
-        Lexer::Code code = currentTokenCode();
-        if (code == Lexer::TKN_COMMA)
+        switch (currentTokenCode()) {
+
+        default: break;
+
+        case Lexer::TKN_COMMA:
             result = POSITIONAL_AGGREGATE;
-        else if (code == Lexer::TKN_RDARROW)
+            break;
+
+        case Lexer::TKN_RDARROW:
             result = KEYED_AGGREGATE;
-        else {
-            if (code == Lexer::TKN_LPAREN) {
-                ignoreToken();
-                if (seekCloseParen())
-                    goto SEEK;
-            }
+            break;
+
+        case Lexer::TKN_LPAREN:
+            ignoreToken();
+            if (seekCloseParen())
+                goto SEEK;
+            break;
+
+        case Lexer::TKN_OTHERS:
+            result = KEYED_AGGREGATE;
+            break;
         }
     }
 
