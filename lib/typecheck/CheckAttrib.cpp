@@ -112,18 +112,18 @@ ScalarBoundAE *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
     // diagnose that fact rather than ignore it.
 
     // When the prefix is a type, it must resolve to a scalar type.
-    IntegerDecl *decl;
+    TypeDecl *decl = prefix->getTypeDecl();
+    DiscreteType *prefixTy = dyn_cast<DiscreteType>(decl->getType());
 
-    decl = dyn_cast_or_null<IntegerDecl>(prefix->getTypeDecl());
     if (!decl) {
         report(loc, diag::ATTRIB_OF_NON_SCALAR) << attributeName();
         return 0;
     }
 
     if (ID == attrib::First)
-        return new FirstAE(decl->getType(), loc);
+        return new FirstAE(prefixTy, loc);
     else
-        return new LastAE(decl->getType(), loc);
+        return new LastAE(prefixTy, loc);
 }
 
 ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
