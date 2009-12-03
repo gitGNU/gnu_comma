@@ -84,14 +84,18 @@ public:
     /// \brief Returns true if this subroutine uses the vstack for its return
     /// value(s).
     bool usesVRet() const {
-        const FunctionDecl *fdecl;
-        if ((fdecl = llvm::dyn_cast<FunctionDecl>(getDeclaration()))) {
-            const Type *retTy = fdecl->getReturnType();
-            if (const ArrayType *arrTy = llvm::dyn_cast<ArrayType>(retTy))
-                return !arrTy->isConstrained();
-        }
+        // If this is a function returning void but does not use the sret
+        // convention, then the value must be returned on the vstack.
+        //
+        // FIXME: llvm-2.6-svn and up has Type::isVoidTy predicate.  Use it.
+        if (isaFunction() &&
+            (llvmFn->getReturnType()->getTypeID() == llvm::Type::VoidTyID))
+            return !hasSRet();
         return false;
     }
+
+    /// Returns true if this function has an aggregate return value.
+    bool hasAggRet() const { return hasSRet() || usesVRet(); }
 
     /// \brief Returns true if this subroutine is imported from an external
     /// library.
