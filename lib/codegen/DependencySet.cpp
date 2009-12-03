@@ -11,6 +11,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/ExprVisitor.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/StmtVisitor.h"
 
@@ -49,6 +50,7 @@ private:
     void visitIfStmt(IfStmt *node);
     void visitWhileStmt(WhileStmt *node);
     void visitLoopStmt(LoopStmt *node);
+    void visitForStmt(ForStmt *node);
     //@}
 
     /// \name Expression visitors.
@@ -165,6 +167,19 @@ void DependencyScanner::visitWhileStmt(WhileStmt *node)
 
 void DependencyScanner::visitLoopStmt(LoopStmt *node)
 {
+    visitStmtSequence(node->getBody());
+}
+
+void DependencyScanner::visitForStmt(ForStmt *node)
+{
+    if (Range *range = node->getRangeControl()) {
+        visitExpr(range->getLowerBound());
+        visitExpr(range->getUpperBound());
+    }
+    else if (RangeAttrib *attrib = node->getAttribControl()) {
+        if (ArrayRangeAttrib *ARA = dyn_cast<ArrayRangeAttrib>(attrib))
+            visitExpr(ARA->getPrefix());
+    }
     visitStmtSequence(node->getBody());
 }
 
