@@ -48,8 +48,12 @@ void TypeCheck::endCapsule()
         report(result->getLocation(), diag::CONFLICTING_DECLARATION)
             << result->getIdInfo() << getSourceLoc(conflict->getLocation());
     }
-    else
+    else {
+        // Finalize all domoids.
+        if (Domoid *domoid = dyn_cast<Domoid>(result))
+            domoid->finalize();
         compUnit->addDeclaration(result);
+    }
 }
 
 void TypeCheck::beginGenericFormals()
