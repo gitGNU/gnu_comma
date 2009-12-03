@@ -54,7 +54,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerType",
     "ArrayType",
     "EnumerationType",
-    "CarrierType",
 
     "ConversionExpr",
     "DeclRefExpr",

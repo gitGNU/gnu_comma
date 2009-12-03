@@ -915,35 +915,6 @@ private:
     llvm::PointerUnion<ArrayDecl*, IdentifierInfo*> definingDecl;
 };
 
-//===----------------------------------------------------------------------===//
-// CarrierType
-//
-// The type of carrier declarations.
-class CarrierType : public PrimaryType {
-
-public:
-    /// Returns the defining identifier of this CarrierType.
-    IdentifierInfo *getIdInfo() const;
-
-    //@{
-    /// Returns the declaration corresponding to this carrier.
-    CarrierDecl *getDeclaration() { return definingDecl; }
-    const CarrierDecl *getDeclaration() const { return definingDecl; }
-    //@}
-
-    // Support isa/dyn_cast.
-    static bool classof(const CarrierType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_CarrierType;
-    }
-
-private:
-    CarrierType(CarrierDecl *carrier, PrimaryType *type);
-    friend class AstResource;
-
-    CarrierDecl *definingDecl;
-};
-
 } // End comma namespace
 
 #endif

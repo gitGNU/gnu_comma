@@ -77,9 +77,6 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     case Ast::AST_DomainType:
         return lowerDomainType(cast<DomainType>(type));
 
-    case Ast::AST_CarrierType:
-        return lowerCarrierType(cast<CarrierType>(type));
-
     case Ast::AST_EnumerationType:
     case Ast::AST_IntegerType:
         return lowerDiscreteType(cast<DiscreteType>(type));
@@ -137,12 +134,7 @@ const llvm::Type *CodeGenTypes::lowerDomoidCarrier(const Domoid *domoid)
 {
     const AddDecl *add = domoid->getImplementation();
     assert(add->hasCarrier() && "Cannot codegen domains without carriers!");
-    return lowerCarrierType(add->getCarrier()->getType());
-}
-
-const llvm::Type *CodeGenTypes::lowerCarrierType(const CarrierType *type)
-{
-    return lowerType(type->getRootType());
+    return lowerType(add->getCarrier()->getType());
 }
 
 const llvm::FunctionType *

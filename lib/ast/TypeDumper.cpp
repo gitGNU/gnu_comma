@@ -49,11 +49,6 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
     return S << ")";
 }
 
-void TypeDumper::visitCarrierType(CarrierType *node)
-{
-    printHeader(node) << '>';
-}
-
 void TypeDumper::visitDomainType(DomainType *node)
 {
     printHeader(node);

@@ -82,9 +82,6 @@ public:
     DomainType *createDomainSubtype(DomainType *rootTy, IdentifierInfo *name);
     //@}
 
-    /// Creates a carrier type node.
-    CarrierType *createCarrierType(CarrierDecl *decl, PrimaryType *type);
-
     /// \name Enumeration declaration and type constructors.
     //@{
     /// Creates an enumeration declaration node.

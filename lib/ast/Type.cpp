@@ -119,18 +119,6 @@ SubroutineType::SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
 }
 
 //===----------------------------------------------------------------------===//
-// CarrierType
-
-CarrierType::CarrierType(CarrierDecl *carrier, PrimaryType *type)
-    : PrimaryType(AST_CarrierType, type, true),
-      definingDecl(carrier) { }
-
-IdentifierInfo *CarrierType::getIdInfo() const
-{
-    return definingDecl->getIdInfo();
-}
-
-//===----------------------------------------------------------------------===//
 // DomainType
 
 DomainType::DomainType(DomainTypeDecl *DTDecl)

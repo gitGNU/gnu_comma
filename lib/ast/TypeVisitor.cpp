@@ -31,8 +31,6 @@ void TypeVisitor::visitType(Type *node)
         visitArrayType(arrTy);
     else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(node))
         visitEnumerationType(enumTy);
-    else if (CarrierType *carrierTy = dyn_cast<CarrierType>(node))
-        visitCarrierType(carrierTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -51,7 +49,6 @@ void TypeVisitor::visitSubroutineType(SubroutineType *node)
 //===----------------------------------------------------------------------===//
 // Non-virtual visitors, with empty out-of-line implementations.
 
-void TypeVisitor::visitCarrierType(CarrierType *node) { }
 void TypeVisitor::visitDomainType(DomainType *node) { }
 void TypeVisitor::visitFunctionType(FunctionType *node) { }
 void TypeVisitor::visitProcedureType(ProcedureType *node) { }

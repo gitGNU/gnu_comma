@@ -39,7 +39,6 @@ class AstResource;
 class AttribExpr;
 class BlockStmt;
 class CarrierDecl;
-class CarrierType;
 class CompilationUnit;
 class Decl;
 class DeclRegion;
@@ -196,7 +195,6 @@ public:
         AST_IntegerType,        ///< IntegerType
         AST_ArrayType,          ///< ArrayType
         AST_EnumerationType,    ///< EnumerationType
-        AST_CarrierType,        ///< CarrierType
 
         //
         // Expr nodes.
@@ -266,10 +264,10 @@ public:
         LAST_ValueDecl = AST_ObjectDecl,
 
         FIRST_Type = AST_FunctionType,
-        LAST_Type = AST_CarrierType,
+        LAST_Type = AST_EnumerationType,
 
         FIRST_PrimaryType = AST_DomainType,
-        LAST_PrimaryType = AST_CarrierType,
+        LAST_PrimaryType = AST_EnumerationType,
 
         FIRST_Expr = AST_ConversionExpr,
         LAST_Expr = AST_LastAE,

@@ -737,15 +737,6 @@ PM::ParameterMode ParamValueDecl::getParameterMode() const
 }
 
 //===----------------------------------------------------------------------===//
-// CarrierDecl
-
-CarrierDecl::CarrierDecl(AstResource &resource,
-                         IdentifierInfo *name, PrimaryType *type, Location loc)
-    : TypeDecl(AST_CarrierDecl, name, loc) {
-    CorrespondingType = resource.createCarrierType(this, type);
-}
-
-//===----------------------------------------------------------------------===//
 // EnumLiteral
 EnumLiteral::EnumLiteral(AstResource &resource,
                          IdentifierInfo *name, Location loc, unsigned index,

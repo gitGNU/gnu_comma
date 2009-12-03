@@ -46,7 +46,6 @@ public:
     /// hierarchy.  The default implementation for these methods do nothing.
     ///
     //@{
-    virtual void visitCarrierType(CarrierType *node);
     virtual void visitDomainType(DomainType *node);
     virtual void visitFunctionType(FunctionType *node);
     virtual void visitProcedureType(ProcedureType *node);

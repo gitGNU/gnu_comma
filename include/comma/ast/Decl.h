@@ -1188,12 +1188,9 @@ protected:
 class CarrierDecl : public TypeDecl {
 
 public:
-    CarrierDecl(AstResource &resource,
-                IdentifierInfo *name, PrimaryType *type, Location loc);
-
-    CarrierType *getType() const {
-        return llvm::cast<CarrierType>(CorrespondingType);
-    }
+    CarrierDecl(AstResource &resource, IdentifierInfo *name,
+                PrimaryType *type, Location loc)
+        : TypeDecl(AST_CarrierDecl, name, type, loc) { }
 
     const Type *getRepresentationType() const {
         return getType()->getRootType();

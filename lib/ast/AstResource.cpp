@@ -250,14 +250,6 @@ DomainType *AstResource::createDomainType(DomainTypeDecl *decl)
     return domTy;
 }
 
-CarrierType *AstResource::createCarrierType(CarrierDecl *decl,
-                                            PrimaryType *type)
-{
-    CarrierType *Ty = new CarrierType(decl, type);
-    types.push_back(Ty);
-    return Ty;
-}
-
 DomainType *AstResource::createDomainSubtype(DomainType *root,
                                              IdentifierInfo *name)
 {

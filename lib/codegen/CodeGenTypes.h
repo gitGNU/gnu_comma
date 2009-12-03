@@ -39,8 +39,6 @@ public:
 
     const llvm::Type *lowerDomainType(const DomainType *type);
 
-    const llvm::Type *lowerCarrierType(const CarrierType *type);
-
     const llvm::IntegerType * lowerEnumType(const EnumerationType *type);
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
@@ -76,7 +74,6 @@ private:
 
     // Lowers the carrier type defined for the given domoid.
     const llvm::Type *lowerDomoidCarrier(const Domoid *domoid);
-
 };
 
 }; // end comma namespace
