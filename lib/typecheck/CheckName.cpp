@@ -269,13 +269,14 @@ Node TypeCheck::acceptParameterAssociation(IdentifierInfo *key, Location loc,
 
 Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
 {
-    // There are three cases:
+    // There are three cases (currently):
     //
     //   - The prefix is an incomplete TypeRef (a variety or functor).
     //
     //   - The prefix is a SubroutineRef naming a family of subroutines.
     //
-    //   - The prefix is a DeclRefExpr resolving to an object of ArrayType.
+    //   - The prefix is an Expr resolving to an object of ArrayType.
+    //
     if (SubroutineRef *ref = lift_node<SubroutineRef>(prefix)) {
         if (Ast *call = acceptSubroutineApplication(ref, argNodes)) {
             prefix.release();
@@ -294,8 +295,8 @@ Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
         return getInvalidNode();
     }
 
-    if (DeclRefExpr *ref = lift_node<DeclRefExpr>(prefix)) {
-        if (IndexedArrayExpr *IAE = acceptIndexedArray(ref, argNodes)) {
+    if (Expr *expr = lift_node<Expr>(prefix)) {
+        if (IndexedArrayExpr *IAE = acceptIndexedArray(expr, argNodes)) {
             prefix.release();
             argNodes.release();
             return getNode(IAE);
