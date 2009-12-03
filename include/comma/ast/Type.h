@@ -241,6 +241,15 @@ public:
     }
     //@}
 
+    //@{
+    /// \brief Returns the first ancestor type of this type, or null if this is
+    /// a root type without a parent.
+    const PrimaryType *getAncestorType() const {
+        return typeChain.getPointer();
+    }
+    PrimaryType *getAncestorType() { return typeChain.getPointer(); }
+    //@}
+
     /// Returns true if this type is constrained.
     ///
     /// \note Default implementation returns false.
@@ -915,14 +924,6 @@ class CarrierType : public PrimaryType {
 public:
     /// Returns the defining identifier of this CarrierType.
     IdentifierInfo *getIdInfo() const;
-
-    //@{
-    /// Specializations of PrimaryType::getConstraint().
-    ///
-    /// \note CarrierType's are never constrained.
-    Constraint *getConstraint() { return 0; }
-    const Constraint *getConstraint() const { return 0; }
-    //@}
 
     //@{
     /// Returns the declaration corresponding to this carrier.
