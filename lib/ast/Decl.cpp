@@ -282,6 +282,13 @@ DomainInstanceDecl *DomainDecl::getInstance()
     return instance;
 }
 
+void DomainDecl::finalize()
+{
+    // Construct (if needed) and notify our one and only instance that this
+    // domain is finished.
+    getInstance()->finalize();
+}
+
 //===----------------------------------------------------------------------===//
 // FunctorDecl
 
@@ -312,6 +319,16 @@ FunctorDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
     instance = new DomainInstanceDecl(getAstResource(), this, args, numArgs);
     instances.InsertNode(instance, insertPos);
     return instance;
+}
+
+
+void FunctorDecl::finalize()
+{
+    // Notify any instances that this functor is finished.
+    InstanceSet::iterator I = instances.begin();
+    InstanceSet::iterator E = instances.end();
+    for ( ; I != E; ++I)
+        I->finalize();
 }
 
 //===----------------------------------------------------------------------===//
@@ -617,16 +634,8 @@ DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
     // node of the defining domoid change.
     percent->addObserver(this);
 
-    AstRewriter rewriter(domain->getAstResource());
-    rewriter.addTypeRewrite(domain->getPercentType(), getType());
-    rewriter.installRewrites(getType());
-    addDeclarationsUsingRewrites(rewriter, percent);
-
-    // Populate our signature set with a rewritten version of our defining
-    // domain.
-    const SignatureSet &SS = domain->getSignatureSet();
-    for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
-        sigset.addDirectSignature(*I, rewriter);
+    // Initialize the available declarations.
+    initializeInstance(domain);
 }
 
 DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
@@ -646,16 +655,56 @@ DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
     PercentDecl *percent = functor->getPercent();
     percent->addObserver(this);
 
-    AstRewriter rewriter(functor->getAstResource());
-    rewriter.addTypeRewrite(functor->getPercentType(), getType());
+    // Initialize the available declarations.
+    initializeInstance(functor);
+}
+
+void DomainInstanceDecl::initializeInstance(Domoid *definition)
+{
+    PercentDecl *percent = definition->getPercent();
+
+    // Obtain a rewritten version of the public exports provided by percent.
+    AstRewriter rewriter(definition->getAstResource());
+    rewriter.addTypeRewrite(definition->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, percent);
 
-    // Populate our signature set with a rewritten version of our defining
-    // functor.
-    const SignatureSet &SS = functor->getSignatureSet();
+    // Populate our signature set with a rewritten version.
+    const SignatureSet &SS = definition->getSignatureSet();
     for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
         sigset.addDirectSignature(*I, rewriter);
+
+    // Compute our representation type.
+    initializeRep(rewriter);
+}
+
+void DomainInstanceDecl::initializeRep(const AstRewriter &rewrites)
+{
+    // Generate a rewritten version of our representation type if available via
+    // percent.  If not available, the carrier has yet to be constructed and we
+    // await notification from the defining domoid via a call to finalize().
+    AddDecl *add = definition->getImplementation();
+    if (CarrierDecl *carrier = add->getCarrier()) {
+        PrimaryType *rep = carrier->getType();
+        rep = cast<PrimaryType>(rewrites.rewriteType(rep));
+
+        // If the representation type is a domain, extract its representation.
+        if (DomainType *domainTy = dyn_cast<DomainType>(rep))
+            rep = domainTy->getRepresentationType();
+        representationType = rep;
+    }
+}
+
+void DomainInstanceDecl::finalize()
+{
+    // If we do not yet have a representation type, compute it now.
+    if (representationType)
+        return;
+
+    AstRewriter rewriter(getDefinition()->getAstResource());
+    rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
+    rewriter.installRewrites(getType());
+    initializeRep(rewriter);
 }
 
 bool DomainInstanceDecl::isDependent() const

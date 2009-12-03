@@ -155,6 +155,13 @@ bool DomainType::involvesPercent() const
     return false;
 }
 
+PrimaryType *DomainType::getRepresentationType()
+{
+    if (DomainInstanceDecl *decl = getInstanceDecl())
+        return decl->getRepresentationType();
+    return 0;
+}
+
 //===----------------------------------------------------------------------===//
 // The following getXXXDecl methods cannot be inlined into Type.h since we do
 // not want Type.h to directly depend on Decl.h.

@@ -381,6 +381,15 @@ public:
     //@}
 
     //@{
+    /// If this type is associated with a DomainInstanceDecl, returns the
+    /// representation type of this domain, otherwise null.
+    const PrimaryType *getRepresentationType() const {
+        return const_cast<DomainType*>(this)->getRepresentationType();
+    }
+    PrimaryType *getRepresentationType();
+    //@}
+
+    //@{
     /// Specialize PrimaryType::getRootType().
     DomainType *getRootType() {
         return llvm::cast<DomainType>(PrimaryType::getRootType());

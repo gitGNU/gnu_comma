@@ -361,15 +361,18 @@ public:
     // Returns non-null if this domoid is a FunctorDecl.
     FunctorDecl *getFunctor();
 
-    // Returns the AddDecl which provides the implementation for this domoid, or
-    // NULL if no implementation is available.  The only domain decl which does
-    // not provide an implementation is an AbstractDomainDecl.
-    virtual const AddDecl *getImplementation() const { return 0; }
+    // Once a domoid has been constructed (all declarations and sub-components
+    // have been registered) this method must be called to ensure all internal
+    // state of the node is consistent.
+    virtual void finalize() = 0;
 
-    AddDecl *getImplementation() {
-        return const_cast<AddDecl*>(
-            const_cast<const Domoid*>(this)->getImplementation());
+    //@{
+    /// Returns the AddDecl which provides the implementation for this domoid.
+    virtual AddDecl *getImplementation() = 0;
+    const AddDecl *getImplementation() const {
+        return const_cast<Domoid*>(this)->getImplementation();
     }
+    //@}
 
     static bool classof(const Domoid *node) { return true; }
     static bool classof(const Ast *node) {
@@ -419,6 +422,7 @@ public:
 
     // Sets the carrier for this declaration.
     void setCarrier(CarrierDecl *carrier) {
+        assert(!hasCarrier() && "Cannot reset carrier declaration!");
         this->carrier = carrier;
     }
 
@@ -451,11 +455,11 @@ public:
         return const_cast<DomainDecl*>(this)->getInstance();
     }
 
-    //@{
+    /// Implementation of Domoid::finalize().
+    void finalize();
+
     /// Returns the AddDecl which implements this domain.
-    const AddDecl *getImplementation() const { return implementation; }
     AddDecl *getImplementation() { return implementation; }
-    //@}
 
     // Support for isa and dyn_cast.
     static bool classof(const DomainDecl *node) { return true; }
@@ -492,7 +496,7 @@ public:
     }
 
     // Returns the AddDecl which implements this functor.
-    const AddDecl *getImplementation() const { return implementation; }
+    AddDecl *getImplementation() { return implementation; }
 
     /// Returns the number of arguments accepted by this functor.
     unsigned getArity() const { return arity; }
@@ -503,6 +507,9 @@ public:
         return formalDecls[i];
     }
 
+    /// Implementation of Domoid::finalize().
+    void finalize();
+
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -512,7 +519,8 @@ public:
 private:
     /// Set of all DomainInstanceDecl's which represent instances of this
     /// functor.
-    mutable llvm::FoldingSet<DomainInstanceDecl> instances;
+    typedef llvm::FoldingSet<DomainInstanceDecl> InstanceSet;
+    mutable InstanceSet instances;
 
     unsigned arity;                   ///< Number of formal parameters.x
     AbstractDomainDecl **formalDecls; ///< Formal parameter declarations.
@@ -1728,6 +1736,21 @@ public:
     arg_iterator beginArguments() const { return arguments; }
     arg_iterator endArguments() const { return &arguments[getArity()]; }
 
+    /// \name Representation Type.
+    ///
+    /// The representation type of a domain instance is resolved to a primitive
+    /// non-domain type.  For example, if a domain \c A was defined with a
+    /// carrier type of \c Integer, and a second domain \c B was defined with a
+    /// carrier of type \c A, then this method resolves the representation type
+    /// of both \c A and \c B to \c Integer.
+    //@{
+    /// Returns the representation type of this domain instance.
+    const PrimaryType *getRepresentationType() const {
+        return representationType;
+    }
+    PrimaryType *getRepresentationType() { return representationType; }
+    //@}
+
     /// Method required by LLVM::FoldingSet.
     void Profile(llvm::FoldingSetNodeID &id) {
         Profile(id, &arguments[0], getArity());
@@ -1747,6 +1770,20 @@ private:
     Domoid *definition;
     DomainTypeDecl **arguments;
     SignatureSet sigset;
+    PrimaryType *representationType;
+
+    friend class DomainDecl;
+    friend class FunctorDecl;
+
+    // Called by the defining domain or functor to notify an instance that the
+    // definition is complete.
+    void finalize();
+
+    // Helper function called by the constructors.
+    void initializeInstance(Domoid *definition);
+
+    // Constructs the representationType using the given rewriter.
+    void initializeRep(const AstRewriter &rewrites);
 
     // The following call-backs are invoked when the declarative region of the
     // defining declaration changes.
