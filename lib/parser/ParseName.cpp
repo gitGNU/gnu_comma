@@ -226,6 +226,8 @@ void Parser::seekNameEnd()
         case Lexer::TKN_DOT:
         case Lexer::TKN_CHARACTER:
         case Lexer::TKN_PERCENT:
+        case Lexer::TKN_INJ:
+        case Lexer::TKN_PRJ:
             ignoreToken();
             break;
 
