@@ -163,6 +163,9 @@ public:
         return range.first != range.second;
     }
 
+    // Returns true if this region contains the given declaration.
+    bool containsDecl(const Decl *decl) const;
+
     // Returns the declaration with the given name and type in this region if
     // one is present, else 0.
     Decl *findDecl(IdentifierInfo *name, Type *type);

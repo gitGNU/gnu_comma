@@ -95,6 +95,14 @@ bool DeclRegion::removeDecl(Decl *decl)
     return false;
 }
 
+bool DeclRegion::containsDecl(const Decl *decl) const
+{
+    ConstDeclIter I = beginDecls();
+    ConstDeclIter E = endDecls();
+    ConstDeclIter P = std::find(I, E, decl);
+    return P != E;
+}
+
 bool DeclRegion::collectFunctionDecls(
     IdentifierInfo *name, llvm::SmallVectorImpl<SubroutineDecl*> &dst)
 {
