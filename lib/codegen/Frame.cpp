@@ -116,7 +116,8 @@ llvm::Value *SRFrame::createTemp(const llvm::Type *type)
     return slot;
 }
 
-void SRFrame::associate(ValueDecl *decl, activation::Tag tag, llvm::Value *slot)
+void SRFrame::associate(const ValueDecl *decl, activation::Tag tag,
+                        llvm::Value *slot)
 {
     EntryMap::value_type &pair = entryTable.FindAndConstruct(decl);
     ActivationEntry *&entry = pair.second;
@@ -128,7 +129,7 @@ void SRFrame::associate(ValueDecl *decl, activation::Tag tag, llvm::Value *slot)
     entry->add(new Property(tag, slot));
 }
 
-llvm::Value *SRFrame::lookup(ValueDecl *decl, activation::Tag tag)
+llvm::Value *SRFrame::lookup(const ValueDecl *decl, activation::Tag tag)
 {
     EntryMap::iterator iter = entryTable.find(decl);
 
@@ -140,7 +141,7 @@ llvm::Value *SRFrame::lookup(ValueDecl *decl, activation::Tag tag)
     return 0;
 }
 
-void SRFrame::associate(PrimaryType *type, activation::Tag tag,
+void SRFrame::associate(const PrimaryType *type, activation::Tag tag,
                         llvm::Value *value)
 {
     assert(tag != activation::Slot && "Cannot associate types with slots!");
@@ -149,12 +150,12 @@ void SRFrame::associate(PrimaryType *type, activation::Tag tag,
 
     if (!entry)
         entry = new ActivationEntry();
-    assert(!entry->find(tag) && "Type allready associated with tag!");
+    assert(!entry->find(tag) && "Type already associated with tag!");
 
     entry->add(new Property(tag, value));
 }
 
-llvm::Value *SRFrame::lookup(PrimaryType *type, activation::Tag tag)
+llvm::Value *SRFrame::lookup(const PrimaryType *type, activation::Tag tag)
 {
     EntryMap::iterator iter = entryTable.find(type);
 
@@ -217,3 +218,4 @@ void SRFrame::emitEpilogue()
     if (returnBB != lastBB)
         returnBB->moveAfter(lastBB);
 }
+

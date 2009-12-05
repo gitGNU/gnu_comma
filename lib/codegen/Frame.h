@@ -70,11 +70,12 @@ public:
     //@{
     llvm::Value *createTemp(const llvm::Type *type);
 
-    void associate(ValueDecl *decl, activation::Tag tag, llvm::Value *slot);
+    void associate(const ValueDecl *decl, activation::Tag tag,
+                   llvm::Value *slot);
 
-    llvm::Value *lookup(ValueDecl *decl, activation::Tag tag);
+    llvm::Value *lookup(const ValueDecl *decl, activation::Tag tag);
 
-    llvm::Value *createEntry(ValueDecl *decl, activation::Tag tag,
+    llvm::Value *createEntry(const ValueDecl *decl, activation::Tag tag,
                              const llvm::Type *type) {
         llvm::Value *slot = createTemp(type);
         associate(decl, tag, slot);
@@ -84,9 +85,10 @@ public:
 
     /// \name Type insert/lookup.
     //@{
-    void associate(PrimaryType *type, activation::Tag tag, llvm::Value *value);
+    void associate(const PrimaryType *type, activation::Tag tag,
+                   llvm::Value *value);
 
-    llvm::Value *lookup(PrimaryType *type, activation::Tag tag);
+    llvm::Value *lookup(const PrimaryType *type, activation::Tag tag);
     //@}
 
     /// Marks this frame as a stacksave frame.
@@ -147,7 +149,7 @@ private:
     };
 
     // Map from Comma Decl's and Type's to AllocaEntry's.
-    typedef llvm::DenseMap<Ast*, ActivationEntry*> EntryMap;
+    typedef llvm::DenseMap<const Ast*, ActivationEntry*> EntryMap;
     EntryMap entryTable;
 
     /// Initialize the implicit first parameter.  Also, name the llvm arguments
