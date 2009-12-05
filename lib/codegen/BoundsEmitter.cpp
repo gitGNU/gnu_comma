@@ -60,9 +60,23 @@ BoundsEmitter::getScalarBounds(llvm::IRBuilder<> &Builder,
 {
     LUPair LU;
 
-    if (type->isConstrained()) {
-        const Range *range = type->getConstraint();
-        LU = getRange(Builder, range);
+    if (const Range *range = type->getConstraint()) {
+        if (range->isStatic())
+            LU = getRange(Builder, range);
+        else {
+            // Try to lookup the bounds for this type in the current frame.  If
+            // the lookup fails, evaluate the bounds an associate the result
+            // with the type.
+            SRFrame *frame = CGR.getSRFrame();
+            llvm::Value *bounds = frame->lookup(type, activation::Bounds);
+
+            if (!bounds) {
+                bounds = synthRange(Builder, range);
+                frame->associate(type, activation::Bounds, bounds);
+            }
+            LU.first = getLowerBound(Builder, bounds, 0);
+            LU.second = getUpperBound(Builder, bounds, 0);
+        }
     }
     else {
         const llvm::Type *loweredTy = CGT.lowerType(type);
@@ -78,41 +92,90 @@ BoundsEmitter::getScalarBounds(llvm::IRBuilder<> &Builder,
     return LU;
 }
 
+llvm::Value *BoundsEmitter::getLowerBound(llvm::IRBuilder<> &Builder,
+                                          const DiscreteType *type)
+{
+    if (type->isConstrained())
+        return getLowerBound(Builder, type->getConstraint());
+
+    const llvm::Type *loweredTy = CGT.lowerType(type);
+    llvm::APInt bound;
+
+    type->getLowerLimit(bound);
+    return llvm::ConstantInt::get(loweredTy, bound);
+}
+
+llvm::Value *BoundsEmitter::getUpperBound(llvm::IRBuilder<> &Builder,
+                                          const DiscreteType *type)
+{
+    if (type->isConstrained())
+        return getUpperBound(Builder, type->getConstraint());
+
+    const llvm::Type *loweredTy = CGT.lowerType(type);
+    llvm::APInt bound;
+
+    type->getUpperLimit(bound);
+    return llvm::ConstantInt::get(loweredTy, bound);
+}
+
+llvm::Value *BoundsEmitter::getLowerBound(llvm::IRBuilder<> &Builder,
+                                          const Range *range)
+{
+    const llvm::Type *elemTy = CGT.lowerType(range->getType());
+
+    if (range->hasStaticLowerBound()) {
+        const llvm::APInt &bound = range->getStaticLowerBound();
+        return llvm::ConstantInt::get(elemTy, bound);
+    }
+    else {
+        Expr *expr = const_cast<Expr*>(range->getLowerBound());
+        return CGR.emitValue(expr);
+    }
+}
+
+llvm::Value *BoundsEmitter::getUpperBound(llvm::IRBuilder<> &Builder,
+                                          const Range *range)
+{
+    const llvm::Type *elemTy = CGT.lowerType(range->getType());
+
+    if (range->hasStaticUpperBound()) {
+        const llvm::APInt &bound = range->getStaticUpperBound();
+        return llvm::ConstantInt::get(elemTy, bound);
+    }
+    else {
+        Expr *expr = const_cast<Expr*>(range->getUpperBound());
+        return CGR.emitValue(expr);
+    }
+}
+
 llvm::Value *BoundsEmitter::synthRange(llvm::IRBuilder<> &Builder,
                                        const Range *range)
 {
-    LUPair LU = getRange(Builder, range);
-    llvm::Value *lower = LU.first;
-    llvm::Value *upper = LU.second;
+    llvm::Value *lower = getLowerBound(Builder, range);
+    llvm::Value *upper = getUpperBound(Builder, range);
     const llvm::StructType *boundTy = CGT.lowerRange(range);
     return synthBounds(Builder, boundTy, lower, upper);
+}
+
+llvm::Value *BoundsEmitter::synthRange(llvm::IRBuilder<> &Builder,
+                                       llvm::Value *lower, llvm::Value *upper)
+{
+    std::vector<const llvm::Type*> elts;
+    const llvm::IntegerType *limitTy;
+    limitTy = cast<llvm::IntegerType>(lower->getType());
+    assert(limitTy == upper->getType() && "Inconsitent types for range!");
+
+    // FIXME: Perhaps CGT should provide this type for consistency.
+    elts.push_back(limitTy);
+    elts.push_back(limitTy);
+    return synthBounds(Builder, CG.getStructTy(elts), lower, upper);
 }
 
 BoundsEmitter::LUPair BoundsEmitter::getRange(llvm::IRBuilder<> &Builder,
                                               const Range *range)
 {
-    llvm::Value *lower;
-    llvm::Value *upper;
-    const llvm::Type *elemTy = CGT.lowerType(range->getType());
-
-    if (range->hasStaticLowerBound()) {
-        const llvm::APInt &bound = range->getStaticLowerBound();
-        lower = llvm::ConstantInt::get(elemTy, bound);
-    }
-    else {
-        Expr *expr = const_cast<Expr*>(range->getLowerBound());
-        lower = CGR.emitValue(expr);
-    }
-
-    if (range->hasStaticUpperBound()) {
-        const llvm::APInt &bound = range->getStaticUpperBound();
-        upper = llvm::ConstantInt::get(elemTy, bound);
-    }
-    else {
-        Expr *expr = const_cast<Expr*>(range->getUpperBound());
-        upper = CGR.emitValue(expr);
-    }
-
+    llvm::Value *lower = getLowerBound(Builder, range);
+    llvm::Value *upper = getUpperBound(Builder, range);
     return LUPair(lower, upper);
 }
 
@@ -212,8 +275,6 @@ llvm::Value *BoundsEmitter::synthAggregateBounds(llvm::IRBuilder<> &Builder,
 
     if (arrTy->isStaticallyConstrained())
         bounds = synthStaticArrayBounds(Builder, arrTy);
-    else if (arrTy->isConstrained())
-        assert(false && "Cannot codegen dynamicly constrained aggregates yet!");
     else {
         // The index type for the aggregate is unconstrained.
         llvm::APInt bound;

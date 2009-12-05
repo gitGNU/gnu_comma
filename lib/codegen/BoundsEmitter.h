@@ -101,8 +101,30 @@ public:
     LUPair getScalarBounds(llvm::IRBuilder<> &Builder,
                            const DiscreteType *type);
 
+    /// Evaluates the range of the given scalar type and returns the lower
+    /// bound.
+    llvm::Value *getLowerBound(llvm::IRBuilder<> &Builder,
+                               const DiscreteType *type);
+
+    /// Evaluates the range of the given scalar type and returns the upper
+    /// bound.
+    llvm::Value *getUpperBound(llvm::IRBuilder<> &Builder,
+                               const DiscreteType *type);
+
+    /// Evaluates the given range and returns the lower bound.
+    llvm::Value *getLowerBound(llvm::IRBuilder<> &Builder, const Range *range);
+
+    /// Evaluates the given range and returns the upper bound.
+    llvm::Value *getUpperBound(llvm::IRBuilder<> &Builder, const Range *range);
+
     /// Evaluates a range and returns a corresponding bounds structure.
     llvm::Value *synthRange(llvm::IRBuilder<> &Builder, const Range *range);
+
+    /// Packs the given values into a bounds structure.
+    ///
+    /// Both values must be of the same integer type.
+    llvm::Value *synthRange(llvm::IRBuilder<> &Builder,
+                            llvm::Value *lower, llvm::Value *upper);
 
     /// Evaluates a range and returns the lower and upper bounds as a pair.
     LUPair getRange(llvm::IRBuilder<> &Builder, const Range *range);
@@ -138,7 +160,7 @@ public:
     /// Constructs an LLVM structure object representing the bounds of the given
     /// aggregate expression.
     ///
-    /// If \p dst is non-null the dynthesized bounds are stored into the given
+    /// If \p dst is non-null the synthesized bounds are stored into the given
     /// location.
     llvm::Value *synthAggregateBounds(llvm::IRBuilder<> &Builder,
                                       PositionalAggExpr *agg,
