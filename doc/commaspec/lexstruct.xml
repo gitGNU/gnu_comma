@@ -183,7 +183,7 @@
     <title>Comments</title>
     <para>
       Comments begin with the two characters --, with no whitespace, and
-      continur to the end of the line.  Comments do not appear within character
+      continue to the end of the line.  Comments do not appear within character
       or string literals.
     </para>
 
