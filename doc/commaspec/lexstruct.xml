@@ -14,7 +14,6 @@
   <title>Lexical Structure</title>
 
   <sect1 xml:id="sect.standard-cset">
-
     <title>The Standard Character Set</title>
 
     <para>
@@ -73,7 +72,7 @@
     </para>
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.notational-conventions">
 
     <title>Notational Conventions</title>
 
@@ -101,13 +100,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term> (<replaceable>pattern</replaceable>) </term>
-          <listitem> <para>
-            Pattern grouping.
-          </para> </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term>
             <replaceable>pattern1</replaceable> |
             <replaceable>pattern2</replaceable>
@@ -119,38 +111,11 @@
             </para>
           </listitem>
         </varlistentry>
-
-        <varlistentry>
-          <term>
-            <replaceable>pattern1</replaceable>
-            <subscript>
-              &lt;<replaceable>pattern2</replaceable>&gt;
-            </subscript>
-          </term>
-          <listitem>
-            <para>
-              All matches accepted by
-              <replaceable>pattern1</replaceable> except for those
-              accepted by <replaceable>pattern2</replaceable>.
-            </para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term>...</term>
-          <listitem>
-            <para>
-              Abbreviates a sequence of terminals, the full set being easily
-              discerned from context.
-            </para>
-          </listitem>
-        </varlistentry>
-
       </variablelist>
     </para>
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.line-terminators">
     <title>Line Terminators</title>
 
     <para>
@@ -161,17 +126,18 @@
     </para>
 
     <productionset><title>Line Terminators</title>
-    <production xml:id="ebnf.line-terminator">
-      <lhs>Line-Terminator</lhs>
+    <production xml:id="ebnf.line_terminator">
+      <lhs>Line_Terminator</lhs>
       <rhs>
         Linefeed | Carriage-Return | Carriage-Return Linefeed
       </rhs>
     </production>
 
-    <production xml:id="ebnf.input-character">
-      <lhs>Input-Character</lhs>
+    <production xml:id="ebnf.input_character">
+      <lhs>Input_Character</lhs>
       <rhs>
-        All characters in the standard character set.
+        All characters in the <link linkend="sect.standard-cset">standard
+        character set</link>.
       </rhs>
     </production>
     </productionset>
@@ -179,7 +145,7 @@
   </sect1>
 
 
-  <sect1>
+  <sect1 xml:id="sect.comments">
     <title>Comments</title>
     <para>
       Comments begin with the two characters --, with no whitespace, and
@@ -194,15 +160,15 @@
         <lhs>Comment</lhs>
         <rhs>
 	  --
-	  { <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> }
-          <nonterminal def="#ebnf.line-terminator">Line-Terminator</nonterminal>
+	  { <nonterminal def="#ebnf.input_character">Input_Character</nonterminal> }
+          <nonterminal def="#ebnf.line_terminator">Line_Terminator</nonterminal>
         </rhs>
       </production>
     </productionset>
 
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.whitespace">
     <title>Whitespace</title>
     <para>
       Whitespace consists of the space, horizontal tab, and form feed
@@ -215,14 +181,14 @@
       <production xml:id="ebnf.whitespace">
         <lhs>Whitespace</lhs>
         <rhs>
-          <nonterminal def="#ebnf.white-char">White-Char</nonterminal> |
-          <nonterminal def="#ebnf.line-terminator">Line-Terminator</nonterminal> |
+          <nonterminal def="#ebnf.white_char">White_Char</nonterminal> |
+          <nonterminal def="#ebnf.line_terminator">Line_Terminator</nonterminal> |
           <nonterminal def="#ebnf.comment">Comment</nonterminal>
         </rhs>
       </production>
 
-      <production xml:id="ebnf.white-char">
-        <lhs>White-Char</lhs>
+      <production xml:id="ebnf.white_char">
+        <lhs>White_Char</lhs>
         <rhs>
           Space | Tab | Formfeed
         </rhs>
@@ -257,7 +223,7 @@
 
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.identifiers">
     <title>Identifiers</title>
 
     <para>
@@ -299,13 +265,13 @@
         <lhs>Identifier</lhs>
         <rhs>
 	  <nonterminal def="#ebnf.alpha">Alpha</nonterminal>
-	  { <nonterminal def="#ebnf.identifier-char">Indentifier-Char</nonterminal> }
+	  { <nonterminal def="#ebnf.identifier_char">Indentifier_Char</nonterminal> }
         </rhs>
-	<constraint linkend="ebnf.identifier-constraint"/>
+	<constraint linkend="ebnf.identifier_constraint"/>
       </production>
 
-      <production xml:id="ebnf.identifier-char">
-        <lhs>Identifier-Char</lhs>
+      <production xml:id="ebnf.identifier_char">
+        <lhs>Identifier_Char</lhs>
         <rhs>
           <nonterminal def="#ebnf.alpha">Alpha</nonterminal> |
           <nonterminal def="#ebnf.digit">Digit</nonterminal> |
@@ -327,14 +293,14 @@
 
     </productionset>
 
-    <constraintdef id="ebnf.identifier-constraint">
+    <constraintdef id="ebnf.identifier_constraint">
       <title>Identifiers and Reserved Words</title>
       <para>An identifier shall not be a reserved word.</para>
     </constraintdef>
 
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.reserved-words">
     <title>Reserved Words</title>
 
     <para>
@@ -342,21 +308,89 @@
       as identifiers:
     </para>
 
-    <productionset>
-      <production xml:id="ebnf.reserved-words">
-        <lhs>Reserved Words</lhs>
-        <rhs>
-	  abstract | add | and | array | carrier | begin | declare | domain |
-	  else | elsif | end | for | function | generic | if | import | in | inj
-	  | is | loop | mod | of | out | others | pragma | prj | procedure |
-	  range | rem | return | reverse | signature | subtype | then | type |
-	  while | with
-        </rhs>
-      </production>
-    </productionset>
+    <table xmlns="http://docbook.org/ns/docbook" frame='none'>
+      <title>Reserved Words</title>
+
+      <tgroup cols='6' align='left' colsep='1' rowsep='1'>
+        <?dbhtml cellpadding="10" ?>
+        <tbody>
+          <row>
+            <entry>abstract</entry>  <entry>add</entry>
+            <entry>and</entry>       <entry>array</entry>
+            <entry>carrier</entry>   <entry>begin</entry>
+          </row>
+
+          <row>
+            <entry>declare</entry>   <entry>domain</entry>
+            <entry>else</entry>      <entry>elsif</entry>
+            <entry>end</entry>       <entry>for</entry>
+          </row>
+
+          <row>
+            <entry>function</entry>  <entry>generic</entry>
+            <entry>if</entry>        <entry>import</entry>
+            <entry>in</entry>        <entry>inj</entry>
+          </row>
+
+          <row>
+            <entry>is</entry>        <entry>loop</entry>
+            <entry>mod</entry>       <entry>of</entry>
+            <entry>out</entry>       <entry>others</entry>
+          </row>
+
+          <row>
+            <entry>pragma</entry>    <entry>prj</entry>
+            <entry>procedure</entry> <entry>range</entry>
+            <entry>rem</entry>       <entry>return</entry>
+          </row>
+
+          <row>
+            <entry>reverse</entry>   <entry>signature</entry>
+            <entry>subtype</entry>   <entry>then</entry>
+            <entry>type</entry>      <entry>while </entry>
+          </row>
+
+          <row>
+            <entry>with</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </sect1>
 
-  <sect1>
+  <sect1 xml:id="sect.operator-symbols">
+    <title>Operator Symbols</title>
+
+    <para>
+      The following tokens are the <emphasis>operators</emphasis>.  These
+      symbols have special productions in the grammar of the language and can be
+      used as the defining identifier of a function declaration.
+    </para>
+
+    <table xmlns="http://docbook.org/ns/docbook" frame='none'>
+      <title>Operators</title>
+      <tgroup cols='6' align='center' colsep='1' rowsep='1'>
+        <?dbhtml cellpadding="10" ?>
+        <tbody>
+          <row>
+            <entry>=</entry>     <entry>/=</entry>    <entry>&lt;</entry>
+            <entry>&gt;</entry>  <entry>&lt;=</entry> <entry>&gt;=</entry>
+          </row>
+
+          <row>
+            <entry>+</entry> <entry>-</entry> <entry>*</entry>
+            <entry>&amp;</entry> <entry>/</entry> <entry>**</entry>
+          </row>
+
+          <row>
+            <entry>mod</entry> <entry>rem</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </sect1>
+
+  <sect1 xml:id="sect.literals">
     <title>Literals</title>
     <para>
       Literals are primitive values in Comma programs which have a direct
@@ -385,15 +419,15 @@
         <production xml:id="ebnf.integer">
           <lhs>Integer</lhs>
           <rhs>
-            <nonterminal def="#ebnf.decimal-literal">Decimal-Literal</nonterminal> |
-            <nonterminal def="#ebnf.hexadecimal-literal">Hexadecimal-Literal</nonterminal> |
-            <nonterminal def="#ebnf.octal-literal">Octal-Literal</nonterminal> |
-            <nonterminal def="#ebnf.binary-literal">Binary-Literal</nonterminal>
+            <nonterminal def="#ebnf.decimal_literal">Decimal_Literal</nonterminal> |
+            <nonterminal def="#ebnf.hexadecimal_literal">Hexadecimal_Literal</nonterminal> |
+            <nonterminal def="#ebnf.octal_literal">Octal_Literal</nonterminal> |
+            <nonterminal def="#ebnf.binary_literal">Binary_Literal</nonterminal>
           </rhs>
         </production>
 
-        <production xml:id="ebnf.decimal-literal">
-          <lhs>Decimal-Literal</lhs>
+        <production xml:id="ebnf.decimal_literal">
+          <lhs>Decimal_Literal</lhs>
           <rhs>
             <nonterminal def="#ebnf.digit">Digit</nonterminal>
             { <nonterminal def="#ebnf.digit">Digit</nonterminal>
@@ -401,48 +435,48 @@
           </rhs>
         </production>
 
-        <production xml:id="ebnf.hexadecimal-literal">
-          <lhs>Hexadecimal-Literal</lhs>
+        <production xml:id="ebnf.hexadecimal_literal">
+          <lhs>Hexadecimal_Literal</lhs>
           <rhs>
-            (0x | 0X) <nonterminal def="ebnf.hexadecimal-digit">Hexadecimal-Digit</nonterminal>
-            { <nonterminal def="ebnf.hexadecimal-digit">Hexadecimal-Digit</nonterminal>
+            0X <nonterminal def="ebnf.hexadecimal_digit">Hexadecimal_Digit</nonterminal>
+            { <nonterminal def="ebnf.hexadecimal_digit">Hexadecimal_Digit</nonterminal>
             | Uscore }
           </rhs>
         </production>
 
-        <production xml:id="ebnf.octal-literal">
-          <lhs>Octal-Literal</lhs>
+        <production xml:id="ebnf.octal_literal">
+          <lhs>Octal_Literal</lhs>
           <rhs>
-            (0o | 0O) <nonterminal def="#ebnf.octal-digit">Octal-Digit</nonterminal>
-            { <nonterminal def="#ebnf.octal-digit">Octal-Digit</nonterminal>
+            0O <nonterminal def="#ebnf.octal_digit">Octal_Digit</nonterminal>
+            { <nonterminal def="#ebnf.octal_digit">Octal_Digit</nonterminal>
             | Uscore }
           </rhs>
         </production>
 
-        <production xml:id="ebnf.binary-literal">
-          <lhs>Binary-Literal</lhs>
+        <production xml:id="ebnf.binary_literal">
+          <lhs>Binary_Literal</lhs>
           <rhs>
-            (0b | 0B) <nonterminal def="#ebnf.binary-digit">Binary-Digit</nonterminal>
-            { <nonterminal def="#ebnf.binary-digit">Binary-Digit</nonterminal>
+            0B <nonterminal def="#ebnf.binary_digit">Binary_Digit</nonterminal>
+            { <nonterminal def="#ebnf.binary_digit">Binary_Digit</nonterminal>
             | Uscore }
           </rhs>
         </production>
 
-        <production xml:id="ebnf.hexadecimal-digit">
-          <lhs>Hexadecimal-Digit</lhs>
+        <production xml:id="ebnf.hexadecimal_digit">
+          <lhs>Hexadecimal_Digit</lhs>
           <rhs>
             <nonterminal def="#ebnf.digit">Digit</nonterminal> |
             a | b | ... | f | A | B | ... | F
           </rhs>
         </production>
 
-        <production xml:id="ebnf.octal-digit">
-          <lhs>Octal-Digit</lhs>
+        <production xml:id="ebnf.octal_digit">
+          <lhs>Octal_Digit</lhs>
           <rhs> 0 | 1 | ... | 7 </rhs>
         </production>
 
-        <production xml:id="ebnf.binary-digit">
-          <lhs>Binary-Digit</lhs>
+        <production xml:id="ebnf.binary_digit">
+          <lhs>Binary_Digit</lhs>
           <rhs> 0 | 1 </rhs>
         </production>
 
@@ -466,25 +500,26 @@
       <productionset>
         <title>Floting-point Literals</title>
 
-        <production xml:id="ebnf.float-literal">
-          <lhs>Float-Literal</lhs>
+        <production xml:id="ebnf.float_literal">
+          <lhs>Float_Literal</lhs>
           <rhs>
             { <nonterminal def="#ebnf.digit">Digit</nonterminal> } .
             [ { <nonterminal def="#ebnf.digit">Digit</nonterminal> } ]
-            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            [ <nonterminal def="#ebnf.exponent_part">Exponent_Part</nonterminal> ] | <sbr/>
             . { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
-            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            [ <nonterminal def="#ebnf.exponent_part">Exponent_Part</nonterminal> ] | <sbr/>
             { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
-            [ <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal> ] | <sbr/>
+            [ <nonterminal def="#ebnf.exponent_part">Exponent_Part</nonterminal> ] | <sbr/>
             { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
-            <nonterminal def="#ebnf.exponent-part">Exponent-Part</nonterminal>
+            <nonterminal def="#ebnf.exponent_part">Exponent_Part</nonterminal>
           </rhs>
         </production>
 
-        <production xml:id="ebnf.exponent-part">
-          <lhs>Exponent-Part</lhs>
+        <production xml:id="ebnf.exponent_part">
+          <lhs>Exponent_Part</lhs>
           <rhs>
-            (e | E) [ (- | +) ] { <nonterminal def="#ebnf.digit">Digit</nonterminal> }
+             E + <nonterminal def="#ebnf.digit">Digit</nonterminal> |
+             E - <nonterminal def="#ebnf.digit">Digit</nonterminal>
           </rhs>
         </production>
       </productionset>
@@ -502,25 +537,25 @@
       <productionset>
         <title>String Literals</title>
 
-        <production xml:id="ebnf.string-literal">
-          <lhs>String-Literal</lhs>
+        <production xml:id="ebnf.string_literal">
+          <lhs>String_Literal</lhs>
           <rhs>
-            " { <nonterminal def="#ebnf.string-character">String-Character</nonterminal> } "
+            " { <nonterminal def="#ebnf.string_character">String_Character</nonterminal> } "
           </rhs>
         </production>
 
-        <production xml:id="ebnf.string-character">
-          <lhs>String-Character</lhs>
+        <production xml:id="ebnf.string_character">
+          <lhs>String_Character</lhs>
           <rhs>
-            <nonterminal def="#ebnf.input-character">Input-Character</nonterminal>
-            <lineannotation>Except " or \.</lineannotation>
+            <nonterminal def="#ebnf.input_character">Input_Character</nonterminal>
+            <lineannotation>Except <keysym>"</keysym>.</lineannotation>
           </rhs>
         </production>
 
       </productionset>
     </sect2>
 
-    <sect2 xml:id="sect.character-literals">
+    <sect2 xml:id="sect.character_literals">
       <title>Character Literals</title>
       <para>
         A character literal is a single input character delimited by single
@@ -529,10 +564,10 @@
       </para>
       <productionset>
         <title>Character Literals</title>
-        <production xml:id="ebnf.character-literal">
-          <lhs>Character-Literal</lhs>
+        <production xml:id="ebnf.character_literal">
+          <lhs>Character_Literal</lhs>
           <rhs>
-            ' <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> '
+            ' <nonterminal def="#ebnf.input_character">Input_Character</nonterminal> '
           </rhs>
         </production>
       </productionset>

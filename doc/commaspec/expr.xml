@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2009, Stephen Wilson
+-->
+
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+         xml:id="names-expressions">
+
+  <title>Names and Expressions</title>
+
+  <para>
+    This chapter specifies the syntax and semantics of names and expressions.
+  </para>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.names">
+    <title>Names</title>
+
+    <para>
+      <indexterm xml:id="index.name">
+        <primary>name</primary>
+      </indexterm>
+
+      Names are used to denote a variety of entities within a Comma program.
+      Names can refer to declared entities such as signatures, domains and
+      types.  Other examples include indexed and selected components, subroutine
+      formal parameters, object declarations, the result of function calls, type
+      conversions, and attributes applied (recursively) to a name.
+    </para>
+
+    <productionset><title>Name</title>
+      <production xml:id="ebnf.name">
+        <lhs>Name</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.direct_name">
+            Direct_Name
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.function_call">
+            Function_Call
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.indexed_component">
+            Indexed_Component
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.selected_component">
+            Selected_Component
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.attribute_mark">
+            Attribute_Mark
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.inj">
+            Inj
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.prj">
+            Prj
+          </nonterminal> |
+
+          <nonterminal def="#ebnf.character_literal">
+            Character_Literal
+          </nonterminal>
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.direct_name">
+        <lhs>Direct_Name</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.identifier">Identifier</nonterminal>
+        </rhs>
+      </production>
+    </productionset>
+
+    <sect2>
+      <title>Attributes</title>
+
+      <productionset><title>Attributes</title>
+        <production xml:id="ebnf.attribute_mark">
+          <lhs>Attribute_Mark</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.name">Name</nonterminal> '
+            <nonterminal def="#ebnf.identifier">Identifier</nonterminal>
+          </rhs>
+        </production>
+      </productionset>
+    </sect2>
+
+    <sect2>
+      <title>Indexed Components</title>
+
+      <productionset><title>Indexed Components</title>
+        <production xml:id="ebnf.indexed_component">
+          <lhs>Indexed_Component</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.name">Name</nonterminal> (
+            <nonterminal def="#ebnf.expression">Expression</nonterminal>
+            [ ,
+            <nonterminal def="#ebnf.expression">Expression</nonterminal>
+            ] )
+          </rhs>
+        </production>
+      </productionset>
+    </sect2>
+
+    <sect2>
+      <title>Selected Components</title>
+
+      <productionset><title>Selected Components</title>
+        <production xml:id="ebnf.selected_component">
+          <lhs>Selected_Component</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.name">Name</nonterminal> .
+            <nonterminal def="#ebnf.selected_name">Selected_Name</nonterminal>
+          </rhs>
+        </production>
+
+        <production xml:id="ebnf.selected_name">
+          <lhs>Selected_Name</lhs>
+          <rhs>
+            <nonterminal def="#ebnf.identifier">Identifier</nonterminal> |
+            <nonterminal def="#ebnf.character_literal">
+              Character_Literal
+            </nonterminal>
+          </rhs>
+        </production>
+      </productionset>
+    </sect2>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.function-calls">
+    <title>Function Calls</title>
+
+    <para>
+      A function call represent the invocation of a subroutine that returns a
+      value as the result of normal exectution.  Function call expressions may
+      provide <emphasis>key associations</emphasis> which map the actual
+      parameters of the call to the corresponding formal parameters.
+    </para>
+
+    <productionset><title>Function Calls</title>
+      <production xml:id="ebnf.function_call">
+        <lhs>Function_Call</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.name">Name</nonterminal> (
+          <nonterminal def="#ebnf.key_association">
+            Key_Association
+          </nonterminal> [ ,
+          <nonterminal def="#ebnf.key_association">
+            Key_Association
+          </nonterminal> ] )
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.key_association">
+        <lhs>Key_Association</lhs>
+        <rhs>
+          [ <nonterminal def="#ebnf.identifier">Identifier</nonterminal> =&gt; ]
+          <nonterminal def="#ebnf.expression">Expression</nonterminal>
+        </rhs>
+      </production>
+    </productionset>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.expressions">
+    <title>Expressions</title>
+
+    <productionset><title>Expressions</title>
+      <production xml:id="ebnf.expression">
+        <lhs>Expression</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.name">Name</nonterminal>
+        </rhs>
+      </production>
+    </productionset>
+  </sect1>
+
+</chapter>

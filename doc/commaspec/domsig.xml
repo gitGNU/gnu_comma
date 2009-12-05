@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2009, Stephen Wilson
+-->
+
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+         xml:id="domains-signatures">
+
+  <title>Domains and Signatures</title>
+
+  <sect1 xml:id="sect.inj-prj">
+    <title>Inj and Prj</title>
+
+    <indexterm xml:id="index.inj">
+      <primary>inj</primary>
+    </indexterm>
+
+    <indexterm xml:id="index.prj">
+      <primary>prj</primary>
+    </indexterm>
+
+    <para>
+      Within the body of a domain the two special names <function>inj</function>
+      and <function>prj</function> are directly visible.  The former provides a
+      view conversion (or <emphasis>injection</emphasis>) from an object of
+      type <type>%</type> to an object of the domains carrier type, whereas the
+      latter provides a view conversion (or <emphasis>projection</emphasis>)
+      from an object of the domains carrier type to an object of
+      type <type>%</type>.
+    </para>
+
+    <productionset><title>Inj and Prj</title>
+      <production xml:id="ebnf.inj">
+        <lhs>Inj</lhs>
+        <rhs>
+          inj ( <nonterminal def="#ebnf.expression">Expression</nonterminal> )
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.prj">
+        <lhs>Prj</lhs>
+        <rhs>
+          prj ( <nonterminal def="#ebnf.expression">Expression</nonterminal> )
+        </rhs>
+      </production>
+    </productionset>
+  </sect1>
+</chapter>
