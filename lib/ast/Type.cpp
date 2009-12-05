@@ -352,6 +352,48 @@ bool DiscreteType::isSigned() const
     return isa<IntegerType>(this);
 }
 
+uint64_t DiscreteType::length() const
+{
+    if (const Range *range = getConstraint())
+        return range->length();
+
+    // FIXME: This code is a close duplicate of Range::length.  This should be
+    // shared.
+    int64_t lower;
+    int64_t upper;
+
+    // Extract the bounds of this range according to the type.
+    if (this->isSigned()) {
+        llvm::APInt limit;
+        getLowerLimit(limit);
+        lower = limit.getSExtValue();
+        getUpperLimit(limit);
+        upper = limit.getSExtValue();
+    }
+    else {
+        llvm::APInt limit;
+        getLowerLimit(limit);
+        lower = limit.getZExtValue();
+        getUpperLimit(limit);
+        upper = limit.getZExtValue();
+    }
+
+    if (upper < lower)
+        return 0;
+
+    if (lower < 0) {
+        uint64_t lowElems = -lower;
+        if (upper >= 0)
+            return uint64_t(upper) + lowElems + 1;
+        else {
+            uint64_t upElems = -upper;
+            return lowElems - upElems + 1;
+        }
+    }
+
+    return uint64_t(upper - lower) + 1;
+}
+
 //===----------------------------------------------------------------------===//
 // EnumerationType
 //

@@ -454,6 +454,12 @@ public:
     /// values of this type at runtime.
     virtual uint64_t getSize() const = 0;
 
+    /// Returns the number of elements representable by this type.
+    ///
+    /// This method may only be called on a statically constrained or
+    /// unconstrained type, else an assertion will fire.
+    uint64_t length() const;
+
     /// The following enumeration is used to report the result of containment
     /// predicates.  These values define a ternary logic.
     enum ContainmentResult {
@@ -462,7 +468,7 @@ public:
         Maybe_Contained
     };
 
-    /// Returns a ContainmenResult indicating if this DiscreteType contains
+    /// Returns a ContainmentResult indicating if this DiscreteType contains
     /// another.
     ///
     /// This type and the target type must be of the same category.  That is,
