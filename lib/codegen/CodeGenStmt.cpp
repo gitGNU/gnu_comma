@@ -104,19 +104,26 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
                 BoundsEmitter emitter(*this);
                 std::pair<llvm::Value*, llvm::Value*> arrayPair =
                     emitArrayExpr(expr, 0, true);
+                const llvm::Type *componentTy =
+                    CGT.lowerType(arrTy->getComponentType());
                 // First push the data, then the bounds.  This allows the bounds
                 // to be accessed first by the callee and the size of the data
                 // computed before the data itself is retrieved.
                 llvm::Value *data = arrayPair.first;
                 llvm::Value *bounds = arrayPair.second;
-                llvm::Value *dataSize =
-                    emitter.computeTotalBoundLength(Builder, bounds);
                 llvm::Value *boundSize =
                     llvm::ConstantExpr::getSizeOf(bounds->getType());
                 llvm::Value *boundSlot = SRF->createTemp(bounds->getType());
+                llvm::Value *dataSize =
+                    llvm::ConstantExpr::getSizeOf(componentTy);
 
                 // getSizeOf returns an i64 but vstack_push requires an i32.
                 boundSize = Builder.CreateTrunc(boundSize, CG.getInt32Ty());
+                dataSize = Builder.CreateTrunc(dataSize, CG.getInt32Ty());
+
+                dataSize = Builder.CreateMul(
+                    dataSize,
+                    emitter.computeTotalBoundLength(Builder, bounds));
 
                 // Store the expressions bounds into a the allocated slot.
                 Builder.CreateStore(bounds, boundSlot);
