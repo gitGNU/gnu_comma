@@ -847,11 +847,11 @@ private:
 
     public:
 
-        bool operator ==(const ChoiceIterator &iter) {
+        bool operator ==(const ChoiceIterator &iter) const {
             return choiceIdx == iter.choiceIdx && listIdx == iter.listIdx;
         }
 
-        bool operator !=(const ChoiceIterator &iter) {
+        bool operator !=(const ChoiceIterator &iter) const {
             return !this->operator==(iter);
         }
 
@@ -873,6 +873,8 @@ private:
         Ast *operator*() {
             return choices[choiceIdx]->getChoice<Ast>(listIdx);
         }
+
+        Expr *getExpr() { return choices[choiceIdx]->getExpr(); }
     };
 
 public:
