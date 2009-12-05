@@ -3,7 +3,7 @@
 <!-- This file is distributed under the MIT License.  See LICENSE.txt for
      details.
 
-     Copyright 2008, Stephen Wilson
+     Copyright 2008-2009, Stephen Wilson
 -->
 
 <chapter xmlns="http://docbook.org/ns/docbook"
@@ -44,43 +44,6 @@
     </para>
 
     <xi:include  href="cset.xml"/>
-
-    <para>
-
-      <indexterm xml:id="index.character.backspace">
-        <primary>character</primary>
-        <secondary>backspace</secondary>
-      </indexterm>
-
-      In addition to the above characters, the language recognizes one
-      adittional character code, the backspace character.
-
-      <informaltable>
-
-        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-
-          <thead>
-            <row>
-              <entry align="center">Char</entry>
-              <entry align="center">Hex</entry>
-              <entry align="center">Description</entry>
-            </row>
-          </thead>
-
-          <tbody>
-            <row>
-              <entry>BS</entry> <entry>08</entry> <entry>backspace</entry>
-            </row>
-
-          </tbody>
-        </tgroup>
-      </informaltable>
-
-      The backspace character is implied by a designated escape sequence <xref
-      linkend="sect.escape-sequences" xrefstyle="sect"/> which appears in
-      character and string literals.
-
-    </para>
 
     <note>
       <indexterm xml:id="index.character.unicode">
@@ -283,10 +246,6 @@
           <row>
             <entry><keysym>(</keysym></entry>
             <entry><keysym>)</keysym></entry>
-            <entry><keysym>{</keysym></entry>
-            <entry><keysym>}</keysym></entry>
-            <entry><keysym>[</keysym></entry>
-            <entry><keysym>]</keysym></entry>
             <entry><keysym>:</keysym></entry>
             <entry><keysym>;</keysym></entry>
             <entry><keysym>,</keysym></entry>
@@ -305,7 +264,8 @@
       An identifier is a sequence of characters. The initial character of the
       sequence must be an alphabetic character.  All remaining characters can be
       any of the lower or uppercase alphabetic characters, a numeric digit, or
-      the character '_'.
+      the character '_'.  An identifier may not contain two consecutive
+      underscore characters.
     </para>
 
     <para>
@@ -325,7 +285,7 @@
               <entry><varname>INTEGER</varname></entry>
               <entry><varname>Max_Index</varname></entry>
               <entry><varname>x1234</varname></entry>
-              <entry><varname>x___4</varname></entry>
+              <entry><varname>x_4</varname></entry>
             </row>
           </tbody>
         </tgroup>
@@ -339,12 +299,12 @@
         <lhs>Identifier</lhs>
         <rhs>
 	  <nonterminal def="#ebnf.alpha">Alpha</nonterminal>
-	  { <nonterminal def="#ebnf.identifier-part-char">Indentifier-Part-Char</nonterminal> }
+	  { <nonterminal def="#ebnf.identifier-char">Indentifier-Char</nonterminal> }
         </rhs>
 	<constraint linkend="ebnf.identifier-constraint"/>
       </production>
 
-      <production xml:id="ebnf.identifier-part-char">
+      <production xml:id="ebnf.identifier-char">
         <lhs>Identifier-Char</lhs>
         <rhs>
           <nonterminal def="#ebnf.alpha">Alpha</nonterminal> |
@@ -386,28 +346,14 @@
       <production xml:id="ebnf.reserved-words">
         <lhs>Reserved Words</lhs>
         <rhs>
-	  add | begin | body | domain | else | elsif | end | extend |
-	  for | function | if | implement | is | namespace | package |
-	  repeat | signature | then | while | with
+	  abstract | add | and | array | carrier | begin | declare | domain |
+	  else | elsif | end | for | function | generic | if | import | in | inj
+	  | is | loop | mod | of | out | others | pragma | prj | procedure |
+	  range | rem | return | reverse | signature | subtype | then | type |
+	  while | with
         </rhs>
       </production>
     </productionset>
-
-    <sect2>
-      <title>Separators</title>
-      <para>
-        The following <acronym>ASCII</acronym> characters are used to delimit
-        expressions.
-      </para>
-
-      <productionset>
-        <production xml:id="ebnf.seperator">
-          <lhs>Seperator</lhs>
-          <rhs> ( | ) | { | } | [ | ] | ; | . | , </rhs>
-        </production>
-      </productionset>
-
-    </sect2>
   </sect1>
 
   <sect1>
@@ -544,66 +490,6 @@
       </productionset>
     </sect2>
 
-    <sect2 xml:id="sect.escape-sequences">
-      <title>Escape Sequences</title>
-      <para>
-        Character literals and string literals may contain escape sequences
-        which permit non-graphical characters, or characters which would
-        otherwise conflict lexically, to be written.
-
-        <table frame='all' tocentry='1'>
-          <title>Escape Sequences</title>
-          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
-            <thead>
-              <row>
-                <entry align='center'>Sequence</entry>
-                <entry align='center'>Character Denoted</entry>
-              </row>
-            </thead>
-            <tbody>
-              <row>
-                <entry>\\</entry>
-                <entry>backslash (\)</entry>
-              </row>
-              <row>
-                <entry>\"</entry>
-                <entry>double quote (")</entry>
-              </row>
-              <row>
-                <entry>\'</entry>
-                <entry>single quote (')</entry>
-              </row>
-              <row>
-                <entry>\n</entry>
-                <entry>linefeed (LF)</entry>
-              </row>
-              <row>
-                <entry>\r</entry>
-                <entry>carriage return (CR)</entry>
-              </row>
-              <row>
-                <entry>\t</entry>
-                <entry>horizontal tab (HT)</entry>
-              </row>
-              <row>
-                <entry>\b</entry>
-                <entry>backspace (BS)</entry>
-              </row>
-            </tbody>
-          </tgroup>
-        </table>
-        <!-- This table was wrapped in a para to introduce a vertical
-             space before the following productionset. -->
-      </para>
-
-      <productionset>
-        <production xml:id="ebnf.escape-sequence">
-          <lhs>Esacape-Sequence</lhs>
-          <rhs> \ ( \ | " | ' | n | r | t | b ) </rhs>
-        </production>
-      </productionset>
-    </sect2>
-
     <sect2>
       <title>String Literals</title>
 
@@ -626,9 +512,8 @@
         <production xml:id="ebnf.string-character">
           <lhs>String-Character</lhs>
           <rhs>
-            <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> |
+            <nonterminal def="#ebnf.input-character">Input-Character</nonterminal>
             <lineannotation>Except " or \.</lineannotation>
-            <nonterminal def="#ebnf.escape-sequence">Escape-Sequence</nonterminal>
           </rhs>
         </production>
 
@@ -638,9 +523,8 @@
     <sect2 xml:id="sect.character-literals">
       <title>Character Literals</title>
       <para>
-        A character literal is either a single input character or an escape
-        sequence <xref linkend="sect.escape-sequences" xrefstyle="sect"/>)
-        delimited in single quotes (<acronym>ASCII</acronym> code
+        A character literal is a single input character delimited by single
+        quotes (<acronym>ASCII</acronym> code
         <keycode>0x27</keycode>).
       </para>
       <productionset>
@@ -648,12 +532,28 @@
         <production xml:id="ebnf.character-literal">
           <lhs>Character-Literal</lhs>
           <rhs>
-            ' <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> |
-            <lineannotation>Except ' or \</lineannotation>
-            <nonterminal def="#ebnf.escape-sequence">Escape-Sequence</nonterminal> '
+            ' <nonterminal def="#ebnf.input-character">Input-Character</nonterminal> '
           </rhs>
         </production>
       </productionset>
+
+      <example>
+        <title>Examples of character literals:</title>
+        <informaltable frame='none'>
+          <tgroup cols='4' align='left'>
+            <?dbhtml cellspacing="10" ?>
+            <tbody>
+              <row>
+                <entry><literal>'A'</literal></entry>
+                <entry><literal>'_'</literal></entry>
+                <entry><literal>'"'</literal></entry>
+                <entry><literal>'''</literal></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </example>
+
     </sect2>
   </sect1>
 </chapter>
