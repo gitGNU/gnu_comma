@@ -25,13 +25,14 @@
     </indexterm>
 
     <para>
-      Within the body of a domain the two special names <function>inj</function>
-      and <function>prj</function> are directly visible.  The former provides a
-      view conversion (or <emphasis>injection</emphasis>) from an object of
-      type <type>%</type> to an object of the domains carrier type, whereas the
-      latter provides a view conversion (or <emphasis>projection</emphasis>)
-      from an object of the domains carrier type to an object of
-      type <type>%</type>.
+      Within the body of a domain the two special
+      names <emphasis role='strong'>inj</emphasis>
+      and <emphasis role='strong'>prj</emphasis> are directly visible.  The
+      former provides a view conversion (or <emphasis>injection</emphasis>) from
+      an object of type <type>%</type> to an object of the domains carrier type,
+      whereas the latter provides a view conversion
+      (or <emphasis>projection</emphasis>) from an object of the domains carrier
+      type to an object of type <type>%</type>.
     </para>
 
     <productionset><title>Inj and Prj</title>
