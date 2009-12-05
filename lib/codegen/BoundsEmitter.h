@@ -93,11 +93,21 @@ public:
 
     /// Evaluates the range of the given scalar type and returns a corresponding
     /// bounds structure.
+    ///
+    /// If the current frame has a bounds entry for the given type this method
+    /// will use them.  Otherwise, if the type has dynamic constraints, the
+    /// computed bounds are registered with the frame and associated with the
+    /// type.
     llvm::Value *synthScalarBounds(llvm::IRBuilder<> &Builder,
                                    const DiscreteType *type);
 
     /// Evaluates the range of the given scalar type and returns the lower and
     /// upper bounds as a pair.
+    ///
+    /// If the current frame has a bounds entry for the given type this method
+    /// will use them.  Otherwise, if the type has dynamic constraints, the
+    /// computed bounds are registered with the frame and associated with the
+    /// type.
     LUPair getScalarBounds(llvm::IRBuilder<> &Builder,
                            const DiscreteType *type);
 
