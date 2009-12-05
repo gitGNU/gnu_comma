@@ -806,6 +806,16 @@ public:
     /// defined and no others clause.
     bool empty() const { return numDiscreteChoiceLists() == 0 && !hasOthers(); }
 
+    /// \brief Returns true if the indices defined by each discrete choice are
+    /// statically known.
+    bool hasStaticIndices() const;
+
+    /// \brief Returns the number of static components defined by this
+    /// aggregate.
+    ///
+    /// \note For dynamic aggregates this method returns zero.
+    uint64_t numComponents() const;
+
     /// \name ChoiceList Iterators.
     ///
     /// \brief Iterators over the choice lists associated with this aggregate.

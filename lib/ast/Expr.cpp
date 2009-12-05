@@ -182,4 +182,56 @@ unsigned KeyedAggExpr::numChoices() const
     return result;
 }
 
+bool KeyedAggExpr::hasStaticIndices() const
+{
+    // FIXME: Use const_choice_iterator when available.
+    KeyedAggExpr *KAE = const_cast<KeyedAggExpr*>(this);
 
+    choice_iterator I = KAE->choice_begin();
+    choice_iterator E = KAE->choice_end();
+    if (I == E)
+        return false;
+
+    // Only interrogate the first choice since for a keyed aggregate to be
+    // dynamicly sized only one choice can be used.
+    const Ast *choice = *I;
+
+    if (const Range *range = dyn_cast<Range>(choice))
+        return range->isStatic();
+
+    if (const DiscreteType *type = dyn_cast<DiscreteType>(choice)) {
+        if (type->isConstrained())
+            return type->getConstraint()->isStatic();
+        else {
+            // Unconstrained discrete types always have static bounds.
+            return true;
+        }
+    }
+
+    return cast<Expr>(choice)->isStaticDiscreteExpr();
+}
+
+uint64_t KeyedAggExpr::numComponents() const
+{
+    if (!hasStaticIndices())
+        return 0;
+
+    // FIXME: Use const_choice_iterator when available.
+    KeyedAggExpr *KAE = const_cast<KeyedAggExpr*>(this);
+
+    uint64_t count = 0;
+    choice_iterator I = KAE->choice_begin();
+    choice_iterator E = KAE->choice_end();
+    for ( ; I != E; ++I) {
+        if (const Range *range = dyn_cast<Range>(*I))
+            count += range->length();
+        else if (const DiscreteType *type = dyn_cast<DiscreteType>(*I))
+            count += type->length();
+        else {
+            assert(isa<Expr>(*I) && "Unexpected choice node!");
+            count++;
+        }
+    }
+
+    return count;
+}
