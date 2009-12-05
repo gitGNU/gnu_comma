@@ -163,12 +163,6 @@ private:
     emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);
 
     std::pair<llvm::Value*, llvm::Value*>
-    emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst, bool genTmp);
-
-    std::pair<llvm::Value*, llvm::Value*>
-    emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst, bool genTmp);
-
-    std::pair<llvm::Value*, llvm::Value*>
     emitArrayConversion(ConversionExpr *convert, llvm::Value *dst, bool genTmp);
 
     void emitArrayObjectDecl(ObjectDecl *objDecl);

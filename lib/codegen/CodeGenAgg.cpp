@@ -25,6 +25,329 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+namespace {
+
+/// \class
+///
+/// \brief Helper class for aggregate emission.
+class AggEmitter {
+
+public:
+    AggEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
+        : CGR(CGR),
+          emitter(CGR),
+          Builder(Builder) { }
+
+    typedef std::pair<llvm::Value *, llvm::Value *> ValuePair;
+
+    ValuePair emit(AggregateExpr *expr, llvm::Value *dst);
+
+private:
+    CodeGenRoutine &CGR;
+    BoundsEmitter emitter;
+    llvm::IRBuilder<> &Builder;
+
+    SRFrame *frame() { return CGR.getSRFrame(); }
+
+    void emitOthers(AggregateExpr *expr, llvm::Value *dst,
+                    llvm::Value *bounds, uint64_t numComponents);
+
+    ValuePair emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst);
+
+    ValuePair emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
+    ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
+    ValuePair emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
+    ValuePair emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
+    llvm::Value *emitVLArray(ArrayType *arrTy, llvm::Value *length);
+};
+
+
+AggEmitter::ValuePair AggEmitter::emit(AggregateExpr *expr, llvm::Value *dst)
+{
+    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(expr))
+        return emitPositionalAgg(PAE, dst);
+
+    KeyedAggExpr *KAE = cast<KeyedAggExpr>(expr);
+    return emitKeyedAgg(KAE, dst);
+}
+
+void AggEmitter::emitOthers(AggregateExpr *expr,
+                            llvm::Value *dst, llvm::Value *bounds,
+                            uint64_t numComponents)
+{
+    // If this aggregate does not specify an others component we are done.
+    //
+    // FIXME: If an undefined others component is specified we should be
+    // initializing the components with their default value (if any).
+    Expr *othersExpr = expr->getOthersExpr();
+    if (!othersExpr)
+        return;
+
+    // If there were no positional components emitted, emit a single "others"
+    // expression.  This simplifies emission of the remaining elements since we
+    // can "count from zero" and compare against the upper bound without
+    // worrying about overflow.
+    if (numComponents == 0) {
+        llvm::Value *component = CGR.emitValue(othersExpr);
+        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, 0);
+        Builder.CreateStore(component, idx);
+        numComponents = 1;
+    }
+
+    // Synthesize a loop to populate the remaining components.  Note that a
+    // memset is not possible here since we must re-evaluate the associated
+    // expression for each component.
+    llvm::BasicBlock *checkBB = frame()->makeBasicBlock("others.check");
+    llvm::BasicBlock *bodyBB = frame()->makeBasicBlock("others.body");
+    llvm::BasicBlock *mergeBB = frame()->makeBasicBlock("others.merge");
+
+    // Compute the number of "other" components minus one that we need to emit.
+    llvm::Value *lower = BoundsEmitter::getLowerBound(Builder, bounds, 0);
+    llvm::Value *upper = BoundsEmitter::getUpperBound(Builder, bounds, 0);
+    llvm::Value *max = Builder.CreateSub(upper, lower);
+
+    // Obtain a stack location for the index variable used to perform the
+    // iteration and initialize to the number of components we have already
+    // emitted minus one (which is always valid since we guaranteed above that
+    // at least one component has been generated).
+    const llvm::Type *idxTy = upper->getType();
+    llvm::Value *idxSlot = frame()->createTemp(idxTy);
+    llvm::Value *idx = llvm::ConstantInt::get(idxTy, numComponents - 1);
+    Builder.CreateStore(idx, idxSlot);
+
+    // Branch to the check BB and test if the index is equal to max.  If it is
+    // we are done.
+    Builder.CreateBr(checkBB);
+    Builder.SetInsertPoint(checkBB);
+    idx = Builder.CreateLoad(idxSlot);
+    Builder.CreateCondBr(Builder.CreateICmpEQ(idx, max), mergeBB, bodyBB);
+
+    // Move to the body block.  Increment our index and store it for use in the
+    // next iteration.
+    Builder.SetInsertPoint(bodyBB);
+    idx = Builder.CreateAdd(idx, llvm::ConstantInt::get(idxTy, 1));
+    Builder.CreateStore(idx, idxSlot);
+
+    // Emit the expression associated with the others clause and store it in the
+    // destination array.  Branch back to the test.
+    //
+    // FIXME: This code only works with non-composite values.
+    llvm::Value *indices[2];
+    indices[0] = llvm::ConstantInt::get(idxTy, 0);
+    indices[1] = idx;
+    llvm::Value *component = CGR.emitValue(othersExpr);
+    llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+    Builder.CreateStore(component, ptr);
+    Builder.CreateBr(checkBB);
+
+    // Set the insert point to the merge BB and return.
+    Builder.SetInsertPoint(mergeBB);
+}
+
+AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
+                                                    llvm::Value *dst)
+{
+    llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
+    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+
+    std::vector<llvm::Value*> components;
+
+    if (dst == 0)
+        dst = emitVLArray(arrTy, length);
+
+    typedef PositionalAggExpr::iterator iterator;
+    iterator I = expr->begin_components();
+    iterator E = expr->end_components();
+    for ( ; I != E; ++I)
+        components.push_back(CGR.emitValue(*I));
+
+    for (unsigned i = 0; i < components.size(); ++i) {
+        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, i);
+        Builder.CreateStore(components[i], idx);
+    }
+
+    // Emit an "others" clause if present.
+    emitOthers(expr, dst, bounds, components.size());
+    return ValuePair(dst, bounds);
+}
+
+AggEmitter::ValuePair AggEmitter::emitKeyedAgg(KeyedAggExpr *expr,
+                                               llvm::Value *dst)
+{
+    if (expr->hasStaticIndices())
+        return emitStaticKeyedAgg(expr, dst);
+
+    if (expr->numChoices() == 1)
+        return emitDynamicKeyedAgg(expr, dst);
+
+    assert(expr->numChoices() == 0);
+    assert(expr->hasOthers());
+
+    return emitOthersKeyedAgg(expr, dst);
+}
+
+AggEmitter::ValuePair
+AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+{
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    uint64_t numComponents = expr->numComponents();
+    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
+
+    assert(numComponents && "Aggregate does not have static components!");
+
+    // Build a bounds structure for this aggregate.
+    llvm::Value *lower;
+    llvm::Value *upper;
+    llvm::Value *bounds;
+
+    lower = emitter.getLowerBound(Builder, arrTy->getIndexType(0));
+    const llvm::Type *indexTy = lower->getType();
+
+    upper = llvm::ConstantInt::get(indexTy, numComponents - 1);
+    upper = Builder.CreateAdd(lower, upper);
+    bounds = emitter.synthRange(Builder, lower, upper);
+
+    // If the destination is null, create a temporary to hold the aggregate.
+    if (dst == 0) {
+        const llvm::Type *componentTy;
+        const llvm::Type *dstTy;
+        componentTy = CGT.lowerType(arrTy->getComponentType());
+        dstTy = llvm::ArrayType::get(componentTy, numComponents);
+        dst = frame()->createTemp(dstTy);
+    }
+
+    // Generate the aggregate.
+    KeyedAggExpr::choice_iterator I = expr->choice_begin();
+    KeyedAggExpr::choice_iterator E = expr->choice_end();
+    llvm::Value *idxZero = llvm::ConstantInt::get(indexTy, 0);
+    llvm::Value *idxOne = llvm::ConstantInt::get(indexTy, 1);
+    for ( ; I != E; ++I) {
+        if (Range *range = dyn_cast<Range>(*I)) {
+            uint64_t length = range->length();
+            llvm::Value *idx = emitter.getLowerBound(Builder, range);
+            idx = Builder.CreateSub(idx, lower);
+            for (uint64_t i = 0; i < length; ++i) {
+                llvm::Value *component;
+                llvm::Value *indices[2];
+                llvm::Value *ptr;
+
+                component = CGR.emitValue(I.getExpr());
+
+                indices[0] = idxZero;
+                indices[1] = idx;
+
+                ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+                Builder.CreateStore(component, ptr);
+                idx = Builder.CreateAdd(idx, idxOne);
+            }
+            continue;
+        }
+        assert(false && "Discrete choice not yet supported!");
+    }
+
+    emitOthers(expr, dst, bounds, numComponents);
+    return ValuePair(dst, bounds);
+}
+
+AggEmitter::ValuePair
+AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+{
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    KeyedAggExpr::choice_iterator I = expr->choice_begin();
+    Range *range = cast<Range>(*I);
+    llvm::Value *bounds = emitter.synthRange(Builder, range);
+    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
+
+    if (dst == 0)
+        dst = emitVLArray(arrTy, length);
+
+    // Iterate from 0 upto the computed length of the aggregate.  Define the
+    // iteration type and some constance for convenience.
+    const llvm::Type *iterTy = length->getType();
+    llvm::Value *iterZero = llvm::ConstantInt::get(iterTy, 0);
+    llvm::Value *iterOne = llvm::ConstantInt::get(iterTy, 1);
+
+    // Define the iteration variable as an alloca.
+    llvm::Value *iter = frame()->createTemp(iterTy);
+    Builder.CreateStore(iterZero, iter);
+
+    // Create check, body, and merge basic blocks.
+    llvm::BasicBlock *checkBB = frame()->makeBasicBlock("agg.check");
+    llvm::BasicBlock *bodyBB = frame()->makeBasicBlock("agg.body");
+    llvm::BasicBlock *mergeBB = frame()->makeBasicBlock("agg.merge");
+
+    // While iter < length.
+    Builder.CreateBr(checkBB);
+    Builder.SetInsertPoint(checkBB);
+    llvm::Value *idx = Builder.CreateLoad(iter);
+    llvm::Value *pred = Builder.CreateICmpULT(idx, length);
+    Builder.CreateCondBr(pred, bodyBB, mergeBB);
+
+    // Compute and store an element into the aggregate.
+    Builder.SetInsertPoint(bodyBB);
+    llvm::Value *indices[2];
+    llvm::Value *ptr;
+    llvm::Value *component;
+
+    indices[0] = iterZero;
+    indices[1] = idx;
+
+    component = CGR.emitValue(I.getExpr());
+    ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+    Builder.CreateStore(component, ptr);
+    Builder.CreateStore(Builder.CreateAdd(idx, iterOne), iter);
+    Builder.CreateBr(checkBB);
+
+    // Set the insert point to the merge block and return.
+    Builder.SetInsertPoint(mergeBB);
+    return ValuePair(dst, bounds);
+}
+
+AggEmitter::ValuePair
+AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+{
+    assert(expr->hasOthers() && "Empty aggregate!");
+
+    // For an others expression, obtain bounds from the index type of
+    // this aggregate.
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    assert(arrTy->isConstrained() && "Aggregate requires constraint!");
+
+    DiscreteType *idxTy = arrTy->getIndexType(0);
+    llvm::Value *bounds = emitter.synthScalarBounds(Builder, idxTy);
+    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
+
+    // If dst is null, compute the length of the aggregate and build a
+    // destination for the data.
+    if (dst == 0)
+        dst = emitVLArray(arrTy, length);
+
+    // Emit the others expression.
+    emitOthers(expr, dst, bounds, 0);
+    return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
+}
+
+llvm::Value* AggEmitter::emitVLArray(ArrayType *arrTy, llvm::Value *length)
+{
+    const llvm::Type *componentTy;
+    const llvm::Type *dstTy;
+    llvm::Value *dst;
+
+    CodeGen &CG = CGR.getCodeGen();
+    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
+
+    componentTy = CGT.lowerType(arrTy->getComponentType());
+    dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+    dst = Builder.CreateAlloca(componentTy, length);
+    dst = Builder.CreateBitCast(dst, dstTy);
+    frame()->stacksave();
+    return dst;
+}
+
+} // end anonymous namespace.
+
+
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *destination,
                                    ArrayType *Ty)
@@ -196,123 +519,8 @@ std::pair<llvm::Value*, llvm::Value*>
 CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
                               bool genTmp)
 {
-    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(expr))
-        return emitPositionalAgg(PAE, dst, genTmp);
-    else {
-        KeyedAggExpr *KAE = cast<KeyedAggExpr>(expr);
-        return emitKeyedAgg(KAE, dst, genTmp);
-    }
-}
-
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitPositionalAgg(PositionalAggExpr *expr,
-                                  llvm::Value *dst,
-                                  bool genTmp)
-{
-    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
-    typedef PositionalAggExpr::iterator iterator;
-
-    BoundsEmitter emitter(*this);
-    llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
-    ArrayType *arrTy = cast<ArrayType>(expr->getType());
-
-    std::vector<llvm::Value*> components;
-
-    if (!dst && genTmp) {
-        llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
-        const llvm::Type *elemTy = CGT.lowerType(arrTy->getComponentType());
-        const llvm::Type *dstTy = CG.getPointerType(CG.getVLArrayTy(elemTy));
-        dst = Builder.CreateAlloca(elemTy, length);
-        dst = Builder.CreatePointerCast(dst, dstTy);
-    }
-
-    iterator I = expr->begin_components();
-    iterator E = expr->end_components();
-    for ( ; I != E; ++I)
-        components.push_back(emitValue(*I));
-
-    for (unsigned i = 0; i < components.size(); ++i) {
-        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, i);
-        Builder.CreateStore(components[i], idx);
-    }
-
-    // If this aggregate does not specify an others component we are done.
-    //
-    // FIXME: If an undefined others component is specified we should be
-    // initializing the components with their default value (if any).
-    Expr *othersExpr = expr->getOthersExpr();
-    if (!othersExpr)
-        return ArrPair(dst, bounds);
-
-    // If there were no positional components emitted, emit a single "others"
-    // expression.  This simplifies emission of the remaining elements since we
-    // can "count from zero" and compare against the upper bound without
-    // worrying about overflow.
-    unsigned numComponents = components.size();
-    if (numComponents == 0) {
-        llvm::Value *component = emitValue(othersExpr);
-        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, 0);
-        Builder.CreateStore(component, idx);
-        numComponents = 1;
-    }
-
-    // Synthesize a loop to populate the remaining components.  Note that a
-    // memset is not possible here since we must re-evaluate the associated
-    // expression for each component.
-    llvm::BasicBlock *checkBB = makeBasicBlock("others.check");
-    llvm::BasicBlock *bodyBB = makeBasicBlock("others.body");
-    llvm::BasicBlock *mergeBB = makeBasicBlock("others.merge");
-
-    // Compute the number of "other" components minus one that we need to emit.
-    llvm::Value *lower = BoundsEmitter::getLowerBound(Builder, bounds, 0);
-    llvm::Value *upper = BoundsEmitter::getUpperBound(Builder, bounds, 0);
-    llvm::Value *max = Builder.CreateSub(upper, lower);
-
-    // Obtain a stack location for the index variable used to perform the
-    // iteration and initialize to the number of components we have already
-    // emitted minus one (which is always valid since we guaranteed above that
-    // at least one component has been generated).
-    const llvm::Type *idxTy = upper->getType();
-    llvm::Value *idxSlot = SRF->createTemp(idxTy);
-    llvm::Value *idx = llvm::ConstantInt::get(idxTy, numComponents - 1);
-    Builder.CreateStore(idx, idxSlot);
-
-    // Branch to the check BB and test if the index is equal to max.  If it is
-    // we are done.
-    Builder.CreateBr(checkBB);
-    Builder.SetInsertPoint(checkBB);
-    idx = Builder.CreateLoad(idxSlot);
-    Builder.CreateCondBr(Builder.CreateICmpEQ(idx, max), mergeBB, bodyBB);
-
-    // Move to the body block.  Increment our index and store it for use in the
-    // next iteration.
-    Builder.SetInsertPoint(bodyBB);
-    idx = Builder.CreateAdd(idx, llvm::ConstantInt::get(idxTy, 1));
-    Builder.CreateStore(idx, idxSlot);
-
-    // Emit the expression associated with the others clause and store it in the
-    // destination array.  Branch back to the test.
-    //
-    // FIXME: This code only works with non-composite values.
-    llvm::Value *indices[2];
-    indices[0] = llvm::ConstantInt::get(idxTy, 0);
-    indices[1] = idx;
-    llvm::Value *component = emitValue(othersExpr);
-    llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-    Builder.CreateStore(component, ptr);
-    Builder.CreateBr(checkBB);
-
-    // Set the insert point to the merge BB and return.
-    Builder.SetInsertPoint(mergeBB);
-    return ArrPair(dst, bounds);
-}
-
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst,
-                             bool genTmp)
-{
-    assert(false && "Keyed aggregates are not yet supported!");
-    return std::pair<llvm::Value*, llvm::Value*>(0, 0);
+    AggEmitter emitter(*this, Builder);
+    return emitter.emit(expr, dst);
 }
 
 std::pair<llvm::Value*, llvm::Value*>
