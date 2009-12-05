@@ -66,6 +66,9 @@ public:
     /// subroutine.
     llvm::IRBuilder<> &getIRBuilder() { return Builder; }
 
+    /// Creates a basic block for this frame.
+    llvm::BasicBlock *makeBasicBlock(const std::string &name,
+                                     llvm::BasicBlock *insertBefore = 0);
     /// \name Allocation methods.
     //@{
     llvm::Value *createTemp(const llvm::Type *type);

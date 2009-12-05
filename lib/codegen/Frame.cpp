@@ -219,3 +219,11 @@ void SRFrame::emitEpilogue()
         returnBB->moveAfter(lastBB);
 }
 
+llvm::BasicBlock *SRFrame::makeBasicBlock(const std::string &name,
+                                          llvm::BasicBlock *insertBefore)
+{
+    llvm::Function *fn = getLLVMFunction();
+    llvm::LLVMContext &ctx = fn->getContext();
+    return llvm::BasicBlock::Create(ctx, name, fn, insertBefore);
+}
+
