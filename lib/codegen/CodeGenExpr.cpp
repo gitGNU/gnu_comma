@@ -233,9 +233,9 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
     }
 
     // Build our basic blocks.
-    llvm::BasicBlock *checkHighBB = makeBasicBlock("high.check");
-    llvm::BasicBlock *checkFailBB = makeBasicBlock("check.fail");
-    llvm::BasicBlock *checkMergeBB = makeBasicBlock("check.merge");
+    llvm::BasicBlock *checkHighBB = SRF->makeBasicBlock("high.check");
+    llvm::BasicBlock *checkFailBB = SRF->makeBasicBlock("check.fail");
+    llvm::BasicBlock *checkMergeBB = SRF->makeBasicBlock("check.merge");
 
     // Check the low bound.
     llvm::Value *lowPass;

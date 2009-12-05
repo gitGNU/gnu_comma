@@ -160,7 +160,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
-    llvm::BasicBlock *BB = makeBasicBlock(label);
+    llvm::BasicBlock *BB = SRF->makeBasicBlock(label);
 
     if (predecessor) {
         Builder.CreateBr(BB);
@@ -198,14 +198,14 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 {
     llvm::Value *condition = emitValue(ite->getCondition());
-    llvm::BasicBlock *thenBB = makeBasicBlock("then");
-    llvm::BasicBlock *mergeBB = makeBasicBlock("merge");
+    llvm::BasicBlock *thenBB = SRF->makeBasicBlock("then");
+    llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("merge");
     llvm::BasicBlock *elseBB;
 
     if (ite->hasElsif())
-        elseBB = makeBasicBlock("elsif");
+        elseBB = SRF->makeBasicBlock("elsif");
     else if (ite->hasAlternate())
-        elseBB = makeBasicBlock("else");
+        elseBB = SRF->makeBasicBlock("else");
     else
         elseBB = mergeBB;
 
@@ -222,12 +222,12 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         Builder.SetInsertPoint(elseBB);
         IfStmt::iterator J = I;
         if (++J != ite->endElsif())
-            elseBB = makeBasicBlock("elsif");
+            elseBB = SRF->makeBasicBlock("elsif");
         else if (ite->hasAlternate())
-            elseBB = makeBasicBlock("else");
+            elseBB = SRF->makeBasicBlock("else");
         else
             elseBB = mergeBB;
-        llvm::BasicBlock *bodyBB = makeBasicBlock("body");
+        llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("body");
         llvm::Value *pred = emitValue(I->getCondition());
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
@@ -282,9 +282,9 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 {
-    llvm::BasicBlock *entryBB = makeBasicBlock("while.top");
-    llvm::BasicBlock *bodyBB = makeBasicBlock("while.entry");
-    llvm::BasicBlock *mergeBB = makeBasicBlock("while.merge");
+    llvm::BasicBlock *entryBB = SRF->makeBasicBlock("while.top");
+    llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("while.entry");
+    llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("while.merge");
 
     // Branch unconditionally from the current insertion point to the entry
     // block and set up our new context.  Emit the loop condition into the entry
@@ -334,10 +334,10 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     // the iteration.  Emit an entry, iterate, body, and merge block for the
     // loop.
     llvm::BasicBlock *dominatorBB = Builder.GetInsertBlock();
-    llvm::BasicBlock *entryBB = makeBasicBlock("for.top");
-    llvm::BasicBlock *iterBB = makeBasicBlock("for.iter");
-    llvm::BasicBlock *bodyBB = makeBasicBlock("for.body");
-    llvm::BasicBlock *mergeBB = makeBasicBlock("for.merge");
+    llvm::BasicBlock *entryBB = SRF->makeBasicBlock("for.top");
+    llvm::BasicBlock *iterBB = SRF->makeBasicBlock("for.iter");
+    llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("for.body");
+    llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("for.merge");
     llvm::Value *pred;
     llvm::Value *iterSlot;
     llvm::Value *next;
@@ -398,8 +398,8 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
 
 void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
 {
-    llvm::BasicBlock *bodyBB = makeBasicBlock("loop.body");
-    llvm::BasicBlock *mergeBB = makeBasicBlock("loop.merge");
+    llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("loop.body");
+    llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("loop.merge");
 
     // Branch unconditionally from the current insertion point to the loop body.
     Builder.CreateBr(bodyBB);

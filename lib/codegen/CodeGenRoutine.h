@@ -175,17 +175,6 @@ private:
 
     /// Returns the lower and upper bounds of the given range attribute.
     std::pair<llvm::Value*, llvm::Value*> emitRangeAttrib(RangeAttrib *attrib);
-
-    //===------------------------------------------------------------------===//
-    // Helper methods to generate LLVM IR.
-
-    /// \brief Returns an llvm basic block.
-    ///
-    /// Generates a BasicBlock with the parent taken to be the current
-    /// subroutine being generated.
-    llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
-                                     llvm::BasicBlock *insertBefore = 0) const;
-
 };
 
 } // end comma namespace

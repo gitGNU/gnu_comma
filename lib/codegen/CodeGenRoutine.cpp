@@ -165,8 +165,8 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 
     // Create basic blocks for when the assertion fires and another for the
     // continuation.
-    llvm::BasicBlock *assertBB = makeBasicBlock("assert-fail");
-    llvm::BasicBlock *passBB = makeBasicBlock("assert-pass");
+    llvm::BasicBlock *assertBB = SRF->makeBasicBlock("assert-fail");
+    llvm::BasicBlock *passBB = SRF->makeBasicBlock("assert-pass");
 
     // If the condition is true, the assertion does not fire.
     Builder.CreateCondBr(condition, passBB, assertBB);
@@ -220,14 +220,4 @@ PrimaryType *CodeGenRoutine::resolveType(Type *type)
         return instance->getRepresentationType();
     }
     return cast<PrimaryType>(type);
-}
-
-//===----------------------------------------------------------------------===//
-// LLVM IR generation helpers.
-
-llvm::BasicBlock *
-CodeGenRoutine::makeBasicBlock(const std::string &name,
-                               llvm::BasicBlock *insertBefore) const
-{
-    return CG.makeBasicBlock(name, getLLVMFunction(), insertBefore);
 }
