@@ -26,8 +26,7 @@ void CodeGenRoutine::emitIntegerSubtypeDecl(IntegerSubtypeDecl *subDecl)
 
     // Calculate the bounds of this subtype and associate the result.
     BoundsEmitter emitter(*this);
-    llvm::Value *bounds = emitter.synthScalarBounds(Builder, intTy);
-    SRF->associate(intTy, activation::Bounds, bounds);
+    emitter.synthScalarBounds(Builder, intTy);
 }
 
 void CodeGenRoutine::emitEnumSubtypeDecl(EnumSubtypeDecl *subDecl)
