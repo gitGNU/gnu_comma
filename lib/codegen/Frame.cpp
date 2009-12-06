@@ -24,13 +24,51 @@ activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
     return 0;
 }
 
+SRFrame::Subframe::Subframe(SRFrame *SRF, Subframe *parent)
+    : SRF(SRF),
+      parent(parent),
+      restorePtr(0) { }
+
+SRFrame::Subframe::~Subframe()
+{
+    emitStackrestore();
+}
+
+void SRFrame::Subframe::emitStacksave()
+{
+    if (restorePtr)
+        return;
+
+    llvm::Module *M;
+    llvm::Function *save;
+
+    M = SRF->getSRInfo()->getLLVMModule();
+    save = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stacksave);
+    restorePtr = SRF->getIRBuilder().CreateCall(save);
+}
+
+void SRFrame::Subframe::emitStackrestore()
+{
+    if (!restorePtr)
+        return;
+
+    if (SRF->getIRBuilder().GetInsertBlock()->getTerminator())
+        return;
+
+    llvm::Module *M;
+    llvm::Function *restore;
+
+    M = SRF->getSRInfo()->getLLVMModule();
+    restore = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stackrestore);
+    SRF->getIRBuilder().CreateCall(restore, restorePtr);
+}
+
 SRFrame::SRFrame(SRInfo *routineInfo, llvm::IRBuilder<> &Builder)
     : SRI(routineInfo),
       Builder(Builder),
       allocaBB(0),
-      isSaved(false),
-      restorePtr(0),
       returnBB(0),
+      currentSubframe(0),
       returnValue(0),
       implicitContext(0)
 {
@@ -63,6 +101,37 @@ SRFrame::~SRFrame()
     EntryMap::iterator E = entryTable.end();
     for ( ; I != E; ++I)
         delete I->second;
+}
+
+void SRFrame::stacksave()
+{
+    // If there is no subframe then a stacksave is not needed since any
+    // allocations are in a "straight line" code path.
+    if (currentSubframe)
+        currentSubframe->emitStacksave();
+}
+
+void SRFrame::pushFrame()
+{
+    currentSubframe = new Subframe(this, currentSubframe);
+}
+
+void SRFrame::popFrame()
+{
+    assert(currentSubframe && "Subframe imbalance!");
+    Subframe *old = currentSubframe;
+    currentSubframe = old->getParent();
+    delete old;
+}
+
+void SRFrame::emitReturn()
+{
+    // Iterate over the set of subframes and emit a stackrestore for each
+    // brefore branching to the return block.
+    Subframe *cursor;
+    for (cursor = currentSubframe; cursor; cursor = cursor->getParent())
+        cursor->emitStackrestore();
+    Builder.CreateBr(returnBB);
 }
 
 void SRFrame::injectSubroutineArgs()
@@ -170,18 +239,7 @@ llvm::Value *SRFrame::lookup(const PrimaryType *type, activation::Tag tag)
 void SRFrame::emitPrologue(llvm::BasicBlock *bodyBB)
 {
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
-
     Builder.SetInsertPoint(allocaBB);
-
-    // If this frame was marked as a stacksaved region, insert a stacksave
-    // instruction at the end of the alloca block, then branch to the body.
-    if (isSaved) {
-        llvm::Module *M = SRI->getLLVMModule();
-        llvm::Function *ssave =
-            llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stacksave);
-        restorePtr = Builder.CreateCall(ssave);
-    }
-
     Builder.CreateBr(bodyBB);
     Builder.SetInsertPoint(savedBB);
 }
@@ -191,18 +249,10 @@ void SRFrame::emitEpilogue()
     llvm::Function *Fn = SRI->getLLVMFunction();
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
-    Builder.SetInsertPoint(returnBB);
-
-    // If this frame was marked as a stacksaved region, insert a stackrestore
-    // instruction into returnBB.
-    if (isSaved) {
-        llvm::Module *M = SRI->getLLVMModule();
-        llvm::Function *srestore =
-            llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stackrestore);
-        Builder.CreateCall(srestore, restorePtr);
-    }
+    assert(currentSubframe == 0 && "Subframe imbalance!");
 
     // Create the final return terminator.
+    Builder.SetInsertPoint(returnBB);
     if (returnValue && !SRI->hasSRet()) {
         llvm::Value *V = Builder.CreateLoad(returnValue);
         Builder.CreateRet(V);
@@ -210,13 +260,13 @@ void SRFrame::emitEpilogue()
     else
         Builder.CreateRetVoid();
 
-    Builder.SetInsertPoint(savedBB);
-
     // Move the return block to the very end of the function.  Though by no
     // means necessary, this tweak does improve assembly readability a bit.
     llvm::BasicBlock *lastBB = &Fn->back();
     if (returnBB != lastBB)
         returnBB->moveAfter(lastBB);
+
+    Builder.SetInsertPoint(savedBB);
 }
 
 llvm::BasicBlock *SRFrame::makeBasicBlock(const std::string &name,

@@ -298,7 +298,9 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 
     // Generate the body.
     Builder.SetInsertPoint(bodyBB);
+    SRF->pushFrame();
     emitStmt(stmt->getBody());
+    SRF->popFrame();
 
     // If the current insertion point does not have a terminator,
     // unconditionally branch to entryBB.
@@ -385,12 +387,15 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     // FIXME: Once nested frames are available, the iteration binding should be
     // scoped.
     Builder.SetInsertPoint(bodyBB);
+    SRF->pushFrame();
     phi = Builder.CreatePHI(iterTy, "loop.param");
     phi->addIncoming(iter, dominatorBB);
     phi->addIncoming(next, iterBB);
     SRF->associate(loop->getLoopDecl(), activation::Slot, phi);
     emitStmtSequence(loop->getBody());
-    Builder.CreateBr(entryBB);
+    SRF->popFrame();
+    if (!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(entryBB);
 
     // Finally, set the insertion point to the mergeBB.
     Builder.SetInsertPoint(mergeBB);
@@ -406,7 +411,9 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
     Builder.SetInsertPoint(bodyBB);
 
     // Generate the body.
+    SRF->pushFrame();
     emitStmt(stmt->getBody());
+    SRF->popFrame();
 
     // If the current insertion point does not have a terminator,
     // unconditionally branch back to the start of the body.

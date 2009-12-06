@@ -67,8 +67,21 @@ public:
     llvm::IRBuilder<> &getIRBuilder() { return Builder; }
 
     /// Creates a basic block for this frame.
-    llvm::BasicBlock *makeBasicBlock(const std::string &name,
+    llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
                                      llvm::BasicBlock *insertBefore = 0);
+
+    /// \name Subframe Methods.
+    //@{
+    /// Pushes a new subframe and makes it current.
+    void pushFrame();
+
+    /// Pop's the current subframe.
+    void popFrame();
+
+    /// Marks the current subframe as a stacksave frame.
+    void stacksave();
+    //@}
+
     /// \name Allocation methods.
     //@{
     llvm::Value *createTemp(const llvm::Type *type);
@@ -94,10 +107,7 @@ public:
     llvm::Value *lookup(const PrimaryType *type, activation::Tag tag);
     //@}
 
-    /// Marks this frame as a stacksave frame.
-    void stacksave() { isSaved = true; }
-
-    void emitReturn() { Builder.CreateBr(returnBB); }
+    void emitReturn();
 
     llvm::Value *getReturnValue() { return returnValue; }
 
@@ -107,32 +117,6 @@ public:
     void emitEpilogue();
 
 private:
-    /// The SRInfo object associated with the subroutine this frame is
-    /// representing.
-    SRInfo *SRI;
-
-    /// IRBuilder used to generate the code for this subroutine.
-    llvm::IRBuilder<> &Builder;
-
-    /// A basic block holding all alloca'd data in this subroutine.
-    llvm::BasicBlock *allocaBB;
-
-    /// True when this frame has been marked as a stacksave frame.
-    bool isSaved;
-
-    /// When isSaved is true, this member holds onto the stackrestore pointer.
-    llvm::Value *restorePtr;
-
-    /// The final return basic block;
-    llvm::BasicBlock *returnBB;
-
-    /// The return value for this function.  This member is null when we are
-    /// generating an procedure or function using the sret calling convention.
-    llvm::Value *returnValue;
-
-    /// The implicit instance parameter for this function.
-    llvm::Value *implicitContext;
-
     /// The following structure is used to hold information about alloca'd
     /// objects within an SRFrame.
     class ActivationEntry {
@@ -150,6 +134,63 @@ private:
 
         llvm::iplist<activation::Property> plist;
     };
+
+    class Subframe {
+
+    public:
+        Subframe(SRFrame *context, Subframe *parent);
+        ~Subframe();
+
+        /// Returns true if this is a nested subframe.
+        bool hasParent() const { return parent != 0; }
+
+        /// Returns the parent of this frame, or null if hasParent() returns
+        /// false.
+        Subframe *getParent() { return parent; }
+
+        /// On the first call emits a stacksave instruction.  Subsequent calls
+        /// have no effect.
+        void emitStacksave();
+
+        /// Emits a stackrestore iff there was a previous call to
+        /// emitStacksave().
+        void emitStackrestore();
+
+    private:
+        /// Back-link to the managing SRFrame.
+        SRFrame *SRF;
+
+        /// The Subframe which contains this one, or null if this is a top-level
+        /// frame.
+        Subframe *parent;
+
+        /// Non-null when emitStacksave is called on this Subframe.  Holds the
+        /// restoration pointer for use in a stackrestore call.
+        llvm::Value *restorePtr;
+    };
+
+    /// The SRInfo object associated with the subroutine this frame is
+    /// representing.
+    SRInfo *SRI;
+
+    /// IRBuilder used to generate the code for this subroutine.
+    llvm::IRBuilder<> &Builder;
+
+    /// A basic block holding all alloca'd data in this subroutine.
+    llvm::BasicBlock *allocaBB;
+
+    /// The final return basic block;
+    llvm::BasicBlock *returnBB;
+
+    /// Current subframe entry.
+    Subframe *currentSubframe;
+
+    /// The return value for this function.  This member is null when we are
+    /// generating an procedure or function using the sret calling convention.
+    llvm::Value *returnValue;
+
+    /// The implicit instance parameter for this function.
+    llvm::Value *implicitContext;
 
     // Map from Comma Decl's and Type's to AllocaEntry's.
     typedef llvm::DenseMap<const Ast*, ActivationEntry*> EntryMap;

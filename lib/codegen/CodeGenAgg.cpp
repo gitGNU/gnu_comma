@@ -339,9 +339,9 @@ llvm::Value* AggEmitter::emitVLArray(ArrayType *arrTy, llvm::Value *length)
 
     componentTy = CGT.lowerType(arrTy->getComponentType());
     dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+    frame()->stacksave();
     dst = Builder.CreateAlloca(componentTy, length);
     dst = Builder.CreateBitCast(dst, dstTy);
-    frame()->stacksave();
     return dst;
 }
 
