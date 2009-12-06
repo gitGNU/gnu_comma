@@ -224,6 +224,7 @@ void CommaRT::define_vstack_alloc()
     llvm::FunctionType *fnTy =
         llvm::FunctionType::get(CG.getVoidTy(), args, false);
     vstack_alloc_Fn = CG.makeFunction(fnTy, "_comma_vstack_alloc");
+    vstack_alloc_Fn->setDoesNotThrow();
 }
 
 void CommaRT::define_vstack_push()
@@ -235,6 +236,7 @@ void CommaRT::define_vstack_push()
     llvm::FunctionType *fnTy =
         llvm::FunctionType::get(CG.getVoidTy(), args, false);
     vstack_push_Fn = CG.makeFunction(fnTy, "_comma_vstack_push");
+    vstack_push_Fn->setDoesNotThrow();
 }
 
 void CommaRT::define_vstack_pop()
@@ -244,6 +246,7 @@ void CommaRT::define_vstack_pop()
     llvm::FunctionType *fnTy =
         llvm::FunctionType::get(CG.getVoidTy(), args, false);
     vstack_pop_Fn = CG.makeFunction(fnTy, "_comma_vstack_pop");
+    vstack_pop_Fn->setDoesNotThrow();
 }
 
 void CommaRT::define_vstack()
