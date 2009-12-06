@@ -974,7 +974,11 @@ _comma_eh_personality(int version,
         return _URC_FATAL_PHASE1_ERROR;
     }
 
-    parse_LSDA(context, &lsda);
+    /*
+     * If we could not parse the lsda, continue to unwind.
+     */
+    if (parse_LSDA(context, &lsda))
+        return _URC_CONTINUE_UNWIND;
     dump_LSDA(&lsda);
 
     /*
@@ -1013,6 +1017,12 @@ _comma_eh_personality(int version,
      */
     if (actions & _UA_SEARCH_PHASE)
         return _URC_HANDLER_FOUND;
+
+    /*
+     * If the _UA_HANDLER_FRAME bit is not set then continue to unwind.
+     */
+    if (!(actions & _UA_HANDLER_FRAME))
+        return _URC_CONTINUE_UNWIND;
 
     /*
      * We are in phase 2. Compute the landing pad address relative to @LPStart
