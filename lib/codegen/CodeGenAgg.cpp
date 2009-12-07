@@ -501,8 +501,6 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
 
     // If a destination is available, fill it in with the associated array data.
-    if (isa<llvm::PointerType>(bounds->getType()))
-        bounds = Builder.CreateLoad(bounds);
     if (dst) {
         if (length == 0)
             length = emitter.computeTotalBoundLength(Builder, bounds);

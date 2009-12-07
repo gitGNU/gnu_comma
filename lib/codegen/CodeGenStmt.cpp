@@ -106,30 +106,40 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
                     emitArrayExpr(expr, 0, true);
                 const llvm::Type *componentTy =
                     CGT.lowerType(arrTy->getComponentType());
-                // First push the data, then the bounds.  This allows the bounds
-                // to be accessed first by the callee and the size of the data
-                // computed before the data itself is retrieved.
                 llvm::Value *data = arrayPair.first;
                 llvm::Value *bounds = arrayPair.second;
-                llvm::Value *boundSize =
-                    llvm::ConstantExpr::getSizeOf(bounds->getType());
-                llvm::Value *boundSlot = SRF->createTemp(bounds->getType());
-                llvm::Value *dataSize =
-                    llvm::ConstantExpr::getSizeOf(componentTy);
+                const llvm::Type *boundsTy = bounds->getType();
 
-                // getSizeOf returns an i64 but vstack_push requires an i32.
-                boundSize = Builder.CreateTrunc(boundSize, CG.getInt32Ty());
+                // Compute the size of the data.  Note that getSizeOf returns an
+                // i64 but we need an i32 here.
+                llvm::Value *dataSize;
+                dataSize = llvm::ConstantExpr::getSizeOf(componentTy);
                 dataSize = Builder.CreateTrunc(dataSize, CG.getInt32Ty());
-
                 dataSize = Builder.CreateMul(
-                    dataSize,
-                    emitter.computeTotalBoundLength(Builder, bounds));
+                    dataSize, emitter.computeTotalBoundLength(Builder, bounds));
 
-                // Store the expressions bounds into a the allocated slot.
-                Builder.CreateStore(bounds, boundSlot);
+                // Compute the size of the bounds structure.  This is dependent
+                // on if the bounds were given as a pointer or an aggregate.
+                llvm::Value *boundsSize;
+                if (boundsTy->isAggregateType())
+                    boundsSize = llvm::ConstantExpr::getSizeOf(boundsTy);
+                else {
+                    const llvm::PointerType *ptr;
+                    ptr = llvm::cast<llvm::PointerType>(boundsTy);
+                    boundsSize = llvm::ConstantExpr::getSizeOf(ptr->getElementType());
+                }
+                boundsSize = Builder.CreateTrunc(boundsSize, CG.getInt32Ty());
+
+                // Generate a temporary if needed so that we can obtain a
+                // pointer to the bounds.
+                if (boundsTy->isAggregateType()) {
+                    llvm::Value *slot = SRF->createTemp(boundsTy);
+                    Builder.CreateStore(bounds, slot);
+                    bounds = slot;
+                }
 
                 CRT.vstack_push(Builder, data, dataSize);
-                CRT.vstack_push(Builder, boundSlot, boundSize);
+                CRT.vstack_push(Builder, bounds, boundsSize);
             }
         }
     }

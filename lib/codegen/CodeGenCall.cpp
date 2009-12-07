@@ -346,11 +346,14 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
 
         // Pass the components plus the bounds.
         llvm::Value *bounds = pair.second;
-        const llvm::Type *boundTy = bounds->getType();
-        llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(boundTy);
-        Builder.CreateStore(bounds, boundsSlot);
+        const llvm::Type *boundsTy = bounds->getType();
+        if (boundsTy->isAggregateType()) {
+            llvm::Value *slot = CGR.getSRFrame()->createTemp(boundsTy);
+            Builder.CreateStore(bounds, slot);
+            bounds = slot;
+        }
         arguments.push_back(components);
-        arguments.push_back(boundsSlot);
+        arguments.push_back(bounds);
     }
 }
 
