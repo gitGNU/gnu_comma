@@ -71,6 +71,13 @@ public:
     IntegerType *getAsIntegerType();
     EnumerationType *getAsEnumType();
 
+    /// Returns true if this type involves a percent node.
+    ///
+    /// More precisely, this method returns true if the node itself denotes
+    /// percent, or if this is a composite, parameterized domain, or subroutine
+    /// type with a component type which involves percent.
+    bool involvesPercent() const;
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
@@ -340,13 +347,6 @@ public:
 
     /// Returns true if this node is a percent node.
     bool denotesPercent() const { return getPercentDecl() != 0; }
-
-    /// Returns true if this type involves a percent node.
-    ///
-    /// More precisely, this method returns true if the node itself denotes
-    /// percent, or (if this type corresponds to a parameterized instance) if
-    /// any argument involves percent (applying this definition recursively).
-    bool involvesPercent() const;
 
     /// Returns true if the underlying declaration is an DomainInstanceDecl.
     bool isConcrete() const { return getInstanceDecl() != 0; }

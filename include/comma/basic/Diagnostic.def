@@ -159,7 +159,9 @@ DIAGNOSTIC(OPERATOR_ARITY_MISMATCH, ERROR,
 DIAGNOSTIC(INVALID_QUALIFIER, ERROR,
            "`%0' cannot qualify an expression.")
 DIAGNOSTIC(SELF_RECURSIVE_INSTANCE, ERROR,
-           "Cannot form self-recursive instantiations.")
+           "Cannot form recursive instantiations.")
+DIAGNOSTIC(SELF_RECURSIVE_TYPE_DECLARATION, ERROR,
+           "Cannot form recursive type declarations.")
 DIAGNOSTIC(NAME_REQUIRES_QUAL, ERROR,
            "`%0' requires qualification.")
 DIAGNOSTIC(INCOMPATABLE_MODE_REDECLARATION, ERROR,

@@ -103,6 +103,42 @@ EnumerationType *Type::getAsEnumType()
     return dyn_cast<EnumerationType>(this);
 }
 
+bool Type::involvesPercent() const
+{
+    if (const DomainType *domTy = dyn_cast<DomainType>(this)) {
+        if (domTy->denotesPercent())
+            return true;
+
+        if (const DomainInstanceDecl *instance = domTy->getInstanceDecl()) {
+            unsigned arity = instance->getArity();
+            for (unsigned i = 0; i < arity; ++i) {
+                DomainType *param = instance->getActualParamType(i);
+                if (param->involvesPercent())
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    if (const ArrayType *arrTy = dyn_cast<ArrayType>(this))
+        return arrTy->getComponentType()->involvesPercent();
+
+    if (const SubroutineType *subTy = dyn_cast<SubroutineType>(this)) {
+        SubroutineType::arg_type_iterator I = subTy->begin();
+        SubroutineType::arg_type_iterator E = subTy->end();
+        for ( ; I != E; ++I) {
+            const Type *argTy = *I;
+            if (argTy->involvesPercent())
+                return true;
+        }
+
+        if (const FunctionType *fnTy = dyn_cast<FunctionType>(subTy))
+            return fnTy->getReturnType()->involvesPercent();
+    }
+
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // SubroutineType
 
@@ -136,23 +172,6 @@ IdentifierInfo *DomainType::getIdInfo() const
     if (DomainTypeDecl *decl = definingDecl.dyn_cast<DomainTypeDecl*>())
         return decl->getIdInfo();
     return definingDecl.get<IdentifierInfo*>();
-}
-
-bool DomainType::involvesPercent() const
-{
-    if (denotesPercent())
-        return true;
-
-    if (const DomainInstanceDecl *instance = getInstanceDecl()) {
-        unsigned arity = instance->getArity();
-        for (unsigned i = 0; i < arity; ++i) {
-            DomainType *param = dyn_cast<DomainType>(
-                instance->getActualParamType(i));
-            if (param && param->involvesPercent())
-                return true;
-        }
-    }
-    return false;
 }
 
 PrimaryType *DomainType::getRepresentationType()

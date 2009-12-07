@@ -1,0 +1,9 @@
+-- MUST-FAIL: Ensure self-recursive carrier declarations are diagnosed.
+
+domain D add
+   type Arr is array (Positive range <>) of %;
+   carrier Rep is Arr;
+end D;
+
+
+

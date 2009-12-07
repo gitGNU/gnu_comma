@@ -274,16 +274,24 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
         return;
     }
 
-    if (TypeDecl *tyDecl = ensureTypeDecl(typeNode)) {
-        CarrierDecl *carrier;
-        carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
-        if (Decl *conflict = scope.addDirectDecl(carrier)) {
-            report(loc, diag::CONFLICTING_DECLARATION)
-                << name << getSourceLoc(conflict->getLocation());
-            return;
-        }
-        add->setCarrier(carrier);
+    TypeDecl *tyDecl = ensureTypeDecl(typeNode);
+
+    if (!tyDecl)
+        return;
+
+    if (tyDecl->getType()->involvesPercent()) {
+        report(loc, diag::SELF_RECURSIVE_TYPE_DECLARATION);
+        return;
     }
+
+    CarrierDecl *carrier;
+    carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
+    if (Decl *conflict = scope.addDirectDecl(carrier)) {
+        report(loc, diag::CONFLICTING_DECLARATION)
+            << name << getSourceLoc(conflict->getLocation());
+        return;
+    }
+    add->setCarrier(carrier);
 }
 
 bool TypeCheck::ensureExportConstraints(AddDecl *add)
