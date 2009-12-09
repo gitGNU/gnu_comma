@@ -103,7 +103,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
             else {
                 BoundsEmitter emitter(*this);
                 std::pair<llvm::Value*, llvm::Value*> arrayPair =
-                    emitArrayExpr(expr, 0, true);
+                    emitArrayExpr(expr, 0, false);
                 const llvm::Type *componentTy =
                     CGT.lowerType(arrTy->getComponentType());
                 llvm::Value *data = arrayPair.first;
