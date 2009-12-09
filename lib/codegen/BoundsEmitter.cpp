@@ -219,6 +219,10 @@ llvm::Value *BoundsEmitter::computeTotalBoundLength(llvm::IRBuilder<> &Builder,
     llvm::Value *length;
     unsigned numElts;
 
+    // FIXME: Perhaps we should forgo the load and GEP instead.
+    if (!bounds->getType()->isAggregateType())
+        bounds = Builder.CreateLoad(bounds);
+
     strTy = cast<llvm::StructType>(bounds->getType());
     sumTy = CG.getInt32Ty();
 

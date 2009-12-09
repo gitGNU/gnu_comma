@@ -168,15 +168,6 @@ private:
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
-    std::pair<llvm::Value*, llvm::Value*>
-    emitStringLiteral(StringLiteral *expr);
-
-    std::pair<llvm::Value*, llvm::Value*>
-    emitAggregate(AggregateExpr *expr, llvm::Value *dst, bool genTmp);
-
-    std::pair<llvm::Value*, llvm::Value*>
-    emitArrayConversion(ConversionExpr *convert, llvm::Value *dst, bool genTmp);
-
     void emitArrayObjectDecl(ObjectDecl *objDecl);
 
     void emitIntegerSubtypeDecl(IntegerSubtypeDecl *subDecl);

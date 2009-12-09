@@ -40,7 +40,7 @@ public:
 
     typedef std::pair<llvm::Value *, llvm::Value *> ValuePair;
 
-    ValuePair emit(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emit(Expr *expr, llvm::Value *dst, bool genTmp);
 
 private:
     CodeGenRoutine &CGR;
@@ -49,26 +49,157 @@ private:
 
     SRFrame *frame() { return CGR.getSRFrame(); }
 
+    // Aggregrate emission helpers.
     void emitOthers(AggregateExpr *expr, llvm::Value *dst,
                     llvm::Value *bounds, uint64_t numComponents);
-
     ValuePair emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst);
-
     ValuePair emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     llvm::Value *emitVLArray(ArrayType *arrTy, llvm::Value *length);
+
+    ValuePair emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
+                                  bool genTmp);
+    ValuePair emitCall(FunctionCallExpr *call, llvm::Value *dst);
+    ValuePair emitAggregate(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emitStringLiteral(StringLiteral *expr);
 };
 
+AggEmitter::ValuePair
+AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
+{
+    llvm::Value *components;
+    llvm::Value *bounds;
+    ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(expr->getType()));
 
-AggEmitter::ValuePair AggEmitter::emit(AggregateExpr *expr, llvm::Value *dst)
+    if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
+        return emitArrayConversion(convert, dst, genTmp);
+
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
+        return emitCall(call, dst);
+
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+        return emitAggregate(agg, dst);
+
+    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
+        return emit(inj->getOperand(), dst, genTmp);
+
+    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
+        return emit(prj->getOperand(), dst, genTmp);
+
+    if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
+        ValuePair pair = emitStringLiteral(lit);
+        components = pair.first;
+        bounds = pair.second;
+    }
+    else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+        ValueDecl *decl = ref->getDeclaration();
+        components = frame()->lookup(decl, activation::Slot);
+
+        /// FIXME: Bounds lookup will fail when the decl is a ParamValueDecl of
+        /// a statically constrained type.  A better API will replace this hack.
+        if (!(bounds = frame()->lookup(decl, activation::Bounds)))
+            bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
+    }
+    else {
+        assert(false && "Invalid type of array expr!");
+        return ValuePair(0, 0);
+    }
+
+    // If dst is null build a stack allocated object to hold the components of
+    // this array.
+    llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
+
+    if (dst == 0 && genTmp)
+        dst = emitVLArray(arrTy, length);
+
+    // If a destination is available, fill it in with the associated array
+    // data.  Note that dst is of type [N x T]*, hense the double `dereference'
+    // to get at the element type.
+    if (dst) {
+        const llvm::Type *componentTy = dst->getType();
+        componentTy = cast<llvm::SequentialType>(componentTy)->getElementType();
+        componentTy = cast<llvm::SequentialType>(componentTy)->getElementType();
+        CGR.emitArrayCopy(components, dst, length, componentTy);
+        return ValuePair(dst, bounds);
+    }
+    else
+        return ValuePair(components, bounds);
+}
+
+AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
+                                           llvm::Value *dst)
+{
+    ArrayType *arrTy = cast<ArrayType>(call->getType());
+
+    // Constrained types use the sret call convention.
+    if (arrTy->isConstrained()) {
+        dst = CGR.emitCompositeCall(call, dst);
+        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+        return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
+    }
+
+    // Unconstrained (indefinite type) use the vstack.  The callee cannot know
+    // the size of the result hense dst must be null.
+    assert(dst == 0 && "Destination given for indefinite type!");
+    return CGR.emitVStackCall(call);
+}
+
+AggEmitter::ValuePair AggEmitter::emitAggregate(AggregateExpr *expr,
+                                                llvm::Value *dst)
 {
     if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(expr))
         return emitPositionalAgg(PAE, dst);
 
     KeyedAggExpr *KAE = cast<KeyedAggExpr>(expr);
     return emitKeyedAgg(KAE, dst);
+}
+
+AggEmitter::ValuePair AggEmitter::emitStringLiteral(StringLiteral *expr)
+{
+    assert(expr->hasType() && "Unresolved string literal type!");
+
+    // Build a constant array representing the literal.
+    CodeGen &CG = CGR.getCodeGen();
+    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
+    const llvm::ArrayType *arrTy = CGT.lowerArrayType(expr->getType());
+    const llvm::Type *elemTy = arrTy->getElementType();
+    llvm::StringRef string = expr->getString();
+
+    std::vector<llvm::Constant *> elements;
+    const EnumerationDecl *component = expr->getComponentType();
+    for (llvm::StringRef::iterator I = string.begin(); I != string.end(); ++I) {
+        unsigned encoding = component->getEncoding(*I);
+        elements.push_back(llvm::ConstantInt::get(elemTy, encoding));
+    }
+
+    // Build a constant global array to represent this literal.
+    llvm::Constant *arrData;
+    llvm::GlobalVariable *dataPtr;
+    arrData = CG.getConstantArray(elemTy, elements);
+    dataPtr = new llvm::GlobalVariable(
+        *CG.getModule(), arrData->getType(), true,
+        llvm::GlobalValue::InternalLinkage, arrData, "string.data");
+
+    // Likewise, build a constant global to represent the bounds.  Emitting the
+    // bounds into memory should be slightly faster then building them on the
+    // stack in the majority of cases.
+    llvm::Constant *boundData;
+    llvm::GlobalVariable *boundPtr;
+    boundData = emitter.synthStaticArrayBounds(Builder, expr->getType());
+    boundPtr = new llvm::GlobalVariable(
+        *CG.getModule(), boundData->getType(), true,
+        llvm::GlobalValue::InternalLinkage, boundData, "bounds.data");
+    return ValuePair(dataPtr, boundPtr);
+}
+
+AggEmitter::ValuePair
+AggEmitter::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
+                                bool genTmp)
+{
+    // FIXME: Implement.
+    return emit(convert->getOperand(), dst, genTmp);
 }
 
 void AggEmitter::emitOthers(AggregateExpr *expr,
@@ -341,7 +472,7 @@ llvm::Value* AggEmitter::emitVLArray(ArrayType *arrTy, llvm::Value *length)
     dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
     frame()->stacksave();
     dst = Builder.CreateAlloca(componentTy, length);
-    dst = Builder.CreateBitCast(dst, dstTy);
+    dst = Builder.CreatePointerCast(dst, dstTy);
     return dst;
 }
 
@@ -404,151 +535,12 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     Builder.CreateCall4(memcpy, dst, src, length, align);
 }
 
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
-{
-    assert(expr->hasType() && "Unresolved string literal type!");
-
-    // Build a constant array representing the literal.
-    const llvm::ArrayType *arrTy = CGT.lowerArrayType(expr->getType());
-    const llvm::Type *elemTy = arrTy->getElementType();
-    llvm::StringRef string = expr->getString();
-
-    std::vector<llvm::Constant *> elements;
-    const EnumerationDecl *component = expr->getComponentType();
-    for (llvm::StringRef::iterator I = string.begin(); I != string.end(); ++I) {
-        unsigned encoding = component->getEncoding(*I);
-        elements.push_back(llvm::ConstantInt::get(elemTy, encoding));
-    }
-
-    // Build a constant global array to represent this literal.
-    llvm::Constant *arrData = CG.getConstantArray(elemTy, elements);
-    llvm::GlobalVariable *dataPtr =
-        new llvm::GlobalVariable(*CG.getModule(), arrData->getType(), true,
-                                 llvm::GlobalValue::InternalLinkage, arrData,
-                                 "string.data");
-
-    // Likewise, build a constant global to represent the bounds.  Emitting the
-    // bounds into memory should be slightly faster then building them on the
-    // stack in the majority of cases.
-    BoundsEmitter emitter(*this);
-    llvm::Constant *boundData =
-        emitter.synthStaticArrayBounds(Builder, expr->getType());
-    llvm::GlobalVariable *boundPtr =
-        new llvm::GlobalVariable(*CG.getModule(), boundData->getType(), true,
-                                 llvm::GlobalValue::InternalLinkage,
-                                 boundData, "bounds.data");
-    return std::pair<llvm::Value*, llvm::Value*>(dataPtr, boundPtr);
-}
-
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitAggregateCall(FunctionCallExpr *call, llvm::Value *dst)
-{
-    ArrayType *arrTy = cast<ArrayType>(call->getType());
-
-    // Constrained types use the sret call convention.
-    if (arrTy->isConstrained()) {
-        dst = emitCompositeCall(call, dst);
-        BoundsEmitter emitter(*this);
-        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
-        return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
-    }
-
-    // Unconstrained (indefinite type) use the vstack.  The callee cannot know
-    // the size of the result hense dst must be null.
-    assert(dst == 0 && "Destination given for indefinite type!");
-    return emitVStackCall(call);
-}
 
 std::pair<llvm::Value*, llvm::Value*>
 CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
-    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
-
-    llvm::Value *components;
-    llvm::Value *bounds;
-    BoundsEmitter emitter(*this);
-    ArrayType *arrTy = cast<ArrayType>(resolveType(expr->getType()));
-
-    if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
-        return emitArrayConversion(convert, dst, genTmp);
-
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
-        return emitAggregateCall(call, dst);
-
-    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
-        return emitAggregate(agg, dst, genTmp);
-
-    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
-        return emitArrayExpr(inj->getOperand(), dst, genTmp);
-
-    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
-        return emitArrayExpr(prj->getOperand(), dst, genTmp);
-
-    if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
-        ArrPair pair = emitStringLiteral(lit);
-        components = pair.first;
-        bounds = pair.second;
-    }
-    else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
-        ValueDecl *decl = ref->getDeclaration();
-        components = SRF->lookup(decl, activation::Slot);
-
-        /// FIXME: Bounds lookup will fail when the decl is a ParamValueDecl of
-        /// a statically constrained type.  A better API will replace this hack.
-        if (!(bounds = SRF->lookup(decl, activation::Bounds)))
-            bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
-    }
-    else {
-        assert(false && "Invalid type of array expr!");
-        return ArrPair(0, 0);
-    }
-
-    // If dst is null build a stack allocated object to hold the components of
-    // this array.
-    llvm::Value *length = 0;
-    const llvm::Type *componentTy = 0;
-    if (dst == 0 && genTmp) {
-        const llvm::Type *dstTy;
-        componentTy = CGT.lowerType(arrTy->getComponentType());
-        dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
-        SRF->stacksave();
-
-        if (isa<llvm::PointerType>(bounds->getType()))
-            bounds = Builder.CreateLoad(bounds);
-
-        length = emitter.computeTotalBoundLength(Builder, bounds);
-        dst = Builder.CreateAlloca(componentTy, length);
-        dst = Builder.CreatePointerCast(dst, dstTy);
-    }
-
-    // If a destination is available, fill it in with the associated array data.
-    if (dst) {
-        if (length == 0)
-            length = emitter.computeTotalBoundLength(Builder, bounds);
-        if (componentTy == 0)
-            componentTy = CGT.lowerType(arrTy->getComponentType());
-        emitArrayCopy(components, dst, length, componentTy);
-        return ArrPair(dst, bounds);
-    }
-    else
-        return ArrPair(components, bounds);
-}
-
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitAggregate(AggregateExpr *expr, llvm::Value *dst,
-                              bool genTmp)
-{
     AggEmitter emitter(*this, Builder);
-    return emitter.emit(expr, dst);
-}
-
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
-                                    bool genTmp)
-{
-    // FIXME: Implement.
-    return emitArrayExpr(convert->getOperand(), dst, genTmp);
+    return emitter.emit(expr, dst, genTmp);
 }
 
 void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)

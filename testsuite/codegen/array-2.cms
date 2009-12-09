@@ -1,0 +1,25 @@
+-- Simple test of indefinite array types.
+
+domain Test with
+   procedure Run;
+add
+   procedure Assert_String (S : String) is
+   begin
+      for I in S'Range loop
+         pragma Assert(S(I) = 'x');
+      end loop;
+   end Assert_String;
+
+   function Make_String return String is
+      S : String := (1 .. 30 => 'x');
+   begin
+      return S;
+   end Make_String;
+
+   procedure Run is
+      S : String := Make_String;
+   begin
+      Assert_String(S);
+   end Run;
+
+end Test;
