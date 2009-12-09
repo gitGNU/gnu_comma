@@ -240,9 +240,29 @@ llvm::Value *BoundsEmitter::computeIsNull(llvm::IRBuilder<> &Builder,
     return Builder.CreateICmpSLT(upper, lower);
 }
 
+llvm::Value *BoundsEmitter::synthArrayBounds(llvm::IRBuilder<> &Builder,
+                                             ArrayType *arrTy)
+{
+    if (arrTy->isStaticallyConstrained())
+        return synthStaticArrayBounds(Builder, arrTy);
+
+    // Build a first-class struct to hold the bound data.
+    const llvm::StructType *boundsTy = getType(arrTy);
+    llvm::Value *bounds = llvm::UndefValue::get(boundsTy);
+
+    for (unsigned i = 0; i < arrTy->getRank(); ++i) {
+        DiscreteType *idxTy = arrTy->getIndexType(i);
+        LUPair LU = getScalarBounds(Builder, idxTy);
+
+        bounds = Builder.CreateInsertValue(bounds, LU.first, 2*i);
+        bounds = Builder.CreateInsertValue(bounds, LU.second, 2*i + 1);
+    }
+    return bounds;
+}
+
 llvm::Constant *
 BoundsEmitter::synthStaticArrayBounds(llvm::IRBuilder<> &Builder,
-                                      ArrayType *arrTy, llvm::Value *dst)
+                                      ArrayType *arrTy)
 {
     const llvm::StructType *boundsTy = getType(arrTy);
     std::vector<llvm::Constant*> bounds;
@@ -254,15 +274,11 @@ BoundsEmitter::synthStaticArrayBounds(llvm::IRBuilder<> &Builder,
         assert(idxTy->isStaticallyConstrained());
         const llvm::APInt &lower = range->getStaticLowerBound();
         const llvm::APInt &upper = range->getStaticUpperBound();
-
         const llvm::Type *eltTy = boundsTy->getElementType(i);
         bounds.push_back(llvm::ConstantInt::get(eltTy, lower));
         bounds.push_back(llvm::ConstantInt::get(eltTy, upper));
     }
     llvm::Constant *data = llvm::ConstantStruct::get(boundsTy, bounds);
-
-    if (dst)
-        Builder.CreateStore(data, dst);
     return data;
 }
 

@@ -157,15 +157,14 @@ public:
     llvm::Value *computeIsNull(llvm::IRBuilder<> &Builder,
                                llvm::Value *bounds, unsigned index);
 
+    /// Computes the bounds of the given array type.
+    llvm::Value *synthArrayBounds(llvm::IRBuilder<> &Builder, ArrayType *arrTy);
+
     /// \brief Given an array type with statically constrained indices,
     /// synthesizes a constant LLVM structure representing the bounds of the
     /// array.
-    ///
-    /// If \p dst is non-null, the synthesized bounds are stored into the given
-    /// location.
     llvm::Constant *synthStaticArrayBounds(llvm::IRBuilder<> &Builder,
-                                           ArrayType *arrTy,
-                                           llvm::Value *dst = 0);
+                                           ArrayType *arrTy);
 
     /// Constructs an LLVM structure object representing the bounds of the given
     /// aggregate expression.

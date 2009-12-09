@@ -38,7 +38,16 @@ public:
 
     llvm::Value *emitSimpleCall(SubroutineCall *call);
 
-    void emitCompositeCall(SubroutineCall *call, llvm::Value *dst);
+    /// Emits a function call using the sret calling convention.
+    ///
+    /// \param call The function call to emit.  This must be a function
+    /// returning a constrained aggregate type.
+    ///
+    /// \param dst A pointer to storage capable of holding the result of this
+    /// call.  If \p dst is null then a temporary is allocated.
+    ///
+    /// \return Either \p dst or the allocated temporary.
+    llvm::Value *emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst);
 
     std::pair<llvm::Value*, llvm::Value*>
     emitVStackCall(FunctionCallExpr *call);
@@ -157,9 +166,16 @@ llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
     return Builder.CreateCall(fn, arguments.begin(), arguments.end());
 }
 
-void CallEmitter::emitCompositeCall(SubroutineCall *call, llvm::Value *dst)
+llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
+                                            llvm::Value *dst)
 {
     SRCall = call;
+
+    // If the destination is null allocate a temporary.
+    if (dst == 0) {
+        const llvm::Type *retTy = CGT.lowerType(call->getType());
+        dst = CGR.getSRFrame()->createTemp(retTy);
+    }
 
     // Push the destination pointer onto the argument vector.  SRet convention
     // requires the return structure to appear before any implicit arguments.
@@ -176,6 +192,7 @@ void CallEmitter::emitCompositeCall(SubroutineCall *call, llvm::Value *dst)
     // Synthesize the actual call instruction.
     llvm::Function *fn = callInfo->getLLVMFunction();
     Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    return dst;
 }
 
 std::pair<llvm::Value*, llvm::Value*>
@@ -284,23 +301,17 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
         ArrayType *paramTy = cast<ArrayType>(CGR.resolveType(param->getType()));
 
         if (paramTy->isStaticallyConstrained()) {
-            // First, allocate a temporary as a destination for the sret value.
-            const llvm::Type *loweredTy = CGT.lowerArrayType(paramTy);
-            llvm::Value *dst = CGR.getSRFrame()->createTemp(loweredTy);
-
-            // Perform the function call and add the destination to the argument
-            // set.
-            CGR.emitCompositeCall(call, dst);
-            arguments.push_back(dst);
+            // Perform the function call by allocating a temporary and add the
+            // destination to the argument set.
+            arguments.push_back(CGR.emitCompositeCall(call, 0));
 
             // If the target type is unconstrained, generate a second temporary
             // stucture to represent the bounds.  Populate with constant values
             // and form the call.
             if (!targetTy->isConstrained()) {
                 BoundsEmitter emitter(CGR);
-                const llvm::Type *ty = emitter.getType(paramTy);
-                llvm::Value *bounds = CGR.getSRFrame()->createTemp(ty);
-                emitter.synthStaticArrayBounds(Builder, paramTy, bounds);
+                llvm::Value *bounds;
+                bounds = emitter.synthStaticArrayBounds(Builder, paramTy);
                 arguments.push_back(bounds);
             }
         }
@@ -710,11 +721,11 @@ llvm::Value *CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
     return emitter.emitSimpleCall(expr);
 }
 
-void CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
-                                       llvm::Value *dst)
+llvm::Value *CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
+                                               llvm::Value *dst)
 {
     CallEmitter emitter(*this, Builder);
-    emitter.emitCompositeCall(expr, dst);
+    return emitter.emitCompositeCall(expr, dst);
 }
 
 std::pair<llvm::Value*, llvm::Value*>

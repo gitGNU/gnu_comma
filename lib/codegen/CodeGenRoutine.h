@@ -73,10 +73,22 @@ public:
 
     llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
 
-    void emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
+    /// Emits a function call using the sret calling convention.
+    ///
+    /// \param call The function call to emit.  This must be a function
+    /// returning a constrained aggregate type.
+    ///
+    /// \param dst A pointer to storage capable of holding the result of this
+    /// call.  If \p dst is null then a temporary is allocated.
+    ///
+    /// \return Either \p dst or the allocated temporary.
+    llvm::Value *emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
 
     std::pair<llvm::Value*, llvm::Value*>
     emitVStackCall(FunctionCallExpr *expr);
+
+    std::pair<llvm::Value*, llvm::Value*>
+    emitAggregateCall(FunctionCallExpr *expr, llvm::Value *dst);
 
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        ArrayType *arrTy);

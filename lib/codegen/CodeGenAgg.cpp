@@ -442,6 +442,25 @@ CodeGenRoutine::emitStringLiteral(StringLiteral *expr)
 }
 
 std::pair<llvm::Value*, llvm::Value*>
+CodeGenRoutine::emitAggregateCall(FunctionCallExpr *call, llvm::Value *dst)
+{
+    ArrayType *arrTy = cast<ArrayType>(call->getType());
+
+    // Constrained types use the sret call convention.
+    if (arrTy->isConstrained()) {
+        dst = emitCompositeCall(call, dst);
+        BoundsEmitter emitter(*this);
+        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+        return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
+    }
+
+    // Unconstrained (indefinite type) use the vstack.  The callee cannot know
+    // the size of the result hense dst must be null.
+    assert(dst == 0 && "Destination given for indefinite type!");
+    return emitVStackCall(call);
+}
+
+std::pair<llvm::Value*, llvm::Value*>
 CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
@@ -453,6 +472,9 @@ CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 
     if (ConversionExpr *convert = dyn_cast<ConversionExpr>(expr))
         return emitArrayConversion(convert, dst, genTmp);
+
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
+        return emitAggregateCall(call, dst);
 
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst, genTmp);
@@ -533,55 +555,28 @@ void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)
 {
     BoundsEmitter emitter(*this);
     ArrayType *arrTy = cast<ArrayType>(resolveType(objDecl->getType()));
-    const llvm::Type *boundTy = CGT.lowerArrayBounds(arrTy);
     const llvm::Type *loweredTy = CGT.lowerArrayType(arrTy);
-    llvm::Value *bounds = 0;
-    llvm::Value *slot = 0;
 
     if (!objDecl->hasInitializer()) {
-        bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-        emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
-
         // FIXME: Support dynamicly sized arrays and default initialization.
         assert(arrTy->isStaticallyConstrained() &&
                "Cannot codegen non-static arrays without initializer!");
+
         SRF->createEntry(objDecl, activation::Slot, loweredTy);
+        SRF->associate(objDecl, activation::Bounds,
+                       emitter.synthStaticArrayBounds(Builder, arrTy));
         return;
     }
 
+    llvm::Value *slot = 0;
     if (arrTy->isStaticallyConstrained())
         slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
 
     Expr *init = objDecl->getInitializer();
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init)) {
-        if (arrTy->isStaticallyConstrained()) {
-            // Perform the function call and add the destination to the argument
-            // set.
-            emitCompositeCall(call, slot);
+    std::pair<llvm::Value*, llvm::Value*> result;
 
-            // Synthesize bounds for this declaration.
-            bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-            emitter.synthStaticArrayBounds(Builder, arrTy, bounds);
-        }
-        else {
-            // FIXME: Checks are needed when the initializer is unconstrained
-            // but the declaration is.  However, this currently cannot happen,
-            // hence the assert.
-            assert(slot == 0);
-            std::pair<llvm::Value*, llvm::Value*> result;
-            result = emitVStackCall(call);
-            bounds = result.second;
-            SRF->associate(objDecl, activation::Slot, result.first);
-            SRF->associate(objDecl, activation::Bounds, bounds);
-        }
-    }
-    else {
-        std::pair<llvm::Value*, llvm::Value*> result;
-        result = emitArrayExpr(init, slot, true);
-        if (!slot)
-            SRF->associate(objDecl, activation::Slot, result.first);
-        if (!bounds)
-            bounds = SRF->createEntry(objDecl, activation::Bounds, boundTy);
-        Builder.CreateStore(result.second, bounds);
-    }
+    result = emitArrayExpr(init, slot, true);
+    if (!slot)
+        SRF->associate(objDecl, activation::Slot, result.first);
+    SRF->associate(objDecl, activation::Bounds, result.second);
 }
