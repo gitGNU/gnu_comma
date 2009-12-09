@@ -3859,6 +3859,8 @@ ac_config_files="$ac_config_files tools/Makefile"
 
 ac_config_files="$ac_config_files tools/driver/Makefile"
 
+ac_config_files="$ac_config_files tools/driver/config.h"
+
 ac_config_files="$ac_config_files doc/Makefile"
 
 ac_config_files="$ac_config_files doc/commaspec/Makefile"
@@ -4494,6 +4496,7 @@ do
     "lib/typecheck/Makefile") CONFIG_FILES="$CONFIG_FILES lib/typecheck/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
     "tools/driver/Makefile") CONFIG_FILES="$CONFIG_FILES tools/driver/Makefile" ;;
+    "tools/driver/config.h") CONFIG_FILES="$CONFIG_FILES tools/driver/config.h" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "doc/commaspec/Makefile") CONFIG_FILES="$CONFIG_FILES doc/commaspec/Makefile" ;;
     "doc/doxygen/Makefile") CONFIG_FILES="$CONFIG_FILES doc/doxygen/Makefile" ;;

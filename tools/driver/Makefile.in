@@ -19,12 +19,25 @@ tool_name = driver
 #
 # Define the llvm components on which we rely.
 #
-llvm_components = support core x86
+llvm_components = support core system bitwriter x86
 
 #
 # Define the comma components on which we rely.
 #
 comma_components = codegen typecheck parser ast basic
 
+#
+# Bring in the generic rules.
+#
 include $(LEVEL)/Makefile.common
+
+#
+# Extend cpp_flags to include the build directory of the driver.  We need this
+# so that we will pick up config.h.
+#
+cpp_flags += -I $(prj_objdir)
+
+#
+# Pull in the tool make rules.
+#
 include $(makefiles)/tool.mk

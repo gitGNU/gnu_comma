@@ -23,8 +23,8 @@ The Comma project consists of two main tasks:
 This project is at an experimental stage.  The compiler is far from complete but
 is capable of translating fairly non-trivial programs.  Documentation is still
 lacking.  If you are interested in developing the system or have any questions
-about the system feel free to send a message to the comma-devel mailing list.
-Links to the list are accessible from www.nongnu.org/comma.
+feel free to send a message to the comma-devel mailing list.  Links to the list
+are accessible from www.nongnu.org/comma.
 
 ===--------------------------------------------------------------------------===
 -- Building
@@ -65,30 +65,57 @@ check".
 ===--------------------------------------------------------------------------===
 -- The Driver Program
 
-Currently, only a very simple "driver" program is built.  This program reads a
-single file given on the command line (or from stdin if the supplied file name
-is "-" or missing), parses, type checks it, and then emits LLVM assembly code to
-stdout if there were no errors.  A non-zero exit status is returned if an error
-was detected.
+Currently, only a very simple "driver" program is built.  This is a temporary
+tool that will be rewritten into a full-featured compiler driver in the future.
 
-If the -fsyntax-only flag is passed to the driver the input is parsed and
-type checked but codegen is skipped.
+This program reads a single file given on the command line (or from stdin if the
+supplied file name is "-" or missing), parses, type checks, and then emits
+either LLVM assembly code, LLVM bitcode, or a native unoptimized executable.
 
-An entry procedure can be specified via the -e flag.  This tells the driver to
-emit a main stub function which calls into the generated Comma code, which in
-turn allows the resulting LLVM IR to be optimized, assembled and linked into an
-executable.  Currently, an entry point must be the name of a nullary subroutine
-exported by a non-generic domain.  For example, given:
+There are only a few command line options:
 
-   domain D with
-      procedure P;
-   add
-      procedure P is
-         ...
-      end P;
-   end D;
+ -o <file>: Specifies the output file the driver should write to.  If not given
+  or specified as "-" then stdout is written to.
 
-then D.P satisfies the requirements of an entry point.  The corresponding
-invocation of the driver program would be:
+ -fsyntax-only: Input is parsed and type checked but codegen is skipped.  This
+  is used to check the parser and type checker in isolation.  The only output
+  produced is diagnostic messages.
 
-   > driver -e D.P D.cms
+ -emit-llvm: Parse, type check, and codegen the input.  Produces LLVM assembly
+  as output.
+
+ -emit-llvm-bc: Like -emit-llvm but produces an LLVM bitcode file instead.  The
+  driver will not print bitcode directly to the terminal.  If stdout is to be
+  used it must be redirected to a file or pipe.
+
+ -e: Define an entry point.  This tells the driver to emit a main stub function
+  which calls into the generated Comma code, which in turn allows the resulting
+  LLVM IR to be linked into an executable.  Currently, an entry point must be
+  the name of a nullary subroutine exported by a non-generic domain.  For
+  example, given:
+
+     domain D with
+        procedure P;
+     add
+        procedure P is
+           ...
+        end P;
+     end D;
+
+  then D.P satisfies the requirements of an entry point.  For example, to print
+  out the LLVM assembly including the sub function the corresponding invocation
+  of the driver program would be:
+
+     > driver -e D.P foo.cms -emit-llvm
+
+  When neither -emit-llvm or -emit-llvm-bc are given then the driver will
+  generate a native executable.  In this case the -o flag can be used specify
+  the name of the executable.  Otherwise, the executable is named after the
+  given input file, or "a.out" when reading from stdin.  Examples:
+
+     > cat foo.cms | driver -e D.P   # produces executable "a.out"
+
+     > driver foo.cms -e D.P         # produces executable "foo"
+
+     > driver foo.cms -e D.P -o bar  # produces executable "bar"
+

@@ -2,6 +2,7 @@
 // This tool is temporary.  It drives the lexer, parser, and type checker over
 // the contents of a single file.
 
+#include "config.h"
 #include "comma/ast/Ast.h"
 #include "comma/ast/AstResource.h"
 #include "comma/basic/TextProvider.h"
@@ -10,10 +11,13 @@
 #include "comma/parser/Parser.h"
 #include "comma/typecheck/Checker.h"
 
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/SystemUtils.h"
 #include "llvm/System/Host.h"
 #include "llvm/System/Path.h"
+#include "llvm/System/Process.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
@@ -44,8 +48,27 @@ llvm::cl::opt<std::string>
 EntryPoint("e",
            llvm::cl::desc("Comma procedure to use as an entry point."));
 
+// Emit llvm IR in assembly form.
+llvm::cl::opt<bool>
+EmitLLVM("emit-llvm",
+         llvm::cl::desc("Emit llvm assembly."));
 
-static int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
+// Emit llvm IR in bitcode form.
+llvm::cl::opt<bool>
+EmitLLVMBitcode("emit-llvm-bc",
+                llvm::cl::desc("Emit llvm bitcode."));
+
+// Output file.  Default to stdout.
+llvm::cl::opt<std::string>
+OutputFile("o",
+           llvm::cl::desc("Defines the output file."),
+           llvm::cl::init("-"));
+
+namespace {
+
+// Selects a procedure to use as an entry point and generates the corresponding
+// main function.
+int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
 {
     // We must have a well formed entry point string of the form "D.P", where D
     // is the context domain and P is the procedure to call.
@@ -103,6 +126,124 @@ static int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
     return 0;
 }
 
+// Emits llvm IR in either assembly or bitcode format to the given file.  If
+// emitBitcode is true llvm bitcode is generated, otherwise assembly. Returns
+// zero on sucess and one otherwise.
+int outputIR(llvm::Module *M, llvm::sys::Path &outputPath, bool emitBitcode)
+{
+
+    // If the output is to be sent to stdout and bitcode was requested ensure
+    // that stdout has been redirected to a file or a pipe.
+    //
+    // FIXME: LLVM provides CheckBitcodeOutputToConsole for this purpose.
+    // Unfortunately in 2.6 detection is limited to llvm::outs() in particular
+    // and will not recognize the raw_fd_ostream we create bellow.  2.6-svn
+    // provides an improved version.  Upgrade when 2.7 is supported.
+    if (outputPath.toString() == "-" &&
+        llvm::sys::Process::StandardOutIsDisplayed() &&
+        emitBitcode) {
+        llvm::errs() <<
+            "Printing of bitcode is not supported.  Redirect the \n"
+            "output to a file or pipe, or specify an output file \n"
+            "with the `-o` option.\n";
+        return 1;
+    }
+
+    // Determine the output file mode.  If an output file was given and we are
+    // emitting bitcode use a binary stream.
+    bool mode = (emitBitcode && !outputPath.isEmpty()) ? true : false;
+
+    // Open a stream to the output.
+    std::string message;
+    std::auto_ptr<llvm::raw_ostream> output(
+        new llvm::raw_fd_ostream(outputPath.c_str(), mode, true, message));
+    if (!message.empty()) {
+        llvm::errs() << message << '\n';
+        return 1;
+    }
+
+     if (emitBitcode)
+         llvm::WriteBitcodeToFile(M, *output);
+     else
+        M->print(*output, 0);
+
+     return 0;
+}
+
+int outputExec(llvm::Module *M)
+{
+    // Create a temporary file to hold bitcode output.  If we are reading from
+    // stdin derive the temporaty file from a file name of `stdin'.
+    llvm::sys::Path tmpBitcode;
+    if (InputFile == "-")
+        tmpBitcode = "stdin";
+    else
+        tmpBitcode = InputFile;
+    tmpBitcode = tmpBitcode.getBasename();
+
+    std::string message;
+    tmpBitcode.createTemporaryFileOnDisk(false, &message);
+    if (!message.empty()) {
+        llvm::errs() << message << '\n';
+        return 1;
+    }
+
+    // Determine the output file.  If no name was explicity given on the command
+    // line derive the output file from the input file name, or use "a.out" if
+    // we are reading from stdin.
+    llvm::sys::Path outputPath;
+    if (InputFile == "-" && OutputFile == "-")
+        outputPath = "a.out";
+    else if (OutputFile != "-")
+        outputPath = OutputFile;
+    else {
+        outputPath = InputFile;
+        assert(outputPath.getSuffix() == "cms" && "Not a .cms file!");
+        outputPath = outputPath.getBasename();
+    }
+
+    // Generate the library path which contains the runtime library.
+    std::string libflag = "-L" COMMA_BUILD_ROOT "/lib";
+
+    // Locate llvm-ld.
+    llvm::sys::Path llvm_ld = llvm::sys::Program::FindProgramByName("llvm-ld");
+    if (llvm_ld.isEmpty()) {
+        llvm::errs() << "Cannot locate `llvm-ld'.\n";
+        return 1;
+    }
+
+    // Write bitcode out to the temporary file.
+    if (outputIR(M, tmpBitcode, true) != 0) {
+        tmpBitcode.eraseFromDisk(false, &message);
+        if (!message.empty())
+            llvm::errs() << message << '\n';
+        return 1;
+    }
+
+    // Build the argument vector for llvm-ld and execute.
+    const char *args[8];
+    args[0] = llvm_ld.c_str();
+    args[1] = "-native";
+    args[2] = "-o";
+    args[3] = outputPath.c_str();
+    args[4] = libflag.c_str();
+    args[5] = "-lruntime";
+    args[6] = tmpBitcode.c_str();
+    args[7] = 0;
+
+    bool status =
+        llvm::sys::Program::ExecuteAndWait(llvm_ld, args, 0, 0, 0, 0, &message);
+
+    tmpBitcode.eraseFromDisk(false, &message);
+    if (!message.empty()) {
+        llvm::errs() << message << '\n';
+        return 1;
+    }
+    return status;
+}
+
+} // end anonymous namespace.
+
 int main(int argc, char **argv)
 {
     Diagnostic diag;
@@ -110,9 +251,12 @@ int main(int argc, char **argv)
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
     llvm::sys::Path path(InputFile);
-
-    if (!path.canRead()) {
-        llvm::errs() << "Cannot open `" << path <<"'\n";
+    if (!path.canRead() && path.toString() != "-") {
+        llvm::errs() << "Cannot open `" << path <<"' for reading.\n";
+        return 1;
+    }
+    if (path.getSuffix() != "cms" && path.toString() != "-") {
+        llvm::errs() << "Input files must have a `.cms' extension.";
         return 1;
     }
 
@@ -122,53 +266,68 @@ int main(int argc, char **argv)
     CompilationUnit cu(path);
     std::auto_ptr<Checker> check(Checker::create(diag, resource, &cu));
     Parser p(tp, idPool, *check, diag);
-    bool status;
 
+    // Drive the parser and type checker.
     while (p.parseTopLevelDeclaration());
-    status = !p.parseSuccessful() || !check->checkSuccessful();
 
+    if (!(p.parseSuccessful() && check->checkSuccessful()))
+        return 1;
 
-    if (!status && !SyntaxOnly) {
-        llvm::InitializeAllTargets();
+    if (SyntaxOnly)
+        return 0;
 
-        // FIXME: CodeGen should handle all of this.
-        llvm::Module *M =
-            new llvm::Module("test_module", llvm::getGlobalContext());
-        std::string message;
-        const llvm::Target *target;
-        const llvm::TargetMachine *machine;
-        const llvm::TargetData *data;
+    llvm::InitializeAllTargets();
 
-        std::string triple = llvm::sys::getHostTriple();
-        M->setTargetTriple(triple);
-        target = llvm::TargetRegistry::lookupTarget(triple, message);
-        if (!target) {
-            std::cerr << "Could not auto-select target architecture for "
-                      << triple << ".\n   : "
-                      << message << std::endl;
-            return 1;
-        }
+    // FIXME: CodeGen should handle all of this.
+    llvm::Module *M = new llvm::Module("test_module", llvm::getGlobalContext());
+    std::string message;
+    const llvm::Target *target;
+    const llvm::TargetMachine *machine;
+    const llvm::TargetData *data;
 
-        machine = target->createTargetMachine(triple, "");
-        data = machine->getTargetData();
-        M->setDataLayout(data->getStringRepresentation());
-
-        CodeGen CG(M, *data, resource);
-
-        typedef CompilationUnit::decl_iterator iterator;
-
-        for (iterator iter = cu.beginDeclarations();
-             iter != cu.endDeclarations(); ++iter) {
-            CG.emitToplevelDecl(*iter);
-        }
-
-        // If an entry point was requested.  Emit it.
-        if (!EntryPoint.empty())
-            if (emitEntryPoint(CG, cu))
-                return 1;
-
-        M->print(llvm::outs(),0);
+    std::string triple = llvm::sys::getHostTriple();
+    M->setTargetTriple(triple);
+    target = llvm::TargetRegistry::lookupTarget(triple, message);
+    if (!target) {
+        std::cerr << "Could not auto-select target architecture for "
+                  << triple << ".\n   : "
+                  << message << std::endl;
+        return 1;
     }
 
-    return status;
+    machine = target->createTargetMachine(triple, "");
+    data = machine->getTargetData();
+    M->setDataLayout(data->getStringRepresentation());
+
+    CodeGen CG(M, *data, resource);
+
+    typedef CompilationUnit::decl_iterator iterator;
+
+    for (iterator iter = cu.beginDeclarations();
+         iter != cu.endDeclarations(); ++iter) {
+        CG.emitToplevelDecl(*iter);
+    }
+
+    // Generate an entry point and native executable if requested.
+    if (!EntryPoint.empty()) {
+        if (emitEntryPoint(CG, cu))
+            return 1;
+        if (!(EmitLLVM || EmitLLVMBitcode))
+            return outputExec(M);
+    }
+
+    // Emit assembly or bitcode.
+    if (EmitLLVM || EmitLLVMBitcode) {
+        if (EmitLLVM && EmitLLVMBitcode) {
+            llvm::errs() <<
+                "Cannot specify both `-emit-llvm' and `-emit-llvm-bc'.\n";
+            return 1;
+        }
+        llvm::sys::Path outFile(OutputFile);
+        bool emitBitcode = EmitLLVMBitcode ? true : false;
+        return outputIR(M, outFile, emitBitcode);
+    }
+
+    // There were no output options given.
+    return 0;
 }

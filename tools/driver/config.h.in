@@ -1,0 +1,13 @@
+/*===-- tools/driver/config.h.in -------------------------------- -*- C -*-===
+ *
+ * This file is distributed under the MIT license. See LICENSE.txt for details.
+ *
+ * Copyright (C) 2009, Stephen Wilson
+ *
+ *===----------------------------------------------------------------------===*/
+
+/*
+ * Set the the build directory into which all executables and libraries are
+ * placed.
+ */
+#define COMMA_BUILD_ROOT "@abs_top_builddir@/@target@"
