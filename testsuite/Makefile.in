@@ -19,13 +19,16 @@ include $(LEVEL)/Makefile.common
 # The site.exp configuration file.
 site_exp := $(prj_objdir)/site.exp
 
+# Location of compiled test programs.
+test_prg := $(prj_objdir)/tests
+
 #
 # Proceed iff our environment supports DejaGNU.
 #
 ifeq ($(RUNTEST),)
 	$(error Cannot run the testsuite: runtest (DejaGNU) not found.)
 else
-all: $(site_exp)
+all: testhome $(site_exp)
 	$(verb) echo "Running the testsuite.."; \
 	( $(RUNTEST); exit 0 )
 
@@ -35,6 +38,29 @@ $(site_exp):
 	echo "set objroot $(prj_objroot)" >> $(site_exp); \
 	echo "set srcdir $(prj_srcdir)" >> $(site_exp);   \
 	echo "set objdir $(prj_objdir)" >> $(site_exp);   \
-	echo "set toolroot $(toolroot)" >> $(site_exp);
+	echo "set toolroot $(toolroot)" >> $(site_exp);   \
+	echo "set testroot $(test_prg)" >> $(site_exp);
+
+#
+# Ensure that the destination for the executable test programs exists.
+#
+.PHONY: testhome
+
+testhome:
+	$(verb) set -e;               \
+	if [ ! -d $(test_prg) ]; then \
+	  $(MKDIR) -p $(test_prg);    \
+	fi
 
 endif
+
+#
+# Extend the clean target to handle the generated files and executables.
+#
+.PHONY: clean-tests
+
+clean: clean-tests
+
+clean-tests:
+	$(verb) set -e; \
+	rm -rf $(test_prg) $(site_exp)

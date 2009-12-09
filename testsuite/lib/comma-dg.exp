@@ -46,9 +46,9 @@ proc getExpectedResult { input_file } {
 }
 
 #
-# Tests each file provided.
+# Tests each file provided by invoking the driver with the -fsyntax-only flag.
 #
-proc runCommaTests { test_inputs } {
+proc runTestsSyntaxOnly { test_inputs } {
 
     global srcroot objroot srcdir objdir toolroot
 
@@ -94,6 +94,83 @@ proc runCommaTests { test_inputs } {
                 pass $test_input
             } else {
                 fail [concat $test_input $errmsg]
+            }
+        }
+    }
+}
+
+#
+# Compiles and executes each file.  The entry point bust be Test.Run.
+#
+proc runCompiledTests { test_inputs } {
+
+    global srcroot objroot srcdir objdir toolroot testroot
+
+    foreach test_input $test_inputs {
+        set test_prog $testroot/[file tail [file rootname $test_input]]
+        set expected_result [getExpectedResult $test_input]
+        set driver_invocation [list exec $toolroot/driver -e Test.Run \
+                                   $test_input -o $test_prog]
+        set retval [catch $driver_invocation errmsg]
+
+        #
+        # Compilation should always succeed.
+        #
+        if { $retval != 0 } {
+            set error_code $::errorCode
+            set error_class [lindex $error_code 0]
+            fail [concat $error_class $driver_invocation $errmsg]
+            continue
+        }
+
+        #
+        # Run the test program and interpret its status wrt the expected result.
+        #
+        # If the error class is CHILDSTATUS, use the true exit status from the
+        # test program.  Otherwise, we have an exceptional condition (segfault,
+        # assertion, etc).  The latter case always results in a FAIL.
+        #
+        set retval [catch { exec $test_prog } errmsg]
+
+
+        if { $retval != 0 } {
+            set error_code $::errorCode
+            set error_class [lindex $error_code 0]
+            set error_status [lindex $error_code 2]
+
+            #
+            # If the error class is CHILDSTATUS, use the true exit status from
+            # the test program.  Otherwise, we have an exceptional condition
+            # (segfault, assertion, etc).  The latter case always results in a
+            # FAIL.
+            #
+            if { $error_class == "CHILDSTATUS" } {
+                set retval $error_status
+            } else {
+                fail [concat $error_class $test_prog]
+                continue
+            }
+        }
+
+        if { $expected_result == "MUST-FAIL" } {
+            set retval [expr ! $retval]
+
+            if { $retval == 0 } {
+                pass $test_prog
+            } else {
+                fail [concat $test_prog $errmsg]
+            }
+        } elseif { $expected_result == "BUG" } {
+            if { $retval == 0 } {
+                xpass $test_prog
+            } else {
+                xfail [concat $test_prog $errmsg]
+            }
+        } else {
+            if { $retval == 0 } {
+                pass $test_prog
+            } else {
+                fail [concat $test_prog $errmsg]
             }
         }
     }

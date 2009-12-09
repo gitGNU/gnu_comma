@@ -1,0 +1,148 @@
+--=== testsuite/codegen/sieve.cms ----------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2009, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+-- Simple, inefficient, sieve of Eratosthenes.  Written to test that array
+-- codegen is sane.
+
+domain Sieve_of_Eratosthenes with
+
+   type Prime_Array is array (Positive range <>) of Positive;
+
+   function Sieve (N : Positive) return Prime_Array;
+   -- Using the sieve of Eratosthenes algorithm, returns an array containing the
+   -- first N primes.
+
+add
+
+   function Make_Sieve (N : Positive) return Prime_Array;
+   -- Returns an array containing a increasing sequence of N numbers.
+
+   function Find_Start (A : Prime_Array; N : Positive) return Positive;
+   -- Begining at index N, scans the array A until an element /= 1 has been
+   -- located.  Returns the index if found or 1 if the end of the array was
+   -- reached.
+
+   procedure Filter_Sieve (A : in out Prime_Array; N : Positive);
+   -- Checks if each element of A with index greater than N is divisible by the
+   -- element at A(N).  When an element is found to be divisible it is set to
+   -- the value 1 to mark it as non-prime.
+
+   function Count_Primes (A : Prime_Array) return Natural;
+   -- Returns the number of primes contained in the given array, where a prime
+   -- is identified by not being equal to 1.
+
+   function Trim_Sieve (A : Prime_Array) return Prime_Array;
+   -- Returns an array containing only the primes in A (again, where a prime is
+   -- identified by not being equal to 1).
+
+   --
+   -- Make_Sieve
+   --
+   function Make_Sieve (N : Positive) return Prime_Array is
+      Result : Prime_Array := (1 .. N => 1);
+   begin
+      for I in Result'Range loop
+         Result(I) := I;
+      end loop;
+      return Result;
+   end Make_Sieve;
+
+   --
+   -- Find_Start
+   --
+   function Find_Start (A : Prime_Array; N : Positive) return Positive is
+   begin
+      for I in N .. A'Last loop
+         if A(I) /= 1 then
+            return I;
+         end if;
+      end loop;
+      return 1;
+   end Find_Start;
+
+   --
+   -- Filter_Sieve
+   --
+   procedure Filter_Sieve(A : in out Prime_Array; N : Positive) is
+      Div : Positive := A(N);
+   begin
+      for I in N + 1 .. A'Last loop
+         if A(I) rem Div = 0 then
+            A(I) := 1;
+         end if;
+      end loop;
+   end Filter_Sieve;
+
+   --
+   -- Count_Primes
+   --
+   function Count_Primes (A : Prime_Array) return Natural is
+      Count : Natural := 0;
+   begin
+      for I in A'Range loop
+         if A(I) /= 1 then
+            Count := Count + 1;
+         end if;
+      end loop;
+      return Count;
+   end Count_Primes;
+
+   --
+   -- Trim_Sieve
+   --
+   function Trim_Sieve (A : Prime_Array) return Prime_Array is
+      N : Natural     := Count_Primes(A);
+      R : Prime_Array := (1 .. N => 1);
+      J : Positive    := 1;
+   begin
+      for I in A'Range loop
+         if A(I) /= 1 then
+            R(J) := A(I);
+            J    := J + 1;
+         end if;
+      end loop;
+      return R;
+   end Trim_Sieve;
+
+   --
+   -- Sieve
+   --
+   function Sieve (N : Positive) return Prime_Array is
+      A : Prime_Array := Make_Sieve(N);
+      I : Positive    := 1;
+   begin
+      loop
+         I := Find_Start(A, I + 1);
+         if I = 1 then
+            return Trim_Sieve(A);
+         end if;
+         Filter_Sieve(A, I);
+      end loop;
+   end Sieve;
+
+end Sieve_of_Eratosthenes;
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      import Sieve_of_Eratosthenes;
+      A : Prime_Array := Sieve(30);
+   begin
+      pragma Assert(A(1)  = 2);
+      pragma Assert(A(2)  = 3);
+      pragma Assert(A(3)  = 5);
+      pragma Assert(A(4)  = 7);
+      pragma Assert(A(5)  = 11);
+      pragma Assert(A(6)  = 13);
+      pragma Assert(A(7)  = 17);
+      pragma Assert(A(8)  = 19);
+      pragma Assert(A(9)  = 23);
+      pragma Assert(A(10) = 29);
+   end Run;
+end Test;

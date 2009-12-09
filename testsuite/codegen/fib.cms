@@ -1,0 +1,36 @@
+--=== testsuite/codegen/fib.cms ------------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2009, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+-- Simple Fibonacci function.
+
+domain Test with
+   procedure Run;
+add
+   function Fib (X : Natural) return Natural is
+   begin
+      if X = 0 then
+         return 0;
+      elsif X = 1 then
+         return 1;
+      else
+         return Fib(X - 2) + Fib(X - 1);
+      end if;
+   end Fib;
+
+   procedure Run is
+   begin
+      pragma Assert(Fib(0)  = 0);
+      pragma Assert(Fib(1)  = 1);
+      pragma Assert(Fib(2)  = 1);
+      pragma Assert(Fib(3)  = 2);
+      pragma Assert(Fib(4)  = 3);
+      pragma Assert(Fib(5)  = 5);
+      pragma Assert(Fib(10) = 55);
+   end Run;
+
+end Test;
