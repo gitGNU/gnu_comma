@@ -68,6 +68,7 @@ public:
 
     llvm::Value *emitValue(Expr *expr);
     llvm::Value *emitVariableReference(Expr *expr);
+
     std::pair<llvm::Value*, llvm::Value*>
     emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 

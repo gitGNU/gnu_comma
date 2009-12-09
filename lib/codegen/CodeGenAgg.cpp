@@ -107,12 +107,14 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         return ValuePair(0, 0);
     }
 
+    llvm::Value *length = 0;
+
     // If dst is null build a stack allocated object to hold the components of
     // this array.
-    llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
-
-    if (dst == 0 && genTmp)
+    if (dst == 0 && genTmp) {
+        length = emitter.computeTotalBoundLength(Builder, bounds);
         dst = emitVLArray(arrTy, length);
+    }
 
     // If a destination is available, fill it in with the associated array
     // data.  Note that dst is of type [N x T]*, hense the double `dereference'
@@ -121,6 +123,8 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         const llvm::Type *componentTy = dst->getType();
         componentTy = cast<llvm::SequentialType>(componentTy)->getElementType();
         componentTy = cast<llvm::SequentialType>(componentTy)->getElementType();
+        if (!length)
+            length = emitter.computeTotalBoundLength(Builder, bounds);
         CGR.emitArrayCopy(components, dst, length, componentTy);
         return ValuePair(dst, bounds);
     }
