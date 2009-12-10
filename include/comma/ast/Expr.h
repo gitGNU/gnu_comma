@@ -518,9 +518,9 @@ public:
     /// An enumeration defining the kind of "others" component associated with
     /// this aggregate.
     enum OthersKind {
-        Others_None,            //< There is no \c others component.
-        Others_Undef,           //< Indicates a <tt>others => <></tt> component.
-        Others_Expr             //< An expression has been given for \c others.
+        Others_None,           ///< There is no \c others component.
+        Others_Undef,          ///< Indicates a <tt>others => <></tt> component.
+        Others_Expr            ///< An expression has been given for \c others.
     };
 
     /// Returns the kind of \c others component associated with this aggregate.
