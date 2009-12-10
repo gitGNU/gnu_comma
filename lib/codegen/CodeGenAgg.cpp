@@ -57,13 +57,27 @@ private:
     ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
-    llvm::Value *emitVLArray(ArrayType *arrTy, llvm::Value *length);
+
 
     ValuePair emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
                                   bool genTmp);
     ValuePair emitCall(FunctionCallExpr *call, llvm::Value *dst);
     ValuePair emitAggregate(AggregateExpr *expr, llvm::Value *dst);
     ValuePair emitStringLiteral(StringLiteral *expr);
+
+    llvm::Value *emitVLArray(ArrayType *arrTy, llvm::Value *length);
+
+    /// Emits the components defined by a descrete choice.
+    ///
+    /// \param I Iterator yielding the component to emit.
+    ///
+    /// \param dst Pointer to storage sufficient to hold the aggregate data.
+    ///
+    /// \param bias The lower bound of the associated discrete index type.  This
+    /// value is used to correct the actual index values defined by the discrete
+    /// choice so that they are zero based.
+    void emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
+                               llvm::Value *dst, llvm::Value *bias);
 };
 
 AggEmitter::ValuePair
@@ -88,12 +102,7 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
         return emit(prj->getOperand(), dst, genTmp);
 
-    if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
-        ValuePair pair = emitStringLiteral(lit);
-        components = pair.first;
-        bounds = pair.second;
-    }
-    else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = frame()->lookup(decl, activation::Slot);
 
@@ -101,6 +110,15 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         /// a statically constrained type.  A better API will replace this hack.
         if (!(bounds = frame()->lookup(decl, activation::Bounds)))
             bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
+    }
+    else if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
+        ValuePair pair = emitStringLiteral(lit);
+        components = pair.first;
+        bounds = pair.second;
+    }
+    else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(expr)) {
+        components = CGR.emitIndexedArrayRef(iae);
+        bounds = emitter.synthArrayBounds(Builder, arrTy);
     }
     else {
         assert(false && "Invalid type of array expr!");
@@ -322,6 +340,49 @@ AggEmitter::ValuePair AggEmitter::emitKeyedAgg(KeyedAggExpr *expr,
     return emitOthersKeyedAgg(expr, dst);
 }
 
+void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
+                                       llvm::Value *dst, llvm::Value *bias)
+{
+    const llvm::Type *indexTy = bias->getType();
+    llvm::Value *idxZero = llvm::ConstantInt::get(indexTy, 0);
+    llvm::Value *idxOne = llvm::ConstantInt::get(indexTy, 1);
+
+    // FIXME: Only ranges are supported at the moment.
+    Range *range = cast<Range>(*I);
+    uint64_t length = range->length();
+    Expr *expr = I.getExpr();
+    llvm::Value *idx = emitter.getLowerBound(Builder, range);
+    idx = Builder.CreateSub(idx, bias);
+
+    for (uint64_t i = 0; i < length; ++i) {
+        llvm::Value *component;
+        llvm::Value *indices[2];
+        llvm::Value *ptr;
+
+        indices[0] = idxZero;
+        indices[1] = idx;
+        ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+
+        if (isa<ArrayType>(expr->getType())) {
+            std::pair<llvm::Value *, llvm::Value *> DB;
+            llvm::Value *length;
+            const llvm::Type *elemTy;
+            DB = CGR.emitArrayExpr(expr, 0, false);
+            length = emitter.computeTotalBoundLength(Builder, DB.second);
+            elemTy = DB.first->getType();
+            elemTy = cast<llvm::SequentialType>(elemTy)->getElementType();
+            elemTy = cast<llvm::SequentialType>(elemTy)->getElementType();
+            CGR.emitArrayCopy(DB.first, ptr, length, elemTy);
+        }
+        else {
+            component = CGR.emitValue(I.getExpr());
+            Builder.CreateStore(component, ptr);
+        }
+
+        idx = Builder.CreateAdd(idx, idxOne);
+    }
+}
+
 AggEmitter::ValuePair
 AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 {
@@ -355,32 +416,8 @@ AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     // Generate the aggregate.
     KeyedAggExpr::choice_iterator I = expr->choice_begin();
     KeyedAggExpr::choice_iterator E = expr->choice_end();
-    llvm::Value *idxZero = llvm::ConstantInt::get(indexTy, 0);
-    llvm::Value *idxOne = llvm::ConstantInt::get(indexTy, 1);
-    for ( ; I != E; ++I) {
-        if (Range *range = dyn_cast<Range>(*I)) {
-            uint64_t length = range->length();
-            llvm::Value *idx = emitter.getLowerBound(Builder, range);
-            idx = Builder.CreateSub(idx, lower);
-            for (uint64_t i = 0; i < length; ++i) {
-                llvm::Value *component;
-                llvm::Value *indices[2];
-                llvm::Value *ptr;
-
-                component = CGR.emitValue(I.getExpr());
-
-                indices[0] = idxZero;
-                indices[1] = idx;
-
-                ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-                Builder.CreateStore(component, ptr);
-                idx = Builder.CreateAdd(idx, idxOne);
-            }
-            continue;
-        }
-        assert(false && "Discrete choice not yet supported!");
-    }
-
+    for ( ; I != E; ++I)
+        emitDiscreteComponent(I, dst, lower);
     emitOthers(expr, dst, bounds, numComponents);
     return ValuePair(dst, bounds);
 }
