@@ -363,17 +363,8 @@ void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
         indices[1] = idx;
         ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
 
-        if (isa<ArrayType>(expr->getType())) {
-            std::pair<llvm::Value *, llvm::Value *> DB;
-            llvm::Value *length;
-            const llvm::Type *elemTy;
-            DB = CGR.emitArrayExpr(expr, 0, false);
-            length = emitter.computeTotalBoundLength(Builder, DB.second);
-            elemTy = DB.first->getType();
-            elemTy = cast<llvm::SequentialType>(elemTy)->getElementType();
-            elemTy = cast<llvm::SequentialType>(elemTy)->getElementType();
-            CGR.emitArrayCopy(DB.first, ptr, length, elemTy);
-        }
+        if (isa<ArrayType>(expr->getType()))
+            CGR.emitArrayExpr(expr, ptr, false);
         else {
             component = CGR.emitValue(I.getExpr());
             Builder.CreateStore(component, ptr);
