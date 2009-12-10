@@ -78,6 +78,10 @@ private:
     /// choice so that they are zero based.
     void emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
                                llvm::Value *dst, llvm::Value *bias);
+
+    /// \brief Emits the array component given by \p expr and stores the result
+    /// in \p dst.
+    void emitComponent(Expr *expr, llvm::Value *dst);
 };
 
 AggEmitter::ValuePair
@@ -148,6 +152,14 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else
         return ValuePair(components, bounds);
+}
+
+void AggEmitter::emitComponent(Expr *expr, llvm::Value *dst)
+{
+    if (isa<ArrayType>(expr->getType()))
+        CGR.emitArrayExpr(expr, dst, false);
+    else
+        Builder.CreateStore(CGR.emitValue(expr), dst);
 }
 
 AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
@@ -312,19 +324,8 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
     typedef PositionalAggExpr::iterator iterator;
     iterator I = expr->begin_components();
     iterator E = expr->end_components();
-    for (unsigned idx = 0; I != E; ++I, ++idx) {
-        Expr *expr = *I;
-        llvm::Value *ptr = Builder.CreateConstGEP2_64(dst, 0, idx);
-        if (isa<ArrayType>(expr->getType()))
-            CGR.emitArrayExpr(expr, ptr, false);
-        else
-            Builder.CreateStore(CGR.emitValue(expr), ptr);
-    }
-
-    for (unsigned i = 0; i < components.size(); ++i) {
-        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, i);
-        Builder.CreateStore(components[i], idx);
-    }
+    for (unsigned idx = 0; I != E; ++I, ++idx)
+        emitComponent(*I, Builder.CreateConstGEP2_64(dst, 0, idx));
 
     // Emit an "others" clause if present.
     emitOthers(expr, dst, bounds, components.size());
@@ -361,21 +362,13 @@ void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
     idx = Builder.CreateSub(idx, bias);
 
     for (uint64_t i = 0; i < length; ++i) {
-        llvm::Value *component;
         llvm::Value *indices[2];
         llvm::Value *ptr;
 
         indices[0] = idxZero;
         indices[1] = idx;
         ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-
-        if (isa<ArrayType>(expr->getType()))
-            CGR.emitArrayExpr(expr, ptr, false);
-        else {
-            component = CGR.emitValue(I.getExpr());
-            Builder.CreateStore(component, ptr);
-        }
-
+        emitComponent(expr, ptr);
         idx = Builder.CreateAdd(idx, idxOne);
     }
 }

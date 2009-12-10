@@ -10,8 +10,8 @@ add
    procedure Assert_Nested (S : Nested) is
    begin
       for I in S'Range loop
-         for J in S(1)'Range loop
-            pragma Assert(S(1)(J) = 'x');
+         for J in S(I)'Range loop
+            pragma Assert(S(I)(J) = 'x');
          end loop;
       end loop;
    end Assert_Nested;
