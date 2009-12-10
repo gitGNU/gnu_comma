@@ -453,14 +453,12 @@ AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     Builder.SetInsertPoint(bodyBB);
     llvm::Value *indices[2];
     llvm::Value *ptr;
-    llvm::Value *component;
 
     indices[0] = iterZero;
     indices[1] = idx;
 
-    component = CGR.emitValue(I.getExpr());
     ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-    Builder.CreateStore(component, ptr);
+    emitComponent(I.getExpr(), ptr);
     Builder.CreateStore(Builder.CreateAdd(idx, iterOne), iter);
     Builder.CreateBr(checkBB);
 

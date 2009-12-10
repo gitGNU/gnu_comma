@@ -1,0 +1,30 @@
+-- Test indefinite arrays with component arrays.
+
+domain Test with
+   procedure Run;
+add
+   subtype Idx is Integer range 1..3;
+   type Fixed is array (Idx) of Character;
+   type Nested is array (Positive range <>) of Fixed;
+
+   procedure Assert_Nested (S : Nested) is
+   begin
+      for I in S'Range loop
+         for J in S(I)'Range loop
+            pragma Assert(S(I)(J) = 'y');
+         end loop;
+      end loop;
+   end Assert_Nested;
+
+   function Make_Nested (N : Positive) return Nested is
+      S : Nested := (1..N => (others => 'y'));
+   begin
+      return S;
+   end Make_Nested;
+
+   procedure Run is
+   begin
+      Assert_Nested(Make_Nested(5));
+   end Run;
+
+end Test;
