@@ -301,8 +301,6 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
 
     // Emit the expression associated with the others clause and store it in the
     // destination array.  Branch back to the test.
-    //
-    // FIXME: This code only works with non-composite values.
     llvm::Value *indices[2];
     indices[0] = llvm::ConstantInt::get(idxTy, 0);
     indices[1] = idx;
