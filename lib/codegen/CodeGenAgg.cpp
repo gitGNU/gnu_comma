@@ -58,13 +58,11 @@ private:
     ValuePair emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
 
-
     ValuePair emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
                                   bool genTmp);
     ValuePair emitCall(FunctionCallExpr *call, llvm::Value *dst);
     ValuePair emitAggregate(AggregateExpr *expr, llvm::Value *dst);
     ValuePair emitStringLiteral(StringLiteral *expr);
-
 
     /// Allocates a temporary array.
     ///
@@ -489,7 +487,6 @@ AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
 }
 
-
 llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
                                     llvm::Value *&dst)
 {
@@ -516,7 +513,6 @@ llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
 }
 
 } // end anonymous namespace.
-
 
 void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *destination,
@@ -554,7 +550,7 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
                                    llvm::Value *length,
                                    const llvm::Type *componentTy)
 {
-    // Scale the length by the size of the component type of the arrays.  The
+    // Scale the length by the size of the component type of the array.  The
     // current convention is that array lengths are represented as i32's.
     // Truncate the component size (an i64).
     llvm::Value *compSize;
@@ -573,7 +569,6 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     llvm::Value *dst = Builder.CreatePointerCast(destination, i8PtrTy);
     Builder.CreateCall4(memcpy, dst, src, length, align);
 }
-
 
 std::pair<llvm::Value*, llvm::Value*>
 CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
