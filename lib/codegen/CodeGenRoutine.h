@@ -97,6 +97,8 @@ public:
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        llvm::Value *length, const llvm::Type *componentTy);
 
+    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
+
     PrimaryType *resolveType(Type *type);
 
 private:
@@ -136,8 +138,6 @@ private:
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
-
-    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
