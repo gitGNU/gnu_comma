@@ -16,16 +16,24 @@ add
       end loop;
    end Assert_Nested;
 
-   function Make_Nested return Nested is
+   function Make_Nested1 return Nested is
       S : Nested := (1 .. 4 => "xxxxxxxxxx");
    begin
       return S;
-   end Make_Nested;
+   end Make_Nested1;
+
+   function Make_Nested2 return Nested is
+      S : Nested := (1 .. 4 => (1 .. 10 => 'x'));
+   begin
+      return S;
+   end Make_Nested2;
 
    procedure Run is
-      S : Nested := Make_Nested;
+      S1 : Nested := Make_Nested1;
+      S2 : Nested := Make_Nested2;
    begin
-      Assert_Nested(S);
+      Assert_Nested(S1);
+      Assert_Nested(S2);
    end Run;
 
 end Test;
