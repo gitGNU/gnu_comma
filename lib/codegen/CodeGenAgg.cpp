@@ -312,8 +312,14 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
     typedef PositionalAggExpr::iterator iterator;
     iterator I = expr->begin_components();
     iterator E = expr->end_components();
-    for ( ; I != E; ++I)
-        components.push_back(CGR.emitValue(*I));
+    for (unsigned idx = 0; I != E; ++I, ++idx) {
+        Expr *expr = *I;
+        llvm::Value *ptr = Builder.CreateConstGEP2_64(dst, 0, idx);
+        if (isa<ArrayType>(expr->getType()))
+            CGR.emitArrayExpr(expr, ptr, false);
+        else
+            Builder.CreateStore(CGR.emitValue(expr), ptr);
+    }
 
     for (unsigned i = 0; i < components.size(); ++i) {
         llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, i);
