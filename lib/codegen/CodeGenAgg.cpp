@@ -384,7 +384,6 @@ AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
     uint64_t numComponents = expr->numComponents();
-    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
 
     assert(numComponents && "Aggregate does not have static components!");
 
@@ -401,13 +400,8 @@ AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     bounds = emitter.synthRange(Builder, lower, upper);
 
     // If the destination is null, create a temporary to hold the aggregate.
-    if (dst == 0) {
-        const llvm::Type *componentTy;
-        const llvm::Type *dstTy;
-        componentTy = CGT.lowerType(arrTy->getComponentType());
-        dstTy = llvm::ArrayType::get(componentTy, numComponents);
-        dst = frame()->createTemp(dstTy);
-    }
+    if (dst == 0)
+        allocArray(arrTy, bounds, dst);
 
     // Generate the aggregate.
     KeyedAggExpr::choice_iterator I = expr->choice_begin();
