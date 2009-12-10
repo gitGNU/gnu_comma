@@ -1,0 +1,24 @@
+-- Test "others" with sub-aggregate target.
+
+domain Test with
+   procedure Run;
+add
+   subtype Idx is Integer range 1..3;
+   type Fixed is array (Idx) of Character;
+   type Nested is array (Idx) of Fixed;
+
+   procedure Assert_Nested (S : Nested) is
+   begin
+      for I in S'Range loop
+         for J in S(I)'Range loop
+            pragma Assert(S(I)(J) = 'x');
+         end loop;
+      end loop;
+   end Assert_Nested;
+
+   procedure Run is
+   begin
+      Assert_Nested((others => (others => 'x')));
+   end Run;
+
+end Test;

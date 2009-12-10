@@ -65,7 +65,19 @@ private:
     ValuePair emitAggregate(AggregateExpr *expr, llvm::Value *dst);
     ValuePair emitStringLiteral(StringLiteral *expr);
 
-    llvm::Value *emitVLArray(ArrayType *arrTy, llvm::Value *length);
+
+    /// Allocates a temporary array.
+    ///
+    /// \param arrTy The Comma type of the array to allocate.
+    ///
+    /// \param bounds Precomputed bounds of the array type.
+    ///
+    /// \param dst Out parameter set to a pointer to the allocated array.
+    ///
+    /// \return If the allocation required the length of the array to be
+    /// computed, returns that value, else null.
+    llvm::Value *allocArray(ArrayType *arrTy, llvm::Value *bounds,
+                            llvm::Value *&dst);
 
     /// Emits the components defined by a descrete choice.
     ///
@@ -133,10 +145,8 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 
     // If dst is null build a stack allocated object to hold the components of
     // this array.
-    if (dst == 0 && genTmp) {
-        length = emitter.computeTotalBoundLength(Builder, bounds);
-        dst = emitVLArray(arrTy, length);
-    }
+    if (dst == 0 && genTmp)
+        length = allocArray(arrTy, bounds, dst);
 
     // If a destination is available, fill it in with the associated array
     // data.  Note that dst is of type [N x T]*, hense the double `dereference'
@@ -253,9 +263,7 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     // can "count from zero" and compare against the upper bound without
     // worrying about overflow.
     if (numComponents == 0) {
-        llvm::Value *component = CGR.emitValue(othersExpr);
-        llvm::Value *idx = Builder.CreateConstGEP2_64(dst, 0, 0);
-        Builder.CreateStore(component, idx);
+        emitComponent(othersExpr, Builder.CreateConstGEP2_64(dst, 0, 0));
         numComponents = 1;
     }
 
@@ -300,9 +308,8 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     llvm::Value *indices[2];
     indices[0] = llvm::ConstantInt::get(idxTy, 0);
     indices[1] = idx;
-    llvm::Value *component = CGR.emitValue(othersExpr);
     llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-    Builder.CreateStore(component, ptr);
+    emitComponent(othersExpr, ptr);
     Builder.CreateBr(checkBB);
 
     // Set the insert point to the merge BB and return.
@@ -313,13 +320,12 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
                                                     llvm::Value *dst)
 {
     llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
-    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
 
     std::vector<llvm::Value*> components;
 
     if (dst == 0)
-        dst = emitVLArray(arrTy, length);
+        allocArray(arrTy, bounds, dst);
 
     typedef PositionalAggExpr::iterator iterator;
     iterator I = expr->begin_components();
@@ -419,10 +425,13 @@ AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     KeyedAggExpr::choice_iterator I = expr->choice_begin();
     Range *range = cast<Range>(*I);
     llvm::Value *bounds = emitter.synthRange(Builder, range);
-    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
+    llvm::Value *length = 0;
 
     if (dst == 0)
-        dst = emitVLArray(arrTy, length);
+        length = allocArray(arrTy, bounds, dst);
+
+    if (length == 0)
+        length = emitter.computeBoundLength(Builder, bounds, 0);
 
     // Iterate from 0 upto the computed length of the aggregate.  Define the
     // iteration type and some constance for convenience.
@@ -478,33 +487,40 @@ AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 
     DiscreteType *idxTy = arrTy->getIndexType(0);
     llvm::Value *bounds = emitter.synthScalarBounds(Builder, idxTy);
-    llvm::Value *length = emitter.computeBoundLength(Builder, bounds, 0);
 
-    // If dst is null, compute the length of the aggregate and build a
-    // destination for the data.
+    // Allocate a destination if needed.
     if (dst == 0)
-        dst = emitVLArray(arrTy, length);
+        allocArray(arrTy, bounds, dst);
 
     // Emit the others expression.
     emitOthers(expr, dst, bounds, 0);
     return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
 }
 
-llvm::Value* AggEmitter::emitVLArray(ArrayType *arrTy, llvm::Value *length)
-{
-    const llvm::Type *componentTy;
-    const llvm::Type *dstTy;
-    llvm::Value *dst;
 
-    CodeGen &CG = CGR.getCodeGen();
+llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
+                                    llvm::Value *&dst)
+{
     CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
 
-    componentTy = CGT.lowerType(arrTy->getComponentType());
-    dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
-    frame()->stacksave();
-    dst = Builder.CreateAlloca(componentTy, length);
-    dst = Builder.CreatePointerCast(dst, dstTy);
-    return dst;
+    if (arrTy->isStaticallyConstrained()) {
+        dst = frame()->createTemp(CGT.lowerArrayType(arrTy));
+        return 0;
+    }
+    else {
+        CodeGen &CG = CGR.getCodeGen();
+        const llvm::Type *componentTy;
+        const llvm::Type *dstTy;
+        llvm::Value *length;
+
+        length = emitter.computeTotalBoundLength(Builder, bounds);
+        componentTy = CGT.lowerType(arrTy->getComponentType());
+        dstTy = CG.getPointerType(CG.getVLArrayTy(componentTy));
+        frame()->stacksave();
+        dst = Builder.CreateAlloca(componentTy, length);
+        dst = Builder.CreatePointerCast(dst, dstTy);
+        return length;
+    }
 }
 
 } // end anonymous namespace.
