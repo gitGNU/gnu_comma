@@ -30,7 +30,8 @@ namespace {
 class AggregateChecker {
 
 public:
-    AggregateChecker(TypeCheck &TC) : TC(TC) { }
+    AggregateChecker(TypeCheck &TC) :
+        TC(TC), refinedIndexType(0) { }
 
     /// Attempts to resolve the given aggregate expression with respect to the
     /// given type.  Returns an expression node (possibly different from \p agg)
@@ -39,6 +40,10 @@ public:
 
 private:
     TypeCheck &TC;              // TypeCheck context.
+
+    /// If an array aggregate expression's index type is constrained by the
+    /// aggregate, this member is filled in with the corresponding subtype.
+    DiscreteType *refinedIndexType;
 
     /// When processing KeyedAggExpr's, the following vector is populated with
     /// each choice node in the aggregate.
@@ -72,6 +77,18 @@ private:
     bool checkAggChoiceList(KeyedAggExpr::ChoiceList *CL,
                             DiscreteType *indexTy, Type *componentTy);
 
+    /// Helper for resolveKeyedAggExpr.
+    ///
+    /// Checks a keyed aggregate which consists of a single choice and does not
+    /// contain an "others" clause.
+    bool checkSinglyKeyedAgg(KeyedAggExpr *agg, ArrayType *contextTy);
+
+    /// Helper for resolveKeyedAggExpr.
+    ///
+    /// Checks a keyed aggregate which consists of multiple choices and/or
+    /// contains an "others" clause.
+    bool checkMultiplyKeyedAgg(KeyedAggExpr *agg, ArrayType *contextTy);
+
     /// Scans each choice provided by the given KeyedAggExpr.  Ensures that each
     /// choice is static an non-null if bounded.  Each validated choice is
     /// pushed in order onto choiceVec.  Returns true if all choices were
@@ -82,13 +99,13 @@ private:
     /// choices, ensures that there are no overlaps and when \p hasOthers is
     /// false that the choices define a continuous index set.
     ///
-    /// \param indexTy The type context for the index of this aggegate.
+    /// \param contextTy The type context for this aggegate.
     ///
     /// \param hasOthers True if the aggregate under construction has an others
     /// clause.
     ///
     /// \return True if the check was successful.
-    bool ensureDistinctChoices(DiscreteType *indexTy, bool hasOthers);
+    bool ensureDistinctChoices(ArrayType *contextTy, bool hasOthers);
 
     /// Helper predicate for ensureDistinctChoices.  Defines a sorting between
     /// choices which have unsigned bounds or values.  For use with std::stort.
@@ -98,12 +115,47 @@ private:
     /// choices which have signed bounds or values.  For use with std::stort.
     static bool compareChoicesS(Ast *X, Ast *Y);
 
+    /// Helper method for ensureDistinctChoices.
+    ///
+    /// Verifys that choiceVec (assumed to be in sorted order) does not contain
+    /// a range of indices which lay outside any static constraints of the given
+    /// index type.  If the check succeeds true is returned and Returns true if the
+
     /// Checks the \c others component (if any) provided by \p agg.
     ///
     /// \return True if the \c others component is well formed with respect to
     /// \p context, or if \p agg does not admit an \c others clause.  False
     /// otherwise.
     bool checkOthers(AggregateExpr *agg, ArrayType *context);
+
+    /// \name Bounds extraction helpers.
+    ///
+    //@{
+
+    /// Returns the expression representing the lower bound of the given choice
+    /// node.
+    static Expr *getChoiceLowerExpr(Ast *choice);
+
+    /// Returns the expression representing the upper bound of the given choice
+    /// node.
+    static Expr *getChoiceUpperExpr(Ast *choice);
+
+    /// Returns the lower bound of a static choice node. The interpretation of
+    /// the result as signed or unsigned is dependent on the index type.
+    static llvm::APInt getChoiceLowerBound(Ast *choice);
+
+    /// Returns the upper bound of a static choice node. The interpretation of
+    /// the result as signed or unsigned is dependent on the index type.
+    static llvm::APInt getChoiceUpperBound(Ast *choice);
+
+    /// Returns the location of the lower bound of the given choice node or the
+    /// location of the node itself.
+    static Location getChoiceLowerLoc(Ast *choice);
+
+    /// Returns the location of the upper bound of the given choice node or the
+    /// location of the node itself.
+    static Location getChoiceUpperLoc(Ast *choice);
+    //@}
 };
 
 /// Helper function for acceptStringLiteral().  Extracts the enumeration
@@ -178,7 +230,6 @@ Expr *AggregateChecker::resolveAggregateExpr(AggregateExpr *agg, Type *context)
     // aggregates.
     assert(arrTy->isVector() && "Multidimensional arrays not supported yet!");
 
-
     // Otherwise, we must resolve based on the type of aggregate we were given.
     if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(agg))
         return resolvePositionalAggExpr(PAE, arrTy);
@@ -245,9 +296,43 @@ Expr *AggregateChecker::resolvePositionalAggExpr(PositionalAggExpr *agg,
 
     // Otherwise, the context is unconstrained.
     //
-    // FIXME: Generate a statically constrained subtype here.
+    // FIXME: Generate a constrained subtype here.
     agg->setType(context);
     return agg;
+}
+
+bool AggregateChecker::checkSinglyKeyedAgg(KeyedAggExpr *agg,
+                                           ArrayType *contextTy)
+{
+    // There is no further checking which needs to happen for an aggregate
+    // containing a single choice and is without an others clause.  Simply check
+    // if the context type is unconstrained and resolve the index type if
+    // needed.
+    if (!contextTy->isConstrained()) {
+        DiscreteType *indexTy = contextTy->getIndexType(0);
+        AstResource &resource = TC.getAstResource();
+        Expr *lower = getChoiceLowerExpr(*agg->choice_begin());
+        Expr *upper = getChoiceUpperExpr(*agg->choice_begin());
+        refinedIndexType = resource.createDiscreteSubtype(
+            indexTy->getIdInfo(), indexTy, lower, upper);
+    }
+    return true;
+}
+
+bool AggregateChecker::checkMultiplyKeyedAgg(KeyedAggExpr *agg,
+                                             ArrayType *contextTy)
+{
+    bool allOK;
+
+    // Ensure each of the choices provided by this aggregate are static and
+    // non-null if bounded.  Populate choiceVec with the valid choices.
+    allOK = ensureStaticChoices(agg);
+
+    // Check the choiceVec for any overlapping choices.
+    allOK = allOK && ensureDistinctChoices(contextTy, agg->hasOthers());
+
+    // Check the others component if present.
+    return checkOthers(agg, contextTy) && allOK;
 }
 
 Expr *AggregateChecker::resolveKeyedAggExpr(KeyedAggExpr *agg,
@@ -259,31 +344,28 @@ Expr *AggregateChecker::resolveKeyedAggExpr(KeyedAggExpr *agg,
     // Check and resolve each discrete choice list.
     bool allOK = true;
     for (KeyedAggExpr::cl_iterator I = agg->cl_begin(); I != agg->cl_end(); ++I)
-        allOK = checkAggChoiceList(*I, indexTy, componentTy);
+        allOK = checkAggChoiceList(*I, indexTy, componentTy) && allOK;
     if (!allOK) return 0;
 
     // Compute the total number of choices provided by this aggregate.
     unsigned numChoices = agg->numChoices();
 
     // If there is only one choice, and there is no others clause, it is
-    // permitted to be dynamic or null.  In this case we are finished checking.
-    //
-    // FIXME: Check if a conversion is required.
-    if (numChoices == 1 && !agg->hasOthers()) {
-        agg->setType(context);
-        return agg;
+    // permitted to be dynamic or null.  If the context type of the aggregate is
+    // unconstrained then generate a new constrained subtype for the index.
+    if (numChoices == 1 && !agg->hasOthers())
+        allOK = checkSinglyKeyedAgg(agg, context);
+    else
+        allOK = checkMultiplyKeyedAgg(agg, context);
+    if (!allOK) return 0;
+
+    // Build a new array subtype for the aggregate if the index types were
+    // refined.
+    if (refinedIndexType) {
+        AstResource &resource = TC.getAstResource();
+        context = resource.createArraySubtype(context->getIdInfo(), context,
+                                              &refinedIndexType);
     }
-
-    // Ensure each of the choices provided by this aggregate are static and
-    // non-null if bounded.  Populate choiceVec with the valid choices.
-    allOK = ensureStaticChoices(agg);
-
-    // Check the choiceVec for any overlapping choices.
-    allOK = ensureDistinctChoices(indexTy, agg->hasOthers()) && allOK;
-
-    // Check the others component if present.
-    if (!checkOthers(agg, context) || !allOK)
-        return 0;
 
     // FIXME:  Check if a conversion is required.
     agg->setType(context);
@@ -353,9 +435,10 @@ bool AggregateChecker::ensureStaticChoices(KeyedAggExpr *agg)
     return allOK;
 }
 
-bool AggregateChecker::ensureDistinctChoices(DiscreteType *indexTy,
+bool AggregateChecker::ensureDistinctChoices(ArrayType *contextTy,
                                              bool hasOthers)
 {
+    DiscreteType *indexTy = contextTy->getIndexType(0);
     bool isSigned = indexTy->isSigned();
 
     if (isSigned)
@@ -376,29 +459,32 @@ bool AggregateChecker::ensureDistinctChoices(DiscreteType *indexTy,
         // FIXME:  Only ranges are supported currently.
         Range *first = cast<Range>(prev);
         Range *second = cast<Range>(next);
-        int64_t x;
-        int64_t y;
+        bool overlapping;
+        bool continuous;
 
         if (isSigned) {
-            x = first->getStaticUpperBound().getSExtValue();
-            y = second->getStaticLowerBound().getSExtValue();
+            int64_t x = first->getStaticUpperBound().getSExtValue();
+            int64_t y = second->getStaticLowerBound().getSExtValue();
+            overlapping = y <= x;
+            continuous = x == y - 1;
         }
         else {
-            x = first->getStaticUpperBound().getZExtValue();
-            y = second->getStaticLowerBound().getZExtValue();
+            uint64_t x = first->getStaticUpperBound().getZExtValue();
+            uint64_t y = second->getStaticLowerBound().getZExtValue();
+            overlapping = y <= x;
+            continuous = x == y - 1;
         }
 
-        // Check for overlap of the ranges.
-        if (y <= x) {
+        // Diagnose overlapping ranges.
+        if (overlapping) {
             report(first->getLowerLocation(),
                    diag::DUPLICATED_CHOICE_VALUE)
                 << getSourceLoc(second->getLowerLocation());
             return false;
         }
 
-        // If there is no others clause, ensure the ranges cover a continuous
-        // region.
-        if (!hasOthers && x != y - 1) {
+        // Diagnose non-continuous indices when there is no others clause.
+        if (!hasOthers && !continuous) {
             report(first->getUpperLocation(), diag::DISCONTINUOUS_CHOICE)
                 << getSourceLoc(second->getLowerLocation());
             return false;
@@ -407,6 +493,18 @@ bool AggregateChecker::ensureDistinctChoices(DiscreteType *indexTy,
         prev = next;
     }
 
+    // If the context type of the aggregate is unconstrained then generate a new
+    // constrained subtype for the current index.
+    //
+    // FIXME: The lower and upper bound expressions should be cloned here since
+    // the new subtype will take ownership.
+    if (!contextTy->isConstrained()) {
+        AstResource &resource = TC.getAstResource();
+        Expr *lower = getChoiceLowerExpr(choiceVec.front());
+        Expr *upper = getChoiceUpperExpr(choiceVec.back());
+        refinedIndexType = resource.createDiscreteSubtype(
+            indexTy->getIdInfo(), indexTy, lower, upper);
+    }
     return true;
 }
 
@@ -463,6 +561,48 @@ bool AggregateChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
     }
 
     return true;
+}
+
+Expr *AggregateChecker::getChoiceLowerExpr(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getLowerBound();
+}
+
+Expr *AggregateChecker::getChoiceUpperExpr(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getUpperBound();
+}
+
+llvm::APInt AggregateChecker::getChoiceLowerBound(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getStaticLowerBound();
+}
+
+llvm::APInt AggregateChecker::getChoiceUpperBound(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getStaticUpperBound();
+}
+
+Location AggregateChecker::getChoiceLowerLoc(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getLowerLocation();
+}
+
+Location AggregateChecker::getChoiceUpperLoc(Ast *choice)
+{
+    // FIXME: Support discrete types and static expressions.
+    Range *range = cast<Range>(choice);
+    return range->getUpperLocation();
 }
 
 //===----------------------------------------------------------------------===//

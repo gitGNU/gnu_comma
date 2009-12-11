@@ -1,0 +1,11 @@
+-- MUST-FAIL: Ensure bounds implied by aggregate expressions are propagated.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      S : String := (1..5 => 'x', 6..10 => 'y');
+   begin
+      S(11) := 'z';
+   end Run;
+end Test;
