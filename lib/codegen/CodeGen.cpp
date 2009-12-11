@@ -117,14 +117,23 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
 
     // Switch to landing pad.
     Builder.SetInsertPoint(landingBB);
+    llvm::Value *eh_person;
     llvm::Function *eh_except;
     llvm::Function *eh_select;
     llvm::Function *eh_typeid;
-    llvm::Value *eh_person;
-    eh_except = getLLVMIntrinsic(llvm::Intrinsic::eh_exception);
-    eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
-    eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
     eh_person = CRT->getEHPersonality();
+    eh_except = getLLVMIntrinsic(llvm::Intrinsic::eh_exception);
+
+    // Select the appropriate exception intrinsics based on the target pointer
+    // size.
+    if (TD.getPointerSizeInBits() == 32) {
+        eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i32);
+        eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i32);
+    }
+    else {
+        eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
+        eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
+    }
 
     // The exception object produced by a call to _comma_raise.
     llvm::Value *except = Builder.CreateCall(eh_except);
