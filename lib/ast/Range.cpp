@@ -71,6 +71,7 @@ void Range::checkAndAdjustLimits()
 
 void Range::setLowerBound(Expr *expr)
 {
+    lowerBound.setPointer(expr);
     if (expr->staticDiscreteValue(lowerValue)) {
         markLowerAsStatic();
         if (hasType())
@@ -82,6 +83,7 @@ void Range::setLowerBound(Expr *expr)
 
 void Range::setUpperBound(Expr *expr)
 {
+    upperBound.setPointer(expr);
     if (expr->staticDiscreteValue(upperValue)) {
         markUpperAsStatic();
         if (hasType())
