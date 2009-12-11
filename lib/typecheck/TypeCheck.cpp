@@ -552,6 +552,11 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
     if (init && !(init = checkExprInContext(init, arrTy)))
         return 0;
 
+    // If the array type is unconstrained, use the resolved type of the
+    // initializer.
+    if (!arrTy->isConstrained())
+        arrTy = cast<ArrayType>(init->getType());
+
     return new ObjectDecl(name, arrTy, loc, init);
 }
 
