@@ -239,3 +239,6 @@ DIAGNOSTIC(NULL_CHOICE_NOT_UNIQUE, ERROR,
            "Null choice in aggregate must be unique.")
 DIAGNOSTIC(DUPLICATED_CHOICE_VALUE, ERROR,
            "Choice value duplicated at `%0'.")
+DIAGNOSTIC(DISCONTINUOUS_CHOICE, ERROR,
+           "Discrete choice not continuous. "
+           "Values below choice `%0' are not covered.")

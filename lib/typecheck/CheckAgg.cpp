@@ -79,11 +79,16 @@ private:
     bool ensureStaticChoices(KeyedAggExpr *agg);
 
     /// Given that choiceVec has been populated with static and non-null
-    /// choices, ensures that there are no overlaps.  Returns true on success.
+    /// choices, ensures that there are no overlaps and when \p hasOthers is
+    /// false that the choices define a continuous index set.
     ///
-    /// \param isSigned True if the choices should be treated as signed
-    /// entities, and false if unsigned.
-    bool ensureDistinctChoices(bool isSigned);
+    /// \param indexTy The type context for the index of this aggegate.
+    ///
+    /// \param hasOthers True if the aggregate under construction has an others
+    /// clause.
+    ///
+    /// \return True if the check was successful.
+    bool ensureDistinctChoices(DiscreteType *indexTy, bool hasOthers);
 
     /// Helper predicate for ensureDistinctChoices.  Defines a sorting between
     /// choices which have unsigned bounds or values.  For use with std::stort.
@@ -274,7 +279,7 @@ Expr *AggregateChecker::resolveKeyedAggExpr(KeyedAggExpr *agg,
     allOK = ensureStaticChoices(agg);
 
     // Check the choiceVec for any overlapping choices.
-    allOK = ensureDistinctChoices(indexTy->isSigned()) && allOK;
+    allOK = ensureDistinctChoices(indexTy, agg->hasOthers()) && allOK;
 
     // Check the others component if present.
     if (!checkOthers(agg, context) || !allOK)
@@ -348,8 +353,11 @@ bool AggregateChecker::ensureStaticChoices(KeyedAggExpr *agg)
     return allOK;
 }
 
-bool AggregateChecker::ensureDistinctChoices(bool isSigned)
+bool AggregateChecker::ensureDistinctChoices(DiscreteType *indexTy,
+                                             bool hasOthers)
 {
+    bool isSigned = indexTy->isSigned();
+
     if (isSigned)
         std::sort(choiceVec.begin(), choiceVec.end(), compareChoicesS);
     else
@@ -368,29 +376,34 @@ bool AggregateChecker::ensureDistinctChoices(bool isSigned)
         // FIXME:  Only ranges are supported currently.
         Range *first = cast<Range>(prev);
         Range *second = cast<Range>(next);
+        int64_t x;
+        int64_t y;
 
         if (isSigned) {
-            int64_t x = first->getStaticUpperBound().getSExtValue();
-            int64_t y = second->getStaticLowerBound().getSExtValue();
-
-            if (y <= x) {
-                report(first->getLowerLocation(),
-                       diag::DUPLICATED_CHOICE_VALUE)
-                    << getSourceLoc(second->getLowerLocation());
-                return false;
-            }
+            x = first->getStaticUpperBound().getSExtValue();
+            y = second->getStaticLowerBound().getSExtValue();
         }
         else {
-            uint64_t x = first->getStaticUpperBound().getZExtValue();
-            uint64_t y = second->getStaticLowerBound().getZExtValue();
-
-            if (y <= x) {
-                report(first->getLowerLocation(),
-                       diag::DUPLICATED_CHOICE_VALUE)
-                    << getSourceLoc(second->getLowerLocation());
-                return false;
-            }
+            x = first->getStaticUpperBound().getZExtValue();
+            y = second->getStaticLowerBound().getZExtValue();
         }
+
+        // Check for overlap of the ranges.
+        if (y <= x) {
+            report(first->getLowerLocation(),
+                   diag::DUPLICATED_CHOICE_VALUE)
+                << getSourceLoc(second->getLowerLocation());
+            return false;
+        }
+
+        // If there is no others clause, ensure the ranges cover a continuous
+        // region.
+        if (!hasOthers && x != y - 1) {
+            report(first->getUpperLocation(), diag::DISCONTINUOUS_CHOICE)
+                << getSourceLoc(second->getLowerLocation());
+            return false;
+        }
+
         prev = next;
     }
 
