@@ -235,3 +235,37 @@ uint64_t KeyedAggExpr::numComponents() const
 
     return count;
 }
+
+bool KeyedAggExpr::compareChoicesU(Ast *X, Ast *Y)
+{
+    uint64_t boundX;
+    uint64_t boundY;
+
+    // FIXME:  Currently only ranges are supported.
+    Range *range;
+
+    range = cast<Range>(X);
+    boundX = range->getStaticLowerBound().getZExtValue();
+
+    range = cast<Range>(Y);
+    boundY = range->getStaticLowerBound().getZExtValue();
+
+    return boundX < boundY;
+}
+
+bool KeyedAggExpr::compareChoicesS(Ast *X, Ast *Y)
+{
+    int64_t boundX;
+    int64_t boundY;
+
+    // FIXME:  Currently only ranges are supported.
+    Range *range;
+
+    range = cast<Range>(X);
+    boundX = range->getStaticLowerBound().getSExtValue();
+
+    range = cast<Range>(Y);
+    boundY = range->getStaticLowerBound().getSExtValue();
+
+    return boundX < boundY;
+}

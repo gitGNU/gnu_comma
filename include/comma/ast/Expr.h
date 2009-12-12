@@ -816,6 +816,14 @@ public:
     /// \note For dynamic aggregates this method returns zero.
     uint64_t numComponents() const;
 
+    /// Predicate defining a less-than relation between choices of unsigned
+    /// type.  For use with std::stort.
+    static bool compareChoicesU(Ast *X, Ast *Y);
+
+    /// Predicate defining a less-than relation between choices of signed
+    /// discrete type.  For use with std::stort.
+    static bool compareChoicesS(Ast *X, Ast *Y);
+
     /// \name ChoiceList Iterators.
     ///
     /// \brief Iterators over the choice lists associated with this aggregate.

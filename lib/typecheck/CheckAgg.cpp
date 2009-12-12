@@ -107,14 +107,6 @@ private:
     /// \return True if the check was successful.
     bool ensureDistinctChoices(ArrayType *contextTy, bool hasOthers);
 
-    /// Helper predicate for ensureDistinctChoices.  Defines a sorting between
-    /// choices which have unsigned bounds or values.  For use with std::stort.
-    static bool compareChoicesU(Ast *X, Ast *Y);
-
-    /// Helper predicate for ensureDistinctChoices.  Defines a sorting between
-    /// choices which have signed bounds or values.  For use with std::stort.
-    static bool compareChoicesS(Ast *X, Ast *Y);
-
     /// Helper method for ensureDistinctChoices.
     ///
     /// Verifys that choiceVec (assumed to be in sorted order) does not contain
@@ -442,9 +434,11 @@ bool AggregateChecker::ensureDistinctChoices(ArrayType *contextTy,
     bool isSigned = indexTy->isSigned();
 
     if (isSigned)
-        std::sort(choiceVec.begin(), choiceVec.end(), compareChoicesS);
+        std::sort(choiceVec.begin(), choiceVec.end(),
+                  KeyedAggExpr::compareChoicesS);
     else
-        std::sort(choiceVec.begin(), choiceVec.end(), compareChoicesU);
+        std::sort(choiceVec.begin(), choiceVec.end(),
+                  KeyedAggExpr::compareChoicesU);
 
     std::vector<Ast*>::iterator I = choiceVec.begin();
     std::vector<Ast*>::iterator E = choiceVec.end();
@@ -508,39 +502,6 @@ bool AggregateChecker::ensureDistinctChoices(ArrayType *contextTy,
     return true;
 }
 
-bool AggregateChecker::compareChoicesU(Ast *X, Ast *Y)
-{
-    uint64_t boundX;
-    uint64_t boundY;
-
-    // FIXME:  Currently only ranges are supported.
-    Range *range;
-
-    range = cast<Range>(X);
-    boundX = range->getStaticLowerBound().getZExtValue();
-
-    range = cast<Range>(Y);
-    boundY = range->getStaticLowerBound().getZExtValue();
-
-    return boundX < boundY;
-}
-
-bool AggregateChecker::compareChoicesS(Ast *X, Ast *Y)
-{
-    int64_t boundX;
-    int64_t boundY;
-
-    // FIXME:  Currently only ranges are supported.
-    Range *range;
-
-    range = cast<Range>(X);
-    boundX = range->getStaticLowerBound().getSExtValue();
-
-    range = cast<Range>(Y);
-    boundY = range->getStaticLowerBound().getSExtValue();
-
-    return boundX < boundY;
-}
 
 bool AggregateChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
 {
