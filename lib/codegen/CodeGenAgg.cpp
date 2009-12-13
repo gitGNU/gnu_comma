@@ -51,14 +51,41 @@ private:
 
     SRFrame *frame() { return CGR.getSRFrame(); }
 
-    // Aggregrate emission helpers.
+    /// \brief Fills in the components defined by the given aggregates others
+    /// clause (if any).
+    ///
+    /// \param agg The keyed aggregate to generate code for.  If \p agg does not
+    /// define an others clause this emitter does nothing.
+    ///
+    /// \param dst Pointer to storage sufficient to hold the contents of this
+    /// aggregate.
+    ///
+    /// \param lower Lower bound of the current index.
+    ///
+    /// \param upper Upper bound of the current index.
     void fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
                       llvm::Value *lower, llvm::Value *upper);
-    void emitOthers(AggregateExpr *expr, llvm::Value *dst,
-                    llvm::Value *bounds, uint64_t numComponents);
-    void emitOthers(Expr *Expr, llvm::Value *dst,
+
+    /// \brief Emits the given expression repeatedly into a destination.
+    ///
+    /// \param others The expression to emit.  The given expression is evaluated
+    /// repeatedly for each generated component.
+    ///
+    /// \param dst Pointer to storage sufficient to hold the generated data.
+    ///
+    /// \param start Index to start emitting \p others into.
+    ///
+    /// \param end One-past-the-last sentinel value.
+    ///
+    /// \param bias Value to subtract from \p start and \p end so that they are
+    /// zero-based indices.
+    void emitOthers(Expr *others, llvm::Value *dst,
                     llvm::Value *start, llvm::Value *end,
                     llvm::Value *bias);
+
+    void emitOthers(AggregateExpr *expr, llvm::Value *dst,
+                    llvm::Value *bounds, uint64_t numComponents);
+
     ValuePair emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst);
     ValuePair emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
@@ -587,7 +614,7 @@ AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 
     // Emit the others expression.
     emitOthers(expr, dst, bounds, 0);
-    return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
+    return ValuePair(dst, bounds);
 }
 
 llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
