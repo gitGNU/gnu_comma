@@ -9,8 +9,5 @@ signature T with
    type E is (B);
 end T;
 
-signature U is
-   S;
-   T;
-end U;
+signature U is S and T end U;
 
