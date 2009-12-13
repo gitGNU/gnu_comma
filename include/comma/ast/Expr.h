@@ -864,6 +864,11 @@ private:
         friend class KeyedAggExpr;
 
     public:
+        typedef ptrdiff_t difference_type;
+        typedef Ast *value_type;
+        typedef value_type pointer;
+        typedef value_type &reference;
+        typedef std::forward_iterator_tag iterator_category;
 
         bool operator ==(const ChoiceIterator &iter) const {
             return choiceIdx == iter.choiceIdx && listIdx == iter.listIdx;
@@ -888,7 +893,7 @@ private:
             return res;
         }
 
-        Ast *operator*() {
+        pointer operator*() {
             return choices[choiceIdx]->getChoice<Ast>(listIdx);
         }
 
