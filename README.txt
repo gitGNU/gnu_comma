@@ -119,3 +119,7 @@ There are only a few command line options:
 
      > driver foo.cms -e D.P -o bar  # produces executable "bar"
 
+A special case is when the driver is invoked without any output specified (no
+-emit-llvm, -emit-llvm-bc, or -e flags given).  In this case the driver goes
+thru the parse, type check, and codegen phases and either succeeds or fails.
+This is useful for testing general system sanity.
