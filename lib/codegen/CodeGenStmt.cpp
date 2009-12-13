@@ -393,9 +393,6 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
 
     // Emit the body of the loop and terminate the resulting insertion point
     // with a branch to the entry block.
-    //
-    // FIXME: Once nested frames are available, the iteration binding should be
-    // scoped.
     Builder.SetInsertPoint(bodyBB);
     SRF->pushFrame();
     phi = Builder.CreatePHI(iterTy, "loop.param");
