@@ -138,10 +138,13 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
         bounds = arrPair.second;
     }
 
-    // Emit and adjust the index by the lower bound of the array.
+    // Emit and adjust the index by the lower bound of the array.  Adjust to the
+    // system pointer width if needed.
     llvm::Value *index = emitValue(idxExpr);
     llvm::Value *lowerBound = BE.getLowerBound(Builder, bounds, 0);
     index = Builder.CreateSub(index, lowerBound);
+    if (index->getType() != CG.getIntPtrTy())
+        index = Builder.CreateIntCast(index, CG.getIntPtrTy(), false);
 
     // Arrays are always represented as pointers to the aggregate. GEP the
     // component.
