@@ -313,7 +313,7 @@ void AggEmitter::emitOthers(Expr *others, llvm::Value *dst,
     llvm::Value *iterNext = Builder.CreateAdd(phi, iterOne);
     Builder.CreateBr(checkBB);
 
-    // Populate the phi node this the incomming values.
+    // Populate the phi node this the incoming values.
     phi->addIncoming(iterStart, startBB);
     phi->addIncoming(iterNext, bodyBB);
 
@@ -345,6 +345,7 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     // Synthesize a loop to populate the remaining components.  Note that a
     // memset is not possible here since we must re-evaluate the associated
     // expression for each component.
+    llvm::BasicBlock *startBB = Builder.GetInsertBlock();
     llvm::BasicBlock *checkBB = frame()->makeBasicBlock("others.check");
     llvm::BasicBlock *bodyBB = frame()->makeBasicBlock("others.body");
     llvm::BasicBlock *mergeBB = frame()->makeBasicBlock("others.merge");
@@ -354,36 +355,34 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     llvm::Value *upper = BoundsEmitter::getUpperBound(Builder, bounds, 0);
     llvm::Value *max = Builder.CreateSub(upper, lower);
 
-    // Obtain a stack location for the index variable used to perform the
-    // iteration and initialize to the number of components we have already
-    // emitted minus one (which is always valid since we guaranteed above that
-    // at least one component has been generated).
+    // Initialize the iteration variable to the number of components we have
+    // already emitted minus one (the subtraction is always valid since we
+    // guaranteed above that at least one component has been generated).
     const llvm::Type *idxTy = upper->getType();
-    llvm::Value *idxSlot = frame()->createTemp(idxTy);
-    llvm::Value *idx = llvm::ConstantInt::get(idxTy, numComponents - 1);
-    Builder.CreateStore(idx, idxSlot);
+    llvm::Value *idxZero = llvm::ConstantInt::get(idxTy, 0);
+    llvm::Value *idxOne = llvm::ConstantInt::get(idxTy, 1);
+    llvm::Value *idxStart = llvm::ConstantInt::get(idxTy, numComponents - 1);
 
     // Branch to the check BB and test if the index is equal to max.  If it is
     // we are done.
     Builder.CreateBr(checkBB);
     Builder.SetInsertPoint(checkBB);
-    idx = Builder.CreateLoad(idxSlot);
-    Builder.CreateCondBr(Builder.CreateICmpEQ(idx, max), mergeBB, bodyBB);
+    llvm::PHINode *phi = Builder.CreatePHI(idxTy);
+    Builder.CreateCondBr(Builder.CreateICmpEQ(phi, max), mergeBB, bodyBB);
 
-    // Move to the body block.  Increment our index and store it for use in the
-    // next iteration.
+    // Move to the body block. Increment our index and emit the component.
     Builder.SetInsertPoint(bodyBB);
-    idx = Builder.CreateAdd(idx, llvm::ConstantInt::get(idxTy, 1));
-    Builder.CreateStore(idx, idxSlot);
-
-    // Emit the expression associated with the others clause and store it in the
-    // destination array.  Branch back to the test.
+    llvm::Value *idxNext = Builder.CreateAdd(phi, idxOne);
     llvm::Value *indices[2];
-    indices[0] = llvm::ConstantInt::get(idxTy, 0);
-    indices[1] = idx;
+    indices[0] = idxZero;
+    indices[1] = idxNext;
     llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
     emitComponent(othersExpr, ptr);
     Builder.CreateBr(checkBB);
+
+    // Add the incoming values to our phi node.
+    phi->addIncoming(idxStart, startBB);
+    phi->addIncoming(idxNext, Builder.GetInsertBlock());
 
     // Set the insert point to the merge BB and return.
     Builder.SetInsertPoint(mergeBB);
