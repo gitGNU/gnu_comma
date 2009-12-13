@@ -104,9 +104,11 @@ void Scope::Entry::importDeclarativeRegion(DeclRegion *region)
 
         homonym->addImportDecl(decl);
 
-        // Import the contents of enumeration literals.
+        // Import the contents of enumeration and integet decls.
         if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
             importDeclarativeRegion(edecl);
+        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(decl))
+            importDeclarativeRegion(idecl);
     }
 }
 
