@@ -142,7 +142,7 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
         assert(isa<ObjectDecl>(targetDecl) && "Unexpected ValueDecl!");
     }
 
-    // Check that the value is compatable with the type of the target.
+    // Check that the value is compatible with the type of the target.
     if (!(value = checkExprInContext(value, targetTy)))
         return getInvalidNode();
 

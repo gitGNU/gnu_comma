@@ -149,10 +149,10 @@ DIAGNOSTIC(ASSIGNMENT_TO_LOOP_PARAM, ERROR,
            "Cannot assign to loop parameter `%0'.")
 DIAGNOSTIC(INVALID_LHS_FOR_ASSIGNMENT, ERROR,
            "Target of assignment does not denote a variable.")
-DIAGNOSTIC(IN_PARAMETER_NOT_MODE_COMPATABLE, ERROR,
+DIAGNOSTIC(IN_PARAMETER_NOT_MODE_COMPATIBLE, ERROR,
            "Parameter `%0' of mode \"in\" cannot be used in a \"%0\" "
            "context.")
-DIAGNOSTIC(EXPRESSION_NOT_MODE_COMPATABLE, ERROR,
+DIAGNOSTIC(EXPRESSION_NOT_MODE_COMPATIBLE, ERROR,
            "Expression cannot be used as an \"%0\" parameter.")
 DIAGNOSTIC(OPERATOR_ARITY_MISMATCH, ERROR,
            "Wrong number of arguments for operator `%0'.")
@@ -164,7 +164,7 @@ DIAGNOSTIC(SELF_RECURSIVE_TYPE_DECLARATION, ERROR,
            "Cannot form recursive type declarations.")
 DIAGNOSTIC(NAME_REQUIRES_QUAL, ERROR,
            "`%0' requires qualification.")
-DIAGNOSTIC(INCOMPATABLE_MODE_REDECLARATION, ERROR,
+DIAGNOSTIC(INCOMPATIBLE_MODE_REDECLARATION, ERROR,
            "Parameter mode conflicts with previous definition at `%0'")
 DIAGNOSTIC(INVALID_TYPE_PARAM, ERROR,
            "`%0' cannot be used to parameterize a type.")

@@ -235,7 +235,7 @@ bool TypeCheck::ensureNonRecursiveInstance(
 ///
 /// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>, this
 /// function resolves the type of \c U(X) given an actual parameter for \c X.
-/// It is assumed that the actual arguments provided are compatable with the
+/// It is assumed that the actual arguments provided are compatible with the
 /// given model.
 SigInstanceDecl *
 TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,

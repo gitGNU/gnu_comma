@@ -494,7 +494,7 @@ bool SubroutineDecl::paramModesMatch(const SubroutineDecl *SRDecl) const
 void SubroutineDecl::setDefiningDeclaration(SubroutineDecl *routineDecl)
 {
     // Check that we are not reseting the link, and that the given subroutine if
-    // of a compatable kind.
+    // of a compatible kind.
     assert(declarationLink.getPointer() == 0 && "Cannot reset base declaration!");
     assert(((isa<FunctionDecl>(this) && isa<FunctionDecl>(routineDecl)) ||
             (isa<ProcedureDecl>(this) && isa<ProcedureDecl>(routineDecl))) &&

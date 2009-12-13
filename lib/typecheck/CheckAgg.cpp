@@ -208,7 +208,7 @@ Expr *AggregateChecker::resolveAggregateExpr(AggregateExpr *agg, Type *context)
     }
 
     // If the given arrgregate already has a resolved type, ensure the given
-    // context is compatable.
+    // context is compatible.
     if (agg->hasType()) {
         if (!TC.covers(agg->getType(), context)) {
             report(agg->getLocation(), diag::INCOMPATIBLE_TYPES);

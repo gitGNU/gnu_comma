@@ -1,4 +1,4 @@
--- Ensure carrier types are compatable with their underlying representation.
+-- Ensure carrier types are compatible with their underlying representation.
 
 domain D add
    type T is (A);

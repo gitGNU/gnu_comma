@@ -113,9 +113,14 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
         return covers(targetType, arg->getType());
 
     // We have an unresolved argument expression.  If the expression is an
-    // integer literal it is compatable if the target is an integer type.
+    // integer literal it is compatible if the target is an integer type.
     if (isa<IntegerLiteral>(arg))
         return targetType->isIntegerType();
+
+    // If the expression is an unresolved aggregate it is compatible if the
+    // target is an aggregate type.
+    if (isa<AggregateExpr>(arg))
+        return targetType->isCompositeType();
 
     // The expression must be an ambiguous function call.  Check that at least
     // one interpretation of the call satisfies the target type.
@@ -214,13 +219,13 @@ Ast* TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
             continue;
         }
 
-        // Check the keyed arguments for compatability.
+        // Check the keyed arguments for compatibility.
         if (!routineAcceptsArgs(decl, keyedArgs)) {
             I = ref->erase(I);
             continue;
         }
 
-        // We have a compatable declaration.
+        // We have a compatible declaration.
         ++I;
     }
 
@@ -344,7 +349,7 @@ Expr *TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
     Location argLoc = arg->getLocation();
 
     // If the target mode is either "out" or "in out", ensure that the
-    // argument provided is compatable.
+    // argument provided is compatible.
     if (targetMode == PM::MODE_OUT || targetMode == PM::MODE_IN_OUT) {
         if (DeclRefExpr *declRef = dyn_cast<DeclRefExpr>(arg)) {
             ValueDecl *vdecl = declRef->getDeclaration();
@@ -352,7 +357,7 @@ Expr *TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
                 // If the argument is of mode IN, then so too must be the
                 // target mode.
                 if (param->getParameterMode() == PM::MODE_IN) {
-                    report(argLoc, diag::IN_PARAMETER_NOT_MODE_COMPATABLE)
+                    report(argLoc, diag::IN_PARAMETER_NOT_MODE_COMPATIBLE)
                         << param->getString() << targetMode;
                     return false;
                 }
@@ -365,7 +370,7 @@ Expr *TypeCheck::checkSubroutineArgument(Expr *arg, Type *targetType,
         }
         else {
             // The argument is not usable in an "out" or "in out" context.
-            report(argLoc, diag::EXPRESSION_NOT_MODE_COMPATABLE) << targetMode;
+            report(argLoc, diag::EXPRESSION_NOT_MODE_COMPATIBLE) << targetMode;
             return false;
         }
     }

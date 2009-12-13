@@ -115,7 +115,7 @@ const Ast *SubroutineCall::asAst() const
     return const_cast<SubroutineCall*>(this)->asAst();
 }
 
-bool SubroutineCall::isCompatable(SubroutineDecl *decl) const
+bool SubroutineCall::isCompatible(SubroutineDecl *decl) const
 {
     if (isa<FunctionDecl>(decl))
         return isaFunctionCall();
@@ -125,8 +125,8 @@ bool SubroutineCall::isCompatable(SubroutineDecl *decl) const
 
 void SubroutineCall::resolveConnective(SubroutineDecl *decl)
 {
-    assert(isCompatable(decl) &&
-           "Subroutine not compatable with this kind of call!");
+    assert(isCompatible(decl) &&
+           "Subroutine not compatible with this kind of call!");
     assert(decl->getArity() == getNumArgs() && "Arity mismatch!");
 
     connective->resolve(decl);

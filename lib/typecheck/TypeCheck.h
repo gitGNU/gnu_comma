@@ -222,7 +222,7 @@ public:
     //@{
 
     /// Returns true if the type \p source requires a conversion to be
-    /// compatable with the type \p target.
+    /// compatible with the type \p target.
     static bool conversionRequired(Type *source, Type *target);
 
     /// Wraps the given expression in a ConversionExpr if needed.
@@ -397,10 +397,10 @@ private:
     /// necessary to begin processing both signature and domain declarations.
     void initializeForModelDeclaration();
 
-    /// Returns true if the subroutines \p X and \p Y are compatable.
+    /// Returns true if the subroutines \p X and \p Y are compatible.
     ///
     /// This is a stronger test than just type equality.  Two subroutine
-    /// declarations are compatable if:
+    /// declarations are compatible if:
     ///
     ///    - They both have the same name,
     ///
@@ -507,7 +507,7 @@ private:
                                       SVImpl<KeywordSelector*>::Type &keyed);
 
     /// Checks that the given expression \p arg satisifes the type \p
-    /// targetType.  Also ensures that \p arg is compatable with the given
+    /// targetType.  Also ensures that \p arg is compatible with the given
     /// parameter mode.  Returns a possibly updated expression node if the check
     /// succeed and null otherwise.
     Expr *checkSubroutineArgument(Expr *arg, Type *targetType,
@@ -616,7 +616,7 @@ private:
     ///
     /// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>,
     /// this function resolves the type of \c U(X) given an actual parameter for
-    /// \c X.  It is assumed that the actual arguments provided are compatable
+    /// \c X.  It is assumed that the actual arguments provided are compatible
     /// with the given model.
     SigInstanceDecl *resolveFormalSignature(ModelDecl *parameterizedModel,
                                             Type **arguments,

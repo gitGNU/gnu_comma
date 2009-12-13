@@ -54,7 +54,7 @@
         It is possible that this specification will evolve to include program
         source written using the UTF-8 encoding, defined by the <link
         xl:href="http://www.unicode.org">Unicode</link> character standard. All
-        reserved words will be specified using the current, compatable, standard
+        reserved words will be specified using the current, compatible, standard
         character set.
       </para>
     </note>

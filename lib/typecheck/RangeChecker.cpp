@@ -69,7 +69,7 @@ DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
             return 0;
     }
     else {
-        // Both bounds have a type.  Check for compatability.
+        // Both bounds have a type.  Check for compatibility.
         if (!isa<DiscreteType>(lower->getType())) {
             report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return 0;

@@ -28,7 +28,7 @@ namespace comma {
 class SubroutineCall {
 
 public:
-    /// The given SubroutineRef must be compatable with the concrete
+    /// The given SubroutineRef must be compatible with the concrete
     /// implementation of this class.  If the implementation is a
     /// FunctionCallExpr, then the reference must be to a collection of
     /// FunctionDecl's.
@@ -124,7 +124,7 @@ public:
     /// Resolved the connective for this call.
     ///
     /// The supplied subroutine declaration must accept the exact number of
-    /// arguments this call supplies and be compatable with the type of call.
+    /// arguments this call supplies and be compatible with the type of call.
     /// Furthermore, if this call was made with keyed arguments, the supplied
     /// declaration must accept the format of this call.  In particular:
     ///
@@ -307,9 +307,9 @@ protected:
     unsigned numPositional;
     unsigned numKeys;
 
-    /// Returns true if the given declaration is compatable with this kind of
+    /// Returns true if the given declaration is compatible with this kind of
     /// call.
-    bool isCompatable(SubroutineDecl *decl) const;
+    bool isCompatible(SubroutineDecl *decl) const;
 
     /// Returns the index of the given expression in the argument expression
     /// array, or -1 if the expression does not exists.
