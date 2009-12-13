@@ -121,6 +121,7 @@ Node Parser::parseApplication(Node prefix)
         else if (seenSelector) {
             report(diag::POSITIONAL_FOLLOWING_SELECTED_PARAMETER);
             seekCloseParen();
+            return getInvalidNode();
         }
         else
             arg = parseExpr();
