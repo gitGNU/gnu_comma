@@ -237,6 +237,12 @@ public:
         return llvm::Type::getInt64Ty(getLLVMContext());
     }
 
+    /// \brief Returns a integer type capable of representing a pointer.
+    const llvm::IntegerType *getIntPtrTy() const {
+        unsigned width = TD.getPointerSizeInBits();
+        return llvm::IntegerType::get(getLLVMContext(), width);
+    }
+
     /// Returns a null pointer constant of the specified type.
     llvm::Constant *getNullPointer(const llvm::PointerType *Ty) const {
         return llvm::ConstantPointerNull::get(Ty);
