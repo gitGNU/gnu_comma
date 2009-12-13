@@ -84,7 +84,7 @@ Node Parser::parsePrj()
 Node Parser::parseSelectedComponent(Node prefix, NameOption option)
 {
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierOrCharacter();
+    IdentifierInfo *name = parseAnyIdentifier();
 
     if (name) {
         bool forStatement = (option == Statement_Name);

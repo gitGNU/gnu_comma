@@ -1,0 +1,19 @@
+-- Parse selected operators.
+
+domain D with
+   function = (X : Character; Y : Character) return Character;
+add
+   function = (X : Character; Y : Character) return Character is
+   begin
+      return X;
+   end =;
+end D;
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      C : Character := D.=('a', 'b');
+   begin end Run;
+end Test;
+

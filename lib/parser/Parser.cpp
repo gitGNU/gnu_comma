@@ -497,6 +497,14 @@ IdentifierInfo *Parser::parseIdentifierOrCharacter()
         return parseCharacter();
 }
 
+IdentifierInfo *Parser::parseAnyIdentifier()
+{
+    if (currentTokenIs(Lexer::TKN_CHARACTER))
+        return parseCharacter();
+    else
+        return parseFunctionIdentifier();
+}
+
 // Parses an end tag.  If expectedTag is non-null, parse "end <tag>", otherwise
 // parse "end".  Returns true if tokens were consumed (which can happen when the
 // parse fails due to a missing or unexpected end tag) and false otherwise.
