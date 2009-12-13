@@ -1,0 +1,23 @@
+-- Check corner case where iteration over index type is likely to overflow.
+
+domain Test with
+   procedure Run;
+add
+
+   type Idx is range -2**7..2**7-1;
+   type Fixed_String is array (Idx) of Character;
+
+   procedure Assert_Fixed (S : Fixed_String) is
+   begin
+      for I in Idx'Range loop
+         pragma Assert(S(I) = '.');
+      end loop;
+   end Assert_Fixed;
+
+   procedure Run is
+      S : Fixed_String := (others => '.');
+   begin
+      Assert_Fixed(S);
+   end Run;
+
+end Test;
