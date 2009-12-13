@@ -19,6 +19,8 @@
 #include "comma/ast/Type.h"
 #include "comma/ast/Expr.h"
 
+#include <algorithm>
+
 using namespace comma;
 
 using llvm::dyn_cast;
@@ -50,8 +52,13 @@ private:
     SRFrame *frame() { return CGR.getSRFrame(); }
 
     // Aggregrate emission helpers.
+    void fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
+                      llvm::Value *lower, llvm::Value *upper);
     void emitOthers(AggregateExpr *expr, llvm::Value *dst,
                     llvm::Value *bounds, uint64_t numComponents);
+    void emitOthers(Expr *Expr, llvm::Value *dst,
+                    llvm::Value *start, llvm::Value *end,
+                    llvm::Value *bias);
     ValuePair emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst);
     ValuePair emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
     ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
@@ -244,6 +251,49 @@ AggEmitter::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
     return emit(convert->getOperand(), dst, genTmp);
 }
 
+void AggEmitter::emitOthers(Expr *others, llvm::Value *dst,
+                            llvm::Value *start, llvm::Value *end,
+                            llvm::Value *bias)
+{
+    llvm::BasicBlock *startBB = Builder.GetInsertBlock();
+    llvm::BasicBlock *checkBB = frame()->makeBasicBlock("others.check");
+    llvm::BasicBlock *bodyBB = frame()->makeBasicBlock("others.body");
+    llvm::BasicBlock *mergeBB = frame()->makeBasicBlock("others.merge");
+
+    // Initialize the iteration and sentinal values.
+    llvm::Value *iterStart = Builder.CreateSub(start, bias);
+    llvm::Value *iterLimit = Builder.CreateSub(end, bias);
+
+    const llvm::Type *iterTy = iterStart->getType();
+    llvm::Value *iterZero = llvm::ConstantInt::get(iterTy, 0);
+    llvm::Value *iterOne = llvm::ConstantInt::get(iterTy, 1);
+    Builder.CreateBr(checkBB);
+
+    // Loop header.
+    Builder.SetInsertPoint(checkBB);
+    llvm::PHINode *phi = Builder.CreatePHI(iterStart->getType());
+    llvm::Value *pred = Builder.CreateICmpEQ(phi, iterLimit);
+    Builder.CreateCondBr(pred, mergeBB, bodyBB);
+
+    // Loop body.
+    Builder.SetInsertPoint(bodyBB);
+    llvm::Value *indices[2];
+    indices[0] = iterZero;
+    indices[1] = phi;
+
+    llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+    emitComponent(others, ptr);
+    llvm::Value *iterNext = Builder.CreateAdd(phi, iterOne);
+    Builder.CreateBr(checkBB);
+
+    // Populate the phi node this the incomming values.
+    phi->addIncoming(iterStart, startBB);
+    phi->addIncoming(iterNext, bodyBB);
+
+    // Switch to merge.
+    Builder.SetInsertPoint(mergeBB);
+}
+
 void AggEmitter::emitOthers(AggregateExpr *expr,
                             llvm::Value *dst, llvm::Value *bounds,
                             uint64_t numComponents)
@@ -376,36 +426,91 @@ void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
 }
 
 AggEmitter::ValuePair
-AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *agg, llvm::Value *dst)
 {
-    ArrayType *arrTy = cast<ArrayType>(expr->getType());
-    uint64_t numComponents = expr->numComponents();
-
-    assert(numComponents && "Aggregate does not have static components!");
+    ArrayType *arrTy = cast<ArrayType>(agg->getType());
+    DiscreteType *idxTy = arrTy->getIndexType(0);
 
     // Build a bounds structure for this aggregate.
+    llvm::Value *bounds;
     llvm::Value *lower;
     llvm::Value *upper;
-    llvm::Value *bounds;
 
-    lower = emitter.getLowerBound(Builder, arrTy->getIndexType(0));
-    const llvm::Type *indexTy = lower->getType();
-
-    upper = llvm::ConstantInt::get(indexTy, numComponents - 1);
-    upper = Builder.CreateAdd(lower, upper);
-    bounds = emitter.synthRange(Builder, lower, upper);
+    bounds = emitter.synthScalarBounds(Builder, idxTy);
+    lower = emitter.getLowerBound(Builder, bounds, 0);
+    upper = emitter.getUpperBound(Builder, bounds, 0);
 
     // If the destination is null, create a temporary to hold the aggregate.
     if (dst == 0)
         allocArray(arrTy, bounds, dst);
 
     // Generate the aggregate.
-    KeyedAggExpr::choice_iterator I = expr->choice_begin();
-    KeyedAggExpr::choice_iterator E = expr->choice_end();
+    KeyedAggExpr::choice_iterator I = agg->choice_begin();
+    KeyedAggExpr::choice_iterator E = agg->choice_end();
     for ( ; I != E; ++I)
         emitDiscreteComponent(I, dst, lower);
-    emitOthers(expr, dst, bounds, numComponents);
+    fillInOthers(agg, dst, lower, upper);
+
     return ValuePair(dst, bounds);
+}
+
+void AggEmitter::fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
+                              llvm::Value *lower, llvm::Value *upper)
+{
+    // If this aggregate does not specify an others component we are done.
+    //
+    // FIXME: If an undefined others component is specified we should be
+    // initializing the components with their default value (if any).
+    Expr *others = agg->getOthersExpr();
+    if (!others)
+        return;
+
+    DiscreteType *idxTy = cast<ArrayType>(agg->getType())->getIndexType(0);
+
+    // Build a sorted vector of the choices supplied by the aggregate.
+    typedef std::vector<Ast*> ChoiceVec;
+    ChoiceVec CV(agg->choice_begin(), agg->choice_end());
+    if (idxTy->isSigned())
+        std::sort(CV.begin(), CV.end(), KeyedAggExpr::compareChoicesS);
+    else
+        std::sort(CV.begin(), CV.end(), KeyedAggExpr::compareChoicesU);
+
+    llvm::APInt limit;
+    Range *choice;
+    const llvm::Type *iterTy = lower->getType();
+
+    // Fill in any missing leading elements.
+    choice = cast<Range>(CV.front());
+    idxTy->getLowerLimit(limit);
+    if (choice->getStaticLowerBound() != limit) {
+        llvm::Value *end = CGR.emitValue(choice->getLowerBound());
+        emitOthers(others, dst, lower, end, lower);
+    }
+
+    // Fill in each interior "hole".
+    for (unsigned i = 0; i < CV.size() - 1; ++i) {
+        llvm::APInt lo = cast<Range>(CV[i])->getStaticUpperBound();
+        const llvm::APInt &hi = cast<Range>(CV[i+1])->getStaticLowerBound();
+
+        if (lo == hi)
+            continue;
+
+        llvm::Value *start = llvm::ConstantInt::get(iterTy, ++lo);
+        llvm::Value *end = llvm::ConstantInt::get(iterTy, hi);
+        emitOthers(others, dst, start, end, lower);
+    }
+
+    // Fill in any missing trailing elements.
+    choice = cast<Range>(CV.back());
+    idxTy->getUpperLimit(limit);
+    if (choice->getStaticUpperBound() != limit) {
+        llvm::Value *start;
+        llvm::Value *end;
+        start = CGR.emitValue(choice->getUpperBound());
+        start = Builder.CreateAdd(start, llvm::ConstantInt::get(iterTy, 1));
+        end = Builder.CreateAdd(upper, llvm::ConstantInt::get(iterTy, 1));
+        emitOthers(others, dst, start, end, lower);
+    }
 }
 
 AggEmitter::ValuePair

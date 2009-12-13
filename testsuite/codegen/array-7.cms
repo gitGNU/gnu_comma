@@ -1,0 +1,23 @@
+-- Test keyed aggregates with an others clause.
+
+domain Test with
+   procedure Run;
+add
+   subtype Idx is Positive range 1..10;
+   type Fixed_String is array (Idx) of Character;
+
+   procedure Run is
+      S : Fixed_String := (3..4 => 'X', 7..8 => 'Y', others => '.');
+   begin
+      pragma Assert(S(1)  = '.');
+      pragma Assert(S(2)  = '.');
+      pragma Assert(S(3)  = 'X');
+      pragma Assert(S(4)  = 'X');
+      pragma Assert(S(5)  = '.');
+      pragma Assert(S(6)  = '.');
+      pragma Assert(S(7)  = 'Y');
+      pragma Assert(S(8)  = 'Y');
+      pragma Assert(S(9)  = '.');
+      pragma Assert(S(10) = '.');
+   end Run;
+end Test;
