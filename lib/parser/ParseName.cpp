@@ -25,7 +25,7 @@ Node Parser::parseDirectName(NameOption option)
         break;
 
     case Lexer::TKN_IDENTIFIER:
-        if (IdentifierInfo *name = parseIdentifierInfo())
+        if (IdentifierInfo *name = parseIdentifier())
             return client.acceptDirectName(name, loc, option);
         break;
 
@@ -145,7 +145,7 @@ Node Parser::parseParameterAssociation()
     assert(keywordSelectionFollows());
 
     Location loc = currentLocation();
-    IdentifierInfo *key = parseIdentifierInfo();
+    IdentifierInfo *key = parseIdentifier();
 
     ignoreToken();              // Ignore the =>.
 
@@ -160,7 +160,7 @@ Node Parser::parseParameterAssociation()
 Node Parser::parseAttribute(Node prefix, NameOption option)
 {
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (name->getAttributeID() == attrib::UNKNOWN_ATTRIBUTE) {
         report(loc, diag::UNKNOWN_ATTRIBUTE) << name;

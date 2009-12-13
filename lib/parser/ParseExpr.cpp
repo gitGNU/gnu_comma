@@ -41,7 +41,7 @@ Node Parser::parseExponentialOperator()
 
     case Lexer::TKN_POW:
         loc    = currentLocation();
-        opInfo = parseFunctionIdentifierInfo();
+        opInfo = parseFunctionIdentifier();
         break;
     }
 
@@ -78,7 +78,7 @@ Node Parser::parseMultiplicativeOperator()
         case Lexer::TKN_MOD:
         case Lexer::TKN_REM:
             loc    = currentLocation();
-            opInfo = parseFunctionIdentifierInfo();
+            opInfo = parseFunctionIdentifier();
             break;
         }
 
@@ -105,7 +105,7 @@ Node Parser::parseAdditiveOperator()
 
     if (currentTokenIs(Lexer::TKN_PLUS) || currentTokenIs(Lexer::TKN_MINUS)) {
         Location loc = currentLocation();
-        IdentifierInfo *opInfo = parseFunctionIdentifierInfo();
+        IdentifierInfo *opInfo = parseFunctionIdentifier();
 
         lhs = parseMultiplicativeOperator();
 
@@ -139,7 +139,7 @@ Node Parser::parseBinaryAdditiveOperator(Node lhs)
         case Lexer::TKN_PLUS:
         case Lexer::TKN_MINUS:
             loc    = currentLocation();
-            opInfo = parseFunctionIdentifierInfo();
+            opInfo = parseFunctionIdentifier();
             break;
         }
 
@@ -179,7 +179,7 @@ Node Parser::parseRelationalOperator()
         case Lexer::TKN_LEQ:
         case Lexer::TKN_GEQ:
             loc    = currentLocation();
-            opInfo = parseFunctionIdentifierInfo();
+            opInfo = parseFunctionIdentifier();
             break;
         }
 

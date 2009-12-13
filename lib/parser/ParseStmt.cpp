@@ -190,7 +190,7 @@ Node Parser::parseBlockStmt()
 
     // Parse this blocks label, if available.
     if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        label = parseIdentifierInfo();
+        label = parseIdentifier();
         ignoreToken();          // Ignore the ":".
     }
 
@@ -274,7 +274,7 @@ Node Parser::parseForStmt()
     Location forLoc = ignoreToken();
 
     Location iterLoc = currentLocation();
-    IdentifierInfo *iterName = parseIdentifierInfo();
+    IdentifierInfo *iterName = parseIdentifier();
 
     if (!iterName || !requireToken(Lexer::TKN_IN)) {
         seekEndLoop();
@@ -367,7 +367,7 @@ Node Parser::parsePragmaStmt()
     ignoreToken();
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name) {
         seekSemi();

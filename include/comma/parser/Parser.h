@@ -260,8 +260,8 @@ private:
         return diagnostic.report(sloc, kind);
     }
 
-    IdentifierInfo *parseIdentifierInfo();
-    IdentifierInfo *parseFunctionIdentifierInfo();
+    IdentifierInfo *parseIdentifier();
+    IdentifierInfo *parseFunctionIdentifier();
     IdentifierInfo *parseCharacter();
     IdentifierInfo *parseIdentifierOrCharacter();
 

@@ -440,7 +440,7 @@ bool Parser::blockStmtFollows()
     }
 }
 
-IdentifierInfo *Parser::parseIdentifierInfo()
+IdentifierInfo *Parser::parseIdentifier()
 {
     IdentifierInfo *info;
 
@@ -462,7 +462,7 @@ IdentifierInfo *Parser::parseIdentifierInfo()
     return info;
 }
 
-IdentifierInfo *Parser::parseFunctionIdentifierInfo()
+IdentifierInfo *Parser::parseFunctionIdentifier()
 {
     IdentifierInfo *info;
 
@@ -472,7 +472,7 @@ IdentifierInfo *Parser::parseFunctionIdentifierInfo()
         ignoreToken();
     }
     else
-        info = parseIdentifierInfo();
+        info = parseIdentifier();
     return info;
 }
 
@@ -492,7 +492,7 @@ IdentifierInfo *Parser::parseCharacter()
 IdentifierInfo *Parser::parseIdentifierOrCharacter()
 {
     if (currentTokenIs(Lexer::TKN_IDENTIFIER))
-        return parseIdentifierInfo();
+        return parseIdentifier();
     else
         return parseCharacter();
 }
@@ -511,7 +511,7 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
                 report(diag::EXPECTED_END_TAG) << expectedTag;
             else {
                 tagLoc = currentLocation();
-                tag = parseFunctionIdentifierInfo();
+                tag = parseFunctionIdentifier();
                 if (tag && tag != expectedTag)
                     report(tagLoc, diag::EXPECTED_END_TAG) << expectedTag;
             }
@@ -520,7 +520,7 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
             // FIXME:  The above test is not general enough, since we could have
             // operator tokens (TKN_PLUS, TKN_STAR, etc) labeling an "end".
             tagLoc = currentLocation();
-            tag = parseIdentifierInfo();
+            tag = parseIdentifier();
             report(tagLoc, diag::UNEXPECTED_END_TAG) << tag;
         }
         return true;
@@ -570,7 +570,7 @@ void Parser::parseGenericFormalDomain()
     }
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name) {
         seekToken(Lexer::TKN_SEMI);
@@ -677,7 +677,7 @@ void Parser::parseCarrier()
     assert(currentTokenIs(Lexer::TKN_CARRIER));
 
     Location loc = ignoreToken();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name) {
         seekToken(Lexer::TKN_SEMI);
@@ -754,14 +754,14 @@ void Parser::parseModel()
 
     if (reduceToken(Lexer::TKN_DOMAIN)) {
         Location loc = currentLocation();
-        if (!(name = parseIdentifierInfo()))
+        if (!(name = parseIdentifier()))
             return;
         client.beginDomainDecl(name, loc);
         parsingDomain = true;
     }
     else if (reduceToken(Lexer::TKN_SIGNATURE)) {
         Location loc = currentLocation();
-        if (!(name = parseIdentifierInfo()))
+        if (!(name = parseIdentifier()))
             return;
         client.beginSignatureDecl(name, loc);
     }
@@ -818,7 +818,7 @@ bool Parser::parseSubroutineParameter()
     PM::ParameterMode mode;
 
     location = currentLocation();
-    formal = parseIdentifierInfo();
+    formal = parseIdentifier();
 
     if (!formal) return false;
 
@@ -888,7 +888,7 @@ Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
     ignoreToken();
 
     Location location = currentLocation();
-    IdentifierInfo *name = parseFunctionIdentifierInfo();
+    IdentifierInfo *name = parseFunctionIdentifier();
 
     if (!name)
         return getInvalidNode();
@@ -926,7 +926,7 @@ Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
     ignoreToken();
 
     Location location = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name)
         return getInvalidNode();
@@ -1064,7 +1064,7 @@ bool Parser::parseObjectDeclaration()
     assert(currentTokenIs(Lexer::TKN_IDENTIFIER));
 
     loc = currentLocation();
-    id = parseIdentifierInfo();
+    id = parseIdentifier();
 
     if (!(id && requireToken(Lexer::TKN_COLON))) {
         seekAndConsumeToken(Lexer::TKN_SEMI);
@@ -1106,7 +1106,7 @@ bool Parser::parseType()
     ignoreToken();
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name || !requireToken(Lexer::TKN_IS))
         return false;
@@ -1142,7 +1142,7 @@ bool Parser::parseSubtype()
     ignoreToken();
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name || !requireToken(Lexer::TKN_IS)) {
         seekSemi();
@@ -1204,7 +1204,7 @@ void Parser::parseEnumerationList()
             client.acceptEnumerationCharacter(name, loc);
         }
         else {
-            IdentifierInfo *name = parseIdentifierInfo();
+            IdentifierInfo *name = parseIdentifier();
 
             if (!name) {
                 seekCloseParen();
@@ -1373,7 +1373,7 @@ void Parser::parseDeclarationPragma()
     ignoreToken();
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifierInfo();
+    IdentifierInfo *name = parseIdentifier();
 
     if (!name)
         return;
@@ -1408,7 +1408,7 @@ void Parser::parsePragmaImport(Location pragmaLoc)
     // The first argument is an identifier naming the import convention.  The
     // parser does not know anything about convention names.
     Location conventionLoc = currentLocation();
-    IdentifierInfo *conventionName = parseIdentifierInfo();
+    IdentifierInfo *conventionName = parseIdentifier();
     if (!conventionName || !requireToken(Lexer::TKN_COMMA)) {
         seekCloseParen();
         return;
@@ -1417,7 +1417,7 @@ void Parser::parsePragmaImport(Location pragmaLoc)
     // The second argument is the name of the local declaration corresponding to
     // the imported entity.
     Location entityLoc = currentLocation();
-    IdentifierInfo *entityName = parseFunctionIdentifierInfo();
+    IdentifierInfo *entityName = parseFunctionIdentifier();
     if (!entityName || !requireToken(Lexer::TKN_COMMA)) {
         seekCloseParen();
         return;
