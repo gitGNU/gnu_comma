@@ -126,7 +126,18 @@ private:
     /// \brief Emits the array component given by \p expr and stores the result
     /// in \p dst.
     void emitComponent(Expr *expr, llvm::Value *dst);
+
+    /// Converts the given value to an unsigned pointer sized integer if needed.
+    llvm::Value *convertIndex(llvm::Value *idx);
 };
+
+llvm::Value *AggEmitter::convertIndex(llvm::Value *idx)
+{
+    const llvm::Type *intptrTy = CGR.getCodeGen().getIntPtrTy();
+    if (idx->getType() != intptrTy)
+        return Builder.CreateIntCast(idx, intptrTy, false);
+    return idx;
+}
 
 AggEmitter::ValuePair
 AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
@@ -306,7 +317,7 @@ void AggEmitter::emitOthers(Expr *others, llvm::Value *dst,
     Builder.SetInsertPoint(bodyBB);
     llvm::Value *indices[2];
     indices[0] = iterZero;
-    indices[1] = phi;
+    indices[1] = convertIndex(phi);
 
     llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
     emitComponent(others, ptr);
@@ -338,7 +349,7 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     // can "count from zero" and compare against the upper bound without
     // worrying about overflow.
     if (numComponents == 0) {
-        emitComponent(othersExpr, Builder.CreateConstGEP2_64(dst, 0, 0));
+        emitComponent(othersExpr, Builder.CreateConstGEP2_32(dst, 0, 0));
         numComponents = 1;
     }
 
@@ -358,7 +369,7 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     // Initialize the iteration variable to the number of components we have
     // already emitted minus one (the subtraction is always valid since we
     // guaranteed above that at least one component has been generated).
-    const llvm::Type *idxTy = upper->getType();
+    const llvm::IntegerType *idxTy = cast<llvm::IntegerType>(upper->getType());
     llvm::Value *idxZero = llvm::ConstantInt::get(idxTy, 0);
     llvm::Value *idxOne = llvm::ConstantInt::get(idxTy, 1);
     llvm::Value *idxStart = llvm::ConstantInt::get(idxTy, numComponents - 1);
@@ -370,12 +381,13 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     llvm::PHINode *phi = Builder.CreatePHI(idxTy);
     Builder.CreateCondBr(Builder.CreateICmpEQ(phi, max), mergeBB, bodyBB);
 
-    // Move to the body block. Increment our index and emit the component.
+    // Move to the body block.  Increment our index and emit the component.
     Builder.SetInsertPoint(bodyBB);
     llvm::Value *idxNext = Builder.CreateAdd(phi, idxOne);
+
     llvm::Value *indices[2];
     indices[0] = idxZero;
-    indices[1] = idxNext;
+    indices[1] = convertIndex(idxNext);
     llvm::Value *ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
     emitComponent(othersExpr, ptr);
     Builder.CreateBr(checkBB);
@@ -403,7 +415,7 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
     iterator I = expr->begin_components();
     iterator E = expr->end_components();
     for (unsigned idx = 0; I != E; ++I, ++idx)
-        emitComponent(*I, Builder.CreateConstGEP2_64(dst, 0, idx));
+        emitComponent(*I, Builder.CreateConstGEP2_32(dst, 0, idx));
 
     // Emit an "others" clause if present.
     emitOthers(expr, dst, bounds, components.size());
@@ -428,26 +440,37 @@ AggEmitter::ValuePair AggEmitter::emitKeyedAgg(KeyedAggExpr *expr,
 void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
                                        llvm::Value *dst, llvm::Value *bias)
 {
-    const llvm::Type *indexTy = bias->getType();
-    llvm::Value *idxZero = llvm::ConstantInt::get(indexTy, 0);
-    llvm::Value *idxOne = llvm::ConstantInt::get(indexTy, 1);
-
     // FIXME: Only ranges are supported at the moment.
     Range *range = cast<Range>(*I);
     uint64_t length = range->length();
     Expr *expr = I.getExpr();
     llvm::Value *idx = emitter.getLowerBound(Builder, range);
-    idx = Builder.CreateSub(idx, bias);
+    const llvm::Type *idxTy = idx->getType();
 
-    for (uint64_t i = 0; i < length; ++i) {
-        llvm::Value *indices[2];
-        llvm::Value *ptr;
-
-        indices[0] = idxZero;
-        indices[1] = idx;
-        ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
-        emitComponent(expr, ptr);
-        idx = Builder.CreateAdd(idx, idxOne);
+    // Perform the emission using inline code if length is small.  Otherwise use
+    // a loop.
+    //
+    // FIXME: The value 8 here was chosen arbitrarily and very likely not ideal.
+    // In particular, LLVM does a good job of transforming sequential code like
+    // this into a memset when the expression is constant.
+    if (length <= 8) {
+        llvm::Value *idxZero = llvm::ConstantInt::get(idxTy, 0);
+        llvm::Value *idxOne = llvm::ConstantInt::get(idxTy, 1);
+        idx = Builder.CreateSub(idx, bias);
+        for (uint64_t i = 0; i < length; ++i) {
+            llvm::Value *indices[2];
+            llvm::Value *ptr;
+            indices[0] = idxZero;
+            indices[1] = convertIndex(idx);
+            ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
+            emitComponent(expr, ptr);
+            idx = Builder.CreateAdd(idx, idxOne);
+        }
+    }
+    else {
+        llvm::Value *end = llvm::ConstantInt::get(idxTy, length);
+        end = Builder.CreateAdd(idx, end);
+        emitOthers(expr, dst, idx, end, bias);
     }
 }
 
@@ -582,7 +605,7 @@ AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
     llvm::Value *ptr;
 
     indices[0] = iterZero;
-    indices[1] = idx;
+    indices[1] = convertIndex(idx);
 
     ptr = Builder.CreateInBoundsGEP(dst, indices, indices + 2);
     emitComponent(I.getExpr(), ptr);
