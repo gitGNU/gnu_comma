@@ -205,7 +205,7 @@ public:
 
     /// \brief Returns true if the type checker has not encountered an error and
     /// false otherwise.
-    bool checkSuccessful() const { return !diagnostic.reportsGenerated(); }
+    bool checkSuccessful() const { return diagnostic.numErrors() == 0; }
 
     /// Returns the compilation which this type checker populates with well
     /// formed top-level nodes.

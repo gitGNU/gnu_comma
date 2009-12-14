@@ -270,7 +270,7 @@ int main(int argc, char **argv)
     // Drive the parser and type checker.
     while (p.parseTopLevelDeclaration());
 
-    if (!(p.parseSuccessful() && check->checkSuccessful()))
+    if (diag.numErrors() != 0)
         return 1;
 
     if (SyntaxOnly)

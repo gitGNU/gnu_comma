@@ -43,8 +43,7 @@ Parser::Parser(TextProvider &txtProvider, IdentifierPool &idPool,
       idPool(idPool),
       client(client),
       diagnostic(diag),
-      lexer(txtProvider, diag),
-      errorCount(0)
+      lexer(txtProvider, diag)
 {
     // Mark each identifier which can name an attribute.
     attrib::markAttributeIdentifiers(idPool);

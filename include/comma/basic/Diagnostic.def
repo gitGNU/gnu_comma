@@ -133,7 +133,7 @@ DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
            "Missing carrier definition before call to `inj' or `prj'.")
 DIAGNOSTIC(CONFLICTING_TYPE_DECLS, ERROR,
            "Multiple declarations of type `%0'.\n   (inherited from `%1' and `%2')")
-DIAGNOSTIC(PERCENT_EQUIVALENT, NOTE,
+DIAGNOSTIC(PERCENT_EQUIVALENT, WARNING,
            "Type expression equivalent to `%%'.")
 DIAGNOSTIC(MODEL_FORMAL_SHADOW, ERROR,
            "Formal parameter `%0' shadows type declaration.")

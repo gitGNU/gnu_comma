@@ -32,7 +32,8 @@ void DiagnosticStream::emitSourceLocation(const SourceLocation &sloc)
 }
 
 DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
-                                               const char *format)
+                                               const char *format,
+                                               diag::Type type)
 {
     assert(position == 0 && "Diagnostic reinitialized before completion!");
 
@@ -42,8 +43,25 @@ DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
     this->format = format;
     emitSourceLocation(sloc);
     message << ": ";
+    emitDiagnosticType(type);
+    message << ": ";
     emitFormatComponent();
     return *this;
+}
+
+void DiagnosticStream::emitDiagnosticType(diag::Type type)
+{
+    switch (type) {
+    case diag::ERROR:
+        message << "error";
+        break;
+    case diag::WARNING:
+        message << "warning";
+        break;
+    case diag::NOTE:
+        message << "note";
+        break;
+    }
 }
 
 void DiagnosticStream::emitFormatComponent()
@@ -144,14 +162,43 @@ DiagnosticStream &DiagnosticStream::operator<<(PM::ParameterMode mode)
     return *this;
 }
 
+//===----------------------------------------------------------------------===//
+// Diagnostic
+
 DiagnosticStream &Diagnostic::report(const SourceLocation &loc, diag::Kind kind)
 {
-    reportCount++;
-    return diagstream.initialize(loc, messages[kind]);
+    diag::Type type = getType(kind);
+
+    switch (type) {
+    case diag::ERROR:
+        errorCount++;
+        break;
+    case diag::WARNING:
+        warningCount++;
+        break;
+    case diag::NOTE:
+        noteCount++;
+        break;
+    }
+
+    return diagstream.initialize(loc, getFormat(kind), type);
 }
 
-const char *Diagnostic::messages[diag::LAST_UNUSED_DIAGNOSTIC_KIND] = {
-#define DIAGNOSTIC(ENUM, KIND, FORMAT) FORMAT,
+diag::Type Diagnostic::getType(diag::Kind kind)
+{
+    return diagnostics[kind].type;
+}
+
+const char *Diagnostic::getFormat(diag::Kind kind)
+{
+    return diagnostics[kind].format;
+}
+
+const Diagnostic::DiagInfo
+Diagnostic::diagnostics[diag::LAST_UNUSED_DIAGNOSTIC_KIND] = {
+
+#define DIAGNOSTIC(ENUM, TYPE, FORMAT) { FORMAT, diag::TYPE },
 #include "comma/basic/Diagnostic.def"
 #undef DIAGNOSTIC
+
 };

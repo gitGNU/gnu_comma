@@ -27,8 +27,14 @@ enum Kind {
     LAST_UNUSED_DIAGNOSTIC_KIND
 };
 
-} // End diag namespace.
+/// Every diagnostic is associated with one of the following types.
+enum Type {
+    ERROR,             ///< Hard error conditions.
+    WARNING,           ///< Warning conditions.
+    NOTE               ///< Informative notes.
+};
 
+} // End diag namespace.
 
 class DiagnosticStream {
 
@@ -37,7 +43,8 @@ public:
 
     ~DiagnosticStream();
 
-    DiagnosticStream &initialize(const SourceLocation &sloc, const char *format);
+    DiagnosticStream &initialize(const SourceLocation &sloc, const char *format,
+                                 diag::Type);
 
     DiagnosticStream &operator<<(const std::string &string);
 
@@ -58,41 +65,70 @@ private:
 
     void emitSourceLocation(const SourceLocation &sloc);
 
-    std::ostream       &stream;
-    unsigned            position;
-    std::ostringstream  message;
-    const char         *format;
-    SourceLocation      sourceLoc;
+    void emitDiagnosticType(diag::Type type);
+
+    std::ostream &stream;
+    unsigned position;
+    SourceLocation sourceLoc;
+    std::ostringstream message;
+    const char *format;
 };
 
 class Diagnostic {
 
 public:
-    // Creates a diagnostic object with the reporting stream defaulting to
-    // std::cerr;
-    Diagnostic() : diagstream(std::cerr), reportCount(0) { }
+    /// Creates a diagnostic object with the reporting stream defaulting to
+    /// std::cerr;
+    Diagnostic() :
+        diagstream(std::cerr),
+        errorCount(0), warningCount(0), noteCount(0) { }
 
-    // Creates a diagnostic object with the given output stream serving as the
-    // default stream to which messages are delivered.
+    /// Creates a diagnostic object with the given output stream serving as the
+    /// default stream to which messages are delivered.
     Diagnostic(std::ostream &stream) : diagstream(stream) { }
 
+    /// Returns a DiagnosticStream which is ready to accept the arguments
+    /// required by the diagnostic \p kind.
     DiagnosticStream &report(const SourceLocation &loc, diag::Kind kind);
 
-    const char *getDiagnosticFormat(diag::Kind);
+    /// Returns the format control string for the given diagnostic kind.
+    const char *getFormat(diag::Kind kind);
 
-    // Returns true if report() has been called.
-    bool reportsGenerated() { return reportCount != 0; }
+    /// Returns the type associated with the given diagnostic kind.
+    diag::Type getType(diag::Kind kind);
 
-    // Returns the number of reports handled by this Diagnostic so far.
-    unsigned numReports() const { return reportCount; }
+    /// Returns true if report() has been called.
+    bool reportsGenerated() { return numReports() != 0; }
+
+    /// Returns the number of reports handled by this Diagnostic so far.
+    unsigned numReports() const {
+        return errorCount + warningCount + noteCount;
+    }
+
+    /// Returns the number of error diagnostics posted.
+    unsigned numErrors() const { return errorCount; }
+
+    /// Returns the number of warning diagnostics posted.
+    unsigned numWarnings() const { return warningCount; }
+
+    /// Returns the number of note diagnostics posted.
+    unsigned numNotes() const { return noteCount; }
 
 private:
     DiagnosticStream diagstream;
-    unsigned reportCount;
+
+    unsigned errorCount;
+    unsigned warningCount;
+    unsigned noteCount;
 
     static void initializeMessages();
 
-    static const char *messages[diag::LAST_UNUSED_DIAGNOSTIC_KIND];
+    struct DiagInfo {
+        const char *format;
+        diag::Type type;
+    };
+
+    static const DiagInfo diagnostics[diag::LAST_UNUSED_DIAGNOSTIC_KIND];
 };
 
 } // End comma namespace.

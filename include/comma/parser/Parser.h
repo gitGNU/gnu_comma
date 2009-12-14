@@ -125,14 +125,7 @@ public:
 
     /// \brief Returns true if the parser has been driven without seeing an
     /// error and false otherwise.
-    bool parseSuccessful() const {
-        return errorCount == 0 && lexer.lexSuccessful();
-    }
-
-    /// \brief Returns the number of errors seen by this Parser so far.
-    unsigned getErrorCount() const {
-        return errorCount + lexer.getErrorCount();
-    }
+    bool parseSuccessful() const { return diagnostic.numErrors() == 0; }
 
 private:
     TextProvider   &txtProvider;
@@ -142,9 +135,6 @@ private:
     Lexer           lexer;
 
     Lexer::Token token;
-
-    // Maintains a count of the number of errors seen thus far.
-    unsigned errorCount;
 
     // The kind of end tag which is expected.  This enumeration will be
     // expanded.
@@ -244,18 +234,15 @@ private:
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {
-        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(loc);
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(SourceLocation sloc, diag::Kind kind) {
-        ++errorCount;
         return diagnostic.report(sloc, kind);
     }
 
     DiagnosticStream &report(diag::Kind kind) {
-        ++errorCount;
         SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
         return diagnostic.report(sloc, kind);
     }
