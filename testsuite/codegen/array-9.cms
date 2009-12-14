@@ -1,0 +1,29 @@
+
+domain Test with
+   procedure Run;
+add
+   subtype Idx is Positive range 1..100;
+   type Fixed_String is array (Idx) of Character;
+
+   -- Returns true if a '.' character exists in the given Fixed_String.
+   function Find_Point (S : Fixed_String) return Boolean is
+   begin
+      for I in S'Range loop
+         if S(I) = '.' then
+            return true;
+         end if;
+      end loop;
+      return false;
+   end Find_Point;
+
+   procedure Run is
+      -- This aggregate has no holes, and so the others expression should never
+      -- be executed.
+      S : Fixed_String := ( 3..4  => 'A',   7..8   => 'B', 40..78 => 'C',
+                           88..99 => 'D',   5..6   => 'E',  9..39 => 'F',
+                           79..87 => 'G', 100..100 => 'H',  1..2  => 'I',
+                           others => '.');
+   begin
+      pragma Assert(Find_Point(S) = false);
+   end Run;
+end Test;
