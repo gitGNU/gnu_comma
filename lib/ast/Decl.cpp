@@ -158,15 +158,12 @@ IdentifierInfo *ModelDecl::getFormalIdInfo(unsigned i) const
 /// declaration is not parameterized.
 int ModelDecl::getKeywordIndex(IdentifierInfo *keyword) const
 {
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
+    assert(isParameterized() &&
            "Cannot retrieve keyword index from a non-parameterized model!");
-}
-
-int ModelDecl::getKeywordIndex(KeywordSelector *key) const
-{
-    return getKeywordIndex(key->getKeyword());
+    for (unsigned i = 0; i < getArity(); ++i)
+        if (getFormalDecl(i)->getIdInfo() == keyword)
+            return i;
+    return -1;
 }
 
 //===----------------------------------------------------------------------===//

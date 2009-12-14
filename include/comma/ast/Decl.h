@@ -196,11 +196,6 @@ public:
     /// declaration is not parameterized.
     int getKeywordIndex(IdentifierInfo *keyword) const;
 
-    /// Returns the index of the parameter corresponding to the given keyword
-    /// selector or -1 if no such keyword exists.  This method will assert if
-    /// this declaration is not parameterized.
-    int getKeywordIndex(KeywordSelector *selector) const;
-
     /// Returns the PercentDecl representing this Model.
     PercentDecl *getPercent() const { return percent; }
 
@@ -305,14 +300,18 @@ public:
                 IdentifierInfo *name, Location loc,
                 AbstractDomainDecl **formals, unsigned arity);
 
+    //@{
     /// Returns the instance decl corresponding to this variety applied over the
     /// given arguments.
     SigInstanceDecl *getInstance(DomainTypeDecl **args, unsigned numArgs);
-
     const SigInstanceDecl *getInstance(DomainTypeDecl **args,
                                        unsigned numArgs) const {
         return const_cast<VarietyDecl*>(this)->getInstance(args, numArgs);
     }
+    //@}
+
+    /// Implement ModelDecl::getKeywordIndex.
+    int getKeywordIndex(IdentifierInfo *keyword) const;
 
     /// Returns the number of arguments accepted by this variety.
     unsigned getArity() const { return arity; }
