@@ -1,0 +1,47 @@
+
+domain Test with
+   procedure Run;
+add
+   type Arr is array (Positive range <>) of Positive;
+
+   procedure Reverse (A : in out Arr) is
+      I : Positive;
+      L : Positive := A'First;
+      H : Positive := A'Last;
+   begin
+      while L < H loop
+         I := A(L);
+         A(L) := A(H);
+         A(H) := I;
+         L := L + 1;
+         H := H - 1;
+      end loop;
+   end Reverse;
+
+   procedure Run is
+      A : Arr := (1..10_000 => 1);
+   begin
+
+      for I in A'Range loop
+         A(I) := I;
+      end loop;
+
+      Reverse(A);
+
+      declare
+         J : Positive := 1;
+      begin
+         for I in reverse A'Range loop
+            pragma Assert (A(I) = J);
+            J := J + 1;
+         end loop;
+      end;
+
+      Reverse(A);
+
+      for I in A'Range loop
+         pragma Assert (A(I) = I);
+      end loop;
+
+   end Run;
+end Test;

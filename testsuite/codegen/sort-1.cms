@@ -1,0 +1,47 @@
+
+domain Test with
+   procedure Run;
+add
+
+   procedure Bubble (A : in out String; Swap_Seen : out Boolean) is
+      J : Positive;
+      T : Character;
+   begin
+      Swap_Seen := false;
+      for I in A'First .. A'Last - 1 loop
+         J := I + 1;
+         if A(J) < A(I) then
+            T    := A(I);
+            A(I) := A(J);
+            A(J) := T;
+            Swap_Seen := true;
+         end if;
+      end loop;
+   end Bubble;
+
+   procedure Sort (A : in out String) is
+      Swap_Seen : Boolean := true;
+   begin
+      while Swap_Seen loop
+         Bubble(A, Swap_Seen);
+      end loop;
+   end Sort;
+
+   function Sorted (A : String) return Boolean is
+   begin
+      for I in A'First .. A'Last - 1 loop
+         if A(I) > A(I + 1) then
+            return false;
+         end if;
+      end loop;
+      return true;
+   end Sorted;
+
+   procedure Run is
+      S : String := "hello, world!";
+   begin
+      Sort(S);
+      pragma Assert (Sorted(S));
+   end Run;
+
+end Test;

@@ -1,0 +1,137 @@
+
+--
+-- Simple signature for arithmetic operations.
+--
+signature Arithmetic_Type with
+   function Zero return %;
+   function One return %;
+
+   function +  (X : %; Y : %) return %;
+   function -  (X : %; Y : %) return %;
+
+   function =  (X : %; Y : %) return Boolean;
+   function <  (X : %; Y : %) return Boolean;
+   function >  (X : %; Y : %) return Boolean;
+   function <= (X : %; Y : %) return Boolean;
+   function >= (X : %; Y : %) return Boolean;
+end Arithmetic_Type;
+
+--
+-- Generic computation of Fibonacci numbers using an "arithmetic type".
+--
+generic
+   abstract domain Arith_Dom is Arithmetic_Type;
+domain General_Fib with
+
+   function Fib(N : Arith_Dom) return Arith_Dom;
+   -- Returns the N'th Fibonacci number, as computed using the operations
+   -- provided by Arith_Dom.
+
+add
+   import Arith_Dom;
+
+   function Fib(N : Arith_Dom) return Arith_Dom is
+   begin
+      if N <= Zero then
+         return Zero;
+      elsif N = One then
+         return One;
+      end if;
+
+      declare
+         A : Arith_Dom := One;
+         B : Arith_Dom := One;
+         C : Arith_Dom;
+         I : Arith_Dom := One + One;
+      begin
+         while I < N loop
+            C := A + B;
+            A := B;
+            B := C;
+            I := I + One;
+         end loop;
+         return B;
+      end;
+   end Fib;
+end General_Fib;
+
+
+--
+-- Simple implementation of an Arithmetic type.  Just a wrapper around the
+-- builtin Integer type.
+--
+domain ADom is Arithmetic_Type with
+   function From_Integer (X : Integer) return %;
+   function To_Integer (X : %) return Integer;
+add
+   carrier Rep is Integer;
+
+   function Zero return % is
+   begin
+      return prj(0);
+   end Zero;
+
+   function One return % is
+   begin
+      return prj(1);
+   end One;
+
+   function + (X : %; Y : %) return % is
+   begin
+      return prj(inj(X) + inj(Y));
+   end +;
+
+   function - (X : %; Y : %) return % is
+   begin
+      return prj(inj(X) - inj(Y));
+   end -;
+
+   function = (X : %; Y : %) return Boolean is
+   begin
+      return inj(X) = inj(Y);
+   end =;
+
+   function < (X : %; Y : %) return Boolean is
+   begin
+      return inj(X) < inj(Y);
+   end <;
+
+   function > (X : %; Y : %) return Boolean is
+   begin
+      return inj(X) < inj(Y);
+   end >;
+
+   function <= (X : %; Y : %) return Boolean is
+   begin
+      return inj(X) <= inj(Y);
+   end <=;
+
+   function >= (X : %; Y : %) return Boolean is
+   begin
+      return inj(X) >= inj(Y);
+   end >=;
+
+   function From_Integer (X : Integer) return % is
+   begin
+      return prj(X);
+   end From_Integer;
+
+   function To_Integer (X : %) return Integer is
+   begin
+     return inj(X);
+   end To_Integer;
+
+end ADom;
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      import ADom;
+      import General_Fib(ADom);
+      I : Integer := To_Integer(Fib(From_Integer(10)));
+   begin
+      pragma Assert(I = 55);
+   end Run;
+end Test;
+

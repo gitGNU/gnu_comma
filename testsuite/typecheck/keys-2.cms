@@ -1,0 +1,21 @@
+-- MUST-FAIL: Keyword argument selector tests.
+
+signature S end S;
+
+generic
+   abstract domain D is S;
+   abstract domain E is S;
+signature T end T;
+
+generic
+   abstract domain X is S;
+signature U4 is T(X, A => X) end U4;
+
+generic
+   abstract domain X is S;
+signature U5 is T(X, D => X) end U5;
+
+generic
+   abstract domain X is S;
+signature U6 is T(D => X, D => X) end U6;
+

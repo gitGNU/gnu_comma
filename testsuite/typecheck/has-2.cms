@@ -1,0 +1,42 @@
+-- Signature constraint tests.
+
+signature S end S;
+
+domain D end D;
+
+domain E is S end E;
+
+generic
+   abstract domain X is S;
+signature T end T;
+
+generic
+   abstract domain X is S;
+   abstract domain Y is T(X);
+signature U is S and T(%) end U;
+
+signature V is S and T(%) end V;
+
+generic
+   abstract domain D is V;
+signature W is V and U(%, %) end W;
+
+generic
+   abstract domain D is V;
+   abstract domain E is W(D);
+signature X is W(D) end X;
+
+generic
+   abstract domain Q is V;
+signature Y is W(Q) and V and W(%) and X(%, %) and T(%) end Y;
+
+generic
+   abstract domain D is S;
+signature Z is S and T(D) and V and W(%) and Y(%) end Z;
+
+generic
+   abstract domain X is S;
+   abstract domain Y is Z(X);
+domain F is Z(X) end F;
+
+signature ZZ is S and Z(%) and Z(F(%, %)) end ZZ;

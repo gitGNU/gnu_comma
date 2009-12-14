@@ -1,0 +1,21 @@
+-- Keyword argument selector tests.
+
+signature S end S;
+
+generic
+   abstract domain D is S;
+   abstract domain E is S;
+signature T end T;
+
+generic
+   abstract domain X is S;
+signature U1 is T(X, E => X) end U1;
+
+generic
+   abstract domain X is S;
+signature U2 is T(D => X, E => X) end U2;
+
+generic
+   abstract domain X is S;
+signature U3 is T(E => X, D => X) end U3;
+
