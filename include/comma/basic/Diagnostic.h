@@ -12,8 +12,8 @@
 #include "comma/basic/IdentifierInfo.h"
 #include "comma/basic/Location.h"
 #include "comma/basic/ParameterModes.h"
-#include <iostream>
-#include <sstream>
+
+#include "llvm/Support/raw_ostream.h"
 
 namespace comma {
 
@@ -39,7 +39,7 @@ enum Type {
 class DiagnosticStream {
 
 public:
-    DiagnosticStream(std::ostream &stream);
+    DiagnosticStream(llvm::raw_ostream &stream);
 
     ~DiagnosticStream();
 
@@ -67,10 +67,11 @@ private:
 
     void emitDiagnosticType(diag::Type type);
 
-    std::ostream &stream;
+    llvm::raw_ostream &stream;
     unsigned position;
+    std::string buffer;
+    llvm::raw_string_ostream message;
     SourceLocation sourceLoc;
-    std::ostringstream message;
     const char *format;
 };
 
@@ -80,12 +81,12 @@ public:
     /// Creates a diagnostic object with the reporting stream defaulting to
     /// std::cerr;
     Diagnostic() :
-        diagstream(std::cerr),
+        diagstream(llvm::errs()),
         errorCount(0), warningCount(0), noteCount(0) { }
 
     /// Creates a diagnostic object with the given output stream serving as the
     /// default stream to which messages are delivered.
-    Diagnostic(std::ostream &stream) : diagstream(stream) { }
+    Diagnostic(llvm::raw_ostream &stream) : diagstream(stream) { }
 
     /// Returns a DiagnosticStream which is ready to accept the arguments
     /// required by the diagnostic \p kind.

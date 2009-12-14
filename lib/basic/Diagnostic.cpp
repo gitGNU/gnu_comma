@@ -8,14 +8,13 @@
 
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
-#include <cassert>
 
-#include <iostream>
+#include <cassert>
 
 using namespace comma;
 
-DiagnosticStream::DiagnosticStream(std::ostream &stream)
-    : stream(stream), position(0) { }
+DiagnosticStream::DiagnosticStream(llvm::raw_ostream &stream)
+    : stream(stream), position(0), message(buffer) { }
 
 DiagnosticStream::~DiagnosticStream()
 {
@@ -38,13 +37,14 @@ DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
     assert(position == 0 && "Diagnostic reinitialized before completion!");
 
     sourceLoc = sloc;
-
-    message.str("");
+    buffer.clear();
     this->format = format;
+
     emitSourceLocation(sloc);
     message << ": ";
     emitDiagnosticType(type);
     message << ": ";
+
     emitFormatComponent();
     return *this;
 }
@@ -91,9 +91,9 @@ void DiagnosticStream::emitFormatComponent()
 
     stream << message.str() << '\n';
     stream << "  " << sourceLine << '\n';
-    stream << "  " << std::string(column, '.') << '^' << std::endl;
+    stream << "  " << std::string(column, '.') << "^\n";
     position = 0;
-    message.str("");
+    buffer.clear();
 }
 
 DiagnosticStream &DiagnosticStream::operator<<(const std::string &string)
