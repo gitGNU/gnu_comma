@@ -338,14 +338,14 @@ Node TypeCheck::beginForStmt(Location loc,
 
 Node TypeCheck::endForStmt(Node forNode, NodeVector &bodyNodes)
 {
-    // Pop the scope we entered for this loop.
-    scope.pop();
-
     // The parser _always_ gives us the node we provided in the call to
     // beginForStmt.  This is one of only times when the parser might pass us an
     // invalid node.
     if (forNode.isInvalid())
         return getInvalidNode();
+
+    // If forNode is valid, pop the scope we entered for this loop.
+    scope.pop();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not construct empty for loops.
