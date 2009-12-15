@@ -994,11 +994,6 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
         return true;
     }
 
-    if (PrimaryType *primary = dyn_cast<PrimaryType>(source)) {
-        Type *rep = dyn_cast<DomainType>(primary->getRootType());
-        return checkSignatureProfile(rewrites, rep, target, loc);
-    }
-
     // Otherwise, the source does not denote a domain, and so cannot satisfy the
     // signature constraint.
     report(loc, diag::NOT_A_DOMAIN);
