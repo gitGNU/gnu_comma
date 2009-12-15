@@ -79,8 +79,8 @@ DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
            "Expression does not denote a domain.")
 DIAGNOSTIC(TYPE_CANNOT_DENOTE_VALUE, ERROR,
            "Type cannot denote a value.")
-DIAGNOSTIC(DOES_NOT_SATISFY, ERROR,
-           "Domain does not satisfy signature `%0'.")
+DIAGNOSTIC(DOMAIN_PARAM_DOES_NOT_SATISFY, ERROR,
+           "Domain is not a valid actual for the generic parameter `%0'.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
            "The type `%0' is not visible.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,

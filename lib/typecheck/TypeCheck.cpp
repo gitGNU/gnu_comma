@@ -988,7 +988,8 @@ bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
 {
     if (DomainType *domain = dyn_cast<DomainType>(source)) {
         if (!has(rewrites, domain, target)) {
-            report(loc, diag::DOES_NOT_SATISFY) << target->getString();
+            report(loc, diag::DOMAIN_PARAM_DOES_NOT_SATISFY)
+                << target->getString();
             return false;
         }
         return true;
