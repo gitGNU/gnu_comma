@@ -58,6 +58,31 @@ SubroutineCall::initializeArguments(Expr **posArgs, unsigned numPos,
     }
     else
         keyedArgs = 0;
+
+    if (isUnambiguous())
+        propagateKeyedArguments();
+}
+
+void SubroutineCall::propagateKeyedArguments()
+{
+    // Fill in the argument vector with any keyed expressions, sorted so that
+    // they match what the connective requires.
+    for (unsigned i = 0; i < numKeys; ++i) {
+        KeywordSelector *selector = keyedArgs[i];
+        IdentifierInfo *key = selector->getKeyword();
+        Expr *expr = selector->getExpression();
+        int indexResult = getConnective()->getKeywordIndex(key);
+
+        assert(indexResult >= 0 && "Could not resolve keyword index!");
+
+        unsigned argIndex = unsigned(indexResult);
+        assert(argIndex >= numPositional &&
+               "Keyword resolved to a positional index!");
+        assert(argIndex < getNumArgs() && "Keyword index too large!");
+        assert(arguments[argIndex] == 0 && "Duplicate keywords!");
+
+        arguments[argIndex] = expr;
+    }
 }
 
 SubroutineCall::~SubroutineCall()
@@ -130,25 +155,7 @@ void SubroutineCall::resolveConnective(SubroutineDecl *decl)
     assert(decl->getArity() == getNumArgs() && "Arity mismatch!");
 
     connective->resolve(decl);
-
-    // Fill in the argument vector with any keyed expressions, sorted so that
-    // they match what the given decl requires.
-    for (unsigned i = 0; i < numKeys; ++i) {
-        KeywordSelector *selector = keyedArgs[i];
-        IdentifierInfo *key = selector->getKeyword();
-        Expr *expr = selector->getExpression();
-        int indexResult = decl->getKeywordIndex(key);
-
-        assert(indexResult >= 0 && "Could not resolve keyword index!");
-
-        unsigned argIndex = unsigned(indexResult);
-        assert(argIndex >= numPositional &&
-               "Keyword resolved to a positional index!");
-        assert(argIndex < getNumArgs() && "Keyword index too large!");
-        assert(arguments[argIndex] == 0 && "Duplicate keywords!");
-
-        arguments[argIndex] = expr;
-    }
+    propagateKeyedArguments();
 }
 
 int SubroutineCall::argExprIndex(Expr *expr) const

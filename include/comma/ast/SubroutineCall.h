@@ -323,6 +323,9 @@ private:
     /// Helper for the constructors.  Initializes the argument data.
     void initializeArguments(Expr **posArgs, unsigned numPos,
                              KeywordSelector **keyArgs, unsigned numKeys);
+
+    /// Extends the argument data with any keyed arguments.
+    void propagateKeyedArguments();
 };
 
 } // end comma namespace.
