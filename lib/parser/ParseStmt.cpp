@@ -306,8 +306,8 @@ Node Parser::parseForStmt()
     //
     //    - TKN_DDOT : The name consitutes the lower bound of a range.
     //
-    //    - TKN_RANGE, TKN_DIGITS, TKN_DELTA : The name denotes a subtype
-    //      mark in a discrete subtype indication.
+    //    - TKN_RANGE : The name denotes a subtype mark in a discrete subtype
+    //      indication.
     //
     // FIXME: Note that we do not support the last case yet.  As a consequence,
     // the following code does not use the context information fully.  We simply
