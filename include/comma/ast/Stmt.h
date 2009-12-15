@@ -348,23 +348,21 @@ class ForStmt : public Stmt {
     /// type of the control, which is munged into the low order bits of a
     /// generic Ast pointer.
     enum ControlKind {
-        Range_Attribute_Control, // Range attribute.
-        Range_Control            // Simple range.
+        Range_Attribute_Control, ///< Range attribute.
+        Range_Control,           ///< Simple range.
+        Type_Control             ///< Discrete type.
     };
 
     /// The type used to manage the control node for this loop.
     typedef llvm::PointerIntPair<Ast*, 2, ControlKind> TaggedControl;
 
 public:
-    /// Constructs a for-loop statement over a range attribute.
-    ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range);
-
-    /// Constructs a for-loop statement over a range.
-    ForStmt(Location loc, LoopDecl *iterationDecl, Range *range)
-        : Stmt(AST_ForStmt),
-          location(loc),
-          iterationDecl(iterationDecl),
-          control(range, Range_Control) { }
+    /// \brief Constructs a for-loop statement over the given declaration and
+    /// control node.
+    ///
+    /// The control node for this loop must be either a RangeAttrib, a Range, or
+    /// a DiscreteType.
+    ForStmt(Location loc, LoopDecl *iterationDecl, Ast *control);
 
     //@{
     /// Returns the LoopDecl corresponding to the iteration value of this loop.
@@ -394,12 +392,12 @@ public:
     /// Returns the controlling range of this loop, or null if the controlling
     /// subtype is not a range.
     const Range *getRangeControl() const {
-        if (control.getInt() == Range_Control)
+        if (isRangeControlled())
             return llvm::cast<Range>(control.getPointer());
         return 0;
     }
     Range *getRangeControl() {
-        if (control.getInt() == Range_Control)
+        if (isRangeControlled())
             return llvm::cast<Range>(control.getPointer());
         return 0;
     }
@@ -408,6 +406,26 @@ public:
     /// Returns true if this loop is controlled by a range.
     bool isRangeControlled() const {
         return control.getInt() == Range_Control;
+    }
+
+    //@{
+    /// Returns the controlling subtype of this looop, or null if the
+    /// control is not a subtype.
+    const DiscreteType *getTypeControl() const {
+        if (isTypeControlled())
+            return llvm::cast<DiscreteType>(control.getPointer());
+        return 0;
+    }
+    DiscreteType *getTypeControl() {
+        if (isTypeControlled())
+            return llvm::cast<DiscreteType>(control.getPointer());
+        return 0;
+    }
+    //@}
+
+    /// Returns true if this loop is controlled by a discrete type.
+    bool isTypeControlled() const {
+        return control.getInt() == Type_Control;
     }
 
     /// Returns true if the controlling scheme is reversed.

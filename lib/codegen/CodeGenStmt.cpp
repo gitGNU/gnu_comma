@@ -332,10 +332,16 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
         iter = bounds.first;
         sentinal = bounds.second;
     }
-    else {
-        Range *range = loop->getRangeControl();
+    else if (Range *range = loop->getRangeControl()) {
         iter = emitValue(range->getLowerBound());
         sentinal = emitValue(range->getUpperBound());
+    }
+    else {
+        BoundsEmitter emitter(*this);
+        DiscreteType *type = loop->getTypeControl();
+        BoundsEmitter::LUPair bounds = emitter.getScalarBounds(Builder, type);
+        iter = bounds.first;
+        sentinal = bounds.second;
     }
 
     // If the loop is reversed, exchange the iteration variable and bound.

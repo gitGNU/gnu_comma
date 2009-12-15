@@ -20,6 +20,7 @@
 #include "llvm/ADT/STLExtras.h"
 
 using namespace comma;
+using llvm::dyn_cast_or_null;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
@@ -278,19 +279,30 @@ Node TypeCheck::acceptLoopStmt(Location loc, NodeVector &stmtNodes)
 
 Node TypeCheck::beginForStmt(Location loc,
                              IdentifierInfo *iterName, Location iterLoc,
-                             Node control, bool isReversed)
+                             Node controlNode, bool isReversed)
 {
-    // FIXME: Only range attributes are currently supported as loop control.
-    RangeAttrib *attrib = lift_node<RangeAttrib>(control);
+    Ast *control = 0;
+    DiscreteType *iterTy = 0;
 
-    if (!attrib) {
-        report(getNodeLoc(control), diag::INVALID_FOR_LOOP_CONTROL);
+    if (RangeAttrib *attrib = lift_node<RangeAttrib>(controlNode)) {
+        control = attrib;
+        iterTy = attrib->getType();
+    }
+    else if (TypeRef *ref = lift_node<TypeRef>(controlNode)) {
+        // FIXME: ref is leaked.
+        if (TypeDecl *decl = ref->getTypeDecl()) {
+            control = decl->getType();
+            iterTy = dyn_cast_or_null<DiscreteType>(control);
+        }
+    }
+
+    if (!iterTy) {
+        report(getNodeLoc(controlNode), diag::INVALID_FOR_LOOP_CONTROL);
         return getInvalidNode();
     }
 
-    DiscreteType *iterTy = attrib->getType();
     LoopDecl *iter = new LoopDecl(iterName, iterTy, iterLoc);
-    ForStmt *loop = new ForStmt(loc, iter, attrib);
+    ForStmt *loop = new ForStmt(loc, iter, control);
 
     if (isReversed)
         loop->markAsReversed();
@@ -298,7 +310,7 @@ Node TypeCheck::beginForStmt(Location loc,
     // Push a scope for the for loop and then add the loop parameter.
     scope.push();
     scope.addDirectDecl(iter);
-    control.release();
+    controlNode.release();
     return getNode(loop);
 }
 
@@ -318,12 +330,9 @@ Node TypeCheck::beginForStmt(Location loc,
         return getInvalidNode();
 
     // Create the loop statement node.
-    //
-    // FIXME: A ForStmt should take a discrete type as its control argument
-    // instead of an expression (the range is owned by the subtype in this
-    // case).
+    Range *control = subtype->getConstraint();
     LoopDecl *iter = new LoopDecl(iterName, subtype, iterLoc);
-    ForStmt *loop = new ForStmt(loc, iter, subtype->getConstraint());
+    ForStmt *loop = new ForStmt(loc, iter, control);
 
     if (isReversed)
         loop->markAsReversed();

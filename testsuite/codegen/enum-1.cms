@@ -1,0 +1,20 @@
+
+domain Test with
+   procedure Run;
+add
+   type E is (A, B, C, D);
+   subtype E_Sub is E range B..D;
+   subtype E_Nul is E range D..A;
+
+   procedure Run is
+   begin
+      for I in E_Sub loop
+          pragma Assert(I /= A);
+      end loop;
+
+      for I in E_Nul loop
+         pragma Assert(false);
+      end loop;
+   end Run;
+
+end Test;

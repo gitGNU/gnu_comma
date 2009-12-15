@@ -43,11 +43,30 @@ ReturnStmt::~ReturnStmt()
 // The following methods are defined out of line to avoid inclusion of
 // RangeAttrib.h.
 
-ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, RangeAttrib *range)
+ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, Ast *node)
     : Stmt(AST_ForStmt),
       location(loc),
-      iterationDecl(iterationDecl),
-      control(range, Range_Attribute_Control) { }
+      iterationDecl(iterationDecl)
+{
+    ControlKind mark;
+
+    if (isa<RangeAttrib>(node)) {
+        mark = Range_Attribute_Control;
+    }
+    else if (isa<Range>(node)) {
+        mark = Range_Control;
+    }
+    else if (isa<DiscreteType>(node)) {
+        mark = Type_Control;
+    }
+    else {
+        assert(false && "Bad kind of node for loop control!");
+        return;
+    }
+
+    control.setInt(mark);
+    control.setPointer(node);
+}
 
 const Ast *ForStmt::getControl() const
 {
