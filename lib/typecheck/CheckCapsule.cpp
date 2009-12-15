@@ -39,6 +39,9 @@ void TypeCheck::beginCapsule()
 
 void TypeCheck::endCapsule()
 {
+    if (Domoid *domoid = getCurrentDomoid())
+        ensureExportConstraints(domoid->getImplementation());
+
     assert(scope.getKind() == MODEL_SCOPE);
     scope.pop();
 
@@ -256,8 +259,6 @@ void TypeCheck::beginAddExpression()
 
 void TypeCheck::endAddExpression()
 {
-    ensureExportConstraints(getCurrentDomoid()->getImplementation());
-
     // Switch back to the declarative region of the defining domains percent
     // node.
     declarativeRegion = declarativeRegion->getParent();

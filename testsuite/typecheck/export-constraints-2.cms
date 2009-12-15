@@ -1,0 +1,7 @@
+-- MUST-FAIL: Tests that exports are verified even when there is no "add".
+
+signature S with
+   procedure P;
+end S;
+
+domain D is S end D;
