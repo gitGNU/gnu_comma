@@ -4,9 +4,7 @@ signature S with
    type E is (A);
 end S;
 
-signature T is
-   S;
-with
+signature T is S with
    function Test return S.E;
 end T;
 

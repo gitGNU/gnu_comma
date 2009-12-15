@@ -5,8 +5,7 @@ signature S with
    procedure Q (X : in out %);
 end S;
 
-signature T is
-   S;
+signature T is S
 with
    procedure P (X : %);
    procedure Q (Y : %);

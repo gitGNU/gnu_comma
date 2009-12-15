@@ -11,7 +11,4 @@ signature T with
    function F (Y : %) return %;
 end T;
 
-signature U is
-   S;
-   T;
-end U;
+signature U is S and T end U;
