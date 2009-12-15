@@ -157,7 +157,7 @@ public:
                                       IntegerType *base);
     //@}
 
-    /// Creates a discrete subtype which the given bounds as constraints.
+    /// Creates a discrete subtype with the given bounds as constraints.
     ///
     /// The actual type returned depends on the actual type of the given base.
     DiscreteType *createDiscreteSubtype(IdentifierInfo *name,
