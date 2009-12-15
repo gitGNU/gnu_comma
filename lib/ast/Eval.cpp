@@ -216,7 +216,7 @@ bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result)
 
     case Ast::AST_FirstAE: {
         const DiscreteType *intTy = cast<FirstAE>(expr)->getType();
-        if (const RangeConstraint *constraint = intTy->getConstraint()) {
+        if (const Range *constraint = intTy->getConstraint()) {
             if (constraint->hasStaticLowerBound()) {
                 result = constraint->getStaticLowerBound();
                 status = true;
@@ -231,7 +231,7 @@ bool staticDiscreteAttribExpr(const AttribExpr *expr, llvm::APInt &result)
 
     case Ast::AST_LastAE: {
         const DiscreteType *intTy = cast<LastAE>(expr)->getType();
-        if (const RangeConstraint *constraint = intTy->getConstraint()) {
+        if (const Range *constraint = intTy->getConstraint()) {
             if (constraint->hasStaticUpperBound()) {
                 result = constraint->getStaticUpperBound();
                 status = true;

@@ -245,7 +245,7 @@ DiscreteType::contains(const DiscreteType *target) const
     llvm::APInt min;
     llvm::APInt max;
 
-    if (const RangeConstraint *constraint = getConstraint()) {
+    if (const Range *constraint = getConstraint()) {
         // If this type has a non-static constraint we cannot compute
         // containment.
         if (!constraint->isStatic())
@@ -269,7 +269,7 @@ DiscreteType::contains(const DiscreteType *target) const
     llvm::APInt lower;
     llvm::APInt upper;
 
-    if (const RangeConstraint *constraint = target->getConstraint()) {
+    if (const Range *constraint = target->getConstraint()) {
         if (constraint->isStatic()) {
             // If the target is constrained to a null range, we can always
             // contain it.
@@ -511,7 +511,14 @@ public:
                         Expr *lowerBound, Expr *upperBound,
                         IdentifierInfo *name = 0)
         : EnumerationType(ConstrainedEnumType_KIND, rootType),
-          constraint(new RangeConstraint(lowerBound, upperBound, rootType)),
+          constraint(new Range(lowerBound, upperBound, rootType)),
+          idInfo(name) { }
+
+    ConstrainedEnumType(RootEnumType *rootType,
+                        Range *constraint,
+                        IdentifierInfo *name = 0)
+        : EnumerationType(ConstrainedEnumType_KIND, rootType),
+          constraint(constraint),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -527,8 +534,8 @@ public:
 
     //@{
     /// Returns the constraint on this subtype.
-    RangeConstraint *getConstraint() { return constraint; }
-    const RangeConstraint *getConstraint() const { return constraint; }
+    Range *getConstraint() { return constraint; }
+    const Range *getConstraint() const { return constraint; }
     //@}
 
     /// \brief Returns true if the constraint bounds for this subtype are
@@ -542,8 +549,8 @@ public:
     }
 
 private:
-    RangeConstraint *constraint; ///< The constraint on this subtype.
-    IdentifierInfo *idInfo;      ///< The name of this subtype or null.
+    Range *constraint;          ///< The constraint on this subtype.
+    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
 };
 
 } // end anonymous namespace.
@@ -594,14 +601,14 @@ uint64_t EnumerationType::getNumLiterals() const
     return cast<RootEnumType>(getRootType())->getNumLiterals();
 }
 
-RangeConstraint *EnumerationType::getConstraint()
+Range *EnumerationType::getConstraint()
 {
     if (ConstrainedEnumType *Ty = dyn_cast<ConstrainedEnumType>(this))
         return Ty->getConstraint();
     return 0;
 }
 
-const RangeConstraint *EnumerationType::getConstraint() const
+const Range *EnumerationType::getConstraint() const
 {
     if (const ConstrainedEnumType *Ty = dyn_cast<ConstrainedEnumType>(this))
         return Ty->getConstraint();
@@ -720,7 +727,13 @@ public:
                            Expr *lowerBound, Expr *upperBound,
                            IdentifierInfo *name = 0)
         : IntegerType(ConstrainedIntegerType_KIND, rootType),
-          constraint(new RangeConstraint(lowerBound, upperBound, rootType)),
+          constraint(new Range(lowerBound, upperBound, rootType)),
+          idInfo(name) { }
+
+    ConstrainedIntegerType(RootIntegerType *rootType,
+                           Range *constraint, IdentifierInfo *name = 0)
+        : IntegerType(ConstrainedIntegerType_KIND, rootType),
+          constraint(constraint),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -736,8 +749,8 @@ public:
 
     //@{
     /// Returns the constraint on this subtype.
-    RangeConstraint *getConstraint() { return constraint; }
-    const RangeConstraint *getConstraint() const { return constraint; }
+    Range *getConstraint() { return constraint; }
+    const Range *getConstraint() const { return constraint; }
     //@}
 
     /// \brief Returns true if the constraint bounds for this subtype are
@@ -751,8 +764,8 @@ public:
     }
 
 private:
-    RangeConstraint *constraint; ///< The constraints on this subtype.
-    IdentifierInfo *idInfo;      ///< The name of this subtype or null.
+    Range *constraint;          ///< the constraints on this subtype.
+    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
 };
 
 class UnconstrainedIntegerType : public IntegerType {
@@ -848,14 +861,14 @@ IntegerType *IntegerType::getBaseSubtype()
     return root->getBaseSubtype();
 }
 
-RangeConstraint *IntegerType::getConstraint()
+Range *IntegerType::getConstraint()
 {
     ConstrainedIntegerType *Ty;
     Ty = dyn_cast<ConstrainedIntegerType>(this);
     return Ty ? Ty->getConstraint() : 0;
 }
 
-const RangeConstraint *IntegerType::getConstraint() const {
+const Range *IntegerType::getConstraint() const {
     const ConstrainedIntegerType *Ty;
     Ty = dyn_cast<ConstrainedIntegerType>(this);
     return Ty ? Ty->getConstraint() : 0;
@@ -912,7 +925,7 @@ uint64_t IntegerType::getSize() const
 ArrayType::ArrayType(ArrayDecl *decl, unsigned rank, DiscreteType **indices,
                      Type *component, bool isConstrained)
     : PrimaryType(AST_ArrayType, 0, false),
-      constraint(indices, indices + rank),
+      indices(indices, indices + rank),
       componentType(component),
       definingDecl(decl)
 {
@@ -926,7 +939,7 @@ ArrayType::ArrayType(ArrayDecl *decl, unsigned rank, DiscreteType **indices,
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
                      DiscreteType **indices)
     : PrimaryType(AST_ArrayType, rootType, true),
-      constraint(indices, indices + rootType->getRank()),
+      indices(indices, indices + rootType->getRank()),
       componentType(rootType->getComponentType()),
       definingDecl(name)
 {
@@ -936,7 +949,7 @@ ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
 
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType)
     : PrimaryType(AST_ArrayType, rootType, true),
-      constraint(rootType->constraint),
+      indices(rootType->begin(), rootType->end()),
       componentType(rootType->getComponentType()),
       definingDecl(name)
 {
@@ -959,7 +972,7 @@ uint64_t ArrayType::length() const
            "Cannot determine length of unconstrained arrays!");
 
     const DiscreteType *indexTy = getIndexType(0);
-    const RangeConstraint *constraint = indexTy->getConstraint();
+    const Range *constraint = indexTy->getConstraint();
 
     assert(constraint->isStatic() &&
            "Cannot determine length using non-static index constraint!");

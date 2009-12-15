@@ -10,7 +10,6 @@
 #define COMMA_AST_TYPE_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
-#include "comma/ast/Constraint.h"
 #include "comma/ast/Range.h"
 #include "comma/basic/ParameterModes.h"
 
@@ -271,19 +270,6 @@ public:
     /// \note Default implementation returns false.
     virtual bool isConstrainedByInitialValue() const { return false; }
 
-    //@{
-    /// \brief Returns the Constraint object associated with this type, or null
-    /// if there is no associated constraint.
-    ///
-    /// Only subtypes have constraints.  If this is a root type, then this
-    /// method will always return null.  Also, if this type is constrained by an
-    /// initial value, there a Constraint object is not available.
-    ///
-    /// \note Default implementation returns null.
-    virtual Constraint *getConstraint() { return 0; }
-    virtual const Constraint *getConstraint() const { return 0; }
-    //@}
-
     /// Returns true if this type is a subtype of the given type.
     ///
     /// All types are considered to be subtypes of themselves.
@@ -509,9 +495,10 @@ public:
     //@}
 
     //@{
-    /// Specialization of PrimaryType::getConstraint().
-    virtual RangeConstraint *getConstraint() = 0;
-    virtual const RangeConstraint *getConstraint() const = 0;
+    /// Returns the constraint associated with this DiscreteType or null if this
+    /// type is unconstrained.
+    virtual Range *getConstraint() = 0;
+    virtual const Range *getConstraint() const = 0;
     //@}
 
     /// Returns true if this type is constrained and the constraints are static.
@@ -584,10 +571,10 @@ public:
     bool isConstrained() const { return getConstraint() != 0; }
 
     //@{
-    /// \brief Returns the RangeConstraint associated with this EnumerationType,
-    /// or null if this is an unconstrained type.
-    RangeConstraint *getConstraint();
-    const RangeConstraint *getConstraint() const;
+    /// Returns the constraint associated with this enumeration or null if this
+    /// is an unconstrained type.
+    Range *getConstraint();
+    const Range *getConstraint() const;
     //@}
 
     //@{
@@ -626,7 +613,7 @@ private:
     static EnumerationType *
     createSubtype(EnumerationType *rootType, IdentifierInfo *name);
 
-    /// Builds a constrained enumeration subtype.
+    /// Builds a constrained enumeration subtype over the given bounds.
     static EnumerationType *
     createConstrainedSubtype(EnumerationType *rootType,
                              Expr *lowerBound, Expr *upperBound,
@@ -704,10 +691,10 @@ public:
     bool isConstrained() const { return getConstraint() != 0; }
 
     //@{
-    /// \brief Returns the RangeConstraint associated with this IntegerType, or
-    /// null if this is an unconstrained type.
-    RangeConstraint *getConstraint();
-    const RangeConstraint *getConstraint() const;
+    /// \brief Returns the Range associated with this IntegerType, or null if
+    /// this is an unconstrained type.
+    Range *getConstraint();
+    const Range *getConstraint() const;
     //@}
 
     //@{
@@ -742,7 +729,7 @@ private:
     static IntegerType *
     createSubtype(IntegerType *rootType, IdentifierInfo *name);
 
-    /// Builds a constrained integer subtype.
+    /// Builds a constrained integer subtype over the given bounds.
     static IntegerType *
     createConstrainedSubtype(IntegerType *rootType,
                              Expr *lowerBound, Expr *upperBound,
@@ -785,14 +772,15 @@ public:
 // They are allocated and owned by an AstResource instance.
 class ArrayType : public PrimaryType {
 
+    /// Type used to hold the index types of this array.
+    typedef llvm::SmallVector<DiscreteType*, 4> IndexVec;
+
 public:
     /// Returns the identifier associated with this array type.
     IdentifierInfo *getIdInfo() const;
 
     /// Returns the rank (dimensionality) of this array type.
-    unsigned getRank() const {
-        return constraint.numConstraints();
-    }
+    unsigned getRank() const { return indices.size(); }
 
     /// Returns true if this is a vector type (an array of rank 1).
     bool isVector() const { return getRank() == 1; }
@@ -804,10 +792,10 @@ public:
     //@{
     /// Returns the i'th index type of this array.
     const DiscreteType *getIndexType(unsigned i) const {
-        return constraint.getConstraint(i);
+        return indices[i];
     }
     DiscreteType *getIndexType(unsigned i) {
-        return constraint.getConstraint(i);
+        return indices[i];
     }
     //@}
 
@@ -815,9 +803,13 @@ public:
     ///
     /// Iterators over the index types of this array.
     //@{
-    typedef IndexConstraint::iterator index_iterator;
-    index_iterator begin_indices() const { return constraint.begin(); }
-    index_iterator end_indices() const { return constraint.end(); }
+    typedef IndexVec::iterator iterator;
+    iterator begin() { return indices.begin(); }
+    iterator end() { return indices.end(); }
+
+    typedef IndexVec::const_iterator const_iterator;
+    const_iterator begin() const { return indices.begin(); }
+    const_iterator end() const { return indices.end(); }
     //@}
 
     /// Returns the component type of this array.
@@ -829,26 +821,11 @@ public:
     /// Returns true if this type is constrained by an initial value.
     bool isConstrainedByInitialValue() const { return constrainedByInitBit(); }
 
-    //@{
-    /// Specialization of PrimaryType::getConstraint();
-    IndexConstraint *getConstraint() {
-        if (isConstrained())
-            return &constraint;
-        return 0;
-    }
-
-    const IndexConstraint *getConstraint() const {
-        if (isConstrained())
-            return &constraint;
-        return 0;
-    }
-    //@}
-
     /// Returns true if this array type is statically constrained.
     bool isStaticallyConstrained() const {
         if (!isConstrained())
             return false;
-        for (index_iterator I = begin_indices(); I != end_indices(); ++I) {
+        for (const_iterator I = begin(); I != end(); ++I) {
             DiscreteType *Ty = *I;
             if (!Ty->isStaticallyConstrained())
                 return false;
@@ -915,9 +892,8 @@ private:
         bits |= Constrained_By_Init_PROP;
     }
 
-    /// This class `abuses' the IndexConstraint class, using it to represent the
-    /// index types for both constrained and unconstrained arrays.
-    IndexConstraint constraint;
+    /// Vector of index types.
+    IndexVec indices;
 
     /// The component type of this array.
     Type *componentType;

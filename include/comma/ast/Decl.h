@@ -1515,9 +1515,9 @@ public:
 
     //@{
     /// Iterators over the index types.
-    typedef ArrayType::index_iterator index_iterator;
-    index_iterator begin_indices() { return getType()->begin_indices(); }
-    index_iterator end_indices() { return getType()->end_indices(); }
+    typedef ArrayType::iterator index_iterator;
+    index_iterator begin_indices() { return getType()->begin(); }
+    index_iterator end_indices() { return getType()->end(); }
     //@}
 
     // Support isa and dyn_cast.
