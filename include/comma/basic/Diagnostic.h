@@ -36,6 +36,19 @@ enum Type {
 
 } // End diag namespace.
 
+/// \class
+///
+/// \brief Simple virtual interface which allows subclasses to print themselves
+/// to a DiagnosticStream.
+class DiagnosticComponent {
+
+public:
+    virtual ~DiagnosticComponent() { }
+
+    /// Calls to this method should produce output to the given stream.
+    virtual void print(llvm::raw_ostream &stream) const = 0;
+};
+
 class DiagnosticStream {
 
 public:
@@ -44,7 +57,7 @@ public:
     ~DiagnosticStream();
 
     DiagnosticStream &initialize(const SourceLocation &sloc, const char *format,
-                                 diag::Type);
+                                 diag::Type type);
 
     DiagnosticStream &operator<<(const std::string &string);
 
@@ -60,6 +73,8 @@ public:
 
     DiagnosticStream &operator<<(PM::ParameterMode mode);
 
+    DiagnosticStream &operator<<(const DiagnosticComponent &component);
+
 private:
     void emitFormatComponent();
 
@@ -73,6 +88,7 @@ private:
     llvm::raw_string_ostream message;
     SourceLocation sourceLoc;
     const char *format;
+    diag::Type type;
 };
 
 class Diagnostic {

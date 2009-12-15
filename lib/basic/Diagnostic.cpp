@@ -39,6 +39,7 @@ DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
     sourceLoc = sloc;
     buffer.clear();
     this->format = format;
+    this->type = type;
 
     emitSourceLocation(sloc);
     message << ": ";
@@ -80,18 +81,24 @@ void DiagnosticStream::emitFormatComponent()
         message << c;
     }
 
-    // If we get here, the format string is exhausted.  Print the message and
-    // extract the associcated line of source text.  To ensure that diagnostics
-    // print properly, strip the source line of any trailing newlines.
-    std::string sourceLine = sourceLoc.getTextProvider()->extract(sourceLoc);
-    unsigned    column     = sourceLoc.getColumn();
-    size_t      endLoc     = sourceLine.find('\n');
-    if (endLoc != std::string::npos)
-        sourceLine.erase(endLoc);
-
+    // If we get here, the format string is exhausted.  Print the message and,
+    // if we are not processing a note, extract the associated line of source
+    // text and display a caret diagnostic.  To ensure that diagnostics print
+    // properly, strip the source line of any trailing newlines.
     stream << message.str() << '\n';
-    stream << "  " << sourceLine << '\n';
-    stream << "  " << std::string(column, '.') << "^\n";
+
+    if (type != diag::NOTE) {
+        std::string source = sourceLoc.getTextProvider()->extract(sourceLoc);
+        unsigned    column = sourceLoc.getColumn();
+        size_t      endLoc = source.find('\n');
+        if (endLoc != std::string::npos)
+            source.erase(endLoc);
+
+        stream << "  " << source << '\n';
+        stream << "  " << std::string(column, '.') << "^\n";
+    }
+
+    // Reset the stream.
     position = 0;
     buffer.clear();
 }
@@ -158,6 +165,13 @@ DiagnosticStream &DiagnosticStream::operator<<(PM::ParameterMode mode)
         message << "in out";
         break;
     }
+    emitFormatComponent();
+    return *this;
+}
+
+DiagnosticStream &DiagnosticStream::operator<<(const DiagnosticComponent &DC)
+{
+    DC.print(message);
     emitFormatComponent();
     return *this;
 }
