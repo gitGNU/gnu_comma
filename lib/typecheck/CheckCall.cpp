@@ -15,6 +15,7 @@
 #include "TypeCheck.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/DiagPrint.h"
 #include "comma/ast/Stmt.h"
 
 using namespace comma;
@@ -117,9 +118,12 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     if (isa<IntegerLiteral>(arg))
         return targetType->isIntegerType();
 
-    // If the expression is an unresolved aggregate it is compatible if the
-    // target is an aggregate type.
-    if (isa<AggregateExpr>(arg))
+    // If the expression is an unresolved aggregate or string literal it is
+    // compatible if the target is an aggregate type.
+    //
+    // FIXME: In the case of a string literal we should explicitly check for an
+    // array of character enumeration type.
+    if (isa<AggregateExpr>(arg) || isa<StringLiteral>(arg))
         return targetType->isCompositeType();
 
     // The expression must be an ambiguous function call.  Check that at least
@@ -247,6 +251,8 @@ Ast* TypeCheck::acceptSubroutineCall(SubroutineRef *ref,
     // use a return type to resolve any further.
     if (ref->referencesProcedures()) {
         report(loc, diag::AMBIGUOUS_EXPRESSION);
+        for (SubroutineRef::iterator I = ref->begin(); I != ref->end(); ++I)
+            report(loc, diag::CANDIDATE_NOTE) << diag::PrintDecl(*I);
         return 0;
     }
 
@@ -482,8 +488,12 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     FunctionDecl *preference = resolvePreferredConnective(call, targetType);
 
     if (!preference)  {
-        // FIXME:  Actually print something informative here.
-        report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+        Location loc = call->getLocation();
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
+        for (SubroutineCall::connective_iterator I = call->begin_connectives();
+             I != call->end_connectives(); ++I) {
+            report(loc, diag::CANDIDATE_NOTE) << diag::PrintDecl(*I);
+        }
         return 0;
     }
 
@@ -535,8 +545,12 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
         preference = resolvePreferredOperator(candidates);
 
     if (!preference) {
-        // FIXME: Actually print an informative diagnostic.
         report(call->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+
+        for (unsigned i = 0; i < candidates.size(); ++i) {
+            Type *type = candidates[i]->getType();
+            report(0, diag::CANDIDATE_NOTE) << diag::PrintType(type);
+        }
         return false;
     }
 

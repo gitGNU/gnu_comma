@@ -242,3 +242,5 @@ DIAGNOSTIC(DUPLICATED_CHOICE_VALUE, ERROR,
 DIAGNOSTIC(DISCONTINUOUS_CHOICE, ERROR,
            "Discrete choice not continuous. "
            "Values below choice `%0' are not covered.")
+DIAGNOSTIC(CANDIDATE_NOTE, NOTE,
+           "candidate: %0")
