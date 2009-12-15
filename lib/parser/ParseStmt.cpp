@@ -403,13 +403,12 @@ Node Parser::parsePragmaAssert(IdentifierInfo *name, Location loc)
         NodeVector args;
         Node condition = parseExpr();
 
-        if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
+        if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
             seekToken(Lexer::TKN_RPAREN);
-            return getInvalidNode();
+        else {
+            args.push_back(condition);
+            return client.acceptPragmaStmt(name, loc, args);
         }
-
-        args.push_back(condition);
-        return client.acceptPragmaStmt(name, loc, args);
     }
     seekSemi();
     return getInvalidNode();
