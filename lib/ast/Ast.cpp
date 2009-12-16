@@ -83,6 +83,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "PragmaStmt",
 
     "KeywordSelector",
+    "DSTDefinition",
     "Range",
     "ArrayRangeAttrib",
     "ScalarRangeAttrib",
