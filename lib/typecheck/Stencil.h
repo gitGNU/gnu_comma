@@ -226,68 +226,6 @@ private:
     TypeDecl *returnTy;         ///< The return type or null.
 };
 
-//===----------------------------------------------------------------------===//
-//  ArrayDeclStencil
-//
-/// A stencil to represent array declarations.
-class ArrayDeclStencil : public ASTStencil {
-
-public:
-    ArrayDeclStencil() { reset(); }
-
-    void reset() {
-        ASTStencil::reset();
-        indices.clear();
-        component = 0;
-    }
-
-    /// Adds an index type.
-    void addIndex(TypeRef *ref) { indices.push_back(ref); }
-
-    /// Returns the number of indices.
-    unsigned numIndices() const { return indices.size(); }
-
-    /// Returns the i'th index.
-    TypeRef *getIndex(unsigned i) {
-        assert(i < numIndices() && "Index out of range!");
-        return indices[i];
-    }
-
-    /// Type used to hold the arrays index types.
-    typedef llvm::SmallVector<TypeRef*, 8> IndexVec;
-
-    //@{
-    /// Accessors to the underlying array representing the indices.
-    IndexVec &getIndices() { return indices; }
-    const IndexVec &getIndices() const { return indices; }
-    //@}
-
-    //@{
-    /// Iterators over the array indices.
-    typedef IndexVec::iterator index_iterator;
-    index_iterator begin_indices() { return indices.begin(); }
-    index_iterator end_indices() { return indices.end(); }
-    //@}
-
-    /// Sets the component type of this array stencil.
-    void setComponentType(TypeDecl *component) {
-        this->component = component;
-    }
-
-    /// Returns the component type associated with this stencil.
-    TypeDecl *getComponentType() { return component; }
-
-    /// Marks this array as constrained.
-    void markAsConstrained() { subBits = 1; }
-
-    /// Returns true if this array is constrained.
-    bool isConstrained() const { return subBits == 1; }
-
-private:
-    IndexVec indices;       ///< Index declaration nodes.
-    TypeDecl *component;    ///< Component declaration node.
-};
-
 } // end comma namespace.
 
 #endif
