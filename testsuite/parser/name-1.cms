@@ -1,0 +1,16 @@
+-- Ensure inj and prj are recognized as names in for loop controls.
+
+domain Test with
+   procedure Run;
+add
+   carrier Rep is String;
+
+   procedure Run is
+      P : % := prj("Foo");
+   begin
+      for I in inj(P)'Range loop
+         inj(P)(I) := 'x';
+      end loop;
+   end Run;
+end Test;
+

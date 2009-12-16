@@ -249,6 +249,8 @@ bool Parser::consumeName()
     case Lexer::TKN_CHARACTER:
     case Lexer::TKN_IDENTIFIER:
     case Lexer::TKN_PERCENT:
+    case Lexer::TKN_INJ:
+    case Lexer::TKN_PRJ:
         break;
     }
 
