@@ -213,7 +213,7 @@ CallEmitter::emitVStackCall(FunctionCallExpr *call)
     Builder.CreateCall(fn, arguments.begin(), arguments.end());
 
     // Emit a temporary to hold the bounds.
-    ArrayType *arrTy = cast<ArrayType>(call->getType());
+    ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
     const llvm::Type *boundsTy = CGT.lowerArrayBounds(arrTy);
     const llvm::Type *boundsPtrTy = CG.getPointerType(boundsTy);
     llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(boundsTy);

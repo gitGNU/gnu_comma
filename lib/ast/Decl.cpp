@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "comma/ast/AstRewriter.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DeclRewriter.h"
 #include "comma/ast/DSTDefinition.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
@@ -606,7 +606,7 @@ AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
     : DomainTypeDecl(AST_AbstractDomainDecl, resource, name, loc)
 {
     Sigoid *sigoid = sig->getSigoid();
-    AstRewriter rewriter(sigoid->getAstResource());
+    DeclRewriter rewriter(sigoid->getAstResource(), this);
 
     // Establish a mapping from the % node of the signature to the type of this
     // abstract domain.
@@ -664,7 +664,7 @@ void DomainInstanceDecl::initializeInstance(Domoid *definition)
     PercentDecl *percent = definition->getPercent();
 
     // Obtain a rewritten version of the public exports provided by percent.
-    AstRewriter rewriter(definition->getAstResource());
+    DeclRewriter rewriter(definition->getAstResource(), this);
     rewriter.addTypeRewrite(definition->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationsUsingRewrites(rewriter, percent);
@@ -701,7 +701,7 @@ void DomainInstanceDecl::finalize()
     if (representationType)
         return;
 
-    AstRewriter rewriter(getDefinition()->getAstResource());
+    DeclRewriter rewriter(getDefinition()->getAstResource(), this);
     rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
     rewriter.installRewrites(getType());
     initializeRep(rewriter);
@@ -732,7 +732,7 @@ unsigned DomainInstanceDecl::getArity() const
 
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
-    AstRewriter rewriter(getDefinition()->getAstResource());
+    DeclRewriter rewriter(getDefinition()->getAstResource(), this);
     rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);

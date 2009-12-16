@@ -230,13 +230,12 @@ protected:
     /// their declarative regions defined in terms of another declaration.  For
     /// example, domain instances are a rewritten version of the domains
     /// PercentDecl.
-    void addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+    void addDeclarationsUsingRewrites(DeclRewriter &rewrites,
                                       const DeclRegion *region);
 
     /// \brief Adds the given declaration to this region using the supplied
     /// rewrite rules.
-    void addDeclarationUsingRewrites(const AstRewriter &rewrites,
-                                     Decl *decl);
+    void addDeclarationUsingRewrites(DeclRewriter &rewrites, Decl *decl);
 
 private:
     Ast::AstKind regionKind;

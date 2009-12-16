@@ -218,7 +218,7 @@ void AggEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
                                            llvm::Value *dst)
 {
-    ArrayType *arrTy = cast<ArrayType>(call->getType());
+    ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
 
     // Constrained types use the sret call convention.
     if (arrTy->isConstrained()) {

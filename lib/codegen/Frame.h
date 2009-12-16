@@ -18,6 +18,8 @@
 
 namespace comma {
 
+class CodeGenRoutine;
+
 namespace activation {
 
 enum Tag {
@@ -49,7 +51,8 @@ private:
 class SRFrame {
 
 public:
-    SRFrame(SRInfo *routineInfo, llvm::IRBuilder<> &Builder);
+    SRFrame(SRInfo *routineInfo,
+            CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder);
 
     ~SRFrame();
 
@@ -199,7 +202,7 @@ private:
     /// Initialize the implicit first parameter.  Also, name the llvm arguments
     /// after the source formals, and populate the lookup tables such that a
     /// search for a parameter decl yields the corresponding llvm value.
-    void injectSubroutineArgs();
+    void injectSubroutineArgs(CodeGenRoutine &CGR);
 };
 
 } // end comma namespace.

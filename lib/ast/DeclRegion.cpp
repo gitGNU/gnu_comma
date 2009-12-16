@@ -31,21 +31,19 @@ void DeclRegion::addDecl(Decl *decl) {
     notifyObserversOfAddition(decl);
 }
 
-void DeclRegion::addDeclarationUsingRewrites(const AstRewriter &rewrites,
+void DeclRegion::addDeclarationUsingRewrites(DeclRewriter &rewrites,
                                              Decl *decl)
 {
-    DeclRewriter rewriter(rewrites, this);
-    addDecl(rewriter.rewriteDecl(decl));
+    addDecl(rewrites.rewriteDecl(decl));
 }
 
 void
-DeclRegion::addDeclarationsUsingRewrites(const AstRewriter &rewrites,
+DeclRegion::addDeclarationsUsingRewrites(DeclRewriter &rewrites,
                                          const DeclRegion *region)
 {
-    DeclRewriter rewriter(rewrites, this);
     ConstDeclIter E = region->endDecls();
     for (ConstDeclIter I = region->beginDecls(); I != E; ++I)
-        addDecl(rewriter.rewriteDecl(*I));
+        addDecl(rewrites.rewriteDecl(*I));
 }
 
 Decl *DeclRegion::findDecl(IdentifierInfo *name, Type *type)

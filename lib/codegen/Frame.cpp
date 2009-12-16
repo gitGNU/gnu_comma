@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGenRoutine.h"
 #include "Frame.h"
 
 using namespace comma;
@@ -63,7 +64,8 @@ void SRFrame::Subframe::emitStackrestore()
     SRF->getIRBuilder().CreateCall(restore, restorePtr);
 }
 
-SRFrame::SRFrame(SRInfo *routineInfo, llvm::IRBuilder<> &Builder)
+SRFrame::SRFrame(SRInfo *routineInfo,
+                 CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
     : SRI(routineInfo),
       Builder(Builder),
       allocaBB(0),
@@ -92,7 +94,7 @@ SRFrame::SRFrame(SRInfo *routineInfo, llvm::IRBuilder<> &Builder)
     }
 
     // Populate the lookup tables with this functions arguments.
-    injectSubroutineArgs();
+    injectSubroutineArgs(CGR);
 }
 
 SRFrame::~SRFrame()
@@ -134,7 +136,7 @@ void SRFrame::emitReturn()
     Builder.CreateBr(returnBB);
 }
 
-void SRFrame::injectSubroutineArgs()
+void SRFrame::injectSubroutineArgs(CodeGenRoutine &CGR)
 {
     SubroutineDecl *SRDecl = SRI->getDeclaration();
     llvm::Function *Fn = SRI->getLLVMFunction();
@@ -163,7 +165,8 @@ void SRFrame::injectSubroutineArgs()
         argI->setName(param->getString());
         associate(param, Slot, argI);
 
-        if (ArrayType *arrTy = dyn_cast<ArrayType>(param->getType())) {
+        Type *paramTy = CGR.resolveType(param->getType());
+        if (ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
             if (!arrTy->isConstrained()) {
                 ++argI;
                 std::string boundName(param->getString());

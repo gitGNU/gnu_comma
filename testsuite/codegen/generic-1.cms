@@ -1,0 +1,103 @@
+--=== testsuite/codegen/codegen-1.cms ------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2009, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+--
+-- Simple signature describing a type convertable to Integer.
+--
+signature Convertable_To_Integer with
+   function To_Int (P : %) return Integer;
+   function From_Int (N : Integer) return %;
+end Convertable_To_Integer;
+
+--
+-- Generic signature providing an array type declaration who's component type is
+-- a generic domain satisfying Convertable_To_Integer.
+--
+generic
+   abstract domain D is Convertable_To_Integer;
+signature Type_Sig with
+   type D_Vec is array (Positive range <>) of D;
+end Type_Sig;
+
+--
+-- Generic domain using as representation the array type provided by Type_Sig.
+--
+generic
+   abstract domain D is Convertable_To_Integer;
+domain F is Type_Sig(D) with
+
+   function Make return %;
+   -- Creates an element of this domain.
+
+   function Convert (P : %) return D_Vec;
+   -- Converts an element of this domain to a vector with components of type D.
+
+   procedure Modify (P : in out %; Elem : D);
+   -- Sets an element of this domain such that Convert returns a vector with all
+   -- elements set to Elem.
+
+add
+   import D;
+
+   carrier Rep is D_Vec;
+
+   function Make return % is
+   begin
+      return prj((1..10 => From_Int(16)));
+   end Make;
+
+   function Convert (P : %) return D_Vec is
+   begin
+      return inj(P);
+   end Convert;
+
+   procedure Modify (P : in out %; Elem : D) is
+   begin
+      for I in inj(P)'Range loop
+         inj(P)(I) := Elem;
+      end loop;
+   end Modify;
+end F;
+
+--
+--  Trivial implementation of the Convertable_To_Integer signature.
+--
+domain Int_Like is Convertable_To_Integer add
+   carrier Rep is Integer;
+
+   function From_Int (N : Integer) return % is
+   begin
+      return prj(N);
+   end From_Int;
+
+   function To_Int (P : %) return Integer is
+   begin
+      return inj(P);
+   end To_Int;
+end Int_Like;
+
+--
+-- Test domain ensuring that the basic specification of domain F holds.
+--
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      import F(Int_Like);
+      A : F(Int_Like) := Make;
+   begin
+      Modify(A, Int_Like.From_Int(88));
+      declare
+         DV : D_Vec := Convert(A);
+      begin
+         for I in DV'Range loop
+            pragma Assert(Int_Like.To_Int(DV(I)) = 88);
+         end loop;
+      end;
+   end Run;
+end Test;
