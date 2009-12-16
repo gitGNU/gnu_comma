@@ -71,7 +71,7 @@ AstDumper::AstDumper(llvm::raw_ostream &stream)
     EDumper = new ExprDumper(stream, this);
     DDumper = new DeclDumper(stream, this);
     SDumper = new StmtDumper(stream, this);
-    TDumper = new TypeDumper(stream);
+    TDumper = new TypeDumper(stream, this);
 }
 
 AstDumper::~AstDumper()

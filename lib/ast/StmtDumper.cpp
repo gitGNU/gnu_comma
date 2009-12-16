@@ -8,6 +8,7 @@
 
 #include "StmtDumper.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 

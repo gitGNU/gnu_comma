@@ -10,6 +10,7 @@
 #include "Scope.h"
 #include "TypeCheck.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Pragma.h"
@@ -281,26 +282,8 @@ Node TypeCheck::beginForStmt(Location loc,
                              IdentifierInfo *iterName, Location iterLoc,
                              Node controlNode, bool isReversed)
 {
-    Ast *control = 0;
-    DiscreteType *iterTy = 0;
-
-    if (RangeAttrib *attrib = lift_node<RangeAttrib>(controlNode)) {
-        control = attrib;
-        iterTy = attrib->getType();
-    }
-    else if (TypeRef *ref = lift_node<TypeRef>(controlNode)) {
-        // FIXME: ref is leaked.
-        if (TypeDecl *decl = ref->getTypeDecl()) {
-            control = decl->getType();
-            iterTy = dyn_cast_or_null<DiscreteType>(control);
-        }
-    }
-
-    if (!iterTy) {
-        report(getNodeLoc(controlNode), diag::INVALID_FOR_LOOP_CONTROL);
-        return getInvalidNode();
-    }
-
+    DSTDefinition *control = cast_node<DSTDefinition>(controlNode);
+    DiscreteType *iterTy = control->getType();
     LoopDecl *iter = new LoopDecl(iterName, iterTy, iterLoc);
     ForStmt *loop = new ForStmt(loc, iter, control);
 
@@ -314,46 +297,9 @@ Node TypeCheck::beginForStmt(Location loc,
     return getNode(loop);
 }
 
-Node TypeCheck::beginForStmt(Location loc,
-                             IdentifierInfo *iterName, Location iterLoc,
-                             Node lowerNode, Node upperNode, bool isReversed)
-{
-    Expr *lower = ensureExpr(lowerNode);
-    Expr *upper = ensureExpr(upperNode);
-    RangeChecker rangeCheck(*this);
-    DiscreteType *subtype = 0;
-
-    if (!(lower && upper))
-        return getInvalidNode();
-
-    if (!(subtype = rangeCheck.checkLoopRange(lower, upper)))
-        return getInvalidNode();
-
-    // Create the loop statement node.
-    Range *control = subtype->getConstraint();
-    LoopDecl *iter = new LoopDecl(iterName, subtype, iterLoc);
-    ForStmt *loop = new ForStmt(loc, iter, control);
-
-    if (isReversed)
-        loop->markAsReversed();
-
-    // Push a scope for the for loop and then add the loop parameter.
-    scope.push();
-    scope.addDirectDecl(iter);
-    lowerNode.release();
-    upperNode.release();
-    return getNode(loop);
-}
-
 Node TypeCheck::endForStmt(Node forNode, NodeVector &bodyNodes)
 {
-    // The parser _always_ gives us the node we provided in the call to
-    // beginForStmt.  This is one of only times when the parser might pass us an
-    // invalid node.
-    if (forNode.isInvalid())
-        return getInvalidNode();
-
-    // If forNode is valid, pop the scope we entered for this loop.
+    // Pop the scope we entered for this loop.
     scope.pop();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do

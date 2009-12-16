@@ -14,12 +14,15 @@
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Pragma.h"
+#include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include <algorithm>
 #include <cstring>
@@ -735,7 +738,8 @@ void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
 }
 
 void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
-                                        Node subtypeNode, Node lowNode, Node highNode)
+                                        Node subtypeNode,
+                                        Node lowNode, Node highNode)
 {
     DeclRegion *region = currentDeclarativeRegion();
 
@@ -759,8 +763,8 @@ void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
 
     // Convert each of the constraints to the expressions and evaluate them in
     // the context of the subtype indication.
-    Expr *lower = cast_node<Expr>(lowNode);
-    Expr *upper = cast_node<Expr>(highNode);
+    Expr *lower = ensureExpr(lowNode);
+    Expr *upper = ensureExpr(highNode);
 
     if (!(lower = checkExprInContext(lower, baseTy)) ||
         !(upper = checkExprInContext(upper, baseTy)))
@@ -854,121 +858,56 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
     region->addDecl(decl);
 }
 
-//===----------------------------------------------------------------------===//
-// Array type definition callbacks.
-
-void TypeCheck::beginArray(IdentifierInfo *name, Location loc)
+void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
+                                NodeVector indexNodes, Node componentNode)
 {
-    arrayStencil.init(name, loc);
-}
+    assert(!indexNodes.empty() && "No type indices for array type decl!");
 
-void TypeCheck::acceptUnconstrainedArrayIndex(Node indexNode)
-{
-    // The parser guarantees that all index definitions will be unconstrained or
-    // constrained.  Assert this fact for ourselves.
-    if (arrayStencil.numIndices())
-        assert(!arrayStencil.isConstrained() &&
-               "Conflicting array index definitions!");
+    // Build a vector of the DSTDefinition's describing the indices of this
+    // array declaration.
+    typedef NodeCaster<DSTDefinition> Caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, Caster> Mapper;
+    typedef llvm::SmallVector<DSTDefinition*, 8> IndexVec;
+    IndexVec indices(Mapper(indexNodes.begin(), Caster()),
+                     Mapper(indexNodes.end(), Caster()));
 
-    TypeRef *index = lift_node<TypeRef>(indexNode);
-    if (!index) {
-        arrayStencil.markInvalid();
-        report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
-        return;
-    }
-
-    indexNode.release();
-    arrayStencil.addIndex(index);
-}
-
-void TypeCheck::acceptArrayIndex(Node indexNode)
-{
-    // The parser guarantees that all index definitions will be unconstrained or
-    // constrained.  Assert this fact for ourselves by ensuring that if the
-    // current array stencil is not constrained.
-    assert(!arrayStencil.isConstrained() &&
-           "Conflicting array index definitions!");
-
-    TypeRef *index = lift_node<TypeRef>(indexNode);
-    if (!index) {
-        arrayStencil.markInvalid();
-        report(getNodeLoc(indexNode), diag::EXPECTED_DISCRETE_INDEX);
-        return;
-    }
-
-    indexNode.release();
-    arrayStencil.markAsConstrained();
-    arrayStencil.addIndex(index);
-}
-
-void TypeCheck::acceptArrayComponent(Node componentNode)
-{
-    assert(arrayStencil.getComponentType() == 0 &&
-           "Array component type already initialized!");
-
-    TypeDecl *componentTy = ensureTypeDecl(componentNode);
-
-    if (!componentTy) {
-        arrayStencil.markInvalid();
-        return;
-    }
-    arrayStencil.setComponentType(componentTy);
-}
-
-void TypeCheck::endArray()
-{
-    ASTStencilReseter reseter(arrayStencil);
-
-    // If the array stencil is invalid, do not construct the declaration.
-    if (arrayStencil.isInvalid())
-        return;
-
-    // Ensure that at least one index has been associated with this stencil.  It
-    // is possible that the parser could not parse the index components.  Just
-    // return in this case, since the parser would have already posted a
-    // diagnostic.
-    if (arrayStencil.numIndices() == 0)
-        return;
-
-    // Likewise, it is possible that the parser could not complete the component
-    // type declaration.
-    if (arrayStencil.getComponentType() == 0)
-        return;
-
-    IdentifierInfo *name = arrayStencil.getIdInfo();
-    Location loc = arrayStencil.getLocation();
-
-    // Ensure that each index type is a discrete type.  Build a vector of all
-    // valid SubTypes for each index.
-    llvm::SmallVector<DiscreteType*, 4> indices;
-    typedef ArrayDeclStencil::index_iterator index_iterator;
-    for (index_iterator I = arrayStencil.begin_indices();
-         I != arrayStencil.end_indices(); ++I) {
-        TypeRef *ref = *I;
-        TypeDecl *tyDecl = dyn_cast_or_null<TypeDecl>(ref->getTypeDecl());
-
-        if (!tyDecl || !tyDecl->getType()->isDiscreteType()) {
-            report(ref->getLocation(), diag::EXPECTED_DISCRETE_INDEX);
-            break;
+    // Unfortunately the parser does not ensure that all index types are either
+    // constrained or unconstrained.  Determine the nature of this array
+    // declaration by inspecting the first index, then check that every
+    // subsequent index follows the rules.
+    DSTDefinition::DSTTag tag = indices[0]->getTag();
+    bool isConstrained = tag != DSTDefinition::Unconstrained_DST;
+    bool allOK = true;
+    for (IndexVec::iterator I = indices.begin(); I != indices.end(); ++I) {
+        DSTDefinition *index = *I;
+        DSTDefinition::DSTTag tag = index->getTag();
+        if (tag == DSTDefinition::Unconstrained_DST && isConstrained) {
+            report(index->getLocation(),
+                   diag::EXPECTED_CONSTRAINED_ARRAY_INDEX);
+            allOK = false;
         }
-
-        // A type declaration of a scalar type always provides the first subtype
-        // as its type.
-        DiscreteType *indexTy = cast<DiscreteType>(tyDecl->getType());
-        indices.push_back(indexTy);
+        else if (tag != DSTDefinition::Unconstrained_DST && !isConstrained) {
+            report(index->getLocation(),
+                   diag::EXPECTED_UNCONSTRAINED_ARRAY_INDEX);
+            allOK = false;
+        }
     }
 
-    // Do not create the array declaration unless all indices checked out.
-    if (indices.size() != arrayStencil.numIndices())
+    if (!allOK)
         return;
 
-    Type *component = arrayStencil.getComponentType()->getType();
-    bool isConstrained = arrayStencil.isConstrained();
+    // Ensure the component node is in fact a type.
+    PrimaryType *componentTy;
+    if (TypeDecl *componentDecl = ensureTypeDecl(componentNode))
+        componentTy = componentDecl->getType();
+    else
+        return;
+
+    // Create the declaration node.
     DeclRegion *region = currentDeclarativeRegion();
-    ArrayDecl *array;
-    array = resource.createArrayDecl(name, loc,
-                                     indices.size(), &indices[0],
-                                     component, isConstrained, region);
+    ArrayDecl *array =
+        resource.createArrayDecl(name, loc, indices.size(), &indices[0],
+                                 componentTy, isConstrained, region);
 
     // Check for conflicts.
     if (Decl *conflict = scope.addDirectDecl(array)) {
@@ -980,6 +919,92 @@ void TypeCheck::endArray()
     // FIXME: We need to introduce the implicit operations for this type.
     region->addDecl(array);
     introduceImplicitDecls(array);
+}
+
+//===----------------------------------------------------------------------===//
+// DSTDefinition callbacks.
+
+Node TypeCheck::acceptDSTDefinition(Node name, Node lowerNode, Node upperNode)
+{
+    TypeRef *ref = lift_node<TypeRef>(name);
+    DiscreteType *subtype = 0;
+
+    if (ref) {
+        if (TypeDecl *decl = ref->getTypeDecl()) {
+            subtype = dyn_cast<DiscreteType>(decl->getType());
+        }
+    }
+
+    if (!subtype) {
+        report(getNodeLoc(name), diag::EXPECTED_DISCRETE_SUBTYPE_OR_RANGE);
+        return getInvalidNode();
+    }
+
+    Expr *lower = ensureExpr(lowerNode);
+    Expr *upper = ensureExpr(upperNode);
+    if (!(lower && upper))
+        return getInvalidNode();
+
+    subtype = RangeChecker(*this).checkSubtypeRange(subtype, lower, upper);
+    if (!subtype)
+        return getInvalidNode();
+
+    DSTDefinition::DSTTag tag = DSTDefinition::Constrained_DST;
+    DSTDefinition *result = new DSTDefinition(ref->getLocation(), subtype, tag);
+
+    name.release();
+    lowerNode.release();
+    upperNode.release();
+    delete ref;
+    return getNode(result);
+}
+
+Node TypeCheck::acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained)
+{
+    DSTDefinition *result = 0;
+
+    if (TypeRef *ref = lift_node<TypeRef>(nameOrAttribute)) {
+        if (TypeDecl *decl = ref->getTypeDecl()) {
+            if (DiscreteType *type = dyn_cast<DiscreteType>(decl->getType())) {
+                DSTDefinition::DSTTag tag = isUnconstrained ?
+                    DSTDefinition::Unconstrained_DST : DSTDefinition::Type_DST;
+                result = new DSTDefinition(ref->getLocation(), type, tag);
+                delete ref;
+            }
+        }
+    }
+    else if (RangeAttrib *attrib = lift_node<RangeAttrib>(nameOrAttribute)) {
+        DSTDefinition::DSTTag tag = DSTDefinition::Attribute_DST;
+        result = new DSTDefinition(attrib->getLocation(), attrib, tag);
+    }
+
+    if (!result) {
+        report(getNodeLoc(nameOrAttribute),
+               diag::EXPECTED_DISCRETE_SUBTYPE_OR_RANGE);
+        return getInvalidNode();
+    }
+
+    nameOrAttribute.release();
+    return getNode(result);
+}
+
+Node TypeCheck::acceptDSTDefinition(Node lowerNode, Node upperNode)
+{
+    Expr *lower = ensureExpr(lowerNode);
+    Expr *upper = ensureExpr(upperNode);
+    RangeChecker rangeCheck(*this);
+    DiscreteType *subtype = 0;
+
+    if (!(lower && upper))
+        return getInvalidNode();
+
+    if (!(subtype = rangeCheck.checkDSTRange(lower, upper)))
+        return getInvalidNode();
+
+    lowerNode.release();
+    upperNode.release();
+    DSTDefinition::DSTTag tag = DSTDefinition::Range_DST;
+    return getNode(new DSTDefinition(lower->getLocation(), subtype, tag));
 }
 
 bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,

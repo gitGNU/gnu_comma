@@ -31,13 +31,17 @@ class TypeDumper : public AstDumperBase, private TypeVisitor {
 public:
     /// Constructs a dumper which writes its output to the given
     /// llvm::raw_ostream.
-    TypeDumper(llvm::raw_ostream &stream) : AstDumperBase(stream) { }
+    TypeDumper(llvm::raw_ostream &stream, AstDumper *dumper)
+        : AstDumperBase(stream), dumper(dumper) { }
 
     /// Dumps the given type node to the stream respecting the given indentation
     /// level.
     llvm::raw_ostream &dump(Type *type, unsigned level = 0);
 
 private:
+    /// Generic dumper for printing non-stmt nodes.
+    AstDumper *dumper;
+
     /// Helper method for the printing of subroutine parameters.  Prints the
     /// list of paremeters for the type delimited by "(" and ")".  No trailing
     /// space.
@@ -45,6 +49,9 @@ private:
 
     /// Specialization for types.
     llvm::raw_ostream &printHeader(Type *node);
+
+    /// Dumps the given node maintaining the current indentation level.
+    llvm::raw_ostream &dumpAST(Ast *node);
 
     /// Visitor methods implementing the dump routines.  We use the default
     /// implementations for all inner node visitors since we are only concerned

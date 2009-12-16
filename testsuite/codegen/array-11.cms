@@ -1,0 +1,48 @@
+-- Testing arrays of various enumeration index types.
+
+domain Test with
+   procedure Run;
+add
+   type E is (A, B, C, D);
+   subtype E_Sub is E range B..C;
+
+   type Arr1 is array (E) of E;
+   type Arr2 is array (E range B..D) of E;
+   type Arr3 is array (E_Sub'Range) of E;
+
+   procedure Run is
+      A1 : Arr1 := (others => A);
+      A2 : Arr2 := (others => B);
+      A3 : Arr3 := (others => C);
+   begin
+      for I in E loop
+         pragma Assert(A1(I) = A);
+      end loop;
+      for I in B..D loop
+         pragma Assert(A2(I) = B);
+      end loop;
+      for I in E_Sub loop
+         pragma Assert(A3(I) = C);
+      end loop;
+
+      for I in A..D loop
+         A1(I) := D;
+      end loop;
+      for I in A2'Range loop
+         A2(I) := C;
+      end loop;
+      for I in E range B..C loop
+         A3(I) := B;
+      end loop;
+
+      for I in A1'Range loop
+         pragma Assert(A1(I) = D);
+      end loop;
+      for I in reverse B..D loop
+         pragma Assert(A2(I) = C);
+      end loop;
+      for I in E_Sub loop
+         pragma Assert(A3(I) = B);
+      end loop;
+   end Run;
+end Test;

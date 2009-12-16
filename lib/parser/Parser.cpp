@@ -1245,7 +1245,7 @@ bool Parser::parseIntegerRange(IdentifierInfo *name, Location loc)
     return true;
 }
 
-void Parser::parseArrayIndexProfile()
+void Parser::parseArrayIndexProfile(NodeVector &indices)
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
     ignoreToken();
@@ -1256,42 +1256,10 @@ void Parser::parseArrayIndexProfile()
         return;
     }
 
-    bool parsedIndex = false;   // True when we have parsed an index.
-    bool isConstrained = false; // True when we have seen a constrained index.
     do {
-        Location loc = currentLocation();
-        Node index = parseName();
-        if (index.isInvalid())
-            continue;
-
-        if (reduceToken(Lexer::TKN_RANGE)) {
-            if (reduceToken(Lexer::TKN_DIAMOND)) {
-                // If we have already parsed an index, ensure that it was
-                // constrained.
-                if (parsedIndex && !isConstrained)
-                    report(loc, diag::EXPECTED_CONSTRAINED_ARRAY_INDEX);
-                else {
-                    client.acceptUnconstrainedArrayIndex(index);
-                    isConstrained = true;
-                    parsedIndex = true;
-                }
-            }
-            else {
-                // Only unconstrained array indexes are supported ATM.
-                report(diag::UNEXPECTED_TOKEN_WANTED)
-                    << currentTokenString() << "<>";
-                seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
-            }
-        }
-        else {
-            // Check that an unconstrained index is not expected.
-            if (parsedIndex && isConstrained)
-                report(loc, diag::EXPECTED_UNCONSTRAINED_ARRAY_INDEX);
-            else {
-                client.acceptArrayIndex(index);
-                parsedIndex = true;
-            }
-        }
+        Node index = parseDSTDefinition(true);
+        if (index.isValid())
+            indices.push_back(index);
     } while (reduceToken(Lexer::TKN_COMMA));
 
     if (!requireToken(Lexer::TKN_RPAREN))
@@ -1303,29 +1271,21 @@ bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
     assert(currentTokenIs(Lexer::TKN_ARRAY));
     ignoreToken();
 
-    client.beginArray(name, loc);
-
-    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
-        client.endArray();
+    if (!currentTokenIs(Lexer::TKN_LPAREN))
         return false;
-    }
 
-    parseArrayIndexProfile();
+    NodeVector indices;
+    parseArrayIndexProfile(indices);
 
-    if (!reduceToken(Lexer::TKN_OF)) {
-        client.endArray();
+    if (indices.empty() || !reduceToken(Lexer::TKN_OF))
         return false;
-    }
 
     Node component = parseName();
-    if (component.isValid()) {
-        client.acceptArrayComponent(component);
-        client.endArray();
-        return true;
-    }
+    if (component.isInvalid())
+        return false;
 
-    client.endArray();
-    return false;
+    client.acceptArrayDecl(name, loc, indices, component);
+    return true;
 }
 
 bool Parser::parseTopLevelDeclaration()
@@ -1440,4 +1400,86 @@ void Parser::parsePragmaImport(Location pragmaLoc)
     client.acceptPragmaImport(pragmaLoc,
                               conventionName, conventionLoc,
                               entityName, entityLoc, externalName);
+}
+
+Node Parser::parseDSTDefinition(bool acceptDiamond)
+{
+    // We are always called to parse the control of a for statement or an array
+    // index specification.  We need to distinguish between names which denote
+    // subtype marks and simple ranges.  Use use a knowledge of our context to
+    // determine the difference.
+    //
+    // Specultively parse a name.  If the parse suceeds look at the following
+    // token.  If it is TKN_RANGE then we definitely have a subtype mark.  If we
+    // were called from a loop context we could also have TKN_LOOP.  If we were
+    // called from an array index context we could have TKN_COMMA or TKN_RPAREN.
+    //
+    // An alternative strategy would be to parse a name and look for infix
+    // operators and TKN_DDOT.
+    bool rangeFollows = false;
+    Lexer::Token savedToken = currentToken();
+    lexer.beginExcursion();
+
+    if (consumeName()) {
+        switch (currentTokenCode()) {
+        default:
+            rangeFollows = true;
+            break;
+        case Lexer::TKN_RANGE:
+        case Lexer::TKN_LOOP:
+        case Lexer::TKN_COMMA:
+        case Lexer::TKN_RPAREN:
+            rangeFollows = false;
+            break;
+        }
+    }
+    else
+        rangeFollows = true;
+
+    lexer.endExcursion();
+    setCurrentToken(savedToken);
+
+    if (rangeFollows) {
+        // FIXME: Should be parsing simple expressions here.
+        Node lower = parseExpr();
+        if (lower.isInvalid() || !requireToken(Lexer::TKN_DDOT))
+            return getInvalidNode();
+
+        Node upper = parseExpr();
+        if (upper.isInvalid())
+            return getInvalidNode();
+        else
+            return client.acceptDSTDefinition(lower, upper);
+    }
+
+    Node name = parseName(Accept_Range_Attribute);
+    if (name.isInvalid())
+        return getInvalidNode();
+
+    if (reduceToken(Lexer::TKN_RANGE)) {
+        if (currentTokenIs(Lexer::TKN_DIAMOND)) {
+            Location loc = ignoreToken();
+            if (acceptDiamond)
+                return client.acceptDSTDefinition(name, true);
+            else {
+                report(loc, diag::UNEXPECTED_TOKEN) <<
+                    Lexer::tokenString(Lexer::TKN_DIAMOND);
+                return getInvalidNode();
+            }
+        }
+
+        // FIXME: We should parse simple expressions here.
+        Node lower = parseExpr();
+
+        if (lower.isInvalid() || !requireToken(Lexer::TKN_DDOT))
+            return getInvalidNode();
+
+        Node upper = parseExpr();
+        if (upper.isInvalid())
+            return getInvalidNode();
+
+        return client.acceptDSTDefinition(name, lower, upper);
+    }
+    else
+        return client.acceptDSTDefinition(name, false);
 }

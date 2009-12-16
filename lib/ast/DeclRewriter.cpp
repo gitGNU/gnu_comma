@@ -10,6 +10,7 @@
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DeclRewriter.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 
 using namespace comma;
@@ -133,15 +134,23 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
     unsigned rank = adecl->getRank();
     bool isConstrained = adecl->isConstrained();
     Type *component = rewriteType(adecl->getComponentType());
-    DiscreteType *indices[rank];
+    DSTDefinition *indices[rank];
 
-    for (unsigned i = 0; i < rank; ++i)
-        indices[i] = cast<DiscreteType>(rewriteType(adecl->getIndexType(i)));
+    for (unsigned i = 0; i < rank; ++i) {
+        // Just rewrite the index types into DSTDef's with the Type_DST tag.
+        // There is no loss of type information (but the original syntax of the
+        // declaration is gone, which is OK for a rewritten node).
+        //
+        // FIXME: It should be possible to construct an ArrayDecl over a set of
+        // DiscreteType's instead of always requiring DSTDef's.
+        DiscreteType *indexTy;
+        indexTy = cast<DiscreteType>(rewriteType(adecl->getIndexType(i)));
+        indices[i] = new DSTDefinition(0, indexTy, DSTDefinition::Type_DST);
+    }
 
     ArrayDecl *result;
     AstResource &resource = getAstResource();
-
-    result = resource.createArrayDecl(name, 0, rank, indices,
+    result = resource.createArrayDecl(name, 0, rank, &indices[0],
                                       component, isConstrained, context);
     result->setOrigin(adecl);
 

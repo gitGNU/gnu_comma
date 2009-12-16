@@ -478,9 +478,9 @@ private:
 class UnconstrainedEnumType : public EnumerationType {
 
 public:
-    UnconstrainedEnumType(RootEnumType *rootType,
+    UnconstrainedEnumType(EnumerationType *base,
                           IdentifierInfo *name = 0)
-        : EnumerationType(UnconstrainedEnumType_KIND, rootType),
+        : EnumerationType(UnconstrainedEnumType_KIND, base),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -507,18 +507,11 @@ private:
 class ConstrainedEnumType : public EnumerationType {
 
 public:
-    ConstrainedEnumType(RootEnumType *rootType,
+    ConstrainedEnumType(EnumerationType *base,
                         Expr *lowerBound, Expr *upperBound,
                         IdentifierInfo *name = 0)
-        : EnumerationType(ConstrainedEnumType_KIND, rootType),
-          constraint(new Range(lowerBound, upperBound, rootType)),
-          idInfo(name) { }
-
-    ConstrainedEnumType(RootEnumType *rootType,
-                        Range *constraint,
-                        IdentifierInfo *name = 0)
-        : EnumerationType(ConstrainedEnumType_KIND, rootType),
-          constraint(constraint),
+        : EnumerationType(ConstrainedEnumType_KIND, base),
+          constraint(new Range(lowerBound, upperBound, base)),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -650,8 +643,7 @@ EnumerationType *EnumerationType::create(AstResource &resource,
 EnumerationType *EnumerationType::createSubtype(EnumerationType *type,
                                                 IdentifierInfo *name)
 {
-    RootEnumType *root = cast<RootEnumType>(type->getRootType());
-    return new UnconstrainedEnumType(root, name);
+    return new UnconstrainedEnumType(type, name);
 }
 
 EnumerationType *
@@ -659,8 +651,7 @@ EnumerationType::createConstrainedSubtype(EnumerationType *type,
                                           Expr *lowerBound, Expr *upperBound,
                                           IdentifierInfo *name)
 {
-    RootEnumType *root = cast<RootEnumType>(type->getRootType());
-    return new ConstrainedEnumType(root, lowerBound, upperBound, name);
+    return new ConstrainedEnumType(type, lowerBound, upperBound, name);
 }
 
 //===----------------------------------------------------------------------===//
@@ -723,17 +714,11 @@ private:
 class ConstrainedIntegerType : public IntegerType {
 
 public:
-    ConstrainedIntegerType(RootIntegerType *rootType,
+    ConstrainedIntegerType(IntegerType *base,
                            Expr *lowerBound, Expr *upperBound,
                            IdentifierInfo *name = 0)
-        : IntegerType(ConstrainedIntegerType_KIND, rootType),
-          constraint(new Range(lowerBound, upperBound, rootType)),
-          idInfo(name) { }
-
-    ConstrainedIntegerType(RootIntegerType *rootType,
-                           Range *constraint, IdentifierInfo *name = 0)
-        : IntegerType(ConstrainedIntegerType_KIND, rootType),
-          constraint(constraint),
+        : IntegerType(ConstrainedIntegerType_KIND, base),
+          constraint(new Range(lowerBound, upperBound, base)),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -771,9 +756,9 @@ private:
 class UnconstrainedIntegerType : public IntegerType {
 
 public:
-    UnconstrainedIntegerType(RootIntegerType *rootType,
+    UnconstrainedIntegerType(IntegerType *base,
                              IdentifierInfo *name = 0)
-        : IntegerType(UnconstrainedIntegerType_KIND, rootType),
+        : IntegerType(UnconstrainedIntegerType_KIND, base),
           idInfo(name) { }
 
     /// Returns true if this is an anonymous subtype.
@@ -842,8 +827,7 @@ IntegerType *IntegerType::create(AstResource &resource, IntegerDecl *decl,
 IntegerType *IntegerType::createSubtype(IntegerType *type,
                                         IdentifierInfo *name)
 {
-    RootIntegerType *root = cast<RootIntegerType>(type->getRootType());
-    return new UnconstrainedIntegerType(root, name);
+    return new UnconstrainedIntegerType(type, name);
 }
 
 IntegerType *IntegerType::createConstrainedSubtype(IntegerType *type,
@@ -851,8 +835,7 @@ IntegerType *IntegerType::createConstrainedSubtype(IntegerType *type,
                                                    Expr *upperBound,
                                                    IdentifierInfo *name)
 {
-    RootIntegerType *root = cast<RootIntegerType>(type->getRootType());
-    return new ConstrainedIntegerType(root, lowerBound, upperBound, name);
+    return new ConstrainedIntegerType(type, lowerBound, upperBound, name);
 }
 
 IntegerType *IntegerType::getBaseSubtype()
@@ -989,4 +972,17 @@ uint64_t ArrayType::length() const
     llvm::APInt length(upper - lower);
     return length.getZExtValue() + 1;
 }
+
+bool ArrayType::isStaticallyConstrained() const
+{
+    if (!isConstrained())
+        return false;
+    for (const_iterator I = begin(); I != end(); ++I) {
+        DiscreteType *Ty = *I;
+        if (!Ty->isStaticallyConstrained())
+            return false;
+    }
+    return true;
+}
+
 

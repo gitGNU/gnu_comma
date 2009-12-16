@@ -8,6 +8,7 @@
 
 #include "TypeDumper.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/Expr.h"
 #include "comma/ast/Type.h"
 
 #include "llvm/Support/Format.h"
@@ -33,6 +34,11 @@ llvm::raw_ostream &TypeDumper::dump(Type *type, unsigned level)
     visitType(type);
     indentLevel = savedLevel;
     return S;
+}
+
+llvm::raw_ostream &TypeDumper::dumpAST(Ast *node)
+{
+    return dumper->dump(node, indentLevel);
 }
 
 llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
@@ -85,7 +91,13 @@ void TypeDumper::visitEnumerationType(EnumerationType *node)
 
 void TypeDumper::visitIntegerType(IntegerType *node)
 {
-    printHeader(node) << '>';
+    printHeader(node);
+    if (Range *range = node->getConstraint()) {
+        dumpAST(range->getLowerBound());
+        S << ' ';
+        dumpAST(range->getUpperBound());
+    }
+    S << '>';
 }
 
 void TypeDumper::visitArrayType(ArrayType *node)

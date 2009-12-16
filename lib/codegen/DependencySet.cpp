@@ -9,6 +9,7 @@
 #include "CodeGenRoutine.h"
 #include "DependencySet.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/ExprVisitor.h"
 #include "comma/ast/RangeAttrib.h"
@@ -172,14 +173,24 @@ void DependencyScanner::visitLoopStmt(LoopStmt *node)
 
 void DependencyScanner::visitForStmt(ForStmt *node)
 {
-    if (Range *range = node->getRangeControl()) {
+    DSTDefinition *control = node->getControl();
+
+    if (control->definedUsingRange()) {
+        Range *range = control->getRange();
         visitExpr(range->getLowerBound());
         visitExpr(range->getUpperBound());
     }
-    else if (RangeAttrib *attrib = node->getAttribControl()) {
+    else if (control->definedUsingAttrib()) {
+        RangeAttrib *attrib = control->getAttrib();
         if (ArrayRangeAttrib *ARA = dyn_cast<ArrayRangeAttrib>(attrib))
             visitExpr(ARA->getPrefix());
     }
+    else if (control->definedUsingConstraint()) {
+        Range *range = control->getType()->getConstraint();
+        visitExpr(range->getLowerBound());
+        visitExpr(range->getUpperBound());
+    }
+
     visitStmtSequence(node->getBody());
 }
 

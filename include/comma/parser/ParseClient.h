@@ -430,7 +430,8 @@ public:
     /// \param iterLoc Location of \p iterName.
     ///
     /// \param control A node representing the subtype definition, range, or
-    /// range attribute controlling this loop.
+    /// range attribute controlling this loop.  This node is obtained by a call
+    /// to acceptDSTDefinition.
     ///
     /// \param isReversed Set to true when the \c reverse reserved word was
     /// present in the loop specification.
@@ -441,11 +442,6 @@ public:
                               IdentifierInfo *iterName, Location iterLoc,
                               Node control, bool isReversed) = 0;
 
-    /// Begins a \c for statement with a range control.
-    virtual Node beginForStmt(Location loc,
-                              IdentifierInfo *iterName, Location iterLoc,
-                              Node lower, Node upper, bool isReversed) = 0;
-
     /// Terminates a \c for statement.
     ///
     /// \param forNode The Node returned by the previous call to beginForStmt().
@@ -455,6 +451,35 @@ public:
     ///
     /// \return A node representing the completed \c for stmt.
     virtual Node endForStmt(Node forNode, NodeVector &bodyNodes) = 0;
+    //@}
+
+    /// \name Discrete Subtype Definition Callbacks.
+    ///
+    /// The following methods inform the client of a discrete subtype
+    /// definition.  These methods are invoked when parsing array index
+    /// definitions and the control specification of \c for statements.
+    //@{
+
+    /// Indicates a discrete subtype definition which was accompanied by a range
+    /// constraint.
+    ///
+    /// \param name The subtype mark of this definition.
+    ///
+    /// \param lower The lower bound of the range constraint.
+    ///
+    /// \param upper The upper bound of the range constraint.
+    virtual Node acceptDSTDefinition(Node name, Node lower, Node upper) = 0;
+
+    /// Indicates a discrete subtype definition which was specified using a name
+    /// which may include a range attribute.  If \p isUnconstrained is true,
+    /// then the given node was followed by the "range <>" syntax, and the
+    /// parser is in the midst of processing an array type definition.
+    virtual Node acceptDSTDefinition(Node nameOrAttribute,
+                                     bool isUnconstrained) = 0;
+
+    /// Indicates a discrete subtype definition that was sepcified using only a
+    /// range.
+    virtual Node acceptDSTDefinition(Node lower, Node upper) = 0;
     //@}
 
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
@@ -621,48 +646,18 @@ public:
     virtual void acceptSubtypeDecl(IdentifierInfo *name, Location loc,
                                    Node subtype) = 0;
 
-
-    /// \name Array Callbacks.
-    ///
-    /// Array type declarations are processed by first establishing a context
-    /// with a call to beginArray.  For each index definition, acceptArrayIndex
-    /// is called.  Once the index profile has been processed,
-    /// acceptArrayComponent is invoked.  Finally, a call to endArray signals
-    /// the end of the array type definition.
-    ///
-    //@{
-    ///
-    /// Establishes a context beginning an array type declaration.
+    /// \brief Communicates an array type declaration.
     ///
     /// \param name The name of this array type declaration.
     ///
-    /// \param loc the location of the arrays name.
-    virtual void beginArray(IdentifierInfo *name, Location loc) = 0;
-
-    /// Called to introduce an unconstrained array index definition.
+    /// \param loc the location of \p name.
     ///
-    /// This callback is invoked for index components of the form `<tt>I range
-    /// &lt;&gt;</tt>'.
+    /// \param indices A set of nodes defining the index specification for this
+    /// array, each being the result of a call to acceptDSTDefinition.
     ///
-    /// \param indexNode A node describing the type of the index (as returned by
-    /// acceptDirectName(), for example).
-    virtual void acceptUnconstrainedArrayIndex(Node indexNode) = 0;
-
-    /// Called to introduce an array index definition.
-    ///
-    /// \param indexNode A Node describing the type of the index (as returned by
-    /// acceptDirectName(), for example).
-    virtual void acceptArrayIndex(Node indexNode) = 0;
-
-    /// Called to define an arrays component type.
-    ///
-    /// \param componentNode A Node describing the type of the arrays
-    /// components.
-    virtual void acceptArrayComponent(Node componentNode) = 0;
-
-    /// Finishes the context of an array type declaration.
-    virtual void endArray() = 0;
-    //@}
+    /// \param component The component type of the array declaration.
+    virtual void acceptArrayDecl(IdentifierInfo *name, Location loc,
+                                 NodeVector indices, Node component) = 0;
 
 protected:
     /// Allow sub-classes to construct arbitrary nodes.

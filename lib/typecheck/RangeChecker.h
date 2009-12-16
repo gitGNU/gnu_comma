@@ -54,7 +54,8 @@ public:
     /// \brief Checks a range as used as a loop control.
     ///
     /// The following method takes the expressions denoting the lower and upper
-    /// bounds of a range to be used as the control for a \c loop statement.
+    /// bounds of a discrete subtype declaration (to be used as the control for
+    /// a \c loop statement or as an index specification for an array type).
     /// Semantic analysis performs the following checks:
     ///
     ///   - Resolves the lower and upper bounds to be of discrete types with a
@@ -65,11 +66,21 @@ public:
     ///   - If the type of the range resolves to root_integer, convert the
     ///     expressions to be of type Integer (ARM 3.6.18).
     ///
-    /// Returns a fresh discrete subtype constrained to the given bounds if the
-    /// checks succeeded and null otherwise.
-    DiscreteType *checkLoopRange(Expr *lower, Expr *upper);
+    /// Returns a discrete subtype constrained to the given bounds if the checks
+    /// succeed and null otherwise.
+    DiscreteType *checkDSTRange(Expr *lower, Expr *upper);
 
-    /// Resolves the type the range to the given type.
+    /// \brief Checks a range for compatibility wrt a discrete type.
+    ///
+    /// Given a discrete subtype \t base, checks that the given bounds form a
+    /// valid constraint over \t base.
+    ///
+    /// Returns a discrete subtype constrined to the given bounds if the check
+    /// succeeds and null otherwise.
+    DiscreteType *checkSubtypeRange(DiscreteType *base,
+                                    Expr *lower, Expr *upper);
+
+    /// Resolves the type of \p range to the given type.
     bool resolveRange(Range *range, DiscreteType *type);
 
 private:

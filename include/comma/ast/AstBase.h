@@ -49,6 +49,7 @@ class DomainInstanceDecl;
 class DomainType;
 class DomainTypeDecl;
 class Domoid;
+class DSTDefinition;
 class EnumerationDecl;
 class EnumLiteral;
 class EnumerationType;
@@ -234,6 +235,7 @@ public:
         // Miscellaneous helper nodes.
         //
         AST_KeywordSelector,    ///< KeywordSelector
+        AST_DSTDefinition,      ///< DSTDefinition
         AST_Range,              ///< Range
         AST_ArrayRangeAttrib,   ///< ArrayRangeAttrib
         AST_ScalarRangeAttrib,  ///< ScalarRangeAttrib

@@ -343,26 +343,10 @@ private:
 /// This node represents the "for" loop iteration scheme.
 class ForStmt : public Stmt {
 
-    /// For statements are controlled by discrete subtype definitions which have
-    /// several ast representations .  The following enumeration encodes the
-    /// type of the control, which is munged into the low order bits of a
-    /// generic Ast pointer.
-    enum ControlKind {
-        Range_Attribute_Control, ///< Range attribute.
-        Range_Control,           ///< Simple range.
-        Type_Control             ///< Discrete type.
-    };
-
-    /// The type used to manage the control node for this loop.
-    typedef llvm::PointerIntPair<Ast*, 2, ControlKind> TaggedControl;
-
 public:
     /// \brief Constructs a for-loop statement over the given declaration and
-    /// control node.
-    ///
-    /// The control node for this loop must be either a RangeAttrib, a Range, or
-    /// a DiscreteType.
-    ForStmt(Location loc, LoopDecl *iterationDecl, Ast *control);
+    /// discrete subtype definition node.
+    ForStmt(Location loc, LoopDecl *iterationDecl, DSTDefinition *control);
 
     //@{
     /// Returns the LoopDecl corresponding to the iteration value of this loop.
@@ -371,62 +355,19 @@ public:
     //@}
 
     //@{
-    /// Returns the subtype, range, or range attribute controlling this loop.
-    const Ast *getControl() const;
-    Ast *getControl();
+    /// Returns the discrete subtype definition controlling this loop.
+    const DSTDefinition *getControl() const { return control; }
+    DSTDefinition *getControl() { return control; }
     //@}
 
     //@{
-    /// Returns the range attribute this loop was specified over, or null if the
-    /// controlling subtype is not a range attribute.
-    const RangeAttrib *getAttribControl() const;
-    RangeAttrib *getAttribControl();
+    /// Returns the controlling subtype of this loop.  All loop controls have an
+    /// associated type (the type of the associated LoopDecl).
+    const DiscreteType *getControlType() const {
+        return getLoopDecl()->getType();
+    }
+    DiscreteType *getControlType() { return getLoopDecl()->getType(); }
     //@}
-
-    /// Returns true if this loop is controlled by a range attribute.
-    bool isAttribControlled() const {
-        return control.getInt() == Range_Attribute_Control;
-    }
-
-    //@{
-    /// Returns the controlling range of this loop, or null if the controlling
-    /// subtype is not a range.
-    const Range *getRangeControl() const {
-        if (isRangeControlled())
-            return llvm::cast<Range>(control.getPointer());
-        return 0;
-    }
-    Range *getRangeControl() {
-        if (isRangeControlled())
-            return llvm::cast<Range>(control.getPointer());
-        return 0;
-    }
-    //@}
-
-    /// Returns true if this loop is controlled by a range.
-    bool isRangeControlled() const {
-        return control.getInt() == Range_Control;
-    }
-
-    //@{
-    /// Returns the controlling subtype of this looop, or null if the
-    /// control is not a subtype.
-    const DiscreteType *getTypeControl() const {
-        if (isTypeControlled())
-            return llvm::cast<DiscreteType>(control.getPointer());
-        return 0;
-    }
-    DiscreteType *getTypeControl() {
-        if (isTypeControlled())
-            return llvm::cast<DiscreteType>(control.getPointer());
-        return 0;
-    }
-    //@}
-
-    /// Returns true if this loop is controlled by a discrete type.
-    bool isTypeControlled() const {
-        return control.getInt() == Type_Control;
-    }
 
     /// Returns true if the controlling scheme is reversed.
     bool isReversed() const { return bits == 1; }
@@ -455,7 +396,7 @@ public:
 private:
     Location location;
     LoopDecl *iterationDecl;
-    TaggedControl control;
+    DSTDefinition *control;
     StmtSequence body;
 };
 

@@ -112,9 +112,11 @@ public:
 
     Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
                       Node control, bool isReversed);
-    Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
-                      Node lower, Node upper, bool isReversed);
     Node endForStmt(Node forNode, NodeVector &bodyNodes);
+
+    Node acceptDSTDefinition(Node name, Node lower, Node upper);
+    Node acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained);
+    Node acceptDSTDefinition(Node lower, Node upper);
 
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
@@ -188,12 +190,8 @@ public:
 
     void acceptSubtypeDecl(IdentifierInfo *name, Location loc, Node subtype);
 
-
-    void beginArray(IdentifierInfo *name, Location loc);
-    void acceptUnconstrainedArrayIndex(Node indexNode);
-    void acceptArrayIndex(Node indexNode);
-    void acceptArrayComponent(Node componentNode);
-    void endArray();
+    void acceptArrayDecl(IdentifierInfo *name, Location loc,
+                         NodeVector indices, Node component);
 
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
@@ -270,7 +268,6 @@ private:
     llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
 
     /// Stencil classes used to hold intermediate results.
-    ArrayDeclStencil arrayStencil;
     EnumDeclStencil enumStencil;
     SRDeclStencil routineStencil;
 

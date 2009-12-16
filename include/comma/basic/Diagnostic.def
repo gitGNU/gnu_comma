@@ -55,10 +55,6 @@ DIAGNOSTIC(NON_STATIC_EXPRESSION, ERROR,
            "Static expression required.")
 DIAGNOSTIC(EMPTY_ARRAY_TYPE_INDICES, ERROR,
            "Empty array index profiles are not permitted.")
-DIAGNOSTIC(EXPECTED_CONSTRAINED_ARRAY_INDEX, ERROR,
-           "Expected constrained array index.")
-DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
-           "Expected unconstrained array index.")
 DIAGNOSTIC(UNKNOWN_ATTRIBUTE, ERROR,
            "Unknown attribute `%0'.")
 DIAGNOSTIC(UNKNOWN_PRAGMA, ERROR,
@@ -226,9 +222,9 @@ DIAGNOSTIC(DOES_NOT_DENOTE_A_TYPE, ERROR,
 DIAGNOSTIC(INVALID_SUBTYPE_INDICATION, ERROR,
            "Invalid subtype indication.")
 DIAGNOSTIC(EXPECTED_DISCRETE_SUBTYPE, ERROR,
-           "Expected discrete subtype.")
-DIAGNOSTIC(INVALID_FOR_LOOP_CONTROL, ERROR,
-           "Invalid loop control.  A discrete type or range is required.")
+           "A discrete subtype is required.")
+DIAGNOSTIC(EXPECTED_DISCRETE_SUBTYPE_OR_RANGE, ERROR,
+           "A discrete type or range is required.")
 DIAGNOSTIC(TYPE_FOUND_EXPECTED_EXPRESSION, ERROR,
            "Type in expression context.")
 DIAGNOSTIC(INCOMPATIBLE_RANGE_TYPES, ERROR,
@@ -244,3 +240,7 @@ DIAGNOSTIC(DISCONTINUOUS_CHOICE, ERROR,
            "Values below choice `%0' are not covered.")
 DIAGNOSTIC(CANDIDATE_NOTE, NOTE,
            "candidate: %0")
+DIAGNOSTIC(EXPECTED_CONSTRAINED_ARRAY_INDEX, ERROR,
+           "Expected constrained array index.")
+DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
+           "Expected unconstrained array index.")

@@ -711,8 +711,18 @@ private:
 class LoopDecl : public ValueDecl {
 
 public:
-    LoopDecl(IdentifierInfo *name, Type *type, Location loc)
+    LoopDecl(IdentifierInfo *name, DiscreteType *type, Location loc)
         : ValueDecl(AST_LoopDecl, name, type, loc) { }
+
+    //@{
+    /// Specialize ValueDecl::getType().
+    const DiscreteType *getType() const {
+        return llvm::cast<DiscreteType>(ValueDecl::getType());
+    }
+    DiscreteType *getType() {
+        return llvm::cast<DiscreteType>(ValueDecl::getType());
+    }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const LoopDecl *node) { return true; }
@@ -1492,6 +1502,9 @@ private:
 // This node represents array type declarations.
 class ArrayDecl : public TypeDecl, public DeclRegion {
 
+    // Type used to store the DSTDefinitions defining the indices of this array.
+    typedef llvm::SmallVector<DSTDefinition*, 4> IndexVec;
+
 public:
     ArrayType *getType() const {
         return llvm::cast<ArrayType>(CorrespondingType);
@@ -1514,7 +1527,7 @@ public:
     bool isConstrained() const { return getType()->isConstrained(); }
 
     //@{
-    /// Iterators over the index types.
+    /// Iterators over the the index types of this array.
     typedef ArrayType::iterator index_iterator;
     index_iterator begin_indices() { return getType()->begin(); }
     index_iterator end_indices() { return getType()->end(); }
@@ -1530,10 +1543,12 @@ private:
     /// Private constructor for use by AstResource.
     ArrayDecl(AstResource &resource,
               IdentifierInfo *name, Location loc,
-              unsigned rank, DiscreteType **indices,
+              unsigned rank, DSTDefinition **indices,
               Type *component, bool isConstrained, DeclRegion *parent);
 
     friend class AstResource;
+
+    IndexVec indices;
 };
 
 //===----------------------------------------------------------------------===//
@@ -1541,6 +1556,9 @@ private:
 //
 /// These nodes represent array subtype declarations.
 class ArraySubtypeDecl : public SubtypeDecl {
+
+    // Type used to store the DSTDefinitions defining the indices of this array.
+    typedef llvm::SmallVector<DSTDefinition*, 4> IndexVec;
 
 public:
     /// Returns the subtype defined by this declaration.
@@ -1582,16 +1600,18 @@ private:
 
     /// Constructs a constrained array subtype declaration.
     ///
-    /// \p indices A set of discrete types which constrain the indices of this
-    /// array type.  The number of indices supplied must match the
-    /// dimensionality of \p subtype.
+    /// \p indices A set of discrete subtype definitions which define the
+    /// constraints of this arrays indices.  The number of indices supplied must
+    /// match the dimensionality of \p subtype.
     ArraySubtypeDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
-                     ArrayType *subtype, DiscreteType **indeices,
+                     ArrayType *subtype, DSTDefinition **indeices,
                      DeclRegion *parent);
     //@}
 
     friend class AstResource;
+
+    IndexVec indices;
 };
 
 //===----------------------------------------------------------------------===//

@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/RangeAttrib.h"
@@ -40,55 +41,15 @@ ReturnStmt::~ReturnStmt()
 //===----------------------------------------------------------------------===//
 // ForStmt
 
-// The following methods are defined out of line to avoid inclusion of
-// RangeAttrib.h.
-
-ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, Ast *node)
+ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, DSTDefinition *control)
     : Stmt(AST_ForStmt),
       location(loc),
-      iterationDecl(iterationDecl)
+      iterationDecl(iterationDecl),
+      control(control)
 {
-    ControlKind mark;
-
-    if (isa<RangeAttrib>(node)) {
-        mark = Range_Attribute_Control;
-    }
-    else if (isa<Range>(node)) {
-        mark = Range_Control;
-    }
-    else if (isa<DiscreteType>(node)) {
-        mark = Type_Control;
-    }
-    else {
-        assert(false && "Bad kind of node for loop control!");
-        return;
-    }
-
-    control.setInt(mark);
-    control.setPointer(node);
-}
-
-const Ast *ForStmt::getControl() const
-{
-    return control.getPointer();
-}
-
-Ast *ForStmt::getControl()
-{
-    return control.getPointer();
-}
-
-const RangeAttrib *ForStmt::getAttribControl() const
-{
-    if (control.getInt() == Range_Attribute_Control)
-        return llvm::cast<RangeAttrib>(control.getPointer());
-    return 0;
-}
-
-RangeAttrib *ForStmt::getAttribControl()
-{
-    if (control.getInt() == Range_Attribute_Control)
-        return llvm::cast<RangeAttrib>(control.getPointer());
-    return 0;
+    assert(control->getTag() != DSTDefinition::Unconstrained_DST &&
+           "Invalid discrete subtype definition for loop control!");
+    assert(control->getType() == iterationDecl->getType() &&
+           "Inconsistent types!");
 }
 

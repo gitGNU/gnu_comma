@@ -10,8 +10,11 @@
 #include "comma/ast/AstResource.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <algorithm>
 #include <cstring>
@@ -1012,21 +1015,21 @@ IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
 // ArrayDecl
 ArrayDecl::ArrayDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
-                     unsigned rank, DiscreteType **indices,
+                     unsigned rank, DSTDefinition **indices,
                      Type *component, bool isConstrained, DeclRegion *parent)
     : TypeDecl(AST_ArrayDecl, name, loc),
-      DeclRegion(AST_ArrayDecl, parent)
+      DeclRegion(AST_ArrayDecl, parent),
+      indices(indices, indices + rank)
 {
     assert(rank != 0 && "Missing indices!");
 
-    // Ensure each of the index subtypes is scalar.
-    //
-    // FIXME:  Conditionalize this for debug builds.
+    // Extract the type nodes of the DSTDefinitions.
+    llvm::SmallVector<DiscreteType*, 8> indexTypes(rank);
     for (unsigned i = 0; i < rank; ++i)
-        assert(indices[i]->isScalarType());
+        indexTypes[i] = indices[0]->getType();
 
     ArrayType *base = resource.createArrayType(
-        this, rank, indices, component, isConstrained);
+        this, rank, &indexTypes[0], component, isConstrained);
 
     // Create the first subtype.
     CorrespondingType = resource.createArraySubtype(name, base);
@@ -1045,11 +1048,19 @@ ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
 
 ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
                                    IdentifierInfo *name, Location loc,
-                                   ArrayType *subtype, DiscreteType **indices,
+                                   ArrayType *subtype, DSTDefinition **indices,
                                    DeclRegion *parent)
-    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
+    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent),
+      indices(indices, indices + subtype->getRank())
 {
-    CorrespondingType = resource.createArraySubtype(name, subtype, indices);
+    // Extract the type nodes of the DSTDefinitions.
+    unsigned rank = subtype->getRank();
+    llvm::SmallVector<DiscreteType*, 8> indexTypes(rank);
+    for (unsigned i = 0; i < rank; ++i)
+        indexTypes[i] = indices[0]->getType();
+
+    CorrespondingType =
+        resource.createArraySubtype(name, subtype, &indexTypes[0]);
 }
 
 

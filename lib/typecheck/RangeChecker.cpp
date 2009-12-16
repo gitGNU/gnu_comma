@@ -41,7 +41,7 @@ bool RangeChecker::checkDeclarationRange(Expr *lower, Expr *upper)
     return true;
 }
 
-DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
+DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
 {
     // If neither the lower or upper bound expressions have a type, evaluate
     // both the lower with the discrete classification as context, then evaluate
@@ -101,6 +101,16 @@ DiscreteType *RangeChecker::checkLoopRange(Expr *lower, Expr *upper)
         rangeTy->getIdInfo(), rangeTy, lower, upper);
 
     return rangeTy;
+}
+
+DiscreteType *RangeChecker::checkSubtypeRange(DiscreteType *base,
+                                              Expr *lower, Expr *upper)
+{
+    if (!(lower = TC.checkExprInContext(lower, base)) ||
+        !(upper = TC.checkExprInContext(upper, base)))
+        return 0;
+
+    return TC.getAstResource().createDiscreteSubtype(0, base, lower, upper);
 }
 
 bool RangeChecker::resolveRange(Range *range, DiscreteType *type)

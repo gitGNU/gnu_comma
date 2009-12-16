@@ -1,0 +1,26 @@
+-- Test array's with general discrete subtype definitions as indices.
+
+domain Test with
+   procedure Run;
+add
+   type Idx  is range 1..10;
+   type Arr1 is array (1..10) of Integer;
+   type Arr2 is array (Positive range 1..10) of Integer;
+   type Arr3 is array (Idx'Range) of Integer;
+
+   procedure Run is
+      A1 : Arr1 := (others => 1);
+      A2 : Arr2 := (others => 2);
+      A3 : Arr3 := (others => 3);
+   begin
+      for I in 1..10 loop
+         A1(I) := 1;
+      end loop;
+      for I in A2'Range loop
+         A2(I) := 2;
+      end loop;
+      for I in Idx'Range loop
+         A3(I) := 3;
+      end loop;
+   end Run;
+end Test;

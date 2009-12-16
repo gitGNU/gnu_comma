@@ -11,6 +11,7 @@
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/RangeAttrib.h"
@@ -326,20 +327,18 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     llvm::Value *iter;          // Iteration variable for the loop.
     llvm::Value *sentinal;      // Iteration bound.
 
-    if (RangeAttrib *control = loop->getAttribControl()) {
+    DSTDefinition *control = loop->getControl();
+    if (control->definedUsingAttrib()) {
         std::pair<llvm::Value*, llvm::Value*> bounds;
-        bounds = emitRangeAttrib(control);
+        RangeAttrib *attrib = control->getAttrib();
+        bounds = emitRangeAttrib(attrib);
         iter = bounds.first;
         sentinal = bounds.second;
     }
-    else if (Range *range = loop->getRangeControl()) {
-        iter = emitValue(range->getLowerBound());
-        sentinal = emitValue(range->getUpperBound());
-    }
     else {
         BoundsEmitter emitter(*this);
-        DiscreteType *type = loop->getTypeControl();
-        BoundsEmitter::LUPair bounds = emitter.getScalarBounds(Builder, type);
+        BoundsEmitter::LUPair bounds;
+        bounds = emitter.getScalarBounds(Builder, control->getType());
         iter = bounds.first;
         sentinal = bounds.second;
     }

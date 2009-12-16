@@ -116,7 +116,7 @@ public:
     void parseEnumerationList();
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
 
-    void parseArrayIndexProfile();
+    void parseArrayIndexProfile(NodeVector &indices);
     bool parseArrayTypeDecl(IdentifierInfo *name, Location loc);
 
     /// \brief Parses a top level construct.  Returns false once all tokens have
@@ -330,6 +330,11 @@ private:
     Node parseAggregate(AggregateKind kind);
     Node parsePositionalAggregate();
     Node parseKeyedAggregate();
+
+    /// Parses a discrete subtype definition.  When \p acceptDiamond is true
+    /// this parser will accept the "range <>" syntax as seen in array index
+    /// specifications.
+    Node parseDSTDefinition(bool acceptDiamond);
 
     /// Parses an \c others construct of the form <tt>others => [expr |
     /// <>]</tt>.

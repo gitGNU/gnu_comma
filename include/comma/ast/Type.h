@@ -791,12 +791,8 @@ public:
 
     //@{
     /// Returns the i'th index type of this array.
-    const DiscreteType *getIndexType(unsigned i) const {
-        return indices[i];
-    }
-    DiscreteType *getIndexType(unsigned i) {
-        return indices[i];
-    }
+    const DiscreteType *getIndexType(unsigned i) const { return indices[i]; }
+    DiscreteType *getIndexType(unsigned i) { return indices[i]; }
     //@}
 
     /// \name Index Type Iterators.
@@ -822,16 +818,7 @@ public:
     bool isConstrainedByInitialValue() const { return constrainedByInitBit(); }
 
     /// Returns true if this array type is statically constrained.
-    bool isStaticallyConstrained() const {
-        if (!isConstrained())
-            return false;
-        for (const_iterator I = begin(); I != end(); ++I) {
-            DiscreteType *Ty = *I;
-            if (!Ty->isStaticallyConstrained())
-                return false;
-        }
-        return true;
-    }
+    bool isStaticallyConstrained() const;
 
     //@{
     /// Specialize PrimaryType::getRootType().

@@ -8,6 +8,7 @@
 
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Type.h"
 
@@ -166,7 +167,9 @@ void AstResource::initializeString()
 {
     IdentifierInfo *name = getIdentifierInfo("String");
     DiscreteType *indexTy = getThePositiveType();
-    theStringDecl = createArrayDecl(name, 0, 1, &indexTy,
+    DSTDefinition::DSTTag tag = DSTDefinition::Type_DST;
+    DSTDefinition *DST = new DSTDefinition(0, indexTy, tag);
+    theStringDecl = createArrayDecl(name, 0, 1, &DST,
                                     getTheCharacterType(), false, 0);
 }
 
@@ -398,7 +401,7 @@ DiscreteType *AstResource::createDiscreteSubtype(IdentifierInfo *name,
 
 
 ArrayDecl *AstResource::createArrayDecl(IdentifierInfo *name, Location loc,
-                                        unsigned rank, DiscreteType **indices,
+                                        unsigned rank, DSTDefinition **indices,
                                         Type *component, bool isConstrained,
                                         DeclRegion *parent)
 {

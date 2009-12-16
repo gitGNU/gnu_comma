@@ -168,7 +168,7 @@ public:
     //@{
     /// Creates an Array declaration node.
     ArrayDecl *createArrayDecl(IdentifierInfo *name, Location loc,
-                               unsigned rank, DiscreteType **indices,
+                               unsigned rank, DSTDefinition **indices,
                                Type *component, bool isConstrained,
                                DeclRegion *parent);
 
