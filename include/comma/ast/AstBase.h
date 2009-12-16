@@ -43,6 +43,7 @@ class CompilationUnit;
 class Decl;
 class DeclRegion;
 class DeclRefExpr;
+class DeclRewriter;
 class DiscreteType;
 class DomainDecl;
 class DomainInstanceDecl;
