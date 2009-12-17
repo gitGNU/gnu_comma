@@ -62,6 +62,10 @@
   "Default indentation width."
   :type 'integer :group 'comma)
 
+(defcustom comma-return-indent 2
+  "Amount to indent then `return' keyword when part of a function declaration."
+  :type 'integer :group 'comma)
+
 ;;;===-----------------------------------------------------------------------===
 ;;; Syntax Table.
 
@@ -285,11 +289,18 @@ string representation or nil"
   (save-excursion
     (if (comma-forward-line) (current-indentation) 0)))
 
+(defun comma-match-eol (regex)
+  "Returns true if the given regex matches the end of the current
+line (ignoring comments)."
+  (re-search-forward (concat regex "[ \t]*\\(--.*$\\)?")
+                     (line-end-position) t))
+
+
 ;;;===-----------------------------------------------------------------------===
 ;;; Indentation Engine.
 
 (defun comma-indent-after-subroutine ()
-  "Assumes point is looking either a function or procedure.
+  "Assumes point is looking at either a function or procedure.
 Returns the indentation which should follow relative to the
 current position."
   ;; Seek either a left paren, "is", semicolon, or newline.
@@ -322,6 +333,65 @@ current position."
                      (t paren-indentation)))
                 (error paren-indentation)))))))))
 
+(defun comma-indent-return ()
+  "Assumes point is looking at the `return' reserved word.  Returns
+the amount the return should be indented."
+  ;; A return reserved word either follows a function declaration or is a
+  ;; statement.  If a ')' ends the previous line (ignoring comments) or the
+  ;; reserved word `function' begins the line this return is part of a function
+  ;; declaration.
+  (let ((indentation
+         (save-excursion
+           (comma-back-line)
+           (back-to-indentation)
+           (cond
+            ((looking-at "\\<function\\>")
+             (+ (current-column) comma-return-indent))
+            ((comma-match-eol ")")
+             (if (re-search-backward "\\<function\\>" nil t)
+                 (+ (current-column) comma-return-indent)
+               ;; No function reserved word.  Probably a syntax error.
+               (comma-previous-indentation)))))))
+    (if indentation
+        indentation
+      (comma-indent-statement))))
+
+(defun comma-indent-after-return ()
+  "Assumes point is looking at the `return' reserved word.  Returns the amount
+to indent the line after, relative to the current column."
+  (cond
+   ;; If an `is' ends the line the declarative region of a function body
+   ;; follows.
+   ((comma-match-eol "\\<is\\>")
+    (- comma-default-indent comma-return-indent))
+   ;; If a `;' ends the line, indent relative to the `return'.
+   ((comma-match-eol ";") 0)
+   ;; Otherwise, the return statement spans multiple lines.
+   (t comma-default-indent)))
+
+(defun comma-indent-after-is ()
+  "Assumes an `is' reserved word terminates the current line.  Returns the
+amount to indent the line after.  This is an absolute indentation."
+  (let ((prefix (current-column)))
+    (cond
+     ((looking-at "\\<\\(type\\|subtype\\|domain\\)\\>")
+      (+ prefix comma-default-indent))
+     ((re-search-backward "\\<\\(function\\|procedure\\|domain\\)\\>" nil t)
+      (+ (current-column) comma-default-indent))
+     (t prefix))))
+
+(defun comma-indent-statement ()
+  "Assumes point is looking at a statement, and that there is no
+  `interesting' context (like reserved words).  Returns the
+  amount by which the statement should be indented."
+  ;; FIXME: We should find the indentation of the previous statement or find a
+  ;; reserved word like `being', `then', `loop', etc, to establish context.
+  (save-excursion
+    (cond
+     ((not (comma-back-line)) 0)
+     ((comma-match-eol ";") (current-indentation))
+     (t (+ (current-indentation) comma-default-indent)))))
+
 (defun comma-find-if-indentation ()
   "Returns the indentation of the previous `if' token."
   (when (re-search-backward "\\<if\\>" nil t)
@@ -339,7 +409,7 @@ or `for')."
         ;; We need to determine if this loop token is preceeded by a for or a
         ;; while.
         (let ((loop-pos (current-indentation)))
-          (if (re-search-backward "\\<for\\|while\\|begin\\>\\|;")
+          (if (re-search-backward "\\<for\\|while\\|begin\\>\\|;" nil t)
               (let ((char (char-after)))
                 (cond
                  ((char-equal ?f char) (current-column))
@@ -398,7 +468,7 @@ nil.  This function performs leftward indentation and alignment."
        ((looking-at "\\<end\\>")
         (comma-find-end-indentation))
        ((looking-at "\\<add\\>")
-        (when (re-search-backward "\\<domain\\>")
+        (when (re-search-backward "\\<domain\\>" nil t)
           (current-column)))
        (t nil)))))
 
@@ -412,22 +482,32 @@ nil.  This function performs rightward indentation and alignment."
                                  "begin" "if" "else" "elsif" "generic") t)
                    "\\>"))))
     (save-excursion
-      (if (not (comma-back-line))
-          0
-        (back-to-indentation)
-        (let ((prefix (current-indentation)))
-          (cond
-           ((looking-at "\\<procedure\\|function\\>")
-            (+ prefix (comma-indent-after-subroutine)))
-           ((looking-at comb-regex)
-            (+ prefix comma-default-indent))
-           (t nil)))))))
+      (back-to-indentation)
+      ;; First phase looks at the current line,
+      (cond
+       ((looking-at "\\<return\\>")
+        (comma-indent-return))
+       ;; Second phase inspects the previous line.
+       (t (if (not (comma-back-line))
+              0
+            (back-to-indentation)
+            (let ((prefix (current-indentation)))
+              (cond
+               ((looking-at "\\<procedure\\|function\\>")
+                (+ prefix (comma-indent-after-subroutine)))
+               ((looking-at "\\<return\\>")
+                (+ prefix (comma-indent-after-return)))
+               ((comma-match-eol "\\<is\\>")
+                (comma-indent-after-is))
+               ((looking-at comb-regex)
+                (+ prefix comma-default-indent))
+               (t nil)))))))))
 
 (defun comma-resolve-indentation ()
   "Returns the prefered indentation level for the current line."
   (or (comma-find-dedentation)
       (comma-find-indentation)
-      (comma-previous-indentation)))
+      (comma-indent-statement)))
 
 (defun comma-indent-current-line ()
   "Indents the current line."
