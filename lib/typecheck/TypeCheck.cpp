@@ -75,6 +75,10 @@ void TypeCheck::populateInitialEnvironment()
 
     ArrayDecl *theStringDecl = resource.getTheStringDecl();
     scope.addDirectDecl(theStringDecl);
+
+    // Add the standard exception objects into scope.
+    scope.addDirectDecl(resource.getTheProgramError());
+    scope.addDirectDecl(resource.getTheConstraintError());
 }
 
 void TypeCheck::deleteNode(Node &node)

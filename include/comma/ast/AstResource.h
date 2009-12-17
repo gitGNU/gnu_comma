@@ -243,8 +243,8 @@ public:
     ArrayDecl *getTheStringDecl() const { return theStringDecl; }
     ArrayType *getTheStringType() const;
 
-    ExceptionDecl *getProgramError() const { return theProgramError; }
-    ExceptionDecl *getConstraintError() const { return theConstraintError; }
+    ExceptionDecl *getTheProgramError() const { return theProgramError; }
+    ExceptionDecl *getTheConstraintError() const { return theConstraintError; }
     //@}
 
 private:
