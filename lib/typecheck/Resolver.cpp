@@ -22,6 +22,7 @@ void Resolver::clear()
     indirectValues.clear();
     indirectTypes.clear();
     indirectOverloads.clear();
+    indirectExceptions.clear();
 }
 
 bool Resolver::ArityPred::operator()(const Decl* decl) const {
@@ -46,6 +47,7 @@ unsigned Resolver::numResolvedDecls() const {
     result += numIndirectValues();
     result += numIndirectTypes();
     result += numIndirectOverloads();
+    result += numIndirectExceptions();
     return result;
 }
 
@@ -93,7 +95,8 @@ bool Resolver::resolveDirectDecls(Homonym *homonym)
         else {
             assert((isa<ValueDecl>(candidate) ||
                     isa<TypeDecl>(candidate)  ||
-                    isa<ModelDecl>(candidate)) &&
+                    isa<ModelDecl>(candidate) ||
+                    isa<ExceptionDecl>(candidate)) &&
                    "Bad type of direct declaration!");
             if (directOverloads.empty()) {
                 directDecl = candidate;
@@ -111,8 +114,8 @@ bool Resolver::resolveIndirectDecls(Homonym *homonym)
         return false;
 
     // Scan the set of indirect declarations associcated with the homonym and
-    // partition them into three sets corresponding to the accessible values,
-    // subroutines, and types.
+    // partition them into four sets corresponding to the accessible values,
+    // subroutines, types, and exceptions.
     for (Homonym::ImportIterator iter = homonym->beginImportDecls();
          iter != homonym->endImportDecls(); ++iter) {
         Decl *candidate = *iter;
@@ -122,6 +125,8 @@ bool Resolver::resolveIndirectDecls(Homonym *homonym)
             indirectValues.push_back(vdecl);
         else if (TypeDecl *tdecl = dyn_cast<TypeDecl>(candidate))
             indirectTypes.push_back(tdecl);
+        else if (ExceptionDecl *edecl = dyn_cast<ExceptionDecl>(candidate))
+            indirectExceptions.push_back(edecl);
         else
             assert(false && "Bad type of indirect declaration!");
     }

@@ -104,7 +104,7 @@ void Scope::Entry::importDeclarativeRegion(DeclRegion *region)
 
         homonym->addImportDecl(decl);
 
-        // Import the contents of enumeration and integet decls.
+        // Import the contents of enumeration and integer decls.
         if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
             importDeclarativeRegion(edecl);
         else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(decl))
@@ -121,9 +121,11 @@ void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
     for (iter = region->beginDecls(); iter != endIter; ++iter) {
         Decl *decl = *iter;
         removeImportDecl(decl);
-        // Clear the contents of enumeration literals.
+        // Clear the contents of enumeration and integer decls.
         if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
             clearDeclarativeRegion(edecl);
+        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(decl))
+            clearDeclarativeRegion(idecl);
     }
 }
 
@@ -254,14 +256,16 @@ bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
     if (X->getIdInfo() != Y->getIdInfo())
         return false;
 
-    // If X denotes a type, model, or value declaration, there is an conflict
-    // independent of the type of Y.
-    if (isa<ValueDecl>(X) || isa<TypeDecl>(X) || isa<ModelDecl>(X))
+    // If X denotes a type, model, value, or exception declaration, there is a
+    // conflict independent of the type of Y.
+    if (isa<ValueDecl>(X) || isa<TypeDecl>(X) ||
+        isa<ModelDecl>(X) || isa<ExceptionDecl>(X))
         return true;
 
-    // Similarly, if Y denotes a type, model or value declaration, there is a
-    // conflict with X.
-    if (isa<ValueDecl>(Y) || isa<TypeDecl>(Y) || isa<ModelDecl>(Y))
+    // Similarly, if Y denotes a type, model, value, or exception declaration,
+    // there is a conflict with X.
+    if (isa<ValueDecl>(Y) || isa<TypeDecl>(Y) ||
+        isa<ModelDecl>(Y) || isa<ExceptionDecl>(X))
         return true;
 
     // Otherwise, X and Y must both denote a subroutine declaration. There is a

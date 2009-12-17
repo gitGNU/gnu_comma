@@ -20,6 +20,7 @@ class Resolver {
     typedef llvm::SmallVector<Decl*, 4> DeclVector;
     typedef llvm::SmallVector<ValueDecl*, 4> ValueVector;
     typedef llvm::SmallVector<TypeDecl*, 4> TypeVector;
+    typedef llvm::SmallVector<ExceptionDecl*, 4> ExceptionVector;
 
     // Do not implement.
     Resolver(const Resolver &);
@@ -70,6 +71,9 @@ public:
     /// Returns the number of indirect types.
     unsigned numIndirectTypes() const { return indirectTypes.size(); }
 
+    /// Returns the number of indirect exceptions.
+    unsigned numIndirectExceptions() const { return indirectExceptions.size(); }
+
     /// Returns the number of indirect overloads.
     unsigned numIndirectOverloads() const {
         return indirectOverloads.size();
@@ -98,6 +102,11 @@ public:
         return directDecl && llvm::isa<ModelDecl>(directDecl);
     }
 
+    /// Returns true if a direct exception has been resolved.
+    bool hasDirectException() const {
+        return directDecl && llvm::isa<ExceptionDecl>(directDecl);
+    }
+
     /// Returns true if direct overloads have been resolved.
     bool hasDirectOverloads() const { return numDirectOverloads() != 0; }
 
@@ -106,6 +115,9 @@ public:
 
     /// Returns true if indirect types have been resolved.
     bool hasIndirectTypes() const { return numIndirectTypes() != 0; }
+
+    /// Returns true if indirect exceptions have been resolved.
+    bool hasIndirectExceptions() const { return numIndirectExceptions() != 0; }
 
     /// Returns true if indirect overloads have been resolved.
     bool hasIndirectOverloads() const {
@@ -148,6 +160,12 @@ public:
         return hasDirectCapsule() ? llvm::cast<ModelDecl>(directDecl) : 0;
     }
 
+    /// Returns the direct exception associated with this resolver, or null if
+    /// no such declaration could be resolved.
+    ExceptionDecl *getDirectException() const {
+        return hasDirectException() ? llvm::cast<ExceptionDecl>(directDecl) : 0;
+    }
+
     /// Returns the \p i'th direct overload.  The index must be in range.
     Decl *getDirectOverload(unsigned i) const {
         assert(i < numDirectOverloads() && "Index out of range!");
@@ -164,6 +182,12 @@ public:
     TypeDecl *getIndirectType(unsigned i) const {
         assert(i < numIndirectTypes() && "Index out of range!");
         return indirectTypes[i];
+    }
+
+    /// Returns the \p i'th indirect exception.  The index must be in range.
+    ExceptionDecl *getIndirectException(unsigned i) const {
+        assert(i < numIndirectExceptions() && "Index out of range!");
+        return indirectExceptions[i];
     }
 
     /// Returns the \p i'th indirect overload.  The index must be in range.
@@ -219,6 +243,7 @@ private:
     ValueVector indirectValues;
     TypeVector indirectTypes;
     DeclVector indirectOverloads;
+    ExceptionVector indirectExceptions;
 
     /// Resolves the direct decls provided by the given homonym.  Returns
     /// true if any decls were resolved.
