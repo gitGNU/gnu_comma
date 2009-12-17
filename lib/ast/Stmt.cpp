@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/DSTDefinition.h"
+#include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/RangeAttrib.h"
@@ -53,3 +54,15 @@ ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, DSTDefinition *control)
            "Inconsistent types!");
 }
 
+//===----------------------------------------------------------------------===//
+// RaiseStmt
+
+const ExceptionDecl *RaiseStmt::getExceptionDecl() const
+{
+    return ref->getException();
+}
+
+ExceptionDecl *RaiseStmt::getExceptionDecl()
+{
+    return ref->getException();
+}
