@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "TypeCheck.h"
+#include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
@@ -30,10 +31,15 @@ Expr *TypeCheck::ensureExpr(Node node)
     // manner.  We should never have to cope with either of these things where
     // an expression is expected.
     //
-    // The only case currently diagnosed is when the node denotes a type
-    // (by far the most common case).
-    TypeRef *ref = cast_node<TypeRef>(node);
-    report(ref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
+    // The only cases we need to diagnose is when the node denotes a type
+    // (by far the most common case), or an exception.
+    if (TypeRef *ref = lift_node<TypeRef>(node)) {
+        report(ref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
+    }
+    else {
+        ExceptionRef *ref = cast_node<ExceptionRef>(node);
+        report(ref->getLocation(), diag::EXCEPTION_CANNOT_DENOTE_VALUE);
+    }
     return 0;
 }
 
@@ -235,8 +241,8 @@ Node TypeCheck::acceptInj(Location loc, Node exprNode)
 
     // Check that the given expression is of the current domain type.
     DomainType *domTy = domoid->getPercentType();
-    Expr *expr = cast_node<Expr>(exprNode);
-    if (!(expr = checkExprInContext(expr, domTy)))
+    Expr *expr = ensureExpr(exprNode);
+    if (!expr || !(expr = checkExprInContext(expr, domTy)))
         return getInvalidNode();
 
     // Check that the carrier type has been defined.
@@ -267,8 +273,8 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
     }
 
     Type *carrierTy = carrier->getRepresentationType();
-    Expr *expr = cast_node<Expr>(exprNode);
-    if (!(expr = checkExprInContext(expr, carrierTy)))
+    Expr *expr = ensureExpr(exprNode);
+    if (!expr || !(expr = checkExprInContext(expr, carrierTy)))
         return getInvalidNode();
 
     exprNode.release();

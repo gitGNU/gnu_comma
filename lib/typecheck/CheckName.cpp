@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "TypeCheck.h"
+#include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
@@ -91,6 +92,13 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
     if (resolver.hasDirectType()) {
         TypeDecl *tdecl = resolver.getDirectType();
         TypeRef *ref = new TypeRef(loc, tdecl);
+        return getNode(ref);
+    }
+
+    // If there is a direct exception, it shadows all other names.
+    if (resolver.hasDirectException()) {
+        ExceptionDecl *edecl = resolver.getDirectException();
+        ExceptionRef *ref = new ExceptionRef(loc, edecl);
         return getNode(ref);
     }
 
@@ -335,20 +343,26 @@ TypeCheck::checkSubroutineArgumentNodes(NodeVector &argNodes,
     }
 
     // If we did not consume all of the argument nodes, the iterator must point
-    // to a TypeRef, a selector to a TypeRef, or a procedure call.  Diagnose.
+    // to some other invalid node.  Diagnose.
     if (I != E) {
         if (ProcedureCallStmt *call = lift_node<ProcedureCallStmt>(*I)) {
             report(call->getLocation(), diag::INVALID_CONTEXT_FOR_PROCEDURE);
-            return false;
         }
-
-        TypeRef *ref = lift_node<TypeRef>(*I);
-        if (!ref) {
-            KeywordSelector *KS = cast_node<KeywordSelector>(*I);
+        else if (TypeRef *ref = lift_node<TypeRef>(*I)) {
+            report(ref->getLocation(), diag::TYPE_CANNOT_DENOTE_VALUE);
+        }
+        else if (KeywordSelector *KS = lift_node<KeywordSelector>(*I)) {
             assert(KS->isTypeSelector());
-            ref = KS->getTypeRef();
+            TypeRef *ref = KS->getTypeRef();
+            report(ref->getLocation(), diag::TYPE_CANNOT_DENOTE_VALUE);
         }
-        report(ref->getLocation(), diag::TYPE_CANNOT_DENOTE_VALUE);
+        else if (ExceptionRef *ref = lift_node<ExceptionRef>(*I)) {
+            report(ref->getLocation(), diag::EXCEPTION_CANNOT_DENOTE_VALUE);
+        }
+        else {
+            // FIXME: This diagnostic is too general.
+            report(getNodeLoc(*I), diag::NOT_AN_EXPRESSION);
+        }
         return false;
     }
     return true;

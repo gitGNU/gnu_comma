@@ -56,6 +56,7 @@ class EnumLiteral;
 class EnumerationType;
 class EnumSubtypeDecl;
 class ExceptionDecl;
+class ExceptionRef;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
@@ -246,6 +247,7 @@ public:
         AST_ScalarRangeAttrib,  ///< ScalarRangeAttrib
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
+        AST_ExceptionRef,       ///< ExceptionRef
 
         //
         // Delimitiers providing classification of the above codes.

@@ -12,6 +12,7 @@
 #include "TypeCheck.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/AttribExpr.h"
+#include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
@@ -439,14 +440,19 @@ TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
     if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(decl))
         return tyDecl;
     if (report)
-        this->report(loc, diag::TYPE_CANNOT_DENOTE_VALUE);
+        this->report(loc, diag::NOT_A_TYPE);
     return 0;
 }
 
 TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 {
-    TypeRef *ref = cast_node<TypeRef>(node);
-    return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
+    if (TypeRef *ref = lift_node<TypeRef>(node)) {
+        return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
+    }
+    else if (report) {
+        this->report(getNodeLoc(node), diag::NOT_A_TYPE);
+    }
+    return 0;
 }
 
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
@@ -1099,6 +1105,9 @@ Location TypeCheck::getNodeLoc(Node node)
         return ref->getLocation();
 
     if (SubroutineRef *ref = lift_node<SubroutineRef>(node))
+        return ref->getLocation();
+
+    if (ExceptionRef *ref = lift_node<ExceptionRef>(node))
         return ref->getLocation();
 
     ProcedureCallStmt *call = cast_node<ProcedureCallStmt>(node);

@@ -70,11 +70,17 @@ DIAGNOSTIC(INVALID_ATTRIBUTE_CONTEXT, ERROR,
 DIAGNOSTIC(DUPLICATE_FORMAL_PARAM, ERROR,
            "Duplicate formal parameter `%0'.")
 DIAGNOSTIC(NOT_A_SIGNATURE, ERROR,
-           "Expression does not denote a signature.")
+           "Entity does not denote a signature.")
 DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
-           "Expression does not denote a domain.")
+           "Entity does not denote a domain.")
+DIAGNOSTIC(NOT_AN_EXPRESSION, ERROR,
+           "Entity does not denote an expression.")
+DIAGNOSTIC(NOT_A_TYPE, ERROR,
+           "Entity does not denote a type.")
 DIAGNOSTIC(TYPE_CANNOT_DENOTE_VALUE, ERROR,
            "Type cannot denote a value.")
+DIAGNOSTIC(EXCEPTION_CANNOT_DENOTE_VALUE, ERROR,
+           "Exception cannot denote a value.")
 DIAGNOSTIC(DOMAIN_PARAM_DOES_NOT_SATISFY, ERROR,
            "Domain is not a valid actual for the generic parameter `%0'.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,

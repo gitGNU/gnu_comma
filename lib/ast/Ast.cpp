@@ -90,7 +90,8 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ArrayRangeAttrib",
     "ScalarRangeAttrib",
     "SubroutineRef",
-    "TypeRef"
+    "TypeRef",
+    "ExceptionRef"
 };
 
 void Ast::dump()
