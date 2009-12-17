@@ -91,7 +91,7 @@ SigInstanceDecl *AstRewriter::rewriteSigInstance(SigInstanceDecl *sig) const
         SigInstanceDecl::arg_iterator endIter = sig->endArguments();
         for (iter = sig->beginArguments(); iter != endIter; ++iter) {
             // FIXME: Currently it is true that all arguments are domains, but
-            // in the furture we will need to be more general than this.
+            // in the future we will need to be more general than this.
             DomainType *argTy = rewriteType((*iter)->getType());
             args.push_back(argTy->getDomainTypeDecl());
         }
@@ -115,7 +115,7 @@ DomainType *AstRewriter::rewriteType(DomainType *dom) const
             iterator endIter = instance->endArguments();
             for (iter = instance->beginArguments(); iter != endIter; ++iter) {
                 // FIXME: Currently it is true that all arguments are domains,
-                // but in the furture we will need to be more general than this.
+                // but in the future we will need to be more general than this.
                 DomainType *argTy = rewriteType((*iter)->getType());
                 args.push_back(argTy->getDomainTypeDecl());
             }

@@ -66,7 +66,7 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     // Basic sanity checks on the declaration.
     assert(pdecl->getArity() == 0 && "Entry procedures must be nullary!");
 
-    // Get the procedures declarative region. This must an instance of a
+    // Get the procedures declarative region. This must be an instance of a
     // non-parameterized domain.
     DeclRegion *region = pdecl->getDeclRegion();
     DomainInstanceDecl *context = cast<DomainInstanceDecl>(region);
@@ -156,8 +156,9 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     llvm::Value *cond = Builder.CreateICmpEQ(infodx, targetdx);
     Builder.CreateCondBr(cond, catchAllBB, assertBB);
 
-    // The catch all should certainly suceed.  Call into _comma_unhandled_exception,
-    // passing it the exception object.  This function never returns.
+    // The catch-all should certainly succeed.  Call into
+    // _comma_unhandled_exception, passing it the exception object.  This
+    // function never returns.
     Builder.SetInsertPoint(catchAllBB);
     CRT->unhandledException(Builder, except);
 
