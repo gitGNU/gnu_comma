@@ -93,6 +93,7 @@ class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
+class RaiseStmt;
 class Range;
 class RangeAttrib;
 class ReturnStmt;
@@ -229,6 +230,7 @@ public:
         AST_IfStmt,             ///< IfStmt
         AST_LoopStmt,           ///< LoopStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
+        AST_RaiseStmt,          ///< RaiseStmt
         AST_ReturnStmt,         ///< ReturnStmt
         AST_StmtSequence,       ///< StmtSequence
         AST_WhileStmt,          ///< WhileStmt

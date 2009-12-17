@@ -450,6 +450,61 @@ private:
     Pragma *pragma;
 };
 
+//===----------------------------------------------------------------------===//
+// RaiseStmt
+class RaiseStmt : public Stmt {
+
+public:
+    /// Constructs a RaiseStmt node.
+    ///
+    /// \param loc Location of the `raise' keyword.
+    ///
+    /// \param exception Declaration node corresponding to the exception to
+    /// raise.
+    ///
+    /// \param message Optional expression of type String serving as the message
+    /// to be attached to the exception.
+    RaiseStmt(Location loc, ExceptionDecl *exception, Expr *message = 0)
+        : Stmt(AST_RaiseStmt),
+          loc(loc), exception(exception), message(message) { }
+
+    /// Returns the location of this raise statement.
+    Location getLocation() const { return loc; }
+
+    /// Returns the associated exception declaration.
+    //@{
+    const ExceptionDecl *getException() const { return exception; }
+    ExceptionDecl *getException() { return exception; }
+    //@}
+
+    /// Returns true if this raise statement has a message associated with it.
+    bool hasMessage() const { return message != 0; }
+
+    /// Returns the message associated with this raise statement, or null if
+    /// there is none.
+    //@{
+    const Expr *getMessage() const { return message; }
+    Expr *getMessage() { return message; }
+    //@}
+
+    /// Sets the message associated with this statement.
+    void setMessage(Expr *message) { this->message = message; }
+
+    /// Sets the exception declaration associated with this statement.
+    void setException(ExceptionDecl *exception) { this->exception = exception; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const RaiseStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_RaiseStmt;
+    }
+
+private:
+    Location loc;
+    ExceptionDecl *exception;
+    Expr *message;
+};
+
 } // End comma namespace.
 
 #endif
