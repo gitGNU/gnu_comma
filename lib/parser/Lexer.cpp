@@ -270,6 +270,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_RANGE;
         else if (strncmp(str, "array", length) == 0)
             code = TKN_ARRAY;
+        else if (strncmp(str, "raise", length) == 0)
+            code = TKN_RAISE;
         break;
 
     case 6:
