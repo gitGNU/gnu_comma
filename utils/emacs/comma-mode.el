@@ -123,8 +123,8 @@ comma-mode-syntax-table."
           '("abstract" "add" "and" "array" "carrier" "begin" "declare" "domain"
             "else" "elsif" "end" "for" "function" "generic" "if" "import" "in"
             "inj" "is" "loop" "mod" "of" "out" "or" "others" "package" "pragma"
-            "prj" "procedure" "range" "rem" "return" "signature" "subtype"
-            "then" "type" "while" "with") t)
+            "prj" "procedure" "range" "rem" "return" "reverse" "signature"
+            "subtype" "then" "type" "while" "with") t)
          "\\>")
        (1 font-lock-keyword-face))
 
