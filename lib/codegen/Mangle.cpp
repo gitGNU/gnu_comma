@@ -283,4 +283,23 @@ std::string comma::mangle::getLinkName(const DomainInstanceDecl *instance)
     return name;
 }
 
+std::string comma::mangle::getLinkName(const ExceptionDecl *exception)
+{
+    // FIXME: Factor out and share with implementation of getLinkName for
+    // subroutine declarations.
+    const DeclRegion *region = exception->getDeclRegion();
+    const DomainInstanceDecl *instance;
+    if (isa<AddDecl>(region))
+        region = cast<PercentDecl>(region->getParent());
 
+    if (const PercentDecl *percent = dyn_cast<PercentDecl>(region)) {
+        const DomainDecl *domain = cast<DomainDecl>(percent->getDefinition());
+        instance = domain->getInstance();
+    }
+    else
+        instance = cast<DomainInstanceDecl>(region);
+
+    std::string name = getLinkName(instance) + "__";
+    name.append(exception->getString());
+    return name;
+}

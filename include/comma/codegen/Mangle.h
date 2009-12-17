@@ -46,6 +46,14 @@ std::string getLinkName(const Domoid *domoid);
 /// in LLVM IR.
 std::string getLinkName(const DomainInstanceDecl *instance);
 
+/// \brief Returns the name of the given exception declaration as it should
+/// appear in LLVM IR.
+///
+/// \note This routine can only be called on user defined exceptions.  The names
+/// of system exceptions are defined by the runtime library and accessed thru
+/// CommaRT exclusively.
+std::string getLinkName(const ExceptionDecl *exception);
+
 } // end mangle namespace.
 
 } // end comma namespace.

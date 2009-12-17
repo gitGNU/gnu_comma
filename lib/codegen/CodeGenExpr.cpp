@@ -257,10 +257,10 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
         highPass = Builder.CreateICmpULE(sourceVal, upper);
     Builder.CreateCondBr(highPass, checkMergeBB, checkFailBB);
 
-    // Raise an exception if the check failed.
+    // Raise a CONSTRAINT_ERROR exception if the check failed.
     Builder.SetInsertPoint(checkFailBB);
     llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
-    CRT.raise(Builder, msg);
+    CRT.raiseConstraintError(Builder, msg);
 
     // Switch the context to the success block.
     Builder.SetInsertPoint(checkMergeBB);

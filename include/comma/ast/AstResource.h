@@ -186,6 +186,16 @@ public:
     ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base);
     //@}
 
+    /// \brief Creates an exception declaration.
+    ///
+    /// \param name The name of this exception.
+    ///
+    /// \param loc The location of \p name in the source code.
+    ///
+    /// \param region The declarative region this exception was declared in.
+    ExceptionDecl *createExceptionDecl(IdentifierInfo *name, Location loc,
+                                       DeclRegion *region);
+
     /// Creates a function declaration corresponding to the given primitive
     /// operation.
     ///
@@ -209,8 +219,8 @@ public:
     ///
     ///
     /// Provides access to basic nodes which represent the various language
-    /// defined type declarations, or in the absence of a declaration, the
-    /// primitive type.
+    /// defined type and exception declarations.  Eventually this interface will
+    /// be superseded by a set of standard packages defining these nodes.
     //@{
     EnumerationDecl *getTheBooleanDecl() const { return theBooleanDecl; }
     EnumerationType *getTheBooleanType() const;
@@ -232,6 +242,9 @@ public:
 
     ArrayDecl *getTheStringDecl() const { return theStringDecl; }
     ArrayType *getTheStringType() const;
+
+    ExceptionDecl *getProgramError() const { return theProgramError; }
+    ExceptionDecl *getConstraintError() const { return theConstraintError; }
     //@}
 
 private:
@@ -248,7 +261,8 @@ private:
 
     /// Subtype nodes corresponding to language defined types.
 
-    /// Declaration nodes representing the language defined types.
+    /// Declaration nodes representing the language defined declarations and
+    /// types.
     EnumerationDecl *theBooleanDecl;
     EnumerationDecl *theCharacterDecl;
     IntegerDecl *theRootIntegerDecl;
@@ -256,15 +270,18 @@ private:
     IntegerSubtypeDecl *theNaturalDecl;
     IntegerSubtypeDecl *thePositiveDecl;
     ArrayDecl *theStringDecl;
+    ExceptionDecl *theProgramError;
+    ExceptionDecl *theConstraintError;
 
     /// \name Language Defined Type Initialization.
     ///
     /// When an ASTResource is constructed, the complete set of AST nodes
-    /// representing the language defined types are constructed.  This is
-    /// implemented by the initializeLanguageDefinedTypes() method, which in
-    /// turn calls a specialized method for each type.
+    /// representing the language defined types and declarations are
+    /// constructed.  This is implemented by the
+    /// initializeLanguageDefinedNodes() method, which in turn calls a
+    /// specialized method for each type/declaration.
     //@{
-    void initializeLanguageDefinedTypes();
+    void initializeLanguageDefinedNodes();
     void initializeBoolean();
     void initializeCharacter();
     void initializeRootInteger();
@@ -272,6 +289,7 @@ private:
     void initializeNatural();
     void initializePositive();
     void initializeString();
+    void initializeExceptions();
     //@}
 };
 

@@ -47,6 +47,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ProcedureDecl",
     "EnumLiteral",
     "ImportDecl",
+    "ExceptionDecl",
 
     "FunctionType",
     "ProcedureType",

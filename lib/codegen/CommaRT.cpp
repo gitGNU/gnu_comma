@@ -12,6 +12,7 @@
 #include "DomainInfo.h"
 #include "DomainInstance.h"
 #include "comma/ast/Decl.h"
+#include "comma/codegen/Mangle.h"
 
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/Module.h"
@@ -42,7 +43,6 @@ CommaRT::CommaRT(CodeGen &CG)
       AssertFailName("_comma_assert_fail"),
       EHPersonalityName("_comma_eh_personality"),
       UnhandledExceptionName("_comma_unhandled_exception"),
-      RaiseExceptionName("_comma_raise_exception"),
       pow_i32_i32_Name("_comma_pow_i32_i32"),
       pow_i64_i32_Name("_comma_pow_i64_i32")
 {
@@ -115,6 +115,7 @@ void CommaRT::generateRuntimeFunctions()
     defineEHPersonality();
     defineUnhandledException();
     defineRaiseException();
+    defineExinfos();
     define_pow_i32_i32();
     define_pow_i64_i32();
     define_vstack();
@@ -179,16 +180,33 @@ void CommaRT::defineUnhandledException()
 
 void CommaRT::defineRaiseException()
 {
-    // This function takes an i8* denoting a message to pack into the thrown
-    // exception.
+    // This function takes an i8* holding the exinfo object and an i8* denoting
+    // the message.
     const llvm::Type *retTy = CG.getVoidTy();
 
     std::vector<const llvm::Type *> args;
     args.push_back(CG.getInt8PtrTy());
+    args.push_back(CG.getInt8PtrTy());
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
 
-    raiseExceptionFn = CG.makeFunction(fnTy, RaiseExceptionName);
+    raiseExceptionFn = CG.makeFunction(fnTy, "_comma_raise_exception");
     raiseExceptionFn->setDoesNotReturn();
+}
+
+void CommaRT::defineExinfos()
+{
+    // Comma's predefined exception info objects are just external i8*'s with
+    // definitions in libruntime (see lib/runtime/crt_exceptions.c).
+    const llvm::Type *exinfoTy = CG.getInt8PtrTy();
+
+    theProgramErrorExinfo =
+        new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
+                                 llvm::GlobalValue::ExternalLinkage,
+                                 0, "_comma_exinfo_program_error");
+    theConstraintErrorExinfo =
+        new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
+                                 llvm::GlobalValue::ExternalLinkage,
+                                 0, "_comma_exinfo_constraint_error");
 }
 
 void CommaRT::define_pow_i32_i32()
@@ -290,16 +308,65 @@ void CommaRT::unhandledException(llvm::IRBuilder<> &builder,
 }
 
 void CommaRT::raise(llvm::IRBuilder<> &builder,
-                    llvm::GlobalVariable *message) const
+                    const ExceptionDecl *exception,
+                    llvm::GlobalVariable *message)
 {
+    llvm::Value *exinfo = builder.CreateLoad(registerException(exception));
     llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
-    builder.CreateCall(raiseExceptionFn, msgPtr);
+    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
+    builder.CreateUnreachable();
+}
+
+void CommaRT::raiseProgramError(llvm::IRBuilder<> &builder,
+                                llvm::GlobalVariable *message) const
+{
+    llvm::Value *exinfo = builder.CreateLoad(theProgramErrorExinfo);
+    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
+    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
+    builder.CreateUnreachable();
+}
+
+void CommaRT::raiseConstraintError(llvm::IRBuilder<> &builder,
+                                   llvm::GlobalVariable *message) const
+{
+    llvm::Value *exinfo = builder.CreateLoad(theConstraintErrorExinfo);
+    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
+    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
 }
 
 llvm::Constant *CommaRT::getEHPersonality() const
 {
     return CG.getPointerCast(EHPersonalityFn, CG.getInt8PtrTy());
+}
+
+llvm::Constant *CommaRT::registerException(const ExceptionDecl *except)
+{
+    llvm::Constant *exinfo = 0;
+
+    switch (except->getID()) {
+
+    case ExceptionDecl::User: {
+        llvm::GlobalVariable *&entry = registeredExceptions[except];
+        if (!entry) {
+            const llvm::Type *exinfoTy = CG.getInt8PtrTy();
+            llvm::Constant *init = genExinfoInitializer(except);
+            entry = new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
+                                             llvm::GlobalValue::ExternalLinkage,
+                                             init, mangle::getLinkName(except));
+        }
+        exinfo = entry;
+    }
+
+    case ExceptionDecl::Program_Error:
+        exinfo = theProgramErrorExinfo;
+        break;
+
+    case ExceptionDecl::Constraint_Error:
+        exinfo = theConstraintErrorExinfo;
+        break;
+    }
+    return exinfo;
 }
 
 llvm::Value *CommaRT::pow_i32_i32(llvm::IRBuilder<> &builder,
@@ -354,3 +421,13 @@ llvm::Value *CommaRT::getCapsuleParameter(llvm::IRBuilder<> &builder,
 {
     return DInstance->loadParam(builder, instance, index);
 }
+
+llvm::Constant *CommaRT::genExinfoInitializer(const ExceptionDecl *exception)
+{
+    // FIXME: exinfo's are just global null terminated strings.  We should be
+    // doing a bit of pretty printing here to get a readable qualified name for
+    // the exception.
+    llvm::LLVMContext &ctx = CG.getLLVMContext();
+    return llvm::ConstantArray::get(ctx, exception->getString(), true);
+}
+

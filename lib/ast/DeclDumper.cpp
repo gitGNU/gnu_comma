@@ -242,4 +242,8 @@ void DeclDumper::visitArraySubtypeDecl(ArraySubtypeDecl *node)
     S << '>';
 }
 
+void DeclDumper::visitExceptionDecl(ExceptionDecl *node)
+{
+    printHeader(node) << '>';
+}
 

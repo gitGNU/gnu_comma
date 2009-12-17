@@ -13,7 +13,6 @@
 
 #include <assert.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -500,25 +499,12 @@ static void fatal_error(const char *message)
 }
 
 /*
- * The integer type used to identify comma exception objects.
- */
-typedef uint32_t comma_exid;
-
-/*
- * Comma's varient of typeinfo.  The current representation simply holds the
- * identifier for the exception.  Later we will add some more info, such as the
- * exceptions name.
- */
-struct comma_exinfo {
-    comma_exid id;
-};
-
-/*
- * This the exception object thrown by the runtime.  It contains the exceptions
- * identifier and a string containing a message.
+ * This is the exception object thrown by the runtime.  It contains the
+ * exceptions exinfo object and a pointer to a null terminated string yielding a
+ * message.
  */
 struct comma_exception {
-    comma_exid id;
+    comma_exinfo_t id;
     const char *message;
     struct _Unwind_Exception header;
 };
@@ -831,16 +817,16 @@ match_exception(struct LSDA_Header *lsda,
              *    interpret the entries as offsets relative to the value of
              *    _Unwind_GetRegionStart().
              */
-            struct comma_exinfo **info;
-            info = (struct comma_exinfo **)lsda->type_table;
+            comma_exinfo_t **info;
+            info = (comma_exinfo_t **)lsda->type_table;
             info -= action.info_index;
 
             /*
              * If the info pointer is 0, then this is a catch-all.  Otherwise,
-             * the exeption objects id must match that of the exinfo to be
-             * handled.
+             * the exeption objects id must match the handlers associated
+             * exinfo.
              */
-            if ((*info == 0) || (exception->id == (*info)->id)) {
+            if ((*info == 0) || (exception->id == **info)) {
                 *dst = action.info_index;
                 return 0;
             }
@@ -895,7 +881,7 @@ install_handler(struct _Unwind_Context *context,
 
 /*
  * The following magic number identifies Comma exceptions.  It reads as the
- * string "SMW\0CMA\0", where the first for bytes denotes the "vendor" (my
+ * string "SMW\0CMA\0", where the first four bytes denotes the "vendor" (my
  * initials, in this case), and the last four bytes identifies the language.
  */
 static const uint64_t Comma_Exception_Class_ID = 0x534D570434D410Ull;
@@ -913,18 +899,16 @@ static void _comma_cleanup_exception(_Unwind_Reason_Code reason,
 /*
  * The following function is called to allocate and raise a Comma exception.
  */
-void _comma_raise_exception(const char *message)
+void _comma_raise_exception(comma_exinfo_t info, const char *message)
 {
     struct comma_exception *exception;
     struct _Unwind_Exception *exception_object;
 
     /*
-     * Allocate the exception and fill in the Comma specific bits.  We use an
-     * identity of 3 here arbitrarily since we do not have support in the
-     * compiler yet for user defined exceptions.
+     * Allocate the exception and fill in the Comma specific bits.
      */
     exception = malloc(sizeof(struct comma_exception));
-    exception->id = 3;
+    exception->id = info;
     exception->message = message;
 
     /*
@@ -940,6 +924,15 @@ void _comma_raise_exception(const char *message)
      */
     exception_object = to_Unwind_Exception(exception);
     _Unwind_RaiseException(exception_object);
+}
+
+/*
+ * Raises a specific system exception.
+ */
+void _comma_raise_system(uint32_t id, const char *message)
+{
+    comma_exinfo_t info = _comma_get_exception(id);
+    _comma_raise_exception(info, message);
 }
 
 /*
@@ -1039,6 +1032,37 @@ _comma_eh_personality(int version,
  */
 void _comma_unhandled_exception(struct comma_exception *exception)
 {
-    fprintf(stderr, "Unhandled exception: %s\n", exception->message);
+    fprintf(stderr, "Unhandled exception: %s: %s\n",
+            exception->id,
+            exception->message);
     abort();
+}
+
+/*
+ * The following items are the built in comma_exinfo's.  These are exported
+ * symbols as the compiler generates direct references to them.
+ */
+comma_exinfo_t _comma_exinfo_program_error = "PROGRAM_ERROR";
+comma_exinfo_t _comma_exinfo_constraint_error = "CONSTRAINT_ERROR";
+
+/*
+ * API to access the system-level exinfo's.
+ */
+comma_exinfo_t _comma_get_exception(comma_exception_id id)
+{
+    comma_exinfo_t info = 0;
+    switch (id) {
+    default:
+        fatal_error("Invalid exception ID!");
+        break;
+
+    case COMMA_CONSTRAINT_ERROR_E:
+        info = _comma_exinfo_constraint_error;
+        break;
+
+    case COMMA_PROGRAM_ERROR_E:
+        info = _comma_exinfo_program_error;
+        break;
+    }
+    return info;
 }

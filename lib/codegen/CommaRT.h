@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/IRBuilder.h"
 
 namespace llvm {
@@ -83,12 +84,36 @@ public:
     /// A call to _comma_assert_fail does not return.
     void assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const;
 
+    /// \name Exception Handling.
+    ///
+    /// The following methods provide access to the exception handling component
+    /// of Comma's runtime.
+    //@{
+
+    /// \brief Registers and exception with the runtime.
+    ///
+    /// Given an ExceptionDecl AST node, this method returns an opaque global
+    /// representing the exception.  The first call made to this method with a
+    /// given ExceptionDecl as argument registers the exception in the system
+    /// and associates a global as representation.  Subsequent calls using the
+    /// same declaration node return the same global.
+    llvm::Constant *registerException(const ExceptionDecl *decl);
+
     /// Throws an exception.
     ///
-    /// Currently, Comma supports only a single "system exception".  The
-    /// following call generates the code for a raise, using the given global as
-    /// a message.
-    void raise(llvm::IRBuilder<> &builder, llvm::GlobalVariable *message) const;
+    /// Calls registerException on the provided exception declaration, then
+    /// generates code for a raise.  \p message must be a pointer to a global
+    /// string containing or null.
+    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *decl,
+               llvm::GlobalVariable *message);
+
+    /// Convinience method to throw a PROGRAM_ERROR.
+    void raiseProgramError(llvm::IRBuilder<> &builder,
+                           llvm::GlobalVariable *message) const;
+
+    /// Convinience method to throw a CONSTRAINT_ERROR.
+    void raiseConstraintError(llvm::IRBuilder<> &builder,
+                              llvm::GlobalVariable *message) const;
 
     /// Generates a call to _comma_unhandled_exception.  This is only called by
     /// the main routine when an exception has unwound the entire stack.  Its
@@ -101,7 +126,7 @@ public:
     /// Returns an opaque reference to the exception handling personality
     /// routine.  Suitable for use as an argument to llvm.eh.selector.
     llvm::Constant *getEHPersonality() const;
-
+    //@}
 
     /// Integer exponentiation routines.
     //@{
@@ -172,6 +197,17 @@ private:
     // Runtime global variables.
     llvm::GlobalVariable *vstack_Var;
 
+    // Mapping from user-defined exceptions to the llvm::GlobalVariable's that
+    // contain their associated comma_exinfo objects.
+    typedef llvm::DenseMap<const ExceptionDecl*,
+                           llvm::GlobalVariable*> ExceptionMap;
+    ExceptionMap registeredExceptions;
+
+    // External globals representing the language defined exceptions.
+    // Definitions of these globals are provided by libruntime.
+    llvm::GlobalVariable *theProgramErrorExinfo;
+    llvm::GlobalVariable *theConstraintErrorExinfo;
+
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();
 
@@ -181,6 +217,7 @@ private:
     void defineEHPersonality();
     void defineUnhandledException();
     void defineRaiseException();
+    void defineExinfos();
     void define_pow_i32_i32();
     void define_pow_i64_i32();
     void define_vstack_alloc();
@@ -225,6 +262,10 @@ private:
                                unsigned ID,
                                llvm::Value *destVector,
                                llvm::Value *percent);
+
+    /// Generates a constant comma_exinfo_t initializer for the given exception
+    /// declaration.
+    llvm::Constant *genExinfoInitializer(const ExceptionDecl *exception);
 };
 
 template <> inline

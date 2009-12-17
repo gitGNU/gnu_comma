@@ -151,6 +151,45 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// ExceptionDecl
+//
+/// \class
+///
+/// \brief ExceptionDecl's represent exception declarations.
+///
+/// Exceptions do not have a type.  They are effectively simple names attached
+/// to an exception entity.
+class ExceptionDecl : public Decl {
+
+public:
+    /// The following enumeration provides codes which map the the language
+    /// defined primitive exception nodes, or to a user defined exception.
+    enum ExceptionKind {
+        User,                   ///< ID for user defined exceptions.
+        Program_Error,          ///< PROGRAM_ERROR.
+        Constraint_Error        ///< CONSTRAINT_ERROR.
+    };
+
+    ExceptionKind getID() const { return static_cast<ExceptionKind>(bits); }
+
+    // Support isa/dyn_cast.
+    static bool classof(const ExceptionDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ExceptionDecl;
+    }
+
+private:
+    ExceptionDecl(ExceptionKind ID, IdentifierInfo *name, Location loc,
+                  DeclRegion *region)
+        : Decl(AST_ExceptionDecl, name, loc, region) {
+        bits = ID;
+    }
+
+    // Only AstResource is allowed to construct ExceptionDecl's.
+    friend class AstResource;
+};
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 //
 // Models represent those attributes and characteristics which both signatures

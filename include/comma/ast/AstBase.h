@@ -55,6 +55,7 @@ class EnumerationDecl;
 class EnumLiteral;
 class EnumerationType;
 class EnumSubtypeDecl;
+class ExceptionDecl;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
@@ -187,6 +188,7 @@ public:
         AST_ProcedureDecl,      ///< ProcedureDecl
         AST_EnumLiteral,        ///< EnumLiteral
         AST_ImportDecl,         ///< ImportDecl
+        AST_ExceptionDecl,      ///< ExceptionDecl
 
         //
         // Type nodes.
@@ -249,7 +251,7 @@ public:
         LAST_AstKind,
 
         FIRST_Decl = AST_SignatureDecl,
-        LAST_Decl = AST_ImportDecl,
+        LAST_Decl = AST_ExceptionDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl = AST_FunctorDecl,

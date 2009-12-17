@@ -21,12 +21,11 @@ AstResource::AstResource(TextProvider &txtProvider, IdentifierPool &idPool)
     : txtProvider(txtProvider),
       idPool(idPool)
 {
-    initializeLanguageDefinedTypes();
+    initializeLanguageDefinedNodes();
 }
 
-void AstResource::initializeLanguageDefinedTypes()
+void AstResource::initializeLanguageDefinedNodes()
 {
-    // Build the declaration nodes for each language defined type.
     initializeBoolean();
     initializeCharacter();
     initializeRootInteger();
@@ -34,6 +33,7 @@ void AstResource::initializeLanguageDefinedTypes()
     initializeNatural();
     initializePositive();
     initializeString();
+    initializeExceptions();
 
     // Initialize the implicit operations for each declared type.
     theBooleanDecl->generateImplicitDeclarations(*this);
@@ -171,6 +171,17 @@ void AstResource::initializeString()
     DSTDefinition *DST = new DSTDefinition(0, indexTy, tag);
     theStringDecl = createArrayDecl(name, 0, 1, &DST,
                                     getTheCharacterType(), false, 0);
+}
+
+void AstResource::initializeExceptions()
+{
+    IdentifierInfo *PEName = getIdentifierInfo("Program_Error");
+    ExceptionDecl::ExceptionKind PEKind = ExceptionDecl::Program_Error;
+    theProgramError = new ExceptionDecl(PEKind, PEName, 0, 0);
+
+    IdentifierInfo *CEName = getIdentifierInfo("Constraint_Error");
+    ExceptionDecl::ExceptionKind CEKind = ExceptionDecl::Constraint_Error;
+    theConstraintError = new ExceptionDecl(CEKind, CEName, 0, 0);
 }
 
 /// Accessors to the language defined types.  We keep these out of line since we
@@ -436,6 +447,14 @@ ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
     ArrayType *res = new ArrayType(name, base);
     types.push_back(res);
     return res;
+}
+
+ExceptionDecl *AstResource::createExceptionDecl(IdentifierInfo *name,
+                                                Location loc,
+                                                DeclRegion *region)
+{
+    ExceptionDecl::ExceptionKind ID = ExceptionDecl::User;
+    return new ExceptionDecl(ID, name, loc, region);
 }
 
 FunctionDecl *

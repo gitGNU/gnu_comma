@@ -44,6 +44,8 @@ void DeclVisitor::visitDecl(Decl *node)
         visitValueDecl(value);
     else if (SigInstanceDecl *instance = dyn_cast<SigInstanceDecl>(node))
         visitSigInstanceDecl(instance);
+    else if (ExceptionDecl *exception = dyn_cast<ExceptionDecl>(node))
+        visitExceptionDecl(exception);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -182,3 +184,4 @@ void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
 void DeclVisitor::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }
 void DeclVisitor::visitArraySubtypeDecl(ArraySubtypeDecl *node) { }
+void DeclVisitor::visitExceptionDecl(ExceptionDecl *node) { }
