@@ -127,15 +127,16 @@ comma-mode-syntax-table."
           '("abstract" "add" "and" "array" "carrier" "begin" "declare" "domain"
             "else" "elsif" "end" "for" "function" "generic" "if" "import" "in"
             "inj" "is" "loop" "mod" "of" "out" "or" "others" "package" "pragma"
-            "prj" "procedure" "range" "rem" "return" "reverse" "signature"
-            "subtype" "then" "type" "while" "with") t)
+            "prj" "procedure" "raise" "range" "rem" "return" "reverse"
+            "signature" "subtype" "then" "type" "while" "with") t)
          "\\>")
        (1 font-lock-keyword-face))
 
-     ;; Highlight end tags, domain, function, procedure and prama names.
+     ;; Highlight end tags, domain, function, procedure, exception, and prama
+     ;; names.
      `(,(concat "\\<"
                 (regexp-opt '("domain" "end" "function" "package" "pragma"
-                              "procedure" "signature") t)
+                              "procedure" "signature" "raise") t)
                 "\\>"
                 "\\([ \t]+\\)?\\(\\(\\sw\\|[_.]\\)+\\)?")
        (3 font-lock-function-name-face nil t))
