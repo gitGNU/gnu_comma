@@ -55,7 +55,7 @@ public:
     void emitEntry(ProcedureDecl *pdecl);
 
     /// Returns the interface to the runtime system.
-    const CommaRT &getRuntime() const { return *CRT; }
+    CommaRT &getRuntime() const { return *CRT; }
 
     /// Returns the module we are generating code for.
     llvm::Module *getModule() { return M; }
