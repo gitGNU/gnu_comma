@@ -75,6 +75,8 @@ DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
            "Entity does not denote a domain.")
 DIAGNOSTIC(NOT_AN_EXPRESSION, ERROR,
            "Entity does not denote an expression.")
+DIAGNOSTIC(NOT_AN_EXCEPTION, ERROR,
+           "Entity does not denote an exception.")
 DIAGNOSTIC(NOT_A_TYPE, ERROR,
            "Entity does not denote a type.")
 DIAGNOSTIC(TYPE_CANNOT_DENOTE_VALUE, ERROR,

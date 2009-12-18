@@ -78,8 +78,8 @@ public:
     Node parseLoopStmt();
     Node parseForStmt();
     Node parsePragmaStmt();
-
     Node parseProcedureCallStatement();
+    Node parseRaiseStmt();
 
     Node parseExpr();
     Node parsePrimaryExpr();

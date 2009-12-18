@@ -180,8 +180,8 @@ void CommaRT::defineUnhandledException()
 
 void CommaRT::defineRaiseException()
 {
-    // This function takes an i8* holding the exinfo object and an i8* denoting
-    // the message.
+    // _comma_raise_exception takes an i8* holding the exinfo object and an i8*
+    // denoting the message.
     const llvm::Type *retTy = CG.getVoidTy();
 
     std::vector<const llvm::Type *> args;
@@ -189,8 +189,16 @@ void CommaRT::defineRaiseException()
     args.push_back(CG.getInt8PtrTy());
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
 
-    raiseExceptionFn = CG.makeFunction(fnTy, "_comma_raise_exception");
-    raiseExceptionFn->setDoesNotReturn();
+    raiseStaticExceptionFn = CG.makeFunction(fnTy, "_comma_raise_exception");
+    raiseStaticExceptionFn->setDoesNotReturn();
+
+    // _comma_raise_nexception takes an i8* holding the exinfo object, and i8*
+    // denoting the message, and an i32 as the length.
+    args.push_back(CG.getInt32Ty());
+    fnTy = llvm::FunctionType::get(retTy, args, false);
+
+    raiseUserExceptionFn = CG.makeFunction(fnTy, "_comma_raise_nexception");
+    raiseUserExceptionFn->setDoesNotReturn();
 }
 
 void CommaRT::defineExinfos()
@@ -307,13 +315,44 @@ void CommaRT::unhandledException(llvm::IRBuilder<> &builder,
     builder.CreateUnreachable();
 }
 
-void CommaRT::raise(llvm::IRBuilder<> &builder,
-                    const ExceptionDecl *exception,
+llvm::Constant *
+CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
+{
+    llvm::Constant *result;
+    if (message) {
+        // FIXME: Wrap the following sanity check in a DEBUG macro.
+        if (llvm::Constant *init = message->getInitializer()) {
+            llvm::ConstantArray *arr = cast<llvm::ConstantArray>(init);
+            assert(arr->isCString() && "Message is not null terminated!");
+        }
+        result = CG.getPointerCast(message, CG.getInt8PtrTy());
+    }
+    else
+        result = llvm::ConstantPointerNull::get(CG.getInt8PtrTy());
+    return result;
+}
+
+void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
                     llvm::GlobalVariable *message)
 {
     llvm::Value *exinfo = builder.CreateLoad(registerException(exception));
-    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
-    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
+    llvm::Constant *msgPtr = checkAndConvertMessage(message);
+    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
+    builder.CreateUnreachable();
+}
+
+void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+                    llvm::Value *message, llvm::Value *length)
+{
+    llvm::Value *exinfo = builder.CreateLoad(registerException(exception));
+    llvm::Value *msgPtr;
+    if (message)
+        msgPtr = builder.CreatePointerCast(message, CG.getInt8PtrTy());
+    else {
+        msgPtr = llvm::ConstantPointerNull::get(CG.getInt8PtrTy());
+        length = llvm::ConstantInt::get(CG.getInt32Ty(), 0);
+    }
+    builder.CreateCall3(raiseUserExceptionFn, exinfo, msgPtr, length);
     builder.CreateUnreachable();
 }
 
@@ -321,8 +360,8 @@ void CommaRT::raiseProgramError(llvm::IRBuilder<> &builder,
                                 llvm::GlobalVariable *message) const
 {
     llvm::Value *exinfo = builder.CreateLoad(theProgramErrorExinfo);
-    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
-    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
+    llvm::Constant *msgPtr = checkAndConvertMessage(message);
+    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
 }
 
@@ -330,8 +369,8 @@ void CommaRT::raiseConstraintError(llvm::IRBuilder<> &builder,
                                    llvm::GlobalVariable *message) const
 {
     llvm::Value *exinfo = builder.CreateLoad(theConstraintErrorExinfo);
-    llvm::Constant *msgPtr = CG.getPointerCast(message, CG.getInt8PtrTy());
-    builder.CreateCall2(raiseExceptionFn, exinfo, msgPtr);
+    llvm::Constant *msgPtr = checkAndConvertMessage(message);
+    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
 }
 

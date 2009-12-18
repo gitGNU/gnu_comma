@@ -97,15 +97,28 @@ public:
     /// given ExceptionDecl as argument registers the exception in the system
     /// and associates a global as representation.  Subsequent calls using the
     /// same declaration node return the same global.
-    llvm::Constant *registerException(const ExceptionDecl *decl);
+    llvm::Constant *registerException(const ExceptionDecl *exception);
 
     /// Throws an exception.
     ///
     /// Calls registerException on the provided exception declaration, then
     /// generates code for a raise.  \p message must be a pointer to a global
-    /// string containing or null.
-    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *decl,
-               llvm::GlobalVariable *message);
+    /// string of type i8* or null.
+    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+               llvm::GlobalVariable *message = 0);
+
+    /// Throws an exception.
+    ///
+    /// Calls registerException on the provided exception declaration, then
+    /// generates code for a raise.  \p message is a Comma vector (one
+    /// dimension) of type String and \p length is its length (an i32).  The
+    /// supplied vector may be null.
+    ///
+    /// \note For compiler generated exceptions it is always preferable to raise
+    /// using a static global as the runtime can avoid a copy of the message
+    /// data in that case.
+    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+               llvm::Value *message = 0, llvm::Value *length = 0);
 
     /// Convinience method to throw a PROGRAM_ERROR.
     void raiseProgramError(llvm::IRBuilder<> &builder,
@@ -187,7 +200,8 @@ private:
     llvm::Function *assertFailFn;
     llvm::Function *EHPersonalityFn;
     llvm::Function *unhandledExceptionFn;
-    llvm::Function *raiseExceptionFn;
+    llvm::Function *raiseStaticExceptionFn;
+    llvm::Function *raiseUserExceptionFn;
     llvm::Function *pow_i32_i32_Fn;
     llvm::Function *pow_i64_i32_Fn;
     llvm::Function *vstack_alloc_Fn;
@@ -266,6 +280,10 @@ private:
     /// Generates a constant comma_exinfo_t initializer for the given exception
     /// declaration.
     llvm::Constant *genExinfoInitializer(const ExceptionDecl *exception);
+
+    /// Helper method to the raise methods.  Ensures the given global value
+    /// denotes a CString if non-null.  If null, returns a null i8*.
+    llvm::Constant *checkAndConvertMessage(llvm::GlobalVariable *message) const;
 };
 
 template <> inline

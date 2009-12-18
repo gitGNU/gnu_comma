@@ -119,6 +119,7 @@ private:
     void emitWhileStmt(WhileStmt *stmt);
     void emitForStmt(ForStmt *stmt);
     void emitLoopStmt(LoopStmt *stmt);
+    void emitRaiseStmt(RaiseStmt *stmt);
     void emitPragmaStmt(PragmaStmt *stmt);
 
     /// Generates code for the given BlockStmt.

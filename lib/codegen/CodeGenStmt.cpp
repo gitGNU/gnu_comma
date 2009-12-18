@@ -66,6 +66,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
         emitReturnStmt(cast<ReturnStmt>(stmt));
         break;
 
+    case Ast::AST_RaiseStmt:
+        emitRaiseStmt(cast<RaiseStmt>(stmt));
+        break;
+
     case Ast::AST_PragmaStmt:
         emitPragmaStmt(cast<PragmaStmt>(stmt));
         break;
@@ -434,6 +438,24 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
 
     // Finally, set mergeBB as the current insertion point.
     Builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenRoutine::emitRaiseStmt(RaiseStmt *stmt)
+{
+    ExceptionDecl *exception = stmt->getExceptionDecl();
+
+    if (stmt->hasMessage()) {
+        BoundsEmitter emitter(*this);
+        std::pair<llvm::Value*, llvm::Value*> ABPair;
+        llvm::Value *message;
+        llvm::Value *length;
+        ABPair = emitArrayExpr(stmt->getMessage(), 0, false);
+        message = ABPair.first;
+        length = emitter.computeBoundLength(Builder, ABPair.second, 0);
+        CG.getRuntime().raise(Builder, exception, message, length);
+    }
+    else
+        CG.getRuntime().raise(Builder, exception, 0, 0);
 }
 
 void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)

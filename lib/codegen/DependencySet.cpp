@@ -51,6 +51,7 @@ private:
     void visitIfStmt(IfStmt *node);
     void visitWhileStmt(WhileStmt *node);
     void visitLoopStmt(LoopStmt *node);
+    void visitRaiseStmt(RaiseStmt *node);
     void visitForStmt(ForStmt *node);
     //@}
 
@@ -169,6 +170,20 @@ void DependencyScanner::visitWhileStmt(WhileStmt *node)
 void DependencyScanner::visitLoopStmt(LoopStmt *node)
 {
     visitStmtSequence(node->getBody());
+}
+
+void DependencyScanner::visitRaiseStmt(RaiseStmt *node)
+{
+    if (node->hasMessage())
+        visitExpr(node->getMessage());
+
+    ExceptionDecl *exception;
+    DeclRegion *region;
+    DomainInstanceDecl *instance;
+    exception = node->getExceptionDecl();
+    region = exception->getDeclRegion();
+    if (region && (instance = dyn_cast<DomainInstanceDecl>(region)))
+        addDependents(instance);
 }
 
 void DependencyScanner::visitForStmt(ForStmt *node)

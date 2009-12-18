@@ -547,6 +547,18 @@ public:
     /// Called to inform the client of a loop statement.
     virtual Node acceptLoopStmt(Location loc, NodeVector &stmtNodes) = 0;
 
+    /// Called to inform the client of a raise statement.
+    ///
+    /// \param loc Location of the `raise' reserved word.
+    ///
+    /// \param exception Node representing the exception to be thrown (as
+    /// obtained thru the name callbacks).
+    ///
+    /// \param message Contains the expression node to be associated with the
+    /// `raise', or a null-node if there was no expression.
+    virtual Node acceptRaiseStmt(Location loc, Node exception,
+                                 Node message) = 0;
+
     /// Called when a pragma is encountered within a sequence of statements.
     virtual Node acceptPragmaStmt(IdentifierInfo *name, Location loc,
                                   NodeVector &pragmaArgs) = 0;

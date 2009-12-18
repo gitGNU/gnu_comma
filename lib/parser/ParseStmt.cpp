@@ -49,6 +49,10 @@ Node Parser::parseStatement()
         node = parseReturnStmt();
         break;
 
+    case Lexer::TKN_RAISE:
+        node = parseRaiseStmt();
+        break;
+
     case Lexer::TKN_PRAGMA:
         node = parsePragmaStmt();
         break;
@@ -362,3 +366,28 @@ Node Parser::parsePragmaAssert(IdentifierInfo *name, Location loc)
     seekSemi();
     return getInvalidNode();
 }
+
+Node Parser::parseRaiseStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_RAISE));
+    Location raiseLoc = ignoreToken();
+
+    Node exception = parseName();
+    if (exception.isInvalid()) {
+        seekSemi();
+        return getInvalidNode();
+    }
+
+    Node message = getNullNode();
+    if (reduceToken(Lexer::TKN_WITH)) {
+        message = parseExpr();
+        if (message.isInvalid()) {
+            seekSemi();
+            return getInvalidNode();
+        }
+    }
+    return client.acceptRaiseStmt(raiseLoc, exception, message);
+}
+
+
+

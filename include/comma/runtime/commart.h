@@ -36,9 +36,17 @@ comma_exinfo_t _comma_get_exception(comma_exception_id id);
 
 /*
  * Allocates and raises an expection with an identity defined by the provided
- * info and associates it with the given message.
+ * info and associates it with the given message.  The message may be null.
  */
 void _comma_raise_exception(comma_exinfo_t info, const char *message);
+
+/*
+ * Allocates and raises an expection with an identity defined by the provided
+ * info and associates it with the given message.  The message may be a null
+ * pointer or a string of the given length.
+ */
+void _comma_raise_nexception(comma_exinfo_t info, const char *message,
+                             int32_t length);
 
 /*
  * Routine to raise a specific system exception.

@@ -499,13 +499,24 @@ static void fatal_error(const char *message)
 }
 
 /*
+ * The following enumeration encodes a set of flags which are embedded into a
+ * Comma exception.  There is only one flag at the moment which indicates if the
+ * message is dynamically allocated or not.
+ */
+typedef enum {
+    COMMA_DYN_MESSAGE = 1 << 0
+} comma_exception_flag;
+
+/*
  * This is the exception object thrown by the runtime.  It contains the
- * exceptions exinfo object and a pointer to a null terminated string yielding a
- * message.
+ * exceptions exinfo object, a pointer to a null terminated string yielding a
+ * message, and a set of flags.  It is likely that more flags will be needed in
+ * the future (this representation is not trying to be intentionally wasteful).
  */
 struct comma_exception {
     comma_exinfo_t id;
-    const char *message;
+    char *message;
+    unsigned flags;
     struct _Unwind_Exception header;
 };
 
@@ -893,11 +904,14 @@ static void _comma_cleanup_exception(_Unwind_Reason_Code reason,
                                      struct _Unwind_Exception *exc)
 {
     struct comma_exception *exception = to_comma_exception(exc);
+    if (exception->flags && COMMA_DYN_MESSAGE)
+        free(exception->message);
     free(exception);
 }
 
 /*
- * The following function is called to allocate and raise a Comma exception.
+ * The following function is called to allocate and raise a Comma exception
+ * which has a null-terminated statically allocated string as a message.
  */
 void _comma_raise_exception(comma_exinfo_t info, const char *message)
 {
@@ -909,7 +923,50 @@ void _comma_raise_exception(comma_exinfo_t info, const char *message)
      */
     exception = malloc(sizeof(struct comma_exception));
     exception->id = info;
-    exception->message = message;
+    exception->message = (char*)message;
+    exception->flags = 0;
+
+    /*
+     * Fill in the ABI bits.
+     *
+     * The magic number reads as "SMW\0CMA\0"
+     */
+    exception->header.exception_class = Comma_Exception_Class_ID;
+    exception->header.exception_cleanup = _comma_cleanup_exception;
+
+    /*
+     * Fire it off.
+     */
+    exception_object = to_Unwind_Exception(exception);
+    _Unwind_RaiseException(exception_object);
+}
+
+/*
+ * The following function is called to allocate and raise a Comma exception
+ * which allocates its own copy of the given message.
+ */
+void _comma_raise_nexception(comma_exinfo_t info, const char *message,
+                             int32_t length)
+{
+    struct comma_exception *exception;
+    struct _Unwind_Exception *exception_object;
+
+    /*
+     * Allocate the exception and fill in the Comma specific bits.
+     */
+    exception = malloc(sizeof(struct comma_exception));
+    exception->id = info;
+
+    if (message) {
+        exception->message = malloc(length + 1);
+        exception->message = memcpy(exception->message, message, length);
+        exception->message[length] = 0;
+        exception->flags = COMMA_DYN_MESSAGE;
+    }
+    else {
+        exception->message = 0;
+        exception->flags = 0;
+    }
 
     /*
      * Fill in the ABI bits.
@@ -1032,9 +1089,15 @@ _comma_eh_personality(int version,
  */
 void _comma_unhandled_exception(struct comma_exception *exception)
 {
-    fprintf(stderr, "Unhandled exception: %s: %s\n",
-            exception->id,
-            exception->message);
+    const char *message = exception->message;
+
+    if (message)
+        fprintf(stderr, "Unhandled exception: %s: %s\n",
+                exception->id, message);
+    else
+        fprintf(stderr, "Unhandled excception: %s\n",
+                exception->id);
+
     abort();
 }
 

@@ -11,6 +11,7 @@
 #include "TypeCheck.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
+#include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Pragma.h"
@@ -343,3 +344,29 @@ Node TypeCheck::acceptPragmaStmt(IdentifierInfo *name, Location loc,
     else
         return getInvalidNode();
 }
+
+Node TypeCheck::acceptRaiseStmt(Location raiseLoc, Node exceptionNode,
+                                Node messageNode)
+{
+    ExceptionRef *ref = lift_node<ExceptionRef>(exceptionNode);
+    Expr *message = 0;
+
+    if (!ref) {
+        report(getNodeLoc(exceptionNode), diag::NOT_AN_EXCEPTION);
+        return getInvalidNode();
+    }
+
+    if (!messageNode.isNull()) {
+        Expr *expr = ensureExpr(messageNode);
+        ArrayType *theStringType = resource.getTheStringType();
+        if (!expr || !(expr = checkExprInContext(expr, theStringType)))
+            return getInvalidNode();
+        message = expr;
+    }
+
+    exceptionNode.release();
+    messageNode.release();
+    RaiseStmt *raise = new RaiseStmt(raiseLoc, ref, message);
+    return getNode(raise);
+}
+

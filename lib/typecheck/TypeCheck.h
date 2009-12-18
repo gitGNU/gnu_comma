@@ -170,6 +170,8 @@ public:
 
     Node acceptLoopStmt(Location loc, NodeVector &stmtNodes);
 
+    Node acceptRaiseStmt(Location loc, Node exception, Node message);
+
     Node acceptPragmaStmt(IdentifierInfo *name, Location loc, NodeVector &args);
 
     void acceptPragmaImport(Location pragmaLoc,
