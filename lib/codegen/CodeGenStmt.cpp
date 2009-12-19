@@ -161,8 +161,8 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
 
 void CodeGenRoutine::emitStmtSequence(StmtSequence *seq)
 {
-    for (StmtSequence::StmtIter iter = seq->beginStatements();
-         iter != seq->endStatements(); ++iter)
+    for (StmtSequence::stmt_iter iter = seq->stmt_begin();
+         iter != seq->stmt_end(); ++iter)
         emitStmt(*iter);
 }
 

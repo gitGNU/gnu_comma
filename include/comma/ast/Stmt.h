@@ -37,7 +37,10 @@ public:
 // Represents a sequence of statements.
 class StmtSequence : public Stmt {
 
-    llvm::SmallVector<Stmt*, 16> statements;
+    typedef llvm::SmallVector<Stmt*, 16> StatementVec;
+    typedef llvm::SmallVector<HandlerStmt*, 2> HandlerVec;
+    StatementVec statements;
+    HandlerVec handlers;
 
 protected:
     StmtSequence(AstKind kind) : Stmt(kind) { }
@@ -67,13 +70,31 @@ public:
 
     //@{
     /// Iterators over the statements provided by this StmtSequence.
-    typedef llvm::SmallVector<Stmt*, 16>::iterator StmtIter;
-    StmtIter beginStatements() { return statements.begin(); }
-    StmtIter endStatements()   { return statements.end(); }
+    typedef StatementVec::iterator stmt_iter;
+    stmt_iter stmt_begin() { return statements.begin(); }
+    stmt_iter stmt_end()   { return statements.end(); }
 
-    typedef llvm::SmallVector<Stmt*, 16>::const_iterator ConstStmtIter;
-    ConstStmtIter beginStatements() const { return statements.begin(); }
-    ConstStmtIter endStatements()   const { return statements.end(); }
+    typedef StatementVec::const_iterator const_stmt_iter;
+    const_stmt_iter stmt_begin() const { return statements.begin(); }
+    const_stmt_iter stmt_end()   const { return statements.end(); }
+    //@}
+
+    /// Returns true if there are any exception handlers associated with this
+    /// StmtSequence.
+    bool isHandled() const { return !handlers.empty(); }
+
+    /// Returns the number of handlers asscociated with this StmtSequence.
+    unsigned numHandlers() const { return handlers.size(); }
+
+    //@{
+    /// Iterators over the handlers provided by this StmtSequence.
+    typedef HandlerVec::iterator handler_iter;
+    handler_iter handler_begin() { return handlers.begin(); }
+    handler_iter handler_end() { return handlers.end(); }
+
+    typedef HandlerVec::const_iterator const_handler_iter;
+    const_handler_iter handler_begin() const { return handlers.begin(); }
+    const_handler_iter handler_end() const { return handlers.end(); }
     //@}
 
     // Support isa/dyn_cast

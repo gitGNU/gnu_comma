@@ -94,9 +94,8 @@ void DependencyScanner::addDependents(const DomainInstanceDecl *instance)
 
 void DependencyScanner::visitStmtSequence(StmtSequence *node)
 {
-    typedef StmtSequence::StmtIter iterator;
-    iterator E = node->endStatements();
-    for (iterator I = node->beginStatements(); I != E; ++I)
+    for (StmtSequence::stmt_iter I = node->stmt_begin();
+         I != node->stmt_end(); ++I)
         visitStmt(*I);
 }
 

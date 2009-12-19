@@ -39,8 +39,8 @@ void StmtDumper::visitStmtSequence(StmtSequence *node)
 {
     printHeader(node);
     indent();
-    for (StmtSequence::StmtIter I = node->beginStatements();
-         I != node->endStatements(); ++I) {
+    for (StmtSequence::stmt_iter I = node->stmt_begin();
+         I != node->stmt_end(); ++I) {
         S << '\n';
         printIndentation();
         visitStmt(*I);
@@ -78,8 +78,8 @@ void StmtDumper::visitBlockStmt(BlockStmt *node)
         printIndentation();
         S << ":Body";
         indent();
-        for (StmtSequence::StmtIter I = node->beginStatements();
-             I != node->endStatements(); ++I) {
+        for (StmtSequence::stmt_iter I = node->stmt_begin();
+             I != node->stmt_end(); ++I) {
             S << '\n';
             printIndentation();
             visitStmt(*I);
