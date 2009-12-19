@@ -26,7 +26,8 @@ test_prg := $(prj_objdir)/tests
 # Proceed iff our environment supports DejaGNU.
 #
 ifeq ($(RUNTEST),)
-	$(error Cannot run the testsuite: runtest (DejaGNU) not found.)
+all:
+	$(error Cannot run the testsuite: runtest (DejaGNU) not found)
 else
 all: testhome $(site_exp)
 	$(verb) echo "Running the testsuite.."; \

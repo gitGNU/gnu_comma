@@ -117,7 +117,7 @@ AC_PATH_PROG(ECHO, [echo], [echo])
 AC_PATH_PROG(SED,  [sed],  [sed])
 
 dnl Check for DejaGNU support.
-AC_PATH_PROG(RUNTEST, [runtest], [runtest])
+AC_PATH_PROG(RUNTEST, [runtest], [])
 
 dnl ****************************************************************************
 dnl * Check for libraries.
