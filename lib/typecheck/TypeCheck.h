@@ -79,10 +79,7 @@ public:
 
     Node endSubroutineDeclaration(bool definitionFollows);
 
-    void beginSubroutineDefinition(Node declarationNode);
-
-    void acceptSubroutineStmt(Node stmt);
-
+    Node beginSubroutineDefinition(Node declarationNode);
     void endSubroutineDefinition();
 
     Node acceptDirectName(IdentifierInfo *name, Location loc,
@@ -155,16 +152,10 @@ public:
 
     Node acceptAssignmentStmt(Node target, Node value);
 
-    // Called when a block statement is about to be parsed.
     Node beginBlockStmt(Location loc, IdentifierInfo *label = 0);
-
-    // This method is called for each statement associated with the block.
-    void acceptBlockStmt(Node block, Node stmt);
-
-    // Once the last statement of a block has been parsed, this method is called
-    // to inform the client that we are leaving the block context established by
-    // the last call to beginBlockStmt.
     void endBlockStmt(Node block);
+
+    bool acceptStmt(Node context, Node stmt);
 
     Node acceptWhileStmt(Location loc, Node condition, NodeVector &stmtNodes);
 

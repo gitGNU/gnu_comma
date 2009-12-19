@@ -189,7 +189,7 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     return routine;
 }
 
-void TypeCheck::beginSubroutineDefinition(Node declarationNode)
+Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
     SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
     declarationNode.release();
@@ -210,16 +210,7 @@ void TypeCheck::beginSubroutineDefinition(Node declarationNode)
     BlockStmt *block = new BlockStmt(0, srDecl, srDecl->getIdInfo());
     srDecl->setBody(block);
     declarativeRegion = block;
-}
-
-void TypeCheck::acceptSubroutineStmt(Node stmt)
-{
-    SubroutineDecl *subroutine = getCurrentSubroutine();
-    assert(subroutine && "No currnet subroutine!");
-
-    stmt.release();
-    BlockStmt *block = subroutine->getBody();
-    block->addStmt(cast_node<Stmt>(stmt));
+    return declarationNode;
 }
 
 void TypeCheck::endSubroutineDefinition()

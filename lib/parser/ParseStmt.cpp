@@ -213,7 +213,7 @@ Node Parser::parseBlockStmt()
                !currentTokenIs(Lexer::TKN_EOT)) {
             Node stmt = parseStatement();
             if (stmt.isValid())
-                client.acceptBlockStmt(block, stmt);
+                client.acceptStmt(block, stmt);
         }
         if (parseEndTag(label)) {
             client.endBlockStmt(block);

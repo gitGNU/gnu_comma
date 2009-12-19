@@ -228,15 +228,6 @@ Node TypeCheck::beginBlockStmt(Location loc, IdentifierInfo *label)
     return getNode(block);
 }
 
-// This method is called for each statement associated with the block.
-void TypeCheck::acceptBlockStmt(Node blockNode, Node stmtNode)
-{
-    BlockStmt *block = cast_node<BlockStmt>(blockNode);
-    Stmt      *stmt  = cast_node<Stmt>(stmtNode);
-    block->addStmt(stmt);
-    stmtNode.release();
-}
-
 // Once the last statement of a block has been parsed, this method is called
 // to inform the client that we are leaving the block context established by
 // the last call to beginBlockStmt.
@@ -244,6 +235,23 @@ void TypeCheck::endBlockStmt(Node blockNode)
 {
     declarativeRegion = currentDeclarativeRegion()->getParent();
     scope.pop();
+}
+
+bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
+{
+    if (SubroutineDecl *SR = lift_node<SubroutineDecl>(contextNode)) {
+        BlockStmt *block = SR->getBody();
+        block->addStmt(cast_node<Stmt>(stmtNode));
+    }
+    else if (BlockStmt *block = lift_node<BlockStmt>(contextNode)) {
+        block->addStmt(cast_node<Stmt>(stmtNode));
+    }
+    else {
+        assert(false && "Invalid context for acceptStmt!");
+        return false;
+    }
+    stmtNode.release();
+    return true;
 }
 
 Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,

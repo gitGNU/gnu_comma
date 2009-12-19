@@ -959,7 +959,7 @@ Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
 
 void Parser::parseSubroutineBody(Node declarationNode)
 {
-    client.beginSubroutineDefinition(declarationNode);
+    Node routine = client.beginSubroutineDefinition(declarationNode);
 
     while (!currentTokenIs(Lexer::TKN_BEGIN) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
@@ -983,7 +983,7 @@ void Parser::parseSubroutineBody(Node declarationNode)
            !currentTokenIs(Lexer::TKN_EOT)) {
         Node stmt = parseStatement();
         if (stmt.isValid())
-            client.acceptSubroutineStmt(stmt);
+            client.acceptStmt(routine, stmt);
     }
 
 PARSE_END_TAG:

@@ -329,19 +329,14 @@ public:
     /// \name Subroutine Definition Callbacks.
     ///
     //@{
-    ///
+
     /// Once a declaration has been parsed, a context for a definition is
     /// introduced with a call to beginSubroutineDefinition (assuming the
     /// declaration has a definition), passing in the node returned from
-    /// endSubroutineDeclaration.
-    virtual void beginSubroutineDefinition(Node declarationNode) = 0;
-
-    /// For each statement consituting the body of a definition
-    /// acceptSubroutineStmt is invoked with the node provided by any one of the
-    /// statement callbacks (acceptIfStmt, acceptReturnStmt, etc) provided that
-    /// the Node is valid.  Otherwise, the Node is dropped and this callback is
-    /// not invoked.
-    virtual void acceptSubroutineStmt(Node stmt) = 0;
+    /// endSubroutineDeclaration.  The returned Node will be used as the
+    /// first parameter to acceptStmt for each statement constituting the body
+    /// of the definition.
+    virtual Node beginSubroutineDefinition(Node declarationNode) = 0;
 
     /// Once the body of a subroutine has been parsed, this callback is invoked
     /// to singnal the completion of the definition.
@@ -482,6 +477,35 @@ public:
     virtual Node acceptDSTDefinition(Node lower, Node upper) = 0;
     //@}
 
+    /// \name Block Callbacks.
+    ///
+    /// Blocks are introduced with a call to beginBlockStmt and terminated with
+    /// a call to endBlockStmt.  Each item in the blocks declarative region is
+    /// processed via one of the declaration callbacks.  Each statement
+    /// associated with the block is registerd via a call to acceptStmt with the
+    /// context being the node returned by the initial call to beginBlockStmt.
+    //@{
+
+    /// Called when a block statement is about to be parsed.
+    virtual Node beginBlockStmt(Location loc, IdentifierInfo *label = 0) = 0;
+
+    /// Once the last statement of a block has been parsed, this method is
+    /// called to inform the client that we are leaving the block context
+    /// established by the last call to beginBlockStmt.
+    virtual void endBlockStmt(Node block) = 0;
+    //@}
+
+    /// Called to notify the client that a statement has been completely
+    /// parsed.
+    ///
+    /// \param context The result of a call to beginBlockStmt or
+    /// beginSubroutineDefinition, indicating in which context \p stmt appeared
+    /// in.
+    ///
+    /// \param stmt The actual Node representing the statement (as returned from
+    /// accpetIfStmt, acceptAssignmentStmt, etc).
+    virtual bool acceptStmt(Node context, Node stmt) = 0;
+
     virtual bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                          Node type, Node initializer) = 0;
 
@@ -528,17 +552,6 @@ public:
     virtual Node acceptReturnStmt(Location loc, Node retNode) = 0;
 
     virtual Node acceptAssignmentStmt(Node target, Node value) = 0;
-
-    /// Called when a block statement is about to be parsed.
-    virtual Node beginBlockStmt(Location loc, IdentifierInfo *label = 0) = 0;
-
-    /// This method is called for each statement associated with the block.
-    virtual void acceptBlockStmt(Node block, Node stmt) = 0;
-
-    /// Once the last statement of a block has been parsed, this method is
-    /// called to inform the client that we are leaving the block context
-    /// established by the last call to beginBlockStmt.
-    virtual void endBlockStmt(Node block) = 0;
 
     /// Called to inform the client of a while statement.
     virtual Node acceptWhileStmt(Location loc, Node condition,
