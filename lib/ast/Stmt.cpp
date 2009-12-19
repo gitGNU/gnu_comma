@@ -21,6 +21,16 @@ using llvm::cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
+// HandlerStmt
+HandlerStmt::HandlerStmt(Location loc, ExceptionRef **refs, unsigned numRefs)
+    : StmtSequence(AST_HandlerStmt),
+      loc(loc), numChoices(numRefs)
+{
+    choices = new ExceptionRef*[numChoices];
+    std::memcpy(choices, refs, sizeof(ExceptionRef*)*numRefs);
+}
+
+//===----------------------------------------------------------------------===//
 // ProcedureCallStmt
 ProcedureCallStmt::ProcedureCallStmt(SubroutineRef *ref,
                                      Expr **posArgs, unsigned numPos,

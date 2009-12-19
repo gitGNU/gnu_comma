@@ -66,6 +66,7 @@ class FunctionDecl;
 class FunctionType;
 class FunctorDecl;
 class FunctorType;
+class HandlerStmt;
 class IfStmt;
 class ImportDecl;
 class IndexedArrayExpr;
@@ -228,6 +229,7 @@ public:
         AST_AssignmentStmt,     ///< AssignmentStmt
         AST_BlockStmt,          ///< BlockStmt
         AST_ForStmt,            ///< ForStmt
+        AST_HandlerStmt,        ///< HandlerStmt
         AST_IfStmt,             ///< IfStmt
         AST_LoopStmt,           ///< LoopStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt

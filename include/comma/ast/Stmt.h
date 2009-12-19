@@ -72,9 +72,57 @@ public:
 
     static bool classof(const StmtSequence *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_StmtSequence ||
-            node->getKind() == AST_BlockStmt;
+        AstKind kind = node->getKind();
+        return kind == AST_StmtSequence || kind == AST_BlockStmt ||
+            kind == AST_HandlerStmt;
     }
+};
+
+//===----------------------------------------------------------------------===//
+// HandlerStmt
+//
+/// HandlerStmt nodes represent an exception handler.
+class HandlerStmt : public StmtSequence {
+
+public:
+    /// Constructs a HandlerStmt over the given set of execption choices.
+    ///
+    /// If \p numChoices is zero, then the resulting handler is considered a
+    /// "catch-all", corresponding to the code <tt>when others</tt>.
+    HandlerStmt(Location loc, ExceptionRef **choices, unsigned numChoices);
+
+    /// Returns the location of the \c when reserved word intorducing this
+    /// handler.
+    Location getLocation() const { return loc; }
+
+    /// Returns the number of exception choices associated with this handlers.
+    unsigned getNumChoices() const { return numChoices; }
+
+    /// Returns true if this handler denotes a "catch-all".
+    bool isCatchAll() const { return getNumChoices() == 0; }
+
+    //@{
+    /// Iterators over the set of exception choices associated with this
+    /// handler.
+    typedef ExceptionRef **choice_iterator;
+    choice_iterator choice_begin() { return choices; }
+    choice_iterator choice_end() { return choices + numChoices; }
+
+    typedef const ExceptionRef *const *const_choice_iterator;
+    const_choice_iterator choice_begin() const { return choices; }
+    const_choice_iterator choice_end() const { return choices + numChoices; }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const HandlerStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_HandlerStmt;
+    }
+
+private:
+    Location loc;
+    unsigned numChoices;
+    ExceptionRef **choices;
 };
 
 //===----------------------------------------------------------------------===//
