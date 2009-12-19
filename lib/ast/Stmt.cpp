@@ -21,6 +21,15 @@ using llvm::cast;
 using llvm::isa;
 
 //===----------------------------------------------------------------------===//
+// StmtSequence
+bool StmtSequence::hasCatchAll() const
+{
+    if (isHandled())
+        return handlers.back()->isCatchAll();
+    return false;
+}
+
+//===----------------------------------------------------------------------===//
 // HandlerStmt
 HandlerStmt::HandlerStmt(Location loc, ExceptionRef **refs, unsigned numRefs)
     : StmtSequence(AST_HandlerStmt),

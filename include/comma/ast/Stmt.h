@@ -86,6 +86,19 @@ public:
     /// Returns the number of handlers asscociated with this StmtSequence.
     unsigned numHandlers() const { return handlers.size(); }
 
+    /// Returns true if there is an "others" catch-all handler associated with
+    /// this sequence.
+    bool hasCatchAll() const;
+
+    /// Adds a handler to this StmtSequence.
+    ///
+    /// If the given handler is a "catch-all" handler, this must be the last
+    /// handler registered with this sequence.
+    void addHandler(HandlerStmt *handler) {
+        assert(!hasCatchAll() && "Catch-all handler already present!");
+        handlers.push_back(handler);
+    }
+
     //@{
     /// Iterators over the handlers provided by this StmtSequence.
     typedef HandlerVec::iterator handler_iter;
