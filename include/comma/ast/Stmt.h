@@ -51,8 +51,11 @@ public:
         : Stmt(AST_StmtSequence),
           statements(I, E) { }
 
+    /// Adds a single statement to the end of this sequence.
     void addStmt(Stmt *stmt) { statements.push_back(stmt); }
 
+    /// Adds the given set of statements provided by an iterator pair to the end
+    /// of this sequence.
     template <class Iter>
     void addStmts(Iter I, Iter E) {
         for ( ; I != E; ++I)
@@ -62,6 +65,8 @@ public:
     /// Returns the number of statements contained in this sequence.
     unsigned numStatements() const { return statements.size(); }
 
+    //@{
+    /// Iterators over the statements provided by this StmtSequence.
     typedef llvm::SmallVector<Stmt*, 16>::iterator StmtIter;
     StmtIter beginStatements() { return statements.begin(); }
     StmtIter endStatements()   { return statements.end(); }
@@ -69,7 +74,9 @@ public:
     typedef llvm::SmallVector<Stmt*, 16>::const_iterator ConstStmtIter;
     ConstStmtIter beginStatements() const { return statements.begin(); }
     ConstStmtIter endStatements()   const { return statements.end(); }
+    //@}
 
+    // Support isa/dyn_cast
     static bool classof(const StmtSequence *node) { return true; }
     static bool classof(const Ast *node) {
         AstKind kind = node->getKind();
