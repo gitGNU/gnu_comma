@@ -72,7 +72,7 @@ void StmtDumper::visitBlockStmt(BlockStmt *node)
         dedent();
     }
 
-    if (node->size()) {
+    if (node->numStatements()) {
         indent();
         S << '\n';
         printIndentation();
