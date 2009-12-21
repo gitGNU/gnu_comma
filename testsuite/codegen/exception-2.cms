@@ -1,0 +1,73 @@
+-- Test exception propagation.
+
+domain Test with
+   procedure Run;
+add
+
+   type Exception_Kind is (PE, CE, None);
+
+   procedure Throw (Kind : Exception_Kind) is
+   begin
+      if Kind = PE then
+         raise Program_Error;
+      elsif Kind = CE then
+         raise Constraint_Error;
+      end if;
+   end Throw;
+
+   function Handle_PE (Kind : Exception_Kind) return Natural is
+   begin
+      Throw(Kind);
+      return 0;
+   exception
+      when Program_Error =>
+         return 1;
+   end Handle_PE;
+
+   function Handle_CE (Kind : Exception_Kind) return Natural is
+   begin
+      Throw(Kind);
+      return 0;
+   exception
+      when Constraint_Error =>
+         return 1;
+   end Handle_CE;
+
+   procedure Run is
+      Count : Natural := 0;
+   begin
+
+      -- Each of the following should increment Count by 1.
+      Count := Count + Handle_PE(PE);
+      Count := Count + Handle_CE(CE);
+
+      -- Each of following should not change the value of Count.
+      Count := Count + Handle_CE(None);
+      Count := Count + Handle_PE(None);
+
+      -- Each of the following should increment Count by 2.
+      begin
+         Count := Count + Handle_CE(PE);
+      exception
+         when Program_Error =>
+            Count := Count + 2;
+      end;
+      begin
+         Count := Count + Handle_PE(CE);
+      exception
+         when Constraint_Error =>
+            Count := Count + 2;
+      end;
+
+      -- Assert the total.
+      pragma Assert(Count = 6);
+
+   exception
+      when others =>
+         pragma Assert(false);
+   end Run;
+end Test;
+
+
+
+

@@ -120,6 +120,9 @@ public:
     void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
                llvm::Value *message = 0, llvm::Value *length = 0);
 
+    /// Reraises the given exception object.
+    void reraise(llvm::IRBuilder<> &builder, llvm::Value *exception);
+
     /// Convinience method to throw a PROGRAM_ERROR.
     void raiseProgramError(llvm::IRBuilder<> &builder,
                            llvm::GlobalVariable *message) const;
@@ -202,6 +205,7 @@ private:
     llvm::Function *unhandledExceptionFn;
     llvm::Function *raiseStaticExceptionFn;
     llvm::Function *raiseUserExceptionFn;
+    llvm::Function *reraiseExceptionFn;
     llvm::Function *pow_i32_i32_Fn;
     llvm::Function *pow_i64_i32_Fn;
     llvm::Function *vstack_alloc_Fn;
@@ -219,8 +223,8 @@ private:
 
     // External globals representing the language defined exceptions.
     // Definitions of these globals are provided by libruntime.
-    llvm::GlobalVariable *theProgramErrorExinfo;
-    llvm::GlobalVariable *theConstraintErrorExinfo;
+    llvm::Constant *theProgramErrorExinfo;
+    llvm::Constant *theConstraintErrorExinfo;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();

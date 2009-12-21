@@ -199,13 +199,21 @@ void CommaRT::defineRaiseException()
 
     raiseUserExceptionFn = CG.makeFunction(fnTy, "_comma_raise_nexception");
     raiseUserExceptionFn->setDoesNotReturn();
+
+    // _comma_reraise_exception take an i8* pointing to the exception object.
+    args.clear();
+    args.push_back(CG.getInt8PtrTy());
+    fnTy = llvm::FunctionType::get(retTy, args, false);
+
+    reraiseExceptionFn = CG.makeFunction(fnTy, "_comma_reraise_exception");
+    reraiseExceptionFn->setDoesNotReturn();
 }
 
 void CommaRT::defineExinfos()
 {
     // Comma's predefined exception info objects are just external i8*'s with
     // definitions in libruntime (see lib/runtime/crt_exceptions.c).
-    const llvm::Type *exinfoTy = CG.getInt8PtrTy();
+    const llvm::Type *exinfoTy = CG.getInt8Ty();
 
     theProgramErrorExinfo =
         new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
@@ -335,7 +343,7 @@ CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
 void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
                     llvm::GlobalVariable *message)
 {
-    llvm::Value *exinfo = builder.CreateLoad(registerException(exception));
+    llvm::Value *exinfo = registerException(exception);
     llvm::Constant *msgPtr = checkAndConvertMessage(message);
     builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
@@ -344,7 +352,7 @@ void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
 void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
                     llvm::Value *message, llvm::Value *length)
 {
-    llvm::Value *exinfo = builder.CreateLoad(registerException(exception));
+    llvm::Value *exinfo = registerException(exception);
     llvm::Value *msgPtr;
     if (message)
         msgPtr = builder.CreatePointerCast(message, CG.getInt8PtrTy());
@@ -356,10 +364,16 @@ void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
     builder.CreateUnreachable();
 }
 
+void CommaRT::reraise(llvm::IRBuilder<> &builder, llvm::Value *exception)
+{
+    builder.CreateCall(reraiseExceptionFn, exception);
+    builder.CreateUnreachable();
+}
+
 void CommaRT::raiseProgramError(llvm::IRBuilder<> &builder,
                                 llvm::GlobalVariable *message) const
 {
-    llvm::Value *exinfo = builder.CreateLoad(theProgramErrorExinfo);
+    llvm::Value *exinfo = theProgramErrorExinfo;
     llvm::Constant *msgPtr = checkAndConvertMessage(message);
     builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
@@ -368,7 +382,7 @@ void CommaRT::raiseProgramError(llvm::IRBuilder<> &builder,
 void CommaRT::raiseConstraintError(llvm::IRBuilder<> &builder,
                                    llvm::GlobalVariable *message) const
 {
-    llvm::Value *exinfo = builder.CreateLoad(theConstraintErrorExinfo);
+    llvm::Value *exinfo = theConstraintErrorExinfo;
     llvm::Constant *msgPtr = checkAndConvertMessage(message);
     builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
     builder.CreateUnreachable();
@@ -388,13 +402,15 @@ llvm::Constant *CommaRT::registerException(const ExceptionDecl *except)
     case ExceptionDecl::User: {
         llvm::GlobalVariable *&entry = registeredExceptions[except];
         if (!entry) {
-            const llvm::Type *exinfoTy = CG.getInt8PtrTy();
             llvm::Constant *init = genExinfoInitializer(except);
+            const llvm::Type *exinfoTy = init->getType();
             entry = new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
                                              llvm::GlobalValue::ExternalLinkage,
                                              init, mangle::getLinkName(except));
+            exinfo = CG.getPointerCast(entry, CG.getInt8PtrTy());
         }
-        exinfo = entry;
+        else
+            exinfo = entry;
     }
 
     case ExceptionDecl::Program_Error:

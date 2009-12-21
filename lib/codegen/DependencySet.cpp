@@ -97,6 +97,12 @@ void DependencyScanner::visitStmtSequence(StmtSequence *node)
     for (StmtSequence::stmt_iter I = node->stmt_begin();
          I != node->stmt_end(); ++I)
         visitStmt(*I);
+
+    if (node->isHandled()) {
+        for (StmtSequence::handler_iter I = node->handler_begin();
+             I != node->handler_end(); ++I)
+            visitStmtSequence(*I);
+    }
 }
 
 void DependencyScanner::visitBlockStmt(BlockStmt *node)

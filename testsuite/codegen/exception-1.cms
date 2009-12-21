@@ -1,0 +1,47 @@
+-- Simple exception propagation tests.
+
+domain Thrower with
+   procedure Throw_PE;
+   procedure Throw_CE;
+add
+   procedure Throw_PE is
+   begin
+      raise Program_Error;
+   end Throw_PE;
+
+   procedure Throw_CE is
+   begin
+      raise Constraint_Error;
+   end Throw_CE;
+end Thrower;
+
+
+domain Test with
+   procedure Run;
+add
+
+   procedure Run is
+   begin
+
+      begin
+         Thrower.Throw_PE;
+      exception
+         when Program_Error =>
+            pragma Assert(true);
+      end;
+
+      begin
+         Thrower.Throw_CE;
+      exception
+         when Constraint_Error =>
+            pragma Assert(true);
+      end;
+
+   exception
+      when others =>
+         pragma Assert(false);
+   end Run;
+
+end Test;
+
+

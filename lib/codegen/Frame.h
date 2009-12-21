@@ -83,7 +83,20 @@ public:
 
     /// Marks the current subframe as a stacksave frame.
     void stacksave();
+
+    /// Adds a landing pad to the current subframe.
+    void addLandingPad();
     //@}
+
+    /// Returns true if there exists a subframe with an active landing pad.
+    bool hasLandingPad();
+
+    /// Returns the basic block for use as a landing pad, or null if
+    /// hasLandingPad returns false.
+    llvm::BasicBlock *getLandingPad();
+
+    /// Removes the innermost landing pad from the subframe stack, if any.
+    void removeLandingPad();
 
     /// \name Allocation methods.
     //@{
@@ -159,6 +172,17 @@ private:
         /// emitStacksave().
         void emitStackrestore();
 
+        /// Associates a landing pad with this subframe.
+        void addLandingPad();
+
+        /// Removes the associated landing pad from this subframe.
+        void removeLandingPad() { landingPad = 0; }
+
+        /// Returns the landing pad basic block associated with this subframe as
+        /// a result of a call to requireLandingPad, or null if
+        /// requireLandingPad has yet to be called on this subframe.
+        llvm::BasicBlock *getLandingPad() { return landingPad; }
+
     private:
         /// Back-link to the managing SRFrame.
         SRFrame *SRF;
@@ -170,6 +194,9 @@ private:
         /// Non-null when emitStacksave is called on this Subframe.  Holds the
         /// restoration pointer for use in a stackrestore call.
         llvm::Value *restorePtr;
+
+        /// Non-null when
+        llvm::BasicBlock *landingPad;
     };
 
     /// The SRInfo object associated with the subroutine this frame is

@@ -182,7 +182,7 @@ public:
     ///
     /// This method is not appropriate for the retrieval of overloaded
     /// intrinsics.
-    llvm::Function *getLLVMIntrinsic(llvm::Intrinsic::ID id) {
+    llvm::Function *getLLVMIntrinsic(llvm::Intrinsic::ID id) const {
         assert(!llvm::Intrinsic::isOverloaded(id) &&
                "Cannot retrieve overloaded intrinsics!");
         return llvm::Intrinsic::getDeclaration(M, id);
@@ -193,6 +193,13 @@ public:
 
     /// Returns a function declaration for the llvm.memcpy.i32 intrinsic.
     llvm::Function *getMemcpy32() const;
+
+    /// \name Accessors to the llvm exception intrinsics.
+    //@{
+    llvm::Function *getEHExceptionIntrinsic() const;
+    llvm::Function *getEHSelectorIntrinsic() const;
+    llvm::Function *getEHTypeidIntrinsic() const;
+    //@}
 
     /// Returns a pointer to a global exception object.
     llvm::GlobalVariable *getEHInfo();

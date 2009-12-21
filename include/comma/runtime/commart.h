@@ -18,7 +18,7 @@
 /*
  * Opaque type representing a Comma exeception object.
  */
-typedef char *comma_exinfo_t;
+typedef char **comma_exinfo_t;
 
 /*
  * The following enumeration defines the set of standard system-level exceptions

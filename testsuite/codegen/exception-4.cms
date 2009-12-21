@@ -1,0 +1,31 @@
+-- Check exception propagation thru contexts which do not have handlers.
+
+domain Test with
+   procedure Run;
+add
+   procedure Throw is
+   begin
+      raise Program_Error;
+   end Throw;
+
+   function Foo (X : Natural) return Natural is
+      Y : Natural := X;
+   begin
+      for I in 1..10 loop
+         Y := Y + 1;
+         Throw;
+      end loop;
+      return Y;
+   end Foo;
+
+   procedure Run is
+      Count : Natural := 0;
+   begin
+      Count := Foo(Count);
+   exception
+      when others =>
+         pragma Assert(Count = 0);
+   end Run;
+end Test;
+
+

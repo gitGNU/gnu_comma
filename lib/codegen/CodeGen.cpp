@@ -117,23 +117,10 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
 
     // Switch to landing pad.
     Builder.SetInsertPoint(landingBB);
-    llvm::Value *eh_person;
-    llvm::Function *eh_except;
-    llvm::Function *eh_select;
-    llvm::Function *eh_typeid;
-    eh_person = CRT->getEHPersonality();
-    eh_except = getLLVMIntrinsic(llvm::Intrinsic::eh_exception);
-
-    // Select the appropriate exception intrinsics based on the target pointer
-    // size.
-    if (TD.getPointerSizeInBits() == 32) {
-        eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i32);
-        eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i32);
-    }
-    else {
-        eh_select = getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
-        eh_typeid = getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
-    }
+    llvm::Value *eh_person = CRT->getEHPersonality();
+    llvm::Function *eh_except = getEHExceptionIntrinsic();
+    llvm::Function *eh_select = getEHSelectorIntrinsic();
+    llvm::Function *eh_typeid = getEHTypeidIntrinsic();
 
     // The exception object produced by a call to _comma_raise.
     llvm::Value *except = Builder.CreateCall(eh_except);
@@ -203,6 +190,27 @@ llvm::Function *CodeGen::getMemcpy32() const
 {
     const llvm::Type *Tys[1] = { getInt32Ty() };
     return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
+}
+
+llvm::Function *CodeGen::getEHExceptionIntrinsic() const
+{
+    return getLLVMIntrinsic(llvm::Intrinsic::eh_exception);
+}
+
+llvm::Function *CodeGen::getEHSelectorIntrinsic() const
+{
+    if (TD.getPointerSizeInBits() == 32)
+        return getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i32);
+    else
+        return getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
+}
+
+llvm::Function *CodeGen::getEHTypeidIntrinsic() const
+{
+    if (TD.getPointerSizeInBits() == 32)
+        return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i32);
+    else
+        return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
 }
 
 InstanceInfo *CodeGen::createInstanceInfo(DomainInstanceDecl *instance)

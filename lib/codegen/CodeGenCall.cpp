@@ -143,7 +143,28 @@ private:
     resolveAbstractSubroutine(DomainInstanceDecl *instance,
                               AbstractDomainDecl *abstract,
                               SubroutineDecl *target);
+
+    /// Applies the arguments to the given function.  Synthesizes either a call
+    /// or invoke instruction depending on if the current context is handled or
+    /// not.
+    llvm::Value *emitCall(llvm::Function *fn);
 };
+
+llvm::Value *CallEmitter::emitCall(llvm::Function *fn)
+{
+    SRFrame *frame = CGR.getSRFrame();
+    llvm::Value *result;
+
+    if (frame->hasLandingPad()) {
+        llvm::BasicBlock *mergeBB = frame->makeBasicBlock();
+        result = Builder.CreateInvoke(fn, mergeBB, frame->getLandingPad(),
+                                      arguments.begin(), arguments.end());
+        Builder.SetInsertPoint(mergeBB);
+    }
+    else
+        result = Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    return result;
+}
 
 llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
 {
@@ -162,8 +183,7 @@ llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
     emitCallArguments();
 
     // Synthesize the actual call instruction.
-    llvm::Function *fn = callInfo->getLLVMFunction();
-    return Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    return emitCall(callInfo->getLLVMFunction());
 }
 
 llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
@@ -190,8 +210,7 @@ llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
     emitCallArguments();
 
     // Synthesize the actual call instruction.
-    llvm::Function *fn = callInfo->getLLVMFunction();
-    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    emitCall(callInfo->getLLVMFunction());
     return dst;
 }
 
@@ -209,8 +228,7 @@ CallEmitter::emitVStackCall(FunctionCallExpr *call)
     emitCallArguments();
 
     // Synthesize the actual call instruction.
-    llvm::Function *fn = callInfo->getLLVMFunction();
-    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    emitCall(callInfo->getLLVMFunction());
 
     // Emit a temporary to hold the bounds.
     ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
@@ -262,8 +280,7 @@ void CallEmitter::emitProcedureCall(ProcedureCallStmt *call)
     emitCallArguments();
 
     // Synthesize the actual call instruction.
-    llvm::Function *fn = callInfo->getLLVMFunction();
-    Builder.CreateCall(fn, arguments.begin(), arguments.end());
+    emitCall(callInfo->getLLVMFunction());
 }
 
 void CallEmitter::emitCallArguments()

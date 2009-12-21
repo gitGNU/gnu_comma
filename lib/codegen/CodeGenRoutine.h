@@ -72,6 +72,8 @@ public:
     std::pair<llvm::Value*, llvm::Value*>
     emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
+    void emitStmt(Stmt *stmt);
+
     llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
 
     /// Emits a function call using the sret calling convention.
@@ -110,7 +112,6 @@ private:
 
     void emitObjectDecl(ObjectDecl *objDecl);
 
-    void emitStmt(Stmt *stmt);
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
     void emitStmtSequence(StmtSequence *seq);

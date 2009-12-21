@@ -10,6 +10,7 @@
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
+#include "HandlerEmitter.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
@@ -172,6 +173,11 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     assert(block && "NULL block statement!");
     std::string label;
 
+    SRF->pushFrame();
+
+    if (block->isHandled())
+        SRF->addLandingPad();
+
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
@@ -207,6 +213,20 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
         }
     }
     emitStmtSequence(block);
+
+    if (block->isHandled()) {
+        // Terminate the current insertion point with a branch to a common block
+        // dominated by the sequence of statements and the exception handlers.
+        llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("handler.merge");
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(mergeBB);
+
+        // Emit the handlers.  Insertion point is set to mergeBB on return.
+        HandlerEmitter emitter(*this);
+        emitter.emitHandlers(block, mergeBB);
+    }
+
+    SRF->popFrame();
     return BB;
 }
 

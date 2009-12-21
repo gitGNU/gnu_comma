@@ -28,7 +28,8 @@ activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
 SRFrame::Subframe::Subframe(SRFrame *SRF, Subframe *parent)
     : SRF(SRF),
       parent(parent),
-      restorePtr(0) { }
+      restorePtr(0),
+      landingPad(0) { }
 
 SRFrame::Subframe::~Subframe()
 {
@@ -64,6 +65,13 @@ void SRFrame::Subframe::emitStackrestore()
     SRF->getIRBuilder().CreateCall(restore, restorePtr);
 }
 
+void SRFrame::Subframe::addLandingPad()
+{
+    if (landingPad)
+        return;
+    landingPad = SRF->makeBasicBlock("landingpad");
+}
+
 SRFrame::SRFrame(SRInfo *routineInfo,
                  CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
     : SRI(routineInfo),
@@ -95,10 +103,15 @@ SRFrame::SRFrame(SRInfo *routineInfo,
 
     // Populate the lookup tables with this functions arguments.
     injectSubroutineArgs(CGR);
+
+    // Create the first implicit subframe.
+    pushFrame();
 }
 
 SRFrame::~SRFrame()
 {
+    popFrame();
+
     EntryMap::iterator I = entryTable.begin();
     EntryMap::iterator E = entryTable.end();
     for ( ; I != E; ++I)
@@ -107,10 +120,41 @@ SRFrame::~SRFrame()
 
 void SRFrame::stacksave()
 {
-    // If there is no subframe then a stacksave is not needed since any
-    // allocations are in a "straight line" code path.
-    if (currentSubframe)
-        currentSubframe->emitStacksave();
+    currentSubframe->emitStacksave();
+}
+
+void SRFrame::addLandingPad()
+{
+    currentSubframe->addLandingPad();
+}
+
+bool SRFrame::hasLandingPad()
+{
+    return getLandingPad() != 0;
+}
+
+llvm::BasicBlock *SRFrame::getLandingPad()
+{
+    llvm::BasicBlock *lpad = 0;
+    Subframe *cursor = currentSubframe;
+    while (cursor) {
+        if ((lpad = cursor->getLandingPad()))
+            break;
+        cursor = cursor->getParent();
+    }
+    return lpad;
+}
+
+void SRFrame::removeLandingPad()
+{
+    Subframe *cursor = currentSubframe;
+    while (cursor) {
+        if (cursor->getLandingPad()) {
+            cursor->removeLandingPad();
+            break;
+        }
+        cursor = cursor->getParent();
+    }
 }
 
 void SRFrame::pushFrame()
@@ -128,11 +172,13 @@ void SRFrame::popFrame()
 
 void SRFrame::emitReturn()
 {
-    // Iterate over the set of subframes and emit a stackrestore for each
-    // brefore branching to the return block.
+    // Iterate over the set of subframes and emit a stackrestore for each before
+    // branching to the return block.  However, ignore the first implicit
+    // subframe since any stacksaves are redundant.
     Subframe *cursor;
     for (cursor = currentSubframe; cursor; cursor = cursor->getParent())
-        cursor->emitStackrestore();
+        if (cursor->getParent())
+            cursor->emitStackrestore();
     Builder.CreateBr(returnBB);
 }
 
@@ -252,7 +298,7 @@ void SRFrame::emitEpilogue()
     llvm::Function *Fn = SRI->getLLVMFunction();
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
-    assert(currentSubframe == 0 && "Subframe imbalance!");
+    assert(currentSubframe->getParent() == 0 && "Subframe imbalance!");
 
     // Create the final return terminator.
     Builder.SetInsertPoint(returnBB);

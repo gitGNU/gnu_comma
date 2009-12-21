@@ -56,6 +56,12 @@ extern _Unwind_Reason_Code
 _Unwind_RaiseException(struct _Unwind_Exception *exception_object);
 
 /*
+ * Propagates an existing exception object.  Causes unwinding to proceed
+ * further.
+ */
+extern void _Unwind_Resume(struct _Unwind_Exception *exception_object);
+
+/*
  * Accessor the the LSDA.
  */
 extern uintptr_t
@@ -387,9 +393,9 @@ parse_dwarf_value(Dwarf_Encoding ID, unsigned char *start, uint64_t *value)
  *     filter.  These are not used in Comma.  Type filters are the mechanism
  *     used to enforce C++ throw() specifications.
  *
- *   next action : The offset in bytes from the beginning of this action record
- *     to the start of the next (since these entries are variable length).  This
- *     is represented as a signed LEB128.  A value of 0 terminates the chain of
+ *   next action : The offset in bytes from the address of this entry to the
+ *     start of the next (these entries are variable length).  This is
+ *     represented as a signed LEB128.  A value of 0 terminates the chain of
  *     action records.
  */
 
@@ -692,18 +698,19 @@ static void dump_Call_Site(struct Call_Site *site)
 static unsigned char *
 parse_Action_Record(unsigned char *ptr, struct Action_Record *dst)
 {
-    /*
-     * Retain the address of the current action record so that we can produce a
-     * pointer to the next entry.  It seems almost guaranteed that the action
-     * table is contiguous and packed, but there is no harm here in doing it
-     * `right'.
-     */
-    unsigned char *start = ptr;
+    unsigned char *start;
 
     /*
-     * Both fields of an action record are signed LEB128 encoded values.
+     * Both fields of an action record are signed LEB128 encoded values.  Obtain
+     * the index into the types table.
      */
     ptr = parse_sleb128(ptr, (int64_t*)&dst->info_index);
+
+    /*
+     * Adjust the current address by the next value yielding the next action
+     * record.
+     */
+    start = ptr;
     parse_sleb128(ptr, (int64_t*)&dst->next_action);
 
     /*
@@ -828,8 +835,8 @@ match_exception(struct LSDA_Header *lsda,
              *    interpret the entries as offsets relative to the value of
              *    _Unwind_GetRegionStart().
              */
-            comma_exinfo_t **info;
-            info = (comma_exinfo_t **)lsda->type_table;
+            comma_exinfo_t *info;
+            info = (comma_exinfo_t *)lsda->type_table;
             info -= action.info_index;
 
             /*
@@ -837,11 +844,10 @@ match_exception(struct LSDA_Header *lsda,
              * the exeption objects id must match the handlers associated
              * exinfo.
              */
-            if ((*info == 0) || (exception->id == **info)) {
+            if ((*info == 0) || (exception->id == *info)) {
                 *dst = action.info_index;
                 return 0;
             }
-
         }
         else {
             /*
@@ -904,7 +910,7 @@ static void _comma_cleanup_exception(_Unwind_Reason_Code reason,
                                      struct _Unwind_Exception *exc)
 {
     struct comma_exception *exception = to_comma_exception(exc);
-    if (exception->flags && COMMA_DYN_MESSAGE)
+    if (exception->flags & COMMA_DYN_MESSAGE)
         free(exception->message);
     free(exception);
 }
@@ -984,6 +990,15 @@ void _comma_raise_nexception(comma_exinfo_t info, const char *message,
 }
 
 /*
+ * Re-raises a comma exception.
+ */
+void _comma_reraise_exception(struct comma_exception *exception)
+{
+    struct _Unwind_Exception *exception_object = to_Unwind_Exception(exception);
+    _Unwind_Resume(exception_object);
+}
+
+/*
  * Raises a specific system exception.
  */
 void _comma_raise_system(uint32_t id, const char *message)
@@ -1055,6 +1070,13 @@ _comma_eh_personality(int version,
     }
 
     /*
+     * Similarly, if we are just unwinding the stack to get at a handler there
+     * is nothing for the personality routine to.
+     */
+    if ((actions & _UA_CLEANUP_PHASE) && !(actions & _UA_HANDLER_FRAME))
+        return _URC_CONTINUE_UNWIND;
+
+    /*
      * We have an action index.  If the thrown exception matches any of the
      * excption ids acceptable to the landing pad we have found a handler.  If
      * not, continue to unwind.
@@ -1093,10 +1115,10 @@ void _comma_unhandled_exception(struct comma_exception *exception)
 
     if (message)
         fprintf(stderr, "Unhandled exception: %s: %s\n",
-                exception->id, message);
+                *exception->id, message);
     else
-        fprintf(stderr, "Unhandled excception: %s\n",
-                exception->id);
+        fprintf(stderr, "Unhandled exception: %s\n",
+                *exception->id);
 
     abort();
 }
@@ -1105,8 +1127,8 @@ void _comma_unhandled_exception(struct comma_exception *exception)
  * The following items are the built in comma_exinfo's.  These are exported
  * symbols as the compiler generates direct references to them.
  */
-comma_exinfo_t _comma_exinfo_program_error = "PROGRAM_ERROR";
-comma_exinfo_t _comma_exinfo_constraint_error = "CONSTRAINT_ERROR";
+char *_comma_exinfo_program_error = "PROGRAM_ERROR";
+char *_comma_exinfo_constraint_error = "CONSTRAINT_ERROR";
 
 /*
  * API to access the system-level exinfo's.
@@ -1120,11 +1142,11 @@ comma_exinfo_t _comma_get_exception(comma_exception_id id)
         break;
 
     case COMMA_CONSTRAINT_ERROR_E:
-        info = _comma_exinfo_constraint_error;
+        info = &_comma_exinfo_constraint_error;
         break;
 
     case COMMA_PROGRAM_ERROR_E:
-        info = _comma_exinfo_program_error;
+        info = &_comma_exinfo_program_error;
         break;
     }
     return info;

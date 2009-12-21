@@ -1,0 +1,31 @@
+-- Ensure exceptions escape from the context of a handler.
+--
+-- FIXME: This test should have a timeout since a failure would manifest as an
+-- infinite loop.
+
+domain Test with
+   procedure Run;
+add
+   procedure Throw is
+   begin
+      raise Program_Error;
+   end Throw;
+
+   procedure Foo is
+   begin
+      Throw;
+   exception
+      when others =>
+         Throw;
+   end Foo;
+
+   procedure Run is
+   begin
+      Foo;
+   exception
+      when others =>
+         return;
+   end Run;
+end Test;
+
+
