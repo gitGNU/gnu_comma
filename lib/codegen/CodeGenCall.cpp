@@ -148,16 +148,18 @@ private:
     /// or invoke instruction depending on if the current context is handled or
     /// not.
     llvm::Value *emitCall(llvm::Function *fn);
+
+    /// Access to the current frame.
+    SRFrame *frame() { return CGR.getSRFrame(); }
 };
 
 llvm::Value *CallEmitter::emitCall(llvm::Function *fn)
 {
-    SRFrame *frame = CGR.getSRFrame();
     llvm::Value *result;
 
-    if (frame->hasLandingPad()) {
-        llvm::BasicBlock *mergeBB = frame->makeBasicBlock();
-        result = Builder.CreateInvoke(fn, mergeBB, frame->getLandingPad(),
+    if (frame()->hasLandingPad()) {
+        llvm::BasicBlock *mergeBB = frame()->makeBasicBlock();
+        result = Builder.CreateInvoke(fn, mergeBB, frame()->getLandingPad(),
                                       arguments.begin(), arguments.end());
         Builder.SetInsertPoint(mergeBB);
     }
@@ -194,7 +196,7 @@ llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
     // If the destination is null allocate a temporary.
     if (dst == 0) {
         const llvm::Type *retTy = CGT.lowerType(call->getType());
-        dst = CGR.getSRFrame()->createTemp(retTy);
+        dst = frame()->createTemp(retTy);
     }
 
     // Push the destination pointer onto the argument vector.  SRet convention
@@ -234,7 +236,7 @@ CallEmitter::emitVStackCall(FunctionCallExpr *call)
     ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
     const llvm::Type *boundsTy = CGT.lowerArrayBounds(arrTy);
     const llvm::Type *boundsPtrTy = CG.getPointerType(boundsTy);
-    llvm::Value *boundsSlot = CGR.getSRFrame()->createTemp(boundsTy);
+    llvm::Value *boundsSlot = frame()->createTemp(boundsTy);
     llvm::Value *dataSlot;
     llvm::Value *vstack;
     llvm::Value *bounds;
@@ -249,7 +251,7 @@ CallEmitter::emitVStackCall(FunctionCallExpr *call)
     // Compute the length of the returned array, mark the frame as stacksave,
     // and allocate a temporary slot for the result.
     BoundsEmitter emitter(CGR);
-    CGR.getSRFrame()->stacksave();
+    frame()->stacksave();
     const llvm::Type *componentTy = CGT.lowerType(arrTy->getComponentType());
     llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
     dataSlot = Builder.CreateAlloca(componentTy, length);
@@ -376,7 +378,7 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
         llvm::Value *bounds = pair.second;
         const llvm::Type *boundsTy = bounds->getType();
         if (boundsTy->isAggregateType()) {
-            llvm::Value *slot = CGR.getSRFrame()->createTemp(boundsTy);
+            llvm::Value *slot = frame()->createTemp(boundsTy);
             Builder.CreateStore(bounds, slot);
             bounds = slot;
         }
@@ -496,7 +498,7 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
 
 llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
 {
-    const CommaRT &CRT = CG.getRuntime();
+    CommaRT &CRT = CG.getRuntime();
 
     // Depending on the width of the operands, call into a runtime routine to
     // perform the operation.  Note the the power we raise to is always an i32.
