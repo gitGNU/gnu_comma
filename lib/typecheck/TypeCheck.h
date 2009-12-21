@@ -155,6 +155,9 @@ public:
     Node beginBlockStmt(Location loc, IdentifierInfo *label = 0);
     void endBlockStmt(Node block);
 
+    Node beginHandlerStmt(Location loc, NodeVector &choices);
+    void endHandlerStmt(Node context, Node handler);
+
     bool acceptStmt(Node context, Node stmt);
 
     Node acceptWhileStmt(Location loc, Node condition, NodeVector &stmtNodes);

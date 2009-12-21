@@ -81,6 +81,8 @@ public:
     Node parseProcedureCallStatement();
     Node parseRaiseStmt();
 
+    void parseExceptionStmt(Node context);
+
     Node parseExpr();
     Node parsePrimaryExpr();
     Node parseParenExpr();

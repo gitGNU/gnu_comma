@@ -980,11 +980,15 @@ void Parser::parseSubroutineBody(Node declarationNode)
     requireToken(Lexer::TKN_BEGIN);
 
     while (!currentTokenIs(Lexer::TKN_END) &&
+           !currentTokenIs(Lexer::TKN_EXCEPTION) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
         Node stmt = parseStatement();
         if (stmt.isValid())
             client.acceptStmt(routine, stmt);
     }
+
+    if (currentTokenIs(Lexer::TKN_EXCEPTION))
+        parseExceptionStmt(routine);
 
 PARSE_END_TAG:
     EndTagEntry tagEntry = endTagStack.top();

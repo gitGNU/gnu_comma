@@ -210,11 +210,16 @@ Node Parser::parseBlockStmt()
 
     if (requireToken(Lexer::TKN_BEGIN)) {
         while (!currentTokenIs(Lexer::TKN_END) &&
+               !currentTokenIs(Lexer::TKN_EXCEPTION) &&
                !currentTokenIs(Lexer::TKN_EOT)) {
             Node stmt = parseStatement();
             if (stmt.isValid())
                 client.acceptStmt(block, stmt);
         }
+
+        if (currentTokenIs(Lexer::TKN_EXCEPTION))
+            parseExceptionStmt(block);
+
         if (parseEndTag(label)) {
             client.endBlockStmt(block);
             return block;
@@ -389,5 +394,71 @@ Node Parser::parseRaiseStmt()
     return client.acceptRaiseStmt(raiseLoc, exception, message);
 }
 
+void Parser::parseExceptionStmt(Node context)
+{
+    assert(currentTokenIs(Lexer::TKN_EXCEPTION));
+    ignoreToken();
 
+    // FIXME: Recovery from parse errors needs to be improved considerably.
+    bool seenOthers = false;
+    Location othersLoc = 0;
+    do {
+        Location loc = currentLocation();
+        if (!requireToken(Lexer::TKN_WHEN)) {
+            seekToken(Lexer::TKN_END);
+            return;
+        }
 
+        if (seenOthers) {
+            report(othersLoc, diag::OTHERS_HANDLER_NOT_FINAL);
+            seekToken(Lexer::TKN_END);
+            return;
+        }
+
+        // FIXME: Exception occurrence declarations are not yet supported, just
+        // choices.
+        NodeVector choices;
+        do {
+            Location choiceLoc = currentLocation();
+            if (reduceToken(Lexer::TKN_OTHERS)) {
+                if (!choices.empty()) {
+                    report(choiceLoc, diag::OTHERS_HANDLER_NOT_UNIQUE);
+                    seekToken(Lexer::TKN_END);
+                    return;
+                }
+                seenOthers = true;
+                othersLoc = choiceLoc;
+                break;
+            }
+
+            Node exception = parseName();
+            if (exception.isValid())
+                choices.push_back(exception);
+            else {
+                seekToken(Lexer::TKN_END);
+                return;
+            }
+        } while (reduceToken(Lexer::TKN_BAR));
+
+        if (!requireToken(Lexer::TKN_RDARROW)) {
+            seekToken(Lexer::TKN_END);
+            return;
+        }
+
+        Node handler = client.beginHandlerStmt(loc, choices);
+        if (handler.isInvalid()) {
+            seekToken(Lexer::TKN_END);
+            return;
+        }
+
+        do {
+            Node stmt = parseStatement();
+            if (stmt.isValid())
+                client.acceptStmt(handler, stmt);
+        } while (!currentTokenIs(Lexer::TKN_WHEN) &&
+                 !currentTokenIs(Lexer::TKN_END) &&
+                 !currentTokenIs(Lexer::TKN_EOT));
+
+        client.endHandlerStmt(context, handler);
+    } while (currentTokenIs(Lexer::TKN_WHEN));
+}

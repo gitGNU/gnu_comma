@@ -239,18 +239,22 @@ void TypeCheck::endBlockStmt(Node blockNode)
 
 bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
 {
-    if (SubroutineDecl *SR = lift_node<SubroutineDecl>(contextNode)) {
-        BlockStmt *block = SR->getBody();
-        block->addStmt(cast_node<Stmt>(stmtNode));
-    }
-    else if (BlockStmt *block = lift_node<BlockStmt>(contextNode)) {
-        block->addStmt(cast_node<Stmt>(stmtNode));
-    }
+    Stmt *stmt = cast_node<Stmt>(stmtNode);
+    StmtSequence *seq;
+
+    if (SubroutineDecl *SR = lift_node<SubroutineDecl>(contextNode))
+        seq = SR->getBody();
+    else if (BlockStmt *block = lift_node<BlockStmt>(contextNode))
+        seq = block;
+    else if (HandlerStmt *handler = lift_node<HandlerStmt>(contextNode))
+        seq = handler;
     else {
         assert(false && "Invalid context for acceptStmt!");
         return false;
     }
+
     stmtNode.release();
+    seq->addStmt(stmt);
     return true;
 }
 
@@ -378,3 +382,46 @@ Node TypeCheck::acceptRaiseStmt(Location raiseLoc, Node exceptionNode,
     return getNode(raise);
 }
 
+Node TypeCheck::beginHandlerStmt(Location loc, NodeVector &choiceNodes)
+{
+    typedef NodeLifter<ExceptionRef> lifter;
+    typedef llvm::mapped_iterator<NodeVector::iterator, lifter> iterator;
+
+    typedef llvm::SmallVector<ExceptionRef*, 8> ChoiceVec;
+    ChoiceVec choices;
+
+    // Simply ensure that all choices resolve to ExceptionRef's.
+    bool allOK = true;
+    iterator I(choiceNodes.begin(), lifter());
+    iterator E(choiceNodes.end(), lifter());
+    for ( ; I != E; ++I) {
+        if (ExceptionRef *ref = *I)
+            choices.push_back(ref);
+        else {
+            report(getNodeLoc(*I.getCurrent()), diag::NOT_AN_EXCEPTION);
+            allOK = false;
+        }
+    }
+    if (!allOK)
+        return getInvalidNode();
+
+    choiceNodes.release();
+    HandlerStmt *handler = new HandlerStmt(loc, choices.data(), choices.size());
+    return getNode(handler);
+}
+
+void TypeCheck::endHandlerStmt(Node context, Node handlerNode)
+{
+    StmtSequence *handledSequence;
+    HandlerStmt *handler = cast_node<HandlerStmt>(handlerNode);
+
+    // The only valid context for handlers are block and subroutine
+    // declarations.
+    if (SubroutineDecl *SR = lift_node<SubroutineDecl>(context))
+        handledSequence = SR->getBody();
+    else
+        handledSequence = cast_node<BlockStmt>(context);
+
+    handlerNode.release();
+    handledSequence->addHandler(handler);
+}

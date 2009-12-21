@@ -495,6 +495,32 @@ public:
     virtual void endBlockStmt(Node block) = 0;
     //@}
 
+    /// \name Exception Handler Callbacks.
+    ///
+    //@{
+
+    /// Begins an exception handler.
+    ///
+    /// \param loc Location of the \c when reserved word.
+    ///
+    /// \param choices Set of valid nodes as procudueced by the name callbacks
+    /// representing the set of exceptions this handler covers.
+    ///
+    /// \return A node representing the handler.  This node, if valid, is used
+    /// as the context in a call to acceptStmt for each statement constituting
+    /// the body of this handler.
+    virtual Node beginHandlerStmt(Location loc, NodeVector &choices) = 0;
+
+    /// Completes an exception handler.
+    ///
+    /// \param context A Node which this handler should be associated with.
+    /// This is the result of a call to beginSubroutineDefinition or
+    /// beginBlockStmt.
+    ///
+    /// \param handler The Node returned by a call to beginHandlerStmt.
+    virtual void endHandlerStmt(Node context, Node handler) = 0;
+    //@}
+
     /// Called to notify the client that a statement has been completely
     /// parsed.
     ///

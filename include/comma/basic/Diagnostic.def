@@ -63,6 +63,10 @@ DIAGNOSTIC(INVALID_PRAGMA_CONTEXT, ERROR,
            "Pragma `%0' cannot be used in this context.")
 DIAGNOSTIC(INVALID_ATTRIBUTE_CONTEXT, ERROR,
            "Invalid context for attribute `%0'.")
+DIAGNOSTIC(OTHERS_HANDLER_NOT_UNIQUE, ERROR,
+           "An others choice for a handler must be unique.")
+DIAGNOSTIC(OTHERS_HANDLER_NOT_FINAL, ERROR,
+           "A handler covered by an `others' choice must be the last handler.")
 
 //
 // Semantic Diagnostics.
