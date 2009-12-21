@@ -94,6 +94,7 @@ GLYPH(GREAT,   ">")
 GLYPH(AT,      "@")
 GLYPH(QUOTE,   "'")
 GLYPH(FSLASH,  "/")
+GLYPH(BAR,     "|")
 
 GLYPH(LPAREN,  "(")
 GLYPH(RPAREN,  ")")

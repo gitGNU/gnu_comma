@@ -482,6 +482,11 @@ bool Lexer::scanGlyph()
 
     case '@':
         code = TKN_AT;
+        break;
+
+    case '|':
+        code = TKN_BAR;
+        break;
     }
 
     if (code == UNUSED_ID) {
