@@ -107,7 +107,7 @@ void HandlerEmitter::emitHandlers(StmtSequence *seq, llvm::BasicBlock *mergeBB)
     // explicitly associated with this sequence then the current insertion point
     // is set to our implicit handler.  Propagate the exception.
     if (!seq->hasCatchAll())
-        RT.reraise(Builder, exception);
+        RT.reraise(frame(), exception);
 
     Builder.SetInsertPoint(mergeBB);
 }

@@ -123,6 +123,19 @@ public:
     llvm::Value *lookup(const PrimaryType *type, activation::Tag tag);
     //@}
 
+    template <class Iter>
+    llvm::Value *emitCall(llvm::Value *fn, Iter begin, Iter end) {
+        llvm::Value *result = 0;
+        if (llvm::BasicBlock *lpad = getLandingPad()) {
+            llvm::BasicBlock *norm = makeBasicBlock("invoke.normal");
+            result = Builder.CreateInvoke(fn, norm, lpad, begin, end);
+            Builder.SetInsertPoint(norm);
+        }
+        else
+            result = Builder.CreateCall(fn, begin, end);
+        return result;
+    }
+
     void emitReturn();
 
     llvm::Value *getReturnValue() { return returnValue; }

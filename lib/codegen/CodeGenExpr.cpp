@@ -260,7 +260,7 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
     // Raise a CONSTRAINT_ERROR exception if the check failed.
     Builder.SetInsertPoint(checkFailBB);
     llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
-    CRT.raiseConstraintError(Builder, msg);
+    CRT.raiseConstraintError(SRF, msg);
 
     // Switch the context to the success block.
     Builder.SetInsertPoint(checkMergeBB);

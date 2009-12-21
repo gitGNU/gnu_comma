@@ -26,6 +26,7 @@ class CodeGen;
 class CodeGenCapsule;
 class DomainInfo;
 class DomainInstance;
+class SRFrame;
 
 class CommaRT {
 
@@ -104,7 +105,7 @@ public:
     /// Calls registerException on the provided exception declaration, then
     /// generates code for a raise.  \p message must be a pointer to a global
     /// string of type i8* or null.
-    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+    void raise(SRFrame *frame, const ExceptionDecl *exception,
                llvm::GlobalVariable *message = 0);
 
     /// Throws an exception.
@@ -117,18 +118,18 @@ public:
     /// \note For compiler generated exceptions it is always preferable to raise
     /// using a static global as the runtime can avoid a copy of the message
     /// data in that case.
-    void raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+    void raise(SRFrame *frame, const ExceptionDecl *exception,
                llvm::Value *message = 0, llvm::Value *length = 0);
 
     /// Reraises the given exception object.
-    void reraise(llvm::IRBuilder<> &builder, llvm::Value *exception);
+    void reraise(SRFrame *frame, llvm::Value *exception);
 
     /// Convinience method to throw a PROGRAM_ERROR.
-    void raiseProgramError(llvm::IRBuilder<> &builder,
+    void raiseProgramError(SRFrame *frame,
                            llvm::GlobalVariable *message) const;
 
     /// Convinience method to throw a CONSTRAINT_ERROR.
-    void raiseConstraintError(llvm::IRBuilder<> &builder,
+    void raiseConstraintError(SRFrame *frame,
                               llvm::GlobalVariable *message) const;
 
     /// Generates a call to _comma_unhandled_exception.  This is only called by
@@ -288,6 +289,16 @@ private:
     /// Helper method to the raise methods.  Ensures the given global value
     /// denotes a CString if non-null.  If null, returns a null i8*.
     llvm::Constant *checkAndConvertMessage(llvm::GlobalVariable *message) const;
+
+    /// Helper method for the various exception generators.  Raises an exception
+    /// given an exinfo object and a static message.
+    void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                     llvm::GlobalVariable *message) const;
+
+    /// Helper method for the various exception generators.  Raises an exception
+    /// given an exinfo object and a dynammic message.
+    void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                     llvm::Value *message, llvm::Value *length) const;
 };
 
 template <> inline

@@ -472,10 +472,10 @@ void CodeGenRoutine::emitRaiseStmt(RaiseStmt *stmt)
         ABPair = emitArrayExpr(stmt->getMessage(), 0, false);
         message = ABPair.first;
         length = emitter.computeBoundLength(Builder, ABPair.second, 0);
-        CG.getRuntime().raise(Builder, exception, message, length);
+        CG.getRuntime().raise(SRF, exception, message, length);
     }
     else
-        CG.getRuntime().raise(Builder, exception, 0, 0);
+        CG.getRuntime().raise(SRF, exception, 0, 0);
 }
 
 void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)

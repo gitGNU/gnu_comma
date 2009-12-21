@@ -11,6 +11,7 @@
 #include "CommaRT.h"
 #include "DomainInfo.h"
 #include "DomainInstance.h"
+#include "Frame.h"
 #include "comma/ast/Decl.h"
 #include "comma/codegen/Mangle.h"
 
@@ -340,52 +341,84 @@ CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
     return result;
 }
 
-void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
                     llvm::GlobalVariable *message)
 {
     llvm::Value *exinfo = registerException(exception);
-    llvm::Constant *msgPtr = checkAndConvertMessage(message);
-    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
-    builder.CreateUnreachable();
+    raiseExinfo(frame, exinfo, message);
 }
 
-void CommaRT::raise(llvm::IRBuilder<> &builder, const ExceptionDecl *exception,
+void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
                     llvm::Value *message, llvm::Value *length)
 {
     llvm::Value *exinfo = registerException(exception);
-    llvm::Value *msgPtr;
+    raiseExinfo(frame, exinfo, message, length);
+}
+
+void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                          llvm::GlobalVariable *message) const
+{
+    llvm::IRBuilder<> &builder = frame->getIRBuilder();
+    llvm::Constant *msgPtr = checkAndConvertMessage(message);
+    if (llvm::BasicBlock *lpad = frame->getLandingPad()) {
+        llvm::BasicBlock *norm = frame->makeBasicBlock("invoke.normal");
+        llvm::Value *args[2] = { exinfo, msgPtr };
+        builder.CreateInvoke(raiseStaticExceptionFn, norm, lpad, args, args+2);
+        builder.SetInsertPoint(norm);
+    }
+    else
+        builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
+    builder.CreateUnreachable();
+}
+
+void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                          llvm::Value *message, llvm::Value *length) const
+{
+    llvm::IRBuilder<> &builder = frame->getIRBuilder();
+
     if (message)
-        msgPtr = builder.CreatePointerCast(message, CG.getInt8PtrTy());
+        message = builder.CreatePointerCast(message, CG.getInt8PtrTy());
     else {
-        msgPtr = llvm::ConstantPointerNull::get(CG.getInt8PtrTy());
+        message = llvm::ConstantPointerNull::get(CG.getInt8PtrTy());
         length = llvm::ConstantInt::get(CG.getInt32Ty(), 0);
     }
-    builder.CreateCall3(raiseUserExceptionFn, exinfo, msgPtr, length);
+
+    if (llvm::BasicBlock *lpad = frame->getLandingPad()) {
+        llvm::BasicBlock *norm = frame->makeBasicBlock("invoke.normal");
+        llvm::Value *args[3] = { exinfo, message, length };
+        builder.CreateInvoke(raiseUserExceptionFn, norm, lpad, args, args+3);
+        builder.SetInsertPoint(norm);
+    }
+    else
+        builder.CreateCall3(raiseUserExceptionFn, exinfo, message, length);
     builder.CreateUnreachable();
 }
 
-void CommaRT::reraise(llvm::IRBuilder<> &builder, llvm::Value *exception)
+void CommaRT::reraise(SRFrame *frame, llvm::Value *exception)
 {
-    builder.CreateCall(reraiseExceptionFn, exception);
+    llvm::IRBuilder<> &builder = frame->getIRBuilder();
+
+    if (llvm::BasicBlock *lpad = frame->getLandingPad()) {
+        llvm::BasicBlock *norm = frame->makeBasicBlock("invoke.normal");
+        llvm::Value *args[1] = { exception };
+        builder.CreateInvoke(reraiseExceptionFn, norm, lpad, args, args+1);
+        builder.SetInsertPoint(norm);
+    }
+    else
+        builder.CreateCall(reraiseExceptionFn, exception);
     builder.CreateUnreachable();
 }
 
-void CommaRT::raiseProgramError(llvm::IRBuilder<> &builder,
+void CommaRT::raiseProgramError(SRFrame *frame,
                                 llvm::GlobalVariable *message) const
 {
-    llvm::Value *exinfo = theProgramErrorExinfo;
-    llvm::Constant *msgPtr = checkAndConvertMessage(message);
-    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
-    builder.CreateUnreachable();
+    raiseExinfo(frame, theProgramErrorExinfo, message);
 }
 
-void CommaRT::raiseConstraintError(llvm::IRBuilder<> &builder,
+void CommaRT::raiseConstraintError(SRFrame *frame,
                                    llvm::GlobalVariable *message) const
 {
-    llvm::Value *exinfo = theConstraintErrorExinfo;
-    llvm::Constant *msgPtr = checkAndConvertMessage(message);
-    builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
-    builder.CreateUnreachable();
+    raiseExinfo(frame, theConstraintErrorExinfo, message);
 }
 
 llvm::Constant *CommaRT::getEHPersonality() const

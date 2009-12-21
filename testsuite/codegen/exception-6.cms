@@ -1,0 +1,15 @@
+-- Ensure raises are caught by immediately enclosing handler.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+   begin
+      raise Program_Error;
+   exception
+      when Program_Error =>
+         return;
+      when others =>
+         pragma Assert(false);
+   end Run;
+end Test;
