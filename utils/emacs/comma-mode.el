@@ -133,17 +133,18 @@ comma-mode-syntax-table."
          "\\>")
        (1 font-lock-keyword-face))
 
-     ;; Highlight end tags, domain, function, procedure, exception, and prama
+     ;; Highlight end tags, domain, function, procedure, and prama
      ;; names.
      `(,(concat "\\<"
                 (regexp-opt '("domain" "end" "function" "package" "pragma"
-                              "procedure" "signature" "raise") t)
+                              "procedure" "signature") t)
                 "\\>"
                 "\\([ \t]+\\)?\\(\\(\\sw\\|[_.]\\)+\\)?")
        (3 font-lock-function-name-face nil t))
 
-     ;; Type declarations.
-     `(,(concat "\\<" (regexp-opt '("type" "subtype" "of" "import") t) "\\>"
+     ;; Type declarations and names.
+     `(,(concat "\\<" (regexp-opt '("type" "subtype" "of" "import"
+                                    "raise") t) "\\>"
                 "[ \t]+\\(\\(\\sw\\|[_.]\\)+\\)?")
        (2 font-lock-type-face nil t))
 
@@ -472,6 +473,9 @@ nil.  This function performs leftward indentation and alignment."
        ((looking-at "\\<add\\>")
         (when (re-search-backward "\\<domain\\>" nil t)
           (current-column)))
+       ((looking-at "\\<exception\\>")
+        (when (re-search-backward "\\<begin\\>" nil t)
+          (current-column)))
        (t nil)))))
 
 (defun comma-find-indentation ()
@@ -481,7 +485,8 @@ nil.  This function performs rightward indentation and alignment."
          (eval-when-compile
            (concat "\\<"
                    (regexp-opt '("add" "domain" "signature" "while" "for" "loop"
-                                 "begin" "if" "else" "elsif" "generic") t)
+                                 "begin" "if" "else" "elsif" "exception"
+                                 "generic" "when") t)
                    "\\>"))))
     (save-excursion
       (back-to-indentation)
@@ -489,6 +494,10 @@ nil.  This function performs rightward indentation and alignment."
       (cond
        ((looking-at "\\<return\\>")
         (comma-indent-return))
+       ((looking-at "\\<when\\>")
+        (if (re-search-backward "\\<exception\\>" nil t)
+            (+ (current-indentation) comma-default-indent)
+          (current-column)))
        ;; Second phase inspects the previous line.
        (t (if (not (comma-back-line))
               0
