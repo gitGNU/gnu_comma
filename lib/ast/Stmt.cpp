@@ -29,6 +29,21 @@ bool StmtSequence::hasCatchAll() const
     return false;
 }
 
+bool StmtSequence::handles(const ExceptionDecl *exception) const
+{
+    if (!isHandled())
+        return false;
+
+    if (hasCatchAll())
+        return true;
+
+    for (const_handler_iter I = handler_begin(); I != handler_end(); ++I)
+        if ((*I)->handles(exception))
+            return true;
+
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // HandlerStmt
 HandlerStmt::HandlerStmt(Location loc, ExceptionRef **refs, unsigned numRefs)
@@ -37,6 +52,16 @@ HandlerStmt::HandlerStmt(Location loc, ExceptionRef **refs, unsigned numRefs)
 {
     choices = new ExceptionRef*[numChoices];
     std::memcpy(choices, refs, sizeof(ExceptionRef*)*numRefs);
+}
+
+bool HandlerStmt::handles(const ExceptionDecl *exception) const
+{
+    for (const_choice_iterator I = choice_begin(); I != choice_end(); ++I) {
+        const ExceptionRef *ref = *I;
+        if (ref->getException() == exception)
+            return true;
+    }
+    return false;
 }
 
 //===----------------------------------------------------------------------===//

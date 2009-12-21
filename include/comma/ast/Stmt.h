@@ -90,6 +90,13 @@ public:
     /// this sequence.
     bool hasCatchAll() const;
 
+    /// Returns true if the given ExceptionDecl is covered by any of the
+    /// handlers in this sequence.
+    ///
+    /// \note This method will always return false when isHandled() is false,
+    /// and always return true when hasCatchAll() is true.
+    bool handles(const ExceptionDecl *exception) const;
+
     /// Adds a handler to this StmtSequence.
     ///
     /// If the given handler is a "catch-all" handler, this must be the last
@@ -141,6 +148,9 @@ public:
 
     /// Returns true if this handler denotes a "catch-all".
     bool isCatchAll() const { return getNumChoices() == 0; }
+
+    /// Returns true if this handler covers the given exception.
+    bool handles(const ExceptionDecl *exception) const;
 
     //@{
     /// Iterators over the set of exception choices associated with this
