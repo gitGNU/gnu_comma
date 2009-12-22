@@ -38,14 +38,7 @@ CommaRT::CommaRT(CodeGen &CG)
       DomainInstancePtrTy(0),
 
       ITablePtrTy(getITablePtrTy()),
-      DomainCtorPtrTy(0),
-
-      GetDomainName("_comma_get_domain"),
-      AssertFailName("_comma_assert_fail"),
-      EHPersonalityName("_comma_eh_personality"),
-      UnhandledExceptionName("_comma_unhandled_exception"),
-      pow_i32_i32_Name("_comma_pow_i32_i32"),
-      pow_i64_i32_Name("_comma_pow_i64_i32")
+      DomainCtorPtrTy(0)
 {
     DInfo = new DomainInfo(*this);
     DomainInfoPtrTy = DInfo->getPointerTypeTo();
@@ -138,7 +131,7 @@ void CommaRT::defineGetDomain()
     // parameters.
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, true);
 
-    getDomainFn = CG.makeFunction(fnTy, GetDomainName);
+    getDomainFn = CG.makeFunction(fnTy, "_comma_get_domain");
 }
 
 void CommaRT::defineAssertFail()
@@ -152,7 +145,7 @@ void CommaRT::defineAssertFail()
     // not return.
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
 
-    assertFailFn = CG.makeFunction(fnTy, AssertFailName);
+    assertFailFn = CG.makeFunction(fnTy, "_comma_assert_fail");
     assertFailFn->setDoesNotReturn();
 }
 
@@ -162,7 +155,7 @@ void CommaRT::defineEHPersonality()
     // definition.
     const llvm::Type *retTy = CG.getInt32Ty();
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, false);
-    EHPersonalityFn = CG.makeFunction(fnTy, EHPersonalityName);
+    EHPersonalityFn = CG.makeFunction(fnTy, "_comma_eh_personality");
 }
 
 void CommaRT::defineUnhandledException()
@@ -175,7 +168,7 @@ void CommaRT::defineUnhandledException()
     args.push_back(CG.getInt8PtrTy());
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
 
-    unhandledExceptionFn = CG.makeFunction(fnTy, UnhandledExceptionName);
+    unhandledExceptionFn = CG.makeFunction(fnTy, "_comma_unhandled_exception");
     unhandledExceptionFn->setDoesNotReturn();
 }
 
@@ -235,7 +228,7 @@ void CommaRT::define_pow_i32_i32()
     args.push_back(i32Ty);
     args.push_back(i32Ty);
     llvm::FunctionType *fnTy = llvm::FunctionType::get(i32Ty, args, false);
-    pow_i32_i32_Fn = CG.makeFunction(fnTy, pow_i32_i32_Name);
+    pow_i32_i32_Fn = CG.makeFunction(fnTy, "_comma_pow_i32_i32");
 }
 
 void CommaRT::define_pow_i64_i32()
@@ -248,7 +241,7 @@ void CommaRT::define_pow_i64_i32()
     args.push_back(i64Ty);
     args.push_back(i32Ty);
     llvm::FunctionType *fnTy = llvm::FunctionType::get(i64Ty, args, false);
-    pow_i64_i32_Fn = CG.makeFunction(fnTy, pow_i64_i32_Name);
+    pow_i64_i32_Fn = CG.makeFunction(fnTy, "_comma_pow_i64_i32");
 }
 
 void CommaRT::define_vstack_alloc()

@@ -190,15 +190,6 @@ private:
     const llvm::PointerType *ITablePtrTy;
     const llvm::PointerType *DomainCtorPtrTy;
 
-    // Names of the comma runtime functions.
-    std::string GetDomainName;
-    std::string AssertFailName;
-    std::string EHPersonalityName;
-    std::string UnhandledExceptionName;
-    std::string RaiseExceptionName;
-    std::string pow_i32_i32_Name;
-    std::string pow_i64_i32_Name;
-
     // Function declarations for the comma runtime functions.
     llvm::Function *getDomainFn;
     llvm::Function *assertFailFn;
