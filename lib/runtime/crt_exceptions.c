@@ -995,7 +995,7 @@ void _comma_raise_nexception(comma_exinfo_t info, const char *message,
 void _comma_reraise_exception(struct comma_exception *exception)
 {
     struct _Unwind_Exception *exception_object = to_Unwind_Exception(exception);
-    _Unwind_Resume(exception_object);
+    _Unwind_RaiseException(exception_object);
 }
 
 /*

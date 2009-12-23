@@ -12,7 +12,13 @@
 LEVEL = ../..
 
 #
-# We are building a library.  The defaults are fine.
+# Bring in the common rules.
 #
 include $(LEVEL)/Makefile.common
+
+#
+# The runtime library can throw Comma exceptions.  Ensure the exception tables
+# are generated.
+#
+c_flags += -fexceptions
 include $(makefiles)/library.mk
