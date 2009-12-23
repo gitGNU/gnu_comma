@@ -154,6 +154,8 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
     case Ast::AST_ConversionExpr:
         return emitConversionValue(cast<ConversionExpr>(expr));
     }
+
+    return 0;
 }
 
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)

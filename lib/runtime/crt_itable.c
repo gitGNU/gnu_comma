@@ -13,7 +13,7 @@
 #include <string.h>
 
 #define FNV_PRIME           16777619
-#define FNV_OFFSET          2166136261
+#define FNV_OFFSET          2166136261U
 #define LOAD_FACTOR         0.75
 #define DEFAULT_BUCKET_SIZE 5
 #define MAX_BUCKET_SIZE     16
