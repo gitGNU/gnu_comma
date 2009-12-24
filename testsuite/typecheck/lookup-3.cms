@@ -1,4 +1,4 @@
--- MUST-FAIL:  Ensure local variables shadow local functions.
+-- Ensure local variables shadow local functions.
 
 domain D add
 
@@ -12,7 +12,7 @@ domain D add
   function Test return Boolean is
      Foo : Not_Bool := X;
   begin
-     return Foo;
+     return Foo;                -- EXPECTED-ERROR: Incompatible type
   end Test;
 
 end D;

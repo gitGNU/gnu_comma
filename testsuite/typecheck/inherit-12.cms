@@ -1,4 +1,4 @@
--- MUST-FAIL: Ensure redundant declarations match wrt parameter modes.
+-- Ensure redundant declarations match wrt parameter modes.
 
 signature S with
    procedure P (X : in out %);
@@ -7,6 +7,6 @@ end S;
 
 signature T is S
 with
-   procedure P (X : %);
-   procedure Q (Y : %);
+   procedure P (X : %);         -- EXPECTED-ERROR: conflicts with declaration
+   procedure Q (Y : %);         -- EXPECTED-ERROR: conflicts with declaration
 end T;

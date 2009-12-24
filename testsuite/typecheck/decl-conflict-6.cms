@@ -1,10 +1,10 @@
--- MUST-FAIL: Ensure duplicate object declarations are caught.
+-- Ensure duplicate object declarations are caught.
 
 domain D add
    carrier Rep is Boolean;
    procedure P is
       X : Boolean := true;
-      X : Boolean := false;
+      X : Boolean := false;     -- EXPECTED-ERROR: conflicts with declaration
    begin end P;
 end D;
 

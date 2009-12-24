@@ -1,8 +1,8 @@
--- MUST-FAIL: Ensure duplicate keys are in error.
+-- Ensure duplicate keys are in error.
 domain D add
   procedure F (X : %; Y : %; Z : %) is begin end F;
   procedure T (A : %) is
   begin
-     F(A, Y => A, Y => A);
+     F(A, Y => A, Y => A);      -- EXPECTED-ERROR: Duplicate argument keyword
   end T;
 end D;

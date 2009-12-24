@@ -1,15 +1,17 @@
--- MUST-FAIL:  Ensure local declarations in an add cannot conflict with the
--- domains name or parameters.
+-- Ensure local declarations in an add cannot conflict with the domains name or
+-- parameters.
 
 domain D add
-   type D is (A);
+   type D is (A);               -- EXPECTED-ERROR: conflicts with declaration
 
-   type E is (D);
+   type E is (D);               -- EXPECTED-ERROR: conflicts with declaration
 
+   -- EXPECTED-ERROR: conflicts with declaration
    function D return Integer is
    begin
       return 0;
    end D;
 
+   -- EXPECTED-ERROR: conflicts with declaration
    procedure D is begin end D;
 end D;

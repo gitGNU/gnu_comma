@@ -1,4 +1,4 @@
--- MUST-FAIL:  Ensure local variables shadow local procedures.
+-- Ensure local variables shadow local procedures.
 
 domain D add
 
@@ -7,7 +7,7 @@ domain D add
   procedure Test is
      Foo : Boolean := true;
   begin
-     Foo;
+     Foo;                       -- EXPECTED-ERROR: Expected procedure
   end Test;
 
 end D;

@@ -1,9 +1,10 @@
--- MUST-FAIL: Ensure keyed aggregates lacking an others clause are continuous.
+-- Ensure keyed aggregates lacking an others clause are continuous.
 
 domain Test with
    procedure Run;
 add
    procedure Run is
+      -- EXPECTED-ERROR: Discrete choice not continuous
       S : String := (1..3 => 'x', 5..6 => 'y');
    begin end Run;
 end Test;

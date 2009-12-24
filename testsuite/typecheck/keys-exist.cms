@@ -1,8 +1,8 @@
--- MUST-FAIL: Diagnose non-existant keys.
+-- Diagnose non-existant keys.
 domain D add
    procedure P (X : %) is begin end P;
    procedure T (A : %) is
    begin
-      P(NoSuchKey => A);
+      P(NoSuchKey => A);        -- EXPECTED-ERROR: no argument keyword
    end T;
 end D;

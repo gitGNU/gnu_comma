@@ -1,4 +1,4 @@
--- MUST-FAIL: Inner types of a domain instance should be distinct.
+-- Inner types of a domain instance should be distinct.
 
 generic
    abstract domain X;
@@ -12,7 +12,7 @@ domain D2 end D2;
 domain D3 add
    procedure Test is
      X : F(D1).T := F(D1).A;
-     Y : F(D2).T := X;
+     Y : F(D2).T := X;          -- EXPECTED-ERROR: Incompatible type
    begin
    end Test;
 end D3;

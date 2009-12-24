@@ -1,5 +1,5 @@
--- MUST-FAIL: Ensure unconstrained array types cannot be initialized using an
--- expression with a different base type.
+-- Ensure unconstrained array types cannot be initialized using an expression
+-- with a different base type.
 
 domain D add
 
@@ -8,6 +8,7 @@ domain D add
 
    procedure P is
       X : Arr_1 := "x";
+      -- EXPECTED-ERROR: Incompatible type
       Y : Arr_2 := X;
    begin end P;
 

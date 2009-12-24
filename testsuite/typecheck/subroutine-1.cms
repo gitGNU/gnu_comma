@@ -1,7 +1,6 @@
--- MUST-FAIL: Ensure binary functions cannot be defined with one argument.
+-- Ensure binary functions cannot be defined with one argument.
 
 signature S with
-
+   -- EXPECTED-ERROR: Wrong number of arguments for operator
    function * (X : Integer) return Integer;
-
 end S;

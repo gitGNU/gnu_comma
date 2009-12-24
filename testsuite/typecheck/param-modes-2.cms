@@ -1,6 +1,7 @@
--- MUST-FAIL: Ensure functions cannot have parameters of mode "out".
+-- Ensure functions cannot have parameters of mode "out".
 
 domain D add
+   -- EXPECTED-ERROR: cannot have an `out' mode
    function F (X : out Boolean) return Boolean is
    begin
       return true;

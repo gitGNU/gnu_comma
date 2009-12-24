@@ -1,8 +1,8 @@
--- MUST-FAIL:  Ensure parameters of mode "in" cannot be assigned to.
+-- Ensure parameters of mode "in" cannot be assigned to.
 
 domain D add
    procedure P (X : Boolean) is
    begin
-      X := true;
+      X := true;                -- EXPECTED-ERROR: Cannot assign to parameter
    end P;
 end D;

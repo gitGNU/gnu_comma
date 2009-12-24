@@ -1,5 +1,4 @@
--- MUST-FAIL: Check that the type of an integer literal is not resolved
--- prematurely.
+-- Check that the type of an integer literal is not resolved prematurely.
 
 domain D with
    procedure P;
@@ -15,7 +14,7 @@ add
 
    procedure P is
    begin
-      T(10_000);
+      T(10_000);                -- EXPECTED-ERROR: Ambiguous expression
    end P;
 end D;
 

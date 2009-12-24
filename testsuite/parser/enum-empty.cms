@@ -1,5 +1,6 @@
--- MUST-FAIL: Ensure empty enumerations are in error.
+-- Ensure empty enumerations are in error.
 signature S with
+   -- EXPECTED-ERROR: Empty enumerations are not permitted.
    type X is ();
 end S;
 

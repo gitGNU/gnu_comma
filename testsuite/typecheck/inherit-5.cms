@@ -1,4 +1,4 @@
--- MUST-FAIL: Ensure abstract domains which do not satisfy are rejected.
+-- Ensure abstract domains which do not satisfy are rejected.
 
 signature S1 end S1;
 
@@ -10,4 +10,4 @@ signature S3 end S3;
 
 generic
    abstract domain X is S3;
-signature S4 is S2(X) end S4;
+signature S4 is S2(X) end S4;   -- EXPECTED-ERROR: not a valid actual

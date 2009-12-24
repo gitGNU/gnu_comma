@@ -1,8 +1,8 @@
--- MUST-FAIL: Ensure self-recursive carrier declarations are diagnosed.
+-- Ensure self-recursive carrier declarations are diagnosed.
 
 domain D add
    type Arr is array (Positive range <>) of %;
-   carrier Rep is Arr;
+   carrier Rep is Arr;          -- EXPECTED-ERROR: recursive type declaration
 end D;
 
 

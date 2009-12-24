@@ -1,7 +1,7 @@
--- MUST-FAIL: Ensure direct names cannot coincide with a capsules name.
+-- Ensure direct names cannot coincide with a capsules name.
 
 signature S with
-   type S is (A);
-   procedure S;
-   function S return %;
+   type S is (A);               -- EXPECTED-ERROR: conflicts with declaration
+   procedure S;                 -- EXPECTED-ERROR: conflicts with declaration
+   function S return %;         -- EXPECTED-ERROR: conflicts with declaration
 end S;

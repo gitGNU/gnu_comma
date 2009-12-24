@@ -1,9 +1,10 @@
--- MUST-FAIL: Ensure multiple subroutine declarations are caught, independent of
--- keyword names.
+-- Ensure multiple subroutine declarations are caught, independent of keyword
+-- names.
 
 signature S with
    procedure P (X : %);
-   procedure P (Y : %);
+   procedure P (Y : %);         -- EXPECTED-ERROR: conflicts with declaration
+
    function F (X : %) return %;
-   function F (Y : %) return %;
+   function F (Y : %) return %; -- EXPECTED-ERROR: conflicts with declaration
 end S;

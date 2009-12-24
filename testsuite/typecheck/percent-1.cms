@@ -1,4 +1,4 @@
--- MUST-FAIL:  Ensure self-recursive instances are reported.
+-- Ensure self-recursive instances are reported.
 
 signature S with
    procedure Foo;
@@ -9,6 +9,6 @@ generic
 domain F is S add
    procedure Foo is
    begin
-      F(%).Foo;
+      F(%).Foo;                 -- EXPECTED-ERROR: recursive instantiation
    end Foo;
 end F;

@@ -1,4 +1,4 @@
--- MUST-FAIL:  Ensure function results are not usable in an "out" or "in out" context.
+-- Ensure function results are not usable in an "out" or "in out" context.
 
 domain D add
 
@@ -19,12 +19,12 @@ domain D add
 
    procedure Test1 is
    begin
-      P1(F);
+      P1(F);                    -- EXPECTED-ERROR: Expression cannot be used
    end Test1;
 
    procedure Test2 is
    begin
-      P2(F);
+      P2(F);                    -- EXPECTED-ERROR: Expression cannot be used
    end Test2;
 end D;
 

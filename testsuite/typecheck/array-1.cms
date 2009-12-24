@@ -1,11 +1,12 @@
--- MUST-FAIL: Ensure objects of unconstrained array type have an initializer.
+-- Ensure objects of unconstrained array type have an initializer.
 
 domain D add
 
   type Arr is array (Integer range <>) of Integer;
 
   procedure P is
-    X : Arr;
+     -- EXPECTED-ERROR: require initialization
+     X : Arr;
   begin end P;
 
 end D;

@@ -1,5 +1,4 @@
--- MUST-FAIL: Ensure parameters of mode "in" cannot be used in a "in out"
--- context.
+-- Ensure parameters of mode "in" cannot be used in a "in out" context.
 
 domain D add
    procedure P (X : in out Boolean) is
@@ -9,6 +8,7 @@ domain D add
 
    procedure Test (X : in Boolean) is
    begin
+      -- EXPECTED-ERROR: mode "in" cannot be used in a "in out" context
       P(X);
    end Test;
 end D;

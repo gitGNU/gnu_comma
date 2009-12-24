@@ -1,8 +1,8 @@
--- MUST-FAIL: Ensure types are not valid in expression contexts.
+-- Ensure types are not valid in expression contexts.
 
 domain D add
    function F return Integer is
    begin
-      return Bool;
+      return Bool;              -- EXPECTED-ERROR: not visible
    end F;
 end D;

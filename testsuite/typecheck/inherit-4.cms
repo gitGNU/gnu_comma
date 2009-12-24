@@ -1,4 +1,4 @@
--- MUST-FAIL:  Ensure domains which do not satisfy are rejected.
+-- Ensure domains which do not satisfy are rejected.
 
 signature S1 end S1;
 
@@ -10,5 +10,5 @@ signature S3 end S3;
 
 domain D is S3 end D;
 
-signature S4 is S2(D) end S4;
+signature S4 is S2(D) end S4;   -- EXPECTED-ERROR: not a valid actual
 

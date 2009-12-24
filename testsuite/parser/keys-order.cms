@@ -1,9 +1,10 @@
--- MUST-FAIL: Ensure keys follow all positional parameters.
+-- Ensure keys follow all positional parameters.
 domain D add
   procedure Foo (X : %; Y : %; Z : %) is begin end Foo;
 
   procedure Bar (A : %) is
   begin
+     -- EXPECTED-ERROR: Positional arguments may not follow
      Foo (A, Z => A, A);
   end Bar;
 end D;

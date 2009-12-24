@@ -1,5 +1,6 @@
--- MUST-FAIL: Ensure subroutine declarations with disjoint keyword sets are
--- detected.
+-- Ensure subroutine declarations with disjoint keyword sets are detected.
+--
+-- FIXME: The compiler generates poor diagnostics in this case.
 
 signature S with
    procedure P (X : %);
@@ -7,8 +8,8 @@ signature S with
 end S;
 
 signature T with
-   procedure P (Y : %);
-   function F (Y : %) return %;
+   procedure P (Y : %);         -- EXPECTED-ERROR: conflicts with declaration
+   function F (Y : %) return %; -- EXPECTED-ERROR: conflicts with declaration
 end T;
 
 signature U is S and T end U;

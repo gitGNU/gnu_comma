@@ -1,11 +1,11 @@
--- MUST-FAIL:  Ensure export implementations match the public parameter mode
--- profile.
+-- Ensure export implementations match the public parameter mode profile.
 
-domain D with
+domain D with                   -- EXPECTED-ERROR: missing export
    procedure P (X : in out %);
 add
    carrier Rep is Integer;
 
+   -- EXPECTED-ERROR: conflicts with declaration
    procedure P (X : in %) is begin end P;
 end D;
 
