@@ -209,8 +209,10 @@ Node Parser::parseName(NameOption option)
             break;
     }
 
-    if (prefix.isInvalid())
+    if (prefix.isInvalid()) {
+        seekNameEnd();
         return prefix;
+    }
     else
         return client.finishName(prefix);
 }
