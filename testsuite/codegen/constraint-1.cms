@@ -1,0 +1,84 @@
+-- Check that some basic constraints on Comma's primitive integer types are
+-- respected.
+
+domain Test with
+   procedure Run;
+add
+
+   procedure Update_Integer (Target : in out Integer;
+                             Source :        Integer);
+
+   procedure Update_Natural (Target : in out Natural;
+                             Source :        Integer);
+
+   procedure Update_Positive (Target : in out Positive;
+                              Source :        Integer);
+
+   procedure Test_Integer_Constraint;
+   procedure Test_Natural_Constraint;
+   procedure Test_Positive_Constraint;
+
+   procedure Run is
+   begin
+      Test_Integer_Constraint;
+      Test_Natural_Constraint;
+      Test_Positive_Constraint;
+   exception
+      -- All tests should catch all exceptions.
+      when others =>
+         pragma Assert(false);
+   end Run;
+
+   procedure Update_Integer (Target : in out Integer;
+                             Source :        Integer) is
+   begin
+      Target := Source;
+   end Update_Integer;
+
+   procedure Update_Natural (Target : in out Natural;
+                             Source :        Integer) is
+   begin
+      Target := Source;
+   end Update_Natural;
+
+   procedure Update_Positive (Target : in out Positive;
+                              Source :        Integer) is
+   begin
+      Target := Source;
+   end Update_Positive;
+
+   procedure Test_Integer_Constraint is
+      Subject : Integer;
+   begin
+      -- No dynamic constraints are applicable.
+      Update_Integer(Source => Integer'Last, Target => Subject);
+   end Test_Integer_Constraint;
+
+   procedure Test_Natural_Constraint is
+      Subject : Natural;
+   begin
+      Update_Natural(Source => 0, Target => Subject);
+      pragma Assert(true);
+      Update_Natural(Source => -1, Target => Subject);
+      pragma Assert(false);
+   exception
+      when Constraint_Error =>
+         return;
+   end Test_Natural_Constraint;
+
+   procedure Test_Positive_Constraint is
+      Subject : Positive;
+   begin
+      Update_Positive(Source => 1, Target => Subject);
+      pragma Assert(true);
+      Update_Positive(Source => 0, Target => Subject);
+      pragma Assert(false);
+   exception
+      when Constraint_Error =>
+         return;
+   end Test_Positive_Constraint;
+
+end Test;
+
+
+
