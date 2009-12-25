@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
-#include "CodeGenCapsule.h"
+#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -29,10 +29,10 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-CodeGenRoutine::CodeGenRoutine(CodeGenCapsule &CGC, SRInfo *info)
-    : CG(CGC.getCodeGen()),
+CodeGenRoutine::CodeGenRoutine(CGContext &CGC, SRInfo *info)
+    : CG(CGC.getCG()),
       CGC(CGC),
-      CGT(CGC.getTypeGenerator()),
+      CGT(CGC.getCGT()),
       CRT(CG.getRuntime()),
       SRI(info),
       Builder(CG.getLLVMContext()),
@@ -215,7 +215,7 @@ PrimaryType *CodeGenRoutine::resolveType(Type *type)
         if (AbstractDomainDecl *decl = domTy->getAbstractDecl())
             instance = CGC.rewriteAbstractDecl(decl);
         else if (domTy->getPercentDecl())
-            instance = CGC.getInstance();
+            instance = CGC.getInstanceInfo()->getInstanceDecl();
         else
             instance = domTy->getInstanceDecl();
 

@@ -23,7 +23,6 @@ class TargetData;
 namespace comma {
 
 class CodeGen;
-class CodeGenCapsule;
 class DomainInfo;
 class DomainInstance;
 class SRFrame;
@@ -241,37 +240,6 @@ private:
     // Builds the llvm IR declarations for the primitive functions provided by
     // the runtime library.
     void generateRuntimeFunctions();
-
-    // Builds the constructor function for the given capsule.
-    llvm::Constant *genCapsuleCtor(CodeGenCapsule &CGC);
-
-    // Helper method for genCapsuleCtor.  Generates a call to get_domain for the
-    // given instance decl, storing the result into the destination vector with
-    // the given index.
-    void genInstanceRequirement(llvm::IRBuilder<> &builder,
-                                CodeGenCapsule &CGC,
-                                unsigned ID,
-                                llvm::Value *destVector,
-                                llvm::Value *percent);
-
-    /// Helper method for genInstanceRequirement.  Generates a call to
-    /// get_domain for the given instance (which must be an instance of a
-    /// non-parameterized domain), storing the result into the destination
-    /// vector with the given index.
-    void genDomainRequirement(llvm::IRBuilder<> &builder,
-                              CodeGenCapsule &CGC,
-                              unsigned ID,
-                              llvm::Value *destVector);
-
-    /// Helper method for genInstanceRequirement.  Generates a call to
-    /// get_domain for the given instance (which must be an instance of a
-    /// functor), storing the result into the destination vector with the given
-    /// index.
-    void genFunctorRequirement(llvm::IRBuilder<> &builder,
-                               CodeGenCapsule &CGC,
-                               unsigned ID,
-                               llvm::Value *destVector,
-                               llvm::Value *percent);
 
     /// Generates a constant comma_exinfo_t initializer for the given exception
     /// declaration.

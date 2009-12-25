@@ -22,7 +22,6 @@
 
 namespace comma {
 
-class CodeGenCapsule;
 class CodeGenTypes;
 class CommaRT;
 class DependencySet;
@@ -87,11 +86,11 @@ public:
     /// lookupGlobal method using the appropriately mangled name.
     bool extendWorklist(DomainInstanceDecl *instace);
 
-    InstanceInfo *lookupInstanceInfo(DomainInstanceDecl *instance) const {
+    InstanceInfo *lookupInstanceInfo(const DomainInstanceDecl *instance) const {
         return instanceTable.lookup(instance);
     }
 
-    InstanceInfo *getInstanceInfo(DomainInstanceDecl *instance) const {
+    InstanceInfo *getInstanceInfo(const DomainInstanceDecl *instance) const {
         InstanceInfo *info = lookupInstanceInfo(instance);
         assert(info && "Instance lookup failed!");
         return info;
@@ -103,8 +102,7 @@ public:
     /// If the lookup of \p srDecl fails an assertion will fire.
     SRInfo *getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl);
 
-
-    /// FIXME: This method needs to be encapsulated in the seperate structure.
+    /// FIXME: This method needs to be encapsulated in a seperate structure.
     const DependencySet &getDependencySet(const Domoid *domoid);
 
     /// \brief Adds a mapping between the given link name and an LLVM
@@ -329,7 +327,7 @@ private:
 
     /// Table mapping domain instance declarations to the corresponding
     /// InstanceInfo objects.
-    typedef llvm::DenseMap<DomainInstanceDecl*, InstanceInfo*> InstanceMap;
+    typedef llvm::DenseMap<const DomainInstanceDecl*, InstanceInfo*> InstanceMap;
     InstanceMap instanceTable;
 
     /// FIXME: Temporary mapping from Domoids to their dependency sets.  This
@@ -350,6 +348,9 @@ private:
     /// Compiles the next member of the instance table.  This operation could
     /// very well expand the table to include more instances.
     void emitNextInstance();
+
+    /// Emits the capsule described by the given info.
+    void emitCapsule(InstanceInfo *info);
 };
 
 } // end comma namespace.

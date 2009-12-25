@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
+#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "comma/ast/Type.h"
@@ -249,7 +250,7 @@ AggEmitter::ValuePair AggEmitter::emitStringLiteral(StringLiteral *expr)
 
     // Build a constant array representing the literal.
     CodeGen &CG = CGR.getCodeGen();
-    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
     const llvm::ArrayType *arrTy = CGT.lowerArrayType(expr->getType());
     const llvm::Type *elemTy = arrTy->getElementType();
     llvm::StringRef string = expr->getString();
@@ -642,7 +643,7 @@ AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
                                     llvm::Value *&dst)
 {
-    CodeGenTypes &CGT = CGR.getCGC().getTypeGenerator();
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
 
     if (arrTy->isStaticallyConstrained()) {
         dst = frame()->createTemp(CGT.lowerArrayType(arrTy));

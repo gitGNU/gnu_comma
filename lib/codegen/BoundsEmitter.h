@@ -15,12 +15,15 @@
 #ifndef COMMA_CODEGEN_BOUNDSEMITTER_HDR_GUARD
 #define COMMA_CODEGEN_BOUNDSEMITTER_HDR_GUARD
 
-#include "CodeGenCapsule.h"
-#include "CodeGenRoutine.h"
 #include "comma/ast/AstBase.h"
+
+#include "llvm/Support/IRBuilder.h"
 
 namespace comma {
 
+class CodeGen;
+class CodeGenRoutine;
+class CodeGenTypes;
 class Range;
 
 /// \class
@@ -35,10 +38,7 @@ class Range;
 class BoundsEmitter {
 
 public:
-    BoundsEmitter(CodeGenRoutine &CGR)
-        : CGR(CGR),
-          CG(CGR.getCodeGen()),
-          CGT(CGR.getCGC().getTypeGenerator()) { }
+    BoundsEmitter(CodeGenRoutine &CGR);
 
     /// Several methods return a std::pair of values representing a range.  The
     /// following typedef provides a shorthand.  The first component of such a
@@ -177,7 +177,7 @@ public:
 
 private:
     CodeGenRoutine &CGR;        // Routine generator.
-    CodeGen &CG;                // Code generation context.
+    CodeGen &CG;                // Code generator.
     CodeGenTypes &CGT;          // Type generator.
 };
 

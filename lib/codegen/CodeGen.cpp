@@ -7,7 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "SRInfo.h"
-#include "CodeGenCapsule.h"
+#include "CGContext.h"
+#include "CodeGenRoutine.h"
 #include "CommaRT.h"
 #include "DependencySet.h"
 #include "comma/ast/AstResource.h"
@@ -41,9 +42,8 @@ void CodeGen::emitToplevelDecl(Decl *decl)
 
         // Generate an InstanceInfo object for this domain.
         InstanceInfo *info = createInstanceInfo(domain->getInstance());
-        CodeGenCapsule CGC(*this, info);
-        CGC.emit();
-        capsuleInfoTable[CGC.getLinkName()] = CRT->registerCapsule(domain);
+        emitCapsule(info);
+        capsuleInfoTable[info->getLinkName()] = CRT->registerCapsule(domain);
     }
     else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl)) {
         DependencySet *DS = new DependencySet(functor);
@@ -59,6 +59,23 @@ void CodeGen::emitToplevelDecl(Decl *decl)
     // exist entries which need to be codegened.
     while (instancesPending())
         emitNextInstance();
+}
+
+void CodeGen::emitCapsule(InstanceInfo *info)
+{
+    CGContext CGC(*this, info);
+
+    // Codegen each subroutine.
+    const AddDecl *add = info->getDefinition()->getImplementation();
+    for (DeclRegion::ConstDeclIter I = add->beginDecls(), E = add->endDecls();
+         I != E; ++I) {
+        if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
+            SRInfo *SRI = getSRInfo(info->getInstanceDecl(), SRD);
+            CodeGenRoutine CGR(CGC, SRI);
+            CGR.emit();
+        }
+    }
+    info->markAsCompiled();
 }
 
 void CodeGen::emitEntry(ProcedureDecl *pdecl)
@@ -241,8 +258,7 @@ void CodeGen::emitNextInstance()
     for (iterator I = instanceTable.begin(); I != E; ++I) {
         if (I->second->isCompiled())
             continue;
-        CodeGenCapsule CGC(*this, I->second);
-        CGC.emit();
+        emitCapsule(I->second);
         return;
     }
 }
@@ -260,10 +276,11 @@ bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
     return true;
 }
 
-SRInfo *CodeGen::getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl)
+SRInfo *CodeGen::getSRInfo(DomainInstanceDecl *instance,
+                           SubroutineDecl *srDecl)
 {
-    InstanceInfo *iInfo = getInstanceInfo(instance);
-    return iInfo->getSRInfo(srDecl);
+    InstanceInfo *IInfo = getInstanceInfo(instance);
+    return IInfo->getSRInfo(srDecl);
 }
 
 bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)

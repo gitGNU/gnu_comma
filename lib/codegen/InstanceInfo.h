@@ -28,13 +28,17 @@ class SRInfo;
 class InstanceInfo {
 
 public:
+    //@{
     /// Returns the domoid underlying this particular instance.
-    Domoid *getDefinition() { return instance->getDefinition(); }
     const Domoid *getDefinition() const { return instance->getDefinition(); }
+    Domoid *getDefinition() { return instance->getDefinition(); }
+    //@}
 
+    //@{
     /// Returns the instance declaration node this info represents.
-    DomainInstanceDecl *getInstanceDecl() { return instance; }
     const DomainInstanceDecl *getInstanceDecl() const { return instance; }
+    DomainInstanceDecl *getInstanceDecl() { return instance; }
+    //@}
 
     /// Returns the link (mangled) name of this instance.
     llvm::StringRef getLinkName() const { return linkName; }

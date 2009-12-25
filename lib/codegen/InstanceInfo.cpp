@@ -44,7 +44,7 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
           linkName(mangle::getLinkName(instance)),
           compiledFlag(false)
 {
-    CodeGenTypes CGT(CG, instance);
+    CodeGenTypes CGT(CG);
 
     DeclRegion::DeclIter I;
     DeclRegion::DeclIter E;

@@ -560,7 +560,7 @@ private:
     typedef llvm::FoldingSet<DomainInstanceDecl> InstanceSet;
     mutable InstanceSet instances;
 
-    unsigned arity;                   ///< Number of formal parameters.x
+    unsigned arity;                   ///< Number of formal parameters.
     AbstractDomainDecl **formalDecls; ///< Formal parameter declarations.
     AddDecl *implementation;          ///< Body of this functor.
 };

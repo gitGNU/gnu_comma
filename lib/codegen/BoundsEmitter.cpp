@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CGContext.h"
+#include "CodeGenRoutine.h"
 #include "BoundsEmitter.h"
 #include "comma/ast/Expr.h"
 
@@ -38,6 +40,12 @@ llvm::Value *synthBounds(llvm::IRBuilder<> &Builder,
 }
 
 } // end anonymous namespace.
+
+
+BoundsEmitter::BoundsEmitter(CodeGenRoutine &CGR)
+  : CGR(CGR),
+    CG(CGR.getCodeGen()),
+    CGT(CGR.getCGC().getCGT()) { }
 
 const llvm::StructType *BoundsEmitter::getType(const ArrayType *arrTy)
 {

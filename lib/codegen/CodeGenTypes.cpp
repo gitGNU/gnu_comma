@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenCapsule.h"
+#include "CGContext.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
 #include "comma/ast/Decl.h"

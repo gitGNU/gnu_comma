@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenCapsule.h"
 #include "CommaRT.h"
 #include "DependencySet.h"
 #include "DomainInfo.h"

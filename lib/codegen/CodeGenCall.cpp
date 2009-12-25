@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
-#include "CodeGenCapsule.h"
+#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -33,7 +33,7 @@ public:
         : CGR(CGR),
           CG(CGR.getCodeGen()),
           CGC(CGR.getCGC()),
-          CGT(CGC.getTypeGenerator()),
+          CGT(CGC.getCGT()),
           Builder(Builder) { }
 
     llvm::Value *emitSimpleCall(SubroutineCall *call);
@@ -58,7 +58,7 @@ private:
     /// The code generation context.
     CodeGenRoutine &CGR;
     CodeGen &CG;
-    CodeGenCapsule &CGC;
+    CGContext &CGC;
     CodeGenTypes &CGT;
 
     /// The builder we are injecting code into.
@@ -592,7 +592,8 @@ SRInfo *CallEmitter::prepareLocalCall()
 
     // Resolve the info structure for called subroutine.
     SubroutineDecl *srDecl = SRCall->getConnective();
-    DomainInstanceDecl *instance = CGR.getCGC().getInstance();
+    InstanceInfo *IInfo = CGC.getInstanceInfo();
+    DomainInstanceDecl *instance = IInfo->getInstanceDecl();
     return CGR.getCodeGen().getSRInfo(instance, srDecl);
 }
 
@@ -604,7 +605,7 @@ SRInfo *CallEmitter::prepareForeignCall()
     DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region);
 
     if (!instance)
-        instance = CGR.getCGC().getInstance();
+        instance = CGC.getInstanceInfo()->getInstanceDecl();
 
     return CG.getSRInfo(instance, srDecl);
 }
@@ -613,6 +614,7 @@ SRInfo *CallEmitter::prepareDirectCall()
 {
     SubroutineDecl *srDecl = SRCall->getConnective();
     const CommaRT &CRT = CG.getRuntime();
+    InstanceInfo *IInfo = CGC.getInstanceInfo();
 
     // Lookup the implicit context of the function we wish to call by indexing
     // into the current subroutines implicit context.
@@ -621,7 +623,7 @@ SRInfo *CallEmitter::prepareDirectCall()
     // function we wish to call.
     DomainInstanceDecl *definingDecl
         = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
-    const DependencySet &DSet = CG.getDependencySet(CGC.getCapsule());
+    const DependencySet &DSet = CG.getDependencySet(IInfo->getDefinition());
     DependencySet::iterator IDPos = DSet.find(definingDecl);
     assert(IDPos != DSet.end() && "Failed to resolve dependency!");
     unsigned instanceID = DSet.getDependentID(IDPos);
@@ -642,11 +644,11 @@ SRInfo *CallEmitter::prepareDirectCall()
         AstRewriter rewriter(CG.getAstResource());
 
         // Map the percent node of the capsule to the current instance.
-        rewriter.addTypeRewrite(CGC.getCapsule()->getPercentType(),
-                                CGC.getInstance()->getType());
+        rewriter.addTypeRewrite(IInfo->getDefinition()->getPercentType(),
+                                IInfo->getInstanceDecl()->getType());
 
         // Map any generic formal parameters to the actual arguments of this instance.
-        const CodeGenCapsule::ParameterMap &paramMap = CGC.getParameterMap();
+        const CGContext::ParameterMap &paramMap = CGC.getParameterMap();
         rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
 
         // Rewrite the type of the defining declaration and extract the
@@ -698,12 +700,13 @@ SRInfo *CallEmitter::prepareAbstractCall()
     CG.extendWorklist(instance);
 
     // Resolve the needed routine.
-    SubroutineDecl *resolvedRoutine
-        = resolveAbstractSubroutine(instance, abstract, srDecl);
+    SubroutineDecl *resolvedRoutine;
+    resolvedRoutine = resolveAbstractSubroutine(instance, abstract, srDecl);
 
     // Index into the implicit context to obtain the the called functions
     // context.
-    FunctorDecl *functor = cast<FunctorDecl>(CGC.getCapsule());
+    InstanceInfo *IInfo = CGC.getInstanceInfo();
+    const FunctorDecl *functor = cast<FunctorDecl>(IInfo->getDefinition());
     unsigned index = functor->getFormalIndex(abstract);
     llvm::Value *context = CGR.getImplicitContext();
     arguments.push_back(CRT.getCapsuleParameter(Builder, context, index));

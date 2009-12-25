@@ -9,37 +9,36 @@
 #ifndef COMMA_CODEGEN_CODEGENTYPES_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENTYPES_HDR_GUARD
 
-#include "comma/ast/Decl.h"
-#include "comma/ast/Type.h"
+#include "comma/ast/AstBase.h"
 
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/DerivedTypes.h"
 
 namespace comma {
 
+class CGContext;
 class CodeGen;
 
 /// Lowers various Comma AST nodes to LLVM types.
 ///
 /// As a rule, Comma type nodes need not in and of themselves provide enough
-/// information to lower them directly to LLVM IR.  Thus, declaration nodes
-/// are often needed so that the necessary information can be extracted from the
+/// information to lower them directly to LLVM IR.  Thus, declaration nodes are
+/// often needed so that the necessary information can be extracted from the
 /// AST.
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(CodeGen &CG) : CG(CG), topScope(rewrites), context(0) { }
-
-    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context)
+    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context = 0)
         : CG(CG), topScope(rewrites), context(context) {
-        addInstanceRewrites(context);
-    }
+        if (context)
+            addInstanceRewrites(context);
+    };
 
     const llvm::Type *lowerType(const Type *type);
 
     const llvm::Type *lowerDomainType(const DomainType *type);
 
-    const llvm::IntegerType * lowerEnumType(const EnumerationType *type);
+    const llvm::IntegerType *lowerEnumType(const EnumerationType *type);
 
     const llvm::FunctionType *lowerSubroutine(const SubroutineDecl *decl);
 
@@ -65,13 +64,14 @@ private:
     typedef llvm::ScopedHashTableScope<const Type*, const Type*> RewriteScope;
     RewriteMap rewrites;
     RewriteScope topScope;
-    DomainInstanceDecl *context;
 
-    void addInstanceRewrites(const DomainInstanceDecl *instance);
+    DomainInstanceDecl *context;
 
     const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
+
+    void addInstanceRewrites(const DomainInstanceDecl *instance);
 };
 
 }; // end comma namespace

@@ -26,13 +26,15 @@ class Function;
 
 namespace comma {
 
+class CGContext;
+
 // This class provides for code generation of subroutines.
 class CodeGenRoutine {
 
-    CodeGen        &CG;
-    CodeGenCapsule &CGC;
-    CodeGenTypes   &CGT;
-    const CommaRT  &CRT;
+    CodeGen       &CG;
+    CGContext     &CGC;
+    CodeGenTypes  &CGT;
+    const CommaRT &CRT;
 
     // The info node for the subroutine we are emitting code for.
     SRInfo *SRI;
@@ -44,13 +46,13 @@ class CodeGenRoutine {
     SRFrame *SRF;
 
 public:
-    CodeGenRoutine(CodeGenCapsule &CGC, SRInfo *info);
+    CodeGenRoutine(CGContext &CGC, SRInfo *info);
 
-    /// Returns the associated code generator context.
+    /// Returns the code generator.
     CodeGen &getCodeGen() { return CG; }
 
-    /// Returns the associated capsule generator context.
-    CodeGenCapsule &getCGC() { return CGC; }
+    /// Returns the code generator context.
+    CGContext &getCGC() { return CGC; }
 
     /// \brief Returns the SRInfo object corresponding to the subroutine being
     /// generated.
