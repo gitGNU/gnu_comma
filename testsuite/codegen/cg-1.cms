@@ -1,0 +1,33 @@
+-- Test commit 967b6b0ae50485f87132ca22e40e39d3ab892221
+
+domain Test with
+   procedure Run;
+add
+   carrier Rep is Positive;
+
+   function Message return String is
+   begin
+      return "Message!";
+   end Message;
+
+   procedure Nest (P : Positive) is
+   begin
+      if P = 1 then
+         -- stacksave generated to hold the message was not being resolved until
+         -- after we left this branch.
+         raise Program_Error with Message;
+      else
+         Nest(P - 1);
+      end if;
+   end Nest;
+
+   procedure Run is
+   begin
+      Nest(20);
+   exception
+      when Program_Error =>
+         return;
+   end Run;
+end Test;
+
+
