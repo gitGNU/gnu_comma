@@ -246,13 +246,16 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 
     Builder.CreateCondBr(condition, thenBB, elseBB);
     Builder.SetInsertPoint(thenBB);
-    emitStmt(ite->getConsequent());
 
-    // If generation of the consequent did not result in a terminator, create a
-    // branch to the merge block.
+    // Emit the true branch in its own frame. If generation of the consequent
+    // did not result in a terminator, create a branch to the merge block.
+    SRF->pushFrame();
+    emitStmt(ite->getConsequent());
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(mergeBB);
+    SRF->popFrame();
 
+    // Emit each elsif block in its own frame.
     for (IfStmt::iterator I = ite->beginElsif(); I != ite->endElsif(); ++I) {
         Builder.SetInsertPoint(elseBB);
         IfStmt::iterator J = I;
@@ -266,16 +269,22 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         llvm::Value *pred = emitValue(I->getCondition());
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
+
+        SRF->pushFrame();
         emitStmt(I->getConsequent());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
+        SRF->popFrame();
     }
 
     if (ite->hasAlternate()) {
         Builder.SetInsertPoint(elseBB);
+
+        SRF->pushFrame();
         emitStmt(ite->getAlternate());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
+        SRF->popFrame();
     }
 
     Builder.SetInsertPoint(mergeBB);
