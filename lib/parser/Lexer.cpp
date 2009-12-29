@@ -259,6 +259,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_TYPE;
         else if (strncmp(str, "when", length) == 0)
             code = TKN_WHEN;
+        else if (strncmp(str, "null", length) == 0)
+            code = TKN_NULL;
         break;
 
     case 5:
