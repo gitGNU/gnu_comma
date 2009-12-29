@@ -370,6 +370,20 @@ public:
 
     /// \name Aggregate Callbacks.
     ///
+    /// Processing of an aggregate expresion is bracketed by calls to
+    /// beginAggregate and endAggregate.
+    ///
+    /// First, each positional component of the aggregate is processed and the
+    /// client is notified with a call to acceptPositionalAggregateComponent.
+    ///
+    /// Next, every keyed component is processed.  This is a two stage affair.
+    /// For each key one of the acceptAggregateKey method is invoked.  Finally,
+    /// acceptKeyedAggregateComponent is called with a NodeVector containing
+    /// each key along with the associated expression.
+    ///
+    /// Finally, if the aggregate contains an others clause
+    /// acceptAggregateOthers is called.
+
     /// The start of an aggregate expression is communicated to the client with
     /// a call to beginAggregate().  For each component of the aggregate
     /// acceptAggregateComponent() is called.  The end of the aggregate
@@ -379,19 +393,37 @@ public:
     /// Signals that an aggregate expression is about to be processed.
     ///
     /// \param loc Location of opening paren starting the aggregate.
-    ///
-    /// \param isPositional True if the upcomming aggregate will be processed
-    /// using positional components and false if "keyed" components are used.
-    virtual void beginAggregate(Location loc, bool isPositional) = 0;
+    virtual void beginAggregate(Location loc) = 0;
 
     /// Provides a Node describing a positional component of the aggregate.
-    virtual void acceptAggregateComponent(Node component) = 0;
+    virtual void acceptPositionalAggregateComponent(Node component) = 0;
 
-    /// Provides a ranged keyed component of the form <tt>L .. P => E</tt> where
-    /// \p lower correponds to \c L, \p upper corresponds to \c P, and \p expr
-    /// corresponds to \p E.
-    virtual void acceptAggregateComponent(Node lower, Node upper,
-                                          Node expr) = 0;
+    /// Called to indicate an aggregate key in the form of a range.
+    virtual Node acceptAggregateKey(Node lower, Node upper) = 0;
+
+    /// Called to indicate an aggregate key consisting of an expression or
+    /// subtype indication.
+    virtual Node acceptAggregateKey(Node key) = 0;
+
+    /// \brief Called to indicate an aggregate key consisting of a single
+    /// identifier.
+    ///
+    /// This callback is provided to support selectors of a record aggregate.
+    /// Since Comma aggregates cannot be resolved without a type context it is
+    /// not reasonable to expect a ParseClient implementation to divine the
+    /// meaning of aggregate keys.  This callback allows a client to defer the
+    /// processing of aggregate keys which may resolve to a record selector or
+    /// to a direct name until enough context is established.
+    virtual Node acceptAggregateKey(IdentifierInfo *name, Location loc) = 0;
+
+    /// Provides a vector of keys and associated expression for a keyed
+    /// aggregate component.
+    ///
+    /// \note The parser will always call this method if it is able to parse the
+    /// associated expression.  This means that \p keys may be empty if none of
+    /// the keys parsed correctly or the client returned an invalid node for
+    /// them all.
+    virtual void acceptKeyedAggregateComponent(NodeVector &keys, Node expr) = 0;
 
     /// Indicates an "others" component.  If this callback is invoked, it is
     /// always the last component processed by the parser.
@@ -709,6 +741,34 @@ public:
     /// \param component The component type of the array declaration.
     virtual void acceptArrayDecl(IdentifierInfo *name, Location loc,
                                  NodeVector indices, Node component) = 0;
+
+    /// \name Record Type Declaration Callbacks.
+    ///
+    /// Record type declarations are braketed between calls to beginRecord and
+    /// endRecord.  For each component of the record type a call to
+    /// acceptRecordComponent is called.
+    //@{
+
+    /// Begins the definition of a record type.
+    ///
+    /// \param name The defining identifier for this record.
+    ///
+    /// \param loc The location of the defining identifier.
+    virtual void beginRecord(IdentifierInfo *name, Location loc) = 0;
+
+    /// Called to notify the client of a record component.
+    ///
+    /// \param name The defining identifier for this record component.
+    ///
+    /// \param loc The location of the components defining identifier.
+    ///
+    /// \param type A node representing the type of this identifier.
+    virtual void acceptRecordComponent(IdentifierInfo *name, Location loc,
+                                       Node type) = 0;
+
+    /// Completes the definition of a record type.
+    virtual void endRecord() = 0;
+    //@}
 
 protected:
     /// Allow sub-classes to construct arbitrary nodes.

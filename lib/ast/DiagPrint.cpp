@@ -43,6 +43,7 @@ private:
     void visitEnumerationType(EnumerationType *node);
     void visitIntegerType(IntegerType *node);
     void visitArrayType(ArrayType *node);
+    void visitRecordType(RecordType *node);
 
     // Decl printers.  Currently only a few are supported.
     void visitFunctionDecl(FunctionDecl *node);
@@ -99,6 +100,11 @@ void PrettyPrinter::visitIntegerType(IntegerType *node)
 }
 
 void PrettyPrinter::visitArrayType(ArrayType *node)
+{
+    stream << node->getIdInfo()->getString();
+}
+
+void PrettyPrinter::visitRecordType(RecordType *node)
 {
     stream << node->getIdInfo()->getString();
 }

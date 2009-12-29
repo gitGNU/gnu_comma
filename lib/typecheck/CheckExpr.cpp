@@ -8,8 +8,8 @@
 
 #include "Scope.h"
 #include "TypeCheck.h"
+#include "comma/ast/AggExpr.h"
 #include "comma/ast/ExceptionRef.h"
-#include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 
@@ -22,7 +22,12 @@ using llvm::isa;
 
 Expr *TypeCheck::ensureExpr(Node node)
 {
-    Expr *expr = lift_node<Expr>(node);
+    return ensureExpr(cast_node<Ast>(node));
+}
+
+Expr *TypeCheck::ensureExpr(Ast *node)
+{
+    Expr *expr = dyn_cast<Expr>(node);
 
     if (expr)
         return expr;
@@ -33,11 +38,11 @@ Expr *TypeCheck::ensureExpr(Node node)
     //
     // The only cases we need to diagnose is when the node denotes a type
     // (by far the most common case), or an exception.
-    if (TypeRef *ref = lift_node<TypeRef>(node)) {
+    if (TypeRef *ref = dyn_cast<TypeRef>(node)) {
         report(ref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
     }
     else {
-        ExceptionRef *ref = cast_node<ExceptionRef>(node);
+        ExceptionRef *ref = cast<ExceptionRef>(node);
         report(ref->getLocation(), diag::EXCEPTION_CANNOT_DENOTE_VALUE);
     }
     return 0;

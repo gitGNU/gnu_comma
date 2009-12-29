@@ -256,25 +256,14 @@ bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
     if (X->getIdInfo() != Y->getIdInfo())
         return false;
 
-    // If X denotes a type, model, value, or exception declaration, there is a
-    // conflict independent of the type of Y.
-    if (isa<ValueDecl>(X) || isa<TypeDecl>(X) ||
-        isa<ModelDecl>(X) || isa<ExceptionDecl>(X))
-        return true;
-
-    // Similarly, if Y denotes a type, model, value, or exception declaration,
-    // there is a conflict with X.
-    if (isa<ValueDecl>(Y) || isa<TypeDecl>(Y) ||
-        isa<ModelDecl>(Y) || isa<ExceptionDecl>(X))
-        return true;
-
-    // Otherwise, X and Y must both denote a subroutine declaration. There is a
-    // conflict iff both declarations have the same type.
-    SubroutineDecl *XSDecl = cast<SubroutineDecl>(X);
-    SubroutineDecl *YSDecl = cast<SubroutineDecl>(Y);
-    if (XSDecl->getType() == YSDecl->getType())
-        return true;
-    return false;
+    // The only type of declarations that can share the same name in the same
+    // scope are subroutine declarations (provided that they have distinct
+    // types).
+    SubroutineDecl *XSDecl = dyn_cast<SubroutineDecl>(X);
+    SubroutineDecl *YSDecl = dyn_cast<SubroutineDecl>(Y);
+    if (XSDecl && YSDecl && XSDecl->getType() != YSDecl->getType())
+        return false;
+    return true;
 }
 
 Decl *Scope::findConflictingDirectDecl(Decl *candidate) const
@@ -314,8 +303,11 @@ void Scope::dump() const
         case MODEL_SCOPE:
             std::cerr << "MODEL_SCOPE\n";
             break;
-        case FUNCTION_SCOPE:
-            std::cerr << "FUNCTION_SCOPE\n";
+        case SUBROUTINE_SCOPE:
+            std::cerr << "SUBROUTINE_SCOPE\n";
+            break;
+        case RECORD_SCOPE:
+            std::cerr << "RECORD_SCOPE\n";
             break;
         case DEAD_SCOPE:
             assert(false && "Cannot print uninitialized scope!");

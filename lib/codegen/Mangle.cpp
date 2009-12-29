@@ -265,14 +265,14 @@ std::string comma::mangle::getLinkName(const DomainInstanceDecl *instance)
 
     std::string name = instance->getString();
     for (unsigned i = 0; i < instance->getArity(); ++i) {
-        DomainType *param =
+        const DomainType *param =
             cast<DomainType>(instance->getActualParamType(i));
         std::ostringstream ss;
 
         if (param->denotesPercent()) {
             // Mangle percent nodes to the name of the corresponding domain.
-            PercentDecl *percent = param->getPercentDecl();
-            Domoid *model = cast<Domoid>(percent->getDefinition());
+            const PercentDecl *percent = param->getPercentDecl();
+            const Domoid *model = cast<Domoid>(percent->getDefinition());
             ss << "__" << i <<  getLinkName(model);
         }
         else {

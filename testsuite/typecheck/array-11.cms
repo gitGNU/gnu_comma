@@ -1,0 +1,14 @@
+-- Ensure array types cannot have indefinite component types.
+
+domain Test add
+
+   type ComponentArr is array (Positive range <>) of Integer;
+
+   -- EXPECTED-ERROR: Indefinite component type
+   type A1 is array (Integer range <>) of ComponentArr;
+
+   -- EXPECTED-ERROR: Indefinite component type
+   type A2 is array (Integer range <>) of String;
+
+end Test;
+

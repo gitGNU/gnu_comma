@@ -101,9 +101,12 @@ public:
 
     Node finishName(Node name);
 
-    void beginAggregate(Location loc, bool isPositional);
-    void acceptAggregateComponent(Node component);
-    void acceptAggregateComponent(Node lower, Node upper, Node expr);
+    void beginAggregate(Location loc);
+    void acceptPositionalAggregateComponent(Node component);
+    Node acceptAggregateKey(Node lower, Node upper);
+    Node acceptAggregateKey(IdentifierInfo *name, Location loc);
+    Node acceptAggregateKey(Node key);
+    void acceptKeyedAggregateComponent(NodeVector &keys, Node expr);
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
@@ -189,6 +192,10 @@ public:
     void acceptArrayDecl(IdentifierInfo *name, Location loc,
                          NodeVector indices, Node component);
 
+    void beginRecord(IdentifierInfo *name, Location loc);
+    void acceptRecordComponent(IdentifierInfo *name, Location loc, Node type);
+    void endRecord();
+
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
     //@}
@@ -246,6 +253,20 @@ public:
     /// Checks if \p node resolves to an expression and returns that expression
     /// on success.  Else null is returned and diagnostics are posted.
     Expr *ensureExpr(Node node);
+
+    /// Checks if \p node resolves to an expression and returns that expression
+    /// on success.  Else null is returned and diagnostics are posted.
+    Expr *ensureExpr(Ast *node);
+
+    /// Checks that the given identifier is a valid direct name.  Returns an Ast
+    /// node representing the name if the checks succeed and null otherwise.
+    ///
+    /// \param name The identifier to check.
+    ///
+    /// \param loc The location of \p name.
+    ///
+    /// \param forStatement If true, check that \p name denotes a procedure.
+    Ast *checkDirectName(IdentifierInfo *name, Location loc, bool forStatement);
 
     /// Basic type equality predicate.
     static bool covers(Type *A, Type *B);
@@ -310,6 +331,16 @@ private:
 
     DeclRegion *currentDeclarativeRegion() const {
         return declarativeRegion;
+    }
+
+    void pushDeclarativeRegion(DeclRegion *region) {
+        declarativeRegion = region;
+    }
+
+    DeclRegion *popDeclarativeRegion() {
+        DeclRegion *res = declarativeRegion;
+        declarativeRegion = res->getParent();
+        return res;
     }
 
     CompilationUnit *currentCompUnit() const { return compUnit; }
@@ -445,7 +476,7 @@ private:
     // diagnostics are posted.
     Expr *resolveStringLiteral(StringLiteral *strLit, Type *context);
 
-    // Resolves the type of the given aggregate expression with respect to the
+    // Resolves the type of the an aggregate expression with respect to the
     // given type context.  Returns a valid expression if the aggregate was
     // successfully checked (possibly different from \p agg).  Otherwise, null
     // is returned and appropriate diagnostics are posted.
@@ -636,9 +667,8 @@ private:
     TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
 
     /// Processes the indirect names in the given resolver.  If no indirect
-    /// names could be found, a diagnostic is posted and an invalid Node is
-    /// returned.
-    Node acceptIndirectName(Location loc, Resolver &resolver);
+    /// names could be found, a diagnostic is posted and and null is returned.
+    Ast *checkIndirectName(Location loc, Resolver &resolver);
 
     /// Checks that the given TypeRef can be applied to the given arguments.
     ///

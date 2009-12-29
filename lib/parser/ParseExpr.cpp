@@ -19,7 +19,6 @@ Node Parser::parseExpr()
     return parseOperatorExpr();
 }
 
-
 Node Parser::parseOperatorExpr()
 {
     return parseRelationalOperator();
@@ -204,9 +203,9 @@ Node Parser::parseParenExpr()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
 
-    AggregateKind aggKind = aggregateFollows();
-
-    if (aggKind == NOT_AN_AGGREGATE) {
+    if (aggregateFollows())
+        return parseAggregate();
+    else {
         ignoreToken();          // Consume the opening paren.
         Node result = parseExpr();
         if (!reduceToken(Lexer::TKN_RPAREN))
@@ -214,8 +213,6 @@ Node Parser::parseParenExpr()
                 currentTokenString() << ")";
         return result;
     }
-    else
-        return parseAggregate(aggKind);
 }
 
 Node Parser::parsePrimaryExpr()
@@ -260,111 +257,116 @@ Node Parser::parseStringLiteral()
     return client.acceptStringLiteral(rep, repLen, loc);
 }
 
-Node Parser::parseAggregate(AggregateKind kind)
-{
-    if (kind == POSITIONAL_AGGREGATE)
-        return parsePositionalAggregate();
-    else if (kind == KEYED_AGGREGATE)
-        return parseKeyedAggregate();
-
-    assert(false && "Bad AggregateKind!");
-    return getInvalidNode();
-}
-
 Node Parser::parseOthersExpr()
 {
     assert(currentTokenIs(Lexer::TKN_OTHERS));
-    ignoreToken();
+    Location loc = ignoreToken();
 
     if (!requireToken(Lexer::TKN_RDARROW))
         return getInvalidNode();
 
-    if (reduceToken(Lexer::TKN_DIAMOND))
-        return getNullNode();
+    // Return a null node when we hit a TKN_DIAMOND, otherwise parse the
+    // expression.
+    Node result = getNullNode();
+    if (!reduceToken(Lexer::TKN_DIAMOND))
+        result = parseExpr();
 
-    return parseExpr();
+    // Diagnose that an others expression must come last if anything but a
+    // closing paren is next on the stream.
+    if (!currentTokenIs(Lexer::TKN_RPAREN)) {
+        report(loc, diag::OTHERS_COMPONENT_NOT_FINAL);
+        return getInvalidNode();
+    }
+
+    return result;
 }
 
-Node Parser::parsePositionalAggregate()
+bool Parser::parseAggregateComponent(bool &seenKeyedComponent)
 {
-    assert(currentTokenIs(Lexer::TKN_LPAREN));
-    Location loc = ignoreToken();
-    bool componentSeen = false;
+    NodeVector keys;
 
-    client.beginAggregate(loc, true);
     do {
-        // If an others token is on the stream, parse the construct and
-        // terminate the processing of the aggregate.
-        //
-        // FIXME: This code assumes the caller inspected the token stream via a
-        // call to aggregateFollows().  That predicate ensures that a component
-        // precedes a TKN_OTHERS token, hence the following assert.  It would be
-        // much better to generate a diagnostic here rather than rely on this
-        // condition.
-        if (currentTokenIs(Lexer::TKN_OTHERS)) {
-            assert(componentSeen);
-            Location loc = currentLocation();
-            Node others = parseOthersExpr();
+        Location loc = currentLocation();
 
-            if (others.isValid())
-                client.acceptAggregateOthers(loc, others);
-            else
-                seekCloseParen();
-            break;
+        // Check for the special case of an identifier followed by a `=>' or
+        // `|'.
+        if (currentTokenIs(Lexer::TKN_IDENTIFIER) &&
+            (nextTokenIs(Lexer::TKN_RDARROW) || nextTokenIs(Lexer::TKN_BAR))) {
+            IdentifierInfo *name = parseIdentifier();
+            Node key = client.acceptAggregateKey(name, loc);
+            if (key.isValid())
+                keys.push_back(key);
+            continue;
         }
 
-        componentSeen = true;
-        Node node = parseExpr();
-        if (node.isValid())
-            client.acceptAggregateComponent(node);
-    } while (reduceToken(Lexer::TKN_COMMA));
-
-    requireToken(Lexer::TKN_RPAREN);
-    return client.endAggregate();
-}
-
-
-Node Parser::parseKeyedAggregate()
-{
-    assert(currentTokenIs(Lexer::TKN_LPAREN));
-    Location loc = ignoreToken();
-
-    client.beginAggregate(loc, false);
-    do {
-        // Note that "others" clauses which appear as the one and only component
-        // of an aggregate litteral are categorized as keyed aggregates by the
-        // grammer.
-        if (currentTokenIs(Lexer::TKN_OTHERS)) {
-            Location loc = currentLocation();
-            Node others = parseOthersExpr();
-
-            if (others.isValid())
-                client.acceptAggregateOthers(loc, others);
-            else
-                seekCloseParen();
-            break;
-        }
-
-        // FIXME:  The following is limited to ranges.
         Node lower = parseExpr();
-        if (lower.isInvalid() || !requireToken(Lexer::TKN_DDOT)) {
-            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+        if (lower.isInvalid()) {
+            seekTokens(Lexer::TKN_BAR, Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
             continue;
         }
 
-        Node upper = parseExpr();
-        if (upper.isInvalid() || !requireToken(Lexer::TKN_RDARROW)) {
-            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
-            continue;
+        if (currentTokenIs(Lexer::TKN_COMMA) ||
+            currentTokenIs(Lexer::TKN_RPAREN)) {
+            if (seenKeyedComponent) {
+                report(loc, diag::POSITIONAL_FOLLOWING_KEYED_COMPONENT);
+                seekCloseParen();
+                return false;
+            }
+            client.acceptPositionalAggregateComponent(lower);
+            return true;
         }
 
+        if (reduceToken(Lexer::TKN_DDOT)) {
+            Node upper = parseExpr();
+            if (upper.isInvalid())
+                seekTokens(Lexer::TKN_BAR, Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
+            else {
+                Node key = client.acceptAggregateKey(lower, upper);
+                if (key.isValid())
+                    keys.push_back(key);
+            }
+        }
+        else {
+            Node key = client.acceptAggregateKey(lower);
+            if (key.isValid())
+                keys.push_back(key);
+        }
+    } while (reduceToken(Lexer::TKN_BAR));
+
+    seenKeyedComponent = true;
+    if (requireToken(Lexer::TKN_RDARROW)) {
         Node expr = parseExpr();
-        if (expr.isInvalid()) {
-            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
-            continue;
+        if (expr.isValid())
+            client.acceptKeyedAggregateComponent(keys, expr);
+    }
+    return true;
+}
+
+Node Parser::parseAggregate()
+{
+    assert(currentTokenIs(Lexer::TKN_LPAREN));
+
+    client.beginAggregate(ignoreToken());
+    bool seenKeyedComponent = false;
+
+    // Parse each component.
+    do {
+        if (currentTokenIs(Lexer::TKN_OTHERS)) {
+            Location loc = currentLocation();
+            Node others = parseOthersExpr();
+
+            if (others.isValid()) {
+                client.acceptAggregateOthers(loc, others);
+                requireToken(Lexer::TKN_RPAREN);
+            }
+            else
+                seekCloseParen();
+            return client.endAggregate();
         }
 
-        client.acceptAggregateComponent(lower, upper, expr);
+        if (!parseAggregateComponent(seenKeyedComponent))
+            return getInvalidNode();
+
     } while (reduceToken(Lexer::TKN_COMMA));
 
     requireToken(Lexer::TKN_RPAREN);

@@ -167,12 +167,12 @@ public:
                                            ArrayType *arrTy);
 
     /// Constructs an LLVM structure object representing the bounds of the given
-    /// aggregate expression.
+    /// positional aggregate expression.
     ///
     /// If \p dst is non-null the synthesized bounds are stored into the given
     /// location.
     llvm::Value *synthAggregateBounds(llvm::IRBuilder<> &Builder,
-                                      PositionalAggExpr *agg,
+                                      AggregateExpr *agg,
                                       llvm::Value *dst = 0);
 
 private:

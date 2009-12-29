@@ -39,6 +39,8 @@ class AstResource;
 class AttribExpr;
 class BlockStmt;
 class CarrierDecl;
+class ComponentDecl;
+class CompositeType;
 class CompilationUnit;
 class Decl;
 class DeclRegion;
@@ -67,6 +69,7 @@ class FunctionType;
 class FunctorDecl;
 class FunctorType;
 class HandlerStmt;
+class Identifier;
 class IfStmt;
 class ImportDecl;
 class IndexedArrayExpr;
@@ -75,7 +78,6 @@ class IntegerDecl;
 class IntegerLiteral;
 class IntegerSubtypeDecl;
 class IntegerType;
-class KeyedAggExpr;
 class KeywordSelector;
 class LastAE;
 class LastArrayAE;
@@ -85,7 +87,6 @@ class ModelDecl;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
-class PositionalAggExpr;
 class Pragma;
 class PragmaAssert;
 class PragmaImport;
@@ -98,6 +99,8 @@ class ProcedureType;
 class RaiseStmt;
 class Range;
 class RangeAttrib;
+class RecordDecl;
+class RecordType;
 class ReturnStmt;
 class ScalarBoundAE;
 class ScalarRangeAttrib;
@@ -170,6 +173,7 @@ public:
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IntegerDecl,        ///< IntegerDecl
         AST_ArrayDecl,          ///< ArrayDecl
+        AST_RecordDecl,         ///< RecordDecl
         AST_AbstractDomainDecl, ///< AbstractDomainDecl
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_PercentDecl,        ///< PercentDecl
@@ -192,16 +196,22 @@ public:
         AST_EnumLiteral,        ///< EnumLiteral
         AST_ImportDecl,         ///< ImportDecl
         AST_ExceptionDecl,      ///< ExceptionDecl
+        AST_ComponentDecl,      ///< ComponentDecl
 
         //
         // Type nodes.
         //
         AST_FunctionType,       ///< FunctionType
         AST_ProcedureType,      ///< ProcedureType
-        AST_DomainType,         ///< DomainType
-        AST_IntegerType,        ///< IntegerType
+
+        //
+        // Primary Types.
+        //
         AST_ArrayType,          ///< ArrayType
+        AST_DomainType,         ///< DomainType
         AST_EnumerationType,    ///< EnumerationType
+        AST_IntegerType,        ///< IntegerType
+        AST_RecordType,         ///< RecordType
 
         //
         // Expr nodes.
@@ -212,8 +222,7 @@ public:
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
-        AST_KeyedAggExpr,       ///< KeyedAggExpr
-        AST_PositionalAggExpr,  ///< PositionalAggExpr
+        AST_AggregateExpr,      ///< AggregateExpr
         AST_PrjExpr,            ///< PrjExpr
         AST_StringLiteral,      ///< StringLiteral
 
@@ -250,6 +259,8 @@ public:
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
         AST_ExceptionRef,       ///< ExceptionRef
+        AST_Identifier,         ///< Identifier
+        AST_ComponentKey,       ///< ComponentKey
 
         //
         // Delimitiers providing classification of the above codes.
@@ -257,7 +268,7 @@ public:
         LAST_AstKind,
 
         FIRST_Decl = AST_SignatureDecl,
-        LAST_Decl = AST_ExceptionDecl,
+        LAST_Decl = AST_ComponentDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl = AST_FunctorDecl,
@@ -275,10 +286,10 @@ public:
         LAST_ValueDecl = AST_ObjectDecl,
 
         FIRST_Type = AST_FunctionType,
-        LAST_Type = AST_EnumerationType,
+        LAST_Type = AST_RecordType,
 
-        FIRST_PrimaryType = AST_DomainType,
-        LAST_PrimaryType = AST_EnumerationType,
+        FIRST_PrimaryType = AST_ArrayType,
+        LAST_PrimaryType = AST_RecordType,
 
         FIRST_Expr = AST_ConversionExpr,
         LAST_Expr = AST_LastAE,
@@ -374,6 +385,11 @@ public:
     bool denotesSubroutineType() const {
         return (kind == AST_FunctionType ||
                 kind == AST_ProcedureType);
+    }
+
+    /// Returns true if this node denotes a composite type.
+    bool denotesCompositeType() const {
+        return (kind == AST_ArrayType || kind == AST_RecordType);
     }
 
     /// Returns true if this node denotes a expression.

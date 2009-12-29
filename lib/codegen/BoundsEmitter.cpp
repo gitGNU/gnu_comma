@@ -9,7 +9,7 @@
 #include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "BoundsEmitter.h"
-#include "comma/ast/Expr.h"
+#include "comma/ast/AggExpr.h"
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -295,9 +295,12 @@ BoundsEmitter::synthStaticArrayBounds(llvm::IRBuilder<> &Builder,
 }
 
 llvm::Value *BoundsEmitter::synthAggregateBounds(llvm::IRBuilder<> &Builder,
-                                                 PositionalAggExpr *agg,
+                                                 AggregateExpr *agg,
                                                  llvm::Value *dst)
 {
+    assert(agg->isPurelyPositional() &&
+           "Cannot codegen bounds for this type of aggregate!");
+
     llvm::Value *bounds = 0;
     ArrayType *arrTy = cast<ArrayType>(agg->getType());
 
@@ -309,6 +312,9 @@ llvm::Value *BoundsEmitter::synthAggregateBounds(llvm::IRBuilder<> &Builder,
         std::vector<llvm::Constant*> boundValues;
         DiscreteType *idxTy = arrTy->getIndexType(0);
         llvm::LLVMContext &context = CG.getLLVMContext();
+
+        assert(!agg->hasOthers() &&
+               "Cannot codegen bounds for dynamic aggregates with others!");
 
         // The lower bound is derived directly from the index type.
         if (Range *range = idxTy->getConstraint()) {
@@ -323,7 +329,7 @@ llvm::Value *BoundsEmitter::synthAggregateBounds(llvm::IRBuilder<> &Builder,
 
         // The upper bound is the sum of the lower bound and the length of the
         // aggregate, minus one.
-        llvm::APInt length(bound.getBitWidth(), agg->numComponents());
+        llvm::APInt length(bound.getBitWidth(), agg->numPositionalComponents());
         bound += --length;
         boundValues.push_back(llvm::ConstantInt::get(context, bound));
 

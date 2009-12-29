@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeCheck.h"
-#include "comma/ast/Expr.h"
+#include "comma/ast/AggExpr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/DiagPrint.h"
 #include "comma/ast/Stmt.h"

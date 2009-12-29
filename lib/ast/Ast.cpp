@@ -29,6 +29,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumerationDecl",
     "IntegerDecl",
     "ArrayDecl",
+    "RecordDecl",
     "AbstractDomainDecl",
     "DomainInstanceDecl",
     "PercentDecl",
@@ -48,13 +49,15 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumLiteral",
     "ImportDecl",
     "ExceptionDecl",
+    "ComponentDecl",
 
     "FunctionType",
     "ProcedureType",
     "DomainType",
     "IntegerType",
-    "ArrayType",
     "EnumerationType",
+    "ArrayType",
+    "RecordType",
 
     "ConversionExpr",
     "DeclRefExpr",
@@ -62,8 +65,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IndexedArrayExpr",
     "InjExpr",
     "IntegerLiteral",
-    "KeyedAggExpr",
-    "PositionalAggExpr",
+    "AggregateExpr",
     "PrjExpr",
     "StringLiteral",
 
@@ -92,7 +94,9 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ScalarRangeAttrib",
     "SubroutineRef",
     "TypeRef",
-    "ExceptionRef"
+    "ExceptionRef",
+    "Identifier",
+    "ComponentKey"
 };
 
 void Ast::dump()

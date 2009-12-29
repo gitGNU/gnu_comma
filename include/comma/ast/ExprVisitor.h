@@ -37,8 +37,6 @@ public:
     virtual void visitPrjExpr(PrjExpr *node);
     virtual void visitIntegerLiteral(IntegerLiteral *node);
     virtual void visitStringLiteral(StringLiteral *node);
-    virtual void visitPositionalAggExpr(PositionalAggExpr *node);
-    virtual void visitKeyedAggExpr(KeyedAggExpr *node);
     virtual void visitConversionExpr(ConversionExpr *node);
 
     /// Visitors over AttribExpr nodes.

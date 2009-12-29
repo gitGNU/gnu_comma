@@ -77,6 +77,13 @@ public:
     /// type with a component type which involves percent.
     bool involvesPercent() const;
 
+    /// \brief Returns true if this is an indenfinite type.
+    ///
+    /// An indefinite type is a type whose size is unknown at compile time.
+    /// Currently, the only example of an indefinite type in Comma is an
+    /// unconstrained array type.
+    bool isIndefiniteType() const;
+
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
@@ -261,14 +268,8 @@ public:
     /// \note Default implementation returns false.
     virtual bool isConstrained() const { return false; }
 
-    /// \brief Returns true if this type is constrained, but specificly by an
-    /// initial value.
-    ///
-    /// \note Types which are constrained by an initial value do not have an
-    /// associated Constraint object.
-    ///
-    /// \note Default implementation returns false.
-    virtual bool isConstrainedByInitialValue() const { return false; }
+    /// Returns true if this type is unconstrained.
+    bool isUnconstrained() const { return !isConstrained(); }
 
     /// Returns true if this type is a subtype of the given type.
     ///
@@ -681,11 +682,16 @@ public:
     /// \see DiscreteType::getSize();
     uint64_t getSize() const;
 
-    /// Returns the base subtype.
+    //@{
+    /// \brief Returns the base subtype.
     ///
     /// The base subtype is a distinguished unconstrained subtype corresponding
     /// to the attribute S'Base.
+    const IntegerType *getBaseSubtype() const {
+        return const_cast<IntegerType*>(this)->getBaseSubtype();
+    }
     IntegerType *getBaseSubtype();
+    //@}
 
     /// Returns true if this type is constrained.
     bool isConstrained() const { return getConstraint() != 0; }
@@ -766,11 +772,32 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// CompositeType
+//
+/// \class
+///
+/// \brief Common base for all composite types.
+class CompositeType : public PrimaryType {
+
+public:
+    static bool classof(const CompositeType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesCompositeType();
+    }
+
+protected:
+    CompositeType(AstKind kind, CompositeType *rootOrParent, bool subtype)
+        : PrimaryType(kind, rootOrParent, subtype) {
+        assert(this->denotesCompositeType());
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // ArrayType
 //
 // These nodes describe the index profile and component type of an array type.
 // They are allocated and owned by an AstResource instance.
-class ArrayType : public PrimaryType {
+class ArrayType : public CompositeType {
 
     /// Type used to hold the index types of this array.
     typedef llvm::SmallVector<DiscreteType*, 4> IndexVec;
@@ -814,9 +841,6 @@ public:
     /// Returns true if this type is constrained.
     bool isConstrained() const { return constraintBit(); }
 
-    /// Returns true if this type is constrained by an initial value.
-    bool isConstrainedByInitialValue() const { return constrainedByInitBit(); }
-
     /// Returns true if this array type is statically constrained.
     bool isStaticallyConstrained() const;
 
@@ -855,10 +879,6 @@ private:
     enum PropertyTags {
         /// Set if the type is constrained.
         Constrained_PROP = 1,
-
-        /// Set if the type is constrained by its initial value (Constraint_PROP
-        /// is always set if this flag is true).
-        Constrained_By_Init_PROP = 2
     };
 
     /// Returns true if this is a constrained array.
@@ -866,18 +886,6 @@ private:
 
     /// Marks this as a constrained array type.
     void setConstraintBit() { bits |= Constrained_PROP; }
-
-    /// Returns true if this type is constrained by an initial value.
-    bool constrainedByInitBit() const {
-        return bits & Constrained_By_Init_PROP;
-    }
-
-    /// Marks this as being constrained by an initial value (sets
-    /// Constrained_PROP as well).
-    void setConstrainedByInitBit() {
-        setConstraintBit();
-        bits |= Constrained_By_Init_PROP;
-    }
 
     /// Vector of index types.
     IndexVec indices;
@@ -891,6 +899,63 @@ private:
     /// \note This union will contain a subtype declaration instead of an
     /// identifier info once such nodes are supported.
     llvm::PointerUnion<ArrayDecl*, IdentifierInfo*> definingDecl;
+};
+
+//===----------------------------------------------------------------------===//
+// RecordType
+class RecordType : public CompositeType {
+
+public:
+    /// Returns the identifier associated with this record type.
+    IdentifierInfo *getIdInfo() const;
+
+    //@{
+    /// Specialize PrimaryType::getRootType().
+    RecordType *getRootType() {
+        return llvm::cast<RecordType>(PrimaryType::getRootType());
+    }
+    const RecordType *getRootType() const {
+        return llvm::cast<RecordType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    //@{
+    /// Returns the declaration node that defined this record type.
+    const RecordDecl *getDefiningDecl() const {
+        return const_cast<RecordType*>(this)->getDefiningDecl();
+    }
+    RecordDecl *getDefiningDecl();
+    //@}
+
+    /// Returns the number of components defined by this record type.
+    unsigned numComponents() const;
+
+    //@{
+    /// Returns the type of the i'th component of this record.
+    const Type *getComponentType(unsigned i) const {
+        return const_cast<RecordType*>(this)->getComponentType(i);
+    }
+    Type *getComponentType(unsigned i);
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const RecordType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_RecordType;
+    }
+
+private:
+    RecordType(RecordDecl *decl);
+    RecordType(RecordType *rootType, IdentifierInfo *name);
+
+    friend class AstResource;
+
+    /// The declaration node or, in the case of a record subtype, the defining
+    /// identifier.
+    ///
+    /// \note This union will contain a subtype declaration instead of an
+    /// identifier info once such nodes are supported.
+    llvm::PointerUnion<RecordDecl*, IdentifierInfo*> definingDecl;
 };
 
 } // End comma namespace

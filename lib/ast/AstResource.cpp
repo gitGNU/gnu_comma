@@ -449,6 +449,29 @@ ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
     return res;
 }
 
+RecordDecl *AstResource::createRecordDecl(IdentifierInfo *name, Location loc,
+                                          DeclRegion *parent)
+{
+    RecordDecl *res = new RecordDecl(*this, name, loc, parent);
+    decls.push_back(res);
+    return res;
+}
+
+RecordType *AstResource::createRecordType(RecordDecl *decl)
+{
+    RecordType *res = new RecordType(decl);
+    types.push_back(res);
+    return res;
+}
+
+RecordType *AstResource::createRecordSubtype(IdentifierInfo *name,
+                                             RecordType *base)
+{
+    RecordType *res = new RecordType(base, name);
+    types.push_back(res);
+    return res;
+}
+
 ExceptionDecl *AstResource::createExceptionDecl(IdentifierInfo *name,
                                                 Location loc,
                                                 DeclRegion *region)

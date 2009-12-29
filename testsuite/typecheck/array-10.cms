@@ -1,0 +1,17 @@
+-- Ensure that array aggregate indices do not overlap.
+
+domain Test with
+   procedure Run;
+add
+   type Idx is range 1..10;
+   type Arr is array (Idx) of Integer;
+
+   procedure Run is
+      A1 : Arr := (1 => 0, 2..9 => 1, 10 => 2);
+      -- EXPECTED-ERROR: component duplicated
+      A2 : Arr := (1 => 0, 1..10 => 2);
+      -- EXPECTED-ERROR: component duplicated
+      A3 : Arr := (1 => 0, 1 => 1, 2..10 => 2);
+   begin end Run;
+
+end Test;

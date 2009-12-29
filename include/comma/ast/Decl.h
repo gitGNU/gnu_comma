@@ -207,19 +207,30 @@ public:
     /// Returns the number of arguments accepted by this model.
     virtual unsigned getArity() const;
 
-    /// Returns the abstract domain declaration corresponding the i'th formal
-    /// parameter.  This method will assert if this declaration is not
-    /// parameterized.
-    virtual AbstractDomainDecl *getFormalDecl(unsigned i) const;
+    //@{
+    /// \brief Returns the abstract domain declaration corresponding the i'th
+    /// formal parameter.
+    ///
+    /// This method will assert if this declaration is not parameterized.
+    const AbstractDomainDecl *getFormalDecl(unsigned i) const {
+        return const_cast<ModelDecl*>(this)->getFormalDecl(i);
+    }
+    virtual AbstractDomainDecl *getFormalDecl(unsigned i);
+    //@}
 
     /// Returns the index of the given AbstractDomainDecl which must be a formal
     /// parameter of this model.  This method will assert if this declaration is not
     /// parameterized.
     unsigned getFormalIndex(const AbstractDomainDecl *ADDecl) const;
 
+    //@{
     /// Returns the type of the i'th formal formal parameter.  This method will
     /// assert if this declaration is not parameterized.
-    DomainType *getFormalType(unsigned i) const;
+    const DomainType *getFormalType(unsigned i) const {
+        return const_cast<ModelDecl*>(this)->getFormalType(i);
+    }
+    DomainType *getFormalType(unsigned i);
+    //@}
 
     /// Returns the SigInstanceDecl which the i'th actual parameter must
     /// satisfy.  This method will assert if this declaration is not
@@ -238,8 +249,11 @@ public:
     /// Returns the PercentDecl representing this Model.
     PercentDecl *getPercent() const { return percent; }
 
-    /// Returns the DomainType representing percent.
-    DomainType *getPercentType() const;
+    //@{
+    /// \brief Returns the DomainType representing percent.
+    const DomainType *getPercentType() const;
+    DomainType *getPercentType();
+    //@}
 
     /// Returns the signature set of the assoiated percent node.
     const SignatureSet &getSignatureSet() const;
@@ -356,7 +370,7 @@ public:
     unsigned getArity() const { return arity; }
 
     /// Returns the abstract domain representing the i'th formal parameter.
-    AbstractDomainDecl *getFormalDecl(unsigned i) const {
+    AbstractDomainDecl *getFormalDecl(unsigned i) {
         assert(i < arity && "Index out of range!");
         return formalDecls[i];
     }
@@ -540,7 +554,7 @@ public:
     unsigned getArity() const { return arity; }
 
     /// Returns the abstract domain representing the i'th formal parameter.
-    AbstractDomainDecl *getFormalDecl(unsigned i) const {
+    AbstractDomainDecl *getFormalDecl(unsigned i) {
         assert(i < arity && "Index out of range!");
         return formalDecls[i];
     }
@@ -647,8 +661,11 @@ protected:
     }
 
 public:
+    //@{
+    /// \brief Returns the type of this value declaration.
     const Type *getType() const { return correspondingType; }
     Type *getType() { return correspondingType; }
+    //@}
 
     static bool classof(const ValueDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -779,8 +796,11 @@ class SubroutineDecl : public Decl, public DeclRegion {
 public:
     virtual ~SubroutineDecl();
 
+    //@{
     /// Returns the type of this declaration.
-    virtual SubroutineType *getType() const = 0;
+    virtual SubroutineType *getType() = 0;
+    virtual const SubroutineType *getType() const = 0;
+    //@}
 
     /// Returns the number of parameters this subroutine accepts.
     unsigned getArity() const { return numParameters; }
@@ -1012,7 +1032,11 @@ public:
     ProcedureDecl(IdentifierInfo *name, Location loc,
                   ProcedureType *type, DeclRegion *parent);
 
-    ProcedureType *getType() const { return correspondingType; }
+    //@{
+    /// \brief Returns the type of this procedure declaration.
+    const ProcedureType *getType() const { return correspondingType; }
+    ProcedureType *getType() { return correspondingType; }
+    //@}
 
     ProcedureDecl *getDefiningDeclaration() {
         SubroutineDecl *definition = SubroutineDecl::getDefiningDeclaration();
@@ -1072,7 +1096,11 @@ public:
         : SubroutineDecl(AST_FunctionDecl, name, loc, keywords, type, parent),
           correspondingType(type) { }
 
-    FunctionType *getType() const { return correspondingType; }
+    //@{
+    /// \brief Returns the type of this function declaration.
+    const FunctionType *getType() const { return correspondingType; }
+    FunctionType *getType() { return correspondingType; }
+    //@}
 
     FunctionDecl *getDefiningDeclaration() {
         SubroutineDecl *definition = SubroutineDecl::getDefiningDeclaration();
@@ -1097,7 +1125,7 @@ public:
     }
 
     //@{
-    /// Provides the return type of this function.
+    /// \brief Provides the return type of this function.
     const Type *getReturnType() const { return getType()->getReturnType(); }
     Type *getReturnType() { return getType()->getReturnType(); }
     //@}
@@ -1175,8 +1203,11 @@ private:
 class TypeDecl : public Decl {
 
 public:
-    // Returns the type of this TypeDecl.
-    PrimaryType *getType() const { return CorrespondingType; }
+    //@{
+    /// \brief Returns the type defined by this type declaration.
+    const PrimaryType *getType() const { return CorrespondingType; }
+    PrimaryType *getType() { return CorrespondingType; }
+    //@}
 
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1248,14 +1279,20 @@ public:
                 PrimaryType *type, Location loc)
         : TypeDecl(AST_CarrierDecl, name, type, loc) { }
 
+    //@{
+    /// \brief Returns the type representing this carrier.
+    ///
+    /// Carrier type declarations are effectively aliases for their
+    /// representation type.
     const Type *getRepresentationType() const {
         return getType()->getRootType();
     }
-
     Type *getRepresentationType() {
         return getType()->getRootType();
     }
+    //@}
 
+    // Support isa/dyn_cast.
     static bool classof(const CarrierDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_CarrierDecl;
@@ -1272,9 +1309,15 @@ public:
     /// gain access to the types operations.
     void generateImplicitDeclarations(AstResource &resource);
 
-    EnumerationType *getType() const {
+    //@{
+    /// \brief Returns the first subtype of this enumeration type declaration.
+    const EnumerationType *getType() const {
         return llvm::cast<EnumerationType>(CorrespondingType);
     }
+    EnumerationType *getType() {
+        return llvm::cast<EnumerationType>(CorrespondingType);
+    }
+    //@}
 
     // Returns the number of EnumLiteral's associated with this enumeration.
     unsigned getNumLiterals() const { return numLiterals; }
@@ -1342,7 +1385,6 @@ private:
 
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
-
 };
 
 //===----------------------------------------------------------------------===//
@@ -1352,10 +1394,15 @@ private:
 class EnumSubtypeDecl : public SubtypeDecl {
 
 public:
-    /// Returns the subtype defined by this declaration.
-    EnumerationType *getType() const {
+    //@{
+    /// \brief Returns the subtype defined by this declaration.
+    const EnumerationType *getType() const {
         return llvm::cast<EnumerationType>(CorrespondingType);
     }
+    EnumerationType *getType() {
+        return llvm::cast<EnumerationType>(CorrespondingType);
+    }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const EnumSubtypeDecl *node) { return true; }
@@ -1412,18 +1459,28 @@ public:
     /// gain access to the types operations.
     void generateImplicitDeclarations(AstResource &resource);
 
-    /// Returns the prefered subtype of this integer declaration.
+    //@{
+    /// \brief Returns the first subtype of this integer declaration.
     ///
     /// This method returns the first subtype of this declaration, or in the
     /// special case of root_integer, the unconstrained base subtype.
-    IntegerType *getType() const {
+    const IntegerType *getType() const {
         return llvm::cast<IntegerType>(CorrespondingType);
     }
+    IntegerType *getType() {
+        return llvm::cast<IntegerType>(CorrespondingType);
+    }
+    //@}
 
-    /// Returns the base subtype of this integer type declaration.
+    //@{
+    /// \brief Returns the base subtype of this integer type declaration.
+    const IntegerType *getBaseSubtype() const {
+        return getType()->getRootType()->getBaseSubtype();
+    }
     IntegerType *getBaseSubtype() {
         return getType()->getRootType()->getBaseSubtype();
     }
+    //@}
 
     //@{
     /// Returns the expression denoting the lower bound of this integer
@@ -1479,7 +1536,7 @@ class IntegerSubtypeDecl : public SubtypeDecl {
 
 public:
     //@{
-    /// Returns the subtype defined by this declaration.
+    /// \brief Returns the subtype defined by this declaration.
     const IntegerType *getType() const {
         return llvm::cast<IntegerType>(CorrespondingType);
     }
@@ -1545,22 +1602,36 @@ class ArrayDecl : public TypeDecl, public DeclRegion {
     typedef llvm::SmallVector<DSTDefinition*, 4> IndexVec;
 
 public:
-    ArrayType *getType() const {
+    //@{
+    /// \brief Returns the first subtype defined by this array type declaration.
+    const ArrayType *getType() const {
         return llvm::cast<ArrayType>(CorrespondingType);
     }
+    ArrayType *getType() {
+        return llvm::cast<ArrayType>(CorrespondingType);
+    }
+    //@}
 
     /// Returns the rank of this array declaration.
     unsigned getRank() const { return getType()->getRank(); }
 
-    /// Returns the type describing the i'th index of this array.
-    DiscreteType *getIndexType(unsigned i) const {
+    //@{
+    /// \brief Returns the type describing the i'th index of this array.
+    const DiscreteType *getIndexType(unsigned i) const {
         return getType()->getIndexType(i);
     }
+    DiscreteType *getIndexType(unsigned i) {
+        return getType()->getIndexType(i);
+    }
+    //@}
 
-    /// Returns the type describing the component type of this array.
-    Type *getComponentType() const {
+    //@{
+    /// \brief Returns the type describing the component type of this array.
+    const Type *getComponentType() const {
         return getType()->getComponentType();
     }
+    Type *getComponentType() { return getType()->getComponentType(); }
+    //@}
 
     /// Returns true if this declaration is constrained.
     bool isConstrained() const { return getType()->isConstrained(); }
@@ -1600,10 +1671,15 @@ class ArraySubtypeDecl : public SubtypeDecl {
     typedef llvm::SmallVector<DSTDefinition*, 4> IndexVec;
 
 public:
-    /// Returns the subtype defined by this declaration.
-    ArrayType *getType() const {
+    //@{
+    /// \brief Returns the subtype defined by this declaration.
+    const ArrayType *getType() const {
         return llvm::cast<ArrayType>(CorrespondingType);
     }
+    ArrayType *getType() {
+        return llvm::cast<ArrayType>(CorrespondingType);
+    }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const ArraySubtypeDecl *node) { return true; }
@@ -1630,7 +1706,6 @@ private:
     ///   - The declarative region in which the subtype declaration appears.
 
     //@{
-
     /// Constructs an unconstrained array subtype declaration (effecively an
     /// alias for \p subtype).
     ArraySubtypeDecl(AstResource &resource,
@@ -1651,6 +1726,118 @@ private:
     friend class AstResource;
 
     IndexVec indices;
+};
+
+//===----------------------------------------------------------------------===//
+// RecordDecl
+//
+class RecordDecl : public TypeDecl, public DeclRegion {
+
+public:
+    //@{
+    /// \brief Returns this first subtype defined by this record type
+    /// declaration.
+    const RecordType *getType() const {
+        return llvm::cast<RecordType>(CorrespondingType);
+    }
+    RecordType *getType() {
+        return llvm::cast<RecordType>(CorrespondingType);
+    }
+    //@}
+
+    /// Constructs a ComponentDecl and associates it with this record.
+    ///
+    /// The order in which is method is called determines the order of the
+    /// associated components.
+    ComponentDecl *addComponent(IdentifierInfo *name, Location loc,
+                                Type *type);
+
+    /// Returns the number of components provided by this record.
+    unsigned numComponents() const { return componentCount; }
+
+    //@{
+    /// \brief Returns the component declaration with the given identifier.
+    ///
+    /// Returns a null if a component with the given name could not be found.
+    const ComponentDecl *getComponent(IdentifierInfo *name) const {
+        return const_cast<RecordDecl*>(this)->getComponent(name);
+    }
+    ComponentDecl *getComponent(IdentifierInfo *name);
+    //@}
+
+    //@{
+    /// Returns the i'th component declaration provided by this record.
+    const ComponentDecl *getComponent(unsigned i) const {
+        return const_cast<RecordDecl*>(this)->getComponent(i);
+    }
+    ComponentDecl *getComponent(unsigned i);
+    //@}
+
+    static bool classof(const RecordDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_RecordDecl;
+    }
+
+private:
+    /// Constructs an empty record declaration.
+    RecordDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+               DeclRegion *parent);
+
+    friend class AstResource;
+
+    // Total number of components defined by this record.
+    unsigned componentCount;
+};
+
+//===----------------------------------------------------------------------===//
+// ComponentDecl
+//
+/// \class
+///
+/// \brief Declaration node representing a record component.
+class ComponentDecl : public Decl {
+
+public:
+    //@{
+    /// \brief Returns the type of this component.
+    const Type *getType() const { return CorrespondingType; }
+    Type *getType() { return CorrespondingType; }
+    //@}
+
+    //@{
+    /// \brief Returns the RecordDecl this component belongs to.
+    RecordDecl *getDeclRegion() {
+        return llvm::cast<RecordDecl>(context);
+    }
+    const RecordDecl *getDeclRegion() const {
+        return llvm::cast<RecordDecl>(context);
+    }
+    //@}
+
+    /// \brief Returns the index of this component.
+    ///
+    /// The value returned by this method gives the relative position of the
+    /// component within its inclosing record.  In particular,
+    /// RecordDecl::getComponent(this->getIndex()) == this.
+    unsigned getIndex() const { return index; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const ComponentDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ComponentDecl;
+    }
+
+private:
+    // ComponentDecl's are constructed by their enclosing record declaration.
+    ComponentDecl(IdentifierInfo *name, Location loc,
+                  Type *type, unsigned index, RecordDecl *parent)
+        : Decl(AST_ComponentDecl, name, loc, parent),
+          CorrespondingType(type), index(index) { }
+
+    friend class RecordDecl;
+
+    Type *CorrespondingType;    // Type of this component.
+    unsigned index;             // Relative position of this component.
 };
 
 //===----------------------------------------------------------------------===//
@@ -1693,9 +1880,15 @@ public:
     /// parameters.
     virtual const SignatureSet &getSignatureSet() const = 0;
 
-    DomainType *getType() const {
+    //@{
+    /// \brief Returns the first subtype defined by this domain declaration.
+    const DomainType *getType() const {
         return llvm::cast<DomainType>(CorrespondingType);
     }
+    DomainType *getType() {
+        return llvm::cast<DomainType>(CorrespondingType);
+    }
+    //@}
 
     static bool classof(const DomainTypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1782,12 +1975,18 @@ public:
         return arguments[n];
     }
 
-    /// Returns the type of the i'th actual parameter.  This method asserts if
-    /// its argument is out of range, or if this is not an instance of a
-    /// functor.
-    DomainType *getActualParamType(unsigned n) const {
+    //@{
+    /// \brief Returns the type of the i'th actual parameter.
+    ///
+    /// This method asserts if its argument is out of range, or if this is not
+    /// an instance of a functor.
+    const DomainType *getActualParamType(unsigned n) const {
         return getActualParam(n)->getType();
     }
+    DomainType *getActualParamType(unsigned n) {
+        return getActualParam(n)->getType();
+    }
+    //@}
 
     /// Iterators over the arguments supplied to this instance.
     typedef DomainTypeDecl **arg_iterator;
@@ -1879,7 +2078,12 @@ private:
 //===----------------------------------------------------------------------===//
 // Inline methods, now that the decl hierarchy is in place.
 
-inline DomainType *ModelDecl::getPercentType() const
+inline const DomainType *ModelDecl::getPercentType() const
+{
+    return percent->getType();
+}
+
+inline DomainType *ModelDecl::getPercentType()
 {
     return percent->getType();
 }

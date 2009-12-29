@@ -1,0 +1,15 @@
+
+domain Test with
+   procedure Run;
+add
+   type Arr is array (Positive range 1..10) of Integer;
+
+   procedure Run is
+      A : Arr;
+   begin
+      -- EXPECTED-ERROR: Positional components may not follow keyed
+      A := (2..10 => 1, 1);
+   end Run;
+end Test;
+
+

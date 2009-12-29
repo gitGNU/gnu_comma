@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AttribExpr.h"
-#include "comma/ast/Expr.h"
+#include "comma/ast/AggExpr.h"
 #include "comma/ast/ExprVisitor.h"
 
 using namespace comma;
@@ -45,8 +45,7 @@ void ExprVisitor::visitExpr(Expr *node)
         case DISPATCH(PrjExpr, node);
         case DISPATCH(IntegerLiteral, node);
         case DISPATCH(StringLiteral, node);
-        case DISPATCH(PositionalAggExpr, node);
-        case DISPATCH(KeyedAggExpr, node);
+        case DISPATCH(AggregateExpr, node);
         case DISPATCH(ConversionExpr, node);
         };
     }
@@ -65,18 +64,6 @@ void ExprVisitor::visitAttribExpr(AttribExpr *node)
     };
 }
 
-void ExprVisitor::visitAggregateExpr(AggregateExpr *node)
-{
-    switch (node->getKind()) {
-    default:
-        assert(false && "Cannot visit this kind of AggregateExpr!");
-        break;
-    case DISPATCH(PositionalAggExpr, node);
-    case DISPATCH(KeyedAggExpr, node);
-    };
-}
-
-
 //===----------------------------------------------------------------------===//
 // Leaf nodes.  Default implementations do nothing.
 
@@ -87,8 +74,7 @@ void ExprVisitor::visitInjExpr(InjExpr *node) { }
 void ExprVisitor::visitPrjExpr(PrjExpr *node) { }
 void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }
 void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
-void ExprVisitor::visitPositionalAggExpr(PositionalAggExpr *node) { }
-void ExprVisitor::visitKeyedAggExpr(KeyedAggExpr *node) { }
+void ExprVisitor::visitAggregateExpr(AggregateExpr *node) { }
 void ExprVisitor::visitConversionExpr(ConversionExpr *node) { }
 
 void ExprVisitor::visitFirstAE(FirstAE *node) { }

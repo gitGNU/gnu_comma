@@ -273,6 +273,7 @@ bool Parser::consumeName()
                 break;
             case Lexer::TKN_IDENTIFIER:
             case Lexer::TKN_CHARACTER:
+                ignoreToken();
                 break;
             };
         }

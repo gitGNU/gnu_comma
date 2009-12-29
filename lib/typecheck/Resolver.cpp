@@ -93,10 +93,11 @@ bool Resolver::resolveDirectDecls(Homonym *homonym)
                 directOverloads.push_back(sdecl);
         }
         else {
-            assert((isa<ValueDecl>(candidate) ||
-                    isa<TypeDecl>(candidate)  ||
-                    isa<ModelDecl>(candidate) ||
-                    isa<ExceptionDecl>(candidate)) &&
+            assert((isa<ValueDecl>(candidate)     ||
+                    isa<TypeDecl>(candidate)      ||
+                    isa<ModelDecl>(candidate)     ||
+                    isa<ExceptionDecl>(candidate) ||
+                    isa<ComponentDecl>(candidate)) &&
                    "Bad type of direct declaration!");
             if (directOverloads.empty()) {
                 directDecl = candidate;

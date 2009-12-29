@@ -31,10 +31,11 @@ void TypeVisitor::visitType(Type *node)
         visitArrayType(arrTy);
     else if (EnumerationType *enumTy = dyn_cast<EnumerationType>(node))
         visitEnumerationType(enumTy);
+    else if (RecordType *recTy = dyn_cast<RecordType>(node))
+        visitRecordType(recTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
-
 
 void TypeVisitor::visitSubroutineType(SubroutineType *node)
 {
@@ -55,4 +56,4 @@ void TypeVisitor::visitProcedureType(ProcedureType *node) { }
 void TypeVisitor::visitEnumerationType(EnumerationType *node) { }
 void TypeVisitor::visitIntegerType(IntegerType *node) { }
 void TypeVisitor::visitArrayType(ArrayType *node) { }
-
+void TypeVisitor::visitRecordType(RecordType *node) { }

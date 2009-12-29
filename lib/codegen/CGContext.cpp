@@ -19,9 +19,9 @@ CGContext::CGContext(CodeGen &CG, InstanceInfo *IInfo)
       IInfo(IInfo),
       CGT(CG, IInfo->getInstanceDecl())
 {
-    const DomainInstanceDecl *instance = IInfo->getInstanceDecl();
-    const Domoid *domoid = IInfo->getDefinition();
-    if (const FunctorDecl *functor = dyn_cast<FunctorDecl>(domoid)) {
+    DomainInstanceDecl *instance = IInfo->getInstanceDecl();
+    Domoid *domoid = IInfo->getDefinition();
+    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(domoid)) {
         for (unsigned i = 0; i < instance->getArity(); ++i) {
             DomainType *formal = functor->getFormalType(i);
             DomainType *actual = instance->getActualParamType(i);

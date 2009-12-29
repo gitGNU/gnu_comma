@@ -1,0 +1,27 @@
+-- Record aggregate checks involving `others'.
+
+domain Test add
+   type E is (Foo, Bar, Baz);
+
+   type R is record
+      Foo : E;
+      Bar : E;
+      Baz : Integer;
+   end record;
+
+   procedure Run is
+      -- EXPECTED-ERROR: Incompatible type
+      A1 : R := (Foo | Bar => Foo, others => Bar);
+
+      -- EXPECTED-ERROR: selectors must be of the same type.
+      A2 : R := (others => Bar);
+
+      -- EXPECTED-ERROR: selectors must be of the same type.
+      A3 : R := (Foo => Foo, others => <>);
+
+      -- The rest are all OK.
+      A4 : R := (Foo | Bar => Foo, Baz => 0, others => <>);
+      A5 : R := (Foo | Bar => Foo, others => 0);
+      A6 : R := (Baz => 0, others => Foo);
+   begin end Run;
+end Test;

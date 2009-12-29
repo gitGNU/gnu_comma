@@ -186,6 +186,19 @@ public:
     ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base);
     //@}
 
+    /// \name Record declaration and type constructors.
+    //@{
+    /// Creates a Record declaration node.
+    RecordDecl *createRecordDecl(IdentifierInfo *name, Location loc,
+                                 DeclRegion *parent);
+
+    /// Returns a record type corresponding to the given declaration.
+    RecordType *createRecordType(RecordDecl *decl);
+
+    /// Returns a subtype of the given record type.
+    RecordType *createRecordSubtype(IdentifierInfo *name, RecordType *base);
+    //@}
+
     /// \brief Creates an exception declaration.
     ///
     /// \param name The name of this exception.

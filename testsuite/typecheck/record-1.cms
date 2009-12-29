@@ -1,0 +1,24 @@
+-- Check for well formed selectors in record aggregate expressions.
+
+domain Test add
+   type E is (Foo, Bar);
+
+   type R is record
+      Foo : E;
+      Bar : E;
+   end record;
+
+   procedure Run is
+      -- EXPECTED-ERROR: Invalid selector for record
+      X : R := (Foo, 1..2 => Bar);
+      -- EXPECTED-ERROR: Invalid selector for record
+      Y : R := (Foo, E.Bar => E.Bar);
+      -- EXPECTED-ERROR: Invalid selector for record
+      Z : R := (1 => Foo, 2 => Bar);
+
+      A : R := (Foo, Bar);
+      B : R := (Foo, Bar => Bar);
+      C : R := (Foo => Foo, Bar => Bar);
+      D : R := (Bar => Foo, Foo => Bar);
+   begin end Run;
+end Test;

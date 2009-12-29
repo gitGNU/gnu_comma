@@ -197,7 +197,7 @@ Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
     // Enter a scope for the subroutine definition.  Add the subroutine itself
     // as an element of the new scope and add the formal parameters.  This
     // should never result in conflicts.
-    scope.push(FUNCTION_SCOPE);
+    scope.push(SUBROUTINE_SCOPE);
     scope.addDirectDeclNoConflicts(srDecl);
     typedef SubroutineDecl::param_iterator param_iterator;
     for (param_iterator I = srDecl->begin_params();
@@ -215,7 +215,7 @@ Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
 
 void TypeCheck::endSubroutineDefinition()
 {
-    assert(scope.getKind() == FUNCTION_SCOPE);
+    assert(scope.getKind() == SUBROUTINE_SCOPE);
 
     // We established two levels of declarative regions in
     // beginSubroutineDefinition: one for the BlockStmt constituting the body

@@ -69,8 +69,7 @@ bool Type::isEnumType() const
 
 bool Type::isCompositeType() const
 {
-    // The only kind of composite types ATM are array types.
-    return isArrayType();
+    return this->denotesCompositeType();
 }
 
 bool Type::isArrayType() const
@@ -112,7 +111,7 @@ bool Type::involvesPercent() const
         if (const DomainInstanceDecl *instance = domTy->getInstanceDecl()) {
             unsigned arity = instance->getArity();
             for (unsigned i = 0; i < arity; ++i) {
-                DomainType *param = instance->getActualParamType(i);
+                const DomainType *param = instance->getActualParamType(i);
                 if (param->involvesPercent())
                     return true;
             }
@@ -136,6 +135,13 @@ bool Type::involvesPercent() const
             return fnTy->getReturnType()->involvesPercent();
     }
 
+    return false;
+}
+
+bool Type::isIndefiniteType() const
+{
+    if (const ArrayType *arrTy = dyn_cast<ArrayType>(this))
+        return arrTy->isUnconstrained();
     return false;
 }
 
@@ -907,21 +913,20 @@ uint64_t IntegerType::getSize() const
 
 ArrayType::ArrayType(ArrayDecl *decl, unsigned rank, DiscreteType **indices,
                      Type *component, bool isConstrained)
-    : PrimaryType(AST_ArrayType, 0, false),
+    : CompositeType(AST_ArrayType, 0, false),
       indices(indices, indices + rank),
       componentType(component),
       definingDecl(decl)
 {
     assert(rank != 0 && "Missing index types!");
     assert(this->isRootType());
-
     if (isConstrained)
         setConstraintBit();
 }
 
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
                      DiscreteType **indices)
-    : PrimaryType(AST_ArrayType, rootType, true),
+    : CompositeType(AST_ArrayType, rootType, true),
       indices(indices, indices + rootType->getRank()),
       componentType(rootType->getComponentType()),
       definingDecl(name)
@@ -931,7 +936,7 @@ ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
 }
 
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType)
-    : PrimaryType(AST_ArrayType, rootType, true),
+    : CompositeType(AST_ArrayType, rootType, true),
       indices(rootType->begin(), rootType->end()),
       componentType(rootType->getComponentType()),
       definingDecl(name)
@@ -985,4 +990,36 @@ bool ArrayType::isStaticallyConstrained() const
     return true;
 }
 
+//===----------------------------------------------------------------------===//
+// RecordType
+
+RecordType::RecordType(RecordDecl *decl)
+    : CompositeType(AST_RecordType, 0, false),
+      definingDecl(decl) { }
+
+RecordType::RecordType(RecordType *rootType, IdentifierInfo *name)
+  : CompositeType(AST_RecordType, rootType, true),
+    definingDecl(name) { }
+
+RecordDecl *RecordType::getDefiningDecl()
+{
+    return getRootType()->definingDecl.get<RecordDecl*>();
+}
+
+IdentifierInfo *RecordType::getIdInfo() const
+{
+    if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
+        return idInfo;
+    return getDefiningDecl()->getIdInfo();
+}
+
+unsigned RecordType::numComponents() const
+{
+    return getDefiningDecl()->numComponents();
+}
+
+Type *RecordType::getComponentType(unsigned i)
+{
+    return getDefiningDecl()->getComponent(i)->getType();
+}
 

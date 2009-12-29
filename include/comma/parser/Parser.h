@@ -120,6 +120,7 @@ public:
 
     void parseArrayIndexProfile(NodeVector &indices);
     bool parseArrayTypeDecl(IdentifierInfo *name, Location loc);
+    bool parseRecordTypeDecl(IdentifierInfo *name, Location loc);
 
     /// \brief Parses a top level construct.  Returns false once all tokens have
     /// been consumed.
@@ -297,30 +298,37 @@ private:
     // upcoming on the token stream.
     bool selectedComponentFollows();
 
-    // The following enumeration serves to identify aggregate expressions.
-    enum AggregateKind {
-        NOT_AN_AGGREGATE,
-        POSITIONAL_AGGREGATE,
-        KEYED_AGGREGATE
-    };
+    /// \brief Returns true if an aggregate follows on the token stream.
+    ///
+    /// This method must be called when the current token is TKN_LPAREN.  An
+    /// aggregate expression is identified by the presence of a TKN_COMMA or
+    /// TKN_RDARROW token at the same level as the opening paren, and preceeding
+    /// the matching close paren.
+    bool aggregateFollows();
 
-    // Returns the kind of an aggregate expression.
-    //
-    // This method must be called when the current token is TOK_LPAREN.  An
-    // aggregate expression is identified by the presence of a TOK_COMMA or
-    // TOK_RDARROW token at the same level as the opening paren, and preceeding
-    // the matching close paren.
-    AggregateKind aggregateFollows();
+    /// \brief Parses an aggregate expression.
+    Node parseAggregate();
 
-    // Returns true is a block statement follows on the token stream.
-    //
-    // More precisely, returns true is the current token is
-    //
-    //   - an identifier followed by a colon.
-    //
-    //   - the reserved word `declare'.
-    //
-    //   - the reserved word `begin'.
+    /// \brief Parses a component of an aggregate expression.
+    ///
+    /// \param seenKeyedComponent An in out parameter indicating if a keyed
+    /// component has been parsed by a previous invocation of this method.
+    /// Should initially be called with a value of \c false.
+    ///
+    /// \return False if the component could not be parsed or otherwised
+    /// consumed, in which case the closing paren of the aggregate is sought and
+    /// consumed.
+    bool parseAggregateComponent(bool &seenKeyedComponent);
+
+    /// \brief Returns true if a block statement follows on the token stream.
+    ///
+    /// More precisely, returns true is the current token is
+    ///
+    ///   - an identifier followed by a colon;
+    ///
+    ///   - the reserved word `declare';
+    ///
+    ///   - the reserved word `begin'.
     bool blockStmtFollows();
 
     Node parseExponentialOperator();
@@ -328,10 +336,6 @@ private:
     Node parseBinaryAdditiveOperator(Node lhs);
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
-
-    Node parseAggregate(AggregateKind kind);
-    Node parsePositionalAggregate();
-    Node parseKeyedAggregate();
 
     /// Parses a discrete subtype definition.  When \p acceptDiamond is true
     /// this parser will accept the "range <>" syntax as seen in array index

@@ -600,7 +600,6 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
         decl = new ObjectDecl(name, objTy, loc, init);
     }
 
-
     initializerNode.release();
     refNode.release();
 
@@ -906,10 +905,16 @@ void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
     if (!allOK)
         return;
 
-    // Ensure the component node is in fact a type.
+    // Ensure the component node is in fact a type and that it does not denote
+    // an indefinite type.
     PrimaryType *componentTy;
-    if (TypeDecl *componentDecl = ensureTypeDecl(componentNode))
+    if (TypeDecl *componentDecl = ensureTypeDecl(componentNode)) {
         componentTy = componentDecl->getType();
+        if (componentTy->isIndefiniteType()) {
+            report(getNodeLoc(componentNode), diag::INDEFINITE_COMPONENT_TYPE);
+            return;
+        }
+    }
     else
         return;
 
@@ -929,6 +934,56 @@ void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
     // FIXME: We need to introduce the implicit operations for this type.
     region->addDecl(array);
     introduceImplicitDecls(array);
+}
+
+//===----------------------------------------------------------------------===//
+// Record type declaration callbacks.
+
+void TypeCheck::beginRecord(IdentifierInfo *name, Location loc)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    RecordDecl *record = resource.createRecordDecl(name, loc, region);
+
+    scope.push(RECORD_SCOPE);
+    pushDeclarativeRegion(record);
+}
+
+void TypeCheck::acceptRecordComponent(IdentifierInfo *name, Location loc,
+                                      Node typeNode)
+{
+    assert(scope.getKind() == RECORD_SCOPE);
+    RecordDecl *record = cast<RecordDecl>(currentDeclarativeRegion());
+
+    TypeDecl *tyDecl = ensureTypeDecl(typeNode);
+    Type *componentTy = tyDecl->getType();
+
+    if (componentTy->isIndefiniteType()) {
+        report(getNodeLoc(typeNode), diag::INDEFINITE_COMPONENT_TYPE);
+        return;
+    }
+
+    ComponentDecl *component = record->addComponent(name, loc, componentTy);
+    if (Decl *conflict = scope.addDirectDecl(component)) {
+        SourceLocation sloc = getSourceLoc(conflict->getLocation());
+        report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+    }
+}
+
+void TypeCheck::endRecord()
+{
+    assert(scope.getKind() == RECORD_SCOPE);
+    scope.pop();
+
+    RecordDecl *record = cast<RecordDecl>(currentDeclarativeRegion());
+    popDeclarativeRegion();
+
+    if (Decl *conflict = scope.addDirectDecl(record)) {
+        SourceLocation sloc = getSourceLoc(conflict->getLocation());
+        report(record->getLocation(), diag::DECLARATION_CONFLICTS) <<
+            record->getIdInfo() << sloc;
+    }
+    else
+        currentDeclarativeRegion()->addDecl(record);
 }
 
 //===----------------------------------------------------------------------===//

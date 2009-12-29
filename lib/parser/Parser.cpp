@@ -379,11 +379,11 @@ bool Parser::selectedComponentFollows()
     return status;
 }
 
-Parser::AggregateKind Parser::aggregateFollows()
+bool Parser::aggregateFollows()
 {
     assert(currentTokenIs(Lexer::TKN_LPAREN));
 
-    AggregateKind result = NOT_AN_AGGREGATE;
+    bool result = false;
     Lexer::Token savedToken = currentToken();
 
     lexer.beginExcursion();
@@ -399,11 +399,11 @@ SEEK:
         default: break;
 
         case Lexer::TKN_COMMA:
-            result = POSITIONAL_AGGREGATE;
+            result = true;      // Positional aggregate.
             break;
 
         case Lexer::TKN_RDARROW:
-            result = KEYED_AGGREGATE;
+            result = true;      // Keyed aggregate.
             break;
 
         case Lexer::TKN_LPAREN:
@@ -413,7 +413,7 @@ SEEK:
             break;
 
         case Lexer::TKN_OTHERS:
-            result = KEYED_AGGREGATE;
+            result = true;      // Others aggregate.
             break;
         }
     }
@@ -1142,6 +1142,10 @@ bool Parser::parseType()
 
     case Lexer::TKN_ARRAY:
         return parseArrayTypeDecl(name, loc);
+
+    case Lexer::TKN_RECORD:
+    case Lexer::TKN_NULL:
+        return parseRecordTypeDecl(name, loc);
     }
 
     return false;
@@ -1264,6 +1268,8 @@ void Parser::parseArrayIndexProfile(NodeVector &indices)
         Node index = parseDSTDefinition(true);
         if (index.isValid())
             indices.push_back(index);
+        else
+            seekTokens(Lexer::TKN_COMMA, Lexer::TKN_RPAREN);
     } while (reduceToken(Lexer::TKN_COMMA));
 
     if (!requireToken(Lexer::TKN_RPAREN))
@@ -1281,15 +1287,61 @@ bool Parser::parseArrayTypeDecl(IdentifierInfo *name, Location loc)
     NodeVector indices;
     parseArrayIndexProfile(indices);
 
-    if (indices.empty() || !reduceToken(Lexer::TKN_OF))
+    if (indices.empty() || !requireToken(Lexer::TKN_OF)) {
+        seekSemi();
         return false;
+    }
 
     Node component = parseName();
-    if (component.isInvalid())
+    if (component.isInvalid()) {
+        seekSemi();
         return false;
+    }
 
     client.acceptArrayDecl(name, loc, indices, component);
     return true;
+}
+
+bool Parser::parseRecordTypeDecl(IdentifierInfo *name, Location loc)
+{
+    assert(currentTokenIs(Lexer::TKN_RECORD) ||
+           currentTokenIs(Lexer::TKN_NULL));
+
+    client.beginRecord(name, loc);
+
+    if (currentTokenIs(Lexer::TKN_NULL) && nextTokenIs(Lexer::TKN_RECORD)) {
+        ignoreToken();          // Ignore TKN_NULL.
+        ignoreToken();          // Ignore TKN_RECORD.
+        client.endRecord();
+        return true;
+    }
+    else
+        ignoreToken();          // Ignore TKN_RECORD.
+
+    do {
+        if (reduceToken(Lexer::TKN_NULL)) {
+            requireToken(Lexer::TKN_SEMI);
+            continue;
+        }
+
+        Location loc = currentLocation();
+        IdentifierInfo *componentName = parseIdentifier();
+        if (!componentName || !requireToken(Lexer::TKN_COLON))
+            seekSemi();
+        else {
+            Node type = parseName();
+            if (type.isValid())
+                client.acceptRecordComponent(componentName, loc, type);
+            else
+                seekSemi();
+        }
+
+        requireToken(Lexer::TKN_SEMI);
+    } while (!currentTokenIs(Lexer::TKN_END) &&
+             !currentTokenIs(Lexer::TKN_EOT));
+
+    client.endRecord();
+    return requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_RECORD);
 }
 
 bool Parser::parseTopLevelDeclaration()

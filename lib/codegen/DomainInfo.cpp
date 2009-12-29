@@ -244,9 +244,9 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
     arguments.push_back(info);
 
     for (unsigned i = 0; i < instance->getArity(); ++i) {
-        DomainType *argTy = cast<DomainType>(instance->getActualParamType(i));
+        const DomainType *argTy = cast<DomainType>(instance->getActualParamType(i));
 
-        if (PercentDecl *pdecl = argTy->getPercentDecl()) {
+        if (const PercentDecl *pdecl = argTy->getPercentDecl()) {
             assert(pdecl->getDefinition() == DS.getCapsule() &&
                    "Percent node does not represent the current domain!");
 
@@ -254,7 +254,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
             // value onto get_domains argument list.
             arguments.push_back(percent);
         }
-        else if (DomainInstanceDecl *arg = argTy->getInstanceDecl()) {
+        else if (const DomainInstanceDecl *arg = argTy->getInstanceDecl()) {
             DependencySet::iterator argPos = DS.find(arg);
             assert(argPos != DS.end() && "Dependency lookup failed!");
             unsigned argIndex = DS.getDependentID(argPos);
@@ -268,7 +268,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
             arguments.push_back(argInstance);
         }
         else {
-            AbstractDomainDecl *arg = argTy->getAbstractDecl();
+            const AbstractDomainDecl *arg = argTy->getAbstractDecl();
             unsigned paramIdx = DS.getCapsule()->getFormalIndex(arg);
 
             // Load the instance corresponding to the formal parameter and push

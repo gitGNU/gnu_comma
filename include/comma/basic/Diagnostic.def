@@ -67,6 +67,10 @@ DIAGNOSTIC(OTHERS_HANDLER_NOT_UNIQUE, ERROR,
            "An others choice for a handler must be unique.")
 DIAGNOSTIC(OTHERS_HANDLER_NOT_FINAL, ERROR,
            "A handler covered by an `others' choice must be the last handler.")
+DIAGNOSTIC(POSITIONAL_FOLLOWING_KEYED_COMPONENT, ERROR,
+           "Positional components may not follow keyed components.")
+DIAGNOSTIC(OTHERS_COMPONENT_NOT_FINAL, ERROR,
+           "An `others' component must be the last component of an aggregate.")
 
 //
 // Semantic Diagnostics.
@@ -229,6 +233,9 @@ DIAGNOSTIC(INVALID_CONTEXT_FOR_AGGREGATE, ERROR,
            "Invalid context for aggregate expression.")
 DIAGNOSTIC(OTHERS_IN_UNCONSTRAINED_CONTEXT, ERROR,
            "\"others\" may not appear in an unconstrained type context.")
+DIAGNOSTIC(MIXED_ARRAY_AGGREGATE, ERROR,
+           "Array aggregates cannot contain both positional "
+           "and keyed components.")
 DIAGNOSTIC(DOES_NOT_DENOTE_A_TYPE, ERROR,
            "Expression does not denote a type.")
 DIAGNOSTIC(INVALID_SUBTYPE_INDICATION, ERROR,
@@ -245,8 +252,8 @@ DIAGNOSTIC(DYNAMIC_CHOICE_NOT_UNIQUE, ERROR,
            "Dynamic choice in aggregate must be unique.")
 DIAGNOSTIC(NULL_CHOICE_NOT_UNIQUE, ERROR,
            "Null choice in aggregate must be unique.")
-DIAGNOSTIC(DUPLICATED_CHOICE_VALUE, ERROR,
-           "Choice value duplicated at `%0'.")
+DIAGNOSTIC(DUPLICATED_AGGREGATE_COMPONENT, ERROR,
+           "Aggregate component duplicated at `%0'.")
 DIAGNOSTIC(DISCONTINUOUS_CHOICE, ERROR,
            "Discrete choice not continuous. "
            "Values below choice `%0' are not covered.")
@@ -256,3 +263,11 @@ DIAGNOSTIC(EXPECTED_CONSTRAINED_ARRAY_INDEX, ERROR,
            "Expected constrained array index.")
 DIAGNOSTIC(EXPECTED_UNCONSTRAINED_ARRAY_INDEX, ERROR,
            "Expected unconstrained array index.")
+DIAGNOSTIC(INVALID_RECORD_SELECTOR, ERROR,
+           "Invalid selector for record `%0'.")
+DIAGNOSTIC(COMPONENT_COVERED_POSITIONALLY, ERROR,
+           "Component is covered by a positional parameter.")
+DIAGNOSTIC(INCONSISTENT_RECORD_COMPONENT_SELECTORS, ERROR,
+           "All component selectors must be of the same type.")
+DIAGNOSTIC(INDEFINITE_COMPONENT_TYPE, ERROR,
+           "Indefinite component type in aggregate declaration.")

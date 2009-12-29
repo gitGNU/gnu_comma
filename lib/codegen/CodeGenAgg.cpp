@@ -17,8 +17,8 @@
 #include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
+#include "comma/ast/AggExpr.h"
 #include "comma/ast/Type.h"
-#include "comma/ast/Expr.h"
 
 #include <algorithm>
 
@@ -64,7 +64,7 @@ private:
     /// \param lower Lower bound of the current index.
     ///
     /// \param upper Upper bound of the current index.
-    void fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
+    void fillInOthers(AggregateExpr *agg, llvm::Value *dst,
                       llvm::Value *lower, llvm::Value *upper);
 
     /// \brief Emits the given expression repeatedly into a destination.
@@ -87,11 +87,11 @@ private:
     void emitOthers(AggregateExpr *expr, llvm::Value *dst,
                     llvm::Value *bounds, uint64_t numComponents);
 
-    ValuePair emitPositionalAgg(PositionalAggExpr *expr, llvm::Value *dst);
-    ValuePair emitKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
-    ValuePair emitStaticKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
-    ValuePair emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
-    ValuePair emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst);
+    ValuePair emitPositionalAgg(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emitStaticKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    ValuePair emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
 
     ValuePair emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
                                   bool genTmp);
@@ -112,7 +112,7 @@ private:
     llvm::Value *allocArray(ArrayType *arrTy, llvm::Value *bounds,
                             llvm::Value *&dst);
 
-    /// Emits the components defined by a descrete choice.
+    /// Emits the components defined by a discrete choice.
     ///
     /// \param I Iterator yielding the component to emit.
     ///
@@ -121,7 +121,7 @@ private:
     /// \param bias The lower bound of the associated discrete index type.  This
     /// value is used to correct the actual index values defined by the discrete
     /// choice so that they are zero based.
-    void emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
+    void emitDiscreteComponent(AggregateExpr::key_iterator &I,
                                llvm::Value *dst, llvm::Value *bias);
 
     /// \brief Emits the array component given by \p expr and stores the result
@@ -237,11 +237,9 @@ AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
 AggEmitter::ValuePair AggEmitter::emitAggregate(AggregateExpr *expr,
                                                 llvm::Value *dst)
 {
-    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(expr))
-        return emitPositionalAgg(PAE, dst);
-
-    KeyedAggExpr *KAE = cast<KeyedAggExpr>(expr);
-    return emitKeyedAgg(KAE, dst);
+    if (expr->isPurelyPositional())
+        return emitPositionalAgg(expr, dst);
+    return emitKeyedAgg(expr, dst);
 }
 
 AggEmitter::ValuePair AggEmitter::emitStringLiteral(StringLiteral *expr)
@@ -401,9 +399,11 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     Builder.SetInsertPoint(mergeBB);
 }
 
-AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
+AggEmitter::ValuePair AggEmitter::emitPositionalAgg(AggregateExpr *expr,
                                                     llvm::Value *dst)
 {
+    assert(expr->isPurelyPositional() && "Unexpected type of aggregate!");
+
     llvm::Value *bounds = emitter.synthAggregateBounds(Builder, expr);
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
 
@@ -412,9 +412,9 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
     if (dst == 0)
         allocArray(arrTy, bounds, dst);
 
-    typedef PositionalAggExpr::iterator iterator;
-    iterator I = expr->begin_components();
-    iterator E = expr->end_components();
+    typedef AggregateExpr::pos_iterator iterator;
+    iterator I = expr->pos_begin();
+    iterator E = expr->pos_end();
     for (unsigned idx = 0; I != E; ++I, ++idx)
         emitComponent(*I, Builder.CreateConstGEP2_32(dst, 0, idx));
 
@@ -423,29 +423,43 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(PositionalAggExpr *expr,
     return ValuePair(dst, bounds);
 }
 
-AggEmitter::ValuePair AggEmitter::emitKeyedAgg(KeyedAggExpr *expr,
+AggEmitter::ValuePair AggEmitter::emitKeyedAgg(AggregateExpr *expr,
                                                llvm::Value *dst)
 {
+    assert(expr->isPurelyKeyed() && "Unexpected kind of aggregate!");
+
     if (expr->hasStaticIndices())
         return emitStaticKeyedAgg(expr, dst);
 
-    if (expr->numChoices() == 1)
+    if (expr->numKeys() == 1)
         return emitDynamicKeyedAgg(expr, dst);
 
-    assert(expr->numChoices() == 0);
+    assert(expr->numKeys() == 0);
     assert(expr->hasOthers());
 
     return emitOthersKeyedAgg(expr, dst);
 }
 
-void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
+void AggEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
                                        llvm::Value *dst, llvm::Value *bias)
 {
-    // FIXME: Only ranges are supported at the moment.
-    Range *range = cast<Range>(*I);
-    uint64_t length = range->length();
+    // Number of components we need to emit.
+    uint64_t length;
+
+    // Starting index to emit each component (not corrected by the given bias).
+    llvm::Value *idx;
+
+    if (Range *range = (*I)->getAsRange()) {
+        length = range->length();
+        idx = emitter.getLowerBound(Builder, range);
+    }
+    else {
+        Expr *expr = (*I)->getAsExpr();
+        length = 1;
+        idx = CGR.emitValue(expr);
+    }
+
     Expr *expr = I.getExpr();
-    llvm::Value *idx = emitter.getLowerBound(Builder, range);
     const llvm::Type *idxTy = idx->getType();
 
     // Perform the emission using inline code if length is small.  Otherwise use
@@ -476,8 +490,10 @@ void AggEmitter::emitDiscreteComponent(KeyedAggExpr::choice_iterator &I,
 }
 
 AggEmitter::ValuePair
-AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *agg, llvm::Value *dst)
+AggEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
 {
+    assert(agg->isPurelyKeyed() && "Unexpected type of aggregate!");
+
     ArrayType *arrTy = cast<ArrayType>(agg->getType());
     DiscreteType *idxTy = arrTy->getIndexType(0);
 
@@ -495,8 +511,8 @@ AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *agg, llvm::Value *dst)
         allocArray(arrTy, bounds, dst);
 
     // Generate the aggregate.
-    KeyedAggExpr::choice_iterator I = agg->choice_begin();
-    KeyedAggExpr::choice_iterator E = agg->choice_end();
+    AggregateExpr::key_iterator I = agg->key_begin();
+    AggregateExpr::key_iterator E = agg->key_end();
     for ( ; I != E; ++I)
         emitDiscreteComponent(I, dst, lower);
     fillInOthers(agg, dst, lower, upper);
@@ -504,7 +520,7 @@ AggEmitter::emitStaticKeyedAgg(KeyedAggExpr *agg, llvm::Value *dst)
     return ValuePair(dst, bounds);
 }
 
-void AggEmitter::fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
+void AggEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
                               llvm::Value *lower, llvm::Value *upper)
 {
     // If this aggregate does not specify an others component we are done.
@@ -516,47 +532,49 @@ void AggEmitter::fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
         return;
 
     DiscreteType *idxTy = cast<ArrayType>(agg->getType())->getIndexType(0);
-
-    // Build a sorted vector of the choices supplied by the aggregate.
-    typedef std::vector<Ast*> ChoiceVec;
-    ChoiceVec CV(agg->choice_begin(), agg->choice_end());
-    if (idxTy->isSigned())
-        std::sort(CV.begin(), CV.end(), KeyedAggExpr::compareChoicesS);
-    else
-        std::sort(CV.begin(), CV.end(), KeyedAggExpr::compareChoicesU);
-
-    llvm::APInt limit;
-    Range *choice;
     const llvm::Type *iterTy = lower->getType();
 
+    // Build a sorted vector of the keys supplied by the aggregate.
+    typedef std::vector<ComponentKey*> KeyVec;
+    KeyVec KV(agg->key_begin(), agg->key_end());
+    if (idxTy->isSigned())
+        std::sort(KV.begin(), KV.end(), ComponentKey::compareKeysS);
+    else
+        std::sort(KV.begin(), KV.end(), ComponentKey::compareKeysU);
+
+    llvm::APInt limit;
+    llvm::APInt lowerValue;
+    llvm::APInt upperValue;
+
     // Fill in any missing leading elements.
-    choice = cast<Range>(CV.front());
+    KV.front()->getLowerValue(lowerValue);
     idxTy->getLowerLimit(limit);
-    if (choice->getStaticLowerBound() != limit) {
-        llvm::Value *end = CGR.emitValue(choice->getLowerBound());
+    if (lowerValue != limit) {
+        llvm::Value *end = llvm::ConstantInt::get(iterTy, lowerValue);
         emitOthers(others, dst, lower, end, lower);
     }
 
     // Fill in each interior "hole".
-    for (unsigned i = 0; i < CV.size() - 1; ++i) {
-        llvm::APInt lo = cast<Range>(CV[i])->getStaticUpperBound();
-        const llvm::APInt &hi = cast<Range>(CV[i+1])->getStaticLowerBound();
+    for (unsigned i = 0; i < KV.size() - 1; ++i) {
+        // Note the change in the sense of "upper" and "lower" here.
+        KV[i]->getUpperValue(lowerValue);
+        KV[i+1]->getLowerValue(upperValue);
 
-        if (lo == hi)
+        if (lowerValue == upperValue)
             continue;
 
-        llvm::Value *start = llvm::ConstantInt::get(iterTy, ++lo);
-        llvm::Value *end = llvm::ConstantInt::get(iterTy, hi);
+        llvm::Value *start = llvm::ConstantInt::get(iterTy, ++lowerValue);
+        llvm::Value *end = llvm::ConstantInt::get(iterTy, upperValue);
         emitOthers(others, dst, start, end, lower);
     }
 
     // Fill in any missing trailing elements.
-    choice = cast<Range>(CV.back());
+    KV.back()->getUpperValue(upperValue);
     idxTy->getUpperLimit(limit);
-    if (choice->getStaticUpperBound() != limit) {
+    if (upperValue != limit) {
         llvm::Value *start;
         llvm::Value *end;
-        start = CGR.emitValue(choice->getUpperBound());
+        start = llvm::ConstantInt::get(iterTy, upperValue);
         start = Builder.CreateAdd(start, llvm::ConstantInt::get(iterTy, 1));
         end = Builder.CreateAdd(upper, llvm::ConstantInt::get(iterTy, 1));
         emitOthers(others, dst, start, end, lower);
@@ -564,11 +582,11 @@ void AggEmitter::fillInOthers(KeyedAggExpr *agg, llvm::Value *dst,
 }
 
 AggEmitter::ValuePair
-AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+AggEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
-    KeyedAggExpr::choice_iterator I = expr->choice_begin();
-    Range *range = cast<Range>(*I);
+    AggregateExpr::key_iterator I = expr->key_begin();
+    Range *range = cast<Range>((*I)->getRep());
     llvm::Value *bounds = emitter.synthRange(Builder, range);
     llvm::Value *length = 0;
 
@@ -619,7 +637,7 @@ AggEmitter::emitDynamicKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
 }
 
 AggEmitter::ValuePair
-AggEmitter::emitOthersKeyedAgg(KeyedAggExpr *expr, llvm::Value *dst)
+AggEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     assert(expr->hasOthers() && "Empty aggregate!");
 

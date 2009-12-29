@@ -15,6 +15,11 @@
 
 #include "RangeChecker.h"
 #include "TypeCheck.h"
+#include "comma/ast/AggExpr.h"
+#include "comma/ast/DiagPrint.h"
+
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include <algorithm>
 
@@ -25,79 +30,111 @@ using llvm::isa;
 
 namespace {
 
-/// This class provides the main typecheck logic needed to analyze aggregate
-/// expressions.
-class AggregateChecker {
+//===----------------------------------------------------------------------===//
+// AggCheckerBase
+//
+/// \class
+///
+/// \brief Provides services shared between the specialized aggregate checking
+/// classes.
+class AggCheckerBase {
 
-public:
-    AggregateChecker(TypeCheck &TC) :
-        TC(TC), refinedIndexType(0) { }
+protected:
+    AggCheckerBase(TypeCheck &TC) : TC(TC) { }
 
-    /// Attempts to resolve the given aggregate expression with respect to the
-    /// given type.  Returns an expression node (possibly different from \p agg)
-    /// on sucess.  Otherwise, null is returned and diagnostics are posted.
-    Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
-
-private:
     TypeCheck &TC;              // TypeCheck context.
-
-    /// If an array aggregate expression's index type is constrained by the
-    /// aggregate, this member is filled in with the corresponding subtype.
-    DiscreteType *refinedIndexType;
-
-    /// When processing KeyedAggExpr's, the following vector is populated with
-    /// each choice node in the aggregate.
-    ///
-    /// \see ensureStaticChoices();
-    std::vector<Ast*> choiceVec;
 
     /// Posts the given diagnostic message.
     DiagnosticStream &report(Location loc, diag::Kind kind);
 
     /// Returns the SourceLocation corresponding to the given Location.
     SourceLocation getSourceLoc(Location loc);
+};
 
-    /// Helper for resolveAggregateExpr.  Deals with positional aggregates.
-    Expr *resolvePositionalAggExpr(PositionalAggExpr *agg, ArrayType *context);
+//===----------------------------------------------------------------------===//
+// ArrayAggChecker
+//
+/// \class
+///
+/// This class provides the main typecheck logic needed to analyze aggregate
+/// expressions of array type.
+class ArrayAggChecker : private AggCheckerBase {
 
-    /// Helper for resolveAggregateExpr.  Deals with keyed aggregates.
-    Expr *resolveKeyedAggExpr(KeyedAggExpr *agg, ArrayType *context);
+public:
+    ArrayAggChecker(TypeCheck &TC)
+        : AggCheckerBase(TC), refinedIndexType(0) { }
 
-    /// Typechecks and resolves a choice list as provided by a KeyedAggExpr.
+    /// Attempts to resolve an aggregate expression with respect to the given
+    /// array type.  Returns an expression node (possibly different from \p agg)
+    /// on success.  Otherwise, null is returned and diagnostics are posted.
+    Expr *resolveAggregateExpr(AggregateExpr *agg, ArrayType *context);
+
+private:
+    /// If an array aggregate expression's index type is constrained by the
+    /// aggregate, this member is filled in with the corresponding subtype.
+    DiscreteType *refinedIndexType;
+
+    /// When processing aggregates with keyed components the following vector is
+    /// populated with each ComponentKey in the aggregate.
     ///
-    /// \param CL  ChoiceList to check and resolve.
+    /// \see ensureStaticKeys();
+    std::vector<ComponentKey*> keyVec;
+
+    /// Verifies that the given aggregate expression is properly structured for
+    /// use as an array agggregate.
+    bool ensureAggregateStructure(AggregateExpr *agg);
+
+    /// Type checks any simple identifiers present in the given aggregates keys
+    /// as direct names and replaces the identifiers with the resolved node.
+    bool convertAggregateIdentifiers(AggregateExpr *agg);
+
+    /// Helper for resolveDefiniteAggExpr.  Deals with purely positional
+    /// aggregates of array type.
+    Expr *resolvePositionalAggExpr(AggregateExpr *agg, ArrayType *context);
+
+    /// Helper for resolveDefiniteAggExpr.  Deals with purely keyed aggregates
+    /// of array type.
+    Expr *resolveKeyedAggExpr(AggregateExpr *agg, ArrayType *context);
+
+    /// \brief Typechecks and resolves a list of component keys appearing in an
+    /// array aggregate expression.
     ///
-    /// \param indexTy The type which each discrete choice must resolve to.
+    /// \param KL ComponentKeyList to check and resolve.
     ///
-    /// \param componentTy The type which the expression associated with \p CL
+    /// \param indexTy The type which each index must resolve to.
+    ///
+    /// \param componentTy The type which the expression associated with \p KL
     /// must satisfy.
     ///
-    /// \return True if the ChoiceList was succesfully checked and resolved.
-    /// False otherwise.
-    bool checkAggChoiceList(KeyedAggExpr::ChoiceList *CL,
-                            DiscreteType *indexTy, Type *componentTy);
+    /// \return True if \p KL was succesfully checked and resolved.  False
+    /// otherwise.
+    bool checkArrayComponentKeys(ComponentKeyList *KL, DiscreteType *indexTy,
+                                 Type *componentTy);
 
-    /// Helper for resolveKeyedAggExpr.
+    /// \brief Helper for resolveKeyedAggExpr.
     ///
-    /// Checks a keyed aggregate which consists of a single choice and does not
-    /// contain an "others" clause.
-    bool checkSinglyKeyedAgg(KeyedAggExpr *agg, ArrayType *contextTy);
+    /// Checks a keyed array aggregate which consists of a single key and does
+    /// not contain an "others" clause.
+    bool checkSinglyKeyedAgg(AggregateExpr *agg, ArrayType *contextTy);
 
-    /// Helper for resolveKeyedAggExpr.
+    /// \brief Helper for resolveKeyedAggExpr.
     ///
-    /// Checks a keyed aggregate which consists of multiple choices and/or
+    /// Checks a keyed array aggregate which consists of multiple keys and/or
     /// contains an "others" clause.
-    bool checkMultiplyKeyedAgg(KeyedAggExpr *agg, ArrayType *contextTy);
+    bool checkMultiplyKeyedAgg(AggregateExpr *agg, ArrayType *contextTy);
 
-    /// Scans each choice provided by the given KeyedAggExpr.  Ensures that each
-    /// choice is static an non-null if bounded.  Each validated choice is
-    /// pushed in order onto choiceVec.  Returns true if all choices were
-    /// validated.
-    bool ensureStaticChoices(KeyedAggExpr *agg);
+    /// Scans each key provided by the given aggregate.  Ensures that each key
+    /// is static and non-null if bounded.  Each validated key is pushed (in
+    /// order) onto keyVec.  Returns true if all keys were validated.
+    bool ensureStaticKeys(AggregateExpr *agg);
 
-    /// Given that choiceVec has been populated with static and non-null
-    /// choices, ensures that there are no overlaps and when \p hasOthers is
-    /// false that the choices define a continuous index set.
+    /// \brief Ensures that the current set of keys do not overlap.
+    ///
+    /// This method is used when checking array aggregates.
+    ///
+    /// Given that keyVec has been populated with static and non-null keys, this
+    /// method ensures that there are no overlaps and, when \p hasOthers is
+    /// false, that the keys define a continuous index set.
     ///
     /// \param contextTy The type context for this aggegate.
     ///
@@ -105,52 +142,92 @@ private:
     /// clause.
     ///
     /// \return True if the check was successful.
-    bool ensureDistinctChoices(ArrayType *contextTy, bool hasOthers);
+    bool ensureDistinctKeys(ArrayType *contextTy, bool hasOthers);
 
-    /// Helper method for ensureDistinctChoices.
+    /// \brief Helper method for ensureDistinctKeys.
     ///
-    /// Verifys that choiceVec (assumed to be in sorted order) does not contain
-    /// a range of indices which lay outside any static constraints of the given
-    /// index type.  If the check succeeds true is returned and Returns true if the
+    /// Checks that the sorted ComponentKey's \p X and \p Y do not overlap and,
+    /// if \p requireContinuity is true, that \p X and \p Y represent a
+    /// continuous range.  The comparisons are performed using a signed or
+    /// unsigned interpretation of the component key depending on the setting of
+    /// \p isSigned.
+    bool ensureDistinctKeys(ComponentKey *X, ComponentKey *Y,
+                            bool requireContinuity, bool isSigned);
 
-    /// Checks the \c others component (if any) provided by \p agg.
+    /// \brief Checks the \c others component (if any) provided by \p agg.
     ///
     /// \return True if the \c others component is well formed with respect to
     /// \p context, or if \p agg does not admit an \c others clause.  False
     /// otherwise.
     bool checkOthers(AggregateExpr *agg, ArrayType *context);
-
-    /// \name Bounds extraction helpers.
-    ///
-    //@{
-
-    /// Returns the expression representing the lower bound of the given choice
-    /// node.
-    static Expr *getChoiceLowerExpr(Ast *choice);
-
-    /// Returns the expression representing the upper bound of the given choice
-    /// node.
-    static Expr *getChoiceUpperExpr(Ast *choice);
-
-    /// Returns the lower bound of a static choice node. The interpretation of
-    /// the result as signed or unsigned is dependent on the index type.
-    static llvm::APInt getChoiceLowerBound(Ast *choice);
-
-    /// Returns the upper bound of a static choice node. The interpretation of
-    /// the result as signed or unsigned is dependent on the index type.
-    static llvm::APInt getChoiceUpperBound(Ast *choice);
-
-    /// Returns the location of the lower bound of the given choice node or the
-    /// location of the node itself.
-    static Location getChoiceLowerLoc(Ast *choice);
-
-    /// Returns the location of the upper bound of the given choice node or the
-    /// location of the node itself.
-    static Location getChoiceUpperLoc(Ast *choice);
-    //@}
 };
 
-/// Helper function for acceptStringLiteral().  Extracts the enumeration
+//===----------------------------------------------------------------------===//
+// RecordAggChecker
+//
+/// \class
+///
+/// \brief Implements type check logic for aggregate expressions of record type.
+class RecordAggChecker : private AggCheckerBase {
+
+public:
+    RecordAggChecker(TypeCheck &TC)
+        : AggCheckerBase(TC), ContextTy(0) { }
+
+    /// Attempts to resolve an aggregate expression with respect to the given
+    /// record type.  Returns an expression node (possibly different from \p
+    /// agg) on success.  Otherwise, null is returned and diagnostics are
+    /// posted.
+    Expr *resolveAggregateExpr(AggregateExpr *agg, RecordType *context);
+
+private:
+    RecordType *ContextTy;      // Expected aggregate type.
+    RecordDecl *ContextDecl;    // Defining declaration of ContextTy.
+
+    // All components provided by the aggregate.
+    llvm::SetVector<ComponentDecl*> ComponentVec;
+
+    /// \brief Ensures that the given aggregate contains the right number of
+    /// components for the context types.
+    bool checkAggregateSize(AggregateExpr *agg);
+
+    /// \brief Checks that the given aggregate is structurally usable as a
+    /// record aggregate.
+    ///
+    /// This method ensures that each keyed component of the record consists
+    /// only of Identifiers, and diagnoses occurrences of expressions, subtype
+    /// indications, and ranges.
+    ///
+    /// \return True on success and false otherwise.
+    bool ensureAggregateStructure(AggregateExpr *agg);
+
+    /// \brief Checks all of the positional components in the given aggregate.
+    ///
+    /// Also populates ComponentVec with the ComponentDecl's satisfied by a
+    /// positional component.
+    bool checkPositionalComponents(AggregateExpr *agg);
+
+    /// \brief Checks all of the keyed components in the given aggregate.
+    bool checkKeyedComponents(AggregateExpr *agg);
+
+    /// \brief Checks any `others' commponent asociated with the aggregate.
+    bool checkOthersComponents(AggregateExpr *agg);
+
+    /// \brief Helper for checkKeyedComponents.
+    ///
+    /// Checks that each key names an actual component, that the keys do not
+    /// name any positional components, and that all key's are unique.  Also
+    /// populates ComponentVec with the keyed ComponentDecl's.
+    bool checkKeyConsistency(AggregateExpr *agg);
+
+    /// \brief Helper for checkKeyedComponents.
+    ///
+    /// Ensures that all the keyed components the associated expressions are
+    /// well typed.
+    bool checkKeyTypes(AggregateExpr *expr);
+};
+
+/// helper function for acceptStringLiteral().  Extracts the enumeration
 /// declarations resulting from the lookup of a character literal.
 void getVisibleEnumerations(Resolver &resolver,
                             llvm::SmallVectorImpl<EnumerationDecl*> &enums)
@@ -185,29 +262,81 @@ void intersectComponentTypes(StringLiteral *string,
 
 } // end anonymous namespace.
 
-DiagnosticStream &AggregateChecker::report(Location loc, diag::Kind kind)
+//===----------------------------------------------------------------------===//
+// AggCheckerBase methods.
+
+DiagnosticStream &AggCheckerBase::report(Location loc, diag::Kind kind)
 {
     return TC.getDiagnostic().report(getSourceLoc(loc), kind);
 }
 
-SourceLocation AggregateChecker::getSourceLoc(Location loc)
+SourceLocation AggCheckerBase::getSourceLoc(Location loc)
 {
     return TC.getAstResource().getTextProvider().getSourceLocation(loc);
 }
 
-Expr *AggregateChecker::resolveAggregateExpr(AggregateExpr *agg, Type *context)
-{
-    // If the type does not denote an array type we cannot resolve this
-    // aggregate.
-    //
-    // FIXME: Support record aggregates here too.
-    ArrayType *arrTy = dyn_cast<ArrayType>(context);
-    if (!arrTy) {
-        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
-        return 0;
-    }
+//===----------------------------------------------------------------------===//
+// ArrayAggChecker methods.
 
-    // If the given arrgregate already has a resolved type, ensure the given
+bool ArrayAggChecker::ensureAggregateStructure(AggregateExpr *agg)
+{
+    // Empty aggregates should never persist this far.
+    assert(!agg->empty() && "Unexpected empty aggregate expression!");
+
+    // Ensure that the aggregate is purely keyed or positional.  Only record
+    // aggregates can contain a mix of the two.
+    if (agg->isPurelyPositional() || agg->isPurelyKeyed())
+        return true;
+
+    report(agg->getLocation(), diag::MIXED_ARRAY_AGGREGATE);
+    return false;
+}
+
+bool ArrayAggChecker::convertAggregateIdentifiers(AggregateExpr *agg)
+{
+    // Traverse the set of keys provided by this aggregate and check any
+    // identifiers as simple direct names.
+    bool allOK = true;
+    typedef AggregateExpr::key_iterator iterator;
+    iterator I = agg->key_begin();
+    iterator E = agg->key_end();
+    for ( ; I != E; ++I) {
+        ComponentKey *key = *I;
+        if (!key->denotesIdentifier())
+            continue;
+
+        Identifier *id = key->getAsIdentifier();
+        Ast *rep = TC.checkDirectName(id->getIdInfo(), id->getLocation(),
+                                      /*forStatement*/ false);
+        if (!rep) {
+            allOK = false;
+            continue;
+        }
+
+        // FIXME: The following code essentially duplicates the logic in
+        // TypeCheck::acceptAggregateKey.  This code should be factored out and
+        // shared.
+        if (TypeRef *ref = dyn_cast<TypeRef>(rep)) {
+            TypeDecl *decl = ref->getTypeDecl();
+            if (!decl || !decl->getType()->isDiscreteType()) {
+                report(ref->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+                allOK = false;
+            }
+            else
+                key->setKey(ref);
+        }
+        else if (Expr *expr = TC.ensureExpr(rep))
+            key->setKey(expr);
+        else
+            allOK = false;
+    }
+    return allOK;
+}
+
+Expr *ArrayAggChecker::resolveAggregateExpr(AggregateExpr *agg,
+                                            ArrayType *context)
+{
+    // If the given aggregate already has a resolved type, ensure the given
     // context is compatible.
     if (agg->hasType()) {
         if (!TC.covers(agg->getType(), context)) {
@@ -218,28 +347,39 @@ Expr *AggregateChecker::resolveAggregateExpr(AggregateExpr *agg, Type *context)
             return agg;
     }
 
+    // Ensure that the aggregate is of a compatible form.
+    if (!ensureAggregateStructure(agg))
+        return 0;
+
+    // Type check any simple identifiers as direct names (now that we know these
+    // identifiers do not represent record component selectors).
+    if (!convertAggregateIdentifiers(agg))
+        return 0;
+
     // FIXME: The following code does not yet support multidimensional
     // aggregates.
-    assert(arrTy->isVector() && "Multidimensional arrays not supported yet!");
+    assert(context->isVector() && "Multidimensional arrays not supported yet!");
 
-    // Otherwise, we must resolve based on the type of aggregate we were given.
-    if (PositionalAggExpr *PAE = dyn_cast<PositionalAggExpr>(agg))
-        return resolvePositionalAggExpr(PAE, arrTy);
-
-    KeyedAggExpr *KAE = cast<KeyedAggExpr>(agg);
-    return resolveKeyedAggExpr(KAE, arrTy);
+    if (agg->isPurelyPositional())
+        return resolvePositionalAggExpr(agg, context);
+    if (agg->isPurelyKeyed())
+        return resolveKeyedAggExpr(agg, context);
+    assert(false && "Invalid aggregate composition!");
+    return 0;
 }
 
-Expr *AggregateChecker::resolvePositionalAggExpr(PositionalAggExpr *agg,
+Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
                                                  ArrayType *context)
 {
+    assert(agg->isPurelyPositional());
+
     Type *componentType = context->getComponentType();
 
     // Check each component of the aggregate with respect to the component type
     // of the context.
-    typedef PositionalAggExpr::iterator iterator;
-    iterator I = agg->begin_components();
-    iterator E = agg->end_components();
+    typedef AggregateExpr::pos_iterator iterator;
+    iterator I = agg->pos_begin();
+    iterator E = agg->pos_end();
     bool allOK = true;
     for ( ; I != E; ++I) {
         if (Expr *component = TC.checkExprInContext(*I, componentType))
@@ -293,59 +433,60 @@ Expr *AggregateChecker::resolvePositionalAggExpr(PositionalAggExpr *agg,
     return agg;
 }
 
-bool AggregateChecker::checkSinglyKeyedAgg(KeyedAggExpr *agg,
-                                           ArrayType *contextTy)
+bool ArrayAggChecker::checkSinglyKeyedAgg(AggregateExpr *agg,
+                                          ArrayType *contextTy)
 {
     // There is no further checking which needs to happen for an aggregate
-    // containing a single choice and is without an others clause.  Simply check
-    // if the context type is unconstrained and resolve the index type if
-    // needed.
+    // containing a single keyed component and is without an others clause.
+    // Simply check if the context type is unconstrained and resolve the index
+    // type if needed.
     if (!contextTy->isConstrained()) {
         DiscreteType *indexTy = contextTy->getIndexType(0);
         AstResource &resource = TC.getAstResource();
-        Expr *lower = getChoiceLowerExpr(*agg->choice_begin());
-        Expr *upper = getChoiceUpperExpr(*agg->choice_begin());
+        Expr *lower = (*agg->key_begin())->getLowerExpr();
+        Expr *upper = (*agg->key_begin())->getUpperExpr();
         refinedIndexType = resource.createDiscreteSubtype(
             indexTy->getIdInfo(), indexTy, lower, upper);
     }
     return true;
 }
 
-bool AggregateChecker::checkMultiplyKeyedAgg(KeyedAggExpr *agg,
-                                             ArrayType *contextTy)
+bool ArrayAggChecker::checkMultiplyKeyedAgg(AggregateExpr *agg,
+                                            ArrayType *contextTy)
 {
     bool allOK;
 
-    // Ensure each of the choices provided by this aggregate are static and
-    // non-null if bounded.  Populate choiceVec with the valid choices.
-    allOK = ensureStaticChoices(agg);
+    // Ensure each of the keys provided by this aggregate are static and
+    // non-null if bounded.  Populate keyVec with all of the valid keys.
+    allOK = ensureStaticKeys(agg);
 
-    // Check the choiceVec for any overlapping choices.
-    allOK = allOK && ensureDistinctChoices(contextTy, agg->hasOthers());
+    // Check keyVec for any overlaps.
+    allOK = allOK && ensureDistinctKeys(contextTy, agg->hasOthers());
 
     // Check the others component if present.
     return checkOthers(agg, contextTy) && allOK;
 }
 
-Expr *AggregateChecker::resolveKeyedAggExpr(KeyedAggExpr *agg,
-                                            ArrayType *context)
+Expr *ArrayAggChecker::resolveKeyedAggExpr(AggregateExpr *agg,
+                                           ArrayType *context)
 {
     Type *componentTy = context->getComponentType();
     DiscreteType *indexTy = context->getIndexType(0);
 
-    // Check and resolve each discrete choice list.
+    // Check and resolve each key list.
     bool allOK = true;
-    for (KeyedAggExpr::cl_iterator I = agg->cl_begin(); I != agg->cl_end(); ++I)
-        allOK = checkAggChoiceList(*I, indexTy, componentTy) && allOK;
+    for (AggregateExpr::kl_iterator I = agg->kl_begin(), E = agg->kl_end();
+         I != E; ++I)
+        allOK = checkArrayComponentKeys(*I, indexTy, componentTy) && allOK;
     if (!allOK) return 0;
 
-    // Compute the total number of choices provided by this aggregate.
-    unsigned numChoices = agg->numChoices();
+    // Compute the total number of keys provided by this aggregate.
+    unsigned numKeys = agg->numKeys();
 
-    // If there is only one choice, and there is no others clause, it is
+    // If there is only one key and there is no others clause the aggregate is
     // permitted to be dynamic or null.  If the context type of the aggregate is
     // unconstrained then generate a new constrained subtype for the index.
-    if (numChoices == 1 && !agg->hasOthers())
+    if (numKeys == 1 && !agg->hasOthers())
         allOK = checkSinglyKeyedAgg(agg, context);
     else
         allOK = checkMultiplyKeyedAgg(agg, context);
@@ -364,126 +505,137 @@ Expr *AggregateChecker::resolveKeyedAggExpr(KeyedAggExpr *agg,
     return agg;
 }
 
-bool AggregateChecker::checkAggChoiceList(KeyedAggExpr::ChoiceList *CL,
-                                          DiscreteType *indexTy,
-                                          Type *componentTy)
+bool ArrayAggChecker::checkArrayComponentKeys(ComponentKeyList *KL,
+                                              DiscreteType *indexTy,
+                                              Type *componentTy)
 {
-    typedef KeyedAggExpr::ChoiceList::iterator iterator;
+    typedef ComponentKeyList::iterator iterator;
     RangeChecker rangeCheck(TC);
-    bool allOK = true;
 
-    // FIXME:  Currently, only ranges are permitted in ChoiceLists.
-    for (unsigned i = 0; i < CL->numChoices(); ++i) {
-        if (Range *range = CL->getChoice<Range>(i)) {
-            // Check and resolve the range to the given indexTy.
+    // FIXME:  Currently, only ranges are permitted in ComponentKeyList's.
+    for (unsigned i = 0; i < KL->numKeys(); ++i) {
+        if (Range *range = KL->resolveKey<Range>(i)) {
             if (!rangeCheck.resolveRange(range, indexTy))
-                allOK = false;
+                return false;
+        }
+        else if (Expr *expr = KL->resolveKey<Expr>(i)) {
+            if ((expr = TC.checkExprInContext(expr, indexTy)))
+                KL->setKey(i, expr);
+            else
+                return false;
         }
         else {
-            assert(false && "Discrete choice not yet supported!");
+            assert(false && "Key type not yet supported!");
             return false;
         }
     }
 
     // Ensure that the associated expression satisfies the component type.
-    if (Expr *expr = TC.checkExprInContext(CL->getExpr(), componentTy))
-        CL->setExpr(expr);
+    if (Expr *expr = TC.checkExprInContext(KL->getExpr(), componentTy)) {
+        KL->setExpr(expr);
+        return true;
+    }
     else
-        allOK = false;
-
-    return allOK;
+        return false;
 }
 
-bool AggregateChecker::ensureStaticChoices(KeyedAggExpr *agg)
+bool ArrayAggChecker::ensureStaticKeys(AggregateExpr *agg)
 {
-    // Iterate over the set of choices, each of which must be static and
-    // non-null if bounded.  Accumulate each valid choice into choiceVec.
-    typedef KeyedAggExpr::choice_iterator iterator;
-    iterator I = agg->choice_begin();
-    iterator E = agg->choice_end();
-    bool allOK = true;
-
+    // Iterate over the set of keys, each of which must be static and non-null
+    // if bounded.  Accumulate each valid key into keyVec.
+    typedef AggregateExpr::key_iterator iterator;
+    iterator I = agg->key_begin();
+    iterator E = agg->key_end();
     for ( ; I != E; ++I) {
-        if (Range *range = dyn_cast<Range>(*I)) {
+        ComponentKey *key = *I;
+        Location loc = key->getLocation();
+        if (Range *range = key->getAsRange()) {
             if (!range->isStatic()) {
-                report(range->getLowerLocation(),
-                       diag::DYNAMIC_CHOICE_NOT_UNIQUE);
-                allOK = false;
+                report(loc, diag::DYNAMIC_CHOICE_NOT_UNIQUE);
+                return false;
             }
             else if (range->isNull()) {
-                report(range->getLowerLocation(),
-                       diag::NULL_CHOICE_NOT_UNIQUE);
-                allOK = false;
+                report(loc, diag::NULL_CHOICE_NOT_UNIQUE);
+                return false;
             }
-            else
-                choiceVec.push_back(range);
+        }
+        else if (Expr *expr = key->getAsExpr()) {
+            if (!expr->isStaticDiscreteExpr()) {
+                report(loc, diag::NON_STATIC_EXPRESSION);
+                return false;
+            }
         }
         else {
-            assert(false && "Discrete choice not yet supported!");
+            assert(false && "Key not yet supported!");
             return false;
         }
+        keyVec.push_back(key);
     }
-
-    return allOK;
+    return true;
 }
 
-bool AggregateChecker::ensureDistinctChoices(ArrayType *contextTy,
-                                             bool hasOthers)
+bool ArrayAggChecker::ensureDistinctKeys(ComponentKey *X, ComponentKey *Y,
+                                         bool requireContinuity, bool isSigned)
+{
+    llvm::APInt xValue;
+    llvm::APInt yValue;
+    X->getUpperValue(xValue);
+    Y->getLowerValue(yValue);
+
+    bool overlapping;
+    bool continuous;
+    if (isSigned) {
+        int64_t x = xValue.getSExtValue();
+        int64_t y = yValue.getSExtValue();
+        overlapping = y <= x;
+        continuous = x == y - 1;
+    }
+    else {
+        uint64_t x = xValue.getZExtValue();
+        uint64_t y = yValue.getZExtValue();
+        overlapping = y <= x;
+        continuous = x == y - 1;
+    }
+
+    // Diagnose overlapping indices.
+    if (overlapping) {
+        report(X->getLocation(), diag::DUPLICATED_AGGREGATE_COMPONENT)
+            << getSourceLoc(Y->getLocation());
+        return false;
+    }
+
+    // Diagnose non-continuous indices when required.
+    if (requireContinuity && !continuous) {
+        report(X->getLocation(), diag::DISCONTINUOUS_CHOICE)
+            << getSourceLoc(Y->getLocation());
+        return false;
+    }
+
+    return true;
+}
+
+bool ArrayAggChecker::ensureDistinctKeys(ArrayType *contextTy, bool hasOthers)
 {
     DiscreteType *indexTy = contextTy->getIndexType(0);
     bool isSigned = indexTy->isSigned();
+    bool requireContinuity = !hasOthers;
 
     if (isSigned)
-        std::sort(choiceVec.begin(), choiceVec.end(),
-                  KeyedAggExpr::compareChoicesS);
+        std::sort(keyVec.begin(), keyVec.end(), ComponentKey::compareKeysS);
     else
-        std::sort(choiceVec.begin(), choiceVec.end(),
-                  KeyedAggExpr::compareChoicesU);
+        std::sort(keyVec.begin(), keyVec.end(), ComponentKey::compareKeysU);
 
-    std::vector<Ast*>::iterator I = choiceVec.begin();
-    std::vector<Ast*>::iterator E = choiceVec.end();
+    std::vector<ComponentKey*>::iterator I = keyVec.begin();
+    std::vector<ComponentKey*>::iterator E = keyVec.end();
 
     if (I == E)
         return true;
 
-    Ast *prev = *I;
+    ComponentKey *prev = *I;
     while (++I != E) {
-        Ast *next = *I;
-
-        // FIXME:  Only ranges are supported currently.
-        Range *first = cast<Range>(prev);
-        Range *second = cast<Range>(next);
-        bool overlapping;
-        bool continuous;
-
-        if (isSigned) {
-            int64_t x = first->getStaticUpperBound().getSExtValue();
-            int64_t y = second->getStaticLowerBound().getSExtValue();
-            overlapping = y <= x;
-            continuous = x == y - 1;
-        }
-        else {
-            uint64_t x = first->getStaticUpperBound().getZExtValue();
-            uint64_t y = second->getStaticLowerBound().getZExtValue();
-            overlapping = y <= x;
-            continuous = x == y - 1;
-        }
-
-        // Diagnose overlapping ranges.
-        if (overlapping) {
-            report(first->getLowerLocation(),
-                   diag::DUPLICATED_CHOICE_VALUE)
-                << getSourceLoc(second->getLowerLocation());
+        ComponentKey *next = *I;
+        if (!ensureDistinctKeys(prev, next, requireContinuity, isSigned))
             return false;
-        }
-
-        // Diagnose non-continuous indices when there is no others clause.
-        if (!hasOthers && !continuous) {
-            report(first->getUpperLocation(), diag::DISCONTINUOUS_CHOICE)
-                << getSourceLoc(second->getLowerLocation());
-            return false;
-        }
-
         prev = next;
     }
 
@@ -494,16 +646,15 @@ bool AggregateChecker::ensureDistinctChoices(ArrayType *contextTy,
     // the new subtype will take ownership.
     if (!contextTy->isConstrained()) {
         AstResource &resource = TC.getAstResource();
-        Expr *lower = getChoiceLowerExpr(choiceVec.front());
-        Expr *upper = getChoiceUpperExpr(choiceVec.back());
+        Expr *lower = keyVec.front()->getLowerExpr();
+        Expr *upper = keyVec.back()->getUpperExpr();
         refinedIndexType = resource.createDiscreteSubtype(
             indexTy->getIdInfo(), indexTy, lower, upper);
     }
     return true;
 }
 
-
-bool AggregateChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
+bool ArrayAggChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
 {
     // Check the others component if present with respect to the component type
     // of the array.
@@ -524,46 +675,255 @@ bool AggregateChecker::checkOthers(AggregateExpr *agg, ArrayType *context)
     return true;
 }
 
-Expr *AggregateChecker::getChoiceLowerExpr(Ast *choice)
+//===----------------------------------------------------------------------===//
+// RecordAggChecker methods.
+
+Expr *RecordAggChecker::resolveAggregateExpr(AggregateExpr *agg,
+                                             RecordType *context)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getLowerBound();
+    ContextTy = context;
+    ContextDecl = context->getDefiningDecl();
+
+    // If the given aggregate already has a resolved type, ensure the given
+    // context is compatible.
+    if (agg->hasType()) {
+        if (!TC.covers(agg->getType(), context)) {
+            report(agg->getLocation(), diag::INCOMPATIBLE_TYPES);
+            return 0;
+        }
+        else
+            return agg;
+    }
+
+    // Ensure that the aggregate is of a compatible form.
+    if (!ensureAggregateStructure(agg))
+        return 0;
+
+    // Check that the size of the aggrgregate is sane.
+    if (!checkAggregateSize(agg))
+        return 0;
+
+    // Ensure all positional components check out.
+    if (!checkPositionalComponents(agg))
+        return 0;
+
+    // Ensure all keyed components check out.
+    if (!checkKeyedComponents(agg))
+        return 0;
+
+    // Ensure any others clause is well formd.
+    if (!checkOthersComponents(agg))
+        return 0;
+
+    agg->setType(context);
+    return agg;
 }
 
-Expr *AggregateChecker::getChoiceUpperExpr(Ast *choice)
+bool RecordAggChecker::ensureAggregateStructure(AggregateExpr *agg)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getUpperBound();
+    // Iterate over any keyed components of the aggregate and ensure each
+    // denotes an Identifier.
+    typedef AggregateExpr::key_iterator iterator;
+    iterator I = agg->key_begin();
+    iterator E = agg->key_end();
+    for ( ; I != E; ++I) {
+        ComponentKey *key = *I;
+        if (!key->denotesIdentifier()) {
+            report(key->getLocation(), diag::INVALID_RECORD_SELECTOR)
+                << diag::PrintType(ContextTy);
+            return false;
+        }
+    }
+    return true;
 }
 
-llvm::APInt AggregateChecker::getChoiceLowerBound(Ast *choice)
+bool RecordAggChecker::checkAggregateSize(AggregateExpr *agg)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getStaticLowerBound();
+    // Ensure that the total number of keys plus the number of positional
+    // components is not greater than the number of components supplied by the
+    // context type.  Similarly, if there is no others clause, ensure every
+    // component will be accounted for by the aggregate.
+    unsigned numPositional = agg->numPositionalComponents();
+    unsigned numKeys = agg->numKeys();
+    unsigned numComponents = numPositional + numKeys;
+    if (numComponents > ContextTy->numComponents()) {
+        report(agg->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+            << diag::PrintType(ContextTy);
+        return false;
+    }
+    if (!agg->hasOthers() && numComponents < ContextTy->numComponents()) {
+        report(agg->getLocation(), diag::TOO_FEW_ELEMENTS_FOR_TYPE)
+            << diag::PrintType(ContextTy);
+        return false;
+    }
+    return true;
 }
 
-llvm::APInt AggregateChecker::getChoiceUpperBound(Ast *choice)
+bool RecordAggChecker::checkPositionalComponents(AggregateExpr *agg)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getStaticUpperBound();
+    // Ensure that the number of positional components is not greater than the
+    // number of components supplied by the context type.
+    if (agg->numPositionalComponents() > ContextTy->numComponents()) {
+        report(agg->getLocation(), diag::TOO_MANY_ELEMENTS_FOR_TYPE)
+            << diag::PrintType(ContextTy);
+        return false;
+    }
+
+    // Iterate over the set of positional components and check each with respect
+    // to the corresponding expected type.  Also, populate ComponentVec with all
+    // valid positional components.
+    typedef AggregateExpr::pos_iterator iterator;
+    iterator I = agg->pos_begin();
+    iterator E = agg->pos_end();
+    bool allOK = true;
+    for (unsigned idx = 0; I != E; ++I, ++idx) {
+        Expr *expr = *I;
+        ComponentDecl *decl = ContextDecl->getComponent(idx);
+        Type *expectedTy = decl->getType();
+        if ((expr = TC.checkExprInContext(expr, expectedTy))) {
+            *I = expr;
+            ComponentVec.insert(decl);
+        }
+        else
+            allOK = false;
+    }
+    return allOK;
 }
 
-Location AggregateChecker::getChoiceLowerLoc(Ast *choice)
+bool RecordAggChecker::checkKeyConsistency(AggregateExpr *agg)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getLowerLocation();
+    // Check that each key exists, that duplicate keys are not present, and that
+    // keys do not overlap with any positional components.  Also, build up
+    // ComponentVec with all keyed components provided by this aggregate.
+    typedef AggregateExpr::key_iterator key_iterator;
+    unsigned numPositional = agg->numPositionalComponents();
+    key_iterator I = agg->key_begin();
+    key_iterator E = agg->key_end();
+    for (unsigned idx = numPositional; I != E; ++I, ++idx) {
+        ComponentKey *key = *I;
+        Location loc = key->getLocation();
+        Identifier *id = key->getAsIdentifier();
+        IdentifierInfo *name = id->getIdInfo();
+        ComponentDecl *component = ContextDecl->getComponent(name);
+
+        // Check existence.
+        if (!component) {
+            report(loc, diag::INVALID_RECORD_SELECTOR)
+                << diag::PrintType(ContextTy);
+            return false;
+        }
+
+        // Insert the component into ComponentVec if it does not already exist.
+        // Diagnose overlap and uniqueness.
+        if (!ComponentVec.insert(component)) {
+            if (component->getIndex() < numPositional)
+                report(loc, diag::COMPONENT_COVERED_POSITIONALLY);
+            else {
+                // Find the previous key so that we may use its location in the
+                // diagnostic.
+                Location conflictLoc;
+                for (key_iterator P = agg->key_begin(); P != I; ++P) {
+                    ComponentKey *conflict = *P;
+                    if (conflict->getAsComponent() == component)
+                        conflictLoc = conflict->getLocation();
+                }
+                assert(conflictLoc.isValid() && "Could not resolve conflict!");
+                report(loc, diag::DUPLICATED_AGGREGATE_COMPONENT)
+                    << getSourceLoc(conflictLoc);
+            }
+            return false;
+        }
+
+        // Replace the simple identifier with the corresponding component in the
+        // aggregate.
+        key->setKey(component);
+        delete id;
+    }
+    return true;
 }
 
-Location AggregateChecker::getChoiceUpperLoc(Ast *choice)
+bool RecordAggChecker::checkKeyTypes(AggregateExpr *agg)
 {
-    // FIXME: Support discrete types and static expressions.
-    Range *range = cast<Range>(choice);
-    return range->getUpperLocation();
+    // Ensure that each list of keys are equivalently typed.  Check that the
+    // associated expression satisfies the expected type.
+    typedef AggregateExpr::kl_iterator kl_iterator;
+    kl_iterator I = agg->kl_begin();
+    kl_iterator E = agg->kl_end();
+    for ( ; I != E; ++I) {
+        ComponentKeyList *KL = *I;
+
+        // If there is more than one key check that each denotes a component of
+        // the same type.
+        Type *listType = KL->resolveKey<ComponentDecl>(0)->getType();
+        for (unsigned i = 1; i < KL->numKeys(); ++i) {
+            ComponentKey *nextKey = KL->getKey(i);
+            Type *nextType = nextKey->getAsComponent()->getType();
+            if (listType != nextType) {
+                report(nextKey->getLocation(),
+                       diag::INCONSISTENT_RECORD_COMPONENT_SELECTORS);
+                return false;
+            }
+        }
+
+        // Check that the associated expression for this component is
+        // compatible.
+        if (Expr *expr = TC.checkExprInContext(KL->getExpr(), listType))
+            KL->setExpr(expr);
+        else
+            return false;
+    }
+    return true;
+}
+
+bool RecordAggChecker::checkOthersComponents(AggregateExpr *agg)
+{
+    // If there is no others clause we are done.
+    if (!agg->hasOthers())
+        return true;
+
+    // Collect the set of needed components.
+    typedef RecordDecl::DeclIter decl_iterator;
+    std::vector<ComponentDecl*> neededDecls;
+    decl_iterator I = ContextDecl->beginDecls();
+    decl_iterator E = ContextDecl->endDecls();
+    for ( ; I != E; ++I) {
+        ComponentDecl *neededDecl = dyn_cast<ComponentDecl>(*I);
+        if (!neededDecl)
+            continue;
+        if (!ComponentVec.count(neededDecl))
+            neededDecls.push_back(neededDecl);
+    }
+
+    // If the set is empty we are done.
+    if (neededDecls.empty())
+        return true;
+
+    // Finally, ensure the set of needed decls admits components of the same
+    // type and that the given others expression (if any) is compatible.
+    //
+    // FIXME: If there is no others expression then we need to check that each
+    // component can be initialized by default or that an explicit default
+    // initializer was provided in the record declaration.
+    Type *neededType = neededDecls.front()->getType();
+    for (unsigned i = 1; i < neededDecls.size(); ++i) {
+        ComponentDecl *neededDecl = neededDecls[i];
+        if (neededDecl->getType() != neededType) {
+            report(agg->getOthersLoc(),
+                   diag::INCONSISTENT_RECORD_COMPONENT_SELECTORS);
+            return false;
+        }
+    }
+    if (Expr *expr = agg->getOthersExpr()) {
+        if (!(expr = TC.checkExprInContext(expr, neededType)))
+            return false;
+        agg->setOthersExpr(expr);
+    }
+    return true;
+}
+
+bool RecordAggChecker::checkKeyedComponents(AggregateExpr *agg)
+{
+    return checkKeyConsistency(agg) && checkKeyTypes(agg);
 }
 
 //===----------------------------------------------------------------------===//
@@ -577,47 +937,102 @@ Location AggregateChecker::getChoiceUpperLoc(Ast *choice)
 // expression.
 Expr *TypeCheck::resolveAggregateExpr(AggregateExpr *agg, Type *context)
 {
-    AggregateChecker checker(*this);
-    return checker.resolveAggregateExpr(agg, context);
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(context)) {
+        ArrayAggChecker checker(*this);
+        return checker.resolveAggregateExpr(agg, arrTy);
+    }
+    else if (RecordType *recTy = dyn_cast<RecordType>(context)) {
+        RecordAggChecker checker(*this);
+        return checker.resolveAggregateExpr(agg, recTy);
+    }
+    else {
+        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
+        return 0;
+    }
 }
 
-void TypeCheck::beginAggregate(Location loc, bool isPositional)
+void TypeCheck::beginAggregate(Location loc)
 {
-    if (isPositional)
-        aggregateStack.push(new PositionalAggExpr(loc));
-    else
-        aggregateStack.push(new KeyedAggExpr(loc));
+    aggregateStack.push(new AggregateExpr(loc));
 }
 
-void TypeCheck::acceptAggregateComponent(Node nodeComponent)
+void TypeCheck::acceptPositionalAggregateComponent(Node nodeComponent)
 {
     Expr *component = ensureExpr(nodeComponent);
-    PositionalAggExpr *agg = cast<PositionalAggExpr>(aggregateStack.top());
     nodeComponent.release();
-    agg->addComponent(component);
+    aggregateStack.top()->addComponent(component);
 }
 
-void TypeCheck::acceptAggregateComponent(Node lowerNode, Node upperNode,
-                                         Node exprNode)
+Node TypeCheck::acceptAggregateKey(Node lowerNode, Node upperNode)
 {
-    // The aggregate stack should always have a KeyedAggExpr on top if the
-    // parser is doing its job.
-    KeyedAggExpr *agg = cast<KeyedAggExpr>(aggregateStack.top());
-
     Expr *lower = ensureExpr(lowerNode);
     Expr *upper = ensureExpr(upperNode);
-    Expr *expr = ensureExpr(exprNode);
 
-    if (!(lower && upper && expr))
-        return;
+    if (!(lower && upper))
+        return getInvalidNode();
 
     // We cannot resolve the type of this range until the context type is
     // given.  Build an untyped range to hold onto the bounds.
     lowerNode.release();
     upperNode.release();
+    return getNode(new ComponentKey(new Range(lower, upper)));
+}
+
+Node TypeCheck::acceptAggregateKey(IdentifierInfo *name, Location loc)
+{
+    // Construct a ComponentKey over an IdentifierNode.  Such keys are resolved
+    // during the top-down phase.
+    return getNode(new ComponentKey(new Identifier(name, loc)));
+}
+
+Node TypeCheck::acceptAggregateKey(Node keyNode)
+{
+    // Currently, the provided node must be either a TypeRef or an Expr.
+    //
+    // FIXME: In the future we will have an accurate representation for subtype
+    // indications that will need to be handled here.
+    if (TypeRef *ref = lift_node<TypeRef>(keyNode)) {
+        // Diagnose bad type references now.  Only discrete subtypes are valid
+        // keys in an (array) aggregate.  Specific checks wrt the actual index
+        // type are defered until the expected type of the aggregate is known.
+        TypeDecl *decl = ref->getTypeDecl();
+        if (!decl || !decl->getType()->isDiscreteType()) {
+            report(ref->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+            return getInvalidNode();
+        }
+        keyNode.release();
+        return getNode(new ComponentKey(ref));
+    }
+
+    Expr *expr = ensureExpr(keyNode);
+    if (!expr)
+        return getInvalidNode();
+
+    keyNode.release();
+    return getNode(new ComponentKey(expr));
+}
+
+void TypeCheck::acceptKeyedAggregateComponent(NodeVector &keyNodes,
+                                              Node exprNode)
+{
+    Expr *expr = ensureExpr(exprNode);
+
+    if (!expr || keyNodes.empty())
+        return;
+
+    // Convert the key nodes to their required Ast form.
+    typedef NodeCaster<ComponentKey> Caster;
+    typedef llvm::mapped_iterator<NodeVector::iterator, Caster> Mapper;
+    typedef llvm::SmallVector<ComponentKey*, 8> KeyVec;
+    KeyVec keys(Mapper(keyNodes.begin(), Caster()),
+                Mapper(keyNodes.end(), Caster()));
+
+    // Build the needed key list and add it to the current aggregate.
+    keyNodes.release();
     exprNode.release();
-    Ast *range = new Range(lower, upper);
-    agg->addDiscreteChoice(&range, 1, expr);
+    ComponentKeyList *KL;
+    KL = ComponentKeyList::create(&keys[0], keys.size(), expr);
+    aggregateStack.top()->addComponent(KL);
 }
 
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
@@ -635,7 +1050,7 @@ void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 
 Node TypeCheck::endAggregate()
 {
-    AggregateExpr *agg = cast<AggregateExpr>(aggregateStack.top());
+    AggregateExpr *agg = aggregateStack.top();
     aggregateStack.pop();
 
     // It is possible that the parser could not generate a single valid

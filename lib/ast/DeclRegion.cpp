@@ -151,6 +151,10 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const BlockStmt*>(this);
     case Ast::AST_IntegerDecl:
         return static_cast<const IntegerDecl*>(this);
+    case Ast::AST_RecordDecl:
+        return static_cast<const RecordDecl*>(this);
+    case Ast::AST_ArrayDecl:
+        return static_cast<const ArrayDecl*>(this);
     }
 }
 

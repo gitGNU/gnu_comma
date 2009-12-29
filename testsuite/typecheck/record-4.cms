@@ -1,0 +1,22 @@
+-- Various record checks.
+
+domain Test add
+   type E is (Foo, Bar, Baz);
+
+   type R is record
+      Foo : E;
+      Bar : E;
+      Baz : Integer;
+   end record;
+
+   procedure Run is
+      -- EXPECTED-ERROR: selectors must be of the same type
+      A1 : R := (Foo | Baz => Foo, Bar => Bar);
+
+      -- EXPECTED-ERRPR: Incompatible type
+      A2 : R := (Foo | Bar => 0, Baz => Foo);
+
+      -- OK.
+      A3 : R := (Foo | Bar => Foo, Baz => 0);
+   begin end Run;
+end Test;

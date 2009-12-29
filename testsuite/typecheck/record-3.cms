@@ -1,0 +1,19 @@
+-- Various record checks.
+
+domain Test add
+   type E is (Foo, Bar, Baz);
+
+   type R is record
+      Foo : E;
+      Bar : E;
+   end record;
+
+   procedure Run is
+      -- EXPECTED-ERROR: covered by a positional
+      A1 : R := (Foo, Foo => Foo);
+      -- EXPECTED-ERROR: component duplicated
+      A2 : R := (Foo => Foo, Foo => Bar);
+      -- EXPECTED-ERROR: Invalid selector
+      A3 : R := (Foo, Baz => Foo);
+   begin end Run;
+end Test;

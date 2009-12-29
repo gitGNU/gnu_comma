@@ -53,6 +53,18 @@ public:
     // Returns the number of declarations in this region.
     unsigned countDecls() const { return declarations.size(); }
 
+    //@{
+    /// Returns the i'th declaration provided by this region.
+    const Decl *getDecl(unsigned i) const {
+        assert(i < countDecls() && "Index out of range!");
+        return declarations[i];
+    }
+    Decl *getDecl(unsigned i) {
+        assert(i < countDecls() && "Index out of range!");
+        return declarations[i];
+    }
+    //@}
+
     typedef DeclarationTable::iterator DeclIter;
     DeclIter beginDecls() { return declarations.begin(); }
     DeclIter endDecls()   { return declarations.end(); }
@@ -204,6 +216,8 @@ public:
         case Ast::AST_FunctionDecl:
         case Ast::AST_EnumerationDecl:
         case Ast::AST_IntegerDecl:
+        case Ast::AST_ArrayDecl:
+        case Ast::AST_RecordDecl:
         case Ast::AST_BlockStmt:
             return true;
         }
@@ -215,6 +229,8 @@ public:
     static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const IntegerDecl   *node) { return true; }
     static bool classof(const PercentDecl   *node) { return true; }
+    static bool classof(const RecordDecl    *node) { return true; }
+    static bool classof(const ArrayDecl     *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }

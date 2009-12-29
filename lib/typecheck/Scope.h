@@ -22,11 +22,12 @@ namespace comma {
 class Homonym;
 
 enum ScopeKind {
-    DEAD_SCOPE,             // Indicates an uninitialized scope.
-    BASIC_SCOPE,            // multipurpose scope.
-    CUNIT_SCOPE,            // compilation unit scope.
-    MODEL_SCOPE,            // signature/domain etc, scope.
-    FUNCTION_SCOPE          // function scope.
+    DEAD_SCOPE,             ///< Indicates an uninitialized scope.
+    BASIC_SCOPE,            ///< Multipurpose scope.
+    CUNIT_SCOPE,            ///< Compilation unit scope.
+    MODEL_SCOPE,            ///< Signature/domain etc, scope.
+    SUBROUTINE_SCOPE,       ///< Subroutine scope.
+    RECORD_SCOPE            ///< Record type declaration scope.
 };
 
 class Scope {

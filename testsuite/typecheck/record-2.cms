@@ -1,0 +1,17 @@
+-- Check number of positional components in record aggregate expressions.
+
+domain Test add
+   type E is (Foo, Bar, Baz);
+
+   type R is record
+      Foo : E;
+      Bar : E;
+   end record;
+
+   procedure Run is
+      -- EXPECTED-ERROR: Too many elements
+      A1 : R := (Foo, Bar, Baz);
+      -- EXPECTED-ERROR: Too few elements
+      A2 : R := (Foo => Foo);
+   begin end Run;
+end Test;

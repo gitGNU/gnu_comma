@@ -1,0 +1,15 @@
+
+domain Test with
+   procedure Run;
+add
+   type Arr is array (Positive range 1..10) of Integer;
+
+   procedure Run is
+      A : Arr;
+   begin
+      -- EXPECTED-ERROR: must be the last component
+      A := (others => 2, 1..10 => 1);
+   end Run;
+end Test;
+
+

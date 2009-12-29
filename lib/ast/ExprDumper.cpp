@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ExprDumper.h"
-#include "comma/ast/Expr.h"
+#include "comma/ast/AggExpr.h"
 
 #include "llvm/Support/Format.h"
 
@@ -66,15 +66,13 @@ void ExprDumper::visitStringLiteral(StringLiteral *node)
     printHeader(node) << " \"" << node->getString() << "\">";
 }
 
-void ExprDumper::visitPositionalAggExpr(PositionalAggExpr *node)
+void ExprDumper::visitAggregateExpr(AggregateExpr *node)
 {
-    typedef PositionalAggExpr::iterator iterator;
-    iterator I = node->begin_components();
-    iterator E = node->end_components();
-
     printHeader(node);
     indent();
-    for ( ; I != E; ++I) {
+
+    typedef AggregateExpr::pos_iterator pos_iterator;
+    for (pos_iterator I = node->pos_begin(), E = node->pos_end(); I != E; ++I) {
         S << '\n';
         dump(*I, indentLevel);
     }

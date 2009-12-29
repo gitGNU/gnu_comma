@@ -8,9 +8,9 @@
 
 #include "CodeGenRoutine.h"
 #include "DependencySet.h"
+#include "comma/ast/AggExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
-#include "comma/ast/Expr.h"
 #include "comma/ast/ExprVisitor.h"
 #include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
@@ -60,7 +60,7 @@ private:
     void visitFunctionCallExpr(FunctionCallExpr *node);
     void visitInjExpr(InjExpr *node);
     void visitPrjExpr(PrjExpr *node);
-    void visitPositionalAggExpr(PositionalAggExpr *node);
+    void visitAggregateExpr(AggregateExpr *node);
     //@}
 
     void addDependents(const DomainInstanceDecl *instance);
@@ -241,13 +241,18 @@ void DependencyScanner::visitPrjExpr(PrjExpr *node)
     visitExpr(node->getOperand());
 }
 
-void DependencyScanner::visitPositionalAggExpr(PositionalAggExpr *node)
+void DependencyScanner::visitAggregateExpr(AggregateExpr *node)
 {
-    typedef PositionalAggExpr::iterator iterator;
-    iterator I = node->begin_components();
-    iterator E = node->end_components();
-    for ( ; I != E; ++I)
+    typedef AggregateExpr::pos_iterator pos_iterator;
+    for (pos_iterator I = node->pos_begin(), E = node->pos_end(); I != E; ++I)
         visitExpr(*I);
+
+    typedef AggregateExpr::kl_iterator kl_iterator;
+    for (kl_iterator I = node->kl_begin(), E = node->kl_end(); I != E; ++I)
+        visitExpr((*I)->getExpr());
+
+    if (Expr *others = node->getOthersExpr())
+        visitExpr(others);
 }
 
 //===----------------------------------------------------------------------===//

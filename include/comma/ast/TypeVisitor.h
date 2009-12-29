@@ -52,6 +52,7 @@ public:
     virtual void visitEnumerationType(EnumerationType *node);
     virtual void visitIntegerType(IntegerType *node);
     virtual void visitArrayType(ArrayType *node);
+    virtual void visitRecordType(RecordType *node);
     //@}
 };
 

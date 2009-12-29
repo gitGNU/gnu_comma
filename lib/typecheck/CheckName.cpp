@@ -36,24 +36,23 @@ SubroutineRef *buildSubroutineRef(Location loc, Resolver &resolver)
 
 } // end anonymous namespace.
 
-Node TypeCheck::acceptIndirectName(Location loc, Resolver &resolver)
+Ast *TypeCheck::checkIndirectName(Location loc, Resolver &resolver)
 {
     // Check if there is a unique indirect type.
     if (resolver.hasVisibleIndirectType()) {
         TypeDecl *tdecl = resolver.getIndirectType(0);
-        TypeRef *ref = new TypeRef(loc, tdecl);
-        return getNode(ref);
+        return new TypeRef(loc, tdecl);
     }
 
     // Check if there are any indirect functions.
     if (resolver.hasVisibleIndirectOverloads()) {
-        SubroutineRef *ref = buildSubroutineRef(loc, resolver);
-        if (!ref) {
+        if (SubroutineRef *ref = buildSubroutineRef(loc, resolver))
+            return ref;
+        else {
             report(ref->getLocation(), diag::NAME_NOT_VISIBLE)
                 << resolver.getIdInfo();
-            return getInvalidNode();
+            return 0;
         }
-        return getNode(ref);
     }
 
     // Currently, we do not support indirect values.
@@ -66,24 +65,32 @@ Node TypeCheck::acceptIndirectName(Location loc, Resolver &resolver)
     // intent is to make that information available for the sake of detailed
     // diagnostics.  Use it here.
     report(loc, diag::NAME_REQUIRES_QUAL) << resolver.getIdInfo();
-    return getInvalidNode();
+    return 0;
 }
 
 Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
                                  bool forStatement)
 {
+    if (Ast *result = checkDirectName(name, loc, forStatement))
+        return getNode(result);
+    else
+        return getInvalidNode();
+}
+
+Ast *TypeCheck::checkDirectName(IdentifierInfo *name, Location loc,
+                                bool forStatement)
+{
     Resolver &resolver = scope.getResolver();
 
     if (!resolver.resolve(name)) {
         report(loc, diag::NAME_NOT_VISIBLE) << name;
-        return getInvalidNode();
+        return 0;
     }
 
     // If there is a direct value, it shadows all other names.
     if (resolver.hasDirectValue()) {
         ValueDecl *vdecl = resolver.getDirectValue();
-        DeclRefExpr *ref = new DeclRefExpr(vdecl, loc);
-        return getNode(ref);
+        return new DeclRefExpr(vdecl, loc);
     }
 
     // If there is a direct type, it shadows all other names.  Note that we do
@@ -91,15 +98,13 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
     // yet.
     if (resolver.hasDirectType()) {
         TypeDecl *tdecl = resolver.getDirectType();
-        TypeRef *ref = new TypeRef(loc, tdecl);
-        return getNode(ref);
+        return new TypeRef(loc, tdecl);
     }
 
     // If there is a direct exception, it shadows all other names.
     if (resolver.hasDirectException()) {
         ExceptionDecl *edecl = resolver.getDirectException();
-        ExceptionRef *ref = new ExceptionRef(loc, edecl);
-        return getNode(ref);
+        return new ExceptionRef(loc, edecl);
     }
 
     // If a direct capsule (which currently means Domoid's and Sigoid's) is
@@ -109,12 +114,11 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
     // variety.
     if (resolver.hasDirectCapsule()) {
         ModelDecl *mdecl = resolver.getDirectCapsule();
-        TypeRef *ref = buildTypeRefForModel(loc, mdecl);
-        return getNode(ref);
+        return buildTypeRefForModel(loc, mdecl);
     }
 
-    // Filter the procedures according depending on what kind of name we are
-    // trying to form.
+    // Filter the subroutines depending on what kind of name we are trying to
+    // form.
     if (forStatement)
         resolver.filterFunctionals();
     else
@@ -123,16 +127,16 @@ Node TypeCheck::acceptDirectName(IdentifierInfo *name, Location loc,
     // If there are direct subroutines (possibly several), build a SubroutineRef
     // to encapsulate them.
     if (resolver.hasDirectOverloads()) {
-        SubroutineRef *ref = buildSubroutineRef(loc, resolver);
-        if (!ref) {
+        if (SubroutineRef *ref = buildSubroutineRef(loc, resolver))
+            return ref;
+        else {
             report(loc, diag::NAME_NOT_VISIBLE) << name;
-            return getInvalidNode();
+            return 0;
         }
-        return getNode(ref);
     }
 
     // There are no visible direct names, resolve any indirect names.
-    return acceptIndirectName(loc, resolver);
+    return checkIndirectName(loc, resolver);
 }
 
 TypeRef *TypeCheck::buildTypeRefForModel(Location loc, ModelDecl *mdecl)
@@ -209,11 +213,11 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
     // two forms are not equivalent, as the former will match all functions
     // named X declared in D (as well as other enumeration literals of the same
     // name).
-    DeclRegion::DeclIter I = region->beginDecls();
-    DeclRegion::DeclIter E = region->endDecls();
-
     llvm::SmallVector<SubroutineDecl*, 8> overloads;
-    for ( ; I != E; ++I) {
+
+SCAN_AGAIN:
+    for (DeclRegion::DeclIter I = region->beginDecls(), E = region->endDecls();
+         I != E; ++I) {
         Decl *decl = *I;
 
         if (decl->getIdInfo() == name) {
@@ -241,6 +245,15 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
             if (EnumLiteral *lit = edecl->findLiteral(name))
                 overloads.push_back(lit);
         }
+    }
+
+    // If the overload set is empty, check if the declarative region is a
+    // percent decl.  If so, scan the implementation of the associated domain
+    // (which is valid since a percent decl is only available as a prefix from
+    // within the internal view of the domain).
+    if (PercentDecl *percent = dyn_cast<PercentDecl>(region)) {
+        region = cast<Domoid>(percent->getDefinition())->getImplementation();
+        goto SCAN_AGAIN;
     }
 
     // If the overload set was not empty, we must have resolved something.

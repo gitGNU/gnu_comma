@@ -1,0 +1,15 @@
+-- Ensure indefinite types are invalid as record components.
+
+domain Test add
+   type Indefinite is array (Positive range <>) of Integer;
+
+   type R1 is record
+      -- EXPECTED-ERROR: Indefinite component type
+      Field : Indefinite;
+   end record;
+
+   type R2 is record
+      -- EXPECTED-ERROR: Indefinite component type
+      Field : String;
+   end record;
+end Test;

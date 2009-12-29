@@ -103,7 +103,7 @@ unsigned ModelDecl::getArity() const
 /// Returns the abstract domain declaration corresponding the i'th formal
 /// parameter.  This method will assert if this declaration is not
 /// parameterized.
-AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i) const
+AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i)
 {
     assert(!isParameterized() &&
            "Parameterized decls must implement this method!");
@@ -121,7 +121,7 @@ unsigned ModelDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
            "Cannot retrieve formal index from a non-parameterized model!");
     unsigned arity = getArity();
     for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainDecl *candidate = getFormalDecl(i);
+        const AbstractDomainDecl *candidate = getFormalDecl(i);
         if (candidate == ADDecl)
             return i;
     }
@@ -129,9 +129,7 @@ unsigned ModelDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
     return -1U;
 }
 
-/// Returns the type of the i'th formal formal parameter.  This method will
-/// assert if this declaration is not parameterized.
-DomainType *ModelDecl::getFormalType(unsigned i) const
+DomainType *ModelDecl::getFormalType(unsigned i)
 {
     assert(isParameterized() &&
            "Cannot retrieve formal type from a non-parameterized model!");
@@ -710,7 +708,7 @@ void DomainInstanceDecl::finalize()
 bool DomainInstanceDecl::isDependent() const
 {
     for (unsigned i = 0; i < getArity(); ++i) {
-        DomainType *param = cast<DomainType>(getActualParamType(i));
+        const DomainType *param = cast<DomainType>(getActualParamType(i));
         if (param->isAbstract())
             return true;
         if (param->denotesPercent())
@@ -1063,4 +1061,37 @@ ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
         resource.createArraySubtype(name, subtype, &indexTypes[0]);
 }
 
+//===----------------------------------------------------------------------===//
+// RecordDecl
+RecordDecl::RecordDecl(AstResource &resource, IdentifierInfo *name,
+                       Location loc, DeclRegion *parent)
+    : TypeDecl(AST_RecordDecl, name, loc, parent),
+      DeclRegion(AST_RecordDecl, parent), componentCount(0)
+{
+    RecordType *base = resource.createRecordType(this);
+    CorrespondingType = resource.createRecordSubtype(name, base);
+}
 
+ComponentDecl *RecordDecl::addComponent(IdentifierInfo *name, Location loc,
+                                        Type *type)
+{
+    ComponentDecl *component;
+    component = new ComponentDecl(name, loc, type, componentCount, this);
+    componentCount++;
+    addDecl(component);
+    return component;
+}
+
+ComponentDecl *RecordDecl::getComponent(unsigned i)
+{
+    // FIXME: Compensate for the presence of an equality operator when present.
+    return cast<ComponentDecl>(getDecl(i));
+}
+
+ComponentDecl *RecordDecl::getComponent(IdentifierInfo *name)
+{
+    PredRange range = findDecls(name);
+    if (range.first == range.second)
+        return 0;
+    return cast<ComponentDecl>(*range.first);
+}
