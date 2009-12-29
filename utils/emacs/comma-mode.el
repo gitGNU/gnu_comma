@@ -126,10 +126,10 @@ comma-mode-syntax-table."
          (regexp-opt
           '("abstract" "add" "and" "array" "carrier" "begin" "declare" "domain"
             "else" "elsif" "end" "exception" "for" "function" "generic" "if"
-            "import" "in" "inj" "is" "loop" "mod" "of" "out" "or" "others"
-            "package" "pragma" "prj" "procedure" "raise" "range" "rem" "return"
-            "reverse" "signature" "subtype" "then" "type" "when" "while" "with")
-          t)
+            "import" "in" "inj" "is" "loop" "mod" "null" "of" "out" "or"
+            "others" "package" "pragma" "prj" "procedure" "raise" "range"
+            "record" "rem" "return" "reverse" "signature" "subtype" "then"
+            "type" "when" "while" "with") t)
          "\\>")
        (1 font-lock-keyword-face))
 
