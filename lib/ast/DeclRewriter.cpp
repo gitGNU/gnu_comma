@@ -188,6 +188,28 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
     return result;
 }
 
+RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
+{
+    IdentifierInfo *name = decl->getIdInfo();
+    AstResource &resource = getAstResource();
+    RecordDecl *result = resource.createRecordDecl(name, 0, context);
+
+    typedef DeclRegion::DeclIter decl_iterator;
+    decl_iterator I = decl->beginDecls();
+    decl_iterator E = decl->endDecls();
+    for ( ; I != E; ++I) {
+        if (ComponentDecl *orig = dyn_cast<ComponentDecl>(*I)) {
+            Type *componentTy = rewriteType(orig->getType());
+            result->addComponent(orig->getIdInfo(), 0, componentTy);
+        }
+    }
+
+    // Provide mappings from the original first subtype to the new subtype.
+    addTypeRewrite(decl->getType(), result->getType());
+    addDeclRewrite(decl, result);
+    return result;
+}
+
 Decl *DeclRewriter::rewriteDecl(Decl *decl)
 {
     Decl *result = 0;
@@ -216,6 +238,10 @@ Decl *DeclRewriter::rewriteDecl(Decl *decl)
 
     case Ast::AST_ArrayDecl:
         result = rewriteArrayDecl(cast<ArrayDecl>(decl));
+        break;
+
+    case Ast::AST_RecordDecl:
+        result = rewriteRecordDecl(cast<RecordDecl>(decl));
         break;
     };
 

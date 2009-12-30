@@ -55,6 +55,8 @@ public:
     ArrayDecl *rewriteArrayDecl(ArrayDecl *adecl);
 
     IntegerDecl *rewriteIntegerDecl(IntegerDecl *idecl);
+
+    RecordDecl *rewriteRecordDecl(RecordDecl *rdecl);
     //@}
 
     /// Rewrites the given declaration node.
