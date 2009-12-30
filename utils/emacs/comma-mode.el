@@ -295,7 +295,7 @@ string representation or nil"
 (defun comma-match-eol (regex)
   "Returns true if the given regex matches the end of the current
 line (ignoring comments)."
-  (re-search-forward (concat regex "[ \t]*\\(--.*$\\)?")
+  (re-search-forward (concat regex "[ \t]*\\(--.*\\)?$")
                      (line-end-position) t))
 
 
@@ -421,6 +421,17 @@ or `for')."
                  (t loop-pos)))
             loop-pos)))))))
 
+(defun comma-find-record-indentation ()
+  "Returns the indentation of the previous record type declaration."
+  (when (re-search-backward "\\<type\\>" nil t)
+    (let ((position (point))
+          (prefix (current-indentation)))
+      (if (and (re-search-forward "\\<is\\>[ \t\n]+" nil t)
+               (looking-at-p "\\(\\<null\\>[ \t\n]+\\)?\\<record\\>"))
+          prefix
+        (goto-char position)
+        (comma-find-record-indentation)))))
+
 (defun comma-find-end-tag-indentation (end-tag)
   "Returns the indentation of the construct which introcduces the
 given END-TAG or nil if no such construct could be found."
@@ -452,6 +463,7 @@ the token should be indented by."
   (cond
    ((looking-at "\\<if\\>") (comma-find-if-indentation))
    ((looking-at "\\<loop\\>") (comma-find-iteration-indentation))
+   ((looking-at "\\<record\\>") (comma-find-record-indentation))
    (t (let ((end-tag (comma-scan-identifier)))
         (comma-find-end-tag-indentation end-tag)))))
 
@@ -476,6 +488,7 @@ nil.  This function performs leftward indentation and alignment."
        ((looking-at "\\<exception\\>")
         (when (re-search-backward "\\<begin\\>" nil t)
           (current-column)))
+       ((looking-at "\\<domain\\|signature\\|generic\\>") 0)
        (t nil)))))
 
 (defun comma-find-indentation ()
@@ -508,6 +521,10 @@ nil.  This function performs rightward indentation and alignment."
                 (+ prefix (comma-indent-after-subroutine)))
                ((looking-at "\\<return\\>")
                 (+ prefix (comma-indent-after-return)))
+               ((looking-at "\\<carrier\\>")
+                (if (comma-match-eol ";")
+                    prefix
+                  (+ prefix comma-default-indent)))
                ((comma-match-eol "\\<is\\>")
                 (comma-indent-after-is))
                ((looking-at comb-regex)
