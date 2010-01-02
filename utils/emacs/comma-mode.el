@@ -559,7 +559,8 @@ nil.  This function performs rightward indentation and alignment."
   (comma-create-syntax-table)
   (set-syntax-table comma-mode-syntax-table)
 
-  (set 'comment-start "-- ")
+  (set (make-local-variable 'comment-start)
+       "-- ")
 
   (set (make-local-variable 'font-lock-defaults)
        '(comma-font-lock-keywords))
