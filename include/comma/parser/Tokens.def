@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -71,6 +71,7 @@ RESERVED(PROCEDURE, "procedure")
 RESERVED(RANGE,     "range")
 RESERVED(RECORD,    "record")
 RESERVED(REM,       "rem")
+RESERVED(RENAMES,   "renames")
 RESERVED(RETURN,    "return")
 RESERVED(REVERSE,   "reverse")
 RESERVED(SIGNATURE, "signature")

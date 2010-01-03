@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -304,6 +304,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_SUBTYPE;
         else if (strncmp(str, "reverse", length) == 0)
             code = TKN_REVERSE;
+        else if (strncmp(str, "renames", length) == 0)
+            code = TKN_RENAMES;
         break;
 
     case 8:
