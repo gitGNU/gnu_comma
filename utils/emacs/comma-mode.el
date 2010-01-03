@@ -1,7 +1,7 @@
 ;;;===-----------------------------------------------------------------------===
 ;;; comma-mode.el --- major mode for editing Comma code.
 ;;;
-;;; Copyright (C) 2009 Stephen Wilson.
+;;; Copyright (C) 2009-2010 Stephen Wilson.
 ;;;
 ;;; This program is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by the Free
@@ -128,8 +128,8 @@ comma-mode-syntax-table."
             "else" "elsif" "end" "exception" "for" "function" "generic" "if"
             "import" "in" "inj" "is" "loop" "mod" "null" "of" "out" "or"
             "others" "package" "pragma" "prj" "procedure" "raise" "range"
-            "record" "rem" "return" "reverse" "signature" "subtype" "then"
-            "type" "when" "while" "with") t)
+            "record" "renames" "rem" "return" "reverse" "signature" "subtype"
+            "then" "type" "when" "while" "with") t)
          "\\>")
        (1 font-lock-keyword-face))
 
