@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009 Stephen Wilson
+// Copyright (C) 2008-2010 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -608,6 +608,35 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
         report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
         return false;
     }
+    currentDeclarativeRegion()->addDecl(decl);
+    return true;
+}
+
+bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
+                                               IdentifierInfo *name,
+                                               Node refNode, Node targetNode)
+{
+    Expr *target;
+    TypeDecl *tyDecl;;
+
+    if (!(tyDecl = ensureTypeDecl(refNode)) ||
+        !(target = ensureExpr(targetNode)))
+        return false;
+
+    if (!(target = checkExprInContext(target, tyDecl->getType())))
+        return false;
+
+    RenamedObjectDecl *decl;
+    refNode.release();
+    targetNode.release();
+    decl = new RenamedObjectDecl(name, tyDecl->getType(), loc, target);
+
+    if (Decl *conflict = scope.addDirectDecl(decl)) {
+        SourceLocation sloc = getSourceLoc(conflict->getLocation());
+        report(loc, diag::DECLARATION_CONFLICTS) << name << sloc;
+        return false;
+    }
+
     currentDeclarativeRegion()->addDecl(decl);
     return true;
 }

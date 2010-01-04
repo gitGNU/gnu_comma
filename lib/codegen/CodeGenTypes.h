@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -11,6 +11,7 @@
 
 #include "comma/ast/AstBase.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/DerivedTypes.h"
 
@@ -46,6 +47,8 @@ public:
 
     const llvm::ArrayType *lowerArrayType(const ArrayType *type);
 
+    const llvm::StructType *lowerRecordType(const RecordType *type);
+
     /// Returns the structure type used to hold the bounds of an unconstrained
     /// array.
     const llvm::StructType *lowerArrayBounds(const ArrayType *arrTy);
@@ -57,6 +60,10 @@ public:
     /// Returns the structure type used to hold the bounds of the given range.
     const llvm::StructType *lowerRange(const Range *range);
 
+    /// Returns the index into an llvm structure type that should be used to GEP
+    /// the given component.
+    unsigned getComponentIndex(const ComponentDecl *component);
+
 private:
     CodeGen &CG;
 
@@ -67,11 +74,23 @@ private:
 
     DomainInstanceDecl *context;
 
+    /// Map from ComponentDecl's to the associated index within an llvm
+    /// structure.
+    typedef llvm::DenseMap<const ComponentDecl*, unsigned> ComponentIndexMap;
+    ComponentIndexMap ComponentIndices;
+
     const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
 
     void addInstanceRewrites(const DomainInstanceDecl *instance);
+
+    /// Returns the alignment of the given llvm type according to the targets
+    /// ABI conventions.
+    unsigned getTypeAlignment(const llvm::Type *type) const;
+
+    /// Returns the size of the given llvm type in bytes.
+    uint64_t getTypeSize(const llvm::Type *type) const;
 };
 
 }; // end comma namespace

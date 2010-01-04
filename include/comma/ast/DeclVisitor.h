@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -79,6 +79,7 @@ public:
     virtual void visitLoopDecl(LoopDecl *node);
     virtual void visitParamValueDecl(ParamValueDecl *node);
     virtual void visitObjectDecl(ObjectDecl *node);
+    virtual void visitRenamedObjectDecl(RenamedObjectDecl *node);
     virtual void visitEnumLiteral(EnumLiteral *node);
     virtual void visitEnumerationDecl(EnumerationDecl *node);
     virtual void visitEnumSubtypeDecl(EnumSubtypeDecl *node);

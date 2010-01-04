@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -41,8 +41,9 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "SigInstanceDecl",
 
     "LoopDecl",
-    "ParamValueDecl",
     "ObjectDecl",
+    "ParamValueDecl",
+    "RenamedObjectDecl",
 
     "FunctionDecl",
     "ProcedureDecl",
@@ -67,6 +68,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerLiteral",
     "AggregateExpr",
     "PrjExpr",
+    "SelectedExpr",
     "StringLiteral",
 
     "FirstAE",

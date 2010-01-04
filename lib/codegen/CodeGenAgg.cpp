@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,13 +30,14 @@ using llvm::isa;
 
 namespace {
 
+//===----------------------------------------------------------------------===//
 /// \class
 ///
-/// \brief Helper class for aggregate emission.
-class AggEmitter {
+/// \brief Helper class for array aggregate emission.
+class ArrayEmitter {
 
 public:
-    AggEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
+    ArrayEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
         : CGR(CGR),
           emitter(CGR),
           Builder(Builder) { }
@@ -132,7 +133,7 @@ private:
     llvm::Value *convertIndex(llvm::Value *idx);
 };
 
-llvm::Value *AggEmitter::convertIndex(llvm::Value *idx)
+llvm::Value *ArrayEmitter::convertIndex(llvm::Value *idx)
 {
     const llvm::Type *intptrTy = CGR.getCodeGen().getIntPtrTy();
     if (idx->getType() != intptrTy)
@@ -140,8 +141,8 @@ llvm::Value *AggEmitter::convertIndex(llvm::Value *idx)
     return idx;
 }
 
-AggEmitter::ValuePair
-AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
+ArrayEmitter::ValuePair
+ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     llvm::Value *components;
     llvm::Value *bounds;
@@ -165,9 +166,6 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = frame()->lookup(decl, activation::Slot);
-
-        /// FIXME: Bounds lookup will fail when the decl is a ParamValueDecl of
-        /// a statically constrained type.  A better API will replace this hack.
         if (!(bounds = frame()->lookup(decl, activation::Bounds)))
             bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
     }
@@ -178,6 +176,10 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(expr)) {
         components = CGR.emitIndexedArrayRef(iae);
+        bounds = emitter.synthArrayBounds(Builder, arrTy);
+    }
+    else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
+        components = CGR.emitSelectedRef(sel);
         bounds = emitter.synthArrayBounds(Builder, arrTy);
     }
     else {
@@ -208,16 +210,16 @@ AggEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         return ValuePair(components, bounds);
 }
 
-void AggEmitter::emitComponent(Expr *expr, llvm::Value *dst)
+void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    if (isa<ArrayType>(expr->getType()))
-        CGR.emitArrayExpr(expr, dst, false);
+    if (isa<CompositeType>(expr->getType()))
+        CGR.emitCompositeExpr(expr, dst, false);
     else
         Builder.CreateStore(CGR.emitValue(expr), dst);
 }
 
-AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
-                                           llvm::Value *dst)
+ArrayEmitter::ValuePair ArrayEmitter::emitCall(FunctionCallExpr *call,
+                                               llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
 
@@ -234,15 +236,15 @@ AggEmitter::ValuePair AggEmitter::emitCall(FunctionCallExpr *call,
     return CGR.emitVStackCall(call);
 }
 
-AggEmitter::ValuePair AggEmitter::emitAggregate(AggregateExpr *expr,
-                                                llvm::Value *dst)
+ArrayEmitter::ValuePair ArrayEmitter::emitAggregate(AggregateExpr *expr,
+                                                    llvm::Value *dst)
 {
     if (expr->isPurelyPositional())
         return emitPositionalAgg(expr, dst);
     return emitKeyedAgg(expr, dst);
 }
 
-AggEmitter::ValuePair AggEmitter::emitStringLiteral(StringLiteral *expr)
+ArrayEmitter::ValuePair ArrayEmitter::emitStringLiteral(StringLiteral *expr)
 {
     assert(expr->hasType() && "Unresolved string literal type!");
 
@@ -280,17 +282,17 @@ AggEmitter::ValuePair AggEmitter::emitStringLiteral(StringLiteral *expr)
     return ValuePair(dataPtr, boundPtr);
 }
 
-AggEmitter::ValuePair
-AggEmitter::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
-                                bool genTmp)
+ArrayEmitter::ValuePair
+ArrayEmitter::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
+                                  bool genTmp)
 {
     // FIXME: Implement.
     return emit(convert->getOperand(), dst, genTmp);
 }
 
-void AggEmitter::emitOthers(Expr *others, llvm::Value *dst,
-                            llvm::Value *start, llvm::Value *end,
-                            llvm::Value *bias)
+void ArrayEmitter::emitOthers(Expr *others, llvm::Value *dst,
+                              llvm::Value *start, llvm::Value *end,
+                              llvm::Value *bias)
 {
     llvm::BasicBlock *startBB = Builder.GetInsertBlock();
     llvm::BasicBlock *checkBB = frame()->makeBasicBlock("others.check");
@@ -331,9 +333,9 @@ void AggEmitter::emitOthers(Expr *others, llvm::Value *dst,
     Builder.SetInsertPoint(mergeBB);
 }
 
-void AggEmitter::emitOthers(AggregateExpr *expr,
-                            llvm::Value *dst, llvm::Value *bounds,
-                            uint64_t numComponents)
+void ArrayEmitter::emitOthers(AggregateExpr *expr,
+                              llvm::Value *dst, llvm::Value *bounds,
+                              uint64_t numComponents)
 {
     // If this aggregate does not specify an others component we are done.
     //
@@ -399,8 +401,8 @@ void AggEmitter::emitOthers(AggregateExpr *expr,
     Builder.SetInsertPoint(mergeBB);
 }
 
-AggEmitter::ValuePair AggEmitter::emitPositionalAgg(AggregateExpr *expr,
-                                                    llvm::Value *dst)
+ArrayEmitter::ValuePair ArrayEmitter::emitPositionalAgg(AggregateExpr *expr,
+                                                        llvm::Value *dst)
 {
     assert(expr->isPurelyPositional() && "Unexpected type of aggregate!");
 
@@ -423,8 +425,8 @@ AggEmitter::ValuePair AggEmitter::emitPositionalAgg(AggregateExpr *expr,
     return ValuePair(dst, bounds);
 }
 
-AggEmitter::ValuePair AggEmitter::emitKeyedAgg(AggregateExpr *expr,
-                                               llvm::Value *dst)
+ArrayEmitter::ValuePair ArrayEmitter::emitKeyedAgg(AggregateExpr *expr,
+                                                   llvm::Value *dst)
 {
     assert(expr->isPurelyKeyed() && "Unexpected kind of aggregate!");
 
@@ -440,8 +442,8 @@ AggEmitter::ValuePair AggEmitter::emitKeyedAgg(AggregateExpr *expr,
     return emitOthersKeyedAgg(expr, dst);
 }
 
-void AggEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
-                                       llvm::Value *dst, llvm::Value *bias)
+void ArrayEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
+                                         llvm::Value *dst, llvm::Value *bias)
 {
     // Number of components we need to emit.
     uint64_t length;
@@ -489,8 +491,8 @@ void AggEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
     }
 }
 
-AggEmitter::ValuePair
-AggEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
+ArrayEmitter::ValuePair
+ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
 {
     assert(agg->isPurelyKeyed() && "Unexpected type of aggregate!");
 
@@ -520,8 +522,8 @@ AggEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
     return ValuePair(dst, bounds);
 }
 
-void AggEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
-                              llvm::Value *lower, llvm::Value *upper)
+void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
+                                llvm::Value *lower, llvm::Value *upper)
 {
     // If this aggregate does not specify an others component we are done.
     //
@@ -581,8 +583,8 @@ void AggEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
     }
 }
 
-AggEmitter::ValuePair
-AggEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+ArrayEmitter::ValuePair
+ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
     AggregateExpr::key_iterator I = expr->key_begin();
@@ -636,8 +638,8 @@ AggEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
     return ValuePair(dst, bounds);
 }
 
-AggEmitter::ValuePair
-AggEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+ArrayEmitter::ValuePair
+ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     assert(expr->hasOthers() && "Empty aggregate!");
 
@@ -658,8 +660,8 @@ AggEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
     return ValuePair(dst, bounds);
 }
 
-llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
-                                    llvm::Value *&dst)
+llvm::Value *ArrayEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
+                                      llvm::Value *&dst)
 {
     CodeGenTypes &CGT = CGR.getCGC().getCGT();
 
@@ -681,6 +683,241 @@ llvm::Value *AggEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
         dst = Builder.CreatePointerCast(dst, dstTy);
         return length;
     }
+}
+
+//===----------------------------------------------------------------------===//
+/// \class
+///
+/// \brief Helper class for record aggregate emission.
+class RecordEmitter {
+
+public:
+    RecordEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
+        : CGR(CGR),
+          CGT(CGR.getCGC().getCGT()),
+          emitter(CGR),
+          Builder(Builder) { }
+
+    llvm::Value *emit(Expr *expr, llvm::Value *dst, bool genTmp);
+
+private:
+    CodeGenRoutine &CGR;
+    CodeGenTypes &CGT;
+    BoundsEmitter emitter;
+    llvm::IRBuilder<> &Builder;
+
+    SRFrame *frame() { return CGR.getSRFrame(); }
+
+    /// Emits a function call expression returning a record type as result.
+    llvm::Value *emitCall(FunctionCallExpr *call, llvm::Value *dst);
+
+    /// Emits an aggregate expression of record type.
+    ///
+    /// \param agg The aggregate to emit.
+    ///
+    /// \param dst A pointer to a corresponding llvm structure to hold the
+    /// result of the aggregate or null.  When \p dst is null a temporary will
+    /// be allocated to hold the aggregate.
+    ///
+    /// \return A pointer to an llvm structure populated with the components
+    /// defined by \p agg.
+    llvm::Value *emitAggregate(AggregateExpr *agg, llvm::Value *dst);
+
+    /// A reference to the following type is passed to the various helper
+    /// methods which implement emitAggregate.  Each method populates the set
+    /// with the components they emitted.  This set is used to implement
+    /// emitOthersComponents.
+    typedef llvm::SmallPtrSet<ComponentDecl*, 16> ComponentSet;
+
+    /// Helper for emitAggregate.
+    ///
+    /// Populates \p dst with any positional components provided by \p agg.
+    /// This method is a noop if \p agg does not admit any positional
+    /// components.  Populates \p components with all ComponentDecl's emitted.
+    void emitPositionalComponents(AggregateExpr *agg, llvm::Value *dst,
+                                  ComponentSet &components);
+
+    /// Helper for emitAggregate.
+    ///
+    /// Populates \p dst with any keyed components provided by \p agg.  This
+    /// method is a noop if \p agg does not admit any keyed components.
+    /// Populates \p components with all ComponentDecl's emitted.
+    void emitKeyedComponents(AggregateExpr *agg, llvm::Value *dst,
+                             ComponentSet &components);
+
+    /// Helper for emitAggregate.
+    ///
+    /// Populates \p dst with all components defined by the type of \p agg but
+    /// which do not appear in \p components.  This method is a noop if \p agg
+    /// does not define an others clause.
+    void emitOthersComponents(AggregateExpr *agg, llvm::Value *dst,
+                              ComponentSet &components);
+
+    /// Helper for emitAggregate.
+    ///
+    /// Emits the given expression into the location pointed to by \p dst.
+    void emitComponent(Expr *expr, llvm::Value *dst);
+};
+
+llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
+{
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
+        return emitAggregate(agg, dst);
+
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
+        return emitCall(call, dst);
+
+    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
+        return emit(inj->getOperand(), dst, genTmp);
+
+    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
+        return emit(prj->getOperand(), dst, genTmp);
+
+    llvm::Value *rec = 0;
+
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+        ValueDecl *decl = ref->getDeclaration();
+        rec = frame()->lookup(decl, activation::Slot);
+    }
+    else if (IndexedArrayExpr *IAE = dyn_cast<IndexedArrayExpr>(expr)) {
+        rec = CGR.emitIndexedArrayRef(IAE);
+    }
+    else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
+        rec = CGR.emitSelectedRef(sel);
+    }
+
+    assert(rec && "Could not codegen record expression!");
+
+    CodeGen &CG = CGR.getCodeGen();
+    const llvm::Type *recTy;
+    recTy = CGT.lowerType(CGR.resolveType(expr->getType()));
+
+    // If dst is null build a stack allocated object to hold this record;
+    if (dst == 0 && genTmp)
+        dst = frame()->createTemp(recTy);
+
+    // If a destination is available fill it in with the computed record data.
+    if (dst) {
+        llvm::Function *memcpy = CG.getMemcpy64();
+        llvm::Value *source = Builder.CreatePointerCast(rec, CG.getInt8PtrTy());
+        llvm::Value *target = Builder.CreatePointerCast(dst, CG.getInt8PtrTy());
+        llvm::Value *len = llvm::ConstantExpr::getSizeOf(recTy);
+        llvm::Value *align = llvm::ConstantInt::get(
+            CG.getInt32Ty(), CG.getTargetData().getABITypeAlignment(recTy));
+        Builder.CreateCall4(memcpy, target, source, len, align);
+        return dst;
+    }
+    else
+        return rec;
+}
+
+llvm::Value *RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
+{
+    RecordType *recTy = cast<RecordType>(agg->getType());
+    const llvm::Type *loweredTy = CGT.lowerRecordType(recTy);
+
+    // If the destination is null create a temporary to hold the aggregate.
+    if (dst == 0)
+        dst = frame()->createTemp(loweredTy);
+
+    ComponentSet components;
+
+    // Emit any positional components.
+    emitPositionalComponents(agg, dst, components);
+
+    // Emit any keyed component.
+    emitKeyedComponents(agg, dst, components);
+
+    // Emit any `others' components.
+    emitOthersComponents(agg, dst, components);
+
+    return dst;
+}
+
+void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
+{
+    if (isa<CompositeType>(expr->getType()))
+        CGR.emitCompositeExpr(expr, dst, false);
+    else {
+        llvm::Value *component = CGR.emitValue(expr);
+        Builder.CreateStore(component, dst);
+    }
+}
+
+void RecordEmitter::emitPositionalComponents(AggregateExpr *agg, llvm::Value *dst,
+                                             ComponentSet &components)
+{
+    if (!agg->hasPositionalComponents())
+        return;
+
+    RecordType *recTy = cast<RecordType>(agg->getType());
+    RecordDecl *recDecl = recTy->getDefiningDecl();
+
+    // Iterate over the positional components of the record declaration.  Emit
+    // each component.
+    typedef AggregateExpr::pos_iterator iterator;
+    iterator I = agg->pos_begin();
+    iterator E = agg->pos_end();
+    for (unsigned i = 0; I != E; ++I, ++i) {
+        ComponentDecl *component = recDecl->getComponent(i);
+        unsigned index = CGT.getComponentIndex(component);
+        llvm::Value *componentPtr = Builder.CreateStructGEP(dst, index);
+        emitComponent(*I, componentPtr);
+        components.insert(component);
+    }
+}
+
+void RecordEmitter::emitKeyedComponents(AggregateExpr *agg, llvm::Value *dst,
+                                        ComponentSet &components)
+{
+    if (!agg->hasKeyedComponents())
+        return;
+
+    typedef AggregateExpr::key_iterator iterator;
+    iterator I = agg->key_begin();
+    iterator E = agg->key_end();
+    for ( ; I != E; ++I) {
+        ComponentDecl *component = I->getAsComponent();
+        unsigned index = CGT.getComponentIndex(component);
+        llvm::Value *componentPtr = Builder.CreateStructGEP(dst, index);
+        emitComponent(I.getExpr(), componentPtr);
+        components.insert(component);
+    }
+}
+
+void RecordEmitter::emitOthersComponents(AggregateExpr *agg, llvm::Value *dst,
+                                         ComponentSet &components)
+{
+    if (!agg->hasOthers())
+        return;
+
+    // FIXME:  We should be default initializing components if there is no
+    // expression associated with the others clause.
+    Expr *others = agg->getOthersExpr();
+    if (!others)
+        return;
+
+    // Iterate over the full set of components provided by the underlying record
+    // declaration.  Emit all components that are not already present in the
+    // provided set.
+    RecordDecl *recDecl = cast<RecordType>(agg->getType())->getDefiningDecl();
+    unsigned numComponents = recDecl->numComponents();
+    for (unsigned i = 0 ; i < numComponents; ++i) {
+        ComponentDecl *component = recDecl->getComponent(i);
+        if (!components.count(component)) {
+            unsigned index = CGT.getComponentIndex(component);
+            llvm::Value *componentPtr = Builder.CreateStructGEP(dst, index);
+            emitComponent(others, componentPtr);
+        }
+    }
+}
+
+llvm::Value *RecordEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
+{
+    // Functions returning structures always use the sret calling convention.
+    //
+    // FIXME: Optimize the case when the record is small.
+    return CGR.emitCompositeCall(call, dst);
 }
 
 } // end anonymous namespace.
@@ -744,36 +981,78 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
 std::pair<llvm::Value*, llvm::Value*>
 CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
-    AggEmitter emitter(*this, Builder);
+    ArrayEmitter emitter(*this, Builder);
     return emitter.emit(expr, dst, genTmp);
 }
 
-void CodeGenRoutine::emitArrayObjectDecl(ObjectDecl *objDecl)
+llvm::Value *
+CodeGenRoutine::emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
-    BoundsEmitter emitter(*this);
-    ArrayType *arrTy = cast<ArrayType>(resolveType(objDecl->getType()));
-    const llvm::Type *loweredTy = CGT.lowerArrayType(arrTy);
+    RecordEmitter emitter(*this, Builder);
+    return emitter.emit(expr, dst, genTmp);
+}
 
-    if (!objDecl->hasInitializer()) {
-        // FIXME: Support dynamicly sized arrays and default initialization.
-        assert(arrTy->isStaticallyConstrained() &&
-               "Cannot codegen non-static arrays without initializer!");
+llvm::Value *
+CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
+{
+    Type *Ty = resolveType(expr->getType());
 
-        SRF->createEntry(objDecl, activation::Slot, loweredTy);
-        SRF->associate(objDecl, activation::Bounds,
-                       emitter.synthStaticArrayBounds(Builder, arrTy));
-        return;
+    if (isa<ArrayType>(Ty)) {
+        ArrayEmitter emitter(*this, Builder);
+        return emitter.emit(expr, dst, genTmp).first;
+    }
+    else if (isa<RecordType>(Ty)) {
+        RecordEmitter emitter(*this, Builder);
+        return emitter.emit(expr, dst, genTmp);
     }
 
-    llvm::Value *slot = 0;
-    if (arrTy->isStaticallyConstrained())
-        slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
+    assert(false && "Not a composite expression!");
+    return 0;
+}
 
-    Expr *init = objDecl->getInitializer();
-    std::pair<llvm::Value*, llvm::Value*> result;
+void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)
+{
+    Type *objTy = resolveType(objDecl->getType());
 
-    result = emitArrayExpr(init, slot, true);
-    if (!slot)
-        SRF->associate(objDecl, activation::Slot, result.first);
-    SRF->associate(objDecl, activation::Bounds, result.second);
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(objTy)) {
+        BoundsEmitter emitter(*this);
+        const llvm::Type *loweredTy = CGT.lowerArrayType(arrTy);
+
+        if (!objDecl->hasInitializer()) {
+            // FIXME: Support dynamicly sized arrays and default initialization.
+            assert(arrTy->isStaticallyConstrained() &&
+                   "Cannot codegen non-static arrays without initializer!");
+
+            SRF->createEntry(objDecl, activation::Slot, loweredTy);
+            SRF->associate(objDecl, activation::Bounds,
+                           emitter.synthStaticArrayBounds(Builder, arrTy));
+            return;
+        }
+
+        llvm::Value *slot = 0;
+        if (arrTy->isStaticallyConstrained())
+            slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
+
+        Expr *init = objDecl->getInitializer();
+        std::pair<llvm::Value*, llvm::Value*> result;
+
+        result = emitArrayExpr(init, slot, true);
+        if (!slot)
+            SRF->associate(objDecl, activation::Slot, result.first);
+        SRF->associate(objDecl, activation::Bounds, result.second);
+    }
+    else {
+        // We must have a record type.
+        RecordType *recTy = cast<RecordType>(objTy);
+
+        const llvm::Type *loweredTy = CGT.lowerRecordType(recTy);
+        llvm::Value *slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
+
+        // FIXME: Default initialize the records components.
+        if (!objDecl->hasInitializer())
+            return;
+
+        Expr *init = objDecl->getInitializer();
+        emitRecordExpr(init, slot, false);
+    }
 }

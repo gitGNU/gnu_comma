@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -93,11 +93,18 @@ private:
 
     /// Helper method for emitArg.
     ///
-    /// Evaluates the given expression when the target type is an array.
+    /// Evaluates the given expression when the target type is composite.
     ///
     /// \see emitArg()
     void emitCompositeArgument(Expr *expr, PM::ParameterMode mode,
-                               ArrayType *type);
+                               CompositeType *type);
+
+    /// Helper method for emitCompositeArgument.
+    ///
+    /// Evaluates the given expression when the target type is an array type.
+    ///
+    /// \see emitArg()
+    void emitArrayArgument(Expr *expr, PM::ParameterMode mode, ArrayType *type);
 
     /// Gernerates a call to a primitive subroutine, returning the computed
     /// result.
@@ -304,8 +311,8 @@ void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *target
 {
     targetTy = CGR.resolveType(targetTy);
 
-    if (ArrayType *arrTy = dyn_cast<ArrayType>(targetTy))
-        emitCompositeArgument(param, mode, arrTy);
+    if (CompositeType *compTy = dyn_cast<CompositeType>(targetTy))
+        emitCompositeArgument(param, mode, compTy);
     else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
         arguments.push_back(CGR.emitVariableReference(param));
     else
@@ -313,7 +320,19 @@ void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *target
 }
 
 void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
-                                        ArrayType *targetTy)
+                                        CompositeType *targetTy)
+{
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(targetTy))
+        emitArrayArgument(param, mode, arrTy);
+    else {
+        // Otherwise we have a record type as target.  Simply push a reference
+        // to the record.
+        arguments.push_back(CGR.emitCompositeExpr(param, 0, false));
+    }
+}
+
+void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
+                                    ArrayType *targetTy)
 {
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(param)) {
 

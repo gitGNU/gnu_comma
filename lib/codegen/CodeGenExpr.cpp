@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -172,6 +172,26 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 {
     llvm::Value *addr = emitIndexedArrayRef(expr);
     return Builder.CreateLoad(addr);
+}
+
+llvm::Value *CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
+{
+    // Currently, the prefix of a SelectedExpr is always of record type.
+    llvm::Value *record = emitRecordExpr(expr->getPrefix(), 0, false);
+    ComponentDecl *component = cast<ComponentDecl>(expr->getSelector());
+
+    // Find the index into into the record and GEP the component.
+    unsigned index = CGT.getComponentIndex(component);
+    return Builder.CreateStructGEP(record, index);
+}
+
+llvm::Value *CodeGenRoutine::emitSelectedValue(SelectedExpr *expr)
+{
+    llvm::Value *componentPtr = emitSelectedRef(expr);
+    if (expr->getType()->isCompositeType())
+        return componentPtr;
+    else
+        return Builder.CreateLoad(componentPtr);
 }
 
 llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)

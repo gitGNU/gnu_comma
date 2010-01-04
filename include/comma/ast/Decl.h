@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -758,6 +758,39 @@ public:
 
 private:
     Expr *initialization;
+};
+
+//===----------------------------------------------------------------------===//
+// RenamedObjectDecl
+//
+/// \class
+///
+/// A RenamedObjectDecl represents renamed object declarations.
+class RenamedObjectDecl : public ValueDecl {
+
+public:
+    RenamedObjectDecl(IdentifierInfo *name, Type *type, Location loc,
+                      Expr *expr)
+        : ValueDecl(AST_RenamedObjectDecl, name, type, loc),
+          renamedExpr(expr) { }
+
+    //@{
+    /// Returns the expression which this declaration renames.
+    const Expr *getRenamedExpr() const { return renamedExpr; }
+    Expr *getRenamedExpr() { return renamedExpr; }
+    //@}
+
+    /// Sets the expression this declaration renames.
+    void setRenamedExpr(Expr *expr) { renamedExpr = expr; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const RenamedObjectDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_RenamedObjectDecl;
+    }
+
+private:
+    Expr *renamedExpr;
 };
 
 //===----------------------------------------------------------------------===//

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -88,11 +88,20 @@ DeclRefExpr *TypeCheck::resolveAssignmentTarget(Expr *expr)
     default:
         return 0;
 
-    case Ast::AST_DeclRefExpr:
-        return cast<DeclRefExpr>(expr);
+    case Ast::AST_DeclRefExpr: {
+        DeclRefExpr *result = cast<DeclRefExpr>(expr);
+        ValueDecl *target = result->getDeclaration();
+        if (RenamedObjectDecl *rod = dyn_cast<RenamedObjectDecl>(target))
+            return resolveAssignmentTarget(rod->getRenamedExpr());
+        return result;
+    }
 
     case Ast::AST_IndexedArrayExpr:
         expr = cast<IndexedArrayExpr>(expr)->getArrayExpr();
+        return resolveAssignmentTarget(expr);
+
+    case Ast::AST_SelectedExpr:
+        expr = cast<SelectedExpr>(expr)->getPrefix();
         return resolveAssignmentTarget(expr);
 
     case Ast::AST_InjExpr:

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -74,6 +74,9 @@ public:
     std::pair<llvm::Value*, llvm::Value*>
     emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
+    llvm::Value *emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+    llvm::Value *emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+
     void emitStmt(Stmt *stmt);
 
     llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
@@ -102,6 +105,7 @@ public:
                        llvm::Value *length, const llvm::Type *componentTy);
 
     llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
+    llvm::Value *emitSelectedRef(SelectedExpr *expr);
 
     PrimaryType *resolveType(Type *type);
 
@@ -113,6 +117,7 @@ private:
     void emitSubroutineBody();
 
     void emitObjectDecl(ObjectDecl *objDecl);
+    void emitRenamedObjectDecl(RenamedObjectDecl *objDecl);
 
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
@@ -142,6 +147,7 @@ private:
     llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
+    llvm::Value *emitSelectedValue(SelectedExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
@@ -173,7 +179,7 @@ private:
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);
 
-    void emitArrayObjectDecl(ObjectDecl *objDecl);
+    void emitCompositeObjectDecl(ObjectDecl *objDecl);
 
     void emitIntegerSubtypeDecl(IntegerSubtypeDecl *subDecl);
     void emitEnumSubtypeDecl(EnumSubtypeDecl *subDecl);

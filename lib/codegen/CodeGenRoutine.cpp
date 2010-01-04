@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -79,8 +79,8 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 {
     Type *objTy = resolveType(objDecl->getType());
 
-    if (isa<ArrayType>(objTy))
-        emitArrayObjectDecl(objDecl);
+    if (objTy->isCompositeType())
+        emitCompositeObjectDecl(objDecl);
     else {
         // Otherwise, this is a simple non-composite type.  Allocate a stack
         // slot and evaluate the initializer if present.
@@ -92,6 +92,23 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
         }
     }
 }
+
+void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
+{
+    Type *objTy = resolveType(objDecl->getType());
+    Expr *objExpr = objDecl->getRenamedExpr();
+    llvm::Value *objValue;
+
+    // Emit a renamed object declaration as a reference to its renamed
+    // expression and associate the result with the declaration.
+    if (objTy->isCompositeType())
+        objValue = emitCompositeExpr(objExpr, 0, false);
+    else
+        objValue = emitVariableReference(objExpr);
+
+    SRF->associate(objDecl, activation::Slot, objValue);
+}
+
 
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
 {
@@ -117,6 +134,8 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
     }
     else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
         return emitIndexedArrayRef(idxExpr);
+    else if (SelectedExpr *selExpr = dyn_cast<SelectedExpr>(expr))
+        return emitSelectedRef(selExpr);
 
     assert(false && "Cannot codegen reference for expression!");
     return 0;
@@ -150,6 +169,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_IndexedArrayExpr:
         return emitIndexedArrayValue(cast<IndexedArrayExpr>(expr));
+
+    case Ast::AST_SelectedExpr:
+        return emitSelectedValue(cast<SelectedExpr>(expr));
 
     case Ast::AST_ConversionExpr:
         return emitConversionValue(cast<ConversionExpr>(expr));

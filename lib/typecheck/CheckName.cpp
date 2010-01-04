@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -180,25 +180,22 @@ Node TypeCheck::acceptCharacterLiteral(IdentifierInfo *lit, Location loc)
     return acceptDirectName(lit, loc, false);
 }
 
-Node TypeCheck::acceptSelectedComponent(Node prefix,
-                                        IdentifierInfo *name, Location loc,
-                                        bool forStatement)
-{
-    // We do not support records yet, so we only need to consider the case of
-    // qualification.  The prefix must therfore be a TypeRef.
-    TypeRef *ref = lift_node<TypeRef>(prefix);
 
+Ast *TypeCheck::processExpandedName(TypeRef *ref,
+                                    IdentifierInfo *name, Location loc,
+                                    bool forStatement)
+{
     // Currently, a signature can never be used as the prefix to a component.
-    if (!ref || ref->referencesSigInstance()) {
+    if (ref->referencesSigInstance()) {
         report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
-        return getInvalidNode();
+        return 0;
     }
 
     // Ensure the parser called finishName on the prefix.
     assert(ref->isComplete() && "Invalid prefix node!");
 
-    // All complete TypeRef's (with the expection of SigInstanceDecl's) point to
-    // a decl which is also a DeclRegion.
+    // All complete TypeRef's (with the expection of SigInstanceDecl's)
+    // point to a decl which is also a DeclRegion.
     DeclRegion *region = ref->getDecl()->asDeclRegion();
     assert(region && "Prefix is not a DeclRegion!");
 
@@ -209,13 +206,13 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
     //
     //   domain D with type T is (X); end D;
     //
-    // The the qualified name D.X will resolve to D.T.X.  Note however that the
+    // then the qualified name D.X will resolve to D.T.X.  Note however that the
     // two forms are not equivalent, as the former will match all functions
     // named X declared in D (as well as other enumeration literals of the same
     // name).
     llvm::SmallVector<SubroutineDecl*, 8> overloads;
 
-SCAN_AGAIN:
+    SCAN_AGAIN:
     for (DeclRegion::DeclIter I = region->beginDecls(), E = region->endDecls();
          I != E; ++I) {
         Decl *decl = *I;
@@ -226,8 +223,7 @@ SCAN_AGAIN:
             // this time).
             if (TypeDecl *tdecl = dyn_cast<TypeDecl>(decl)) {
                 assert(overloads.empty() && "Inconsistent DeclRegion!");
-                TypeRef *ref = new TypeRef(loc, tdecl);
-                return getNode(ref);
+                return new TypeRef(loc, tdecl);
             }
 
             // Distinguish functions from procedures if we are generiating a
@@ -256,12 +252,58 @@ SCAN_AGAIN:
         goto SCAN_AGAIN;
     }
 
-    // If the overload set was not empty, we must have resolved something.
-    assert(!overloads.empty() && "Could not resolve name!");
+    if (overloads.empty()) {
+        report(loc, diag::NAME_NOT_VISIBLE) << name;
+        return 0;
+    }
 
-    SubroutineRef *srRef =
-        new SubroutineRef(loc, &overloads[0], overloads.size());
-    return getNode(srRef);
+    return new SubroutineRef(loc, &overloads[0], overloads.size());
+}
+
+Ast *TypeCheck::processSelectedComponent(Expr *expr,
+                                         IdentifierInfo *name, Location loc,
+                                         bool forStatement)
+{
+    // Currently, the prefix to a selected component must be of record type.
+    RecordType *prefixTy = dyn_cast<RecordType>(expr->getType());
+    if (!prefixTy) {
+        report(expr->getLocation(), diag::INVALID_PREFIX_FOR_COMPONENT) << name;
+        return 0;
+    }
+
+    // Locate the named component in the corresponding record declaration.
+    RecordDecl *recordDecl = prefixTy->getDefiningDecl();
+    ComponentDecl *component = recordDecl->getComponent(name);
+    if (!component) {
+        report(loc, diag::UNKNOWN_SELECTED_COMPONENT)
+            << name << recordDecl->getIdInfo();
+        return 0;
+    }
+
+    return new SelectedExpr(expr, component, loc, component->getType());
+}
+
+Node TypeCheck::acceptSelectedComponent(Node prefix,
+                                        IdentifierInfo *name, Location loc,
+                                        bool forStatement)
+{
+    Ast *result = 0;
+
+    if (TypeRef *ref = lift_node<TypeRef>(prefix))
+        result = processExpandedName(ref, name, loc, forStatement);
+    else if (Expr *expr = lift_node<Expr>(prefix))
+        result = processSelectedComponent(expr, name, loc, forStatement);
+    else {
+        report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
+        result = 0;
+    }
+
+    if (result) {
+        prefix.release();
+        return getNode(result);
+    }
+    else
+        return getInvalidNode();
 }
 
 Node TypeCheck::acceptParameterAssociation(IdentifierInfo *key, Location loc,

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -41,6 +41,7 @@ void ExprVisitor::visitExpr(Expr *node)
         case DISPATCH(DeclRefExpr, node);
         case DISPATCH(FunctionCallExpr, node);
         case DISPATCH(IndexedArrayExpr, node);
+        case DISPATCH(SelectedExpr, node);
         case DISPATCH(InjExpr, node);
         case DISPATCH(PrjExpr, node);
         case DISPATCH(IntegerLiteral, node);
@@ -70,6 +71,7 @@ void ExprVisitor::visitAttribExpr(AttribExpr *node)
 void ExprVisitor::visitDeclRefExpr(DeclRefExpr *node) { }
 void ExprVisitor::visitFunctionCallExpr(FunctionCallExpr *node) { }
 void ExprVisitor::visitIndexedArrayExpr(IndexedArrayExpr *node) { }
+void ExprVisitor::visitSelectedExpr(SelectedExpr *node) { }
 void ExprVisitor::visitInjExpr(InjExpr *node) { }
 void ExprVisitor::visitPrjExpr(PrjExpr *node) { }
 void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }

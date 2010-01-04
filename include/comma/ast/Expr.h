@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -275,11 +275,53 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// SelectedExpr
+//
+/// Represents a selected component.
+class SelectedExpr : public Expr {
+
+public:
+    /// Constructs a selected component of the form <tt>P.C</tt>, where \p
+    /// prefix is the expression corresponding to \c P, \p component is the
+    /// selected declaration corresponding to \c C, and \p loc is the location
+    /// of \p component.
+    SelectedExpr(Expr *prefix, Decl *component, Location loc, Type *type)
+        : Expr(AST_SelectedExpr, type, prefix->getLocation()),
+          prefix(prefix), component(component), componentLoc(loc) { }
+
+    //@{
+    /// Returns the prefix of this SelectedExpr.
+    const Expr *getPrefix() const { return prefix; }
+    Expr *getPrefix() { return prefix; }
+    //@}
+
+    //@{
+    /// Returns the selected declaration.
+    const Decl *getSelector() const { return component; }
+    Decl *getSelector() { return component; }
+    //@}
+
+    /// Returns the location of the selected declaration.
+    Location getSelectorLoc() const { return componentLoc; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const SelectedExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_SelectedExpr;
+    }
+
+private:
+    Expr *prefix;
+    Decl *component;
+    Location componentLoc;
+};
+
+//===----------------------------------------------------------------------===//
 // InjExpr
 //
 // Represents "inj" expressions, mapping domain types to their carrier types.
-class InjExpr : public Expr
-{
+class InjExpr : public Expr {
+
 public:
     InjExpr(Expr *argument, Type *resultType, Location loc)
         : Expr(AST_InjExpr, resultType, loc),
@@ -301,8 +343,8 @@ private:
 // PrjExpr
 //
 // Represents "prj" expressions, mapping carrier types to their domains.
-class PrjExpr : public Expr
-{
+class PrjExpr : public Expr {
+
 public:
     PrjExpr(Expr *argument, DomainType *resultType, Location loc)
         : Expr(AST_PrjExpr, resultType, loc),

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -271,3 +271,5 @@ DIAGNOSTIC(INCONSISTENT_RECORD_COMPONENT_SELECTORS, ERROR,
            "All component selectors must be of the same type.")
 DIAGNOSTIC(INDEFINITE_COMPONENT_TYPE, ERROR,
            "Indefinite component type in aggregate declaration.")
+DIAGNOSTIC(UNKNOWN_SELECTED_COMPONENT, ERROR,
+           "The name `%0' does not denote a component in type `%1'.")

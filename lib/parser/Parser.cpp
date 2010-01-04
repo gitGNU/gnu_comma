@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1085,12 +1085,21 @@ bool Parser::parseObjectDeclaration()
     Node type = parseName();
 
     if (type.isValid()) {
-        Node init = getNullNode();
-        if (reduceToken(Lexer::TKN_ASSIGN))
-            init = parseExpr();
-        if (init.isValid()) {
-            client.acceptObjectDeclaration(loc, id, type, init);
-            return true;
+        if (reduceToken(Lexer::TKN_RENAMES)) {
+            Node target = parseName();
+            if (target.isValid()) {
+                client.acceptRenamedObjectDeclaration(loc, id, type, target);
+                return true;
+            }
+        }
+        else {
+            Node init = getNullNode();
+            if (reduceToken(Lexer::TKN_ASSIGN))
+                init = parseExpr();
+            if (init.isValid()) {
+                client.acceptObjectDeclaration(loc, id, type, init);
+                return true;
+            }
         }
     }
     seekToken(Lexer::TKN_SEMI);

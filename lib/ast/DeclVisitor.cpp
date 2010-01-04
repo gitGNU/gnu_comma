@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -121,6 +121,7 @@ void DeclVisitor::visitValueDecl(ValueDecl *node)
     case DISPATCH(ObjectDecl, node);
     case DISPATCH(ParamValueDecl, node);
     case DISPATCH(LoopDecl, node);
+    case DISPATCH(RenamedObjectDecl, node);
     };
 }
 
@@ -177,6 +178,7 @@ void DeclVisitor::visitPercentDecl(PercentDecl *node) { }
 void DeclVisitor::visitLoopDecl(LoopDecl *node) { }
 void DeclVisitor::visitParamValueDecl(ParamValueDecl *node) { }
 void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }
+void DeclVisitor::visitRenamedObjectDecl(RenamedObjectDecl *node) { }
 void DeclVisitor::visitEnumLiteral(EnumLiteral *node) { }
 void DeclVisitor::visitEnumerationDecl(EnumerationDecl *node) { }
 void DeclVisitor::visitEnumSubtypeDecl(EnumSubtypeDecl *node) { }

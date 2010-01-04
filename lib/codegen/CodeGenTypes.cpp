@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -66,6 +66,16 @@ uint64_t getArrayWidth(const llvm::APInt &low, const llvm::APInt &high,
 
 } // end anonymous namespace.
 
+unsigned CodeGenTypes::getTypeAlignment(const llvm::Type *type) const
+{
+    return CG.getTargetData().getABITypeAlignment(type);
+}
+
+uint64_t CodeGenTypes::getTypeSize(const llvm::Type *type) const
+{
+    return CG.getTargetData().getTypeStoreSize(type);
+}
+
 const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 {
     switch (type->getKind()) {
@@ -83,6 +93,9 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_ArrayType:
         return lowerArrayType(cast<ArrayType>(type));
+
+    case Ast::AST_RecordType:
+        return lowerRecordType(cast<RecordType>(type));
     }
 }
 
@@ -137,8 +150,6 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     std::vector<const llvm::Type*> args;
     const llvm::Type *retTy = 0;
 
-    // If the return type is a statically constrained aggregate, use the struct
-    // return calling convention.
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
 
         // If the return type is a domain, resolve to the representation type.
@@ -146,10 +157,12 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         if (const DomainType *domTy = dyn_cast<DomainType>(targetTy))
             targetTy = domTy->getRepresentationType();
 
-        if (const ArrayType *arrTy = dyn_cast<ArrayType>(targetTy)) {
-            if (arrTy->isConstrained()) {
+        // If the return type is a statically constrained aggregate, use the
+        // struct return calling convention.
+        if (const CompositeType *compTy = dyn_cast<CompositeType>(targetTy)) {
+            if (compTy->isConstrained()) {
                 const llvm::Type *sretTy;
-                sretTy = lowerArrayType(arrTy);
+                sretTy = lowerType(targetTy);
                 sretTy = CG.getPointerType(sretTy);
                 args.push_back(sretTy);
             }
@@ -183,19 +196,22 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
         if (const DomainType *domTy = dyn_cast<DomainType>(paramTy))
             paramTy = domTy->getRepresentationType();
 
-        if (const ArrayType *arrTy = dyn_cast<ArrayType>(paramTy)) {
-            // We never pass arrays by value, always by reference.  Therefore,
-            // the parameter mode does not change how we pass an array.
-            assert(isa<llvm::ArrayType>(loweredTy) &&
-                   "Unexpected type for array!");
+        if (const CompositeType *compTy = dyn_cast<CompositeType>(paramTy)) {
+            // We never pass composite types by value, always by reference.
+            // Therefore, the parameter mode does not change how we pass the
+            // argument.
+            assert(isa<llvm::CompositeType>(loweredTy) &&
+                   "Unexpected lowered type!");
             loweredTy = CG.getPointerType(loweredTy);
 
             args.push_back(loweredTy);
 
-            // If the array is not constrained, generate an implicit second
-            // argument for the bounds.
-            if (!arrTy->isConstrained())
-                args.push_back(CG.getPointerType(lowerArrayBounds(arrTy)));
+            // If the parameter is an unconstrained array generate an implicit
+            // second argument for the bounds.
+            if (const ArrayType *arrTy = dyn_cast<ArrayType>(compTy)) {
+                if (!compTy->isConstrained())
+                    args.push_back(CG.getPointerType(lowerArrayBounds(arrTy)));
+            }
         }
         else {
             // If the argument mode is "out" or "in out", make the argument a
@@ -261,6 +277,54 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
     uint64_t numElems;
     numElems = getArrayWidth(lowerBound, upperBound, idxTy->isSigned());
     return llvm::ArrayType::get(elementTy, numElems);
+}
+
+const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
+{
+    unsigned maxAlignment = 0;
+    uint64_t currentOffset = 0;
+    uint64_t requiredOffset = 0;
+    unsigned currentIndex = 0;
+    std::vector<const llvm::Type*> fields;
+
+    const RecordDecl *recDecl = recTy->getDefiningDecl();
+    for (unsigned i = 0; i < recDecl->numComponents(); ++i) {
+        const ComponentDecl *componentDecl = recDecl->getComponent(i);
+        const llvm::Type *componentTy = lowerType(componentDecl->getType());
+        unsigned alignment = getTypeAlignment(componentTy);
+        requiredOffset = llvm::TargetData::RoundUpAlignment(currentOffset,
+                                                            alignment);
+        maxAlignment = std::max(maxAlignment, alignment);
+
+        // Output as many i8's as needed to bring the current offset upto the
+        // required offset, then emit the actual field.
+        while (currentOffset < requiredOffset) {
+            fields.push_back(CG.getInt8Ty());
+            currentOffset++;
+            currentIndex++;
+        }
+        fields.push_back(componentTy);
+        ComponentIndices[componentDecl] = currentIndex;
+        currentOffset = requiredOffset + getTypeSize(componentTy);
+        currentIndex++;
+    }
+
+    // Pad out the record if needed.
+    requiredOffset = llvm::TargetData::RoundUpAlignment(currentOffset,
+                                                        maxAlignment);
+    while (currentOffset < requiredOffset) {
+        fields.push_back(CG.getInt8Ty());
+        currentOffset++;
+    }
+
+    return llvm::StructType::get(CG.getLLVMContext(), fields);
+}
+
+unsigned CodeGenTypes::getComponentIndex(const ComponentDecl *component)
+{
+    ComponentIndexMap::iterator I = ComponentIndices.find(component);
+    assert (I != ComponentIndices.end()  && "Component index does not exist!");
+    return I->second;
 }
 
 const llvm::StructType *CodeGenTypes::lowerArrayBounds(const ArrayType *arrTy)

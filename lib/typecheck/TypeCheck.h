@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -121,6 +121,8 @@ public:
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
 
+    bool acceptRenamedObjectDeclaration(Location loc, IdentifierInfo *name,
+                                        Node type, Node target);
 
     void acceptDeclarationInitializer(Node declNode, Node initializer);
 
@@ -782,6 +784,16 @@ private:
     /// the check succeeds.  Otherwise false is returned and diagnostics are
     /// posted.
     bool finishTypeRef(TypeRef *ref);
+
+    /// Helper method for acceptSelectedComponent.  Handles the case when the
+    /// prefix denotes a type.
+    Ast *processExpandedName(TypeRef *ref, IdentifierInfo *name, Location loc,
+                             bool forStatement);
+
+    /// Helper method for acceptSelectedComponent.  Handles the case when the
+    /// prefix denotes an expression.
+    Ast *processSelectedComponent(Expr *expr, IdentifierInfo *name,
+                                  Location loc, bool forStatement);
 
     /// Checks an assert pragma with the given arguments.
     PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);

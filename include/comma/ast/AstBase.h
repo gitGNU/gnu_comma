@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 //
@@ -101,9 +101,11 @@ class Range;
 class RangeAttrib;
 class RecordDecl;
 class RecordType;
+class RenamedObjectDecl;
 class ReturnStmt;
 class ScalarBoundAE;
 class ScalarRangeAttrib;
+class SelectedExpr;
 class Sigoid;
 class SignatureDecl;
 class SigInstanceDecl;
@@ -188,8 +190,9 @@ public:
         // Value declaration nodes.
         //
         AST_LoopDecl,           ///< LoopDecl
-        AST_ParamValueDecl,     ///< ParamValueDecl
         AST_ObjectDecl,         ///< ObjectDecl
+        AST_ParamValueDecl,     ///< ParamValueDecl
+        AST_RenamedObjectDecl,  ///< RenamedObjectDecl
 
         AST_FunctionDecl,       ///< FunctionDecl
         AST_ProcedureDecl,      ///< ProcedureDecl
@@ -224,6 +227,7 @@ public:
         AST_IntegerLiteral,     ///< IntegerLiteral
         AST_AggregateExpr,      ///< AggregateExpr
         AST_PrjExpr,            ///< PrjExpr
+        AST_SelectedExpr,       ///< SelectedExpr
         AST_StringLiteral,      ///< StringLiteral
 
         // Expr attributes.
@@ -283,7 +287,7 @@ public:
         LAST_DomainType = AST_PercentDecl,
 
         FIRST_ValueDecl = AST_LoopDecl,
-        LAST_ValueDecl = AST_ObjectDecl,
+        LAST_ValueDecl = AST_RenamedObjectDecl,
 
         FIRST_Type = AST_FunctionType,
         LAST_Type = AST_RecordType,

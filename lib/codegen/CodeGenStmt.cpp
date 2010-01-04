@@ -94,10 +94,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
         if (arrTy->isConstrained()) {
             // The return slot corresponds to an sret return parameter.
             // Evaluate the return value into this slot.
-            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
-                emitCompositeCall(call, returnValue);
-            else
-                emitArrayExpr(expr, returnValue, false);
+            emitArrayExpr(expr, returnValue, false);
         }
         else {
             // Unconstrained array types are returned via the vstack.
@@ -148,6 +145,10 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
                 CRT.vstack_push(Builder, bounds, boundsSize);
             }
         }
+    }
+    else if (isa<RecordType>(targetTy)) {
+        // Emit records directly into the sret return parameter.
+        emitRecordExpr(expr, returnValue, false);
     }
     else {
         // Non-composite return values can be simply evaluated and stored into
@@ -209,6 +210,10 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
         case Ast::AST_EnumSubtypeDecl:
             emitEnumSubtypeDecl(cast<EnumSubtypeDecl>(decl));
+            break;
+
+        case Ast::AST_RenamedObjectDecl:
+            emitRenamedObjectDecl(cast<RenamedObjectDecl>(decl));
             break;
         }
     }
@@ -292,9 +297,10 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 
 void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
 {
+    Expr *lhs = stmt->getTarget();
     Expr *rhs = stmt->getAssignedExpr();
 
-    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(stmt->getTarget())) {
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(lhs)) {
         Type *refTy = ref->getType();
 
         if (isa<ArrayType>(refTy)) {
@@ -314,10 +320,21 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
             Builder.CreateStore(source, target);
         }
     }
-    else {
+    else if (SelectedExpr *selExpr = dyn_cast<SelectedExpr>(lhs)) {
+        // If the type of the selected component is composite evaluate the rhs
+        // into the storage provided by the lhs.  Otherwise, simply store the
+        // lhs.
+        llvm::Value *target = emitSelectedRef(selExpr);
+        if (selExpr->getType()->isCompositeType())
+            emitCompositeExpr(rhs, target, false);
+        else {
+            llvm::Value *source = emitValue(rhs);
+            Builder.CreateStore(source, target);
+        }
+    } else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
         // to the needed component and again, store in the right hand side.
-        IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
+        IndexedArrayExpr *arrIdx = dyn_cast<IndexedArrayExpr>(stmt->getTarget());
         llvm::Value *target = emitIndexedArrayRef(arrIdx);
         llvm::Value *source = emitValue(rhs);
         Builder.CreateStore(source, target);
