@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009 Stephen Wilson
+// Copyright (C) 2008-2010 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -141,7 +141,7 @@ bool Type::involvesPercent() const
 bool Type::isIndefiniteType() const
 {
     if (const ArrayType *arrTy = dyn_cast<ArrayType>(this))
-        return arrTy->isUnconstrained();
+        return arrTy->isUnconstrained() || !arrTy->isStaticallyConstrained();
     return false;
 }
 
