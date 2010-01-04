@@ -244,6 +244,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_REM;
         else if (strncmp(str, "for", length) == 0)
             code = TKN_FOR;
+        else if (strncmp(str, "not", length) == 0)
+            code = TKN_NOT;
         break;
 
     case 4:
