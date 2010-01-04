@@ -17,13 +17,9 @@ enum PrimitiveID {
 
     NotPrimitive,
 
-    EQ_op,
-    NE_op,
-    LT_op,
-    GT_op,
-    LE_op,
-    GE_op,
-
+    //
+    // Binary arithmetic operators.
+    //
     ADD_op,
     SUB_op,
     MUL_op,
@@ -32,20 +28,45 @@ enum PrimitiveID {
     REM_op,
     POW_op,
 
+    //
+    // Binary predicates.
+    //
+    EQ_op,
+    NE_op,
+    LT_op,
+    GT_op,
+    LE_op,
+    GE_op,
+    LAND_op,
+    LOR_op,
+
+    //
+    // Unary predicates.
+    //
+    LNOT_op,
+
+    //
+    // Unary arithmetic operators.
     POS_op,
     NEG_op,
 
+    //
+    // Miscellaneous operators.
+    //
     ENUM_op,
 
     // Tags for fast matching of primitive ID's.
     FIRST_PREDICATE_OP = EQ_op,
-    LAST_PREDICATE_OP = GE_op,
+    LAST_PREDICATE_OP = LNOT_op,
 
-    FIRST_PRIMITIVE_OP = EQ_op,
-    LAST_PRIMITIVE_OP = NEG_op,
+    FIRST_PRIMITIVE_OP = ADD_op,
+    LAST_PRIMITIVE_OP = ENUM_op,
 
-    FIRST_BINARY_OP = EQ_op,
-    LAST_BINARY_OP = POW_op,
+    FIRST_BINARY_OP = ADD_op,
+    LAST_BINARY_OP = LOR_op,
+
+    FIRST_UNARY_OP = LNOT_op,
+    LAST_UNARY_OP = NEG_op
 };
 
 /// Returns true if \p ID names an operator.
@@ -60,7 +81,7 @@ inline bool denotesPredicateOp(PrimitiveID ID) {
 
 /// Returns true if \p ID names a primitive unary operation.
 inline bool denotesUnaryOp(PrimitiveID ID) {
-    return ID == POS_op || ID == NEG_op;
+    return (FIRST_UNARY_OP <= ID) && (ID <= LAST_UNARY_OP);
 }
 
 /// Returns true if \p ID names a primitive binary operation.
@@ -89,6 +110,9 @@ inline const char *getOpName(PrimitiveID ID) {
     case POW_op: return "**";
     case POS_op: return "+";
     case NEG_op: return "-";
+    case LOR_op: return "or";
+    case LAND_op: return "and";
+    case LNOT_op: return "not";
     }
 }
 
