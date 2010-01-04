@@ -291,6 +291,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_OTHERS;
         else if (strncmp(str, "record", length) == 0)
             code = TKN_RECORD;
+        else if (strncmp(str, "access", length) == 0)
+            code = TKN_ACCESS;
         break;
 
     case 7:

@@ -39,6 +39,7 @@
 #endif
 
 RESERVED(ABSTRACT,  "abstract")
+RESERVED(ACCESS,    "access")
 RESERVED(ADD,       "add")
 RESERVED(AND,       "and")
 RESERVED(ARRAY,     "array")
