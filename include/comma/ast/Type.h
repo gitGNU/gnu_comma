@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009 Stephen Wilson
+// Copyright (C) 2008-2010 Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -937,6 +937,9 @@ public:
     }
     Type *getComponentType(unsigned i);
     //@}
+
+    /// Currently, record types are always constrained.
+    bool isConstrained() const { return true; }
 
     // Support isa/dyn_cast.
     static bool classof(const RecordType *node) { return true; }
