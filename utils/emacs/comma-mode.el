@@ -124,10 +124,10 @@ comma-mode-syntax-table."
      `(,(concat
          "\\<"
          (regexp-opt
-          '("abstract" "add" "and" "array" "carrier" "begin" "declare" "domain"
-            "else" "elsif" "end" "exception" "for" "function" "generic" "if"
-            "import" "in" "inj" "is" "loop" "mod" "null" "of" "out" "or"
-            "others" "package" "pragma" "prj" "procedure" "raise" "range"
+          '("abstract" "access" "add" "and" "array" "carrier" "begin" "declare"
+            "domain" "else" "elsif" "end" "exception" "for" "function" "generic"
+            "if" "import" "in" "inj" "is" "loop" "mod" "not" "null" "of" "out"
+            "or" "others" "package" "pragma" "prj" "procedure" "raise" "range"
             "record" "renames" "rem" "return" "reverse" "signature" "subtype"
             "then" "type" "when" "while" "with") t)
          "\\>")
