@@ -21,13 +21,63 @@ Node Parser::parseExpr()
 
 Node Parser::parseOperatorExpr()
 {
-    return parseRelationalOperator();
+    Location loc;
+    IdentifierInfo *opInfo;
+
+    Node lhs = parseRelationalOperator();
+
+    if (lhs.isInvalid())
+        return getInvalidNode();
+
+    switch (currentTokenCode()) {
+
+    default:
+        return lhs;
+
+    case Lexer::TKN_AND:
+    case Lexer::TKN_OR:
+    case Lexer::TKN_XOR:
+        loc = currentLocation();
+        opInfo = parseFunctionIdentifier();
+        break;
+    }
+
+    Node rhs = parseRelationalOperator();
+
+    if (rhs.isValid()) {
+        Node prefix = client.acceptDirectName(opInfo, loc, false);
+        if (prefix.isValid()) {
+            NodeVector args;
+            args.push_back(lhs);
+            args.push_back(rhs);
+            return client.acceptApplication(prefix, args);
+        }
+    }
+    return getInvalidNode();
 }
 
 Node Parser::parseExponentialOperator()
 {
     IdentifierInfo *opInfo;
     Location loc;
+
+    if (currentTokenIs(Lexer::TKN_NOT)) {
+        loc = currentLocation();
+        opInfo = parseFunctionIdentifier();
+
+        Node operand = parsePrimaryExpr();
+
+        if (operand.isValid()) {
+            Node prefix = client.acceptDirectName(opInfo, loc, false);
+            if (prefix.isValid()) {
+                NodeVector args;
+                args.push_back(operand);
+                return client.acceptApplication(prefix, args);
+            }
+        }
+        return getInvalidNode();
+    }
+
     Node lhs = parsePrimaryExpr();
 
     if (lhs.isInvalid())
