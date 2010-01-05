@@ -39,6 +39,7 @@ enum PrimitiveID {
     GE_op,
     LAND_op,
     LOR_op,
+    LXOR_op,
 
     //
     // Unary predicates.
@@ -63,7 +64,7 @@ enum PrimitiveID {
     LAST_PRIMITIVE_OP = ENUM_op,
 
     FIRST_BINARY_OP = ADD_op,
-    LAST_BINARY_OP = LOR_op,
+    LAST_BINARY_OP = LXOR_op,
 
     FIRST_UNARY_OP = LNOT_op,
     LAST_UNARY_OP = NEG_op
@@ -113,6 +114,7 @@ inline const char *getOpName(PrimitiveID ID) {
     case LOR_op: return "or";
     case LAND_op: return "and";
     case LNOT_op: return "not";
+    case LXOR_op: return "xor";
     }
 }
 
