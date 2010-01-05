@@ -435,6 +435,10 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
         case PO::NEG_op:
             result = Builder.CreateNeg(arg);
             break;
+
+        case PO::LNOT_op:
+            result = Builder.CreateNot(arg);
+            break;
         }
     }
     else if (PO::denotesBinaryOp(ID)) {
@@ -499,6 +503,18 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
 
         case PO::GE_op:
             result = Builder.CreateICmpSGE(lhs, rhs);
+            break;
+
+        case PO::LOR_op:
+            result = Builder.CreateOr(lhs, rhs);
+            break;
+
+        case PO::LAND_op:
+            result = Builder.CreateAnd(lhs, rhs);
+            break;
+
+        case PO::LXOR_op:
+            result = Builder.CreateXor(lhs, rhs);
             break;
         }
     }

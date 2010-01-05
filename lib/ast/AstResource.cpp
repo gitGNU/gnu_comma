@@ -36,7 +36,7 @@ void AstResource::initializeLanguageDefinedNodes()
     initializeExceptions();
 
     // Initialize the implicit operations for each declared type.
-    theBooleanDecl->generateImplicitDeclarations(*this);
+    theBooleanDecl->generateBooleanDeclarations(*this);
     theRootIntegerDecl->generateImplicitDeclarations(*this);
     theIntegerDecl->generateImplicitDeclarations(*this);
     theCharacterDecl->generateImplicitDeclarations(*this);
