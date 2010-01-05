@@ -71,6 +71,8 @@ DIAGNOSTIC(POSITIONAL_FOLLOWING_KEYED_COMPONENT, ERROR,
            "Positional components may not follow keyed components.")
 DIAGNOSTIC(OTHERS_COMPONENT_NOT_FINAL, ERROR,
            "An `others' component must be the last component of an aggregate.")
+DIAGNOSTIC(MIXED_LOGICAL_OPERATORS, ERROR,
+           "Mixed logical operator in expression.")
 
 //
 // Semantic Diagnostics.

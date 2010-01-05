@@ -336,6 +336,7 @@ private:
     Node parseBinaryAdditiveOperator(Node lhs);
     Node parseAdditiveOperator();
     Node parseRelationalOperator();
+    Node parseLogicalOperator(Lexer::Code expectedKind, Node lhs);
 
     /// Parses a discrete subtype definition.  When \p acceptDiamond is true
     /// this parser will accept the "range <>" syntax as seen in array index

@@ -21,39 +21,54 @@ Node Parser::parseExpr()
 
 Node Parser::parseOperatorExpr()
 {
-    Location loc;
-    IdentifierInfo *opInfo;
-
     Node lhs = parseRelationalOperator();
 
     if (lhs.isInvalid())
         return getInvalidNode();
 
-    switch (currentTokenCode()) {
+    Lexer::Code currentKind = currentTokenCode();
+    if (currentKind == Lexer::TKN_AND ||
+        currentKind == Lexer::TKN_OR  ||
+        currentKind == Lexer::TKN_XOR)
+        return parseLogicalOperator(currentKind, lhs);
 
-    default:
-        return lhs;
+    return lhs;
+}
 
-    case Lexer::TKN_AND:
-    case Lexer::TKN_OR:
-    case Lexer::TKN_XOR:
-        loc = currentLocation();
-        opInfo = parseFunctionIdentifier();
-        break;
-    }
+Node Parser::parseLogicalOperator(Lexer::Code expectedKind, Node lhs)
+{
+    if (currentTokenCode() == expectedKind) {
+        Location loc = currentLocation();
+        IdentifierInfo *opInfo = parseFunctionIdentifier();
 
-    Node rhs = parseRelationalOperator();
+        Node rhs = parseRelationalOperator();
 
-    if (rhs.isValid()) {
-        Node prefix = client.acceptDirectName(opInfo, loc, false);
-        if (prefix.isValid()) {
-            NodeVector args;
-            args.push_back(lhs);
-            args.push_back(rhs);
-            return client.acceptApplication(prefix, args);
+        if (rhs.isValid()) {
+            Node prefix = client.acceptDirectName(opInfo, loc, false);
+            if (prefix.isValid()) {
+                NodeVector args;
+                args.push_back(lhs);
+                args.push_back(rhs);
+
+                Node op = client.acceptApplication(prefix, args);
+                if (op.isValid())
+                    return parseLogicalOperator(expectedKind, op);
+            }
         }
+        return getInvalidNode();
     }
-    return getInvalidNode();
+
+    // If the current token is a logical operator diagnose that we have a
+    // mismatch.
+    Lexer::Code currentKind = currentTokenCode();
+    if (currentKind == Lexer::TKN_AND ||
+        currentKind == Lexer::TKN_OR  ||
+        currentKind == Lexer::TKN_XOR) {
+        report(diag::MIXED_LOGICAL_OPERATORS);
+        return getInvalidNode();
+    }
+    else
+        return lhs;
 }
 
 Node Parser::parseExponentialOperator()
