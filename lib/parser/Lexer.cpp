@@ -223,6 +223,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_IN;
         else if (strncmp(str, "of", length) == 0)
             code = TKN_OF;
+        else if (strncmp(str, "or", length) == 0)
+            code = TKN_OR;
         break;
 
     case 3:
@@ -246,6 +248,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_FOR;
         else if (strncmp(str, "not", length) == 0)
             code = TKN_NOT;
+        else if (strncmp(str, "xor", length) == 0)
+            code = TKN_XOR;
         break;
 
     case 4:
