@@ -37,8 +37,8 @@ enum PrimitiveID {
     GT_op,
     LE_op,
     GE_op,
-    LAND_op,
     LOR_op,
+    LAND_op,
     LXOR_op,
 
     //
