@@ -860,6 +860,21 @@ void EnumerationDecl::generateImplicitDeclarations(AstResource &resource)
     addDecl(resource.createPrimitiveDecl(PO::GE_op, loc, type, this));
 }
 
+void EnumerationDecl::generateBooleanDeclarations(AstResource &resource)
+{
+    // Boolean exports all of the operations a standard enumeration type does,
+    // plus the logical operations "and", "or", and "not".
+    generateImplicitDeclarations(resource);
+
+    EnumerationType *type = getType();
+    Location loc = getLocation();
+
+    addDecl(resource.createPrimitiveDecl(PO::LNOT_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LAND_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LXOR_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::LOR_op, loc, type, this));
+}
+
 EnumLiteral *EnumerationDecl::findLiteral(IdentifierInfo *name)
 {
     PredRange range = findDecls(name);

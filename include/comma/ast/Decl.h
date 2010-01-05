@@ -1416,6 +1416,11 @@ private:
 
     friend class AstResource;
 
+    // Generates the implicit declarations that must be attached to the
+    // primitive Boolean type and that type alone.  This method is for use by
+    // AstResource when it establishes the fundamental type nodes.
+    void generateBooleanDeclarations(AstResource &resource);
+
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
 };
