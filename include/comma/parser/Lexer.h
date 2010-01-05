@@ -128,6 +128,10 @@ public:
         case TKN_POW:
         case TKN_MOD:
         case TKN_REM:
+        case TKN_AND:
+        case TKN_NOT:
+        case TKN_XOR:
+        case TKN_OR:
             return true;
         default:
             return false;
