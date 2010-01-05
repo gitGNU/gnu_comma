@@ -129,7 +129,7 @@ comma-mode-syntax-table."
             "if" "import" "in" "inj" "is" "loop" "mod" "not" "null" "of" "out"
             "or" "others" "package" "pragma" "prj" "procedure" "raise" "range"
             "record" "renames" "rem" "return" "reverse" "signature" "subtype"
-            "then" "type" "when" "while" "with") t)
+            "then" "type" "when" "while" "with" "xor") t)
          "\\>")
        (1 font-lock-keyword-face))
 
