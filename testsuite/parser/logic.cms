@@ -1,0 +1,41 @@
+-- Check that logical operators don't mingle.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      A : Boolean := true;
+      B : Boolean := true;
+      C : Boolean := true;
+   begin
+
+      if A and B or C then  -- EXPECTED-ERROR: Mixed logical operator
+         Run;
+      end if;
+
+      if A and B xor C then -- EXPECTED-ERROR: Mixed logical operator
+         Run;
+      end if;
+
+      if A or B xor C then  -- EXPECTED-ERROR: Mixed logical operator
+         Run;
+      end if;
+
+      -- The remaining cases are all OK.
+      if A and (B or C) then
+         Run;
+      elsif A and (B xor C) then
+         Run;
+      elsif A or (B xor C) then
+         Run;
+      elsif A and B and C then
+         Run;
+      elsif A or B or C then
+         Run;
+      elsif A xor B xor C then
+         Run;
+      end if;
+
+   end Run;
+
+end Test;
