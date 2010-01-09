@@ -199,6 +199,21 @@ public:
     RecordType *createRecordSubtype(IdentifierInfo *name, RecordType *base);
     //@}
 
+    /// \name Incomplete declaration and type constructors.
+    //@{
+    /// Creates an incomplete type declaration node.
+    IncompleteTypeDecl *createIncompleteTypeDecl(IdentifierInfo *name,
+                                                 Location loc,
+                                                 DeclRegion *parent);
+
+    /// Returns an incomplete type corresponding to the given declaration.
+    IncompleteType *createIncompleteType(IncompleteTypeDecl *decl);
+
+    /// Returns a subtype of the given incomplete type.
+    IncompleteType *createIncompleteSubtype(IdentifierInfo *name,
+                                            IncompleteType *base);
+    //@}
+
     /// \brief Creates an exception declaration.
     ///
     /// \param name The name of this exception.

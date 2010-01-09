@@ -73,6 +73,8 @@ class Identifier;
 class IfStmt;
 class ImportDecl;
 class IndexedArrayExpr;
+class IncompleteType;
+class IncompleteTypeDecl;
 class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
@@ -173,6 +175,7 @@ public:
 
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
+        AST_IncompleteTypeDecl, ///< IncompleteTypeDecl
         AST_IntegerDecl,        ///< IntegerDecl
         AST_ArrayDecl,          ///< ArrayDecl
         AST_RecordDecl,         ///< RecordDecl
@@ -213,6 +216,7 @@ public:
         AST_ArrayType,          ///< ArrayType
         AST_DomainType,         ///< DomainType
         AST_EnumerationType,    ///< EnumerationType
+        AST_IncompleteType,     ///< IncompleteType
         AST_IntegerType,        ///< IntegerType
         AST_RecordType,         ///< RecordType
 

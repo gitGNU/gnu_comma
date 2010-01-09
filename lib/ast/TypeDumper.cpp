@@ -100,6 +100,11 @@ void TypeDumper::visitIntegerType(IntegerType *node)
     S << '>';
 }
 
+void TypeDumper::visitIncompleteType(IncompleteType *node)
+{
+    printHeader(node) << '>';
+}
+
 void TypeDumper::visitArrayType(ArrayType *node)
 {
     printHeader(node) << '>';

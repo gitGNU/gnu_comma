@@ -275,7 +275,7 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
         return;
     }
 
-    TypeDecl *tyDecl = ensureTypeDecl(typeNode);
+    TypeDecl *tyDecl = ensureCompleteTypeDecl(typeNode);
 
     if (!tyDecl)
         return;
@@ -310,8 +310,17 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
     for (DeclRegion::ConstDeclIter iter = percent->beginDecls();
          iter != percent->endDecls(); ++iter) {
 
-        // Currently, the only kind of declarations which require a completion
-        // are subroutine decls.
+        // Ensure incomplete type declarations have a completion.
+        if (IncompleteTypeDecl *ITD = dyn_cast<IncompleteTypeDecl>(*iter)) {
+            if (!ITD->hasCompletion()) {
+                report(ITD->getLocation(), diag::MISSING_TYPE_COMPLETION)
+                    << ITD->getIdInfo();
+                allOK=false;
+            }
+            continue;
+        }
+
+        // Otherwise, check that all subroutine decls all have a completion.
         SubroutineDecl *decl = dyn_cast<SubroutineDecl>(*iter);
 
         if (!decl)
@@ -320,10 +329,9 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
         // Check that a defining declaration was processed.
         //
         // FIXME: We need a better diagnostic here.  In particular, we should be
-        // reporting which signature(s) demand the missing export.  However, the
-        // current organization makes this difficult.  One solution is to link
-        // declaration nodes with those provided by the original signature
-        // definition.
+        // reporting which signature(s) demand the missing export.  One solution
+        // is to use the origin link in the declaration node to locate the
+        // original signature definition.
         if (!decl->getDefiningDeclaration()) {
             report(domainLoc, diag::MISSING_EXPORT)
                 << domainName << decl->getIdInfo();

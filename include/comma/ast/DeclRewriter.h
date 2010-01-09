@@ -57,6 +57,8 @@ public:
     IntegerDecl *rewriteIntegerDecl(IntegerDecl *idecl);
 
     RecordDecl *rewriteRecordDecl(RecordDecl *rdecl);
+
+    IncompleteTypeDecl *rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD);
     //@}
 
     /// Rewrites the given declaration node.

@@ -435,23 +435,42 @@ bool TypeCheck::checkModelKeywordArgs(ModelDecl *model, unsigned numPositional,
     return true;
 }
 
+TypeDecl *TypeCheck::ensureCompleteTypeDecl(Decl *decl, Location loc,
+                                            bool report)
+{
+    if (TypeDecl *tyDecl = ensureTypeDecl(decl, loc, report)) {
+        IncompleteTypeDecl *ITD = dyn_cast<IncompleteTypeDecl>(tyDecl);
+        if (ITD) {
+            if (ITD->completionIsVisibleIn(currentDeclarativeRegion()))
+                return ITD->getCompletion();
+            else {
+                this->report(loc, diag::INVALID_CONTEXT_FOR_INCOMPLETE_TYPE);
+                return 0;
+            }
+        }
+        return tyDecl;
+    }
+    return 0;
+}
+
+TypeDecl *TypeCheck::ensureCompleteTypeDecl(Node node, bool report)
+{
+    if (TypeRef *ref = lift_node<TypeRef>(node)) {
+        return ensureCompleteTypeDecl(ref->getDecl(), ref->getLocation(),
+                                      report);
+    }
+    else if (report) {
+        this->report(getNodeLoc(node), diag::NOT_A_TYPE);
+    }
+    return 0;
+}
+
 TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
 {
     if (TypeDecl *tyDecl = dyn_cast<TypeDecl>(decl))
         return tyDecl;
     if (report)
         this->report(loc, diag::NOT_A_TYPE);
-    return 0;
-}
-
-TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
-{
-    if (TypeRef *ref = lift_node<TypeRef>(node)) {
-        return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
-    }
-    else if (report) {
-        this->report(getNodeLoc(node), diag::NOT_A_TYPE);
-    }
     return 0;
 }
 
@@ -578,7 +597,7 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 {
     Expr *init = 0;
     ObjectDecl *decl = 0;
-    TypeDecl *tyDecl = ensureTypeDecl(refNode);
+    TypeDecl *tyDecl = ensureCompleteTypeDecl(refNode);
 
     if (!tyDecl) return false;
 
@@ -619,7 +638,7 @@ bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
     Expr *target;
     TypeDecl *tyDecl;;
 
-    if (!(tyDecl = ensureTypeDecl(refNode)) ||
+    if (!(tyDecl = ensureCompleteTypeDecl(refNode)) ||
         !(target = ensureExpr(targetNode)))
         return false;
 
@@ -643,7 +662,12 @@ bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
 
 bool TypeCheck::acceptImportDeclaration(Node importedNode)
 {
-    TypeRef *ref = cast_node<TypeRef>(importedNode);
+    TypeRef *ref = lift_node<TypeRef>(importedNode);
+    if (!ref) {
+        report(getNodeLoc(importedNode), diag::IMPORT_FROM_NON_DOMAIN);
+        return false;
+    }
+
     Decl *decl = ref->getDecl();
     Location loc = ref->getLocation();
     DomainType *domain;
@@ -727,22 +751,15 @@ void TypeCheck::endEnumeration()
 
     decl = resource.createEnumDecl(name, loc, elems, numElems, region);
 
-    // Check that the enumeration does not conflict with any other in the
-    // current scope.
-    if (Decl *conflict = scope.addDirectDecl(decl)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return;
-    }
-
     // Mark the declaration as a character type if any character literals were
     // used to define it.
     if (enumStencil.isCharacterType())
         decl->markAsCharacterType();
 
-    region->addDecl(decl);
-    decl->generateImplicitDeclarations(resource);
-    introduceImplicitDecls(decl);
+    if (introduceTypeDeclaration(decl)) {
+        decl->generateImplicitDeclarations(resource);
+        introduceImplicitDecls(decl);
+    }
 }
 
 void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
@@ -764,15 +781,10 @@ void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
     IntegerDecl *decl;
     decl = resource.createIntegerDecl(name, loc, lower, upper, region);
 
-    if (Decl *conflict = scope.addDirectDecl(decl)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return;
+    if (introduceTypeDeclaration(decl)) {
+        decl->generateImplicitDeclarations(resource);
+        introduceImplicitDecls(decl);
     }
-
-    region->addDecl(decl);
-    decl->generateImplicitDeclarations(resource);
-    introduceImplicitDecls(decl);
 }
 
 void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
@@ -809,7 +821,7 @@ void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
         return;
 
     // Construct the specific subtype declaration.
-    Decl *decl;
+    TypeDecl *decl;
 
     switch (baseTy->getKind()) {
     default:
@@ -834,13 +846,7 @@ void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
     subtypeNode.release();
     lowNode.release();
     highNode.release();
-
-    if (Decl *conflict = scope.addDirectDecl(decl)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return;
-    }
-    region->addDecl(decl);
+    introduceTypeDeclaration(decl);
 }
 
 void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
@@ -867,7 +873,7 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
         return;
     }
 
-    Decl *decl = 0;
+    TypeDecl *decl = 0;
 
     switch (baseTy->getKind()) {
     default:
@@ -888,12 +894,16 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
     }
 
     subtypeNode.release();
-    if (Decl *conflict = scope.addDirectDecl(decl)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return;
-    }
-    region->addDecl(decl);
+    introduceTypeDeclaration(decl);
+}
+
+void TypeCheck::acceptIncompleteTypeDecl(IdentifierInfo *name, Location loc)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    IncompleteTypeDecl *ITD;
+
+    ITD = resource.createIncompleteTypeDecl(name, loc, region);
+    introduceTypeDeclaration(ITD);
 }
 
 void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
@@ -935,9 +945,9 @@ void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
         return;
 
     // Ensure the component node is in fact a type and that it does not denote
-    // an indefinite type.
+    // an incomplete or indefinite type.
     PrimaryType *componentTy;
-    if (TypeDecl *componentDecl = ensureTypeDecl(componentNode)) {
+    if (TypeDecl *componentDecl = ensureCompleteTypeDecl(componentNode)) {
         componentTy = componentDecl->getType();
         if (componentTy->isIndefiniteType()) {
             report(getNodeLoc(componentNode), diag::INDEFINITE_COMPONENT_TYPE);
@@ -953,16 +963,8 @@ void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
         resource.createArrayDecl(name, loc, indices.size(), &indices[0],
                                  componentTy, isConstrained, region);
 
-    // Check for conflicts.
-    if (Decl *conflict = scope.addDirectDecl(array)) {
-        report(loc, diag::CONFLICTING_DECLARATION)
-            << name << getSourceLoc(conflict->getLocation());
-        return;
-    }
-
-    // FIXME: We need to introduce the implicit operations for this type.
-    region->addDecl(array);
-    introduceImplicitDecls(array);
+    if (introduceTypeDeclaration(array))
+        introduceImplicitDecls(array);
 }
 
 //===----------------------------------------------------------------------===//
@@ -982,8 +984,11 @@ void TypeCheck::acceptRecordComponent(IdentifierInfo *name, Location loc,
 {
     assert(scope.getKind() == RECORD_SCOPE);
     RecordDecl *record = cast<RecordDecl>(currentDeclarativeRegion());
+    TypeDecl *tyDecl = ensureCompleteTypeDecl(typeNode);
 
-    TypeDecl *tyDecl = ensureTypeDecl(typeNode);
+    if (!tyDecl)
+        return;
+
     Type *componentTy = tyDecl->getType();
 
     if (componentTy->isIndefiniteType()) {
@@ -1005,14 +1010,7 @@ void TypeCheck::endRecord()
 
     RecordDecl *record = cast<RecordDecl>(currentDeclarativeRegion());
     popDeclarativeRegion();
-
-    if (Decl *conflict = scope.addDirectDecl(record)) {
-        SourceLocation sloc = getSourceLoc(conflict->getLocation());
-        report(record->getLocation(), diag::DECLARATION_CONFLICTS) <<
-            record->getIdInfo() << sloc;
-    }
-    else
-        currentDeclarativeRegion()->addDecl(record);
+    introduceTypeDeclaration(record);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1130,6 +1128,35 @@ void TypeCheck::introduceImplicitDecls(DeclRegion *region)
                 << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
         }
     }
+}
+
+bool TypeCheck::introduceTypeDeclaration(TypeDecl *decl)
+{
+    Decl *conflict = scope.addDirectDecl(decl);
+
+    if (conflict) {
+        // If the conflict is an IncompleteTypeDecl check that the given
+        // declaration can form its completion.
+        if (IncompleteTypeDecl *ITD = dyn_cast<IncompleteTypeDecl>(conflict)) {
+            if (ITD->isCompatibleCompletion(decl)) {
+                ITD->setCompletion(decl);
+
+                // Only add the type declaration to the current declarative
+                // region if the incomplete declaration was declared elsewhere.
+                if (ITD->getDeclRegion() != currentDeclarativeRegion())
+                    currentDeclarativeRegion()->addDecl(decl);
+
+                return true;
+            }
+        }
+
+        report(decl->getLocation(), diag::CONFLICTING_DECLARATION)
+            << decl->getIdInfo() << getSourceLoc(conflict->getLocation());
+        return false;
+    }
+
+    currentDeclarativeRegion()->addDecl(decl);
+    return true;
 }
 
 /// Returns true if the IdentifierInfo \p info can name a binary function.

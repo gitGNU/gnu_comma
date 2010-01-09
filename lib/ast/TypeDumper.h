@@ -67,6 +67,7 @@ private:
     void visitFunctionType(FunctionType *node);
     void visitProcedureType(ProcedureType *node);
     void visitEnumerationType(EnumerationType *node);
+    void visitIncompleteType(IncompleteType *node);
     void visitIntegerType(IntegerType *node);
     void visitArrayType(ArrayType *node);
 };

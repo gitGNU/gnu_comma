@@ -109,6 +109,7 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
     case DISPATCH(IntegerDecl, node);
     case DISPATCH(IntegerSubtypeDecl, node);
     case DISPATCH(PercentDecl, node);
+    case DISPATCH(IncompleteTypeDecl, node);
     };
 }
 
@@ -187,3 +188,4 @@ void DeclVisitor::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }
 void DeclVisitor::visitArraySubtypeDecl(ArraySubtypeDecl *node) { }
 void DeclVisitor::visitExceptionDecl(ExceptionDecl *node) { }
+void DeclVisitor::visitIncompleteTypeDecl(IncompleteTypeDecl *node) { }

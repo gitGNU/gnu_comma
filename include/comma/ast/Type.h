@@ -320,6 +320,73 @@ private:
     llvm::PointerIntPair<PrimaryType*, 1, bool> typeChain;
 };
 
+//===----------------------------------------------------------------------===//
+// IncompleteType
+//
+/// Incomplete types are associated with a particular IncompleteTypeDecl.  They
+/// represent an incomplete view of some specific type.
+class IncompleteType : public PrimaryType {
+
+public:
+    /// Returns the defining identifier of this type;
+    IdentifierInfo *getIdInfo() const;
+
+    /// Returns the defining identifier of this type as a C-string.
+    const char *getString() const { return getIdInfo()->getString(); }
+
+    //@{
+    /// Returns the incomplete type declaration that introduced this type.
+    const IncompleteTypeDecl *getDefiningDecl() const {
+        return const_cast<IncompleteType*>(this)->getDefiningDecl();
+    }
+    IncompleteTypeDecl *getDefiningDecl();
+    //@}
+
+    //@{
+    /// Returns the underlying complete type.
+    const PrimaryType *getCompleteType() const {
+        return const_cast<IncompleteType*>(this)->getCompleteType();
+    }
+    PrimaryType *getCompleteType();
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getRootType().
+    IncompleteType *getRootType() {
+        return llvm::cast<IncompleteType>(PrimaryType::getRootType());
+    }
+    const IncompleteType *getRootType() const {
+        return llvm::cast<IncompleteType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const IncompleteType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IncompleteType;
+    }
+
+private:
+    /// Creates an IncompleteType corresponding to the given IncompleteType
+    /// declaration.
+    IncompleteType(IncompleteTypeDecl *decl)
+        : PrimaryType(AST_IncompleteType, 0, false),
+          definingDecl(decl) { }
+
+    /// Creates a subtype of the given incomplete type.
+    IncompleteType(IncompleteType *rootType, IdentifierInfo *name)
+        : PrimaryType(AST_IncompleteType, rootType, true),
+          definingDecl(name) { }
+
+    /// Incomplete types are allocated and managed by AstResource.
+    friend class AstResource;
+
+    /// When a root incomplete type is constructed this union contains a pointer
+    /// to the corresponding incomplete type declaration.  For subtypes, this is
+    /// a pointer to the identifier info naming the subtype.
+    llvm::PointerUnion<IncompleteTypeDecl *, IdentifierInfo *> definingDecl;
+};
+
 
 //===----------------------------------------------------------------------===//
 // DomainType

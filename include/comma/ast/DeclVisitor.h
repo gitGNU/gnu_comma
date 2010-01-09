@@ -88,6 +88,7 @@ public:
     virtual void visitArrayDecl(ArrayDecl *node);
     virtual void visitArraySubtypeDecl(ArraySubtypeDecl *node);
     virtual void visitExceptionDecl(ExceptionDecl *node);
+    virtual void visitIncompleteTypeDecl(IncompleteTypeDecl *node);
     ///@}
 };
 

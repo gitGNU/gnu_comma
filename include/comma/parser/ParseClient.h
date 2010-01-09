@@ -733,6 +733,13 @@ public:
     virtual void acceptSubtypeDecl(IdentifierInfo *name, Location loc,
                                    Node subtype) = 0;
 
+    /// Called to notify the client of an incomplete type declaration.
+    ///
+    /// This callback is invoked when processing type declarations of the form
+    /// <tt>type Foo;<\tt>.
+    virtual void acceptIncompleteTypeDecl(IdentifierInfo *name,
+                                          Location loc) = 0;
+
     /// \brief Communicates an array type declaration.
     ///
     /// \param name The name of this array type declaration.

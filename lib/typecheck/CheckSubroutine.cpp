@@ -40,7 +40,7 @@ void TypeCheck::beginProcedureDeclaration(IdentifierInfo *name, Location loc)
 void TypeCheck::acceptSubroutineParameter(IdentifierInfo *formal, Location loc,
                                           Node declNode, PM::ParameterMode mode)
 {
-    TypeDecl *tyDecl = ensureTypeDecl(declNode);
+    TypeDecl *tyDecl = ensureCompleteTypeDecl(declNode);
 
     if (!tyDecl) {
         routineStencil.markInvalid();
@@ -93,7 +93,7 @@ void TypeCheck::acceptFunctionReturnType(Node typeNode)
         return;
     }
 
-    TypeDecl *returnDecl = ensureTypeDecl(typeNode);
+    TypeDecl *returnDecl = ensureCompleteTypeDecl(typeNode);
     if (!returnDecl) {
         routineStencil.markInvalid();
         return;

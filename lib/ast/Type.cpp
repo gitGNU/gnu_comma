@@ -161,6 +161,30 @@ SubroutineType::SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
 }
 
 //===----------------------------------------------------------------------===//
+// IncompleteType
+
+IdentifierInfo *IncompleteType::getIdInfo() const
+{
+    if (IncompleteTypeDecl *decl = definingDecl.dyn_cast<IncompleteTypeDecl*>())
+        return decl->getIdInfo();
+    return definingDecl.get<IdentifierInfo*>();
+}
+
+IncompleteTypeDecl *IncompleteType::getDefiningDecl()
+{
+    IncompleteType *rootType = getRootType();
+    return rootType->definingDecl.get<IncompleteTypeDecl*>();
+}
+
+PrimaryType *IncompleteType::getCompleteType()
+{
+    IncompleteTypeDecl *definingDecl = getDefiningDecl();
+    assert(definingDecl->hasCompletion() && "Type does not have a completion!");
+
+    return definingDecl->getCompletion()->getType();
+}
+
+//===----------------------------------------------------------------------===//
 // DomainType
 
 DomainType::DomainType(DomainTypeDecl *DTDecl)

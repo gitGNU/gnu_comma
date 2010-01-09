@@ -210,22 +210,34 @@ RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
     return result;
 }
 
-Decl *DeclRewriter::rewriteDecl(Decl *decl)
+IncompleteTypeDecl *
+DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
 {
-    Decl *result = 0;
+    IdentifierInfo *name = ITD->getIdInfo();
+    IncompleteTypeDecl *result;
+
+    result = getAstResource().createIncompleteTypeDecl(name, 0, context);
+
+    // The new incomplete type declaration does not have a completion.  If the
+    // given ITD has a completion rewrite it as well.
+    if (ITD->hasCompletion()) {
+        TypeDecl *completion = rewriteTypeDecl(ITD->getCompletion());
+        result->setCompletion(completion);
+    }
+
+    // Provide a mapping from the original declaration to the new one.
+    addDeclRewrite(ITD, result);
+    return result;
+}
+
+TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
+{
+    TypeDecl *result = 0;
 
     switch (decl->getKind()) {
 
     default:
         assert(false && "Do not yet know how to rewrite the given decl!");
-        break;
-
-    case Ast::AST_FunctionDecl:
-        result = rewriteFunctionDecl(cast<FunctionDecl>(decl));
-        break;
-
-    case Ast::AST_ProcedureDecl:
-        result = rewriteProcedureDecl(cast<ProcedureDecl>(decl));
         break;
 
     case Ast::AST_IntegerDecl:
@@ -242,6 +254,32 @@ Decl *DeclRewriter::rewriteDecl(Decl *decl)
 
     case Ast::AST_RecordDecl:
         result = rewriteRecordDecl(cast<RecordDecl>(decl));
+        break;
+
+    case Ast::AST_IncompleteTypeDecl:
+        result = rewriteIncompleteTypeDecl(cast<IncompleteTypeDecl>(decl));
+        break;
+    }
+
+    return result;
+}
+
+Decl *DeclRewriter::rewriteDecl(Decl *decl)
+{
+    Decl *result = 0;
+
+    switch (decl->getKind()) {
+
+    default:
+        result = rewriteTypeDecl(cast<TypeDecl>(decl));
+        break;
+
+    case Ast::AST_FunctionDecl:
+        result = rewriteFunctionDecl(cast<FunctionDecl>(decl));
+        break;
+
+    case Ast::AST_ProcedureDecl:
+        result = rewriteProcedureDecl(cast<ProcedureDecl>(decl));
         break;
     };
 

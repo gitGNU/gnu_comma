@@ -157,6 +157,8 @@ DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
 DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
+DIAGNOSTIC(MISSING_TYPE_COMPLETION, ERROR,
+           "Missing completion for type `%0'.")
 DIAGNOSTIC(ASSIGNMENT_TO_MODE_IN, ERROR,
            "Cannot assign to parameter `%0' of mode \"in\".")
 DIAGNOSTIC(ASSIGNMENT_TO_LOOP_PARAM, ERROR,
@@ -275,3 +277,5 @@ DIAGNOSTIC(INDEFINITE_COMPONENT_TYPE, ERROR,
            "Indefinite component type in aggregate declaration.")
 DIAGNOSTIC(UNKNOWN_SELECTED_COMPONENT, ERROR,
            "The name `%0' does not denote a component in type `%1'.")
+DIAGNOSTIC(INVALID_CONTEXT_FOR_INCOMPLETE_TYPE, ERROR,
+           "Invalid context for incomplete type.")

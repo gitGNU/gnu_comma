@@ -1,0 +1,22 @@
+-- Basic testing of incomplete type sanity.
+
+domain Test with
+   type Incomplete;
+
+   -- EXPECTED-ERROR:  Invalid context for incomplete type
+   function Invalid return Incomplete;
+
+   -- EXPECTED-ERROR:  Invalid context for incomplete type
+   procedure Invalid (X : Incomplete);
+
+   type Invalid is record
+      -- EXPECTED-ERROR:  Invalid context for incomplete type
+      Field : Incomplete;
+   end record;
+
+   -- EXPECTED-ERROR:  Invalid context for incomplete type
+   type Invalid is array (Positive range <>) of Incomplete;
+
+add
+   type Incomplete is range 0..2**7-1;
+end Test;

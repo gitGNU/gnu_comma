@@ -247,3 +247,8 @@ void DeclDumper::visitExceptionDecl(ExceptionDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitIncompleteTypeDecl(IncompleteTypeDecl *node)
+{
+    printHeader(node) << '>';
+}
+

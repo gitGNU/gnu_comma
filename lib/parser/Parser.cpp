@@ -1128,18 +1128,27 @@ bool Parser::parseType()
     Location loc = currentLocation();
     IdentifierInfo *name = parseIdentifier();
 
-    if (!name || !requireToken(Lexer::TKN_IS))
+    if (!name)
         return false;
 
+    // If we have a TKN_SEMI next on the stream accept an incomplete type
+    // declaration.  Otherwise, ensure we a TKN_IS follows and consume it.
+    if (currentTokenIs(Lexer::TKN_SEMI)) {
+        client.acceptIncompleteTypeDecl(name, loc);
+        return true;
+    }
+    else if (!requireToken(Lexer::TKN_IS))
+        return false;
+
+    // Determine what kind of type declaration this is.
     switch (currentTokenCode()) {
 
     default:
-        report(diag::UNEXPECTED_TOKEN_WANTED)
-            << currentTokenString() << "(" << "range" << "array";
+        report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+        seekSemi();
         break;
 
     case Lexer::TKN_LPAREN: {
-        // We must have an enumeration type.
         client.beginEnumeration(name, loc);
         parseEnumerationList();
         client.endEnumeration();

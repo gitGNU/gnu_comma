@@ -472,6 +472,30 @@ RecordType *AstResource::createRecordSubtype(IdentifierInfo *name,
     return res;
 }
 
+IncompleteTypeDecl *
+AstResource::createIncompleteTypeDecl(IdentifierInfo *name, Location loc,
+                                      DeclRegion *parent)
+{
+    IncompleteTypeDecl *res = new IncompleteTypeDecl(*this, name, loc, parent);
+    decls.push_back(res);
+    return res;
+}
+
+IncompleteType *AstResource::createIncompleteType(IncompleteTypeDecl *decl)
+{
+    IncompleteType *res = new IncompleteType(decl);
+    types.push_back(res);
+    return res;
+}
+
+IncompleteType *AstResource::createIncompleteSubtype(IdentifierInfo *name,
+                                                     IncompleteType *base)
+{
+    IncompleteType *res = new IncompleteType(base, name);
+    types.push_back(res);
+    return res;
+}
+
 ExceptionDecl *AstResource::createExceptionDecl(IdentifierInfo *name,
                                                 Location loc,
                                                 DeclRegion *region)

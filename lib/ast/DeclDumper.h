@@ -86,6 +86,7 @@ private:
     void visitArrayDecl(ArrayDecl *node);
     void visitArraySubtypeDecl(ArraySubtypeDecl *node);
     void visitExceptionDecl(ExceptionDecl *node);
+    void visitIncompleteTypeDecl(IncompleteTypeDecl *node);
 };
 
 } // end comma namespace.

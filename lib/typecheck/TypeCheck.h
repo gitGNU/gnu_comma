@@ -190,6 +190,7 @@ public:
                                  Node subtype, Node low, Node high);
 
     void acceptSubtypeDecl(IdentifierInfo *name, Location loc, Node subtype);
+    void acceptIncompleteTypeDecl(IdentifierInfo *name, Location loc);
 
     void acceptArrayDecl(IdentifierInfo *name, Location loc,
                          NodeVector indices, Node component);
@@ -455,7 +456,29 @@ private:
     /// is used to implement acceptSupersignature.
     void acquireSignatureDeclarations(SigInstanceDecl *sig);
 
-    TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
+    /// Ensures the given Node resolves to a complete type declaration.
+    ///
+    /// \see ensureTypeDecl(Decl, Location, bool);
+    TypeDecl *ensureCompleteTypeDecl(Node refNode, bool report = true);
+
+    /// Ensures that the given declaration node denotes a complete type
+    /// declaration.
+    ///
+    /// \param decl The declaration node to check.
+    ///
+    /// \param loc The location to use for any diagnostic messages.
+    ///
+    /// \param report When true and the type could not be resolved to a complete
+    /// type declaration diagnostics are posted.
+    ///
+    /// \return The complete type declaration if resolvable else null.
+    TypeDecl *ensureCompleteTypeDecl(Decl *decl, Location loc,
+                                     bool report = true);
+
+    /// Ensures that the given declaration node denotes a type declaration.
+    ///
+    /// This method is less strict than ensureCompleteTypeDecl as it does note
+    /// check that the given declaration denotes a complete type.
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
 
     // Resolves the type of the given integer literal, and ensures that the
@@ -729,6 +752,20 @@ private:
     bool checkModelArgs(ModelDecl *model,
                         SVImpl<DomainTypeDecl*>::Type &args,
                         SVImpl<Location>::Type &argLocs);
+
+    /// Introduces the given type declaration node into the current scope and
+    /// declarative region.
+    ///
+    /// This method performs several checks.  First, it ensures that the
+    /// declaration does not conflict with any other declaration in the current
+    /// scope.  Second, if the given declaration can serve as a completion for a
+    /// visible incomplete type declaration the necessary updates to the
+    /// corresponding incomplete declaration node is performed.
+    ///
+    /// \return True if the declaration was successfully added into the scope
+    /// and current declarative region.  Otherwise false is returned and
+    /// diagnostics are posted.
+    bool introduceTypeDeclaration(TypeDecl *decl);
 
     /// Builds an IndexedArrayExpr.
     ///

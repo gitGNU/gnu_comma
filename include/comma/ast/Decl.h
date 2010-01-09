@@ -1269,6 +1269,64 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// IncompleteTypeDecl
+//
+/// \class
+///
+/// \brief Represents the occurence of an incomplete type declaration.
+class IncompleteTypeDecl : public TypeDecl {
+
+public:
+    /// \brief Returns true if this declaration has a completions.
+    bool hasCompletion() const { return completion != 0; }
+
+    /// \brief Sets the completion of this declaration.
+    void setCompletion(TypeDecl *decl) { completion = decl; }
+
+    //@{
+    /// \brief Returns the completion of this declaration if one has been set,
+    /// else null.
+    const TypeDecl *getCompletion() const { return completion; }
+    TypeDecl *getCompletion() { return completion; }
+    //@}
+
+    /// \brief Returns true if the given declaration could serve as a
+    /// completion.
+    ///
+    /// A declaration can complete this incomplete type declaration if:
+    ///
+    ///   - This declaration is itself without a completion,
+    ///
+    ///   - If the given declaration and this one are declared in the same
+    ///     declarative region, or
+    ///
+    ///   - This declaration was declared in the public portion of a domain and
+    ///     the given declaration was declared in the private portion.
+    bool isCompatibleCompletion(const TypeDecl *decl) const;
+
+
+    /// Returns true if the completion of this indirect type declaration
+    /// is visible from within the given declarative region.
+    bool completionIsVisibleIn(const DeclRegion *region) const;
+
+    // Support isa/dyn_cast.
+    static bool classof(const IncompleteTypeDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_IncompleteTypeDecl;
+    }
+
+private:
+    // Constructs an incomplete type declaration node.
+    IncompleteTypeDecl(AstResource &resource,
+                       IdentifierInfo *name, Location loc, DeclRegion *region);
+
+    // Incomplete type declarations are constructed an managed by AstResource.
+    friend class AstResource;
+
+    TypeDecl *completion;
+};
+
+//===----------------------------------------------------------------------===//
 // SubtypeDecl
 //
 /// Common base class for all subtype declaration nodes.

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -584,6 +584,54 @@ void FunctionDecl::initializeCorrespondingType(AstResource &resource,
 }
 
 //===----------------------------------------------------------------------===//
+// IncompleteTypeDecl
+
+IncompleteTypeDecl::IncompleteTypeDecl(AstResource &resource,
+                                       IdentifierInfo *name, Location loc,
+                                       DeclRegion *region)
+        : TypeDecl(AST_IncompleteTypeDecl, name, loc, region),
+          completion(0)
+{
+    // Create the root and first subtype defined by this incomplete type
+    // declaration.
+    IncompleteType *rootType = resource.createIncompleteType(this);
+    CorrespondingType = resource.createIncompleteSubtype(name, rootType);
+}
+
+bool IncompleteTypeDecl::isCompatibleCompletion(const TypeDecl *decl) const
+{
+    const DeclRegion *thisRegion = this->getDeclRegion();
+    const DeclRegion *completion = decl->getDeclRegion();
+
+    if (this->hasCompletion())
+        return false;
+
+    if (thisRegion == completion)
+        return true;
+
+    if (isa<PercentDecl>(thisRegion) && isa<AddDecl>(completion) &&
+        thisRegion == completion->getParent())
+        return true;
+
+    return false;
+}
+
+bool IncompleteTypeDecl::completionIsVisibleIn(const DeclRegion *region) const
+{
+    if (!hasCompletion())
+        return false;
+
+    const DeclRegion *target = getDeclRegion();
+
+    do {
+        if (target == region)
+            return true;
+    } while ((region = region->getParent()));
+
+    return false;
+}
+
+//===----------------------------------------------------------------------===//
 // DomainTypeDecl
 
 DomainTypeDecl::DomainTypeDecl(AstKind kind, AstResource &resource,
@@ -800,12 +848,10 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
                                  IdentifierInfo *name, Location loc,
                                  std::pair<IdentifierInfo*, Location> *elems,
                                  unsigned numElems, DeclRegion *parent)
-    : TypeDecl(AST_EnumerationDecl, name, loc),
+    : TypeDecl(AST_EnumerationDecl, name, loc, parent),
       DeclRegion(AST_EnumerationDecl, parent),
       numLiterals(numElems)
 {
-    setDeclRegion(parent);
-
     // Build the root type corresponding to this declaration.
     EnumerationType *root = resource.createEnumType(this);
 
@@ -956,7 +1002,7 @@ IntegerDecl::IntegerDecl(AstResource &resource,
                          IdentifierInfo *name, Location loc,
                          Expr *lower, Expr *upper,
                          DeclRegion *parent)
-    : TypeDecl(AST_IntegerDecl, name, loc),
+    : TypeDecl(AST_IntegerDecl, name, loc, parent),
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lower), highExpr(upper)
 {
@@ -1030,7 +1076,7 @@ ArrayDecl::ArrayDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
                      unsigned rank, DSTDefinition **indices,
                      Type *component, bool isConstrained, DeclRegion *parent)
-    : TypeDecl(AST_ArrayDecl, name, loc),
+    : TypeDecl(AST_ArrayDecl, name, loc, parent),
       DeclRegion(AST_ArrayDecl, parent),
       indices(indices, indices + rank)
 {

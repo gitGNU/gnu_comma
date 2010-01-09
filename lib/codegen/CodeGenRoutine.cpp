@@ -241,7 +241,10 @@ PrimaryType *CodeGenRoutine::resolveType(Type *type)
         else
             instance = domTy->getInstanceDecl();
 
-        return instance->getRepresentationType();
+        return resolveType(instance->getRepresentationType());
     }
+    else if (IncompleteType *IT = dyn_cast<IncompleteType>(type))
+        return resolveType(IT->getCompleteType());
+
     return cast<PrimaryType>(type);
 }
