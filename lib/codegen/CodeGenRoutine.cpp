@@ -109,7 +109,6 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
     SRF->associate(objDecl, activation::Slot, objValue);
 }
 
-
 llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
@@ -178,6 +177,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_NullExpr:
         return emitNullExpr(cast<NullExpr>(expr));
+
+    case Ast::AST_QualifiedExpr:
+        return emitValue(cast<QualifiedExpr>(expr)->getOperand());
     }
 
     return 0;

@@ -163,6 +163,9 @@ ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
         return emit(prj->getOperand(), dst, genTmp);
 
+    if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
+        return emit(qual->getOperand(), dst, genTmp);
+
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = frame()->lookup(decl, activation::Slot);
@@ -772,6 +775,9 @@ llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 
     if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
         return emit(prj->getOperand(), dst, genTmp);
+
+    if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
+        return emit(qual->getOperand(), dst, genTmp);
 
     llvm::Value *rec = 0;
 

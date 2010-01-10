@@ -74,6 +74,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "NullExpr",
     "AggregateExpr",
     "PrjExpr",
+    "QualifiedExpr",
     "SelectedExpr",
     "StringLiteral",
 

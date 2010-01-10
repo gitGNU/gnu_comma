@@ -439,6 +439,17 @@ bool Parser::blockStmtFollows()
     }
 }
 
+bool Parser::qualificationFollows()
+{
+    return currentTokenIs(Lexer::TKN_QUOTE) && nextTokenIs(Lexer::TKN_LPAREN);
+}
+
+bool Parser::attributeFollows()
+{
+    return (currentTokenIs(Lexer::TKN_QUOTE) &&
+            nextTokenIs(Lexer::TKN_IDENTIFIER));
+}
+
 IdentifierInfo *Parser::parseIdentifier()
 {
     IdentifierInfo *info;

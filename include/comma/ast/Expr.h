@@ -559,6 +559,44 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// QualifiedExpr
+//
+/// \class
+///
+/// \brief Nodes representing qualified expressions.
+class QualifiedExpr : public Expr {
+
+public:
+    QualifiedExpr(TypeDecl *qualifier, Expr *operand, Location loc)
+        : Expr(AST_QualifiedExpr, qualifier->getType(), loc),
+          prefix(qualifier), operand(operand) { }
+
+    ~QualifiedExpr() { delete operand; }
+
+    //@{
+    /// Returns the type declaration which qualifies this expression.
+    const TypeDecl *getPrefix() const { return prefix; }
+    TypeDecl *getPrefix() { return prefix; }
+    //@}
+
+    //@{
+    /// Returns the expression this node qualifies.
+    const Expr *getOperand() const { return operand; }
+    Expr *getOperand() { return operand; }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const QualifiedExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_QualifiedExpr;
+    }
+
+private:
+    TypeDecl *prefix;
+    Expr *operand;
+};
+
+//===----------------------------------------------------------------------===//
 // ConversionExpr
 //
 // These nodes represent type conversions.

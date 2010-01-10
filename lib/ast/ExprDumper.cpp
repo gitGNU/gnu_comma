@@ -93,3 +93,11 @@ void ExprDumper::visitNullExpr(NullExpr *node)
     printHeader(node) << '>';
 }
 
+void ExprDumper::visitQualifiedExpr(QualifiedExpr *node)
+{
+    printHeader(node) << ' ';
+    dumpAST(node->getPrefix()) << ' ';
+    visitExpr(node->getOperand());
+    S << '>';
+}
+

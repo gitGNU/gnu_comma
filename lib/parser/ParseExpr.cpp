@@ -284,8 +284,13 @@ Node Parser::parsePrimaryExpr()
 {
     switch (currentTokenCode()) {
 
-    default:
-        return parseName();
+    default: {
+        Node name = parseName();
+        if (qualificationFollows())
+            return parseQualifiedExpr(name);
+        else
+            return name;
+    }
 
     case Lexer::TKN_LPAREN:
         return parseParenExpr();
@@ -323,6 +328,18 @@ Node Parser::parseStringLiteral()
     Location loc = ignoreToken();
 
     return client.acceptStringLiteral(rep, repLen, loc);
+}
+
+Node Parser::parseQualifiedExpr(Node qualifier)
+{
+    assert(qualificationFollows());
+
+    ignoreToken();              // Ignore the quote.
+    Node operand = parseParenExpr();
+
+    if (operand.isValid())
+        return client.acceptQualifiedExpr(qualifier, operand);
+    return getInvalidNode();
 }
 
 Node Parser::parseOthersExpr()

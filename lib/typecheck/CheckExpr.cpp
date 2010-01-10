@@ -336,3 +336,24 @@ Node TypeCheck::acceptNullExpr(Location loc)
     // the top-down pass.
     return getNode(new NullExpr(loc));
 }
+
+Node TypeCheck::acceptQualifiedExpr(Node qualifierNode, Node exprNode)
+{
+    // The prefix to a qualified expression must denote a type decl.
+    TypeDecl *prefix = ensureCompleteTypeDecl(qualifierNode);
+    Expr *expr = ensureExpr(exprNode);
+
+    if (!(prefix && expr))
+        return getInvalidNode();
+
+    // Resolve the operand in the type context provided by the prefix;
+    if (!(expr = checkExprInContext(expr, prefix->getType())))
+        return getInvalidNode();
+
+    // Construct the expression node.
+    qualifierNode.release();
+    exprNode.release();
+    QualifiedExpr *result;
+    result = new QualifiedExpr(prefix, expr, getNodeLoc(qualifierNode));
+    return getNode(result);
+}

@@ -89,6 +89,7 @@ public:
     Node parseOperatorExpr();
     Node parseIntegerLiteral();
     Node parseStringLiteral();
+    Node parseQualifiedExpr(Node qualifier);
 
     /// The following enumeration is used to control how names are parsed.
     enum NameOption {
@@ -331,6 +332,20 @@ private:
     ///
     ///   - the reserved word `begin'.
     bool blockStmtFollows();
+
+    /// \brief Returns true if a qualified expression follows.
+    ///
+    /// This method can be called once a name has been consumed.  A qualified
+    /// expression is detected when the token stream admits a TKN_QUOTE followed
+    /// by a TKN_LPAREN.
+    bool qualificationFollows();
+
+    /// \brief Returns true if an attribute follows.
+    ///
+    /// This method can be called once a name has been consumed.  An attribute
+    /// is identified when the token stream yield a TKN_QUOTE followed by a
+    /// TKN_IDENTIFIER.
+    bool attributeFollows();
 
     Node parseExponentialOperator();
     Node parseMultiplicativeOperator();

@@ -146,6 +146,8 @@ public:
 
     Node acceptNullExpr(Location loc);
 
+    Node acceptQualifiedExpr(Node qualifier, Node operand);
+
     Node acceptIfStmt(Location loc, Node condition, NodeVector &consequents);
 
     Node acceptElseStmt(Location loc, Node ifNode, NodeVector &alternates);

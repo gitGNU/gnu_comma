@@ -61,6 +61,7 @@ private:
     void visitInjExpr(InjExpr *node);
     void visitPrjExpr(PrjExpr *node);
     void visitAggregateExpr(AggregateExpr *node);
+    void visitQualifiedExpr(QualifiedExpr *node);
     //@}
 
     void addDependents(const DomainInstanceDecl *instance);
@@ -253,6 +254,11 @@ void DependencyScanner::visitAggregateExpr(AggregateExpr *node)
 
     if (Expr *others = node->getOthersExpr())
         visitExpr(others);
+}
+
+void DependencyScanner::visitQualifiedExpr(QualifiedExpr *node)
+{
+    visitExpr(node->getOperand());
 }
 
 //===----------------------------------------------------------------------===//

@@ -101,6 +101,7 @@ class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
+class QualifiedExpr;
 class RaiseStmt;
 class Range;
 class RangeAttrib;
@@ -237,6 +238,7 @@ public:
         AST_NullExpr,           ///< NullExpr
         AST_AggregateExpr,      ///< AggregateExpr
         AST_PrjExpr,            ///< PrjExpr
+        AST_QualifiedExpr,      ///< QualifiedExpr
         AST_SelectedExpr,       ///< SelectedExpr
         AST_StringLiteral,      ///< StringLiteral
 

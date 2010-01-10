@@ -40,6 +40,7 @@ public:
     virtual void visitStringLiteral(StringLiteral *node);
     virtual void visitConversionExpr(ConversionExpr *node);
     virtual void visitNullExpr(NullExpr *node);
+    virtual void visitQualifiedExpr(QualifiedExpr *node);
 
     /// Visitors over AttribExpr nodes.
     virtual void visitFirstAE(FirstAE *node);

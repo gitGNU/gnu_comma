@@ -601,6 +601,13 @@ public:
     /// expression context.
     virtual Node acceptNullExpr(Location loc) = 0;
 
+    /// Invoked when the parser encounters a qualified expression.
+    ///
+    /// \param qualifier A node corresponding to the qualified name.
+    ///
+    /// \param operand The expression to qualify.
+    virtual Node acceptQualifiedExpr(Node qualifier, Node operand) = 0;
+
     /// Submits an import from the given type node.
     virtual bool acceptImportDeclaration(Node importedType) = 0;
 
