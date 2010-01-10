@@ -118,6 +118,11 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     if (isa<IntegerLiteral>(arg))
         return targetType->isIntegerType();
 
+    // Similarly for null expressions, but in this case the target must be an
+    // access type.
+    if (isa<NullExpr>(arg))
+        return targetType->isAccessType();
+
     // If the expression is an unresolved aggregate or string literal it is
     // compatible if the target is an aggregate type.
     //

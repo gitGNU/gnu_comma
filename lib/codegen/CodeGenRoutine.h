@@ -148,6 +148,7 @@ private:
     llvm::Value *emitConversionValue(ConversionExpr *expr);
     llvm::Value *emitAttribExpr(AttribExpr *expr);
     llvm::Value *emitSelectedValue(SelectedExpr *expr);
+    llvm::Value *emitNullExpr(NullExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);

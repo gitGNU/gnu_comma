@@ -175,6 +175,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_ConversionExpr:
         return emitConversionValue(cast<ConversionExpr>(expr));
+
+    case Ast::AST_NullExpr:
+        return emitNullExpr(cast<NullExpr>(expr));
     }
 
     return 0;

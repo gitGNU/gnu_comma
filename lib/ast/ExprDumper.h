@@ -65,6 +65,7 @@ private:
     void visitStringLiteral(StringLiteral *node);
     void visitAggregateExpr(AggregateExpr *node);
     void visitConversionExpr(ConversionExpr *node);
+    void visitNullExpr(NullExpr *node);
 };
 
 } // end comma namespace.

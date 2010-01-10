@@ -66,6 +66,9 @@ public:
     /// Returns true if this type denotes a string type.
     bool isStringType() const;
 
+    /// Returns true if this type denotes an access type.
+    bool isAccessType() const;
+
     ArrayType *getAsArrayType();
     IntegerType *getAsIntegerType();
     EnumerationType *getAsEnumType();

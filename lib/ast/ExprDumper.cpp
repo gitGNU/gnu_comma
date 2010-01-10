@@ -88,3 +88,8 @@ void ExprDumper::visitConversionExpr(ConversionExpr *node)
     dumpAST(node->getType()) << ">";
 }
 
+void ExprDumper::visitNullExpr(NullExpr *node)
+{
+    printHeader(node) << '>';
+}
+

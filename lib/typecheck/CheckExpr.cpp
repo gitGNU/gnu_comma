@@ -102,6 +102,8 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveStringLiteral(strLit, context);
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return resolveAggregateExpr(agg, context);
+    if (NullExpr *null = dyn_cast<NullExpr>(expr))
+        return resolveNullExpr(null, context);
 
     assert(expr->hasType() && "Expression does not have a resolved type!");
 
@@ -175,7 +177,7 @@ Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     if (intLit->hasType()) {
         assert(intLit->getType() == context &&
                "Cannot resolve literal to different type!");
-        return 0;
+        return intLit;
     }
 
     IntegerType *subtype = dyn_cast<IntegerType>(context);
@@ -233,6 +235,27 @@ Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 
     intLit->setType(rootTy);
     return new ConversionExpr(intLit, context);
+}
+
+Expr *TypeCheck::resolveNullExpr(NullExpr *expr, Type *context)
+{
+    if (expr->hasType()) {
+        assert(covers(expr->getType(), context) &&
+               "Cannot resolve to different type");
+        return expr;
+    }
+
+    // Currently the only constraint which the type context must satisfy is that
+    // it represent an access type.
+    AccessType *targetType = dyn_cast<AccessType>(context);
+    if (!targetType) {
+        // FIXME: Need a better diagnostic here.
+        report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
+
+    expr->setType(targetType);
+    return expr;
 }
 
 Node TypeCheck::acceptInj(Location loc, Node exprNode)
@@ -304,4 +327,12 @@ Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
         value.zext(value.getBitWidth() + 1);
 
     return getNode(new IntegerLiteral(value, loc));
+}
+
+Node TypeCheck::acceptNullExpr(Location loc)
+{
+    // We cannot type check null expression until a context has been
+    // extablished.  Simply return an expression node and defer checking until
+    // the top-down pass.
+    return getNode(new NullExpr(loc));
 }

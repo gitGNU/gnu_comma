@@ -597,6 +597,10 @@ public:
     virtual Node acceptStringLiteral(const char *string, unsigned len,
                                      Location loc) = 0;
 
+    /// Invoked when the parser encounters the "null" reserved word in an
+    /// expression context.
+    virtual Node acceptNullExpr(Location loc) = 0;
+
     /// Submits an import from the given type node.
     virtual bool acceptImportDeclaration(Node importedType) = 0;
 

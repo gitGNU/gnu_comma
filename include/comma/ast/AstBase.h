@@ -88,6 +88,7 @@ class LastArrayAE;
 class LoopDecl;
 class LoopStmt;
 class ModelDecl;
+class NullExpr;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
@@ -233,6 +234,7 @@ public:
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
+        AST_NullExpr,           ///< NullExpr
         AST_AggregateExpr,      ///< AggregateExpr
         AST_PrjExpr,            ///< PrjExpr
         AST_SelectedExpr,       ///< SelectedExpr

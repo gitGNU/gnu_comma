@@ -295,6 +295,9 @@ Node Parser::parsePrimaryExpr()
 
     case Lexer::TKN_STRING:
         return parseStringLiteral();
+
+    case Lexer::TKN_NULL:
+        return client.acceptNullExpr(ignoreToken());
     }
 }
 

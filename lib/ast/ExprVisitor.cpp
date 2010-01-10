@@ -48,6 +48,7 @@ void ExprVisitor::visitExpr(Expr *node)
         case DISPATCH(StringLiteral, node);
         case DISPATCH(AggregateExpr, node);
         case DISPATCH(ConversionExpr, node);
+        case DISPATCH(NullExpr, node);
         };
     }
 }
@@ -78,6 +79,7 @@ void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }
 void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
 void ExprVisitor::visitAggregateExpr(AggregateExpr *node) { }
 void ExprVisitor::visitConversionExpr(ConversionExpr *node) { }
+void ExprVisitor::visitNullExpr(NullExpr *node) { }
 
 void ExprVisitor::visitFirstAE(FirstAE *node) { }
 void ExprVisitor::visitFirstArrayAE(FirstArrayAE *node) { }

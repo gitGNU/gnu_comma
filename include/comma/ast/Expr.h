@@ -524,6 +524,41 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// NullExpr
+//
+/// \class
+///
+/// \brief Represents a null value of some access type.
+///
+/// Null expressions are fairly similar to integer literals and aggregate
+/// expressions in the sense that they do not, initially, have a type.  Nodes of
+/// this kind are, generally, typeless when first constructed.  It is only after
+/// a context as been resolved for the null expression a final type can be
+/// assigned.
+class NullExpr : public Expr {
+
+public:
+    NullExpr(Location loc, AccessType *target = 0)
+        : Expr(AST_NullExpr, target, loc) { }
+
+    //@{
+    /// Specialize Expr::getType().
+    const AccessType *getType() const {
+        return llvm::cast<AccessType>(Expr::getType());
+    }
+    AccessType *getType() {
+        return llvm::cast<AccessType>(Expr::getType());
+    }
+    //@}
+
+    // Support isa/dyn_cast;
+    static bool classof(const NullExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_NullExpr;
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // ConversionExpr
 //
 // These nodes represent type conversions.

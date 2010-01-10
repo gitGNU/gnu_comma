@@ -59,6 +59,13 @@ llvm::Value *CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
     return emitValue(expr->getOperand());
 }
 
+llvm::Value *CodeGenRoutine::emitNullExpr(NullExpr *expr)
+{
+    const llvm::PointerType *loweredTy;
+    loweredTy = cast<llvm::PointerType>(CGT.lowerType(expr->getType()));
+    return llvm::ConstantPointerNull::get(loweredTy);
+}
+
 llvm::Value *CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
 {
     assert(expr->hasType() && "Unresolved literal type!");

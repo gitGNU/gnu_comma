@@ -87,6 +87,11 @@ bool Type::isStringType() const
     return enumTy && enumTy->isCharacterType();
 }
 
+bool Type::isAccessType() const
+{
+    return isa<AccessType>(this);
+}
+
 ArrayType *Type::getAsArrayType()
 {
     return dyn_cast<ArrayType>(this);

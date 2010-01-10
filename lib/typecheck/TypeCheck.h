@@ -144,6 +144,8 @@ public:
 
     Node acceptStringLiteral(const char *string, unsigned len, Location loc);
 
+    Node acceptNullExpr(Location loc);
+
     Node acceptIfStmt(Location loc, Node condition, NodeVector &consequents);
 
     Node acceptElseStmt(Location loc, Node ifNode, NodeVector &alternates);
@@ -512,6 +514,11 @@ private:
     // successfully checked (possibly different from \p agg).  Otherwise, null
     // is returned and appropriate diagnostics are posted.
     Expr *resolveAggregateExpr(AggregateExpr *agg, Type *context);
+
+    // Resolves a null expression if possible given a target type.  Returns a
+    // valid expression node if \p expr was found to be compatible with \p
+    // context.  Otherwise null is returned and diagnostics are posted.
+    Expr *resolveNullExpr(NullExpr *expr, Type *context);
 
     // Resolves the given call expression to one which satisfies the given
     // target type.  Returns a valid expression if the call was successfully
