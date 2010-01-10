@@ -301,16 +301,13 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
     Expr *rhs = stmt->getAssignedExpr();
 
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(lhs)) {
-        Type *refTy = ref->getType();
+        Type *refTy = resolveType(ref->getType());
 
-        if (isa<ArrayType>(refTy)) {
+        if (isa<CompositeType>(refTy)) {
             // Evaluate the rhs into the storage provided by the lhs.
             llvm::Value *dst =
                 SRF->lookup(ref->getDeclaration(), activation::Slot);
-            if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(rhs))
-                emitCompositeCall(call, dst);
-            else
-                emitArrayExpr(rhs, dst, false);
+            emitCompositeExpr(rhs, dst, false);
         }
         else {
             // The left hand side is a simple variable reference.  Just emit the
