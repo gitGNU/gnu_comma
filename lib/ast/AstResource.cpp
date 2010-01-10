@@ -472,6 +472,29 @@ RecordType *AstResource::createRecordSubtype(IdentifierInfo *name,
     return res;
 }
 
+AccessDecl *AstResource::createAccessDecl(IdentifierInfo *name, Location loc,
+                                          Type *targetType, DeclRegion *parent)
+{
+    AccessDecl *result = new AccessDecl(*this, name, loc, targetType, parent);
+    decls.push_back(result);
+    return result;
+}
+
+AccessType *AstResource::createAccessType(AccessDecl *decl, Type *targetType)
+{
+    AccessType *result = new AccessType(decl, targetType);
+    types.push_back(result);
+    return result;
+}
+
+AccessType *AstResource::createAccessSubtype(IdentifierInfo *name,
+                                             AccessType *base)
+{
+    AccessType *result = new AccessType(base, name);
+    types.push_back(result);
+    return result;
+}
+
 IncompleteTypeDecl *
 AstResource::createIncompleteTypeDecl(IdentifierInfo *name, Location loc,
                                       DeclRegion *parent)

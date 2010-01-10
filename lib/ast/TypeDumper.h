@@ -70,6 +70,7 @@ private:
     void visitIncompleteType(IncompleteType *node);
     void visitIntegerType(IntegerType *node);
     void visitArrayType(ArrayType *node);
+    void visitAccessType(AccessType *node);
 };
 
 } // end comma namespace.

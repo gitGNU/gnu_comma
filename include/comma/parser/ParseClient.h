@@ -740,6 +740,10 @@ public:
     virtual void acceptIncompleteTypeDecl(IdentifierInfo *name,
                                           Location loc) = 0;
 
+    /// Called to notify the client of an access type declaration.
+    virtual void acceptAccessTypeDecl(IdentifierInfo *name, Location loc,
+                                      Node subtype) = 0;
+
     /// \brief Communicates an array type declaration.
     ///
     /// \param name The name of this array type declaration.

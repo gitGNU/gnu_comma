@@ -199,6 +199,20 @@ public:
     RecordType *createRecordSubtype(IdentifierInfo *name, RecordType *base);
     //@}
 
+    /// \name Access declaration and type constructors.
+    //@{
+    /// Creates an access type declaration node.
+    AccessDecl *createAccessDecl(IdentifierInfo *name, Location loc,
+                                 Type *targetType, DeclRegion *parent);
+
+    /// Creates an access type corresponding to the given declaration and target
+    /// type node.
+    AccessType *createAccessType(AccessDecl *decl, Type *targetType);
+
+    /// Creates an access subtype using the given access type as a base.
+    AccessType *createAccessSubtype(IdentifierInfo *name, AccessType *baseType);
+    //@}
+
     /// \name Incomplete declaration and type constructors.
     //@{
     /// Creates an incomplete type declaration node.

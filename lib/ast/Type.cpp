@@ -1047,3 +1047,31 @@ Type *RecordType::getComponentType(unsigned i)
     return getDefiningDecl()->getComponent(i)->getType();
 }
 
+//===----------------------------------------------------------------------===//
+// AccessType
+
+AccessType::AccessType(AccessDecl *decl, Type *targetType)
+    : PrimaryType(AST_AccessType, 0, false),
+      targetType(targetType),
+      definingDecl(decl) { }
+
+AccessType::AccessType(AccessType *rootType, IdentifierInfo *name)
+    : PrimaryType(AST_AccessType, rootType, true),
+      targetType(rootType->getTargetType()),
+      definingDecl(name) { }
+
+AccessDecl *AccessType::getDefiningDecl()
+{
+    return getRootType()->definingDecl.get<AccessDecl*>();
+}
+
+IdentifierInfo *AccessType::getIdInfo() const
+{
+    if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
+        return idInfo;
+    return getDefiningDecl()->getIdInfo();
+}
+
+
+
+

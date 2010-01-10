@@ -1156,3 +1156,14 @@ ComponentDecl *RecordDecl::getComponent(IdentifierInfo *name)
         return 0;
     return cast<ComponentDecl>(*range.first);
 }
+
+//===----------------------------------------------------------------------===//
+// AccessDecl
+AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                       Type *targetType, DeclRegion *parent)
+    : TypeDecl(AST_AccessDecl, name, loc, parent)
+{
+    AccessType *base = resource.createAccessType(this, targetType);
+    CorrespondingType = resource.createAccessSubtype(name, base);
+}
+

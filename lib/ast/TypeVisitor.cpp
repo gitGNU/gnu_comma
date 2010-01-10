@@ -33,6 +33,8 @@ void TypeVisitor::visitType(Type *node)
         visitEnumerationType(enumTy);
     else if (RecordType *recTy = dyn_cast<RecordType>(node))
         visitRecordType(recTy);
+    else if (AccessType *accessTy = dyn_cast<AccessType>(node))
+        visitAccessType(accessTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -57,3 +59,4 @@ void TypeVisitor::visitEnumerationType(EnumerationType *node) { }
 void TypeVisitor::visitIntegerType(IntegerType *node) { }
 void TypeVisitor::visitArrayType(ArrayType *node) { }
 void TypeVisitor::visitRecordType(RecordType *node) { }
+void TypeVisitor::visitAccessType(AccessType *node) { }

@@ -25,6 +25,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FunctorDecl",
     "AddDecl",
 
+    "AccessDecl",
     "CarrierDecl",
     "EnumerationDecl",
     "IncompleteTypeDecl",
@@ -55,11 +56,13 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "FunctionType",
     "ProcedureType",
+
+    "AccessType",
+    "ArrayType",
     "DomainType",
+    "EnumerationType",
     "IncompleteType",
     "IntegerType",
-    "EnumerationType",
-    "ArrayType",
     "RecordType",
 
     "ConversionExpr",

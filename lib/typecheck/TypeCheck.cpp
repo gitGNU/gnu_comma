@@ -474,6 +474,17 @@ TypeDecl *TypeCheck::ensureTypeDecl(Decl *decl, Location loc, bool report)
     return 0;
 }
 
+TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
+{
+    if (TypeRef *ref = lift_node<TypeRef>(node)) {
+        return ensureTypeDecl(ref->getDecl(), ref->getLocation(), report);
+    }
+    else if (report) {
+        this->report(getNodeLoc(node), diag::NOT_A_TYPE);
+    }
+    return 0;
+}
+
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
     if (isa<IntegerType>(expr->getType()) &&
@@ -1011,6 +1022,20 @@ void TypeCheck::endRecord()
     RecordDecl *record = cast<RecordDecl>(currentDeclarativeRegion());
     popDeclarativeRegion();
     introduceTypeDeclaration(record);
+}
+
+void TypeCheck::acceptAccessTypeDecl(IdentifierInfo *name, Location loc,
+                                     Node subtypeNode)
+{
+    TypeDecl *targetDecl = ensureTypeDecl(subtypeNode);
+
+    if (!targetDecl)
+        return;
+
+    DeclRegion *region = currentDeclarativeRegion();
+    AccessDecl *access;
+    access = resource.createAccessDecl(name, loc, targetDecl->getType(), region);
+    introduceTypeDeclaration(access);
 }
 
 //===----------------------------------------------------------------------===//

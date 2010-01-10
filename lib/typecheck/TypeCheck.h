@@ -191,6 +191,7 @@ public:
 
     void acceptSubtypeDecl(IdentifierInfo *name, Location loc, Node subtype);
     void acceptIncompleteTypeDecl(IdentifierInfo *name, Location loc);
+    void acceptAccessTypeDecl(IdentifierInfo *name, Location loc, Node subtype);
 
     void acceptArrayDecl(IdentifierInfo *name, Location loc,
                          NodeVector indices, Node component);
@@ -458,7 +459,7 @@ private:
 
     /// Ensures the given Node resolves to a complete type declaration.
     ///
-    /// \see ensureTypeDecl(Decl, Location, bool);
+    /// \see ensureCompleteTypeDecl(Decl, Location, bool);
     TypeDecl *ensureCompleteTypeDecl(Node refNode, bool report = true);
 
     /// Ensures that the given declaration node denotes a complete type
@@ -480,6 +481,11 @@ private:
     /// This method is less strict than ensureCompleteTypeDecl as it does note
     /// check that the given declaration denotes a complete type.
     TypeDecl *ensureTypeDecl(Decl *decl, Location loc, bool report = true);
+
+    /// Ensures the given Node resolves to a type declaration.
+    ///
+    /// \see ensumeTypeDecl(Decl, Location, bool);
+    TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
 
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.

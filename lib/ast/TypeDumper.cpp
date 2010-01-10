@@ -109,3 +109,10 @@ void TypeDumper::visitArrayType(ArrayType *node)
 {
     printHeader(node) << '>';
 }
+
+void TypeDumper::visitAccessType(AccessType *node)
+{
+    printHeader(node) << ' ';
+    visitType(node->getTargetType());
+    S << '>';
+}

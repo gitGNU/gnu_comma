@@ -1028,6 +1028,65 @@ private:
     llvm::PointerUnion<RecordDecl*, IdentifierInfo*> definingDecl;
 };
 
+//===----------------------------------------------------------------------===//
+// AccessType
+class AccessType : public PrimaryType {
+
+public:
+    /// Returns the defining identifier of this type;
+    IdentifierInfo *getIdInfo() const;
+
+    /// Returns the defining identifier of this type as a C-string.
+    const char *getString() const { return getIdInfo()->getString(); }
+
+    //@{
+    /// Returns the access type declaration that introduced this type.
+    const AccessDecl *getDefiningDecl() const {
+        return const_cast<AccessType*>(this)->getDefiningDecl();
+    }
+    AccessDecl *getDefiningDecl();
+    //@}
+
+    //@(
+    /// Returns the to which this access type points.
+    const Type *getTargetType() const { return targetType; }
+    Type *getTargetType() { return targetType; }
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getRootType().
+    AccessType *getRootType() {
+        return llvm::cast<AccessType>(PrimaryType::getRootType());
+    }
+    const AccessType *getRootType() const {
+        return llvm::cast<AccessType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    // Support isa/dyn_cast;
+    static bool classof(const AccessType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AccessType;
+    }
+
+private:
+    /// Constructs a root access type pointing to \p targetType corresponding to
+    /// the given access declaration.
+    AccessType(AccessDecl *decl, Type *targetType);
+
+    /// Constructs a subtype of the given access type.
+    AccessType(AccessType *rootType, IdentifierInfo *name);
+
+    /// Access types are constructed and managed by AstResource.
+    friend class AstResource;
+
+    Type *targetType;
+
+    /// The declaration node or, in the case of an access subtype, the defining
+    /// identifier.
+    llvm::PointerUnion<AccessDecl*, IdentifierInfo*> definingDecl;
+};
+
 } // End comma namespace
 
 #endif

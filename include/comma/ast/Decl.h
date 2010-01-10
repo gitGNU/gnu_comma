@@ -1937,6 +1937,40 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// AccessDecl
+//
+/// \class
+///
+/// \brief This class encapsulates an access type declaration.
+class AccessDecl : public TypeDecl {
+
+public:
+    //@{
+    /// \brief Returns the first subtype defined by this access type
+    /// declaration.
+    const AccessType *getType() const {
+        return llvm::cast<AccessType>(CorrespondingType);
+    }
+    AccessType *getType() {
+        return llvm::cast<AccessType>(CorrespondingType);
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const AccessDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AccessDecl;
+    }
+
+private:
+    AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+               Type *targetType, DeclRegion *parent);
+
+    // AccessDecl's are constructed and managed by AstResource.
+    friend class AstResource;
+};
+
+//===----------------------------------------------------------------------===//
 // DomainTypeDecl
 //
 // This class represents implicit domain declarations which correspond to a

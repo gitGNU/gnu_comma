@@ -49,6 +49,10 @@ public:
 
     const llvm::StructType *lowerRecordType(const RecordType *type);
 
+    const llvm::Type *lowerIncompleteType(const IncompleteType *type);
+
+    const llvm::PointerType *lowerAccessType(const AccessType *type);
+
     /// Returns the structure type used to hold the bounds of an unconstrained
     /// array.
     const llvm::StructType *lowerArrayBounds(const ArrayType *arrTy);
@@ -79,6 +83,14 @@ private:
     typedef llvm::DenseMap<const ComponentDecl*, unsigned> ComponentIndexMap;
     ComponentIndexMap ComponentIndices;
 
+    /// Map from Comma to LLVM types.
+    ///
+    /// This map is used to provide fast lookup for previously lowered types.
+    /// Also, it prevents the type lowering code from recursing indefinitely
+    /// on circular data types.
+    typedef llvm::DenseMap<const Type*, const llvm::Type*> TypeMap;
+    TypeMap loweredTypes;
+
     const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
@@ -91,6 +103,15 @@ private:
 
     /// Returns the size of the given llvm type in bytes.
     uint64_t getTypeSize(const llvm::Type *type) const;
+
+    /// \brief Returns a reference to a slot in the type map corresponding to
+    /// the given Comma type.
+    ///
+    /// If the type has not been previously lowered, the reference returned is
+    /// to a null pointer.
+    const llvm::Type *&getLoweredType(const Type *type) {
+        return loweredTypes.FindAndConstruct(type).second;
+    }
 };
 
 }; // end comma namespace

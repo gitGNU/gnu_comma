@@ -1164,6 +1164,9 @@ bool Parser::parseType()
     case Lexer::TKN_RECORD:
     case Lexer::TKN_NULL:
         return parseRecordTypeDecl(name, loc);
+
+    case Lexer::TKN_ACCESS:
+        return parseAccessTypeDecl(name, loc);
     }
 
     return false;
@@ -1360,6 +1363,20 @@ bool Parser::parseRecordTypeDecl(IdentifierInfo *name, Location loc)
 
     client.endRecord();
     return requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_RECORD);
+}
+
+bool Parser::parseAccessTypeDecl(IdentifierInfo *name, Location loc)
+{
+    assert(currentTokenIs(Lexer::TKN_ACCESS));
+    ignoreToken();
+
+    Node subtypeNode = parseName();
+
+    if (subtypeNode.isInvalid())
+        return false;
+
+    client.acceptAccessTypeDecl(name, loc, subtypeNode);
+    return true;
 }
 
 bool Parser::parseTopLevelDeclaration()

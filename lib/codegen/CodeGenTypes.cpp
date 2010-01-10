@@ -96,6 +96,12 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_RecordType:
         return lowerRecordType(cast<RecordType>(type));
+
+    case Ast::AST_AccessType:
+        return lowerAccessType(cast<AccessType>(type));
+
+    case Ast::AST_IncompleteType:
+        return lowerIncompleteType(cast<IncompleteType>(type));
     }
 }
 
@@ -124,24 +130,29 @@ CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
 
 const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
 {
+    const llvm::Type *&entry = getLoweredType(type);
+    if (entry)
+        return entry;
+
     if (type->isAbstract())
         type = rewriteAbstractDecl(type->getAbstractDecl());
 
     if (const PercentDecl *percent = type->getPercentDecl()) {
         assert(percent->getDefinition() == context->getDefinition() &&
                "Inconsistent context for PercentDecl!");
-        return lowerType(context->getRepresentationType());
+        entry = lowerType(context->getRepresentationType());
     }
-
-    const DomainInstanceDecl *instance = type->getInstanceDecl();
-
-    if (instance->isParameterized()) {
-        RewriteScope scope(rewrites);
-        addInstanceRewrites(instance);
-        return lowerType(instance->getRepresentationType());
+    else {
+        const DomainInstanceDecl *instance = type->getInstanceDecl();
+        if (instance->isParameterized()) {
+            RewriteScope scope(rewrites);
+            addInstanceRewrites(instance);
+            entry = lowerType(instance->getRepresentationType());
+        }
+        else
+            entry = lowerType(instance->getRepresentationType());
     }
-    else
-        return lowerType(instance->getRepresentationType());
+    return entry;
 }
 
 const llvm::FunctionType *
@@ -228,6 +239,9 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
 
 const llvm::IntegerType *CodeGenTypes::lowerDiscreteType(const DiscreteType *type)
 {
+    // FIXME: This should be fast enough that populating the type map would not
+    // be advantageous.  However, no benchmarking has been done to substantiate
+    // this claim.
     return getTypeForWidth(type->getSize());
 }
 
@@ -235,6 +249,10 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 {
     assert(type->getRank() == 1 &&
            "Cannot codegen multidimensional arrays yet!");
+
+    const llvm::Type *&entry = getLoweredType(type);
+    if (entry)
+        return llvm::cast<llvm::ArrayType>(entry);
 
     const llvm::Type *elementTy = lowerType(type->getComponentType());
 
@@ -276,11 +294,17 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
 
     uint64_t numElems;
     numElems = getArrayWidth(lowerBound, upperBound, idxTy->isSigned());
-    return llvm::ArrayType::get(elementTy, numElems);
+    const llvm::ArrayType *result = llvm::ArrayType::get(elementTy, numElems);
+    entry = result;
+    return result;
 }
 
 const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
 {
+    const llvm::Type *&entry = getLoweredType(recTy);
+    if (entry)
+        return llvm::cast<llvm::StructType>(entry);
+
     unsigned maxAlignment = 0;
     uint64_t currentOffset = 0;
     uint64_t requiredOffset = 0;
@@ -317,7 +341,45 @@ const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
         currentOffset++;
     }
 
-    return llvm::StructType::get(CG.getLLVMContext(), fields);
+    const llvm::StructType *result;
+    result = llvm::StructType::get(CG.getLLVMContext(), fields);
+    entry = result;
+    return result;
+}
+
+const llvm::Type *CodeGenTypes::lowerIncompleteType(const IncompleteType *type)
+{
+    return lowerType(type->getCompleteType());
+}
+
+const llvm::PointerType *CodeGenTypes::lowerAccessType(const AccessType *access)
+{
+    // Access types are the primary channel thru which circular data types are
+    // constructed.  If we have not yet lowered this access type, construct a
+    // PATypeHandle to an opaque type and immediately associate it with the
+    // corresponding Comma type.  Once the target type of the access has been
+    // lowered, resolve the handle and replace with the fully resolved type.
+    //
+    // FIXME: Since opaque types are always allocated anew (all opaque types are
+    // unique) it might be better to try and be smart about when the pointee
+    // type gets deferred.  In fact, we may be able to guarantee that cycles are
+    // never introduced unless the pointee is an incomplete type.
+    const llvm::Type *&entry = getLoweredType(access);
+    if (entry)
+        return llvm::cast<llvm::PointerType>(entry);
+
+    llvm::PATypeHolder holder = llvm::OpaqueType::get(CG.getLLVMContext());
+    const llvm::PointerType *barrier = llvm::PointerType::getUnqual(holder);
+
+    entry = barrier;
+    const llvm::Type *targetType = lowerType(access->getTargetType());
+
+    // Refine the type holder and update the corresponding entry in the type
+    // map.
+    cast<llvm::OpaqueType>(holder.get())->refineAbstractTypeTo(targetType);
+    const llvm::PointerType *result = holder.get()->getPointerTo();
+    entry = result;
+    return result;
 }
 
 unsigned CodeGenTypes::getComponentIndex(const ComponentDecl *component)

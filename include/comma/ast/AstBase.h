@@ -25,6 +25,8 @@ namespace comma {
 // Forward declarations for all Ast nodes.
 //
 class AbstractDomainDecl;
+class AccessDecl;
+class AccessType;
 class AddDecl;
 class AggregateExpr;
 class ArrayBoundAE;
@@ -173,6 +175,7 @@ public:
         AST_FunctorDecl,        ///< FunctorDecl
         AST_AddDecl,            ///< AddDecl
 
+        AST_AccessDecl,         ///< AccessDecl
         AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IncompleteTypeDecl, ///< IncompleteTypeDecl
@@ -213,6 +216,7 @@ public:
         //
         // Primary Types.
         //
+        AST_AccessType,         ///< AccessType
         AST_ArrayType,          ///< ArrayType
         AST_DomainType,         ///< DomainType
         AST_EnumerationType,    ///< EnumerationType
@@ -281,7 +285,7 @@ public:
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl = AST_FunctorDecl,
 
-        FIRST_TypeDecl = AST_CarrierDecl,
+        FIRST_TypeDecl = AST_AccessDecl,
         LAST_TypeDecl = AST_IntegerSubtypeDecl,
 
         FIRST_SubtypeDecl = AST_ArraySubtypeDecl,
@@ -296,7 +300,7 @@ public:
         FIRST_Type = AST_FunctionType,
         LAST_Type = AST_RecordType,
 
-        FIRST_PrimaryType = AST_ArrayType,
+        FIRST_PrimaryType = AST_AccessType,
         LAST_PrimaryType = AST_RecordType,
 
         FIRST_Expr = AST_ConversionExpr,
