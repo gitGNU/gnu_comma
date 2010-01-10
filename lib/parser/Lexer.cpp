@@ -250,6 +250,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_NOT;
         else if (strncmp(str, "xor", length) == 0)
             code = TKN_XOR;
+        else if (strncmp(str, "new", length) == 0)
+            code = TKN_NEW;
         break;
 
     case 4:
