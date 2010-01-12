@@ -223,11 +223,6 @@ AddDecl::AddDecl(PercentDecl *percent)
       DeclRegion(AST_AddDecl, percent),
       carrier(0) { }
 
-AddDecl::AddDecl(DomainInstanceDecl *instance)
-    : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, instance),
-      carrier(0) { }
-
 Domoid *AddDecl::getImplementedDomoid()
 {
     Ast *parent = getParent()->asAst();
@@ -743,42 +738,48 @@ void DomainInstanceDecl::initializeInstance(Domoid *definition)
     // Initialize the body if the defining domoid is finalized.  Otherwise hold
     // onto the rewriter untill we are in a finalized state.
     if (definition->isFinalized()) {
-        initializeBody(*rewriter);
+        initializeRepresentation(*rewriter);
         delete rewriter;
     }
     else {
-        body = rewriter;
+        carrier = rewriter;
         representationType = 0;
     }
 }
 
 void DomainInstanceDecl::finalize()
 {
-    // If we have not yet initialized the body of this instance compute it now.
-    if (body.is<AddDecl*>()) return;
+    // If we have not yet initialized the representation of this instance
+    // compute it now.
+    if (representationType) return;
 
-    DeclRewriter *rewriter = body.get<DeclRewriter*>();
-    initializeBody(*rewriter);
+    DeclRewriter *rewriter = carrier.get<DeclRewriter*>();
+    initializeRepresentation(*rewriter);
     delete rewriter;
 }
 
-void DomainInstanceDecl::initializeBody(DeclRewriter &rewriter)
+void DomainInstanceDecl::initializeRepresentation(DeclRewriter &rewriter)
 {
     AddDecl *orig = definition->getImplementation();
-    AddDecl *add = new AddDecl(this);
-    rewriter.setContext(add, orig);
+    CarrierDecl *decl = 0;
 
-    // Iterate over the complete set of declarations provided by the body of our
-    // defining domoid.
-    add->addDeclarationsUsingRewrites(rewriter, orig);
+    // Set the origin of the rewriter to the add declaration of our
+    // implementation.  This ensures that if the representation of this domain
+    // depends on additional declarations, only those appearing in the "add" are
+    // rewritten.  Also note that the context of the rewriter remains associated
+    // with this instance, resulting in all new declaration nodes being declared
+    // "inside" this instance (but are otherwise invisible since they are not
+    // added to the region via a call to addDecl).
+    assert(rewriter.getContext() == this && "Inconsistent rewrite context!");
+    rewriter.setOrigin(orig);
 
     // FIXME: No need for the conditional when it is guaranteed that a finalized
     // domain defines a carrier.
     if (orig->hasCarrier()) {
-        add->setCarrier(rewriter.rewriteCarrierDecl(orig->getCarrier()));
+        decl = rewriter.rewriteCarrierDecl(orig->getCarrier());
 
         // Resolve the representation type of this domain.
-        PrimaryType *rep = add->getCarrier()->getType();
+        PrimaryType *rep = decl->getType();
 
         if (DomainType *domain = dyn_cast<DomainType>(rep)) {
             DomainInstanceDecl *instance = domain->getInstanceDecl();
@@ -786,7 +787,7 @@ void DomainInstanceDecl::initializeBody(DeclRewriter &rewriter)
         }
         representationType = rep;
     }
-    body = add;
+    carrier = decl;
 }
 
 bool DomainInstanceDecl::isDependent() const

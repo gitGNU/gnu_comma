@@ -455,9 +455,6 @@ public:
     /// Creates an AddDecl to represent the body of the given percent decl.
     AddDecl(PercentDecl *percent);
 
-    /// Creates an AddDecl to represent the body of the given domain instance.
-    AddDecl(DomainInstanceDecl *instance);
-
     /// Returns true if this Add implements a DomainDecl.
     bool implementsDomain() const;
 
@@ -2203,9 +2200,8 @@ private:
     DomainTypeDecl **arguments;
     SignatureSet sigset;
 
-    typedef llvm::PointerUnion<AddDecl*, DeclRewriter*> BodyUnion;
-    BodyUnion body;
-
+    typedef llvm::PointerUnion<CarrierDecl*, DeclRewriter*> CarrierRewrite;
+    CarrierRewrite carrier;
     PrimaryType *representationType;
 
     friend class DomainDecl;
@@ -2219,7 +2215,7 @@ private:
     void initializeInstance(Domoid *definition);
 
     // Helper function called bby the constructors and finalize.
-    void initializeBody(DeclRewriter &rewriter);
+    void initializeRepresentation(DeclRewriter &rewriter);
 
     // The following call-backs are invoked when the declarative region of the
     // defining declaration changes.

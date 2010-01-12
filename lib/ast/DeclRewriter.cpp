@@ -246,9 +246,13 @@ DeclRewriter::rewriteIntegerSubtypeDecl(IntegerSubtypeDecl *decl)
 
 RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
 {
+    RecordDecl *result;
+    if ((result = cast_or_null<RecordDecl>(findRewrite(decl))))
+        return result;
+
     IdentifierInfo *name = decl->getIdInfo();
     AstResource &resource = getAstResource();
-    RecordDecl *result = resource.createRecordDecl(name, 0, context);
+    result = resource.createRecordDecl(name, 0, context);
 
     typedef DeclRegion::DeclIter decl_iterator;
     decl_iterator I = decl->beginDecls();
@@ -269,9 +273,11 @@ RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
 IncompleteTypeDecl *
 DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
 {
-    IdentifierInfo *name = ITD->getIdInfo();
     IncompleteTypeDecl *result;
+    if ((result = cast_or_null<IncompleteTypeDecl>(findRewrite(ITD))))
+        return result;
 
+    IdentifierInfo *name = ITD->getIdInfo();
     result = getAstResource().createIncompleteTypeDecl(name, 0, context);
 
     // Provide a mapping from the original declaration to the new one.  We do
@@ -291,9 +297,13 @@ DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
 
 CarrierDecl *DeclRewriter::rewriteCarrierDecl(CarrierDecl *carrier)
 {
+    CarrierDecl *result;
+    if ((result = cast_or_null<CarrierDecl>(findRewrite(carrier))))
+        return result;
+
     IdentifierInfo *name = carrier->getIdInfo();
     PrimaryType *rep = cast<PrimaryType>(rewriteType(carrier->getType()));
-    CarrierDecl *result = new CarrierDecl(getAstResource(), name, rep, 0);
+    result = new CarrierDecl(getAstResource(), name, rep, 0);
 
     addTypeRewrite(carrier->getType(), result->getType());
     addDeclRewrite(carrier, result);
@@ -310,6 +320,18 @@ AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
     IdentifierInfo *name = access->getIdInfo();
     Type *targetType = rewriteType(access->getType()->getTargetType());
 
+    // An access type can ultimately reference itself via the target type.  If
+    // we have an entry to ourselves we know a circularity is present and we are
+    // done.
+    //
+    // FIXME: It might be better to construct an access decl without a target
+    // type and insert it into the rewrite map immediately so that any recursive
+    // references can simply be resolved.  OTOH, the current approach depends on
+    // the rewriter "bottoming out" thru an incomplete type when circularities
+    // are present.  In some sense, the current implementation "tests" that the
+    // AST is sane at the expense of speed.
+    if ((result = cast_or_null<AccessDecl>(findRewrite(access))))
+        return result;
 
     result = resource.createAccessDecl(name, 0, targetType, context);
     result->generateImplicitDeclarations(resource);
@@ -410,8 +432,15 @@ Type *DeclRewriter::rewriteType(Type *type)
     case Ast::AST_AccessType:
         result = rewriteAccessType(cast<AccessType>(type));
         break;
-    }
 
+    case Ast::AST_RecordType:
+        result = rewriteRecordType(cast<RecordType>(type));
+        break;
+
+    case Ast::AST_IncompleteType:
+        result = rewriteIncompleteType(cast<IncompleteType>(type));
+        break;
+    }
     return result;
 }
 
@@ -421,6 +450,22 @@ AccessType *DeclRewriter::rewriteAccessType(AccessType *type)
     if (declaration->getDeclRegion() != origin)
         return type;
     return rewriteAccessDecl(declaration)->getType();
+}
+
+RecordType *DeclRewriter::rewriteRecordType(RecordType *type)
+{
+    RecordDecl *declaration = type->getDefiningDecl();
+    if (declaration->getDeclRegion() != origin)
+        return type;
+    return rewriteRecordDecl(declaration)->getType();
+}
+
+IncompleteType *DeclRewriter::rewriteIncompleteType(IncompleteType *type)
+{
+    IncompleteTypeDecl *declaration = type->getDefiningDecl();
+    if (declaration->getDeclRegion() != origin)
+        return type;
+    return rewriteIncompleteTypeDecl(declaration)->getType();
 }
 
 IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)

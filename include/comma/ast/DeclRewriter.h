@@ -40,17 +40,35 @@ public:
                  DeclRegion *context, DeclRegion *origin)
         : AstRewriter(rewrites), context(context), origin(origin) { }
 
-    /// Switches the context and origin associated with this decl rewriter.
+    /// Switches the context associated with this decl rewriter.
     ///
-    /// \note It is only permited to switch a DeclRewriter to a context and
-    /// origin which are both immediately enclosed by the current context and
-    /// origin.
-    void setContext(DeclRegion *context, DeclRegion *origin) {
+    /// \note It is only permited to switch a DeclRewriter to a context which is
+    /// immediately enclosed by the currently active context.
+    void setContext(DeclRegion *context) {
         assert(context->getParent() == this->context);
-        assert(origin->getParent() == this->origin);
         this->context = context;
+    }
+
+    /// Switches the origin associated with this decl rewriter.
+    ///
+    /// \note It is only permited to switch a DeclRewriter to an origin which is
+    /// immediately enclosed by the currently active origin.
+    void setOrigin(DeclRegion *origin) {
+        assert(origin->getParent() == this->origin);
         this->origin = origin;
     }
+
+    //@{
+    /// Returns the current context associated with this rewriter.
+    const DeclRegion *getContext() const { return context; }
+    DeclRegion *getContext() { return context; }
+    //@}
+
+    //@{
+    /// Returns the current origin associated with this rewriter.
+    const DeclRegion *getOrigin() const { return origin; }
+    DeclRegion *getOrigin() { return origin; }
+    //@}
 
     /// \name Declaration rewrite methods.
     ///
@@ -114,6 +132,8 @@ private:
 
     Type *rewriteType(Type *type);
     AccessType *rewriteAccessType(AccessType *type);
+    RecordType *rewriteRecordType(RecordType *type);
+    IncompleteType *rewriteIncompleteType(IncompleteType *type);
 
     Expr *rewriteExpr(Expr *expr);
 
