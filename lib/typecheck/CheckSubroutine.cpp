@@ -119,12 +119,21 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     // Ensure that if this function names a binary or unary operator it has the
     // required arity.
     if (routineStencil.denotesFunction()) {
-        if (namesUnaryFunction(name)) {
-            if (params.size() != 1 && !namesBinaryFunction(name))
-                report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
-        }
-        if (namesBinaryFunction(name)) {
-            if (params.size() != 2) {
+        bool namesUnary = namesUnaryFunction(name);
+        bool namesBinary = namesBinaryFunction(name);
+
+        if (namesUnary || namesBinary) {
+            bool allOK = true;
+            unsigned numParams = params.size();
+
+            if (namesUnary && namesBinary)
+                allOK = numParams == 1 || numParams == 2;
+            else if (namesUnary)
+                allOK = numParams == 1;
+            else if (namesBinary)
+                allOK = numParams == 2;
+
+            if (!allOK) {
                 report(location, diag::OPERATOR_ARITY_MISMATCH) << name;
                 return getInvalidNode();
             }
