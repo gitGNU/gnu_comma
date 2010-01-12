@@ -1,0 +1,26 @@
+
+domain Test with
+   procedure Run;
+add
+   type Cell;
+   type Cell_Access is access Cell;
+
+   type Cell is record
+      Elem : Integer;
+      Next : %;
+   end record;
+
+   carrier Rep is Cell_Access;
+
+   procedure Update (E : in out %) is
+   begin
+      inj(E) := null;
+   end Update;
+
+   procedure Run is
+      E : % := prj(new Cell'(Elem => 0, Next => prj(null)));
+   begin
+      Update(E);
+      pragma Assert(inj(E) = null);
+   end Run;
+end Test;

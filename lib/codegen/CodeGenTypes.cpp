@@ -128,6 +128,38 @@ CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
     return cast<DomainType>(*I);
 }
 
+const PrimaryType *CodeGenTypes::resolveType(const Type *type)
+{
+    if (const DomainType *domTy = dyn_cast<DomainType>(type)) {
+
+        if (const AbstractDomainDecl *decl = domTy->getAbstractDecl())
+            return resolveType(rewriteAbstractDecl(decl));
+
+        const DomainInstanceDecl *instance;
+        if (const PercentDecl *percent = domTy->getPercentDecl()) {
+            // Ensure that the current context represents a particular instance
+            // of the percent node and resolve the particular representation
+            // associated with the instance.
+            assert(percent->getDefinition() == context->getDefinition());
+            instance = context;
+        }
+        else
+            instance = domTy->getInstanceDecl();
+
+        if (instance->isParameterized() && instance->isDependent()) {
+            RewriteScope scope(rewrites);
+            addInstanceRewrites(instance);
+            return resolveType(instance->getRepresentationType());
+        }
+        else
+            return resolveType(instance->getRepresentationType());
+    }
+    else if (const IncompleteType *IT = dyn_cast<IncompleteType>(type))
+        return resolveType(IT->getCompleteType());
+
+    return cast<PrimaryType>(type);
+}
+
 const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
 {
     const llvm::Type *entry = 0;
@@ -198,12 +230,8 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     SubroutineDecl::const_param_iterator E = decl->end_params();
     for ( ; I != E; ++I) {
         const ParamValueDecl *param = *I;
-        const Type *paramTy = param->getType();
+        const Type *paramTy = resolveType(param->getType());
         const llvm::Type *loweredTy = lowerType(paramTy);
-
-        // If the parameter type is a domain, resolve it's representation.
-        if (const DomainType *domTy = dyn_cast<DomainType>(paramTy))
-            paramTy = domTy->getRepresentationType();
 
         if (const CompositeType *compTy = dyn_cast<CompositeType>(paramTy)) {
             // We never pass composite types by value, always by reference.

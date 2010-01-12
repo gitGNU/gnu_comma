@@ -112,6 +112,16 @@ private:
     const llvm::Type *&getLoweredType(const Type *type) {
         return loweredTypes.FindAndConstruct(type).second;
     }
+
+    /// Resolves the given type.
+    ///
+    /// In the case a domain types this method resolves the underlying
+    /// representation.  In the case of incomplete types this method resolves
+    /// the completion.
+    ///
+    /// FIXME: This method is a close cousin to CGR's resolveType.  It might be
+    /// best to make this method public and remove CGR's version.
+    const PrimaryType *resolveType(const Type *type);
 };
 
 }; // end comma namespace

@@ -303,6 +303,16 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
     Expr *lhs = stmt->getTarget();
     Expr *rhs = stmt->getAssignedExpr();
 
+    // Resolve any layers of inj/prj expressions.
+    for (;;) {
+        if (InjExpr *inj = dyn_cast<InjExpr>(lhs))
+            lhs = inj->getOperand();
+        else if (PrjExpr *prj = dyn_cast<PrjExpr>(lhs))
+            lhs = prj->getOperand();
+        else
+            break;
+    }
+
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(lhs)) {
         Type *refTy = resolveType(ref->getType());
 
@@ -343,7 +353,8 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
             llvm::Value *source = emitValue(rhs);
             Builder.CreateStore(source, target);
         }
-    } else {
+    }
+    else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
         // to the needed component and again, store in the right hand side.
         IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
