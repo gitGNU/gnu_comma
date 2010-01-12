@@ -324,7 +324,7 @@ void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *target
     else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
         arguments.push_back(CGR.emitVariableReference(param));
     else
-        arguments.push_back(CGR.emitValue(param));
+        arguments.push_back(CGR.emitValue(param).first());
 }
 
 void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
@@ -804,10 +804,10 @@ CallEmitter::resolveAbstractSubroutine(DomainInstanceDecl *instance,
 
 } // end anonymous namespace.
 
-llvm::Value *CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
+CValue CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
 {
     CallEmitter emitter(*this, Builder);
-    return emitter.emitSimpleCall(expr);
+    return CValue::getSimple(emitter.emitSimpleCall(expr));
 }
 
 llvm::Value *CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,

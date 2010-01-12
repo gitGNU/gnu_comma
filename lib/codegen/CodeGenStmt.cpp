@@ -156,7 +156,7 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
     else {
         // Non-composite return values can be simply evaluated and stored into
         // this subroutines return slot.
-        llvm::Value *res = emitValue(ret->getReturnExpr());
+        llvm::Value *res = emitValue(ret->getReturnExpr()).first();
         Builder.CreateStore(res, returnValue);
     }
 
@@ -240,7 +240,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 
 void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 {
-    llvm::Value *condition = emitValue(ite->getCondition());
+    CValue condition = emitValue(ite->getCondition());
     llvm::BasicBlock *thenBB = SRF->makeBasicBlock("then");
     llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("merge");
     llvm::BasicBlock *elseBB;
@@ -252,7 +252,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     else
         elseBB = mergeBB;
 
-    Builder.CreateCondBr(condition, thenBB, elseBB);
+    Builder.CreateCondBr(condition.first(), thenBB, elseBB);
     Builder.SetInsertPoint(thenBB);
 
     // Emit the true branch in its own frame. If generation of the consequent
@@ -274,7 +274,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         else
             elseBB = mergeBB;
         llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("body");
-        llvm::Value *pred = emitValue(I->getCondition());
+        llvm::Value *pred = emitValue(I->getCondition()).first();
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
 
@@ -326,7 +326,7 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
             // The left hand side is a simple variable reference.  Just emit the
             // left and right hand sides and form a store.
             llvm::Value *target = emitVariableReference(ref);
-            llvm::Value *source = emitValue(rhs);
+            llvm::Value *source = emitValue(rhs).first();
             Builder.CreateStore(source, target);
         }
     }
@@ -337,30 +337,25 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
         llvm::Value *target = emitSelectedRef(selExpr);
         if (selExpr->getType()->isCompositeType())
             emitCompositeExpr(rhs, target, false);
-        else {
-            llvm::Value *source = emitValue(rhs);
-            Builder.CreateStore(source, target);
-        }
+        else
+            Builder.CreateStore(emitValue(rhs).first(), target);
     }
     else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(lhs)) {
-        // Emit the prefix as a simple value yeilding a pointer to the
+        // Emit the prefix as a simple value yielding a pointer to the
         // destination.  Check that the target is not null and emit the rhs.
-        llvm::Value *target = emitValue(deref->getPrefix());
+        llvm::Value *target = emitValue(deref->getPrefix()).first();
         emitNullAccessCheck(target);
         if (deref->getPrefixType()->isCompositeType())
             emitCompositeExpr(rhs, target, false);
-        else {
-            llvm::Value *source = emitValue(rhs);
-            Builder.CreateStore(source, target);
-        }
+        else
+            Builder.CreateStore(emitValue(rhs).first(), target);
     }
     else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
         // to the needed component and again, store in the right hand side.
         IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
         llvm::Value *target = emitIndexedArrayRef(arrIdx);
-        llvm::Value *source = emitValue(rhs);
-        Builder.CreateStore(source, target);
+        Builder.CreateStore(emitValue(rhs).first(), target);
     }
 }
 
@@ -375,10 +370,10 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
     // block.
     Builder.CreateBr(entryBB);
     Builder.SetInsertPoint(entryBB);
-    llvm::Value *condition = emitValue(stmt->getCondition());
+    CValue condition = emitValue(stmt->getCondition());
 
     // Branch into bodyBB if condition evaluates to true, mergeBB otherwise.
-    Builder.CreateCondBr(condition, bodyBB, mergeBB);
+    Builder.CreateCondBr(condition.first(), bodyBB, mergeBB);
 
     // Generate the body.
     Builder.SetInsertPoint(bodyBB);
@@ -391,7 +386,7 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(entryBB);
 
-    // Finally, set mergeBB the current insertion point.
+    // Finally, set mergeBB as the current insertion point.
     Builder.SetInsertPoint(mergeBB);
 }
 

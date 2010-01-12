@@ -9,6 +9,7 @@
 #ifndef COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 
+#include "CValue.h"
 #include "Frame.h"
 #include "comma/ast/AstBase.h"
 #include "comma/codegen/CodeGen.h"
@@ -68,7 +69,7 @@ public:
 
     void emit();
 
-    llvm::Value *emitValue(Expr *expr);
+    CValue emitValue(Expr *expr);
     llvm::Value *emitVariableReference(Expr *expr);
 
     std::pair<llvm::Value*, llvm::Value*>
@@ -79,7 +80,7 @@ public:
 
     void emitStmt(Stmt *stmt);
 
-    llvm::Value *emitSimpleCall(FunctionCallExpr *expr);
+    CValue emitSimpleCall(FunctionCallExpr *expr);
 
     /// Emits a function call using the sret calling convention.
     ///
@@ -140,17 +141,17 @@ private:
     llvm::BasicBlock *emitBlockStmt(BlockStmt *block,
                                     llvm::BasicBlock *predecessor = 0);
 
-    llvm::Value *emitDeclRefExpr(DeclRefExpr *expr);
-    llvm::Value *emitPrjExpr(PrjExpr *expr);
-    llvm::Value *emitInjExpr(InjExpr *expr);
-    llvm::Value *emitIntegerLiteral(IntegerLiteral *expr);
-    llvm::Value *emitIndexedArrayValue(IndexedArrayExpr *expr);
-    llvm::Value *emitConversionValue(ConversionExpr *expr);
-    llvm::Value *emitAttribExpr(AttribExpr *expr);
-    llvm::Value *emitSelectedValue(SelectedExpr *expr);
-    llvm::Value *emitNullExpr(NullExpr *expr);
-    llvm::Value *emitDereferencedValue(DereferenceExpr *expr);
-    llvm::Value *emitAllocatorValue(AllocatorExpr *expr);
+    CValue emitDeclRefExpr(DeclRefExpr *expr);
+    CValue emitPrjExpr(PrjExpr *expr);
+    CValue emitInjExpr(InjExpr *expr);
+    CValue emitIntegerLiteral(IntegerLiteral *expr);
+    CValue emitIndexedArrayValue(IndexedArrayExpr *expr);
+    CValue emitConversionValue(ConversionExpr *expr);
+    CValue emitAttribExpr(AttribExpr *expr);
+    CValue emitSelectedValue(SelectedExpr *expr);
+    CValue emitNullExpr(NullExpr *expr);
+    CValue emitDereferencedValue(DereferenceExpr *expr);
+    CValue emitAllocatorValue(AllocatorExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);

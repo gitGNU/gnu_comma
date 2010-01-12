@@ -218,7 +218,7 @@ void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
     if (isa<CompositeType>(expr->getType()))
         CGR.emitCompositeExpr(expr, dst, false);
     else
-        Builder.CreateStore(CGR.emitValue(expr), dst);
+        Builder.CreateStore(CGR.emitValue(expr).first(), dst);
 }
 
 ArrayEmitter::ValuePair ArrayEmitter::emitCall(FunctionCallExpr *call,
@@ -461,7 +461,7 @@ void ArrayEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
     else {
         Expr *expr = (*I)->getAsExpr();
         length = 1;
-        idx = CGR.emitValue(expr);
+        idx = CGR.emitValue(expr).first();
     }
 
     Expr *expr = I.getExpr();
@@ -793,7 +793,7 @@ llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(expr)) {
         // Emit the prefix as a value, yielding a pointer to the record.
-        rec = CGR.emitValue(deref->getPrefix());
+        rec = CGR.emitValue(deref->getPrefix()).first();
     }
 
     assert(rec && "Could not codegen record expression!");
@@ -849,8 +849,8 @@ void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
     if (isa<CompositeType>(CGR.resolveType(expr->getType())))
         CGR.emitCompositeExpr(expr, dst, false);
     else {
-        llvm::Value *component = CGR.emitValue(expr);
-        Builder.CreateStore(component, dst);
+        CValue component = CGR.emitValue(expr);
+        Builder.CreateStore(component.first(), dst);
     }
 }
 

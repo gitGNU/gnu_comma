@@ -137,7 +137,7 @@ llvm::Value *BoundsEmitter::getLowerBound(llvm::IRBuilder<> &Builder,
     }
     else {
         Expr *expr = const_cast<Expr*>(range->getLowerBound());
-        return CGR.emitValue(expr);
+        return CGR.emitValue(expr).first();
     }
 }
 
@@ -152,7 +152,7 @@ llvm::Value *BoundsEmitter::getUpperBound(llvm::IRBuilder<> &Builder,
     }
     else {
         Expr *expr = const_cast<Expr*>(range->getUpperBound());
-        return CGR.emitValue(expr);
+        return CGR.emitValue(expr).first();
     }
 }
 

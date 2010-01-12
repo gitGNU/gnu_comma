@@ -87,8 +87,8 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
         const llvm::Type *lowTy = CGT.lowerType(objTy);
         llvm::Value *slot = SRF->createEntry(objDecl, activation::Slot, lowTy);
         if (objDecl->hasInitializer()) {
-            llvm::Value *value = emitValue(objDecl->getInitializer());
-            Builder.CreateStore(value, slot);
+            CValue value = emitValue(objDecl->getInitializer());
+            Builder.CreateStore(value.first(), slot);
         }
     }
 }
@@ -140,7 +140,7 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
     return 0;
 }
 
-llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
+CValue CodeGenRoutine::emitValue(Expr *expr)
 {
     switch (expr->getKind()) {
 
@@ -188,12 +188,12 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
         return emitAllocatorValue(cast<AllocatorExpr>(expr));
     }
 
-    return 0;
+    return CValue::getSimple(0);
 }
 
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 {
-    llvm::Value *condition = emitValue(pragma->getCondition());
+    CValue condition = emitValue(pragma->getCondition());
     llvm::GlobalVariable *msgVar = CG.emitInternString(pragma->getMessage());
     llvm::Value *message =
         CG.getPointerCast(msgVar, CG.getPointerType(CG.getInt8Ty()));
@@ -204,7 +204,7 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
     llvm::BasicBlock *passBB = SRF->makeBasicBlock("assert-pass");
 
     // If the condition is true, the assertion does not fire.
-    Builder.CreateCondBr(condition, passBB, assertBB);
+    Builder.CreateCondBr(condition.first(), passBB, assertBB);
 
     // Generate the call to _comma_assert_fail.
     Builder.SetInsertPoint(assertBB);
