@@ -1,0 +1,25 @@
+
+domain Test with
+   procedure Run;
+add
+   type Cell;
+   type Cell_Access is access Cell;
+
+   type Cell is record
+      Elem : Integer;
+      Next : %;
+   end record;
+
+   carrier Rep is Cell_Access;
+
+   function Create (N : Integer) return % is
+   begin
+      return prj(new Cell'(Elem => 0, Next => prj(null)));
+   end Create;
+
+   procedure Run is
+      E : % := Create(0);
+   begin
+      pragma Assert(inj(inj(E).all.Next) = null);
+   end Run;
+end Test;

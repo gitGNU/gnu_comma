@@ -371,13 +371,7 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     // If this is a function returning a constrained array type, mark it as
     // using the struct return calling convention.
     if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
-        const Type *retTy = fDecl->getReturnType();
-
-        // Since the instance is resolved, all of its types must be so too.  The
-        // consequence is that all domain types are fully resolved instances.
-        if (const DomainType *domTy = dyn_cast<DomainType>(retTy))
-            retTy = domTy->getRepresentationType();
-
+        const Type *retTy = CGT.resolveType(fDecl->getReturnType());
         if (const CompositeType *compTy = dyn_cast<CompositeType>(retTy))
             if (compTy->isConstrained())
                 fn->addAttribute(1, llvm::Attribute::StructRet);

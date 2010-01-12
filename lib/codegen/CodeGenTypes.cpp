@@ -192,11 +192,7 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     const llvm::Type *retTy = 0;
 
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-
-        // If the return type is a domain, resolve to the representation type.
-        const Type *targetTy = fdecl->getReturnType();
-        if (const DomainType *domTy = dyn_cast<DomainType>(targetTy))
-            targetTy = domTy->getRepresentationType();
+        const Type *targetTy = resolveType(fdecl->getReturnType());
 
         // If the return type is a statically constrained aggregate, use the
         // struct return calling convention.
