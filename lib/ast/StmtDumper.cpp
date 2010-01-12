@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -197,3 +197,9 @@ void StmtDumper::visitPragmaStmt(PragmaStmt *node)
 {
     printHeader(node) << '>';
 }
+
+void StmtDumper::visitNullStmt(NullStmt *node)
+{
+    printHeader(node) << '>';
+}
+

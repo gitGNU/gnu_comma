@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -91,6 +91,8 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
 
 Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
 {
+    context = resolveType(context);
+
     // The following sequence dispatches over the types of expressions which are
     // "sensitive" to context, meaning that we might need to patch up the AST so
     // that it conforms to the context.
@@ -104,10 +106,12 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveAggregateExpr(agg, context);
     if (NullExpr *null = dyn_cast<NullExpr>(expr))
         return resolveNullExpr(null, context);
+    if (AllocatorExpr *alloc = dyn_cast<AllocatorExpr>(expr))
+        return resolveAllocatorExpr(alloc, context);
 
     assert(expr->hasType() && "Expression does not have a resolved type!");
 
-    if (covers(context, expr->getType()))
+    if (covers(context, resolveType(expr->getType())))
         return convertIfNeeded(expr, context);
 
     // FIXME: Need a better diagnostic here.
@@ -123,16 +127,16 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
     else if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(expr)) {
         return resolveIntegerLiteral(lit, ID);
     }
-    else if (AggregateExpr *expr = dyn_cast<AggregateExpr>(expr)) {
+    else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
         // Classification is never a rich enough context to resolve aggregate
         // expressions.
-        report(expr->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
+        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
         return false;
     }
 
     // Otherwise, the expression must have a resolved type which belongs to the
     // given classification.
-    Type *exprTy = expr->getType();
+    Type *exprTy = resolveType(expr->getType());
     assert(exprTy && "Expression does not have a resolved type!");
 
     if (!exprTy->memberOf(ID)) {
@@ -258,6 +262,40 @@ Expr *TypeCheck::resolveNullExpr(NullExpr *expr, Type *context)
     return expr;
 }
 
+Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
+{
+    if (alloc->hasType()) {
+        assert(covers(context, alloc->getType()) &&
+               "Cannot resolve expression to an incompatible type!");
+        return alloc;
+    }
+
+    // The context must be an access type.
+    AccessType *pointerType = dyn_cast<AccessType>(context);
+    if (!pointerType) {
+        report(alloc->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
+
+    // Check that the pointee type is compatible with the operand of the
+    // allocator.
+    Type *targetType = pointerType->getTargetType();
+    if (alloc->isInitialized()) {
+        Expr *operand = alloc->getInitializer();
+        if (!(operand = checkExprInContext(operand, targetType)))
+            return 0;
+        alloc->setInitializer(operand);
+    }
+    else if (!covers(targetType, alloc->getAllocatedType())) {
+        report(alloc->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
+
+    // Everything looks OK.
+    alloc->setType(pointerType);
+    return alloc;
+}
+
 Node TypeCheck::acceptInj(Location loc, Node exprNode)
 {
     Domoid *domoid = getCurrentDomoid();
@@ -300,7 +338,7 @@ Node TypeCheck::acceptPrj(Location loc, Node exprNode)
         return getInvalidNode();
     }
 
-    Type *carrierTy = carrier->getRepresentationType();
+    Type *carrierTy = carrier->getType();
     Expr *expr = ensureExpr(exprNode);
     if (!expr || !(expr = checkExprInContext(expr, carrierTy)))
         return getInvalidNode();
@@ -337,6 +375,22 @@ Node TypeCheck::acceptNullExpr(Location loc)
     return getNode(new NullExpr(loc));
 }
 
+Node TypeCheck::acceptAllocatorExpr(Node operandNode, Location loc)
+{
+    AllocatorExpr *alloc = 0;
+
+    if (QualifiedExpr *operand = lift_node<QualifiedExpr>(operandNode))
+        alloc = new AllocatorExpr(operand, loc);
+    else {
+        TypeDecl *operand = ensureCompleteTypeDecl(operandNode);
+        if (!operand)
+            return getInvalidNode();
+        alloc = new AllocatorExpr(operand->getType(), loc);
+    }
+    operandNode.release();
+    return getNode(alloc);
+}
+
 Node TypeCheck::acceptQualifiedExpr(Node qualifierNode, Node exprNode)
 {
     // The prefix to a qualified expression must denote a type decl.
@@ -346,7 +400,7 @@ Node TypeCheck::acceptQualifiedExpr(Node qualifierNode, Node exprNode)
     if (!(prefix && expr))
         return getInvalidNode();
 
-    // Resolve the operand in the type context provided by the prefix;
+    // Resolve the operand in the type context provided by the prefix.
     if (!(expr = checkExprInContext(expr, prefix->getType())))
         return getInvalidNode();
 
@@ -357,3 +411,22 @@ Node TypeCheck::acceptQualifiedExpr(Node qualifierNode, Node exprNode)
     result = new QualifiedExpr(prefix, expr, getNodeLoc(qualifierNode));
     return getNode(result);
 }
+
+Node TypeCheck::acceptDereference(Node prefixNode, Location loc)
+{
+    Expr *expr = ensureExpr(prefixNode);
+
+    if (!expr)
+        return getInvalidNode();
+
+    if (!checkExprInContext(expr, Type::CLASS_Access))
+        return getInvalidNode();
+
+    prefixNode.release();
+    DereferenceExpr *deref = new DereferenceExpr(expr, loc);
+    return getNode(deref);
+}
+
+
+
+

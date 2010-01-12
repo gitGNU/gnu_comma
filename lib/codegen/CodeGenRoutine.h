@@ -149,6 +149,8 @@ private:
     llvm::Value *emitAttribExpr(AttribExpr *expr);
     llvm::Value *emitSelectedValue(SelectedExpr *expr);
     llvm::Value *emitNullExpr(NullExpr *expr);
+    llvm::Value *emitDereferencedValue(DereferenceExpr *expr);
+    llvm::Value *emitAllocatorValue(AllocatorExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
@@ -166,6 +168,9 @@ private:
     void emitDiscreteRangeCheck(llvm::Value *sourceVal,
                                 DiscreteType *sourceTy,
                                 DiscreteType *targetTy);
+
+    /// Emits a null check for the given pointer value.
+    void emitNullAccessCheck(llvm::Value *pointer);
 
     /// Helper method for emitAbstractCall.
     ///

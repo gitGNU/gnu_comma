@@ -146,7 +146,11 @@ public:
 
     Node acceptNullExpr(Location loc);
 
+    Node acceptAllocatorExpr(Node operand, Location loc);
+
     Node acceptQualifiedExpr(Node qualifier, Node operand);
+
+    Node acceptDereference(Node prefix, Location loc);
 
     Node acceptIfStmt(Location loc, Node condition, NodeVector &consequents);
 
@@ -166,6 +170,8 @@ public:
 
     Node beginHandlerStmt(Location loc, NodeVector &choices);
     void endHandlerStmt(Node context, Node handler);
+
+    Node acceptNullStmt(Location loc);
 
     bool acceptStmt(Node context, Node stmt);
 
@@ -491,6 +497,9 @@ private:
     /// \see ensumeTypeDecl(Decl, Location, bool);
     TypeDecl *ensureTypeDecl(Node refNode, bool report = true);
 
+    /// Similar to ensureCompleteTypeDecl, but operates over type nodes.
+    Type *resolveType(Type *type) const;
+
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.
     // Returns a valid expression node (possibly different from \p intLit) if
@@ -521,6 +530,10 @@ private:
     // valid expression node if \p expr was found to be compatible with \p
     // context.  Otherwise null is returned and diagnostics are posted.
     Expr *resolveNullExpr(NullExpr *expr, Type *context);
+
+    // Resolves an allocator expression with respect to the given target type.
+    // Returns a valid expression node on success and null otherwise.
+    Expr *resolveAllocatorExpr(AllocatorExpr *alloc, Type *context);
 
     // Resolves the given call expression to one which satisfies the given
     // target type.  Returns a valid expression if the call was successfully

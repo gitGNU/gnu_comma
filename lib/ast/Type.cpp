@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2010 Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,6 +43,8 @@ bool Type::memberOf(Classification ID) const
         return isArrayType();
     case CLASS_String:
         return isStringType();
+    case CLASS_Access:
+        return isAccessType();
     }
 }
 
@@ -140,6 +142,15 @@ bool Type::involvesPercent() const
             return fnTy->getReturnType()->involvesPercent();
     }
 
+    if (const RecordType *recordTy = dyn_cast<RecordType>(this)) {
+        unsigned components = recordTy->numComponents();
+        for (unsigned i = 0; i < components; ++i) {
+            if (recordTy->getComponentType(i)->involvesPercent())
+                return true;
+        }
+        return false;
+    }
+
     return false;
 }
 
@@ -181,12 +192,15 @@ IncompleteTypeDecl *IncompleteType::getDefiningDecl()
     return rootType->definingDecl.get<IncompleteTypeDecl*>();
 }
 
+bool IncompleteType::hasCompletion() const
+{
+    return getDefiningDecl()->hasCompletion();
+}
+
 PrimaryType *IncompleteType::getCompleteType()
 {
-    IncompleteTypeDecl *definingDecl = getDefiningDecl();
-    assert(definingDecl->hasCompletion() && "Type does not have a completion!");
-
-    return definingDecl->getCompletion()->getType();
+    assert(hasCompletion() && "Type does not have a completion!");
+    return getDefiningDecl()->getCompletion()->getType();
 }
 
 //===----------------------------------------------------------------------===//

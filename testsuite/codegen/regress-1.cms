@@ -1,0 +1,35 @@
+
+
+generic
+   abstract domain X;
+domain Recurse with
+   function Make (A : Integer; B : X) return %;
+add
+   type R is record
+      F1 : Integer;
+      F2 : X;
+   end record;
+
+   carrier Rep is R;
+
+   function Make (A : Integer; B : X) return % is
+   begin
+      return prj(R'(A, B));
+   end Make;
+
+end Recurse;
+
+
+domain Test with
+   procedure Run;
+add
+   carrier Rep is Integer;
+
+   procedure Run is
+      X : Recurse(%) := Recurse(%).Make(0, prj(0));
+   begin
+      null;
+   end Run;
+end Test;
+
+

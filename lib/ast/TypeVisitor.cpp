@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -35,6 +35,8 @@ void TypeVisitor::visitType(Type *node)
         visitRecordType(recTy);
     else if (AccessType *accessTy = dyn_cast<AccessType>(node))
         visitAccessType(accessTy);
+    else if (IncompleteType *incompleteTy = dyn_cast<IncompleteType>(node))
+        visitIncompleteType(incompleteTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -60,3 +62,4 @@ void TypeVisitor::visitIntegerType(IntegerType *node) { }
 void TypeVisitor::visitArrayType(ArrayType *node) { }
 void TypeVisitor::visitRecordType(RecordType *node) { }
 void TypeVisitor::visitAccessType(AccessType *node) { }
+void TypeVisitor::visitIncompleteType(IncompleteType *node) { }

@@ -130,9 +130,10 @@ CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
 
 const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
 {
-    const llvm::Type *&entry = getLoweredType(type);
-    if (entry)
-        return entry;
+    // const llvm::Type *&entry = getLoweredType(type);
+    // if (entry)
+    //     return entry;
+    const llvm::Type *entry = 0;
 
     if (type->isAbstract())
         type = rewriteAbstractDecl(type->getAbstractDecl());
@@ -250,9 +251,9 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
     assert(type->getRank() == 1 &&
            "Cannot codegen multidimensional arrays yet!");
 
-    const llvm::Type *&entry = getLoweredType(type);
-    if (entry)
-        return llvm::cast<llvm::ArrayType>(entry);
+    // const llvm::Type *&entry = getLoweredType(type);
+    // if (entry)
+    //     return llvm::cast<llvm::ArrayType>(entry);
 
     const llvm::Type *elementTy = lowerType(type->getComponentType());
 
@@ -295,15 +296,15 @@ const llvm::ArrayType *CodeGenTypes::lowerArrayType(const ArrayType *type)
     uint64_t numElems;
     numElems = getArrayWidth(lowerBound, upperBound, idxTy->isSigned());
     const llvm::ArrayType *result = llvm::ArrayType::get(elementTy, numElems);
-    entry = result;
+    // entry = result;
     return result;
 }
 
 const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
 {
-    const llvm::Type *&entry = getLoweredType(recTy);
-    if (entry)
-        return llvm::cast<llvm::StructType>(entry);
+    // const llvm::Type *&entry = getLoweredType(recTy);
+    // if (entry)
+    //     return llvm::cast<llvm::StructType>(entry);
 
     unsigned maxAlignment = 0;
     uint64_t currentOffset = 0;
@@ -343,7 +344,7 @@ const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
 
     const llvm::StructType *result;
     result = llvm::StructType::get(CG.getLLVMContext(), fields);
-    entry = result;
+    // entry = result;
     return result;
 }
 
@@ -374,11 +375,12 @@ const llvm::PointerType *CodeGenTypes::lowerAccessType(const AccessType *access)
     entry = barrier;
     const llvm::Type *targetType = lowerType(access->getTargetType());
 
-    // Refine the type holder and update the corresponding entry in the type
-    // map.
+    // Refine the type holder and update the entry corresponding to this access
+    // type in the type map.
     cast<llvm::OpaqueType>(holder.get())->refineAbstractTypeTo(targetType);
     const llvm::PointerType *result = holder.get()->getPointerTo();
     entry = result;
+
     return result;
 }
 

@@ -1,0 +1,345 @@
+--=== testsuite/codegen/slist.cms ----------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2010, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+--===------------------------------------------------------------------------===
+-- Singly_Linked_List
+--
+-- The following domain implements a singly linked list.
+--
+generic
+   abstract domain Element_Type;
+domain Singly_Linked_List with
+
+   function Empty return %;
+   -- Returns an empty list.
+
+   function Empty (List : %) return Boolean;
+   -- Returns true if the given list is empty.
+
+   function Length (List : %) return Natural;
+   -- Returns the length of the given list.
+
+   procedure Push (Elem : Element_Type; List : in out %);
+   -- Pushes Elem onto the front of List.
+
+   procedure Pop (List : in out %);
+   -- Removes the first element from the list.  Raises Program_Error if the
+   -- given list is empty.
+
+   procedure Append (Left : in out %; Right : %);
+   -- Copys the elements of list Right onto the end of list Left.
+
+   function First (List : %) return Element_Type;
+   -- Returns the first element of a list.  Raises Program_Error if the given
+   -- list is empty.
+
+   function Last  (List : %) return Element_Type;
+   -- Returns the last element of a list.  Raises Program_Error if the given
+   -- list is empty.
+
+   function Element (List : %; Index : Natural) return Element_Type;
+   -- Returns the element at the given index.  Raises Program_Error if Index is
+   -- not strictly less then the length of List.
+
+   procedure Reverse (List : in out %);
+   -- Reverses the order of the elements in List.
+
+add
+   type Cell;
+   type Cell_Access is access Cell;
+
+   type Cell is record
+      Elem : Element_Type;
+      Next : Cell_Access;
+   end record;
+
+   type List_Header is record
+      Length : Natural;
+      First  : Cell_Access;
+      Last   : Cell_Access;
+   end record;
+
+   carrier Rep is List_Header;
+
+   --
+   -- Empty
+   --
+   function Empty return % is
+   begin
+      return prj(List_Header'(Length => 0, First => null, Last => null));
+   end Empty;
+
+   --
+   -- Empty
+   --
+   function Empty (List : %) return Boolean is
+   begin
+      return Length(List) = 0;
+   end Empty;
+
+   --
+   -- Push
+   --
+   procedure Push (Elem : Element_Type; List : in out %) is
+      Header : Rep renames inj(List);
+      Entry  : Cell_Access := new Cell'(Elem => Elem, Next => Header.First);
+   begin
+      -- If the header is empty, update the last pointer.
+      if Header.Length = 0 then
+         Header.Last := Entry;
+      end if;
+
+      Header.Length := Header.Length + 1;
+      Header.First  := Entry;
+   end Push;
+
+   --
+   -- Pop
+   --
+   procedure Pop (List : in out %) is
+      Header : Rep renames inj(List);
+   begin
+      if Empty(List) then
+         raise Program_Error;
+      elsif Length(List) = 1 then
+         Header.Length := 0;
+         Header.First  := null;
+         Header.Last   := null;
+      else
+         Header.First  := Header.First.all.Next;
+         Header.Length := Header.Length - 1;
+      end if;
+   end Pop;
+
+   --
+   -- Length
+   --
+   function Length (List : %) return Natural is
+   begin
+      return inj(List).Length;
+   end Length;
+
+   --
+   -- First
+   --
+   function First (List : %) return Element_Type is
+   begin
+      if Empty(List) then
+         raise Program_Error;
+      else
+         return inj(List).First.all.Elem;
+      end if;
+   end First;
+
+   --
+   -- Last
+   --
+   function Last (List : %) return Element_Type is
+   begin
+      if Empty(List) then
+         raise Program_Error;
+      else
+         return inj(List).Last.all.Elem;
+      end if;
+   end Last;
+
+   --
+   -- Element
+   --
+   function Element (List : %; Index : Natural) return Element_Type is
+      Cursor : Cell_Access := null;
+   begin
+      if Index >= Length(List) then
+         raise Program_Error;
+      else
+         Cursor := inj(List).First;
+         for I in 1..Index loop
+            Cursor := Cursor.all.Next;
+         end loop;
+         return Cursor.all.Elem;
+      end if;
+   end Element;
+
+   --
+   -- Reverse
+   --
+   procedure Reverse (List : in out %) is
+      Cursor : Cell_Access := null;
+      Next   : Cell_Access := null;
+      Prev   : Cell_Access := null;
+      Head   : List_Header renames inj(List);
+   begin
+      Cursor := Head.First;
+
+      while Cursor /= null loop
+         Next            := Cursor.all.Next;
+         Cursor.all.Next := Prev;
+         Prev            := Cursor;
+         Cursor          := Next;
+      end loop;
+
+      Cursor     := Head.First;
+      Head.First := Head.Last;
+      Head.Last  := Cursor;
+   end Reverse;
+
+   --
+   -- Append
+   --
+   procedure Append (Left : in out %; Right : %) is
+      Header : Rep renames inj(Left);
+      Tail   : Cell_Access := Header.Last;
+      Cursor : Cell_Access := inj(Right).First;
+   begin
+      -- Iterate over the length instead of cheking if the cursor is null.  This
+      -- prevents an infinite loop when Left = Right.
+      for I in 1..Length(Right) loop
+         Tail.all.Next := new Cell'(Elem => Cursor.all.Elem,
+                                    Next => null);
+         Tail          := Tail.all.Next;
+         Cursor        := Cursor.all.Next;
+         Header.Length := Header.Length + 1;
+      end loop;
+
+      Header.Last   := Tail;
+   end Append;
+
+end Singly_Linked_List;
+
+
+--===------------------------------------------------------------------------===
+-- Pair
+--
+-- Simple domain to represent a pair of elements.
+--
+generic
+   abstract domain Element_Type;
+domain Pair with
+   function Make (N : Element_Type; M : Element_Type) return %;
+   -- Constructs a Pair over the given elements.
+
+   function First (P : %) return Element_Type;
+   -- Returns the first element of a Pair.
+
+   function Second (P : %) return Element_Type;
+   -- Returns the second element of a Pair.
+add
+   type Duo is record
+      First  : Element_Type;
+      Second : Element_Type;
+   end record;
+
+   carrier Rep is Duo;
+
+   --
+   -- Make
+   --
+   function Make (N : Element_Type; M : Element_Type) return % is
+   begin
+      return prj(Duo'(N, M));
+   end Make;
+
+   --
+   -- First
+   --
+   function First (P : %) return Element_Type is
+   begin
+      return inj(P).First;
+   end First;
+
+   --
+   -- Second
+   --
+   function Second (P : %) return Element_Type is
+   begin
+      return inj(P).Second;
+   end Second;
+end Pair;
+
+--===------------------------------------------------------------------------===
+-- Int
+--
+-- Trivial domain with Integer as representation.  For use as parameter to the
+-- above generic domains.
+--
+domain Int with
+   function Make (N : Integer) return %;
+   function To_Integer (P : %) return Integer;
+add
+   carrier Rep is Integer;
+
+   function Make (N : Integer) return % is
+   begin
+      return prj(N);
+   end Make;
+
+   function To_Integer (P : %) return Integer is
+   begin
+      return inj(P);
+   end To_Integer;
+end Int;
+
+
+--===------------------------------------------------------------------------===
+-- Test
+--
+domain Test with
+   procedure Run;
+add
+
+   procedure Run is
+      import Singly_Linked_List(Pair(Int));
+      import Pair(Int);
+      import Int;
+
+      L : Singly_Linked_List(Pair(Int)) := Empty;
+   begin
+      for I in 1..10 loop
+         Push(Make(Make(I), Make(I + 1)), L);
+      end loop;
+
+      pragma Assert(Length(L) = 10);
+
+      for I in 0..Length(L) - 1 loop
+         declare
+            P : Pair(Int) := Element(L, I);
+         begin
+            pragma Assert(To_Integer(First(P))  = 10 - I);
+            pragma Assert(To_Integer(Second(P)) = 11 - I);
+         end;
+      end loop;
+
+      Reverse(L);
+      for I in 0..Length(L) - 1 loop
+         declare
+            P : Pair(Int) := Element(L, I);
+         begin
+            pragma Assert(To_Integer(First(P))  = I + 1);
+            pragma Assert(To_Integer(Second(P)) = I + 2);
+         end;
+      end loop;
+
+      Append(L, L);
+      pragma Assert(Length(L) = 20);
+
+      for I in 1..Length(L) loop
+         Pop(L);
+      end loop;
+
+      pragma Assert(Empty(L));
+
+      begin
+         Pop(L);
+         pragma Assert(false);
+      exception
+         when Program_Error => null;
+      end;
+   end Run;
+end Test;
+
+

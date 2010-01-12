@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -58,6 +58,7 @@ public:
     virtual void visitLoopStmt(LoopStmt *node);
     virtual void visitRaiseStmt(RaiseStmt *node);
     virtual void visitPragmaStmt(PragmaStmt *node);
+    virtual void visitNullStmt(NullStmt *node);
     ///@}
 };
 

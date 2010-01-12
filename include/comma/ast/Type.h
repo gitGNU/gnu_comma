@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2010 Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -39,7 +39,8 @@ public:
         CLASS_Integer,
         CLASS_Composite,
         CLASS_Array,
-        CLASS_String
+        CLASS_String,
+        CLASS_Access
     };
 
     /// Returns true if this type is a member of the given classification.
@@ -344,6 +345,9 @@ public:
     }
     IncompleteTypeDecl *getDefiningDecl();
     //@}
+
+    /// Returns true if this type as a completion.
+    bool hasCompletion() const;
 
     //@{
     /// Returns the underlying complete type.

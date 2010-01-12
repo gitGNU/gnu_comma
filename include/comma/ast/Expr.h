@@ -597,6 +597,45 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// DereferenceExpr
+//
+/// \class
+///
+/// \brief Representes either an explicit or implicit dereference expression.
+class DereferenceExpr : public Expr {
+
+public:
+    DereferenceExpr(Expr *prefix, Location loc, bool isImplicit = false);
+
+    ~DereferenceExpr() { delete prefix; }
+
+    //@{
+    /// Returns the expression to which this dereference applies.
+    const Expr *getPrefix() const { return prefix; }
+    Expr *getPrefix() { return prefix; }
+    //@}
+
+    //@{
+    /// Convenience method returning the type of the prefix.
+    const AccessType *getPrefixType() const {
+        return llvm::cast<AccessType>(prefix->getType());
+    }
+    AccessType *getPrefixType() {
+        return llvm::cast<AccessType>(prefix->getType());
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const DereferenceExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_DereferenceExpr;
+    }
+
+private:
+    Expr *prefix;
+};
+
+//===----------------------------------------------------------------------===//
 // ConversionExpr
 //
 // These nodes represent type conversions.
@@ -619,6 +658,86 @@ public:
 
 private:
     Expr *operand;              ///< The expression to convert.
+};
+
+//===----------------------------------------------------------------------===//
+// AllocatorExpr
+//
+/// \class
+///
+/// \brief Representation of allocation expressions.
+///
+/// There are two types of allocation expressions -- initialized and
+/// uninitialized.  This class represents both simultaneously.  The approach
+/// taken is to view an initialized allocation as a special case of an
+/// uninitialized allocation.
+///
+/// Similar to NullExpr's, AllocatorExpr's are initially constructed without a
+/// type.  The expected type of an allocation expression is inferred from the
+/// context in which it appears.
+class AllocatorExpr : public Expr {
+
+public:
+    /// Creates an initialized allocation over the given qualified expression.
+    AllocatorExpr(QualifiedExpr *operand, Location loc)
+        : Expr(AST_AllocatorExpr, loc),
+          operand(operand) { }
+
+    /// Creates an uninitialized allocation over the given primary type.
+    AllocatorExpr(PrimaryType *operand, Location loc)
+        : Expr(AST_AllocatorExpr, loc),
+          operand(operand) { }
+
+    /// Returns true if this is an initialized allocation expression.
+    bool isInitialized() const { return operand.is<Expr*>(); }
+
+    /// Returns true if this is an uninitialized allocation expression.
+    bool isUninitialized() const { return operand.is<PrimaryType*>(); }
+
+    //@{
+    /// Returns the initializer associated with this allocator or null if this
+    /// is not an initialized allocator.
+    const Expr *getInitializer() const { return operand.dyn_cast<Expr*>(); }
+    Expr *getInitializer() { return operand.dyn_cast<Expr*>(); }
+    //@}
+
+    //@{
+    /// Returns the type this allocator allocates.
+    const PrimaryType *getAllocatedType() const {
+        return const_cast<AllocatorExpr*>(this)->getAllocatedType();
+    }
+    PrimaryType *getAllocatedType() {
+        if (isInitialized())
+            return llvm::cast<PrimaryType>(operand.get<Expr*>()->getType());
+        else
+            return operand.get<PrimaryType*>();
+    }
+    //@}
+
+    /// Sets the initializer of this allocator expression.
+    void setInitializer(Expr *expr) { operand = expr; }
+
+    //@{
+    /// Specialize Expr::getType().
+    const AccessType *getType() const {
+        return llvm::cast<AccessType>(Expr::getType());
+    }
+    AccessType *getType() {
+        return llvm::cast<AccessType>(Expr::getType());
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const AllocatorExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_AllocatorExpr;
+    }
+
+private:
+    /// Underlying representation is a discriminated union of either a primary
+    /// type or an expression.
+    typedef llvm::PointerUnion<PrimaryType*, Expr*> OperandUnion;
+    OperandUnion operand;
 };
 
 } // End comma namespace.

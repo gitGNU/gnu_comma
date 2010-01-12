@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -115,6 +115,7 @@ void CommaRT::generateRuntimeFunctions()
     define_vstack_alloc();
     define_vstack_push();
     define_vstack_pop();
+    define_alloc();
 }
 
 // Builds a declaration in LLVM IR for the get_domain runtime function.
@@ -283,6 +284,19 @@ void CommaRT::define_vstack()
                                  llvm::GlobalValue::ExternalLinkage,
                                  0, "_comma_vstack");
 }
+
+void CommaRT::define_alloc()
+{
+    // comma_alloc takes a size argument of the C type uintptr_t and an
+    // alignment of type i32.  Returns a generic i8*.
+    std::vector<const llvm::Type*>args;
+    args.push_back(CG.getIntPtrTy());
+    args.push_back(CG.getInt32Ty());
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(CG.getInt8PtrTy(), args, false);
+    alloc_Fn = CG.makeFunction(fnTy, "_comma_alloc");
+}
+
 
 llvm::GlobalVariable *CommaRT::registerCapsule(Domoid *domoid)
 {
@@ -486,6 +500,20 @@ llvm::Value *CommaRT::vstack(llvm::IRBuilder<> &builder,
     const llvm::PointerType *ptrTy = cast<llvm::PointerType>(type);
     llvm::Value *stack_data = builder.CreateLoad(vstack_Var, true);
     return builder.CreatePointerCast(stack_data, ptrTy);
+}
+
+llvm::Value *CommaRT::comma_alloc(llvm::IRBuilder<> &builder,
+                                  uint64_t size, unsigned alignment) const
+{
+    const llvm::FunctionType *allocTy = alloc_Fn->getFunctionType();
+    const llvm::Type *sizeTy = allocTy->getParamType(0);
+    const llvm::Type *alignTy = allocTy->getParamType(1);
+
+    llvm::Value *sizeVal = llvm::ConstantInt::get(sizeTy, size);
+    llvm::Value *alignVal = llvm::ConstantInt::get(alignTy, alignment);
+
+    // FIXME:  Check for null and raise PROGRAM_ERROR when needed.
+    return builder.CreateCall2(alloc_Fn, sizeVal, alignVal);
 }
 
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,

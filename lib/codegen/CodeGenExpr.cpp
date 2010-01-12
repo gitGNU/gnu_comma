@@ -201,6 +201,13 @@ llvm::Value *CodeGenRoutine::emitSelectedValue(SelectedExpr *expr)
         return Builder.CreateLoad(componentPtr);
 }
 
+llvm::Value *CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
+{
+    llvm::Value *pointer = emitValue(expr->getPrefix());
+    emitNullAccessCheck(pointer);
+    return Builder.CreateLoad(pointer);
+}
+
 llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 {
     // The only type of conversions we currently support are those which involve
@@ -210,6 +217,33 @@ llvm::Value *CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 
     assert(false && "Cannot codegen given conversion yet!");
     return 0;
+}
+
+llvm::Value *CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
+{
+    // Compute the size and alignment of the type to be allocated.
+    const llvm::PointerType *resultTy = CGT.lowerAccessType(expr->getType());
+    const llvm::Type *pointeeTy = resultTy->getElementType();
+
+    uint64_t size = CGT.getTypeSize(pointeeTy);
+    unsigned align = CGT.getTypeAlignment(pointeeTy);
+
+    // Call into the runtime to allocate the object and cast the result to the
+    // needed type.
+    llvm::Value *pointer = CRT.comma_alloc(Builder, size, align);
+    pointer = Builder.CreatePointerCast(pointer, resultTy);
+
+    // If the allocator is initialized emit the object into the allocated
+    // memory.
+    if (expr->isInitialized()) {
+        Expr *init = expr->getInitializer();
+        if (init->getType()->isCompositeType())
+            emitCompositeExpr(init, pointer, false);
+        else
+            Builder.CreateStore(emitValue(init), pointer);
+    }
+
+    return pointer;
 }
 
 void
@@ -291,6 +325,23 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
 
     // Switch the context to the success block.
     Builder.SetInsertPoint(checkMergeBB);
+}
+
+void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer)
+{
+    llvm::BasicBlock *passBlock = SRF->makeBasicBlock("null.check.pass");
+    llvm::BasicBlock *failBlock = SRF->makeBasicBlock("null.check.fail");
+
+    llvm::Value *pred = Builder.CreateIsNull(pointer);
+
+    Builder.CreateCondBr(pred, failBlock, passBlock);
+
+    Builder.SetInsertPoint(failBlock);
+    llvm::GlobalVariable *msg = CG.emitInternString("Null check failed.");
+    CRT.raiseProgramError(SRF, msg);
+
+    // Switch to the pass block.
+    Builder.SetInsertPoint(passBlock);
 }
 
 llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,

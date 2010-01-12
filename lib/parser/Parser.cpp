@@ -1,4 +1,4 @@
-//===-- parser/parser.cpp ------------------------------------- -*- C++ -*-===//
+//===-- parser/Parser.cpp ------------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //

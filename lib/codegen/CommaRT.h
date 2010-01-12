@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -153,7 +153,7 @@ public:
     //@}
 
 
-    /// Variable stack routines.
+    /// \name Variable stack routines.
     //@{
     /// Allocates \p size bytes of uninitialized data onto the vstack
     /// (accessable thru vstack()).
@@ -170,6 +170,12 @@ public:
     /// stack cast to the given type.
     llvm::Value *vstack(llvm::IRBuilder<> &builder,
                         const llvm::Type *ptrTy) const;
+    //@}
+
+    /// \name Memory allocation routines.
+    //@{
+    llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
+                             uint64_t size, unsigned alignment) const;
     //@}
 
 private:
@@ -202,6 +208,7 @@ private:
     llvm::Function *vstack_alloc_Fn;
     llvm::Function *vstack_push_Fn;
     llvm::Function *vstack_pop_Fn;
+    llvm::Function *alloc_Fn;
 
     // Runtime global variables.
     llvm::GlobalVariable *vstack_Var;
@@ -233,6 +240,7 @@ private:
     void define_vstack_push();
     void define_vstack_pop();
     void define_vstack();
+    void define_alloc();
 
     // Builds the llvm IR for the primitive types needed by the runtime system.
     void generateRuntimeTypes();

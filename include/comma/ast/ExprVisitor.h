@@ -41,6 +41,8 @@ public:
     virtual void visitConversionExpr(ConversionExpr *node);
     virtual void visitNullExpr(NullExpr *node);
     virtual void visitQualifiedExpr(QualifiedExpr *node);
+    virtual void visitDereferenceExpr(DereferenceExpr *node);
+    virtual void visitAllocatorExpr(AllocatorExpr *node);
 
     /// Visitors over AttribExpr nodes.
     virtual void visitFirstAE(FirstAE *node);

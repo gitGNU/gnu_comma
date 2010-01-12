@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -54,6 +54,7 @@ public:
     virtual void visitArrayType(ArrayType *node);
     virtual void visitRecordType(RecordType *node);
     virtual void visitAccessType(AccessType *node);
+    virtual void visitIncompleteType(IncompleteType *node);
     //@}
 };
 

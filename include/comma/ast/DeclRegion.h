@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -204,6 +204,20 @@ public:
 
     void addObserver(DeclRegion *region) { observers.push_front(region); }
 
+    /// \brief Adds the declarations from the given region to this one using the
+    /// supplied rewrite rules.
+    ///
+    /// This method is intended to support subclasses which have some subset of
+    /// their declarative regions defined in terms of another declaration.  For
+    /// example, domain instances are a rewritten version of the domains
+    /// PercentDecl.
+    void addDeclarationsUsingRewrites(DeclRewriter &rewrites,
+                                      const DeclRegion *region);
+
+    /// \brief Adds the given declaration to this region using the supplied
+    /// rewrite rules.
+    void addDeclarationUsingRewrites(DeclRewriter &rewrites, Decl *decl);
+
     static bool classof(const Ast *node) {
         switch (node->getKind()) {
         default:
@@ -219,6 +233,7 @@ public:
         case Ast::AST_ArrayDecl:
         case Ast::AST_RecordDecl:
         case Ast::AST_BlockStmt:
+        case Ast::AST_AccessDecl:
             return true;
         }
     }
@@ -231,6 +246,7 @@ public:
     static bool classof(const PercentDecl   *node) { return true; }
     static bool classof(const RecordDecl    *node) { return true; }
     static bool classof(const ArrayDecl     *node) { return true; }
+    static bool classof(const AccessDecl    *node) { return true; }
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }
@@ -238,20 +254,6 @@ public:
 protected:
     virtual void notifyAddDecl(Decl *decl);
     virtual void notifyRemoveDecl(Decl *decl);
-
-    /// \brief Adds the declarations from the given region to this one using the
-    /// supplied rewrite rules.
-    ///
-    /// This method is intended to support subclasses which have some subset of
-    /// their declarative regions defined in terms of another declaration.  For
-    /// example, domain instances are a rewritten version of the domains
-    /// PercentDecl.
-    void addDeclarationsUsingRewrites(DeclRewriter &rewrites,
-                                      const DeclRegion *region);
-
-    /// \brief Adds the given declaration to this region using the supplied
-    /// rewrite rules.
-    void addDeclarationUsingRewrites(DeclRewriter &rewrites, Decl *decl);
 
 private:
     Ast::AstKind regionKind;

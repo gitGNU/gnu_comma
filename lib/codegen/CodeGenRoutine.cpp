@@ -157,6 +157,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
     case Ast::AST_FunctionCallExpr:
         return emitSimpleCall(cast<FunctionCallExpr>(expr));
 
+    case Ast::AST_DereferenceExpr:
+        return emitDereferencedValue(cast<DereferenceExpr>(expr));
+
     case Ast::AST_InjExpr:
         return emitInjExpr(cast<InjExpr>(expr));
 
@@ -180,6 +183,9 @@ llvm::Value *CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_QualifiedExpr:
         return emitValue(cast<QualifiedExpr>(expr)->getOperand());
+
+    case Ast::AST_AllocatorExpr:
+        return emitAllocatorValue(cast<AllocatorExpr>(expr));
     }
 
     return 0;

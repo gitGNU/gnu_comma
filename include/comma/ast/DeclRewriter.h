@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,15 +27,30 @@ class DeclRewriter : public AstRewriter {
 public:
 
     /// Constructs a DeclRewriter using the given AstResource to generate new
-    /// AST nodes, and the given DeclRegion as a defining context for any new
-    /// declarations produced.  The resulting rewriter does not contain any
-    /// rewrite rules.
-    DeclRewriter(AstResource &resource, DeclRegion *context)
-        : AstRewriter(resource), context(context) { }
+    /// AST nodes.  The \p context parameter defines the declarative region in
+    /// which any rewritten declarations are to be declared in.  The \p origin
+    /// parameter defines the source of the declarations to be rewritten.  The
+    /// resulting rewriter does not contain any rewrite rules.
+    DeclRewriter(AstResource &resource,
+                 DeclRegion *context, DeclRegion *origin)
+        : AstRewriter(resource), context(context), origin(origin) { }
 
     /// Constructs a DeclRewriter using an existing AstRewriter.
-    DeclRewriter(const AstRewriter &rewrites, DeclRegion *context)
-        : AstRewriter(rewrites), context(context) { }
+    DeclRewriter(const AstRewriter &rewrites,
+                 DeclRegion *context, DeclRegion *origin)
+        : AstRewriter(rewrites), context(context), origin(origin) { }
+
+    /// Switches the context and origin associated with this decl rewriter.
+    ///
+    /// \note It is only permited to switch a DeclRewriter to a context and
+    /// origin which are both immediately enclosed by the current context and
+    /// origin.
+    void setContext(DeclRegion *context, DeclRegion *origin) {
+        assert(context->getParent() == this->context);
+        assert(origin->getParent() == this->origin);
+        this->context = context;
+        this->origin = origin;
+    }
 
     /// \name Declaration rewrite methods.
     ///
@@ -51,14 +66,20 @@ public:
     ProcedureDecl *rewriteProcedureDecl(ProcedureDecl *pdecl);
 
     EnumerationDecl *rewriteEnumerationDecl(EnumerationDecl *edecl);
+    EnumSubtypeDecl *rewriteEnumSubtypeDecl(EnumSubtypeDecl *decl);
 
     ArrayDecl *rewriteArrayDecl(ArrayDecl *adecl);
 
     IntegerDecl *rewriteIntegerDecl(IntegerDecl *idecl);
+    IntegerSubtypeDecl *rewriteIntegerSubtypeDecl(IntegerSubtypeDecl *decl);
 
     RecordDecl *rewriteRecordDecl(RecordDecl *rdecl);
 
     IncompleteTypeDecl *rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD);
+
+    AccessDecl *rewriteAccessDecl(AccessDecl *access);
+
+    CarrierDecl *rewriteCarrierDecl(CarrierDecl *carrier);
     //@}
 
     /// Rewrites the given declaration node.
@@ -66,6 +87,7 @@ public:
 
 private:
     DeclRegion *context;
+    DeclRegion *origin;
 
     /// The table used to implement declaration rewrites.  The number of such
     /// rewrites can become quite large, so a DenseMap is appropriate here.
@@ -89,6 +111,9 @@ private:
     /// Populates the rewrite map with all declarations is \p source to the
     /// corresponding declarations in \p target.
     void mirrorRegion(DeclRegion *source, DeclRegion *target);
+
+    Type *rewriteType(Type *type);
+    AccessType *rewriteAccessType(AccessType *type);
 
     Expr *rewriteExpr(Expr *expr);
 

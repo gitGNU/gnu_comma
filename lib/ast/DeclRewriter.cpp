@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,6 +14,7 @@
 #include "comma/ast/Expr.h"
 
 using namespace comma;
+using llvm::cast_or_null;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
@@ -128,6 +129,33 @@ DeclRewriter::rewriteEnumerationDecl(EnumerationDecl *edecl)
     return result;
 }
 
+EnumSubtypeDecl *DeclRewriter::rewriteEnumSubtypeDecl(EnumSubtypeDecl *decl)
+{
+    IdentifierInfo *name = decl->getIdInfo();
+    EnumerationType *sourceTy = decl->getType();
+    AstResource &resource = getAstResource();
+
+    EnumerationType *ancestorTy;
+    ancestorTy = cast<EnumerationType>(decl->getType()->getAncestorType());
+    ancestorTy = cast<EnumerationType>(rewriteType(ancestorTy));
+
+    EnumSubtypeDecl *result;
+
+    if (sourceTy->isConstrained()) {
+        Range *range = sourceTy->getConstraint();
+        Expr *lower = rewriteExpr(range->getLowerBound());
+        Expr *upper = rewriteExpr(range->getUpperBound());
+        result = resource.createEnumSubtypeDecl
+            (name, 0, ancestorTy, lower, upper, context);
+    }
+    else
+        result = resource.createEnumSubtypeDecl(name, 0, ancestorTy, context);
+
+    addTypeRewrite(sourceTy, result->getType());
+    addDeclRewrite(decl, result);
+    return result;
+}
+
 ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
 {
     IdentifierInfo *name = adecl->getIdInfo();
@@ -188,6 +216,34 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
     return result;
 }
 
+IntegerSubtypeDecl *
+DeclRewriter::rewriteIntegerSubtypeDecl(IntegerSubtypeDecl *decl)
+{
+    IdentifierInfo *name = decl->getIdInfo();
+    IntegerType *sourceTy = decl->getType();
+    AstResource &resource = getAstResource();
+
+    IntegerType *ancestorTy;
+    ancestorTy = cast<IntegerType>(decl->getType()->getAncestorType());
+    ancestorTy = cast<IntegerType>(rewriteType(ancestorTy));
+
+    IntegerSubtypeDecl *result;
+    if (sourceTy->isConstrained()) {
+        Range *range = sourceTy->getConstraint();
+        Expr *lower = rewriteExpr(range->getLowerBound());
+        Expr *upper = rewriteExpr(range->getUpperBound());
+        result = resource.createIntegerSubtypeDecl
+            (name, 0, ancestorTy, lower, upper, context);
+    }
+    else
+        result = resource.createIntegerSubtypeDecl
+            (name, 0, ancestorTy, context);
+
+    addTypeRewrite(sourceTy, result->getType());
+    addDeclRewrite(decl, result);
+    return result;
+}
+
 RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
 {
     IdentifierInfo *name = decl->getIdInfo();
@@ -218,6 +274,11 @@ DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
 
     result = getAstResource().createIncompleteTypeDecl(name, 0, context);
 
+    // Provide a mapping from the original declaration to the new one.  We do
+    // this before rewriting the completion (if any) to avoid circularites.
+    addTypeRewrite(ITD->getType(), result->getType());
+    addDeclRewrite(ITD, result);
+
     // The new incomplete type declaration does not have a completion.  If the
     // given ITD has a completion rewrite it as well.
     if (ITD->hasCompletion()) {
@@ -225,8 +286,37 @@ DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
         result->setCompletion(completion);
     }
 
-    // Provide a mapping from the original declaration to the new one.
-    addDeclRewrite(ITD, result);
+    return result;
+}
+
+CarrierDecl *DeclRewriter::rewriteCarrierDecl(CarrierDecl *carrier)
+{
+    IdentifierInfo *name = carrier->getIdInfo();
+    PrimaryType *rep = cast<PrimaryType>(rewriteType(carrier->getType()));
+    CarrierDecl *result = new CarrierDecl(getAstResource(), name, rep, 0);
+
+    addTypeRewrite(carrier->getType(), result->getType());
+    addDeclRewrite(carrier, result);
+    return result;
+}
+
+AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
+{
+    AccessDecl *result;
+    if ((result = cast_or_null<AccessDecl>(findRewrite(access))))
+        return result;
+
+    AstResource &resource = getAstResource();
+    IdentifierInfo *name = access->getIdInfo();
+    Type *targetType = rewriteType(access->getType()->getTargetType());
+
+
+    result = resource.createAccessDecl(name, 0, targetType, context);
+    result->generateImplicitDeclarations(resource);
+    result->setOrigin(access);
+    addTypeRewrite(access->getType(), result->getType());
+    addDeclRewrite(access, result);
+    mirrorRegion(access, result);
     return result;
 }
 
@@ -244,8 +334,16 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
         result = rewriteIntegerDecl(cast<IntegerDecl>(decl));
         break;
 
+    case Ast::AST_IntegerSubtypeDecl:
+        result = rewriteIntegerSubtypeDecl(cast<IntegerSubtypeDecl>(decl));
+        break;
+
     case Ast::AST_EnumerationDecl:
         result = rewriteEnumerationDecl(cast<EnumerationDecl>(decl));
+        break;
+
+    case Ast::AST_EnumSubtypeDecl:
+        result = rewriteEnumSubtypeDecl(cast<EnumSubtypeDecl>(decl));
         break;
 
     case Ast::AST_ArrayDecl:
@@ -259,6 +357,15 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
     case Ast::AST_IncompleteTypeDecl:
         result = rewriteIncompleteTypeDecl(cast<IncompleteTypeDecl>(decl));
         break;
+
+    case Ast::AST_CarrierDecl:
+        result = rewriteCarrierDecl(cast<CarrierDecl>(decl));
+        break;
+
+    case Ast::AST_AccessDecl:
+        result = rewriteAccessDecl(cast<AccessDecl>(decl));
+        break;
+
     }
 
     return result;
@@ -267,6 +374,8 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
 Decl *DeclRewriter::rewriteDecl(Decl *decl)
 {
     Decl *result = 0;
+    if ((result = findRewrite(decl)))
+        return result;
 
     switch (decl->getKind()) {
 
@@ -284,6 +393,34 @@ Decl *DeclRewriter::rewriteDecl(Decl *decl)
     };
 
     return result;
+}
+
+Type *DeclRewriter::rewriteType(Type *type)
+{
+    Type *result = 0;
+    if ((result = AstRewriter::findRewrite(type)))
+        return result;
+
+    switch (type->getKind()) {
+
+    default:
+        result = AstRewriter::rewriteType(type);
+        break;
+
+    case Ast::AST_AccessType:
+        result = rewriteAccessType(cast<AccessType>(type));
+        break;
+    }
+
+    return result;
+}
+
+AccessType *DeclRewriter::rewriteAccessType(AccessType *type)
+{
+    AccessDecl *declaration = type->getDefiningDecl();
+    if (declaration->getDeclRegion() != origin)
+        return type;
+    return rewriteAccessDecl(declaration)->getType();
 }
 
 IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)

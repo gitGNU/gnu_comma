@@ -1,8 +1,8 @@
-//===-- codegen.InstanceInfo.cpp ------------------------------ -*- C++ -*-===//
+//===-- codegen/InstanceInfo.cpp ------------------------------ -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -44,7 +44,7 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
           linkName(mangle::getLinkName(instance)),
           compiledFlag(false)
 {
-    CodeGenTypes CGT(CG);
+    CodeGenTypes CGT(CG, instance);
 
     DeclRegion::DeclIter I;
     DeclRegion::DeclIter E;

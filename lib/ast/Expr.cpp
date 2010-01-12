@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -128,4 +128,15 @@ bool StringLiteral::resolveComponentType(EnumerationType *type)
     interps.clear();
     interps.insert(decl);
     return true;
+}
+
+//===----------------------------------------------------------------------===//
+// DereferenceExpr
+
+DereferenceExpr::DereferenceExpr(Expr *prefix, Location loc, bool isImplicit)
+    : Expr(AST_DereferenceExpr, loc),
+      prefix(prefix)
+{
+    AccessType *prefixType = cast<AccessType>(prefix->getType());
+    setType(prefixType->getTargetType());
 }

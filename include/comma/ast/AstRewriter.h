@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -108,15 +108,15 @@ public:
     // Returns the AstResource used to construct rewritten nodes.
     AstResource &getAstResource() const { return resource; }
 
+protected:
+    /// Returns a rewrite if it exists, otherwise null.
+    Type *findRewrite(Type *source) const;
+
 private:
     AstResource &resource;
 
     typedef std::map<Type*, Type*> RewriteMap;
     RewriteMap rewrites;
-
-    /// \brief Maps \p source to a new target if a rewrite rule exists,
-    /// otherwise returns \p source.
-    Type *getRewrite(Type *source) const;
 
     /// \brief Returns a reference to a target entry in the rewriter
     /// corresponding to source.
@@ -127,8 +127,9 @@ private:
         return rewrites[source];
     }
 
-    /// Returns a rewrite if it exists, otherwise null.
-    Type *findRewrite(Type *source) const;
+    /// \brief Maps \p source to a new target if a rewrite rule exists,
+    /// otherwise returns \p source.
+    Type *getRewrite(Type *source) const;
 
     /// \brief Rewrites \p count parameter types of the given subroutine,
     /// placing the results of the rewrite in \p params.

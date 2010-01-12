@@ -265,7 +265,7 @@ Ast *TypeCheck::processSelectedComponent(Expr *expr,
                                          bool forStatement)
 {
     // Currently, the prefix to a selected component must be of record type.
-    RecordType *prefixTy = dyn_cast<RecordType>(expr->getType());
+    RecordType *prefixTy = dyn_cast<RecordType>(resolveType(expr->getType()));
     if (!prefixTy) {
         report(expr->getLocation(), diag::INVALID_PREFIX_FOR_COMPONENT) << name;
         return 0;

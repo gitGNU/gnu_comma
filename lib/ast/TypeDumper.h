@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -71,6 +71,7 @@ private:
     void visitIntegerType(IntegerType *node);
     void visitArrayType(ArrayType *node);
     void visitAccessType(AccessType *node);
+    void visitRecordType(RecordType *node);
 };
 
 } // end comma namespace.

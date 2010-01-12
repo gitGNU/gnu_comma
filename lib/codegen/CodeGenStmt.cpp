@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -73,6 +73,9 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
 
     case Ast::AST_PragmaStmt:
         emitPragmaStmt(cast<PragmaStmt>(stmt));
+        break;
+
+    case Ast::AST_NullStmt:
         break;
     }
 }
@@ -328,10 +331,22 @@ void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
             llvm::Value *source = emitValue(rhs);
             Builder.CreateStore(source, target);
         }
+    }
+    else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(lhs)) {
+        // Emit the prefix as a simple value yeilding a pointer to the
+        // destination.  Check that the target is not null and emit the rhs.
+        llvm::Value *target = emitValue(deref->getPrefix());
+        emitNullAccessCheck(target);
+        if (deref->getPrefixType()->isCompositeType())
+            emitCompositeExpr(rhs, target, false);
+        else {
+            llvm::Value *source = emitValue(rhs);
+            Builder.CreateStore(source, target);
+        }
     } else {
         // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
         // to the needed component and again, store in the right hand side.
-        IndexedArrayExpr *arrIdx = dyn_cast<IndexedArrayExpr>(stmt->getTarget());
+        IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
         llvm::Value *target = emitIndexedArrayRef(arrIdx);
         llvm::Value *source = emitValue(rhs);
         Builder.CreateStore(source, target);

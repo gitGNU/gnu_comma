@@ -29,7 +29,7 @@ class CodeGen;
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context = 0)
+    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context)
         : CG(CG), topScope(rewrites), context(context) {
         if (context)
             addInstanceRewrites(context);
@@ -68,6 +68,13 @@ public:
     /// the given component.
     unsigned getComponentIndex(const ComponentDecl *component);
 
+    /// Returns the alignment of the given llvm type according to the targets
+    /// ABI conventions.
+    unsigned getTypeAlignment(const llvm::Type *type) const;
+
+    /// Returns the size of the given llvm type in bytes.
+    uint64_t getTypeSize(const llvm::Type *type) const;
+
 private:
     CodeGen &CG;
 
@@ -96,13 +103,6 @@ private:
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
 
     void addInstanceRewrites(const DomainInstanceDecl *instance);
-
-    /// Returns the alignment of the given llvm type according to the targets
-    /// ABI conventions.
-    unsigned getTypeAlignment(const llvm::Type *type) const;
-
-    /// Returns the size of the given llvm type in bytes.
-    uint64_t getTypeSize(const llvm::Type *type) const;
 
     /// \brief Returns a reference to a slot in the type map corresponding to
     /// the given Comma type.

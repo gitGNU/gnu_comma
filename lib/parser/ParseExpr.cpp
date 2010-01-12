@@ -1,8 +1,8 @@
-//===-- parser/parser.cpp ------------------------------------- -*- C++ -*-===//
+//===-- parser/ParseExpr.cpp ---------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -286,8 +286,16 @@ Node Parser::parsePrimaryExpr()
 
     default: {
         Node name = parseName();
-        if (qualificationFollows())
-            return parseQualifiedExpr(name);
+        if (qualificationFollows()) {
+            if (name.isInvalid()) {
+                ignoreToken();       // Ignore the quote.
+                ignoreToken();       // Ignore the left paren.
+                seekCloseParen();
+                return getInvalidNode();
+            }
+            else
+                return parseQualifiedExpr(name);
+        }
         else
             return name;
     }
@@ -303,6 +311,9 @@ Node Parser::parsePrimaryExpr()
 
     case Lexer::TKN_NULL:
         return client.acceptNullExpr(ignoreToken());
+
+    case Lexer::TKN_NEW:
+        return parseAllocatorExpr();
     }
 }
 
@@ -340,6 +351,35 @@ Node Parser::parseQualifiedExpr(Node qualifier)
     if (operand.isValid())
         return client.acceptQualifiedExpr(qualifier, operand);
     return getInvalidNode();
+}
+
+Node Parser::parseAllocatorExpr()
+{
+    assert(currentTokenIs(Lexer::TKN_NEW));
+
+    Location loc = ignoreToken(); // Ignore the "new" token.
+
+    // FIXME:  We should be parsing a general subtype indication as opposed to a
+    // simple name.
+    Node operand = parseName();
+
+    if (operand.isInvalid()) {
+        // Consume a qualified expression if possible.
+        if (qualificationFollows()) {
+            ignoreToken();       // Ignore the quote.
+            ignoreToken();       // Ignore the left paren.
+            seekCloseParen();
+        }
+        return getInvalidNode();
+    }
+
+    if (qualificationFollows()) {
+        operand = parseQualifiedExpr(operand);
+        if (operand.isInvalid())
+            return getInvalidNode();
+    }
+
+    return client.acceptAllocatorExpr(operand, loc);
 }
 
 Node Parser::parseOthersExpr()

@@ -21,6 +21,7 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/PointerUnion.h"
 
 namespace comma {
 
@@ -418,6 +419,9 @@ public:
     // state of the node is consistent.
     virtual void finalize() = 0;
 
+    // Returns true if this domoid has been finalized.
+    virtual bool isFinalized() const = 0;
+
     //@{
     /// Returns the AddDecl which provides the implementation for this domoid.
     virtual AddDecl *getImplementation() = 0;
@@ -440,49 +444,69 @@ protected:
 //===----------------------------------------------------------------------===//
 // AddDecl
 //
-// This class represents an add expression.  It provides a declarative region
-// for the body of a domain and contains all function and values which the
-// domain defines.
+/// \class
+///
+/// This class represents an add expression.  It provides a declarative region
+/// for the body of a domain and contains all the private functions and values
+/// which the domain defines.
 class AddDecl : public Decl, public DeclRegion {
 
 public:
-    // Creates an AddDecl to represent the body of the given domain.
-    AddDecl(DomainDecl *domain);
+    /// Creates an AddDecl to represent the body of the given percent decl.
+    AddDecl(PercentDecl *percent);
 
-    // Creates an AddDecl to represent the body of the given functor.
-    AddDecl(FunctorDecl *functor);
+    /// Creates an AddDecl to represent the body of the given domain instance.
+    AddDecl(DomainInstanceDecl *instance);
 
-    // Returns true if this Add implements a DomainDecl.
+    /// Returns true if this Add implements a DomainDecl.
     bool implementsDomain() const;
 
-    // Returns true if this Add implements a FunctorDecl.
+    /// Returns true if this Add implements a FunctorDecl.
     bool implementsFunctor() const;
 
-    // Returns the domoid which this add implements.
+    // @{
+    /// Returns the domoid which this add implements.
+    const Domoid *getImplementedDomoid() const {
+        return const_cast<AddDecl*>(this)->getImplementedDomoid();
+    }
     Domoid *getImplementedDomoid();
+    //@}
 
-    // If implementsDomain returns true, this function provides the domain
-    // declaration which this add implements, otherwise NULL is returned.
+    //@{
+    /// If implementsDomain returns true, this function provides the domain
+    /// declaration which this add implements, otherwise null is returned.
+    const DomainDecl *getImplementedDomain() const {
+        return const_cast<AddDecl*>(this)->getImplementedDomain();
+    }
     DomainDecl *getImplementedDomain();
+    //@}
 
-    // If implementsFunctor returns true, this function provides the functor
-    // declaration which this add implements, otherwise NULL is returned.
+    //@{
+    /// If implementsFunctor returns true, this function provides the functor
+    /// declaration which this add implements, otherwise null is returned.
+    const FunctorDecl *getImplementedFunctor() const {
+        return const_cast<AddDecl*>(this)->getImplementedFunctor();
+    }
     FunctorDecl *getImplementedFunctor();
+    //@}
 
-    // Returns true if a carrier has been associated with this declaration.
+    /// Returns true if a carrier has been associated with this declaration.
     bool hasCarrier() const { return carrier != 0; }
 
-    // Sets the carrier for this declaration.
+    /// Sets the carrier for this declaration.
     void setCarrier(CarrierDecl *carrier) {
         assert(!hasCarrier() && "Cannot reset carrier declaration!");
         this->carrier = carrier;
     }
 
-    // Returns the carrier declaration, or NULL if a carrier has not yet been
-    // defined.
+    //@{
+    /// Returns the carrier declaration, or NULL if a carrier has not yet been
+    /// defined.
     CarrierDecl *getCarrier() { return carrier; }
     const CarrierDecl *getCarrier() const { return carrier; }
+    //@}
 
+    // Support isa/dyn_cast.
     static bool classof(const AddDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_AddDecl;
@@ -509,6 +533,9 @@ public:
 
     /// Implementation of Domoid::finalize().
     void finalize();
+
+    /// Implementation of Domoid::isFinalized().
+    bool isFinalized() const;
 
     /// Returns the AddDecl which implements this domain.
     AddDecl *getImplementation() { return implementation; }
@@ -561,6 +588,9 @@ public:
 
     /// Implementation of Domoid::finalize().
     void finalize();
+
+    /// Implementation of Domoid::isFinalized().
+    bool isFinalized() const;
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctorDecl *node) { return true; }
@@ -1284,6 +1314,16 @@ public:
     void setCompletion(TypeDecl *decl) { completion = decl; }
 
     //@{
+    /// Specialize TypeDecl::getType().
+    const IncompleteType *getType() const {
+        return llvm::cast<IncompleteType>(CorrespondingType);
+    }
+    IncompleteType *getType() {
+        return llvm::cast<IncompleteType>(CorrespondingType);
+    }
+    //@}
+
+    //@{
     /// \brief Returns the completion of this declaration if one has been set,
     /// else null.
     const TypeDecl *getCompletion() const { return completion; }
@@ -1375,10 +1415,10 @@ public:
     ///
     /// Carrier type declarations are effectively aliases for their
     /// representation type.
-    const Type *getRepresentationType() const {
+    const PrimaryType *getRepresentationType() const {
         return getType()->getRootType();
     }
-    Type *getRepresentationType() {
+    PrimaryType *getRepresentationType() {
         return getType()->getRootType();
     }
     //@}
@@ -1815,7 +1855,7 @@ private:
     /// match the dimensionality of \p subtype.
     ArraySubtypeDecl(AstResource &resource,
                      IdentifierInfo *name, Location loc,
-                     ArrayType *subtype, DSTDefinition **indeices,
+                     ArrayType *subtype, DSTDefinition **indices,
                      DeclRegion *parent);
     //@}
 
@@ -1942,9 +1982,14 @@ private:
 /// \class
 ///
 /// \brief This class encapsulates an access type declaration.
-class AccessDecl : public TypeDecl {
+class AccessDecl : public TypeDecl, public DeclRegion {
 
 public:
+    /// Populates the declarative region of this type with all implicit
+    /// operations.  This must be called once the type has been constructed to
+    /// gain access to the types operations.
+    void generateImplicitDeclarations(AstResource &resource);
+
     //@{
     /// \brief Returns the first subtype defined by this access type
     /// declaration.
@@ -2157,6 +2202,10 @@ private:
     Domoid *definition;
     DomainTypeDecl **arguments;
     SignatureSet sigset;
+
+    typedef llvm::PointerUnion<AddDecl*, DeclRewriter*> BodyUnion;
+    BodyUnion body;
+
     PrimaryType *representationType;
 
     friend class DomainDecl;
@@ -2169,8 +2218,8 @@ private:
     // Helper function called by the constructors.
     void initializeInstance(Domoid *definition);
 
-    // Constructs the representationType using the given rewriter.
-    void initializeRep(const AstRewriter &rewrites);
+    // Helper function called bby the constructors and finalize.
+    void initializeBody(DeclRewriter &rewriter);
 
     // The following call-backs are invoked when the declarative region of the
     // defining declaration changes.

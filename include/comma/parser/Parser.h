@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -90,6 +90,7 @@ public:
     Node parseIntegerLiteral();
     Node parseStringLiteral();
     Node parseQualifiedExpr(Node qualifier);
+    Node parseAllocatorExpr();
 
     /// The following enumeration is used to control how names are parsed.
     enum NameOption {

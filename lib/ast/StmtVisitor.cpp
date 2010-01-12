@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -46,6 +46,7 @@ void StmtVisitor::visitStmt(Stmt *node)
     case DISPATCH(LoopStmt, node);
     case DISPATCH(RaiseStmt, node);
     case DISPATCH(PragmaStmt, node);
+    case DISPATCH(NullStmt, node);
     }
 }
 
@@ -65,3 +66,5 @@ void StmtVisitor::visitForStmt(ForStmt *node) { }
 void StmtVisitor::visitLoopStmt(LoopStmt *node) { }
 void StmtVisitor::visitRaiseStmt(RaiseStmt *node) { }
 void StmtVisitor::visitPragmaStmt(PragmaStmt *node) { }
+void StmtVisitor::visitNullStmt(NullStmt *node) { }
+

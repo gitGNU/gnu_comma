@@ -553,6 +553,9 @@ public:
     virtual void endHandlerStmt(Node context, Node handler) = 0;
     //@}
 
+    /// Called to notify the client of a null statement at the given position.
+    virtual Node acceptNullStmt(Location loc) = 0;
+
     /// Called to notify the client that a statement has been completely
     /// parsed.
     ///
@@ -601,12 +604,27 @@ public:
     /// expression context.
     virtual Node acceptNullExpr(Location loc) = 0;
 
+    /// Incoked whten the parser encounters an allocator expression.
+    ///
+    /// \param operand The argument to the allocator.  This is either a name or
+    /// result of acceptQualifiedExpr.
+    ///
+    /// \param loc Location of the "new" reserved word.
+    virtual Node acceptAllocatorExpr(Node operand, Location loc) = 0;
+
     /// Invoked when the parser encounters a qualified expression.
     ///
     /// \param qualifier A node corresponding to the qualified name.
     ///
     /// \param operand The expression to qualify.
     virtual Node acceptQualifiedExpr(Node qualifier, Node operand) = 0;
+
+    /// Notifies the client of an explicit dereference expression.
+    ///
+    /// \param prefix The name to be dereferenced.
+    ///
+    /// \param loc Location of the reserved word \c all.
+    virtual Node acceptDereference(Node prefix, Location loc) = 0;
 
     /// Submits an import from the given type node.
     virtual bool acceptImportDeclaration(Node importedType) = 0;

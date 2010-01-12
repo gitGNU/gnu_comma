@@ -65,8 +65,10 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IntegerType",
     "RecordType",
 
+    "AllocatorExpr",
     "ConversionExpr",
     "DeclRefExpr",
+    "DereferenceExpr",
     "FunctionCallExpr",
     "IndexedArrayExpr",
     "InjExpr",
@@ -89,6 +91,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "HandlerStmt",
     "IfStmt",
     "LoopStmt",
+    "NullStmt",
     "ProcedureCallStmt",
     "RaiseStmt",
     "ReturnStmt",

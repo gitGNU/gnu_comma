@@ -49,6 +49,8 @@ DeclRegion *Decl::asDeclRegion()
         return static_cast<ProcedureDecl*>(this);
     case AST_IntegerDecl:
         return static_cast<IntegerDecl*>(this);
+    case AST_AccessDecl:
+        return static_cast<AccessDecl*>(this);
     }
 }
 
@@ -216,46 +218,46 @@ Domoid::Domoid(AstResource &resource,
 //===----------------------------------------------------------------------===//
 // AddDecl
 
-// An AddDecl's declarative region is a sub-region of its parent domains percent
-// node.
-AddDecl::AddDecl(DomainDecl *domain)
+AddDecl::AddDecl(PercentDecl *percent)
     : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, domain->getPercent()),
+      DeclRegion(AST_AddDecl, percent),
       carrier(0) { }
 
-AddDecl::AddDecl(FunctorDecl *functor)
+AddDecl::AddDecl(DomainInstanceDecl *instance)
     : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, functor->getPercent()),
+      DeclRegion(AST_AddDecl, instance),
       carrier(0) { }
 
 Domoid *AddDecl::getImplementedDomoid()
 {
-    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
-    return cast<Domoid>(percent->getDefinition());
+    Ast *parent = getParent()->asAst();
+
+    if (PercentDecl *percent = dyn_cast<PercentDecl>(parent))
+        return cast<Domoid>(percent->getDefinition());
+    else {
+        DomainInstanceDecl *instance = cast<DomainInstanceDecl>(parent);
+        return instance->getDefinition();
+    }
 }
 
 DomainDecl *AddDecl::getImplementedDomain()
 {
-    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
-    return dyn_cast<DomainDecl>(percent->getDefinition());
+    return dyn_cast<DomainDecl>(getImplementedDomoid());
 }
 
 FunctorDecl *AddDecl::getImplementedFunctor()
 {
-    PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
-    return dyn_cast<FunctorDecl>(percent->getDefinition());
+    return dyn_cast<FunctorDecl>(getImplementedDomoid());
 }
 
 bool AddDecl::implementsDomain() const
 {
-    const PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
-    return isa<DomainDecl>(percent->getDefinition());
+    return getImplementedDomain() != 0;
 }
 
 bool AddDecl::implementsFunctor() const
 {
-    const PercentDecl *percent = cast<PercentDecl>(getParent()->asAst());
-    return isa<FunctorDecl>(percent->getDefinition());
+    return getImplementedFunctor() != 0;
 }
 
 //===----------------------------------------------------------------------===//
@@ -266,7 +268,7 @@ DomainDecl::DomainDecl(AstResource &resource,
     : Domoid(resource, AST_DomainDecl, name, loc),
       instance(0)
 {
-    implementation = new AddDecl(this);
+    implementation = new AddDecl(getPercent());
 }
 
 // FIXME: This is a temporary solution to the problem of initializing domain
@@ -285,6 +287,14 @@ void DomainDecl::finalize()
     // Construct (if needed) and notify our one and only instance that this
     // domain is finished.
     getInstance()->finalize();
+
+    // Mark this domain a finalized.
+    bits = 1;
+}
+
+bool DomainDecl::isFinalized() const
+{
+    return bits == 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -300,7 +310,7 @@ FunctorDecl::FunctorDecl(AstResource &resource,
 
     formalDecls = new AbstractDomainDecl*[arity];
     std::copy(formals, formals + arity, formalDecls);
-    implementation = new AddDecl(this);
+    implementation = new AddDecl(getPercent());
 }
 
 DomainInstanceDecl *
@@ -327,6 +337,14 @@ void FunctorDecl::finalize()
     InstanceSet::iterator E = instances.end();
     for ( ; I != E; ++I)
         I->finalize();
+
+    // Mark this functor as finalized.
+    bits = 1;
+}
+
+bool FunctorDecl::isFinalized() const
+{
+    return bits == 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -652,7 +670,8 @@ AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
     : DomainTypeDecl(AST_AbstractDomainDecl, resource, name, loc)
 {
     Sigoid *sigoid = sig->getSigoid();
-    DeclRewriter rewriter(sigoid->getAstResource(), this);
+    PercentDecl *percent = sigoid->getPercent();
+    DeclRewriter rewriter(sigoid->getAstResource(), this, percent);
 
     // Establish a mapping from the % node of the signature to the type of this
     // abstract domain.
@@ -664,7 +683,7 @@ AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
     rewriter.installRewrites(sig);
 
     sigset.addDirectSignature(sig, rewriter);
-    addDeclarationsUsingRewrites(rewriter, sigoid->getPercent());
+    addDeclarationsUsingRewrites(rewriter, percent);
 }
 
 //===----------------------------------------------------------------------===//
@@ -707,50 +726,67 @@ DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
 
 void DomainInstanceDecl::initializeInstance(Domoid *definition)
 {
+    AstResource &resource = definition->getAstResource();
     PercentDecl *percent = definition->getPercent();
 
     // Obtain a rewritten version of the public exports provided by percent.
-    DeclRewriter rewriter(definition->getAstResource(), this);
-    rewriter.addTypeRewrite(definition->getPercentType(), getType());
-    rewriter.installRewrites(getType());
-    addDeclarationsUsingRewrites(rewriter, percent);
+    DeclRewriter *rewriter = new DeclRewriter(resource, this, percent);
+    rewriter->addTypeRewrite(definition->getPercentType(), getType());
+    rewriter->installRewrites(getType());
+    addDeclarationsUsingRewrites(*rewriter, percent);
 
     // Populate our signature set with a rewritten version.
     const SignatureSet &SS = definition->getSignatureSet();
     for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
-        sigset.addDirectSignature(*I, rewriter);
+        sigset.addDirectSignature(*I, *rewriter);
 
-    // Compute our representation type.
-    initializeRep(rewriter);
-}
-
-void DomainInstanceDecl::initializeRep(const AstRewriter &rewrites)
-{
-    // Generate a rewritten version of our representation type if available via
-    // percent.  If not available, the carrier has yet to be constructed and we
-    // await notification from the defining domoid via a call to finalize().
-    AddDecl *add = definition->getImplementation();
-    if (CarrierDecl *carrier = add->getCarrier()) {
-        PrimaryType *rep = carrier->getType();
-        rep = cast<PrimaryType>(rewrites.rewriteType(rep));
-
-        // If the representation type is a domain, extract its representation.
-        if (DomainType *domainTy = dyn_cast<DomainType>(rep))
-            rep = domainTy->getRepresentationType();
-        representationType = rep;
+    // Initialize the body if the defining domoid is finalized.  Otherwise hold
+    // onto the rewriter untill we are in a finalized state.
+    if (definition->isFinalized()) {
+        initializeBody(*rewriter);
+        delete rewriter;
+    }
+    else {
+        body = rewriter;
+        representationType = 0;
     }
 }
 
 void DomainInstanceDecl::finalize()
 {
-    // If we do not yet have a representation type, compute it now.
-    if (representationType)
-        return;
+    // If we have not yet initialized the body of this instance compute it now.
+    if (body.is<AddDecl*>()) return;
 
-    DeclRewriter rewriter(getDefinition()->getAstResource(), this);
-    rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
-    rewriter.installRewrites(getType());
-    initializeRep(rewriter);
+    DeclRewriter *rewriter = body.get<DeclRewriter*>();
+    initializeBody(*rewriter);
+    delete rewriter;
+}
+
+void DomainInstanceDecl::initializeBody(DeclRewriter &rewriter)
+{
+    AddDecl *orig = definition->getImplementation();
+    AddDecl *add = new AddDecl(this);
+    rewriter.setContext(add, orig);
+
+    // Iterate over the complete set of declarations provided by the body of our
+    // defining domoid.
+    add->addDeclarationsUsingRewrites(rewriter, orig);
+
+    // FIXME: No need for the conditional when it is guaranteed that a finalized
+    // domain defines a carrier.
+    if (orig->hasCarrier()) {
+        add->setCarrier(rewriter.rewriteCarrierDecl(orig->getCarrier()));
+
+        // Resolve the representation type of this domain.
+        PrimaryType *rep = add->getCarrier()->getType();
+
+        if (DomainType *domain = dyn_cast<DomainType>(rep)) {
+            DomainInstanceDecl *instance = domain->getInstanceDecl();
+            rep = instance->getRepresentationType();
+        }
+        representationType = rep;
+    }
+    body = add;
 }
 
 bool DomainInstanceDecl::isDependent() const
@@ -760,7 +796,7 @@ bool DomainInstanceDecl::isDependent() const
         if (param->isAbstract())
             return true;
         if (param->denotesPercent())
-            continue;
+            return true;
         if (param->getInstanceDecl()->isDependent())
             return true;
     }
@@ -778,7 +814,8 @@ unsigned DomainInstanceDecl::getArity() const
 
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
-    DeclRewriter rewriter(getDefinition()->getAstResource(), this);
+    AstResource &resource = getDefinition()->getAstResource();
+    DeclRewriter rewriter(resource, this, decl->getDeclRegion());
     rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);
@@ -1161,9 +1198,20 @@ ComponentDecl *RecordDecl::getComponent(IdentifierInfo *name)
 // AccessDecl
 AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
                        Type *targetType, DeclRegion *parent)
-    : TypeDecl(AST_AccessDecl, name, loc, parent)
+    : TypeDecl(AST_AccessDecl, name, loc, parent),
+      DeclRegion(AST_AccessDecl, parent)
 {
     AccessType *base = resource.createAccessType(this, targetType);
     CorrespondingType = resource.createAccessSubtype(name, base);
 }
 
+void AccessDecl::generateImplicitDeclarations(AstResource &resource)
+{
+    // FIXME: We will eventually need to specify the operand type specifically
+    // as an unconstrained access type.
+    AccessType *type = getType();
+    Location loc = getLocation();
+
+    addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::NE_op, loc, type, this));
+}

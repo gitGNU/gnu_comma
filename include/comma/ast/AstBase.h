@@ -29,6 +29,7 @@ class AccessDecl;
 class AccessType;
 class AddDecl;
 class AggregateExpr;
+class AllocatorExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayRangeAttrib;
@@ -48,6 +49,7 @@ class Decl;
 class DeclRegion;
 class DeclRefExpr;
 class DeclRewriter;
+class DereferenceExpr;
 class DiscreteType;
 class DomainDecl;
 class DomainInstanceDecl;
@@ -89,6 +91,7 @@ class LoopDecl;
 class LoopStmt;
 class ModelDecl;
 class NullExpr;
+class NullStmt;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
@@ -229,8 +232,10 @@ public:
         //
         // Expr nodes.
         //
+        AST_AllocatorExpr,      ///< AllocatorExpr
         AST_ConversionExpr,     ///< ConversionExpr
         AST_DeclRefExpr,        ///< DeclRefExpr
+        AST_DereferenceExpr,    ///< DereferenceExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
         AST_InjExpr,            ///< InjExpr
@@ -257,6 +262,7 @@ public:
         AST_HandlerStmt,        ///< HandlerStmt
         AST_IfStmt,             ///< IfStmt
         AST_LoopStmt,           ///< LoopStmt
+        AST_NullStmt,           ///< NullStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_RaiseStmt,          ///< RaiseStmt
         AST_ReturnStmt,         ///< ReturnStmt
@@ -307,7 +313,7 @@ public:
         FIRST_PrimaryType = AST_AccessType,
         LAST_PrimaryType = AST_RecordType,
 
-        FIRST_Expr = AST_ConversionExpr,
+        FIRST_Expr = AST_AllocatorExpr,
         LAST_Expr = AST_LastAE,
 
         FIRST_AttribExpr = AST_FirstAE,

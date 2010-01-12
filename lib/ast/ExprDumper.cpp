@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -101,3 +101,32 @@ void ExprDumper::visitQualifiedExpr(QualifiedExpr *node)
     S << '>';
 }
 
+void ExprDumper::visitDereferenceExpr(DereferenceExpr *node)
+{
+    printHeader(node) << ' ';
+    visitExpr(node->getPrefix());
+    S << '>';
+}
+
+void ExprDumper::visitAllocatorExpr(AllocatorExpr *node)
+{
+    printHeader(node) << ' ';
+    if (node->isInitialized())
+        visitExpr(node->getInitializer());
+    else
+        dumpAST(node->getAllocatedType());
+    S << '>';
+}
+
+void ExprDumper::visitSelectedExpr(SelectedExpr *node)
+{
+    printHeader(node) << '\n';
+    indent();
+    printIndentation();
+    visitExpr(node->getPrefix());
+    S << '\n';
+    printIndentation();
+    dumpAST(node->getSelector());
+    dedent();
+    S << '>';
+}

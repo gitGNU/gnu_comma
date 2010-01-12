@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -607,6 +607,27 @@ private:
     Location loc;
     ExceptionRef *ref;
     Expr *message;
+};
+
+//===----------------------------------------------------------------------===//
+// NullStmt
+class NullStmt : public Stmt {
+
+public:
+    /// Constructs a null statement at the given location.
+    NullStmt(Location loc) : Stmt(AST_NullStmt), loc(loc) { }
+
+    /// Returns the location of this null statement.
+    Location getLocation() const { return loc; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const NullStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_NullStmt;
+    }
+
+private:
+    Location loc;
 };
 
 } // End comma namespace.

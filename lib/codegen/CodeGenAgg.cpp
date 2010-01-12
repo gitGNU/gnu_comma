@@ -791,6 +791,10 @@ llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
         rec = CGR.emitSelectedRef(sel);
     }
+    else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(expr)) {
+        // Emit the prefix as a value, yielding a pointer to the record.
+        rec = CGR.emitValue(deref->getPrefix());
+    }
 
     assert(rec && "Could not codegen record expression!");
 
@@ -842,7 +846,7 @@ llvm::Value *RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
 
 void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    if (isa<CompositeType>(expr->getType()))
+    if (isa<CompositeType>(CGR.resolveType(expr->getType())))
         CGR.emitCompositeExpr(expr, dst, false);
     else {
         llvm::Value *component = CGR.emitValue(expr);

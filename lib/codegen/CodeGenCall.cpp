@@ -110,16 +110,24 @@ private:
     /// result.
     llvm::Value *emitPrimitiveCall();
 
-    /// Helper method for emitPrimitiveCall.
-    ///
+    /// \name Primitive Call Emitters.
+    //@{
+
     /// Generates a call into the Comma runtime to handle exponentiation.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
-    /// Helper method for emitPrimitiveCall. Syntesizes a "mod" operation.
+    /// Synthesizes a "mod" operation.
     llvm::Value *emitMod(llvm::Value *lhs, llvm::Value *rhs);
 
-    /// Helper method for emitPrimitiveCall. Syntesizes a "rem" operation.
+    /// Synthesizes a "rem" operation.
     llvm::Value *emitRem(llvm::Value *lhs, llvm::Value *rhs);
+
+    /// Synthesizes a "=" operation.
+    llvm::Value *emitEQ(llvm::Value *lhs, llvm::Value *rhs);
+
+    /// Synthesizes a "/=" operation.
+    llvm::Value *emitNE(llvm::Value *lhs, llvm::Value *rhs);
+    //@}
 
     /// Generates any implicit first arguments for the current call expression
     /// and resolves the associated SRInfo object.
@@ -453,11 +461,11 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             break;
 
         case PO::EQ_op:
-            result = Builder.CreateICmpEQ(lhs, rhs);
+            result = emitEQ(lhs, rhs);
             break;
 
         case PO::NE_op:
-            result = Builder.CreateICmpNE(lhs, rhs);
+            result = emitNE(lhs, rhs);
             break;
 
         case PO::ADD_op:
@@ -600,6 +608,30 @@ llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)
 {
     // FIXME: Raise an exception if rhs is zero.
     return Builder.CreateSRem(lhs, rhs);
+}
+
+llvm::Value *CallEmitter::emitEQ(llvm::Value *lhs, llvm::Value *rhs)
+{
+    // If the operands are pointer types cast them to integer values for the
+    // purpose of comparison.
+    if (isa<llvm::PointerType>(lhs->getType())) {
+        lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
+        rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
+    }
+
+    return Builder.CreateICmpEQ(lhs, rhs);
+}
+
+llvm::Value *CallEmitter::emitNE(llvm::Value *lhs, llvm::Value *rhs)
+{
+    // If the operands are pointer types cast them to integer values for the
+    // purpose of comparison.
+    if (isa<llvm::PointerType>(lhs->getType())) {
+        lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
+        rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
+    }
+
+    return Builder.CreateICmpNE(lhs, rhs);
 }
 
 SRInfo *CallEmitter::prepareCall()

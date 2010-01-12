@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -62,6 +62,8 @@ private:
     void visitPrjExpr(PrjExpr *node);
     void visitAggregateExpr(AggregateExpr *node);
     void visitQualifiedExpr(QualifiedExpr *node);
+    void visitDereferenceExpr(DereferenceExpr *node);
+    void visitAllocatorExpr(AllocatorExpr *node);
     //@}
 
     void addDependents(const DomainInstanceDecl *instance);
@@ -259,6 +261,17 @@ void DependencyScanner::visitAggregateExpr(AggregateExpr *node)
 void DependencyScanner::visitQualifiedExpr(QualifiedExpr *node)
 {
     visitExpr(node->getOperand());
+}
+
+void DependencyScanner::visitDereferenceExpr(DereferenceExpr *node)
+{
+    visitExpr(node->getPrefix());
+}
+
+void DependencyScanner::visitAllocatorExpr(AllocatorExpr *node)
+{
+    if (node->isInitialized())
+        visitExpr(node->getInitializer());
 }
 
 //===----------------------------------------------------------------------===//

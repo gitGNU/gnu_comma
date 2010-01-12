@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2010 Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -485,6 +485,18 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
     return 0;
 }
 
+Type *TypeCheck::resolveType(Type *type) const
+{
+    // If the given type is an incomplete type determine if it is appropriate to
+    // resolve the type to its completion.
+    if (IncompleteType *opaqueTy = dyn_cast<IncompleteType>(type)) {
+        IncompleteTypeDecl *ITD = opaqueTy->getDefiningDecl();
+        if (ITD->completionIsVisibleIn(currentDeclarativeRegion()))
+            type = ITD->getCompletion()->getType();
+    }
+    return type;
+}
+
 bool TypeCheck::ensureStaticIntegerExpr(Expr *expr, llvm::APInt &result)
 {
     if (isa<IntegerType>(expr->getType()) &&
@@ -681,12 +693,12 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
 
     Decl *decl = ref->getDecl();
     Location loc = ref->getLocation();
-    DomainType *domain;
+    DomainType *domain = 0;
 
     if (CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl))
-        domain = dyn_cast<DomainType>(carrier->getRepresentationType());
-    else
-        domain = dyn_cast<DomainTypeDecl>(decl)->getType();
+        domain = dyn_cast<DomainType>(carrier->getType());
+    else if (DomainTypeDecl *DTD = dyn_cast<DomainTypeDecl>(decl))
+        domain = DTD->getType();
 
     if (!domain) {
         report(loc, diag::IMPORT_FROM_NON_DOMAIN);
@@ -1035,7 +1047,10 @@ void TypeCheck::acceptAccessTypeDecl(IdentifierInfo *name, Location loc,
     DeclRegion *region = currentDeclarativeRegion();
     AccessDecl *access;
     access = resource.createAccessDecl(name, loc, targetDecl->getType(), region);
-    introduceTypeDeclaration(access);
+    if (introduceTypeDeclaration(access)) {
+        access->generateImplicitDeclarations(resource);
+        introduceImplicitDecls(access);
+    }
 }
 
 //===----------------------------------------------------------------------===//
@@ -1275,6 +1290,18 @@ bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
 
     PrimaryType *source = dyn_cast<PrimaryType>(sourceTy);
     PrimaryType *target = dyn_cast<PrimaryType>(targetTy);
+
+    // If either of the types are incomplete, attempt to resolve to their
+    // completions.
+    if (IncompleteType *IT = dyn_cast<IncompleteType>(source)) {
+        if (IT->hasCompletion())
+            source = IT->getCompleteType();
+    }
+    if (IncompleteType *IT = dyn_cast<IncompleteType>(target)) {
+        if (IT->hasCompletion())
+            target = IT->getCompleteType();
+    }
+
 
     if (!(source && target))
         return false;

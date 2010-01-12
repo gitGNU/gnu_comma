@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -208,7 +208,7 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
 {
     typedef DeclRegion::DeclIter iterator;
     PercentDecl *sigPercent = sig->getSigoid()->getPercent();
-    DeclRewriter rewrites(resource, declarativeRegion);
+    DeclRewriter rewrites(resource, declarativeRegion, sigPercent);
 
     // Map the formal arguments of the signature to the actual arguments of the
     // instance, and map the percent type of the instance to the percent type of

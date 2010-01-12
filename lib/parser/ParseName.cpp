@@ -1,9 +1,8 @@
-
 //===-- parser/ParseName.cpp ---------------------------------- -*- C++ -*-===//
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -84,6 +83,10 @@ Node Parser::parsePrj()
 Node Parser::parseSelectedComponent(Node prefix, NameOption option)
 {
     Location loc = currentLocation();
+
+    if (reduceToken(Lexer::TKN_ALL))
+        return client.acceptDereference(prefix, loc);
+
     IdentifierInfo *name = parseAnyIdentifier();
 
     if (name) {
@@ -234,6 +237,7 @@ void Parser::seekNameEnd()
         case Lexer::TKN_PERCENT:
         case Lexer::TKN_INJ:
         case Lexer::TKN_PRJ:
+        case Lexer::TKN_ALL:
             ignoreToken();
             break;
 

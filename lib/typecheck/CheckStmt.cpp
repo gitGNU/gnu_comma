@@ -111,6 +111,10 @@ DeclRefExpr *TypeCheck::resolveAssignmentTarget(Expr *expr)
     case Ast::AST_PrjExpr:
         expr = cast<PrjExpr>(expr)->getOperand();
         return resolveAssignmentTarget(expr);
+
+    case Ast::AST_DereferenceExpr:
+        expr = cast<DereferenceExpr>(expr)->getPrefix();
+        return resolveAssignmentTarget(expr);
     }
 }
 
@@ -433,4 +437,9 @@ void TypeCheck::endHandlerStmt(Node context, Node handlerNode)
 
     handlerNode.release();
     handledSequence->addHandler(handler);
+}
+
+Node TypeCheck::acceptNullStmt(Location loc)
+{
+    return getNode(new NullStmt(loc));
 }

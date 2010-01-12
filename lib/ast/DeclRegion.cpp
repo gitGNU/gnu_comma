@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -155,6 +155,8 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const RecordDecl*>(this);
     case Ast::AST_ArrayDecl:
         return static_cast<const ArrayDecl*>(this);
+    case Ast::AST_AccessDecl:
+        return static_cast<const AccessDecl*>(this);
     }
 }
 

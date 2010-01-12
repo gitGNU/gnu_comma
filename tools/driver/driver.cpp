@@ -256,7 +256,7 @@ int main(int argc, char **argv)
         return 1;
     }
     if (path.getSuffix() != "cms" && path.toString() != "-") {
-        llvm::errs() << "Input files must have a `.cms' extension.";
+        llvm::errs() << "Input files must have a `.cms' extension.\n";
         return 1;
     }
 

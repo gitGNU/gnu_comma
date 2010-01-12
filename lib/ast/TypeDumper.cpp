@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -57,7 +57,7 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
 
 void TypeDumper::visitDomainType(DomainType *node)
 {
-    printHeader(node);
+    printHeader(node) << ' ' << node->getDomainTypeDecl()->getString();
     if (DomainInstanceDecl *instance = node->getInstanceDecl()) {
         indent();
         for (unsigned i = 0; i < instance->getArity(); ++i) {
@@ -73,8 +73,11 @@ void TypeDumper::visitDomainType(DomainType *node)
 void TypeDumper::visitFunctionType(FunctionType *node)
 {
     printHeader(node) << ' ';
-    dumpParameters(node) << ' ';
+    dumpParameters(node) << '\n';
+    indent();
+    printIndentation();
     visitType(node->getReturnType());
+    dedent();
     S << '>';
 }
 
@@ -93,6 +96,7 @@ void TypeDumper::visitIntegerType(IntegerType *node)
 {
     printHeader(node);
     if (Range *range = node->getConstraint()) {
+        S << ' ';
         dumpAST(range->getLowerBound());
         S << ' ';
         dumpAST(range->getUpperBound());
@@ -114,5 +118,18 @@ void TypeDumper::visitAccessType(AccessType *node)
 {
     printHeader(node) << ' ';
     visitType(node->getTargetType());
+    S << '>';
+}
+
+void TypeDumper::visitRecordType(RecordType *node)
+{
+    printHeader(node);
+    indent();
+    for (unsigned i = 0; i < node->numComponents(); ++i) {
+        S << '\n';
+        printIndentation();
+        visitType(node->getComponentType(i));
+    }
+    dedent();
     S << '>';
 }
