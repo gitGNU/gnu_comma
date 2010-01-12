@@ -155,6 +155,8 @@ DIAGNOSTIC(REDECLARATION, ERROR,
            "Redeclaration of `%0'.")
 DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
+DIAGNOSTIC(CONFLICTING_SIGNATURE_INCLUSION, ERROR,
+           "Inclusion of signature `%0' provides conflicting declarations.")
 DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
 DIAGNOSTIC(MISSING_TYPE_COMPLETION, ERROR,

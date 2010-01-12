@@ -163,7 +163,7 @@ void TypeCheck::acceptSupersignature(Node typeNode)
 
     // Bring all of the declarations defined by this super signature into scope
     // and add them to the current declarative region.
-    acquireSignatureDeclarations(superSig);
+    acquireSignatureDeclarations(superSig, loc);
 }
 
 void TypeCheck::beginSignatureProfile()
@@ -204,7 +204,7 @@ void TypeCheck::acquireImplicitDeclarations(Decl *decl)
         scope.addDirectDeclNoConflicts(*I);
 }
 
-void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
+void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig, Location loc)
 {
     typedef DeclRegion::DeclIter iterator;
     PercentDecl *sigPercent = sig->getSigoid()->getPercent();
@@ -231,9 +231,14 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig)
             conflict = conflict->resolveOrigin();
             candidate = candidate->resolveOrigin();
 
-            // FIXME: We need a better diagnostic here.  Instead of just noting
-            // which declarations conflict, we should also specify which
-            // signature inclusions produce the conflict.
+            // FIXME: Improve the diagnostics here.  We could look at the origin
+            // of the conflicting declaration and provide a qualified name.
+            //
+            // Report which signature provided the conflict.
+            report(loc, diag::CONFLICTING_SIGNATURE_INCLUSION)
+                << sig->getIdInfo();
+
+            // Report which declarations conflict.
             SourceLocation sloc = getSourceLoc(conflict->getLocation());
             report(candidate->getLocation(), diag::DECLARATION_CONFLICTS)
                 << candidate->getIdInfo() << sloc;
