@@ -25,7 +25,9 @@ namespace comma {
 //===----------------------------------------------------------------------===//
 // Expr
 //
-// This is the root of the AST hierarchy representing expressions.
+/// \class
+///
+/// \brief This is the root of the AST hierarchy representing expressions.
 class Expr : public Ast {
 
 public:
@@ -44,32 +46,35 @@ public:
     /// Returns the location of this expression.
     Location getLocation() const { return location; }
 
-    // Returns true if this expression has a single known type associated with
-    // it.
+    /// Returns true if this expression has a type associated with it.
     bool hasType() const { return type != 0; }
 
-    // Most expressions have a single well-known type.  Others, such as
-    // FunctionCallExpr, can have multiple types temporarily associated with
-    // pending resolution in the type checker.
-    //
-    // If this expression has a single well-known type, this method returns it.
-    // However, if the type is not known, this method will assert.  One can call
-    // Expr::hasType to know if a type is available.
+    /// \brief Returns the type of this expression.
+    ///
+    /// Most expressions have a single well-known type.  Others, such as
+    /// FunctionCallExpr, can have multiple types temporarily associated with
+    /// pending resolution in the type checker.
+    ///
+    /// If this expression has a single well-known type, this method returns it.
+    /// However, if the type is not known, this method will assert.  One can
+    /// call Expr::hasType to know if a type is available.
     Type *getType() const {
         assert(hasType() && "Expr does not have an associated type!");
         return type;
     }
 
-    // Sets the type of this expression.  If the supplied type is NULL, then
-    // this expression is not associated with a type and Expr::hasType will
-    // subsequently return false.
+    /// \brief Sets the type of this expression.
+    ///
+    /// If the supplied type is null, then this expression is not associated
+    /// with a type and Expr::hasType will subsequently return false.
     void setType(Type *type) { this->type = type; }
 
-    /// Returns true if this expression can be evaluated as to a static discrete
-    /// value.
+    /// \brief Returns true if this expression can be evaluated as to a static
+    /// discrete value.
     bool isStaticDiscreteExpr() const;
 
-    /// Attempts to evaluate this expression as a constant descrete expression.
+    /// \brief Attempts to evaluate this expression as a constant descrete
+    /// expression.
     ///
     /// The correctness of this evaluation depends on the correctness of the
     /// given expression.  For example, no checks are made that two distinct
@@ -81,7 +86,8 @@ public:
     /// \return True if \p expr is static and \p result was set.  False otherwise.
     bool staticDiscreteValue(llvm::APInt &result) const;
 
-    /// Attempts to evaluate this expression as a constant string expression.
+    /// \brief Attempts to evaluate this expression as a constant string
+    /// expression.
     ///
     /// \param result If this is a static expression, \p result is set to the
     /// computed value.
@@ -90,9 +96,11 @@ public:
     /// otherwise.
     bool staticStringValue(std::string &result) const;
 
-    /// Returns true if this expression evaluates to a static string expression.
+    /// \brief Returns true if this expression evaluates to a static string
+    /// expression.
     bool isStaticStringExpr() const;
 
+    // Support isa/dyn_cast.
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesExpr();
