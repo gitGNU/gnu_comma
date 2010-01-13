@@ -82,89 +82,38 @@ Node TypeCheck::acceptEmptyReturnStmt(Location loc)
     return getInvalidNode();
 }
 
-DeclRefExpr *TypeCheck::resolveAssignmentTarget(Expr *expr)
-{
-    switch (expr->getKind()) {
-    default:
-        return 0;
-
-    case Ast::AST_DeclRefExpr: {
-        DeclRefExpr *result = cast<DeclRefExpr>(expr);
-        ValueDecl *target = result->getDeclaration();
-        if (RenamedObjectDecl *rod = dyn_cast<RenamedObjectDecl>(target))
-            return resolveAssignmentTarget(rod->getRenamedExpr());
-        return result;
-    }
-
-    case Ast::AST_IndexedArrayExpr:
-        expr = cast<IndexedArrayExpr>(expr)->getArrayExpr();
-        return resolveAssignmentTarget(expr);
-
-    case Ast::AST_SelectedExpr:
-        expr = cast<SelectedExpr>(expr)->getPrefix();
-        return resolveAssignmentTarget(expr);
-
-    case Ast::AST_InjExpr:
-        expr = cast<InjExpr>(expr)->getOperand();
-        return resolveAssignmentTarget(expr);
-
-    case Ast::AST_PrjExpr:
-        expr = cast<PrjExpr>(expr)->getOperand();
-        return resolveAssignmentTarget(expr);
-
-    case Ast::AST_DereferenceExpr:
-        expr = cast<DereferenceExpr>(expr)->getPrefix();
-        return resolveAssignmentTarget(expr);
-    }
-}
-
 Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
 {
     Expr *value = ensureExpr(valueNode);
     Expr *target = ensureExpr(targetNode);
+    Expr *immutable;
 
     if (!(value && target))
         return getInvalidNode();
 
-    Type *targetTy = target->getType();
-    DeclRefExpr *refExpr = resolveAssignmentTarget(target);
+    if (!target->isMutable(immutable)) {
+        Location loc = immutable->getLocation();
 
-    if (!refExpr) {
-        report(target->getLocation(), diag::INVALID_LHS_FOR_ASSIGNMENT);
-        return getInvalidNode();
-    }
-
-    ValueDecl *targetDecl = refExpr->getDeclaration();
-
-    if (ParamValueDecl *param = dyn_cast<ParamValueDecl>(targetDecl)) {
-        // Ensure parameter decls are not of mode "in".
-        if (param->getParameterMode() == PM::MODE_IN) {
-            IdentifierInfo *name = param->getIdInfo();
-            Location loc = target->getLocation();
-            report(loc, diag::ASSIGNMENT_TO_MODE_IN) << name;
-            return getInvalidNode();
+        // Diagnose common assignment mistakes.
+        if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(immutable)) {
+            if (isa<LoopDecl>(ref->getDeclaration())) {
+                report(loc, diag::LOOP_PARAM_NOT_VARIABLE);
+                return getInvalidNode();
+            }
         }
-    }
-    else if (LoopDecl *loop = dyn_cast<LoopDecl>(targetDecl)) {
-        // Loop declarations cannot be assigned to.
-        IdentifierInfo *name = loop->getIdInfo();
-        Location loc = target->getLocation();
-        report(loc, diag::ASSIGNMENT_TO_LOOP_PARAM) << name;
+
+        // Generic diagnostic.
+        report(loc, diag::INVALID_TARGET_FOR_ASSIGNMENT);
         return getInvalidNode();
-    }
-    else {
-        // The only other option is an ObjectDecl, which is always a valid
-        // target.
-        assert(isa<ObjectDecl>(targetDecl) && "Unexpected ValueDecl!");
     }
 
     // Check that the value is compatible with the type of the target.
+    Type *targetTy = target->getType();
     if (!(value = checkExprInContext(value, targetTy)))
         return getInvalidNode();
 
     valueNode.release();
     targetNode.release();
-
     value = convertIfNeeded(value, targetTy);
     return getNode(new AssignmentStmt(target, value));
 }

@@ -161,12 +161,10 @@ DIAGNOSTIC(MISSING_EXPORT, ERROR,
            "Domain `%0' is missing export `%1'.")
 DIAGNOSTIC(MISSING_TYPE_COMPLETION, ERROR,
            "Missing completion for type `%0'.")
-DIAGNOSTIC(ASSIGNMENT_TO_MODE_IN, ERROR,
-           "Cannot assign to parameter `%0' of mode \"in\".")
-DIAGNOSTIC(ASSIGNMENT_TO_LOOP_PARAM, ERROR,
-           "Cannot assign to loop parameter `%0'.")
-DIAGNOSTIC(INVALID_LHS_FOR_ASSIGNMENT, ERROR,
+DIAGNOSTIC(INVALID_TARGET_FOR_ASSIGNMENT, ERROR,
            "Target of assignment does not denote a variable.")
+DIAGNOSTIC(LOOP_PARAM_NOT_VARIABLE, ERROR,
+           "Loop parameters are not variable.")
 DIAGNOSTIC(IN_PARAMETER_NOT_MODE_COMPATIBLE, ERROR,
            "Parameter `%0' of mode \"in\" cannot be used in a \"%0\" "
            "context.")

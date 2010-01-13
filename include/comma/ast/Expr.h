@@ -100,6 +100,33 @@ public:
     /// expression.
     bool isStaticStringExpr() const;
 
+    //@{
+    /// \brief Determines if this expression is mutable.
+    ///
+    /// Mutable expressions always reduce to a DeclRefExpr which denotes:
+    ///
+    ///   - An object declaration;
+    ///
+    ///   - A ParamValueDecl of mode "out" or "in out";
+    ///
+    ///   - A renamed object declaration which signifies a mutable expression.
+    ///
+    /// A mutable DeclRefExpr may be wrapped by an inj, prj, dereference,
+    /// component selection, or array index expression.
+    ///
+    /// \param immutable If \c this is not a mutable expression then \p
+    /// immutable is set to first subexpression which forbids mutability.  The
+    /// purpose of this parameter is to provide the caller with the context as
+    /// to why \c this is not mutable.
+    ///
+    /// \return True if this is a mutable expression false otherwise.
+    bool isMutable(const Expr *&immutable) const {
+        Expr *ex = const_cast<Expr*>(this);
+        return ex->isMutable(const_cast<Expr*&>(immutable));
+    }
+    bool isMutable(Expr *&immutable);
+    //@}
+
     // Support isa/dyn_cast.
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {
@@ -122,13 +149,21 @@ public:
         : Expr(AST_DeclRefExpr, decl->getType(), loc),
           declaration(decl) { }
 
+    /// Returns the defining identifier of the declaration this expression
+    /// references.
     IdentifierInfo *getIdInfo() const { return declaration->getIdInfo(); }
+
+    /// Returns a string representation of the defining identifier.
     const char *getString() const { return declaration->getString(); }
 
+    //@{
+    /// Returns the declaration this expression references.
+    const ValueDecl *getDeclaration() const { return declaration; }
     ValueDecl *getDeclaration() { return declaration; }
-
+    //@}
     void setDeclaration(ValueDecl *decl) { declaration = decl; }
 
+    // Support isa/dyn_cast.
     static bool classof(const DeclRefExpr *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_DeclRefExpr;
@@ -235,8 +270,8 @@ public:
 
     ///@{
     /// Returns the expression denoting the array to index.
-    Expr *getArrayExpr() { return indexedArray; }
-    const Expr *getArrayExpr() const { return indexedArray; }
+    Expr *getPrefix() { return indexedArray; }
+    const Expr *getPrefix() const { return indexedArray; }
     ///@}
 
     /// Returns the number of indicies serving as subscripts.

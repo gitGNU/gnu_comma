@@ -557,11 +557,6 @@ private:
     // prefered declaration if found and null otherwise.
     FunctionDecl *resolvePreferredOperator(SVImpl<FunctionDecl*>::Type &decls);
 
-    /// Walks \p expr and returns the DeclRefExpr which provides the base value
-    /// of an assignable expression, or null if \p expr is not of an assignable
-    /// form.
-    static DeclRefExpr *resolveAssignmentTarget(Expr *expr);
-
     /// Checks that the given SubroutineRef can be applied to the given argument
     /// nodes.
     ///

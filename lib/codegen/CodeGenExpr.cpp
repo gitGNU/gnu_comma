@@ -90,7 +90,7 @@ CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
     assert(IAE->getNumIndices() == 1 &&
            "Multidimensional arrays are not yet supported!");
 
-    Expr *arrExpr = IAE->getArrayExpr();
+    Expr *arrExpr = IAE->getPrefix();
     Expr *idxExpr = IAE->getIndex(0);
     ArrayType *arrTy = cast<ArrayType>(arrExpr->getType());
 

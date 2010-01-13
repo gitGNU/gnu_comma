@@ -8,7 +8,7 @@ domain D add
 
    procedure Test (X : in Boolean) is
    begin
-      -- EXPECTED-ERROR: "in" cannot be used in a "out" context
+      -- EXPECTED-ERROR: cannot be used as an "out" parameter
       P(X);
    end Test;
 end D;

@@ -16,6 +16,95 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
+//===----------------------------------------------------------------------===//
+// Expr
+//
+// NOTE: Several methods related to compile time evaluation of expressions are
+// defined in Eval.cpp.
+
+bool Expr::isMutable(Expr *&immutable)
+{
+    // Iteration variable.  Updated as we walk subexpressions.
+    Expr *cursor = this;
+
+TRY_AGAIN:
+    AstKind kind = cursor->getKind();
+
+    // The base (and most common) case is that the cursor is a DeclRefExpr.
+    // Either we have an object declaration or a formal parameter of mode "out"
+    // or "in out".
+    //
+    // FIXME: We need to enhance this logic once constant declarations are
+    // introduced.
+    if (kind == AST_DeclRefExpr) {
+        DeclRefExpr *ref = cast<DeclRefExpr>(cursor);
+        ValueDecl *decl = ref->getDeclaration();
+        bool result = true;
+
+        // Object declarations are always mutable (currently).
+        if (!isa<ObjectDecl>(decl)) {
+            kind = decl->getKind();
+            switch (kind) {
+
+            case AST_ParamValueDecl: {
+                ParamValueDecl *PVD = cast<ParamValueDecl>(decl);
+                if (PVD->getParameterMode() == PM::MODE_IN) {
+                    result = false;
+                    immutable = cursor;
+                }
+                break;
+            }
+
+            case AST_RenamedObjectDecl: {
+                // Recurse since renames are likely only one layer deep.
+                RenamedObjectDecl *ROD = cast<RenamedObjectDecl>(decl);
+                result = ROD->getRenamedExpr()->isMutable(immutable);
+                break;
+            }
+
+            default:
+                result = false;
+                immutable = cursor;
+                break;
+            }
+        }
+        return result;
+    }
+
+    // Otherwise, attempt to walk thru the valid chain of subexpressions which
+    // may ultimately yield a valid base case.  In essence, mutability is a
+    // transitive property of the cursors prefix or operand.
+    switch (kind) {
+
+    default:
+        // Nope.  Not mutable.
+        immutable = cursor;
+        return 0;
+
+    case AST_SelectedExpr:
+        cursor = cast<SelectedExpr>(cursor)->getPrefix();
+        break;
+
+    case AST_IndexedArrayExpr:
+        cursor = cast<IndexedArrayExpr>(cursor)->getPrefix();
+        break;
+
+    case AST_DereferenceExpr:
+        cursor = cast<DereferenceExpr>(cursor)->getPrefix();
+        break;
+
+    case AST_InjExpr:
+        cursor = cast<InjExpr>(cursor)->getOperand();
+        break;
+
+    case AST_PrjExpr:
+        cursor = cast<PrjExpr>(cursor)->getOperand();
+        break;
+    }
+
+    // Continue to walk the expression tree and try again.
+    goto TRY_AGAIN;
+}
 
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr

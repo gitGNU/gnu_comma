@@ -3,6 +3,6 @@
 domain D add
    procedure P (X : Boolean) is
    begin
-      X := true;                -- EXPECTED-ERROR: Cannot assign to parameter
+      X := true;                -- EXPECTED-ERROR: does not denote a variable
    end P;
 end D;
