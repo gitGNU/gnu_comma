@@ -95,9 +95,6 @@ public:
 
     CValue emitVStackCall(FunctionCallExpr *expr);
 
-    std::pair<llvm::Value*, llvm::Value*>
-    emitAggregateCall(FunctionCallExpr *expr, llvm::Value *dst);
-
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        ArrayType *arrTy);
 
