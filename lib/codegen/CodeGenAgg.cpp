@@ -42,9 +42,7 @@ public:
           emitter(CGR),
           Builder(Builder) { }
 
-    typedef std::pair<llvm::Value *, llvm::Value *> ValuePair;
-
-    ValuePair emit(Expr *expr, llvm::Value *dst, bool genTmp);
+    CValue emit(Expr *expr, llvm::Value *dst, bool genTmp);
 
 private:
     CodeGenRoutine &CGR;
@@ -88,17 +86,17 @@ private:
     void emitOthers(AggregateExpr *expr, llvm::Value *dst,
                     llvm::Value *bounds, uint64_t numComponents);
 
-    ValuePair emitPositionalAgg(AggregateExpr *expr, llvm::Value *dst);
-    ValuePair emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
-    ValuePair emitStaticKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
-    ValuePair emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
-    ValuePair emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitPositionalAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitStaticKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
 
-    ValuePair emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
-                                  bool genTmp);
-    ValuePair emitCall(FunctionCallExpr *call, llvm::Value *dst);
-    ValuePair emitAggregate(AggregateExpr *expr, llvm::Value *dst);
-    ValuePair emitStringLiteral(StringLiteral *expr);
+    CValue emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
+                               bool genTmp);
+    CValue emitCall(FunctionCallExpr *call, llvm::Value *dst);
+    CValue emitAggregate(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitStringLiteral(StringLiteral *expr);
 
     /// Allocates a temporary array.
     ///
@@ -141,8 +139,7 @@ llvm::Value *ArrayEmitter::convertIndex(llvm::Value *idx)
     return idx;
 }
 
-ArrayEmitter::ValuePair
-ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
+CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     llvm::Value *components;
     llvm::Value *bounds;
@@ -173,9 +170,9 @@ ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
             bounds = emitter.synthStaticArrayBounds(Builder, arrTy);
     }
     else if (StringLiteral *lit = dyn_cast<StringLiteral>(expr)) {
-        ValuePair pair = emitStringLiteral(lit);
-        components = pair.first;
-        bounds = pair.second;
+        CValue value = emitStringLiteral(lit);
+        components = value.first();
+        bounds = value.second();
     }
     else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(expr)) {
         components = CGR.emitIndexedArrayRef(iae);
@@ -187,7 +184,7 @@ ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else {
         assert(false && "Invalid type of array expr!");
-        return ValuePair(0, 0);
+        return CValue::getAgg(0, 0);
     }
 
     llvm::Value *length = 0;
@@ -207,10 +204,10 @@ ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         if (!length)
             length = emitter.computeTotalBoundLength(Builder, bounds);
         CGR.emitArrayCopy(components, dst, length, componentTy);
-        return ValuePair(dst, bounds);
+        return CValue::getAgg(dst, bounds);
     }
     else
-        return ValuePair(components, bounds);
+        return CValue::getAgg(components, bounds);
 }
 
 void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
@@ -221,8 +218,7 @@ void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
         Builder.CreateStore(CGR.emitValue(expr).first(), dst);
 }
 
-ArrayEmitter::ValuePair ArrayEmitter::emitCall(FunctionCallExpr *call,
-                                               llvm::Value *dst)
+CValue ArrayEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(CGR.resolveType(call->getType()));
 
@@ -230,24 +226,25 @@ ArrayEmitter::ValuePair ArrayEmitter::emitCall(FunctionCallExpr *call,
     if (arrTy->isConstrained()) {
         dst = CGR.emitCompositeCall(call, dst);
         llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
-        return std::pair<llvm::Value*, llvm::Value*>(dst, bounds);
+        return CValue::getAgg(dst, bounds);
     }
 
     // Unconstrained (indefinite type) use the vstack.  The callee cannot know
     // the size of the result hense dst must be null.
     assert(dst == 0 && "Destination given for indefinite type!");
-    return CGR.emitVStackCall(call);
+    std::pair<llvm::Value*, llvm::Value*> dataBounds;
+    dataBounds = CGR.emitVStackCall(call);
+    return CValue::getAgg(dataBounds.first, dataBounds.second);
 }
 
-ArrayEmitter::ValuePair ArrayEmitter::emitAggregate(AggregateExpr *expr,
-                                                    llvm::Value *dst)
+CValue ArrayEmitter::emitAggregate(AggregateExpr *expr, llvm::Value *dst)
 {
     if (expr->isPurelyPositional())
         return emitPositionalAgg(expr, dst);
     return emitKeyedAgg(expr, dst);
 }
 
-ArrayEmitter::ValuePair ArrayEmitter::emitStringLiteral(StringLiteral *expr)
+CValue ArrayEmitter::emitStringLiteral(StringLiteral *expr)
 {
     assert(expr->hasType() && "Unresolved string literal type!");
 
@@ -282,12 +279,11 @@ ArrayEmitter::ValuePair ArrayEmitter::emitStringLiteral(StringLiteral *expr)
     boundPtr = new llvm::GlobalVariable(
         *CG.getModule(), boundData->getType(), true,
         llvm::GlobalValue::InternalLinkage, boundData, "bounds.data");
-    return ValuePair(dataPtr, boundPtr);
+    return CValue::getAgg(dataPtr, boundPtr);
 }
 
-ArrayEmitter::ValuePair
-ArrayEmitter::emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
-                                  bool genTmp)
+CValue ArrayEmitter::emitArrayConversion(ConversionExpr *convert,
+                                         llvm::Value *dst, bool genTmp)
 {
     // FIXME: Implement.
     return emit(convert->getOperand(), dst, genTmp);
@@ -404,8 +400,7 @@ void ArrayEmitter::emitOthers(AggregateExpr *expr,
     Builder.SetInsertPoint(mergeBB);
 }
 
-ArrayEmitter::ValuePair ArrayEmitter::emitPositionalAgg(AggregateExpr *expr,
-                                                        llvm::Value *dst)
+CValue ArrayEmitter::emitPositionalAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     assert(expr->isPurelyPositional() && "Unexpected type of aggregate!");
 
@@ -425,11 +420,10 @@ ArrayEmitter::ValuePair ArrayEmitter::emitPositionalAgg(AggregateExpr *expr,
 
     // Emit an "others" clause if present.
     emitOthers(expr, dst, bounds, components.size());
-    return ValuePair(dst, bounds);
+    return CValue::getAgg(dst, bounds);
 }
 
-ArrayEmitter::ValuePair ArrayEmitter::emitKeyedAgg(AggregateExpr *expr,
-                                                   llvm::Value *dst)
+CValue ArrayEmitter::emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     assert(expr->isPurelyKeyed() && "Unexpected kind of aggregate!");
 
@@ -494,8 +488,7 @@ void ArrayEmitter::emitDiscreteComponent(AggregateExpr::key_iterator &I,
     }
 }
 
-ArrayEmitter::ValuePair
-ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
+CValue ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
 {
     assert(agg->isPurelyKeyed() && "Unexpected type of aggregate!");
 
@@ -522,7 +515,7 @@ ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
         emitDiscreteComponent(I, dst, lower);
     fillInOthers(agg, dst, lower, upper);
 
-    return ValuePair(dst, bounds);
+    return CValue::getAgg(dst, bounds);
 }
 
 void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
@@ -586,8 +579,7 @@ void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
     }
 }
 
-ArrayEmitter::ValuePair
-ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+CValue ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
     AggregateExpr::key_iterator I = expr->key_begin();
@@ -638,11 +630,10 @@ ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Set the insert point to the merge block and return.
     Builder.SetInsertPoint(mergeBB);
-    return ValuePair(dst, bounds);
+    return CValue::getAgg(dst, bounds);
 }
 
-ArrayEmitter::ValuePair
-ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+CValue ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     assert(expr->hasOthers() && "Empty aggregate!");
 
@@ -660,7 +651,7 @@ ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Emit the others expression.
     emitOthers(expr, dst, bounds, 0);
-    return ValuePair(dst, bounds);
+    return CValue::getAgg(dst, bounds);
 }
 
 llvm::Value *ArrayEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
@@ -988,8 +979,7 @@ void CodeGenRoutine::emitArrayCopy(llvm::Value *source,
     Builder.CreateCall4(memcpy, dst, src, length, align);
 }
 
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
+CValue CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     ArrayEmitter emitter(*this, Builder);
     return emitter.emit(expr, dst, genTmp);
@@ -1002,22 +992,22 @@ CodeGenRoutine::emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     return emitter.emit(expr, dst, genTmp);
 }
 
-llvm::Value *
+CValue
 CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     Type *Ty = resolveType(expr->getType());
 
     if (isa<ArrayType>(Ty)) {
         ArrayEmitter emitter(*this, Builder);
-        return emitter.emit(expr, dst, genTmp).first;
+        return emitter.emit(expr, dst, genTmp);
     }
     else if (isa<RecordType>(Ty)) {
         RecordEmitter emitter(*this, Builder);
-        return emitter.emit(expr, dst, genTmp);
+        return CValue::getSimple(emitter.emit(expr, dst, genTmp));
     }
 
     assert(false && "Not a composite expression!");
-    return 0;
+    return CValue::getSimple(0);
 }
 
 void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)
@@ -1044,12 +1034,10 @@ void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)
             slot = SRF->createEntry(objDecl, activation::Slot, loweredTy);
 
         Expr *init = objDecl->getInitializer();
-        std::pair<llvm::Value*, llvm::Value*> result;
-
-        result = emitArrayExpr(init, slot, true);
+        CValue result = emitArrayExpr(init, slot, true);
         if (!slot)
-            SRF->associate(objDecl, activation::Slot, result.first);
-        SRF->associate(objDecl, activation::Bounds, result.second);
+            SRF->associate(objDecl, activation::Slot, result.first());
+        SRF->associate(objDecl, activation::Bounds, result.second());
     }
     else {
         // We must have a record type.

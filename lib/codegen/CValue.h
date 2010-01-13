@@ -57,7 +57,7 @@ public:
         return CValue(V1, 0, Simple);
     }
 
-    static CValue getAggregate(llvm::Value *V1, llvm::Value *V2) {
+    static CValue getAgg(llvm::Value *V1, llvm::Value *V2) {
         return CValue(V1, V2, Aggregate);
     }
 

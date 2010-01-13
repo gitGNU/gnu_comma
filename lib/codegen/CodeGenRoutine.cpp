@@ -102,7 +102,7 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
     // Emit a renamed object declaration as a reference to its renamed
     // expression and associate the result with the declaration.
     if (objTy->isCompositeType())
-        objValue = emitCompositeExpr(objExpr, 0, false);
+        objValue = emitCompositeExpr(objExpr, 0, false).first();
     else
         objValue = emitVariableReference(objExpr);
 
@@ -223,8 +223,8 @@ CodeGenRoutine::emitRangeAttrib(RangeAttrib *attrib)
     BoundPair bounds;
 
     if (ArrayRangeAttrib *arrayRange = dyn_cast<ArrayRangeAttrib>(attrib)) {
-        BoundPair arrayPair = emitArrayExpr(arrayRange->getPrefix(), 0, false);
-        bounds = emitter.getBounds(Builder, arrayPair.second, 0);
+        CValue arrValue = emitArrayExpr(arrayRange->getPrefix(), 0, false);
+        bounds = emitter.getBounds(Builder, arrValue.second(), 0);
     }
     else {
         // FIXME: This evaluation is wrong.  All types should be elaborated

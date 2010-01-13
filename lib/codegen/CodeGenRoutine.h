@@ -72,11 +72,11 @@ public:
     CValue emitValue(Expr *expr);
     llvm::Value *emitVariableReference(Expr *expr);
 
-    std::pair<llvm::Value*, llvm::Value*>
-    emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+    CValue emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
     llvm::Value *emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp);
-    llvm::Value *emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+
+    CValue emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
     void emitStmt(Stmt *stmt);
 

@@ -335,7 +335,7 @@ void CallEmitter::emitCompositeArgument(Expr *param, PM::ParameterMode mode,
     else {
         // Otherwise we have a record type as target.  Simply push a reference
         // to the record.
-        arguments.push_back(CGR.emitCompositeExpr(param, 0, false));
+        arguments.push_back(CGR.emitCompositeExpr(param, 0, false).first());
     }
 }
 
@@ -379,9 +379,8 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
     }
 
     // FIXME: Currently, we do not pass arrays by copy (we should).
-    typedef std::pair<llvm::Value*, llvm::Value*> ArrPair;
-    ArrPair pair = CGR.emitArrayExpr(param, 0, false);
-    llvm::Value *components = pair.first;
+    CValue arrValue = CGR.emitArrayExpr(param, 0, false);
+    llvm::Value *components = arrValue.first();
 
     if (targetTy->isStaticallyConstrained()) {
         // The target type is statically constrained.  We do not need to emit
@@ -402,7 +401,7 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
             components = Builder.CreatePointerCast(components, contextTy);
 
         // Pass the components plus the bounds.
-        llvm::Value *bounds = pair.second;
+        llvm::Value *bounds = arrValue.second();
         const llvm::Type *boundsTy = bounds->getType();
         if (boundsTy->isAggregateType()) {
             llvm::Value *slot = frame()->createTemp(boundsTy);

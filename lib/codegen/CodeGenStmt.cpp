@@ -108,12 +108,11 @@ void CodeGenRoutine::emitReturnStmt(ReturnStmt *ret)
             }
             else {
                 BoundsEmitter emitter(*this);
-                std::pair<llvm::Value*, llvm::Value*> arrayPair =
-                    emitArrayExpr(expr, 0, false);
+                CValue arrValue = emitArrayExpr(expr, 0, false);
                 const llvm::Type *componentTy =
                     CGT.lowerType(arrTy->getComponentType());
-                llvm::Value *data = arrayPair.first;
-                llvm::Value *bounds = arrayPair.second;
+                llvm::Value *data = arrValue.first();
+                llvm::Value *bounds = arrValue.second();
                 const llvm::Type *boundsTy = bounds->getType();
 
                 // Compute the size of the data.  Note that getSizeOf returns an
@@ -449,12 +448,11 @@ void CodeGenRoutine::emitRaiseStmt(RaiseStmt *stmt)
 
     if (stmt->hasMessage()) {
         BoundsEmitter emitter(*this);
-        std::pair<llvm::Value*, llvm::Value*> ABPair;
         llvm::Value *message;
         llvm::Value *length;
-        ABPair = emitArrayExpr(stmt->getMessage(), 0, false);
-        message = ABPair.first;
-        length = emitter.computeBoundLength(Builder, ABPair.second, 0);
+        CValue arrValue = emitArrayExpr(stmt->getMessage(), 0, false);
+        message = arrValue.first();
+        length = emitter.computeBoundLength(Builder, arrValue.second(), 0);
         CG.getRuntime().raise(SRF, exception, message, length);
     }
     else

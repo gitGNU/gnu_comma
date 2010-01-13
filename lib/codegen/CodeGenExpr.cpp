@@ -138,10 +138,9 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
         }
     }
     else {
-        std::pair<llvm::Value*, llvm::Value*> arrPair;
-        arrPair = emitArrayExpr(arrExpr, 0, false);
-        data = arrPair.first;
-        bounds = arrPair.second;
+        CValue arrValue = emitArrayExpr(arrExpr, 0, false);
+        data = arrValue.first();
+        bounds = arrValue.second();
     }
 
     // Emit and adjust the index by the lower bound of the array.  Adjust to the
