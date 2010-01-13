@@ -70,7 +70,7 @@ public:
     void emit();
 
     CValue emitValue(Expr *expr);
-    CValue emitVariableReference(Expr *expr);
+    CValue emitReference(Expr *expr);
 
     CValue emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 

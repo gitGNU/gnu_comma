@@ -104,12 +104,12 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
     if (objTy->isCompositeType())
         objValue = emitCompositeExpr(objExpr, 0, false).first();
     else
-        objValue = emitVariableReference(objExpr).first();
+        objValue = emitReference(objExpr).first();
 
     SRF->associate(objDecl, activation::Slot, objValue);
 }
 
-CValue CodeGenRoutine::emitVariableReference(Expr *expr)
+CValue CodeGenRoutine::emitReference(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *refDecl = refExpr->getDeclaration();

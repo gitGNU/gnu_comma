@@ -319,7 +319,7 @@ void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *target
     if (CompositeType *compTy = dyn_cast<CompositeType>(targetTy))
         emitCompositeArgument(param, mode, compTy);
     else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
-        arguments.push_back(CGR.emitVariableReference(param).first());
+        arguments.push_back(CGR.emitReference(param).first());
     else
         arguments.push_back(CGR.emitValue(param).first());
 }
