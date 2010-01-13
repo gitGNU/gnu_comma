@@ -298,67 +298,6 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     Builder.SetInsertPoint(mergeBB);
 }
 
-void CodeGenRoutine::emitAssignmentStmt(AssignmentStmt *stmt)
-{
-    Expr *lhs = stmt->getTarget();
-    Expr *rhs = stmt->getAssignedExpr();
-
-    // Resolve any layers of inj/prj expressions.
-    for (;;) {
-        if (InjExpr *inj = dyn_cast<InjExpr>(lhs))
-            lhs = inj->getOperand();
-        else if (PrjExpr *prj = dyn_cast<PrjExpr>(lhs))
-            lhs = prj->getOperand();
-        else
-            break;
-    }
-
-    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(lhs)) {
-        Type *refTy = resolveType(ref->getType());
-
-        if (isa<CompositeType>(refTy)) {
-            // Evaluate the rhs into the storage provided by the lhs.
-            llvm::Value *dst =
-                SRF->lookup(ref->getDeclaration(), activation::Slot);
-            emitCompositeExpr(rhs, dst, false);
-        }
-        else {
-            // The left hand side is a simple variable reference.  Just emit the
-            // left and right hand sides and form a store.
-            llvm::Value *target = emitVariableReference(ref);
-            llvm::Value *source = emitValue(rhs).first();
-            Builder.CreateStore(source, target);
-        }
-    }
-    else if (SelectedExpr *selExpr = dyn_cast<SelectedExpr>(lhs)) {
-        // If the type of the selected component is composite evaluate the rhs
-        // into the storage provided by the lhs.  Otherwise, simply store the
-        // lhs.
-        llvm::Value *target = emitSelectedRef(selExpr);
-        if (selExpr->getType()->isCompositeType())
-            emitCompositeExpr(rhs, target, false);
-        else
-            Builder.CreateStore(emitValue(rhs).first(), target);
-    }
-    else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(lhs)) {
-        // Emit the prefix as a simple value yielding a pointer to the
-        // destination.  Check that the target is not null and emit the rhs.
-        llvm::Value *target = emitValue(deref->getPrefix()).first();
-        emitNullAccessCheck(target);
-        if (deref->getPrefixType()->isCompositeType())
-            emitCompositeExpr(rhs, target, false);
-        else
-            Builder.CreateStore(emitValue(rhs).first(), target);
-    }
-    else {
-        // Otherwise, the target must be an IndexedArrayExpr.  Get a reference
-        // to the needed component and again, store in the right hand side.
-        IndexedArrayExpr *arrIdx = cast<IndexedArrayExpr>(stmt->getTarget());
-        llvm::Value *target = emitIndexedArrayRef(arrIdx);
-        Builder.CreateStore(emitValue(rhs).first(), target);
-    }
-}
-
 void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 {
     llvm::BasicBlock *entryBB = SRF->makeBasicBlock("while.top");

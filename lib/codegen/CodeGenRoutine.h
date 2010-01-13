@@ -110,6 +110,9 @@ public:
 
     PrimaryType *resolveType(Type *type);
 
+    /// Emits a null check for the given pointer value.
+    void emitNullAccessCheck(llvm::Value *pointer);
+
 private:
     // Returns the llvm function we are generating code for.
     llvm::Function *getLLVMFunction() const;
@@ -169,9 +172,6 @@ private:
     void emitDiscreteRangeCheck(llvm::Value *sourceVal,
                                 DiscreteType *sourceTy,
                                 DiscreteType *targetTy);
-
-    /// Emits a null check for the given pointer value.
-    void emitNullAccessCheck(llvm::Value *pointer);
 
     /// Helper method for emitAbstractCall.
     ///
