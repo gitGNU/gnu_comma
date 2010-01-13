@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CodeGen.h"
 #include "SRInfo.h"
 #include "CGContext.h"
 #include "CodeGenRoutine.h"
@@ -13,7 +14,6 @@
 #include "DependencySet.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
-#include "comma/codegen/CodeGen.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;
@@ -425,4 +425,13 @@ const DependencySet &CodeGen::getDependencySet(const Domoid *domoid)
     DependencySet *DS = new DependencySet(domoid);
     entry.second = DS;
     return *DS;
+}
+
+//===----------------------------------------------------------------------===//
+// Generator
+
+Generator *Generator::create(llvm::Module *M, const llvm::TargetData &data,
+                             AstResource &resource)
+{
+    return new CodeGen(M, data, resource);
 }

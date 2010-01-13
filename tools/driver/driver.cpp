@@ -7,7 +7,7 @@
 #include "comma/ast/AstResource.h"
 #include "comma/basic/TextProvider.h"
 #include "comma/basic/IdentifierPool.h"
-#include "comma/codegen/CodeGen.h"
+#include "comma/codegen/Generator.h"
 #include "comma/parser/Parser.h"
 #include "comma/typecheck/Checker.h"
 
@@ -68,7 +68,7 @@ namespace {
 
 // Selects a procedure to use as an entry point and generates the corresponding
 // main function.
-int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
+int emitEntryPoint(Generator *Gen, const CompilationUnit &cu)
 {
     // We must have a well formed entry point string of the form "D.P", where D
     // is the context domain and P is the procedure to call.
@@ -122,7 +122,7 @@ int emitEntryPoint(CodeGen &CG, const CompilationUnit &cu)
         return 1;
     }
 
-    CG.emitEntry(proc);
+    Gen->emitEntry(proc);
     return 0;
 }
 
@@ -299,18 +299,18 @@ int main(int argc, char **argv)
     data = machine->getTargetData();
     M->setDataLayout(data->getStringRepresentation());
 
-    CodeGen CG(M, *data, resource);
+    std::auto_ptr<Generator> Gen(Generator::create(M, *data, resource));
 
     typedef CompilationUnit::decl_iterator iterator;
 
     for (iterator iter = cu.beginDeclarations();
          iter != cu.endDeclarations(); ++iter) {
-        CG.emitToplevelDecl(*iter);
+        Gen->emitToplevelDecl(*iter);
     }
 
     // Generate an entry point and native executable if requested.
     if (!EntryPoint.empty()) {
-        if (emitEntryPoint(CG, cu))
+        if (emitEntryPoint(Gen.get(), cu))
             return 1;
         if (!(EmitLLVM || EmitLLVMBitcode))
             return outputExec(M);

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,8 +16,8 @@
 #ifndef COMMA_CODEGEN_SRINFO_HDR_GUARD
 #define COMMA_CODEGEN_SRINFO_HDR_GUARD
 
+#include "CodeGen.h"
 #include "comma/ast/Decl.h"
-#include "comma/codegen/CodeGen.h"
 
 #include "llvm/ADT/StringRef.h"
 

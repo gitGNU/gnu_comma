@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -10,15 +10,14 @@
 #define COMMA_CODEGEN_CODEGEN_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/codegen/Generator.h"
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/GlobalValue.h"
 #include "llvm/Intrinsics.h"
-#include "llvm/Module.h"
 #include "llvm/Constants.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/Target/TargetData.h"
 
 namespace comma {
 
@@ -28,30 +27,10 @@ class DependencySet;
 class InstanceInfo;
 class SRInfo;
 
-class CodeGen {
+class CodeGen : public Generator {
 
 public:
     ~CodeGen();
-
-    CodeGen(llvm::Module *M, const llvm::TargetData &data,
-            AstResource &resource);
-
-    /// \brief Codegens a top-level declaration.
-    void emitToplevelDecl(Decl *decl);
-
-    /// \brief Codegens an entry function which calls into the Procedure \p proc
-    /// and embeds it into the LibraryItem \p item.
-    ///
-    /// The given procedure must meet the following constraints (failure to do
-    /// so will fire an assertion):
-    ///
-    ///   - The procedure must be nullary.  Parameters are not accepted.
-    ///
-    ///   - The procedure must be defined within a domain, not a functor.
-    ///
-    ///   - The procedure must have been codegened.
-    ///
-    void emitEntry(ProcedureDecl *pdecl);
 
     /// Returns the interface to the runtime system.
     CommaRT &getRuntime() const { return *CRT; }
@@ -351,6 +330,18 @@ private:
 
     /// Emits the capsule described by the given info.
     void emitCapsule(InstanceInfo *info);
+
+    //===------------------------------------------------------------------===//
+    // Generator interface and support.
+
+    friend class Generator;
+
+    /// Constructor to be called by Generator::create.
+    CodeGen(llvm::Module *M, const llvm::TargetData &data,
+            AstResource &resource);
+
+    void emitToplevelDecl(Decl *decl);
+    void emitEntry(ProcedureDecl *decl);
 };
 
 } // end comma namespace.

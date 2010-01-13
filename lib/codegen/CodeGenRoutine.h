@@ -9,10 +9,10 @@
 #ifndef COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 #define COMMA_CODEGEN_CODEGENROUTINE_HDR_GUARD
 
+#include "CodeGen.h"
 #include "CValue.h"
 #include "Frame.h"
 #include "comma/ast/AstBase.h"
-#include "comma/codegen/CodeGen.h"
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/ADT/DenseMap.h"
