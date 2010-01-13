@@ -112,32 +112,15 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
 CValue CodeGenRoutine::emitReference(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
-        ValueDecl *refDecl = refExpr->getDeclaration();
-        llvm::Value *addr = 0;
-
-        if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-            // Ensure that the parameter has a mode consistent with reference
-            // emission.
-            PM::ParameterMode paramMode = pvDecl->getParameterMode();
-            assert((paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
-                   && "Cannot take reference to a parameter with mode IN!");
-            addr = SRF->lookup(pvDecl, activation::Slot);
-        }
-        else {
-            // Otherwise, we must have a local object declaration.  Simply
-            // return the associated stack slot.
-            ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
-            addr = SRF->lookup(objDecl, activation::Slot);
-        }
-        return CValue::get(addr);
+        ValueDecl *decl = refExpr->getDeclaration();
+        return CValue::get(SRF->lookup(decl, activation::Slot));
     }
     else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
         return emitIndexedArrayRef(idxExpr);
-    else if (SelectedExpr *selExpr = dyn_cast<SelectedExpr>(expr))
+    else {
+        SelectedExpr *selExpr = cast<SelectedExpr>(expr);
         return emitSelectedRef(selExpr);
-
-    assert(false && "Cannot codegen reference for expression!");
-    return CValue::get(0);
+    }
 }
 
 CValue CodeGenRoutine::emitValue(Expr *expr)
