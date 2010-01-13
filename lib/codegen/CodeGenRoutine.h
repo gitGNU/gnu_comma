@@ -93,8 +93,7 @@ public:
     /// \return Either \p dst or the allocated temporary.
     llvm::Value *emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
 
-    std::pair<llvm::Value*, llvm::Value*>
-    emitVStackCall(FunctionCallExpr *expr);
+    CValue emitVStackCall(FunctionCallExpr *expr);
 
     std::pair<llvm::Value*, llvm::Value*>
     emitAggregateCall(FunctionCallExpr *expr, llvm::Value *dst);

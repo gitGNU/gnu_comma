@@ -49,8 +49,7 @@ public:
     /// \return Either \p dst or the allocated temporary.
     llvm::Value *emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst);
 
-    std::pair<llvm::Value*, llvm::Value*>
-    emitVStackCall(FunctionCallExpr *call);
+    CValue emitVStackCall(FunctionCallExpr *call);
 
     void emitProcedureCall(ProcedureCallStmt *call);
 
@@ -231,8 +230,7 @@ llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
     return dst;
 }
 
-std::pair<llvm::Value*, llvm::Value*>
-CallEmitter::emitVStackCall(FunctionCallExpr *call)
+CValue CallEmitter::emitVStackCall(FunctionCallExpr *call)
 {
     const CommaRT &CRT = CG.getRuntime();
     SRCall = call;
@@ -281,7 +279,7 @@ CallEmitter::emitVStackCall(FunctionCallExpr *call)
     dataSlot = Builder.CreatePointerCast(dataSlot, dataTy);
 
     // Return the temps.
-    return std::pair<llvm::Value*, llvm::Value*>(dataSlot, boundsSlot);
+    return CValue::getAgg(dataSlot, boundsSlot);
 }
 
 void CallEmitter::emitProcedureCall(ProcedureCallStmt *call)
@@ -366,14 +364,11 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
             assert(!paramTy->isConstrained());
 
             // Simply emit the call using the vstack and pass the resulting
-            // temporaries to the
-            std::pair<llvm::Value*, llvm::Value*> arrPair =
-                CGR.emitVStackCall(call);
-
-            arguments.push_back(arrPair.first);
-
+            // temporaries to the subroutine.
+            CValue arrValue = CGR.emitVStackCall(call);
+            arguments.push_back(arrValue.first());
             if (!targetTy->isConstrained())
-                arguments.push_back(arrPair.second);
+                arguments.push_back(arrValue.second());
         }
         return;
     }
@@ -816,8 +811,7 @@ llvm::Value *CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
     return emitter.emitCompositeCall(expr, dst);
 }
 
-std::pair<llvm::Value*, llvm::Value*>
-CodeGenRoutine::emitVStackCall(FunctionCallExpr *expr)
+CValue CodeGenRoutine::emitVStackCall(FunctionCallExpr *expr)
 {
     CallEmitter emitter(*this, Builder);
     return emitter.emitVStackCall(expr);

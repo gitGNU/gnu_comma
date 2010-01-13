@@ -232,9 +232,7 @@ CValue ArrayEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
     // Unconstrained (indefinite type) use the vstack.  The callee cannot know
     // the size of the result hense dst must be null.
     assert(dst == 0 && "Destination given for indefinite type!");
-    std::pair<llvm::Value*, llvm::Value*> dataBounds;
-    dataBounds = CGR.emitVStackCall(call);
-    return CValue::getAgg(dataBounds.first, dataBounds.second);
+    return CGR.emitVStackCall(call);
 }
 
 CValue ArrayEmitter::emitAggregate(AggregateExpr *expr, llvm::Value *dst)
