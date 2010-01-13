@@ -104,12 +104,12 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
     if (objTy->isCompositeType())
         objValue = emitCompositeExpr(objExpr, 0, false).first();
     else
-        objValue = emitVariableReference(objExpr);
+        objValue = emitVariableReference(objExpr).first();
 
     SRF->associate(objDecl, activation::Slot, objValue);
 }
 
-llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
+CValue CodeGenRoutine::emitVariableReference(Expr *expr)
 {
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *refDecl = refExpr->getDeclaration();
@@ -129,7 +129,7 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
             ObjectDecl *objDecl = cast<ObjectDecl>(refDecl);
             addr = SRF->lookup(objDecl, activation::Slot);
         }
-        return addr;
+        return CValue::get(addr);
     }
     else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
         return emitIndexedArrayRef(idxExpr);
@@ -137,7 +137,7 @@ llvm::Value *CodeGenRoutine::emitVariableReference(Expr *expr)
         return emitSelectedRef(selExpr);
 
     assert(false && "Cannot codegen reference for expression!");
-    return 0;
+    return CValue::get(0);
 }
 
 CValue CodeGenRoutine::emitValue(Expr *expr)

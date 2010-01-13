@@ -47,7 +47,7 @@ public:
     /// call.  If \p dst is null then a temporary is allocated.
     ///
     /// \return Either \p dst or the allocated temporary.
-    llvm::Value *emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst);
+    CValue emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst);
 
     CValue emitVStackCall(FunctionCallExpr *call);
 
@@ -202,8 +202,7 @@ llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
     return emitCall(callInfo->getLLVMFunction());
 }
 
-llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
-                                            llvm::Value *dst)
+CValue CallEmitter::emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     SRCall = call;
 
@@ -227,7 +226,7 @@ llvm::Value *CallEmitter::emitCompositeCall(FunctionCallExpr *call,
 
     // Synthesize the actual call instruction.
     emitCall(callInfo->getLLVMFunction());
-    return dst;
+    return CValue::get(dst);
 }
 
 CValue CallEmitter::emitVStackCall(FunctionCallExpr *call)
@@ -320,7 +319,7 @@ void CallEmitter::emitArgument(Expr *param, PM::ParameterMode mode, Type *target
     if (CompositeType *compTy = dyn_cast<CompositeType>(targetTy))
         emitCompositeArgument(param, mode, compTy);
     else if (mode == PM::MODE_OUT || mode == PM::MODE_IN_OUT)
-        arguments.push_back(CGR.emitVariableReference(param));
+        arguments.push_back(CGR.emitVariableReference(param).first());
     else
         arguments.push_back(CGR.emitValue(param).first());
 }
@@ -347,7 +346,7 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
         if (paramTy->isStaticallyConstrained()) {
             // Perform the function call by allocating a temporary and add the
             // destination to the argument set.
-            arguments.push_back(CGR.emitCompositeCall(call, 0));
+            arguments.push_back(CGR.emitCompositeCall(call, 0).first());
 
             // If the target type is unconstrained, generate a second temporary
             // stucture to represent the bounds.  Populate with constant values
@@ -804,8 +803,8 @@ CValue CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
     return CValue::get(emitter.emitSimpleCall(expr));
 }
 
-llvm::Value *CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
-                                               llvm::Value *dst)
+CValue CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
+                                         llvm::Value *dst)
 {
     CallEmitter emitter(*this, Builder);
     return emitter.emitCompositeCall(expr, dst);

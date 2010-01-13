@@ -175,11 +175,11 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         bounds = value.second();
     }
     else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(expr)) {
-        components = CGR.emitIndexedArrayRef(iae);
+        components = CGR.emitIndexedArrayRef(iae).first();
         bounds = emitter.synthArrayBounds(Builder, arrTy);
     }
     else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
-        components = CGR.emitSelectedRef(sel);
+        components = CGR.emitSelectedRef(sel).first();
         bounds = emitter.synthArrayBounds(Builder, arrTy);
     }
     else {
@@ -224,9 +224,9 @@ CValue ArrayEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
 
     // Constrained types use the sret call convention.
     if (arrTy->isConstrained()) {
-        dst = CGR.emitCompositeCall(call, dst);
+        CValue data = CGR.emitCompositeCall(call, dst);
         llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
-        return CValue::getAgg(dst, bounds);
+        return CValue::getAgg(data.first(), bounds);
     }
 
     // Unconstrained (indefinite type) use the vstack.  The callee cannot know
@@ -690,7 +690,7 @@ public:
           emitter(CGR),
           Builder(Builder) { }
 
-    llvm::Value *emit(Expr *expr, llvm::Value *dst, bool genTmp);
+    CValue emit(Expr *expr, llvm::Value *dst, bool genTmp);
 
 private:
     CodeGenRoutine &CGR;
@@ -701,7 +701,7 @@ private:
     SRFrame *frame() { return CGR.getSRFrame(); }
 
     /// Emits a function call expression returning a record type as result.
-    llvm::Value *emitCall(FunctionCallExpr *call, llvm::Value *dst);
+    CValue emitCall(FunctionCallExpr *call, llvm::Value *dst);
 
     /// Emits an aggregate expression of record type.
     ///
@@ -711,9 +711,9 @@ private:
     /// result of the aggregate or null.  When \p dst is null a temporary will
     /// be allocated to hold the aggregate.
     ///
-    /// \return A pointer to an llvm structure populated with the components
-    /// defined by \p agg.
-    llvm::Value *emitAggregate(AggregateExpr *agg, llvm::Value *dst);
+    /// \return A CValue consisting of a pointer to an llvm structure populated
+    /// with the components defined by \p agg.
+    CValue emitAggregate(AggregateExpr *agg, llvm::Value *dst);
 
     /// A reference to the following type is passed to the various helper
     /// methods which implement emitAggregate.  Each method populates the set
@@ -751,7 +751,7 @@ private:
     void emitComponent(Expr *expr, llvm::Value *dst);
 };
 
-llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
+CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst);
@@ -775,10 +775,10 @@ llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         rec = frame()->lookup(decl, activation::Slot);
     }
     else if (IndexedArrayExpr *IAE = dyn_cast<IndexedArrayExpr>(expr)) {
-        rec = CGR.emitIndexedArrayRef(IAE);
+        rec = CGR.emitIndexedArrayRef(IAE).first();
     }
     else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
-        rec = CGR.emitSelectedRef(sel);
+        rec = CGR.emitSelectedRef(sel).first();
     }
     else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(expr)) {
         // Emit the prefix as a value, yielding a pointer to the record.
@@ -804,13 +804,13 @@ llvm::Value *RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         llvm::Value *align = llvm::ConstantInt::get(
             CG.getInt32Ty(), CG.getTargetData().getABITypeAlignment(recTy));
         Builder.CreateCall4(memcpy, target, source, len, align);
-        return dst;
+        return CValue::get(dst);
     }
     else
-        return rec;
+        return CValue::get(rec);
 }
 
-llvm::Value *RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
+CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
 {
     RecordType *recTy = cast<RecordType>(agg->getType());
     const llvm::Type *loweredTy = CGT.lowerRecordType(recTy);
@@ -830,7 +830,7 @@ llvm::Value *RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
     // Emit any `others' components.
     emitOthersComponents(agg, dst, components);
 
-    return dst;
+    return CValue::get(dst);
 }
 
 void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
@@ -911,7 +911,7 @@ void RecordEmitter::emitOthersComponents(AggregateExpr *agg, llvm::Value *dst,
     }
 }
 
-llvm::Value *RecordEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
+CValue RecordEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     // Functions returning structures always use the sret calling convention.
     //
@@ -983,8 +983,7 @@ CValue CodeGenRoutine::emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     return emitter.emit(expr, dst, genTmp);
 }
 
-llvm::Value *
-CodeGenRoutine::emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp)
+CValue CodeGenRoutine::emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 {
     RecordEmitter emitter(*this, Builder);
     return emitter.emit(expr, dst, genTmp);
@@ -1001,7 +1000,7 @@ CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else if (isa<RecordType>(Ty)) {
         RecordEmitter emitter(*this, Builder);
-        return CValue::get(emitter.emit(expr, dst, genTmp));
+        return emitter.emit(expr, dst, genTmp);
     }
 
     assert(false && "Not a composite expression!");

@@ -85,7 +85,7 @@ CValue CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     return CValue::get(llvm::ConstantInt::get(CG.getLLVMContext(), val));
 }
 
-llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
+CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
 {
     assert(IAE->getNumIndices() == 1 &&
            "Multidimensional arrays are not yet supported!");
@@ -167,36 +167,36 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
         llvm::Value *componentSlot = SRF->createTemp(dataTy->getElementType());
         Builder.CreateStore(Builder.CreateLoad(component), componentSlot);
         CRT.vstack_pop(Builder);
-        return componentSlot;
+        component = componentSlot;
     }
-    else
-        return component;
+
+    return CValue::get(component);
 }
 
 CValue CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 {
-    llvm::Value *addr = emitIndexedArrayRef(expr);
+    llvm::Value *addr = emitIndexedArrayRef(expr).first();
     return CValue::get(Builder.CreateLoad(addr));
 }
 
-llvm::Value *CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
+CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
 {
     // Currently, the prefix of a SelectedExpr is always of record type.
-    llvm::Value *record = emitRecordExpr(expr->getPrefix(), 0, false);
+    CValue record = emitRecordExpr(expr->getPrefix(), 0, false);
     ComponentDecl *component = cast<ComponentDecl>(expr->getSelector());
 
     // Find the index into into the record and GEP the component.
     unsigned index = CGT.getComponentIndex(component);
-    return Builder.CreateStructGEP(record, index);
+    return CValue::get(Builder.CreateStructGEP(record.first(), index));
 }
 
 CValue CodeGenRoutine::emitSelectedValue(SelectedExpr *expr)
 {
-    llvm::Value *componentPtr = emitSelectedRef(expr);
+    CValue componentPtr = emitSelectedRef(expr);
     if (expr->getType()->isCompositeType())
-        return CValue::get(componentPtr);
+        return componentPtr;
     else
-        return CValue::get(Builder.CreateLoad(componentPtr));
+        return CValue::get(Builder.CreateLoad(componentPtr.first()));
 }
 
 CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)

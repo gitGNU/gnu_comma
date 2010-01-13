@@ -70,11 +70,11 @@ public:
     void emit();
 
     CValue emitValue(Expr *expr);
-    llvm::Value *emitVariableReference(Expr *expr);
+    CValue emitVariableReference(Expr *expr);
 
     CValue emitArrayExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
-    llvm::Value *emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp);
+    CValue emitRecordExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
     CValue emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp);
 
@@ -90,8 +90,8 @@ public:
     /// \param dst A pointer to storage capable of holding the result of this
     /// call.  If \p dst is null then a temporary is allocated.
     ///
-    /// \return Either \p dst or the allocated temporary.
-    llvm::Value *emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
+    /// \return A CValue containing \p dst or the allocated temporary.
+    CValue emitCompositeCall(FunctionCallExpr *expr, llvm::Value *dst);
 
     CValue emitVStackCall(FunctionCallExpr *expr);
 
@@ -101,8 +101,8 @@ public:
     void emitArrayCopy(llvm::Value *source, llvm::Value *destination,
                        llvm::Value *length, const llvm::Type *componentTy);
 
-    llvm::Value *emitIndexedArrayRef(IndexedArrayExpr *expr);
-    llvm::Value *emitSelectedRef(SelectedExpr *expr);
+    CValue emitIndexedArrayRef(IndexedArrayExpr *expr);
+    CValue emitSelectedRef(SelectedExpr *expr);
 
     PrimaryType *resolveType(Type *type);
 

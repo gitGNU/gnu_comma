@@ -97,7 +97,7 @@ void AssignmentEmitter::emitAssignment(SelectedExpr *lhs, Expr *rhs)
 {
     // If the type of the selected component is composite evaluate the rhs into
     // the storage provided by the lhs.  Otherwise, simply store the lhs.
-    llvm::Value *target = CGR.emitSelectedRef(lhs);
+    llvm::Value *target = CGR.emitSelectedRef(lhs).first();
     PrimaryType *targetTy = CGR.resolveType(lhs->getType());
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);
@@ -125,7 +125,7 @@ void AssignmentEmitter::emitAssignment(DereferenceExpr *lhs, Expr *rhs)
 void AssignmentEmitter::emitAssignment(IndexedArrayExpr *lhs, Expr *rhs)
 {
     // Get a reference to the needed component and store.
-    llvm::Value *target = CGR.emitIndexedArrayRef(lhs);
+    llvm::Value *target = CGR.emitIndexedArrayRef(lhs).first();
     llvm::Value *source = CGR.emitValue(rhs).first();
     Builder.CreateStore(source, target);
 }
