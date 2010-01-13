@@ -106,6 +106,27 @@ TRY_AGAIN:
     goto TRY_AGAIN;
 }
 
+Expr *Expr::ignoreInjPrj()
+{
+    Expr *cursor = this;
+
+    for (;;) {
+        switch (cursor->getKind()) {
+
+        default:
+            return cursor;
+
+        case Ast::AST_InjExpr:
+            cursor = cast<InjExpr>(cursor)->getOperand();
+            break;
+
+        case Ast::AST_PrjExpr:
+            cursor = cast<PrjExpr>(cursor)->getOperand();
+            break;
+        }
+    }
+}
+
 //===----------------------------------------------------------------------===//
 // FunctionCallExpr
 

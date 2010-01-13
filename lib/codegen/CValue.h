@@ -25,6 +25,9 @@ namespace comma {
 class CValue {
 
 public:
+    /// Default constructor provides an uninitialized CValue.
+    CValue() { }
+
     /// There are three kinds of values.  Simple values represent scalars and
     /// thin access pointers.  Aggregate values contain a pointer to the data
     /// and a representation of the bounds (either a struct or pointer-to

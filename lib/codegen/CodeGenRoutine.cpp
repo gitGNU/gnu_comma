@@ -111,16 +111,26 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
 
 CValue CodeGenRoutine::emitReference(Expr *expr)
 {
+    // Remove any outer inj and prj expressions.
+    expr = expr->ignoreInjPrj();
+
+    CValue result;
+
+    // The most common case is a reference to a declaration.
     if (DeclRefExpr *refExpr = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = refExpr->getDeclaration();
-        return CValue::get(SRF->lookup(decl, activation::Slot));
+        result = CValue::get(SRF->lookup(decl, activation::Slot));
     }
     else if (IndexedArrayExpr *idxExpr = dyn_cast<IndexedArrayExpr>(expr))
-        return emitIndexedArrayRef(idxExpr);
-    else {
-        SelectedExpr *selExpr = cast<SelectedExpr>(expr);
-        return emitSelectedRef(selExpr);
+        result = emitIndexedArrayRef(idxExpr);
+    else if (SelectedExpr *selExpr = dyn_cast<SelectedExpr>(expr))
+        result = emitSelectedRef(selExpr);
+    else if (DereferenceExpr *derefExpr = dyn_cast<DereferenceExpr>(expr)) {
+        // Do not dereference, just return the pointer prefix.
+        result = emitValue(derefExpr->getPrefix());
     }
+
+    return result;
 }
 
 CValue CodeGenRoutine::emitValue(Expr *expr)

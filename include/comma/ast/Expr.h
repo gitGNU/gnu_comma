@@ -100,7 +100,6 @@ public:
     /// expression.
     bool isStaticStringExpr() const;
 
-    //@{
     /// \brief Determines if this expression is mutable.
     ///
     /// Mutable expressions always reduce to a DeclRefExpr which denotes:
@@ -120,12 +119,11 @@ public:
     /// to why \c this is not mutable.
     ///
     /// \return True if this is a mutable expression false otherwise.
-    bool isMutable(const Expr *&immutable) const {
-        Expr *ex = const_cast<Expr*>(this);
-        return ex->isMutable(const_cast<Expr*&>(immutable));
-    }
     bool isMutable(Expr *&immutable);
-    //@}
+
+    /// Strips any outer layers of inj/prj expressions and returns the inner
+    /// operand.
+    Expr *ignoreInjPrj();
 
     // Support isa/dyn_cast.
     static bool classof(const Expr *node) { return true; }

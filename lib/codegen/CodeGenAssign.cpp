@@ -43,11 +43,6 @@ private:
     /// Returns the currently active frame.
     SRFrame *frame() { return CGR.getSRFrame(); }
 
-    /// Strips the given expression of any outer inj/prj expressions, returning
-    /// the innermost operand (or the given expression if it is not an inj or
-    /// prj).
-    static Expr *stripInjPrj(Expr *expr);
-
     /// Various emitter helpers conditional on the type of the lhs.
     void emitAssignment(DeclRefExpr *lhs, Expr *rhs);
     void emitAssignment(SelectedExpr *lhs, Expr *rhs);
@@ -56,25 +51,6 @@ private:
 };
 
 } // end anonymous namespace.
-
-Expr *AssignmentEmitter::stripInjPrj(Expr *expr)
-{
-    for (;;) {
-        switch (expr->getKind()) {
-
-        default:
-            return expr;
-
-        case Ast::AST_InjExpr:
-            expr = cast<InjExpr>(expr)->getOperand();
-            break;
-
-        case Ast::AST_PrjExpr:
-            expr = cast<PrjExpr>(expr)->getOperand();
-            break;
-        }
-    }
-}
 
 void AssignmentEmitter::emitAssignment(DeclRefExpr *lhs, Expr *rhs)
 {
@@ -136,7 +112,7 @@ void AssignmentEmitter::emit(AssignmentStmt *stmt)
     Expr *rhs = stmt->getAssignedExpr();
 
     // Remove any layers of inj/prj expressions from the left hand side.
-    lhs = stripInjPrj(lhs);
+    lhs = lhs->ignoreInjPrj();
 
 #define DISPATCH(KIND, LHS, RHS)              \
     Ast::AST_ ## KIND:                        \
