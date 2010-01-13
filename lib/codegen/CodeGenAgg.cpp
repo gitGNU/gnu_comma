@@ -1001,11 +1001,11 @@ CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else if (isa<RecordType>(Ty)) {
         RecordEmitter emitter(*this, Builder);
-        return CValue::getSimple(emitter.emit(expr, dst, genTmp));
+        return CValue::get(emitter.emit(expr, dst, genTmp));
     }
 
     assert(false && "Not a composite expression!");
-    return CValue::getSimple(0);
+    return CValue::get(0);
 }
 
 void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)

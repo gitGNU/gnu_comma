@@ -28,11 +28,11 @@ CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
     // LoopDecl's are always associated directly with their value.
     if (isa<LoopDecl>(refDecl))
-        return CValue::getSimple(exprValue);
+        return CValue::get(exprValue);
 
     // If the expression is a composite type, just return the associated value.
     if (expr->getType()->isCompositeType())
-        return CValue::getSimple(exprValue);
+        return CValue::get(exprValue);
 
     // If the declaration references a parameter and the mode is either "out" or
     // "in out", load the actual value.
@@ -40,12 +40,12 @@ CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
         PM::ParameterMode paramMode = pvDecl->getParameterMode();
         if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
             exprValue = Builder.CreateLoad(exprValue);
-        return CValue::getSimple(exprValue);
+        return CValue::get(exprValue);
     }
 
     // Otherwise, the given expression must reference an object declaration
     // (which are always alloca'd).  Load the value.
-    return CValue::getSimple(Builder.CreateLoad(exprValue));
+    return CValue::get(Builder.CreateLoad(exprValue));
 }
 
 CValue CodeGenRoutine::emitInjExpr(InjExpr *expr)
@@ -62,7 +62,7 @@ CValue CodeGenRoutine::emitNullExpr(NullExpr *expr)
 {
     const llvm::PointerType *loweredTy;
     loweredTy = cast<llvm::PointerType>(CGT.lowerType(expr->getType()));
-    return CValue::getSimple(llvm::ConstantPointerNull::get(loweredTy));
+    return CValue::get(llvm::ConstantPointerNull::get(loweredTy));
 }
 
 CValue CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
@@ -82,7 +82,7 @@ CValue CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
     if (valWidth < tyWidth)
         val.sext(tyWidth);
 
-    return CValue::getSimple(llvm::ConstantInt::get(CG.getLLVMContext(), val));
+    return CValue::get(llvm::ConstantInt::get(CG.getLLVMContext(), val));
 }
 
 llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
@@ -176,7 +176,7 @@ llvm::Value *CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
 CValue CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 {
     llvm::Value *addr = emitIndexedArrayRef(expr);
-    return CValue::getSimple(Builder.CreateLoad(addr));
+    return CValue::get(Builder.CreateLoad(addr));
 }
 
 llvm::Value *CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
@@ -194,9 +194,9 @@ CValue CodeGenRoutine::emitSelectedValue(SelectedExpr *expr)
 {
     llvm::Value *componentPtr = emitSelectedRef(expr);
     if (expr->getType()->isCompositeType())
-        return CValue::getSimple(componentPtr);
+        return CValue::get(componentPtr);
     else
-        return CValue::getSimple(Builder.CreateLoad(componentPtr));
+        return CValue::get(Builder.CreateLoad(componentPtr));
 }
 
 CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
@@ -204,7 +204,7 @@ CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
     CValue value = emitValue(expr->getPrefix());
     llvm::Value *pointer = value.first();
     emitNullAccessCheck(pointer);
-    return CValue::getSimple(Builder.CreateLoad(pointer));
+    return CValue::get(Builder.CreateLoad(pointer));
 }
 
 CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
@@ -213,11 +213,11 @@ CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
     // discrete types.
     if (DiscreteType *target = dyn_cast<DiscreteType>(expr->getType())) {
         llvm::Value *value = emitDiscreteConversion(expr->getOperand(), target);
-        return CValue::getSimple(value);
+        return CValue::get(value);
     }
 
     assert(false && "Cannot codegen given conversion yet!");
-    return CValue::getSimple(0);
+    return CValue::get(0);
 }
 
 CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
@@ -244,7 +244,7 @@ CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
             Builder.CreateStore(emitValue(init).first(), pointer);
     }
 
-    return CValue::getSimple(pointer);
+    return CValue::get(pointer);
 }
 
 void
@@ -444,7 +444,7 @@ CValue CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
         result = 0;
     }
 
-    return CValue::getSimple(result);
+    return CValue::get(result);
 }
 
 llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)

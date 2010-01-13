@@ -53,7 +53,7 @@ public:
 
     /// \name Static Constructors.
     //@{
-    static CValue getSimple(llvm::Value *V1) {
+    static CValue get(llvm::Value *V1) {
         return CValue(V1, 0, Simple);
     }
 

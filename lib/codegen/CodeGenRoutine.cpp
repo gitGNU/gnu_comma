@@ -188,7 +188,7 @@ CValue CodeGenRoutine::emitValue(Expr *expr)
         return emitAllocatorValue(cast<AllocatorExpr>(expr));
     }
 
-    return CValue::getSimple(0);
+    return CValue::get(0);
 }
 
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)

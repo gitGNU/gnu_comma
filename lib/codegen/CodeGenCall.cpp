@@ -801,7 +801,7 @@ CallEmitter::resolveAbstractSubroutine(DomainInstanceDecl *instance,
 CValue CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
 {
     CallEmitter emitter(*this, Builder);
-    return CValue::getSimple(emitter.emitSimpleCall(expr));
+    return CValue::get(emitter.emitSimpleCall(expr));
 }
 
 llvm::Value *CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,
