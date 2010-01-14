@@ -1,0 +1,12 @@
+-- Ensure qualified character literals are lexed properly.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      C : Character := Character'('x');
+      S : String    := String'('x','y','z');
+   begin
+      null;
+   end Run;
+end Test;

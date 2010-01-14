@@ -552,53 +552,43 @@ bool Lexer::scanCharacter()
 
     if (peekStream() == '\'') {
         ignoreStream();
+        c = readStream();
 
-        switch (c = readStream()) {
-
-        default:
-            // FIXME:  Ensure the character belongs to the standard character
-            // set.
-
-            if (peekStream() != '\'') {
-                // If the character is not terminated, this must be an attribute
-                // selector.  Unget the current character and return a quote
-                // token.
-                ungetStream();
-                emitToken(TKN_QUOTE, loc);
-            }
-            else {
-                ignoreStream();
-                emitCharacterToken(start, currentIter);
-            }
-            break;
-
-        case '\\':
-            // This character must denote an escape sequence.  If the sequence
-            // is invalid continue scanning until a matching quote is found and
-            // ignore the character.
-            if (!scanEscape()) {
-                c = peekStream();
-                while (c != '\'' && c != 0)
-                    c = readStream();
-                return false;
-            }
-
-            // If the escape is not terminated properly, treat the literal as
-            // scanned and continue.
-            if (readStream() != '\'')
-                report(loc, diag::UNTERMINATED_CHARACTER_LITERAL);
-
-            emitCharacterToken(start, currentIter);
-            break;
-
-        case '\'':
+        if (c == '\'') {
             // Empty enumeration literal.  This is not valid.  Consume and
             // report.
             report(loc, diag::EMPTY_CHARACTER_LITERAL);
-
             emitCharacterToken(start, currentIter);
-            break;
+            return true;
         }
+
+        if (peekStream() != '\'') {
+            // If the character is not terminated, this must be an attribute
+            // selector.  Unget the current character and return a quote token.
+            ungetStream();
+            emitToken(TKN_QUOTE, loc);
+            return true;
+        }
+
+        // Special case for the character representing a left paren.  We need to
+        // deal with the special case of a qualified expression containing a
+        // character.  Take "Character'('x')" or "String'('x', 'y')" for
+        // example.  We handle this oddball case by checking if another quote is
+        // two characters away.
+        if (c == '(') {
+            TextIterator cursor = currentIter;
+            if (*++cursor && *++cursor == '\'') {
+                ungetStream();
+                emitToken(TKN_QUOTE, loc);
+                return true;
+            }
+        }
+
+        // Otherwise we have a character literal.
+        //
+        // FIXME: Ensure the character belongs to the standard character set.
+        ignoreStream();
+        emitCharacterToken(start, currentIter);
         return true;
     }
     return false;
