@@ -1,0 +1,39 @@
+-- Some overload checks with respect to selected components.
+
+domain Test with
+   procedure Run;
+add
+   type R1 is record
+      X : Integer;
+   end record;
+
+   type R2 is record
+      X : Character;
+   end record;
+
+   type R3 is record
+      Y : Integer;
+   end record;
+
+   function F return R1 is
+   begin
+      return R1'(X => 0);
+   end F;
+
+   function F return R2 is
+   begin
+      return R2'(X => 'x');
+   end F;
+
+   function F return R3 is
+   begin
+      return R3'(Y => 1);
+   end F;
+
+   procedure Run is
+      M : Integer := F.X;
+      N : Integer := F.Y;
+   begin
+      null;
+   end Run;
+end Test;

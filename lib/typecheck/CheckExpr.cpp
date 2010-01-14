@@ -108,6 +108,8 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveNullExpr(null, context);
     if (AllocatorExpr *alloc = dyn_cast<AllocatorExpr>(expr))
         return resolveAllocatorExpr(alloc, context);
+    if (SelectedExpr *select = dyn_cast<SelectedExpr>(expr))
+        return resolveSelectedExpr(select, context);
 
     assert(expr->hasType() && "Expression does not have a resolved type!");
 
@@ -294,6 +296,36 @@ Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
     // Everything looks OK.
     alloc->setType(pointerType);
     return alloc;
+}
+
+Expr *TypeCheck::resolveSelectedExpr(SelectedExpr *select, Type *context)
+{
+    if (select->hasType()) {
+        if (covers(context, select->getType()))
+            return convertIfNeeded(select, context);
+        report(select->getLocation(), diag::INCOMPATIBLE_TYPES);
+        return 0;
+    }
+
+    // FIXME: The following is not general enough.  A full implementation is
+    // waiting on a reorganization of the type check code that incapsultes the
+    // top-down resolution phase into a seperate class.
+    Expr *prefix = select->getPrefix();
+    IdentifierInfo *selector = select->getSelectorIdInfo();
+
+    FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(prefix);
+    assert(prefix && "Cannot resolve this type of selected expression!");
+
+    if (!(prefix = resolveFunctionCall(call, selector, context)))
+        return 0;
+
+    // The resolved prefix has a record type.  Locate the required component
+    // declaration and resolve this expression.
+    RecordType *recTy = cast<RecordType>(prefix->getType());
+    RecordDecl *recDecl = recTy->getDefiningDecl();
+    ComponentDecl *component = recDecl->getComponent(selector);
+    select->resolve(component, component->getType());
+    return convertIfNeeded(select, context);
 }
 
 Node TypeCheck::acceptInj(Location loc, Node exprNode)

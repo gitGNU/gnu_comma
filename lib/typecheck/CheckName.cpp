@@ -264,6 +264,11 @@ Ast *TypeCheck::processSelectedComponent(Expr *expr,
                                          IdentifierInfo *name, Location loc,
                                          bool forStatement)
 {
+    // If the prefix expression does not have a resolved type we must wait for
+    // the top down pass.  Construct an ambiguous selectedExpr node and return.
+    if (!expr->hasType())
+        return new SelectedExpr(expr, name, loc);
+
     // Currently, the prefix to a selected component must be of record type.
     RecordType *prefixTy = dyn_cast<RecordType>(resolveType(expr->getType()));
     if (!prefixTy) {

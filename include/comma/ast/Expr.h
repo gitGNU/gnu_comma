@@ -330,6 +330,22 @@ public:
         : Expr(AST_SelectedExpr, type, prefix->getLocation()),
           prefix(prefix), component(component), componentLoc(loc) { }
 
+    /// Constructs an ambiguous selected component.  SelectedExpr nodes produced
+    /// by this constructor must be filled in with a call to resolve().
+    SelectedExpr(Expr *prefix, IdentifierInfo *component, Location loc)
+        : Expr(AST_SelectedExpr, prefix->getLocation()),
+          prefix(prefix), component(component), componentLoc(loc) { }
+
+    /// Returns true if this selected expression is ambiguous.
+    bool isAmbiguous() const { return component.is<IdentifierInfo*>(); }
+
+    /// Resolves this selected expression.
+    void resolve(Decl *component, Type *type) {
+        assert(isAmbiguous() && "SelectedExpr already resolved!");
+        this->component = component;
+        setType(type);
+    }
+
     //@{
     /// Returns the prefix of this SelectedExpr.
     const Expr *getPrefix() const { return prefix; }
@@ -337,10 +353,19 @@ public:
     //@}
 
     //@{
-    /// Returns the selected declaration.
-    const Decl *getSelector() const { return component; }
-    Decl *getSelector() { return component; }
+    /// Returns the selected declaration.  If this is an ambiguous selected
+    /// expression an assertion will fire.
+    const Decl *getSelectorDecl() const { return component.get<Decl*>(); }
+    Decl *getSelectorDecl() { return component.get<Decl*>(); }
     //@}
+
+    /// Returns the identifier associated with this selected expression.
+    IdentifierInfo *getSelectorIdInfo() const {
+        if (component.is<IdentifierInfo*>())
+            return component.get<IdentifierInfo*>();
+        else
+            return component.get<Decl*>()->getIdInfo();
+    }
 
     /// Returns the location of the selected declaration.
     Location getSelectorLoc() const { return componentLoc; }
@@ -352,8 +377,10 @@ public:
     }
 
 private:
+    typedef llvm::PointerUnion<Decl*, IdentifierInfo*> ComponentUnion;
+
     Expr *prefix;
-    Decl *component;
+    ComponentUnion component;
     Location componentLoc;
 };
 

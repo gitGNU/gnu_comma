@@ -559,3 +559,54 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
     convertSubroutineCallArguments(call);
     return true;
 }
+
+
+Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
+                                     IdentifierInfo *selector,
+                                     Type *targetType)
+{
+    assert(call->isAmbiguous());
+
+    // Collect the set of connectives which return record types which admit a
+    // component with the given name and type.
+    typedef llvm::SmallVector<FunctionDecl*, 8> CandidateVec;
+    typedef FunctionCallExpr::fun_iterator iterator;
+    CandidateVec candidates;
+    iterator I = call->begin_functions();
+    iterator E = call->end_functions();
+    for ( ; I != E; ++I) {
+        FunctionDecl *candidate = *I;
+        Type *returnType = resolveType(candidate->getReturnType());
+        if (RecordType *recType = dyn_cast<RecordType>(returnType)) {
+            RecordDecl *decl = recType->getDefiningDecl();
+            ComponentDecl *component = decl->getComponent(selector);
+            if (component) {
+                Type *componentType = component->getType();
+                if (covers(targetType, componentType))
+                    candidates.push_back(candidate);
+            }
+        }
+    }
+
+    // We must have a unique match.  We cannot apply the reference for root
+    // integer since there are no primitive operations returing a record type.
+    if (candidates.size() != 1) {
+        Location loc = call->getLocation();
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
+        for (CandidateVec::iterator I = candidates.begin();
+             I != candidates.end(); ++I) {
+            report(loc, diag::CANDIDATE_NOTE) << diag::PrintDecl(*I);
+        }
+        return 0;
+    }
+
+    FunctionDecl *connective = candidates.front();
+    call->resolveConnective(connective);
+    if (!checkSubroutineCallArguments(call))
+        return 0;
+    convertSubroutineCallArguments(call);
+
+    // Do not apply any conversions to this function call since the target type
+    // is with respect to a selected component, not to the returned record.
+    return call;
+}

@@ -124,9 +124,13 @@ void ExprDumper::visitSelectedExpr(SelectedExpr *node)
     indent();
     printIndentation();
     visitExpr(node->getPrefix());
-    S << '\n';
-    printIndentation();
-    dumpAST(node->getSelector());
-    dedent();
+    if (node->isAmbiguous())
+        S << ' ' << node->getSelectorIdInfo();
+    else {
+        S << '\n';
+        printIndentation();
+        dumpAST(node->getSelectorDecl());
+        dedent();
+    }
     S << '>';
 }

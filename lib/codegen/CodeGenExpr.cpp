@@ -218,7 +218,7 @@ CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
 {
     // Currently, the prefix of a SelectedExpr is always of record type.
     CValue record = emitRecordExpr(expr->getPrefix(), 0, false);
-    ComponentDecl *component = cast<ComponentDecl>(expr->getSelector());
+    ComponentDecl *component = cast<ComponentDecl>(expr->getSelectorDecl());
 
     // Find the index into into the record and GEP the component.
     unsigned index = CGT.getComponentIndex(component);

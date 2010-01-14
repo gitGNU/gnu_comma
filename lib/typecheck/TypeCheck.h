@@ -536,6 +536,10 @@ private:
     // Returns a valid expression node on success and null otherwise.
     Expr *resolveAllocatorExpr(AllocatorExpr *alloc, Type *context);
 
+    // Resolves a selected component expression with respect to the given target
+    // type.
+    Expr *resolveSelectedExpr(SelectedExpr *select, Type *context);
+
     // Resolves the given call expression to one which satisfies the given
     // target type.  Returns a valid expression if the call was successfully
     // checked (possibly different from \p call).  Otherwise, null is returned
@@ -546,6 +550,14 @@ private:
     // classification and returns true.  Otherwise, false is returned and the
     // appropriate diagnostics are emitted.
     bool resolveFunctionCall(FunctionCallExpr *call, Type::Classification ID);
+
+    // Resolves the given call expression to one which returns a record type
+    // that in turn provides a component with the given name and type.  Returns
+    // a valid expression if the call was successfully resolved (possibly
+    // different from \p call).  Otherwise, null is returned and diagnostics are
+    // posted.
+    Expr *resolveFunctionCall(FunctionCallExpr *call, IdentifierInfo *selector,
+                              Type *targetType);
 
     // Returns the prefered connective for the given ambiguous function call, or
     // null if no unambiguous interpretation exists.
