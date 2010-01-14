@@ -176,6 +176,10 @@ public:
     //@{
     llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
                              uint64_t size, unsigned alignment) const;
+
+    llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
+                             llvm::Value *size, unsigned alignment) const;
+
     //@}
 
 private:

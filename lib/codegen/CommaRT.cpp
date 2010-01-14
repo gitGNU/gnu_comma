@@ -516,6 +516,22 @@ llvm::Value *CommaRT::comma_alloc(llvm::IRBuilder<> &builder,
     return builder.CreateCall2(alloc_Fn, sizeVal, alignVal);
 }
 
+llvm::Value *CommaRT::comma_alloc(llvm::IRBuilder<> &builder,
+                                  llvm::Value *size, unsigned alignment) const
+{
+    const llvm::FunctionType *allocTy = alloc_Fn->getFunctionType();
+    const llvm::Type *sizeTy = allocTy->getParamType(0);
+    const llvm::Type *alignTy = allocTy->getParamType(1);
+
+    if (size->getType() != sizeTy)
+        size = builder.CreateZExt(size, sizeTy);
+
+    llvm::Value *align = llvm::ConstantInt::get(alignTy, alignment);
+
+    // FIXME:  Check for null and raise PROGRAM_ERROR when needed.
+    return builder.CreateCall2(alloc_Fn, size, align);
+}
+
 llvm::Value *CommaRT::getLocalCapsule(llvm::IRBuilder<> &builder,
                                       llvm::Value *percent, unsigned ID) const
 {
