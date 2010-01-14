@@ -249,4 +249,6 @@ DereferenceExpr::DereferenceExpr(Expr *prefix, Location loc, bool isImplicit)
 {
     AccessType *prefixType = cast<AccessType>(prefix->getType());
     setType(prefixType->getTargetType());
+
+    bits = isImplicit;
 }
