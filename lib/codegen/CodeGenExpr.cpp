@@ -30,22 +30,28 @@ CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
     if (isa<LoopDecl>(refDecl))
         return CValue::get(exprValue);
 
-    // If the expression is a composite type, just return the associated value.
-    if (expr->getType()->isCompositeType())
-        return CValue::get(exprValue);
+    if (resolveType(expr->getType())->isFatAccessType()) {
+        // Fat access types are always represented as a pointer to the
+        // underlying structure.  Regardless of whether the declaration is an
+        // object or formal parameter, we have the proper representation.
+        return CValue::getFat(exprValue);
+    }
 
-    // If the declaration references a parameter and the mode is either "out" or
-    // "in out", load the actual value.
     if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+        // If the declaration references a parameter and the mode is either
+        // "out" or "in out", load the actual value.
         PM::ParameterMode paramMode = pvDecl->getParameterMode();
         if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
             exprValue = Builder.CreateLoad(exprValue);
-        return CValue::get(exprValue);
     }
-
-    // Otherwise, the given expression must reference an object declaration
-    // (which are always alloca'd).  Load the value.
-    return CValue::get(Builder.CreateLoad(exprValue));
+    else {
+        // We must have an object declaration.  Unless the object is a fat
+        // access load the value (we always represent fat pointers as pointers
+        // to the underlying structure, just like we do for any other aggregate).
+        assert(isa<ObjectDecl>(refDecl) && "Unexpected type of expression!");
+        exprValue = Builder.CreateLoad(exprValue);
+    }
+    return CValue::get(exprValue);
 }
 
 CValue CodeGenRoutine::emitInjExpr(InjExpr *expr)
@@ -60,15 +66,30 @@ CValue CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
 
 CValue CodeGenRoutine::emitNullExpr(NullExpr *expr)
 {
-    const llvm::PointerType *loweredTy;
-    loweredTy = cast<llvm::PointerType>(CGT.lowerType(expr->getType()));
-    return CValue::get(llvm::ConstantPointerNull::get(loweredTy));
+    AccessType *access = cast<AccessType>(resolveType(expr));
+
+    if (access->isThinAccessType()) {
+        const llvm::PointerType *loweredTy;
+        loweredTy = CGT.lowerThinAccessType(access);
+        return CValue::get(llvm::ConstantPointerNull::get(loweredTy));
+    }
+    else {
+        const llvm::StructType *loweredTy;
+        const llvm::PointerType *dataTy;
+        llvm::Value *fatPtr;
+
+        loweredTy = CGT.lowerFatAccessType(access);
+        fatPtr = SRF->createTemp(loweredTy);
+        dataTy = cast<llvm::PointerType>(loweredTy->getElementType(0));
+
+        Builder.CreateStore(llvm::ConstantPointerNull::get(dataTy),
+                            Builder.CreateStructGEP(fatPtr, 0));
+        return CValue::getFat(fatPtr);
+    }
 }
 
 CValue CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
 {
-    assert(expr->hasType() && "Unresolved literal type!");
-
     const llvm::IntegerType *ty =
         cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
     llvm::APInt val(expr->getValue());
@@ -116,12 +137,12 @@ CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
             emitSimpleCall(call);
 
             // Load the bounds from the top of the vstack.
-            bounds = CRT.vstack(Builder, CG.getPointerType(boundTy));
+            bounds = CRT.vstack(Builder, boundTy->getPointerTo());
             bounds = Builder.CreateLoad(bounds);
             CRT.vstack_pop(Builder);
 
             // Set the array data to the current top of the stack.
-            data = CRT.vstack(Builder, CG.getPointerType(dataTy));
+            data = CRT.vstack(Builder, dataTy->getPointerTo());
             popVstack = true;
         }
         else {
@@ -170,13 +191,27 @@ CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
         component = componentSlot;
     }
 
+    // Return the appropriate CValue for the component type.
+    Type *componentTy = resolveType(arrTy->getComponentType());
+
+    if (componentTy->isArrayType()) {
+        arrTy = cast<ArrayType>(componentTy);
+        return CValue::getAgg(component, BE.synthArrayBounds(Builder, arrTy));
+    }
+
+    if (componentTy->isFatAccessType())
+        return CValue::getFat(component);
+
     return CValue::get(component);
 }
 
 CValue CodeGenRoutine::emitIndexedArrayValue(IndexedArrayExpr *expr)
 {
-    llvm::Value *addr = emitIndexedArrayRef(expr).first();
-    return CValue::get(Builder.CreateLoad(addr));
+    CValue addr = emitIndexedArrayRef(expr);
+    if (addr.isSimple())
+        return CValue::get(Builder.CreateLoad(addr.first()));
+    else
+        return addr;
 }
 
 CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
@@ -187,16 +222,30 @@ CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
 
     // Find the index into into the record and GEP the component.
     unsigned index = CGT.getComponentIndex(component);
-    return CValue::get(Builder.CreateStructGEP(record.first(), index));
+    llvm::Value *ptr = Builder.CreateStructGEP(record.first(), index);
+
+    PrimaryType *componentTy = resolveType(expr);
+    if (componentTy->isFatAccessType())
+        return CValue::getFat(ptr);
+
+    // Arrays are always constrained inside records.
+    if (componentTy->isArrayType()) {
+        ArrayType *arrTy = cast<ArrayType>(componentTy);
+        BoundsEmitter emitter(*this);
+        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+        return CValue::getAgg(ptr, bounds);
+    }
+
+    return CValue::get(ptr);
 }
 
 CValue CodeGenRoutine::emitSelectedValue(SelectedExpr *expr)
 {
     CValue componentPtr = emitSelectedRef(expr);
-    if (expr->getType()->isCompositeType())
-        return componentPtr;
-    else
+    if (componentPtr.isSimple())
         return CValue::get(Builder.CreateLoad(componentPtr.first()));
+    else
+        return componentPtr;
 }
 
 CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
@@ -222,8 +271,13 @@ CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 
 CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
 {
+    PrimaryType *allocatedType = resolveType(expr->getAllocatedType());
+    if (allocatedType->isCompositeType())
+        return emitCompositeAllocator(expr);
+
     // Compute the size and alignment of the type to be allocated.
-    const llvm::PointerType *resultTy = CGT.lowerAccessType(expr->getType());
+    AccessType *exprTy = expr->getType();
+    const llvm::PointerType *resultTy = CGT.lowerThinAccessType(exprTy);
     const llvm::Type *pointeeTy = resultTy->getElementType();
 
     uint64_t size = CGT.getTypeSize(pointeeTy);
@@ -238,10 +292,7 @@ CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
     // memory.
     if (expr->isInitialized()) {
         Expr *init = expr->getInitializer();
-        if (init->getType()->isCompositeType())
-            emitCompositeExpr(init, pointer, false);
-        else
-            Builder.CreateStore(emitValue(init).first(), pointer);
+        Builder.CreateStore(emitValue(init).first(), pointer);
     }
 
     return CValue::get(pointer);
@@ -385,52 +436,6 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
     return sourceVal;
 }
 
-llvm::Value *CodeGenRoutine::emitScalarLowerBound(DiscreteType *Ty)
-{
-    const llvm::IntegerType *loweredTy = CGT.lowerDiscreteType(Ty);
-
-    // If unconstrained, emit the lower limit of the base type.
-    if (!Ty->isConstrained()) {
-        llvm::APInt bound;
-        Ty->getLowerLimit(bound);
-        return CG.getConstantInt(loweredTy, bound);
-    }
-
-    Range *range = Ty->getConstraint();
-
-    // Emit a constant if the range has a static lower bound.
-    if (range->hasStaticLowerBound()) {
-        llvm::APInt bound(range->getStaticLowerBound());
-        return CG.getConstantInt(loweredTy, bound);
-    }
-
-    // Otherwise, we have a dynamic lower bound.
-    return emitValue(range->getLowerBound()).first();
-}
-
-llvm::Value *CodeGenRoutine::emitScalarUpperBound(DiscreteType *Ty)
-{
-    const llvm::IntegerType *loweredTy = CGT.lowerDiscreteType(Ty);
-
-    // If unconstrained, emit the lower limit of the base type.
-    if (!Ty->isConstrained()) {
-        llvm::APInt bound;
-        Ty->getUpperLimit(bound);
-        return CG.getConstantInt(loweredTy, bound);
-    }
-
-    Range *range = Ty->getConstraint();
-
-    // Emit a constant if the range has a static lower bound.
-    if (range->hasStaticUpperBound()) {
-        llvm::APInt bound(range->getStaticUpperBound());
-        return CG.getConstantInt(loweredTy, bound);
-    }
-
-    // Otherwise, we have a dynamic upper bound.
-    return emitValue(range->getUpperBound()).first();
-}
-
 CValue CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 {
     llvm::Value *result;
@@ -449,11 +454,12 @@ CValue CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
 
 llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
 {
+    BoundsEmitter emitter(*this);
     DiscreteType *Ty = AE->getType();
     if (AE->isFirst())
-        return emitScalarLowerBound(Ty);
+        return emitter.getLowerBound(Builder, Ty);
     else
-        return emitScalarUpperBound(Ty);
+        return emitter.getUpperBound(Builder, Ty);
 }
 
 llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
@@ -463,32 +469,30 @@ llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
     if (arrTy->isConstrained()) {
         // For constrained arrays the bound can be generated with reference to
         // the index subtype alone.
+        BoundsEmitter emitter(*this);
         IntegerType *indexTy = AE->getType();
         if (AE->isFirst())
-            return emitScalarLowerBound(indexTy);
+            return emitter.getLowerBound(Builder, indexTy);
         else
-            return emitScalarUpperBound(indexTy);
+            return emitter.getUpperBound(Builder, indexTy);
     }
 
     // FIXME:  Only a DeclRefExpr prefix is supported for unconstrained arrays
     // at the moment.
-    DeclRefExpr *ref = dyn_cast<DeclRefExpr>(AE->getPrefix());
+    DeclRefExpr *ref;
+    llvm::Value *bounds;
+    unsigned offset;
 
-    if (!ref) {
-        assert(false && "Unconstrained array attribute not supported yet!");
-        return 0;
-    }
-
-    llvm::Value *bounds = SRF->lookup(ref->getDeclaration(),
-                                      activation::Bounds);
-    unsigned offset = AE->getDimension() * 2;
+    ref = cast<DeclRefExpr>(AE->getPrefix());
+    bounds = SRF->lookup(ref->getDeclaration(), activation::Bounds);
+    offset = AE->getDimension() * 2;
 
     // The bounds structure is organized as a set of low/high pairs.  Offset
     // points to the low entry -- adjust if needed.
     if (AE->isLast())
         ++offset;
 
-    // GEP and lod the required bound.
+    // GEP and load the required bound.
     llvm::Value *bound = Builder.CreateStructGEP(bounds, offset);
     return Builder.CreateLoad(bound);
 }

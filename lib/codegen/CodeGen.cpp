@@ -368,14 +368,9 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     // All instances should be fully resolved.
     assert(!instance->isDependent() && "Unexpected dependent instance!");
 
-    // If this is a function returning a constrained array type, mark it as
-    // using the struct return calling convention.
-    if (const FunctionDecl *fDecl = dyn_cast<FunctionDecl>(srDecl)) {
-        const Type *retTy = CGT.resolveType(fDecl->getReturnType());
-        if (const CompositeType *compTy = dyn_cast<CompositeType>(retTy))
-            if (compTy->isConstrained())
-                fn->addAttribute(1, llvm::Attribute::StructRet);
-    }
+    // Mark the function as sret if needed.
+    if (CGT.getConvention(srDecl) == CodeGenTypes::CC_Sret)
+        fn->addAttribute(1, llvm::Attribute::StructRet);
     return fn;
 }
 

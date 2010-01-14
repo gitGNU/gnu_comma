@@ -36,7 +36,7 @@ public:
           CGT(CGC.getCGT()),
           Builder(Builder) { }
 
-    llvm::Value *emitSimpleCall(SubroutineCall *call);
+    CValue emitSimpleCall(SubroutineCall *call);
 
     /// Emits a function call using the sret calling convention.
     ///
@@ -182,13 +182,13 @@ llvm::Value *CallEmitter::emitCall(llvm::Function *fn)
     return result;
 }
 
-llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
+CValue CallEmitter::emitSimpleCall(SubroutineCall *call)
 {
     SRCall = call;
 
     // Directly emit primitive operations.
     if (SRCall->isPrimitive())
-        return emitPrimitiveCall();
+        return CValue::get(emitPrimitiveCall());
 
     // Prepare any implicit parameters and resolve the SRInfo corresponding to
     // the call.
@@ -199,16 +199,17 @@ llvm::Value *CallEmitter::emitSimpleCall(SubroutineCall *call)
     emitCallArguments();
 
     // Synthesize the actual call instruction.
-    return emitCall(callInfo->getLLVMFunction());
+    return CValue::get(emitCall(callInfo->getLLVMFunction()));
 }
 
 CValue CallEmitter::emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     SRCall = call;
+    const PrimaryType *callTy = CGT.resolveType(call->getType());
 
     // If the destination is null allocate a temporary.
     if (dst == 0) {
-        const llvm::Type *retTy = CGT.lowerType(call->getType());
+        const llvm::Type *retTy = CGT.lowerType(callTy);
         dst = frame()->createTemp(retTy);
     }
 
@@ -226,7 +227,11 @@ CValue CallEmitter::emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst)
 
     // Synthesize the actual call instruction.
     emitCall(callInfo->getLLVMFunction());
-    return CValue::get(dst);
+
+    if (callTy->isFatAccessType())
+        return CValue::getFat(dst);
+    else
+        return CValue::get(dst);
 }
 
 CValue CallEmitter::emitVStackCall(FunctionCallExpr *call)
@@ -797,10 +802,20 @@ CallEmitter::resolveAbstractSubroutine(DomainInstanceDecl *instance,
 
 } // end anonymous namespace.
 
+CValue CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
+{
+    CallEmitter emitter(*this, Builder);
+
+    if (resolveType(expr->getType())->isFatAccessType())
+        return emitter.emitCompositeCall(expr, 0);
+    else
+        return emitter.emitSimpleCall(expr);
+}
+
 CValue CodeGenRoutine::emitSimpleCall(FunctionCallExpr *expr)
 {
     CallEmitter emitter(*this, Builder);
-    return CValue::get(emitter.emitSimpleCall(expr));
+    return emitter.emitSimpleCall(expr);
 }
 
 CValue CodeGenRoutine::emitCompositeCall(FunctionCallExpr *expr,

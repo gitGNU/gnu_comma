@@ -72,11 +72,16 @@ void AssignmentEmitter::emitAssignment(DeclRefExpr *lhs, Expr *rhs)
 void AssignmentEmitter::emitAssignment(SelectedExpr *lhs, Expr *rhs)
 {
     // If the type of the selected component is composite evaluate the rhs into
-    // the storage provided by the lhs.  Otherwise, simply store the lhs.
+    // the storage provided by the lhs.  It is a fat access type then store into
+    // the data pointer.  Otherwise, simply store the lhs.
     llvm::Value *target = CGR.emitSelectedRef(lhs).first();
     PrimaryType *targetTy = CGR.resolveType(lhs->getType());
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);
+    else if (targetTy->isFatAccessType()) {
+        llvm::Value *source = CGR.emitValue(rhs).first();
+        Builder.CreateStore(Builder.CreateLoad(source), target);
+    }
     else {
         llvm::Value *source = CGR.emitValue(rhs).first();
         Builder.CreateStore(source, target);
@@ -85,10 +90,18 @@ void AssignmentEmitter::emitAssignment(SelectedExpr *lhs, Expr *rhs)
 
 void AssignmentEmitter::emitAssignment(DereferenceExpr *lhs, Expr *rhs)
 {
-    // Emit the prefix as a simple value yielding a pointer to the
-    // destination.  Check that the target is not null and emit the rhs.
+    AccessType *prefixTy = lhs->getPrefixType();
     llvm::Value *target = CGR.emitValue(lhs->getPrefix()).first();
-    PrimaryType *targetTy = CGR.resolveType(lhs->getPrefixType());
+
+    // If the prefix is a fat access type extract the first component (the
+    // pointer to the data).
+    if (prefixTy->isFatAccessType()) {
+        target = Builder.CreateStructGEP(target, 0);
+        target = Builder.CreateLoad(target);
+    }
+
+    // Check that the target is not null and emit the rhs.
+    PrimaryType *targetTy = CGR.resolveType(lhs->getType());
     CGR.emitNullAccessCheck(target);
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);
@@ -101,9 +114,23 @@ void AssignmentEmitter::emitAssignment(DereferenceExpr *lhs, Expr *rhs)
 void AssignmentEmitter::emitAssignment(IndexedArrayExpr *lhs, Expr *rhs)
 {
     // Get a reference to the needed component and store.
-    llvm::Value *target = CGR.emitIndexedArrayRef(lhs).first();
-    llvm::Value *source = CGR.emitValue(rhs).first();
-    Builder.CreateStore(source, target);
+    CValue ptr = CGR.emitIndexedArrayRef(lhs);
+
+    if (ptr.isSimple()) {
+        llvm::Value *target = ptr.first();
+        llvm::Value *source = CGR.emitValue(rhs).first();
+        Builder.CreateStore(source, target);
+    }
+    else if (ptr.isAggregate()) {
+        llvm::Value *target = ptr.first();
+        CGR.emitCompositeExpr(rhs, target, false);
+    }
+    else {
+        assert(ptr.isFat());
+        llvm::Value *target = ptr.first();
+        llvm::Value *source = CGR.emitValue(rhs).first();
+        Builder.CreateStore(Builder.CreateLoad(source), target);
+    }
 }
 
 void AssignmentEmitter::emit(AssignmentStmt *stmt)

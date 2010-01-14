@@ -191,25 +191,33 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
     std::vector<const llvm::Type*> args;
     const llvm::Type *retTy = 0;
 
+    /// Determine the return type for this subroutine.
     if (const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl)) {
-        const Type *targetTy = resolveType(fdecl->getReturnType());
 
-        // If the return type is a statically constrained aggregate, use the
-        // struct return calling convention.
-        if (const CompositeType *compTy = dyn_cast<CompositeType>(targetTy)) {
-            if (compTy->isConstrained()) {
-                const llvm::Type *sretTy;
-                sretTy = lowerType(targetTy);
-                sretTy = CG.getPointerType(sretTy);
-                args.push_back(sretTy);
-            }
+        const Type *targetTy = fdecl->getReturnType();
 
-            // All arrays go thru the sret convetion or the vstack, hense a void
-            // return type.
-            retTy = CG.getVoidTy();
-        }
-        else
+        switch (getConvention(decl)) {
+
+        case CC_Simple:
+            // Standard return.
             retTy = lowerType(targetTy);
+            break;
+
+        case CC_Sret: {
+            // Push a pointer to the returned object as an implicit first
+            // parameter.
+            const llvm::Type *sretTy = lowerType(fdecl->getReturnType());
+            args.push_back(sretTy->getPointerTo());
+            retTy = CG.getVoidTy();
+            break;
+        }
+
+        case CC_Vstack:
+            // The return value propagates on the vstack, hense a void return
+            // type.
+            retTy = CG.getVoidTy();
+            break;
+        }
     }
     else
         retTy = CG.getVoidTy();
@@ -233,25 +241,26 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
             // We never pass composite types by value, always by reference.
             // Therefore, the parameter mode does not change how we pass the
             // argument.
-            assert(isa<llvm::CompositeType>(loweredTy) &&
-                   "Unexpected lowered type!");
-            loweredTy = CG.getPointerType(loweredTy);
-
-            args.push_back(loweredTy);
+            args.push_back(loweredTy->getPointerTo());
 
             // If the parameter is an unconstrained array generate an implicit
             // second argument for the bounds.
             if (const ArrayType *arrTy = dyn_cast<ArrayType>(compTy)) {
                 if (!compTy->isConstrained())
-                    args.push_back(CG.getPointerType(lowerArrayBounds(arrTy)));
+                    args.push_back(lowerArrayBounds(arrTy)->getPointerTo());
             }
+        }
+        else if (paramTy->isFatAccessType()) {
+            // Fat pointers are passed by reference just like normal composite
+            // values and are therefore indifferent to the mode.
+            args.push_back(loweredTy->getPointerTo());
         }
         else {
             // If the argument mode is "out" or "in out", make the argument a
             // pointer-to type.
             PM::ParameterMode mode = param->getParameterMode();
             if (mode == PM::MODE_OUT or mode == PM::MODE_IN_OUT)
-                loweredTy = CG.getPointerType(loweredTy);
+                loweredTy = loweredTy->getPointerTo();
             args.push_back(loweredTy);
         }
     }
@@ -364,8 +373,11 @@ const llvm::Type *CodeGenTypes::lowerIncompleteType(const IncompleteType *type)
     return lowerType(type->getCompleteType());
 }
 
-const llvm::PointerType *CodeGenTypes::lowerAccessType(const AccessType *access)
+const llvm::PointerType *
+CodeGenTypes::lowerThinAccessType(const AccessType *access)
 {
+    assert(access->isThinAccessType() && "Use lowerFatAccessType instead!");
+
     // Access types are the primary channel thru which circular data types are
     // constructed.  If we have not yet lowered this access type, construct a
     // PATypeHandle to an opaque type and immediately associate it with the
@@ -393,6 +405,52 @@ const llvm::PointerType *CodeGenTypes::lowerAccessType(const AccessType *access)
     entry = result;
 
     return result;
+}
+
+const llvm::StructType *
+CodeGenTypes::lowerFatAccessType(const AccessType *access)
+{
+    assert(access->isFatAccessType() && "Use lowerThinAccessType instead!");
+
+    const llvm::Type *&entry = getLoweredType(access);
+    if (entry)
+        return llvm::cast<llvm::StructType>(entry);
+
+    // Just as with thin access types, construct a barrier and obtain a pointer
+    // to the target.
+    llvm::PATypeHolder holder = llvm::OpaqueType::get(CG.getLLVMContext());
+    const llvm::PointerType *barrier = llvm::PointerType::getUnqual(holder);
+
+    entry = barrier;
+    const llvm::Type *targetType = lowerType(access->getTargetType());
+
+    // Refine the type holder and update the entry corresponding to this access
+    // type in the type map.
+    cast<llvm::OpaqueType>(holder.get())->refineAbstractTypeTo(targetType);
+    const llvm::PointerType *pointerTy = holder.get()->getPointerTo();
+
+    // The only kind of indefinite type supported ATM are array types.  Get the
+    // corresponding bounds structure.
+    const ArrayType *indefiniteTy = cast<ArrayType>(access->getTargetType());
+    const llvm::StructType *boundsTy = lowerArrayBounds(indefiniteTy);
+
+    // Build the fat pointer structure.
+    std::vector<const llvm::Type*> elements;
+    elements.push_back(pointerTy);
+    elements.push_back(boundsTy);
+
+    const llvm::StructType *result;
+    result = llvm::StructType::get(CG.getLLVMContext(), elements);
+    entry = result;
+    return result;
+}
+
+const llvm::Type *CodeGenTypes::lowerAccessType(const AccessType *type)
+{
+    if (type->isThinAccessType())
+        return lowerThinAccessType(type);
+    else
+        return lowerFatAccessType(type);
 }
 
 unsigned CodeGenTypes::getComponentIndex(const ComponentDecl *component)
@@ -454,3 +512,32 @@ const llvm::IntegerType *CodeGenTypes::getTypeForWidth(unsigned numBits)
         return 0;
     }
 }
+
+CodeGenTypes::CallConvention
+CodeGenTypes::getConvention(const SubroutineDecl *decl)
+{
+    const FunctionDecl *fdecl = dyn_cast<FunctionDecl>(decl);
+
+    // Although not strictly needed for procedures, claiming they follow the
+    // simple convention is reasonable.
+    if (!fdecl) return CC_Simple;
+
+    const PrimaryType *targetTy = resolveType(fdecl->getReturnType());
+
+    // If the return type is a fat access type we always use the sret
+    // convention.
+    if (targetTy->isFatAccessType())
+        return CC_Sret;
+
+    // If composite and unconstrained we return on the vstack.
+    if (targetTy->isCompositeType() && targetTy->isUnconstrained())
+        return CC_Vstack;
+
+    // If composite and constrained we use the sret convention.
+    if (targetTy->isCompositeType())
+        return CC_Sret;
+
+    // Otherwise nothing special is needed.
+    return CC_Simple;
+}
+

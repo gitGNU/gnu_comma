@@ -17,6 +17,7 @@
 #include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
+#include "CommaRT.h"
 #include "comma/ast/AggExpr.h"
 #include "comma/ast/Type.h"
 
@@ -43,6 +44,8 @@ public:
           Builder(Builder) { }
 
     CValue emit(Expr *expr, llvm::Value *dst, bool genTmp);
+
+    CValue emitAllocator(AllocatorExpr *expr);
 
 private:
     CodeGenRoutine &CGR;
@@ -129,6 +132,21 @@ private:
 
     /// Converts the given value to an unsigned pointer sized integer if needed.
     llvm::Value *convertIndex(llvm::Value *idx);
+
+    /// \name Allocator Methods.
+    //@{
+
+    /// Emits an allocation of a definite array type.
+    CValue emitDefiniteAllocator(AllocatorExpr *expr, ArrayType *arrTy);
+
+    /// Emits an allocation initialized by a function call.
+    CValue emitCallAllocator(AllocatorExpr *expr,
+                             FunctionCallExpr *call, ArrayType *arrTy);
+
+    /// Emits an allocation initialized by an aggregate.
+    CValue emitAggregateAllocator(AllocatorExpr *expr,
+                                  AggregateExpr *agg, ArrayType *ArrTy);
+    //@}
 };
 
 llvm::Value *ArrayEmitter::convertIndex(llvm::Value *idx)
@@ -137,6 +155,168 @@ llvm::Value *ArrayEmitter::convertIndex(llvm::Value *idx)
     if (idx->getType() != intptrTy)
         return Builder.CreateIntCast(idx, intptrTy, false);
     return idx;
+}
+
+CValue ArrayEmitter::emitAllocator(AllocatorExpr *expr)
+{
+    ArrayType *arrTy;
+    arrTy = cast<ArrayType>(CGR.resolveType(expr->getAllocatedType()));
+
+    if (arrTy->isDefiniteType())
+        return emitDefiniteAllocator(expr, arrTy);
+
+    assert(expr->isInitialized() &&
+           "Cannot codegen uninitialized indefinite allocators!");
+    Expr *operand = expr->getInitializer();
+
+    if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(operand))
+        operand = qual->getOperand();
+
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(operand))
+        return emitCallAllocator(expr, call, arrTy);
+
+    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(operand))
+        return emitAggregateAllocator(expr, agg, arrTy);
+
+    assert(false && "Cannot codegen indefinite allocator yet!");
+    return CValue::getFat(0);
+}
+
+CValue ArrayEmitter::emitDefiniteAllocator(AllocatorExpr *expr,
+                                           ArrayType *arrTy)
+{
+    assert(arrTy->isDefiniteType());
+
+    const llvm::ArrayType *loweredTy;
+    const llvm::PointerType *resultTy;
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+
+    loweredTy = CGT.lowerArrayType(arrTy);
+    resultTy = CGT.lowerThinAccessType(expr->getType());
+
+    uint64_t size = CGT.getTypeSize(loweredTy);
+    unsigned align = CGT.getTypeAlignment(loweredTy);
+
+    llvm::Value *result = CRT.comma_alloc(Builder, size, align);
+    result = Builder.CreatePointerCast(result, resultTy);
+    llvm::Value *dst = Builder.CreateConstInBoundsGEP1_32(result, 0);
+
+    if (expr->isInitialized())
+        emit(expr->getInitializer(), dst, false);
+
+    return CValue::get(result);
+}
+
+CValue ArrayEmitter::emitCallAllocator(AllocatorExpr *expr,
+                                       FunctionCallExpr *call,
+                                       ArrayType *arrTy)
+{
+    CodeGen &CG = CGR.getCodeGen();
+    CommaRT &CRT = CG.getRuntime();
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+
+    const llvm::Type *componentTy;
+    const llvm::StructType *boundsTy;
+    const llvm::PointerType *targetTy;
+    const llvm::StructType *fatTy;
+
+    componentTy = CGT.lowerType(arrTy->getComponentType());
+    boundsTy = CGT.lowerArrayBounds(arrTy);
+    targetTy = CG.getVLArrayTy(componentTy)->getPointerTo();
+    fatTy = CGT.lowerFatAccessType(expr->getType());
+
+    llvm::Value *fatPtr = frame()->createTemp(fatTy);
+
+    // Emit a "simple" call, thereby leaving the bounds and data on the vstack.
+    CGR.emitSimpleCall(call);
+
+    // Get a reference to the bounds and compute the size of the needed array.
+    llvm::Value *bounds = CRT.vstack(Builder, boundsTy->getPointerTo());
+    llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
+
+    uint64_t size = CGT.getTypeSize(componentTy);
+    unsigned align = CGT.getTypeAlignment(componentTy);
+
+    llvm::Value *dimension = Builder.CreateMul
+        (length, llvm::ConstantInt::get(length->getType(), size));
+
+    // Store the bounds into the fat pointer structure.
+    Builder.CreateStore(Builder.CreateLoad(bounds),
+                        Builder.CreateStructGEP(fatPtr, 1));
+
+    // Allocate a destination for the array.
+    llvm::Value *dst = CRT.comma_alloc(Builder, dimension, align);
+
+    // Pop the vstack and obtain a pointer to the component data.
+    CRT.vstack_pop(Builder);
+    llvm::Value *data = CRT.vstack(Builder, CG.getInt8PtrTy());
+
+    // Store the data into the destination.
+    llvm::Function *memcpy = CG.getMemcpy32();
+    Builder.CreateCall4(memcpy, dst, data, dimension,
+                        llvm::ConstantInt::get(CG.getInt32Ty(), align));
+
+    // Update the fat pointer with the allocated data.
+    Builder.CreateStore(Builder.CreatePointerCast(dst, targetTy),
+                        Builder.CreateStructGEP(fatPtr, 0));
+
+    // Pop the component data from the vstack.
+    CRT.vstack_pop(Builder);
+
+    return CValue::getFat(fatPtr);
+}
+
+CValue ArrayEmitter::emitAggregateAllocator(AllocatorExpr *expr,
+                                            AggregateExpr *agg,
+                                            ArrayType *arrTy)
+{
+    llvm::Value *bounds;
+
+    if (agg->isPurelyPositional())
+        bounds = emitter.synthAggregateBounds(Builder, agg);
+    else if (agg->hasStaticIndices()) {
+        DiscreteType *indexTy = arrTy->getIndexType(0);
+        bounds = emitter.synthScalarBounds(Builder, indexTy);
+    }
+    else {
+        assert(agg->numKeys() == 1);
+        AggregateExpr::key_iterator I = agg->key_begin();
+        Range *range = cast<Range>((*I)->getRep());
+        bounds = emitter.synthRange(Builder, range);
+    }
+
+    // Compute the size and alignment of the array.
+    llvm::Value *length;
+    llvm::Value *size;
+    unsigned align;
+    const llvm::Type *componentTy;
+    const llvm::Type *resultTy;
+
+    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+
+    componentTy = CGT.lowerType(arrTy->getComponentType());
+    resultTy = CGT.lowerType(arrTy)->getPointerTo();
+
+    length = emitter.computeTotalBoundLength(Builder, bounds);
+    size = llvm::ConstantInt::get(length->getType(),
+                                  CGT.getTypeSize(componentTy));
+    size = Builder.CreateMul(length, size);
+    align = CGT.getTypeAlignment(componentTy);
+
+    llvm::Value *result = CRT.comma_alloc(Builder, size, align);
+    result = Builder.CreatePointerCast(result, resultTy);
+    llvm::Value *dst = Builder.CreateConstInBoundsGEP1_32(result, 0);
+
+    CValue aggregate = emitAggregate(agg, dst);
+
+    // Pack the result into a fat pointer.
+    resultTy = CGT.lowerFatAccessType(expr->getType());
+    result = frame()->createTemp(resultTy);
+    Builder.CreateStore(aggregate.first(), Builder.CreateStructGEP(result, 0));
+    Builder.CreateStore(aggregate.second(), Builder.CreateStructGEP(result, 1));
+    return CValue::getFat(result);
 }
 
 CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
@@ -175,12 +355,31 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         bounds = value.second();
     }
     else if (IndexedArrayExpr *iae = dyn_cast<IndexedArrayExpr>(expr)) {
-        components = CGR.emitIndexedArrayRef(iae).first();
-        bounds = emitter.synthArrayBounds(Builder, arrTy);
+        CValue value = CGR.emitIndexedArrayRef(iae);
+        components = value.first();
+        bounds = value.second();
     }
     else if (SelectedExpr *sel = dyn_cast<SelectedExpr>(expr)) {
         components = CGR.emitSelectedRef(sel).first();
         bounds = emitter.synthArrayBounds(Builder, arrTy);
+    }
+    else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(expr)) {
+        CValue value = CGR.emitValue(deref->getPrefix());
+
+        // If the dereference is with respect to a fat pointer then the first
+        // component is the data pointer and the second is the bounds
+        // structure.  Otherwise we have a simple thin pointer to an array of
+        // staticly known size.
+        if (value.isFat()) {
+            llvm::Value *fatPtr = value.first();
+            components = Builder.CreateStructGEP(fatPtr, 0);
+            components = Builder.CreateLoad(components);
+            bounds = Builder.CreateStructGEP(fatPtr, 1);
+        }
+        else {
+            components = value.first();
+            bounds = emitter.synthArrayBounds(Builder, arrTy);
+        }
     }
     else {
         assert(false && "Invalid type of array expr!");
@@ -212,8 +411,14 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 
 void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    if (isa<CompositeType>(expr->getType()))
+    Type *exprTy = expr->getType();
+
+    if (exprTy->isCompositeType())
         CGR.emitCompositeExpr(expr, dst, false);
+    else if (exprTy->isFatAccessType()) {
+        llvm::Value *fatPtr = CGR.emitValue(expr).first();
+        Builder.CreateStore(Builder.CreateLoad(fatPtr), dst);
+    }
     else
         Builder.CreateStore(CGR.emitValue(expr).first(), dst);
 }
@@ -322,9 +527,9 @@ void ArrayEmitter::emitOthers(Expr *others, llvm::Value *dst,
     llvm::Value *iterNext = Builder.CreateAdd(phi, iterOne);
     Builder.CreateBr(checkBB);
 
-    // Populate the phi node this the incoming values.
+    // Populate the phi node with the incoming values.
     phi->addIncoming(iterStart, startBB);
-    phi->addIncoming(iterNext, bodyBB);
+    phi->addIncoming(iterNext, Builder.GetInsertBlock());
 
     // Switch to merge.
     Builder.SetInsertPoint(mergeBB);
@@ -692,6 +897,8 @@ public:
 
     CValue emit(Expr *expr, llvm::Value *dst, bool genTmp);
 
+    CValue emitAllocator(AllocatorExpr *expr);
+
 private:
     CodeGenRoutine &CGR;
     CodeGenTypes &CGT;
@@ -750,6 +957,31 @@ private:
     /// Emits the given expression into the location pointed to by \p dst.
     void emitComponent(Expr *expr, llvm::Value *dst);
 };
+
+CValue RecordEmitter::emitAllocator(AllocatorExpr *expr)
+{
+    // Compute the size and alignment of the record to be allocated.
+    AccessType *exprTy = expr->getType();
+    const llvm::PointerType *resultTy = CGT.lowerThinAccessType(exprTy);
+    const llvm::Type *pointeeTy = resultTy->getElementType();
+
+    uint64_t size = CGT.getTypeSize(pointeeTy);
+    unsigned align = CGT.getTypeAlignment(pointeeTy);
+
+    // Call into the runtime to allocate the object and cast the result to the
+    // needed type.
+    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+    llvm::Value *pointer = CRT.comma_alloc(Builder, size, align);
+    pointer = Builder.CreatePointerCast(pointer, resultTy);
+
+    // If an initializer is given emit the record into the allocated memory.
+    if (expr->isInitialized()) {
+        Expr *init = expr->getInitializer();
+        emit(init, pointer, false);
+    }
+
+    return CValue::get(pointer);
+}
 
 CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 {
@@ -835,8 +1067,13 @@ CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
 
 void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    if (isa<CompositeType>(CGR.resolveType(expr->getType())))
+    PrimaryType *componentTy = CGR.resolveType(expr->getType());
+    if (componentTy->isCompositeType())
         CGR.emitCompositeExpr(expr, dst, false);
+    else if (componentTy->isFatAccessType()) {
+        CValue component = CGR.emitValue(expr);
+        Builder.CreateStore(Builder.CreateLoad(component.first()), dst);
+    }
     else {
         CValue component = CGR.emitValue(expr);
         Builder.CreateStore(component.first(), dst);
@@ -914,8 +1151,6 @@ void RecordEmitter::emitOthersComponents(AggregateExpr *agg, llvm::Value *dst,
 CValue RecordEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     // Functions returning structures always use the sret calling convention.
-    //
-    // FIXME: Optimize the case when the record is small.
     return CGR.emitCompositeCall(call, dst);
 }
 
@@ -1005,6 +1240,22 @@ CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 
     assert(false && "Not a composite expression!");
     return CValue::get(0);
+}
+
+CValue
+CodeGenRoutine::emitCompositeAllocator(AllocatorExpr *expr)
+{
+    PrimaryType *type = resolveType(expr->getAllocatedType());
+
+    if (isa<ArrayType>(type)) {
+        ArrayEmitter emitter(*this, Builder);
+        return emitter.emitAllocator(expr);
+    }
+    else {
+        assert(isa<RecordType>(type) && "Not a composite allocator!");
+        RecordEmitter emitter(*this, Builder);
+        return emitter.emitAllocator(expr);
+    }
 }
 
 void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)

@@ -81,6 +81,29 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 
     if (objTy->isCompositeType())
         emitCompositeObjectDecl(objDecl);
+    else if (objTy->isFatAccessType()) {
+        // If we have an initializer simply emit it and associate the temporary
+        // with the object.  Otherwise allocate a slot of the appropritate fat
+        // pointer structure and initialize the embedded pointer to null.
+        if (objDecl->hasInitializer()) {
+            CValue value = emitValue(objDecl->getInitializer());
+            SRF->associate(objDecl, activation::Slot, value.first());
+        }
+        else {
+            const llvm::StructType *fatTy;
+            const llvm::PointerType *dataTy;
+            llvm::Value *slot;
+            llvm::Value *ptr;
+            llvm::Value *null;
+
+            fatTy = CGT.lowerFatAccessType(cast<AccessType>(objTy));
+            dataTy = cast<llvm::PointerType>(fatTy->getElementType(0));
+            slot = SRF->createEntry(objDecl, activation::Slot, fatTy);
+            ptr = Builder.CreateStructGEP(slot, 0);
+            null = llvm::ConstantPointerNull::get(dataTy);
+            Builder.CreateStore(null, ptr);
+        }
+    }
     else {
         // Otherwise, this is a simple non-composite type.  Allocate a stack
         // slot and evaluate the initializer if present.
@@ -148,7 +171,7 @@ CValue CodeGenRoutine::emitValue(Expr *expr)
         return emitDeclRefExpr(cast<DeclRefExpr>(expr));
 
     case Ast::AST_FunctionCallExpr:
-        return emitSimpleCall(cast<FunctionCallExpr>(expr));
+        return emitFunctionCall(cast<FunctionCallExpr>(expr));
 
     case Ast::AST_DereferenceExpr:
         return emitDereferencedValue(cast<DereferenceExpr>(expr));

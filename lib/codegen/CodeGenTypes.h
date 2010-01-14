@@ -51,7 +51,11 @@ public:
 
     const llvm::Type *lowerIncompleteType(const IncompleteType *type);
 
-    const llvm::PointerType *lowerAccessType(const AccessType *type);
+    const llvm::PointerType *lowerThinAccessType(const AccessType *type);
+
+    const llvm::StructType *lowerFatAccessType(const AccessType *type);
+
+    const llvm::Type *lowerAccessType(const AccessType *type);
 
     /// Returns the structure type used to hold the bounds of an unconstrained
     /// array.
@@ -84,6 +88,18 @@ public:
     /// FIXME: This method is a close cousin to CGR's resolveType.  It might be
     /// best remove CGR's version and use this one everywhere.
     const PrimaryType *resolveType(const Type *type);
+
+    /// \name Calling Conventions.
+    ///
+    //@
+    enum CallConvention {
+        CC_Simple,
+        CC_Sret,
+        CC_Vstack
+    };
+
+    CallConvention getConvention(const SubroutineDecl *decl);
+    //@}
 
 private:
     CodeGen &CG;

@@ -12,7 +12,7 @@
 #include "CodeGen.h"
 #include "CValue.h"
 #include "Frame.h"
-#include "comma/ast/AstBase.h"
+#include "comma/ast/Expr.h"
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/ADT/DenseMap.h"
@@ -81,6 +81,7 @@ public:
     void emitStmt(Stmt *stmt);
 
     CValue emitSimpleCall(FunctionCallExpr *expr);
+    CValue emitFunctionCall(FunctionCallExpr *expr);
 
     /// Emits a function call using the sret calling convention.
     ///
@@ -105,6 +106,9 @@ public:
     CValue emitSelectedRef(SelectedExpr *expr);
 
     PrimaryType *resolveType(Type *type);
+    PrimaryType *resolveType(Expr *expr) {
+        return resolveType(expr->getType());
+    }
 
     /// Emits a null check for the given pointer value.
     void emitNullAccessCheck(llvm::Value *pointer);
@@ -121,6 +125,7 @@ private:
 
     void emitIfStmt(IfStmt *ite);
     void emitReturnStmt(ReturnStmt *ret);
+    void emitVStackReturn(Expr *expr, ArrayType *type);
     void emitStmtSequence(StmtSequence *seq);
     void emitProcedureCallStmt(ProcedureCallStmt *stmt);
     void emitAssignmentStmt(AssignmentStmt *stmt);
@@ -151,15 +156,10 @@ private:
     CValue emitNullExpr(NullExpr *expr);
     CValue emitDereferencedValue(DereferenceExpr *expr);
     CValue emitAllocatorValue(AllocatorExpr *expr);
+    CValue emitCompositeAllocator(AllocatorExpr *expr);
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
-
-    /// Emits a value representing the lower bound of the given scalar type.
-    llvm::Value *emitScalarLowerBound(DiscreteType *Ty);
-
-    /// Emits a value representing the upper bound of the given scalar subtype.
-    llvm::Value *emitScalarUpperBound(DiscreteType *Ty);
 
     // Conversion emitters.
     llvm::Value *emitDiscreteConversion(Expr *expr, DiscreteType *target);
