@@ -64,11 +64,20 @@ public:
     /// Returns true if this type denotes an array type.
     bool isArrayType() const;
 
+    /// Returns true if this type denotes a record type.
+    bool isRecordType() const;
+
     /// Returns true if this type denotes a string type.
     bool isStringType() const;
 
     /// Returns true if this type denotes an access type.
     bool isAccessType() const;
+
+    /// Returns true if this type denotes a fat access type.
+    bool isFatAccessType() const;
+
+    /// Returns true if this type denotes a thin access type.
+    bool isThinAccessType() const;
 
     ArrayType *getAsArrayType();
     IntegerType *getAsIntegerType();
@@ -87,6 +96,12 @@ public:
     /// Currently, the only example of an indefinite type in Comma is an
     /// unconstrained array type.
     bool isIndefiniteType() const;
+
+    /// \brief Returns true if this is a definite type.
+    ///
+    /// This is the inverse of isIndefiniteType.  The size of such types are
+    /// statically known.
+    bool isDefiniteType() const { return !isIndefiniteType(); }
 
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {

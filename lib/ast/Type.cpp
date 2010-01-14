@@ -79,19 +79,38 @@ bool Type::isArrayType() const
     return isa<ArrayType>(this);
 }
 
+bool Type::isRecordType() const
+{
+    return isa<RecordType>(this);
+}
+
 bool Type::isStringType() const
 {
     const ArrayType *arrTy = const_cast<Type*>(this)->getAsArrayType();
-    if (!arrTy || !arrTy->isVector())
-        return false;
-
-    EnumerationType *enumTy = arrTy->getComponentType()->getAsEnumType();
-    return enumTy && enumTy->isCharacterType();
+    if (arrTy && arrTy->isVector()) {
+        EnumerationType *enumTy = arrTy->getComponentType()->getAsEnumType();
+        return enumTy && enumTy->isCharacterType();
+    }
+    return false;
 }
 
 bool Type::isAccessType() const
 {
     return isa<AccessType>(this);
+}
+
+bool Type::isFatAccessType() const
+{
+    if (const AccessType *access = dyn_cast<AccessType>(this))
+        return access->getTargetType()->isIndefiniteType();
+    return false;
+}
+
+bool Type::isThinAccessType() const
+{
+    if (const AccessType *access = dyn_cast<AccessType>(this))
+        return !access->getTargetType()->isIndefiniteType();
+    return false;
 }
 
 ArrayType *Type::getAsArrayType()
