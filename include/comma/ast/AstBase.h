@@ -45,6 +45,7 @@ class CarrierDecl;
 class ComponentDecl;
 class CompositeType;
 class CompilationUnit;
+class ConversionExpr;
 class Decl;
 class DeclRegion;
 class DeclRefExpr;
@@ -127,9 +128,9 @@ class SubroutineRef;
 class SubroutineType;
 class SubtypeDecl;
 class Type;
-class ConversionExpr;
 class TypeDecl;
 class TypeRef;
+class UniversalType;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
@@ -215,6 +216,7 @@ public:
         //
         // Type nodes.
         //
+        AST_UniversalType,      ///< UniversalType
         AST_FunctionType,       ///< FunctionType
         AST_ProcedureType,      ///< ProcedureType
 
@@ -307,7 +309,7 @@ public:
         FIRST_ValueDecl = AST_LoopDecl,
         LAST_ValueDecl = AST_RenamedObjectDecl,
 
-        FIRST_Type = AST_FunctionType,
+        FIRST_Type = AST_UniversalType,
         LAST_Type = AST_RecordType,
 
         FIRST_PrimaryType = AST_AccessType,

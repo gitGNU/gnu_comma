@@ -54,6 +54,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ExceptionDecl",
     "ComponentDecl",
 
+    "UniversalType",
     "FunctionType",
     "ProcedureType",
 

@@ -110,8 +110,8 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 {
     // If the argument as a fully resolved type, all we currently do is test for
     // type equality.
-    if (arg->hasType())
-        return covers(targetType, arg->getType());
+    if (arg->hasResolvedType())
+        return covers(arg->getType(), targetType);
 
     // We have an unresolved argument expression.  If the expression is an
     // integer literal it is compatible if the target is an integer type.
@@ -141,7 +141,7 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     for ( ; I != E; ++I) {
         FunctionDecl *connective = *I;
         Type *returnType = connective->getReturnType();
-        if (covers(targetType, returnType))
+        if (covers(returnType, targetType))
             return true;
     }
     return false;
@@ -281,7 +281,7 @@ FunctionDecl *TypeCheck::resolvePreferredConnective(FunctionCallExpr *call,
     for ( ; I != E; ++I) {
         FunctionDecl *candidate = *I;
         Type *returnType = candidate->getReturnType();
-        if (covers(targetType, returnType))
+        if (covers(returnType, targetType))
             candidates.push_back(candidate);
     }
 
@@ -472,9 +472,9 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
     if (!call->isAmbiguous()) {
         // The function call is not ambiguous.  Ensure that the return type of
-        // the call is covered by the target type and generate a conversion if
+        // the call covers the target type and generate a conversion if
         // necessary.
-        if (covers(targetType, call->getType()))
+        if (covers(call->getType(), targetType))
             return convertIfNeeded(call, targetType);
 
         // FIXME: Need a better diagnostic here.
@@ -582,7 +582,7 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
             ComponentDecl *component = decl->getComponent(selector);
             if (component) {
                 Type *componentType = component->getType();
-                if (covers(targetType, componentType))
+                if (covers(componentType, targetType))
                     candidates.push_back(candidate);
             }
         }

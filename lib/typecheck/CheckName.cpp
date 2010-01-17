@@ -266,7 +266,7 @@ Ast *TypeCheck::processSelectedComponent(Expr *expr,
 {
     // If the prefix expression does not have a resolved type we must wait for
     // the top down pass.  Construct an ambiguous selectedExpr node and return.
-    if (!expr->hasType())
+    if (!expr->hasResolvedType())
         return new SelectedExpr(expr, name, loc);
 
     // Currently, the prefix to a selected component must be of record type.

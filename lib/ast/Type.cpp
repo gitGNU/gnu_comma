@@ -113,6 +113,27 @@ bool Type::isThinAccessType() const
     return false;
 }
 
+bool Type::isUniversalType() const
+{
+    return isa<UniversalType>(this);
+}
+
+bool Type::isUniversalTypeOf(const Type *type) const
+{
+    if (const UniversalType *utype = dyn_cast<UniversalType>(this)) {
+        if (utype->isUniversalInteger())
+            return type->memberOf(CLASS_Integer);
+        if (utype->isUniversalAccess())
+            return type->memberOf(CLASS_Access);
+
+        // FIXME: We do not yet have memberOf predicates for fixed or real
+        // types.
+        assert(false && "Cannot handle this kind of universal type yet!");
+        return false;
+    }
+    return false;
+}
+
 ArrayType *Type::getAsArrayType()
 {
     return dyn_cast<ArrayType>(this);
@@ -194,6 +215,14 @@ SubroutineType::SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
         std::copy(argTypes, argTypes + numArgs, argumentTypes);
     }
 }
+
+//===----------------------------------------------------------------------===//
+// UniversalType
+
+UniversalType *UniversalType::universal_integer = 0;
+UniversalType *UniversalType::universal_access  = 0;
+UniversalType *UniversalType::universal_fixed   = 0;
+UniversalType *UniversalType::universal_real    = 0;
 
 //===----------------------------------------------------------------------===//
 // IncompleteType

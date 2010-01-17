@@ -53,7 +53,7 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
 {
     Location loc = expr->getLocation();
 
-    if (!expr->hasType()) {
+    if (!expr->hasResolvedType()) {
         // If the expression is ambiguous we must wait for the top-down pass and
         // the accompanying type context.  Since we will be checking the node
         // entirely at that time simply construct the expression with an
@@ -111,9 +111,9 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
     if (SelectedExpr *select = dyn_cast<SelectedExpr>(expr))
         return resolveSelectedExpr(select, context);
 
-    assert(expr->hasType() && "Expression does not have a resolved type!");
+    assert(expr->hasResolvedType() && "Expression does not have a resolved type!");
 
-    if (covers(context, resolveType(expr->getType())))
+    if (covers(resolveType(expr->getType()), context))
         return convertIfNeeded(expr, context);
 
     // FIXME: Need a better diagnostic here.
@@ -152,7 +152,7 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,
                                       Type::Classification ID)
 {
-    if (!lit->hasType()) {
+    if (lit->isUniversalInteger()) {
         IntegerType *rootTy = resource.getTheRootIntegerType();
 
         if (!rootTy->memberOf(ID)) {
@@ -180,7 +180,7 @@ bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,
 
 Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 {
-    if (intLit->hasType()) {
+    if (!intLit->isUniversalInteger()) {
         assert(intLit->getType() == context &&
                "Cannot resolve literal to different type!");
         return intLit;
@@ -245,7 +245,7 @@ Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
 
 Expr *TypeCheck::resolveNullExpr(NullExpr *expr, Type *context)
 {
-    if (expr->hasType()) {
+    if (expr->hasResolvedType()) {
         assert(covers(expr->getType(), context) &&
                "Cannot resolve to different type");
         return expr;
@@ -266,8 +266,8 @@ Expr *TypeCheck::resolveNullExpr(NullExpr *expr, Type *context)
 
 Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
 {
-    if (alloc->hasType()) {
-        assert(covers(context, alloc->getType()) &&
+    if (alloc->hasResolvedType()) {
+        assert(covers(alloc->getType(), context) &&
                "Cannot resolve expression to an incompatible type!");
         return alloc;
     }
@@ -288,7 +288,7 @@ Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
             return 0;
         alloc->setInitializer(operand);
     }
-    else if (!covers(targetType, alloc->getAllocatedType())) {
+    else if (!covers(alloc->getAllocatedType(), targetType)) {
         report(alloc->getLocation(), diag::INCOMPATIBLE_TYPES);
         return 0;
     }
@@ -300,8 +300,8 @@ Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
 
 Expr *TypeCheck::resolveSelectedExpr(SelectedExpr *select, Type *context)
 {
-    if (select->hasType()) {
-        if (covers(context, select->getType()))
+    if (select->hasResolvedType()) {
+        if (covers(select->getType(), context))
             return convertIfNeeded(select, context);
         report(select->getLocation(), diag::INCOMPATIBLE_TYPES);
         return 0;

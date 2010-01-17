@@ -43,16 +43,16 @@ bool RangeChecker::checkDeclarationRange(Expr *lower, Expr *upper)
 
 DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
 {
-    // If neither the lower or upper bound expressions have a type, evaluate
-    // both the lower with the discrete classification as context, then evaluate
-    // the upper bound wrt the resolved type.
-    if (!lower->hasType() && !upper->hasType()) {
+    // If neither the lower or upper bound expressions have a resolved type,
+    // evaluate the lower with a discrete class as context, then evaluate the
+    // upper bound wrt the resolved type.
+    if (!lower->hasResolvedType() && !upper->hasResolvedType()) {
         if (!TC.checkExprInContext(lower, Type::CLASS_Discrete))
             return 0;
         if (!(upper = TC.checkExprInContext(upper, lower->getType())))
             return 0;
     }
-    else if (lower->hasType() && !upper->hasType()) {
+    else if (lower->hasResolvedType() && !upper->hasResolvedType()) {
         if (!isa<DiscreteType>(lower->getType())) {
             report(lower->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return 0;
@@ -60,7 +60,7 @@ DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
         if (!(upper = TC.checkExprInContext(upper, lower->getType())))
             return 0;
     }
-    else if (upper->hasType() && !lower->hasType()) {
+    else if (upper->hasResolvedType() && !lower->hasResolvedType()) {
         if (!isa<DiscreteType>(upper->getType())) {
             report(upper->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return 0;
@@ -80,7 +80,7 @@ DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
             return 0;
         }
 
-        if (!TC.covers(lower->getType(), upper->getType())) {
+        if (!TC.covers(upper->getType(), lower->getType())) {
             report(lower->getLocation(), diag::INCOMPATIBLE_RANGE_TYPES);
             return 0;
         }

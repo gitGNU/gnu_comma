@@ -79,6 +79,13 @@ public:
     /// Returns true if this type denotes a thin access type.
     bool isThinAccessType() const;
 
+    /// Returns true if this is a universal type.
+    bool isUniversalType() const;
+
+    /// Returns true if this is a universal type which contains (or covers) the
+    /// given type.
+    bool isUniversalTypeOf(const Type *type) const;
+
     ArrayType *getAsArrayType();
     IntegerType *getAsIntegerType();
     EnumerationType *getAsEnumType();
@@ -223,6 +230,71 @@ private:
         else
             ID.AddPointer(0);
     }
+};
+
+//===----------------------------------------------------------------------===//
+// UniversalType
+//
+/// This type represents the various universal types such as universal_integer,
+/// universal_access, etc.
+class UniversalType : public Type {
+
+public:
+
+    /// \name Static Constructors.
+    //@{
+    static UniversalType *getUniversalInteger() {
+        if (universal_integer)
+            return universal_integer;
+        universal_integer = new UniversalType();
+        return universal_integer;
+    }
+
+    static UniversalType *getUniversalAccess() {
+        if (universal_access)
+            return universal_access;
+        universal_access = new UniversalType();
+        return universal_access;
+    }
+
+    static UniversalType *getUniversalFixed() {
+        if (universal_fixed)
+            return universal_fixed;
+        universal_fixed = new UniversalType();
+        return universal_fixed;
+    }
+
+    static UniversalType *getUniversalReal() {
+        if (universal_real)
+            return universal_real;
+        universal_real = new UniversalType();
+        return universal_real;
+    }
+    //@}
+
+    /// \name Predicates.
+    //@{
+    bool isUniversalInteger() const { return this == universal_integer; }
+    bool isUniversalAccess()  const { return this == universal_access;  }
+    bool isUniversalFixed()   const { return this == universal_fixed;   }
+    bool isUniversalReal()    const { return this == universal_real;    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const UniversalType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_UniversalType;
+    }
+
+private:
+    UniversalType() : Type(AST_UniversalType) { }
+
+    /// The various universal types.  Initialized on the first call to the get
+    /// routines.
+    static UniversalType *universal_integer;
+    static UniversalType *universal_access;
+    static UniversalType *universal_fixed;
+    static UniversalType *universal_real;
 };
 
 //===----------------------------------------------------------------------===//

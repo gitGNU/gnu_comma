@@ -470,7 +470,7 @@ IncompleteType *DeclRewriter::rewriteIncompleteType(IncompleteType *type)
 
 IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)
 {
-    Type *targetTy = rewriteType(lit->getType());
+    IntegerType *targetTy = cast<IntegerType>(rewriteType(lit->getType()));
     const llvm::APInt &value = lit->getValue();
     return new IntegerLiteral(value, targetTy, 0);
 }

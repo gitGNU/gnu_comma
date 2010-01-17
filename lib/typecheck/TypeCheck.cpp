@@ -571,8 +571,8 @@ ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
         // FIXME: Support enumeration types by generating Val attribute
         // expressions.
         IntegerType *intTy = cast<IntegerType>(idxTy);
-        Expr *lowerExpr = new IntegerLiteral(lower, idxTy, 0);
-        Expr *upperExpr = new IntegerLiteral(upper, idxTy, 0);
+        Expr *lowerExpr = new IntegerLiteral(lower, intTy, 0);
+        Expr *upperExpr = new IntegerLiteral(upper, intTy, 0);
         idxTy = resource.createIntegerSubtype(0, intTy, lowerExpr, upperExpr);
         return resource.createArraySubtype(0, arrTy, &idxTy);
     }
@@ -1269,6 +1269,9 @@ bool TypeCheck::covers(Type *A, Type *B)
 {
     // A type covers itself.
     if (A == B)
+        return true;
+
+    if (A->isUniversalTypeOf(B) || B->isUniversalTypeOf(A))
         return true;
 
     Type *rootTypeA = A;

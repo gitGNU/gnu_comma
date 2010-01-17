@@ -69,6 +69,14 @@ public:
     /// with a type and Expr::hasType will subsequently return false.
     void setType(Type *type) { this->type = type; }
 
+    /// Returns true if this expression has a resolved type.
+    ///
+    /// An expression is considered to have a resolved type if its type has been
+    /// set and it is not a universal type.
+    bool hasResolvedType() const {
+        return hasType() && !getType()->isUniversalType();
+    }
+
     /// \brief Returns true if this expression can be evaluated as to a static
     /// discrete value.
     bool isStaticDiscreteExpr() const;
@@ -433,23 +441,34 @@ private:
 //===----------------------------------------------------------------------===//
 // IntegerLiteral
 //
-// Initially, IntegerLiteral nodes do not have an associated type.  The expected
-// use case is that the node is created and the type refined once the context
-// has been analyzed.
 class IntegerLiteral : public Expr
 {
 public:
+    /// Constructs an integer literal with an initial type of \c
+    /// universal_integer.
     IntegerLiteral(const llvm::APInt &value, Location loc)
-        : Expr(AST_IntegerLiteral, loc), value(value) { }
+        : Expr(AST_IntegerLiteral, UniversalType::getUniversalInteger(), loc),
+          value(value) { }
 
-    IntegerLiteral(const llvm::APInt &value, Type *type, Location loc)
+    /// Constructs an integer literal with the given integer type.
+    IntegerLiteral(const llvm::APInt &value, IntegerType *type, Location loc)
         : Expr(AST_IntegerLiteral, type, loc), value(value) { }
 
+    /// Returns true if this literal is of the universal integer type.
+    bool isUniversalInteger() const {
+        return llvm::isa<UniversalType>(getType());
+    }
+
+    //@{
+    /// Returns the literal value of this integer.
     const llvm::APInt &getValue() const { return value; }
     llvm::APInt &getValue() { return value; }
+    //@}
 
+    /// Sets the literal value of this integer.
     void setValue(const llvm::APInt &V) { value = V; }
 
+    // Suppport isa/dyn_cast.
     static bool classof(const IntegerLiteral *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerLiteral;

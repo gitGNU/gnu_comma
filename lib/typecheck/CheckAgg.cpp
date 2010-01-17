@@ -338,7 +338,7 @@ Expr *ArrayAggChecker::resolveAggregateExpr(AggregateExpr *agg,
 {
     // If the given aggregate already has a resolved type, ensure the given
     // context is compatible.
-    if (agg->hasType()) {
+    if (agg->hasResolvedType()) {
         if (!TC.covers(agg->getType(), context)) {
             report(agg->getLocation(), diag::INCOMPATIBLE_TYPES);
             return 0;
@@ -688,7 +688,7 @@ Expr *RecordAggChecker::resolveAggregateExpr(AggregateExpr *agg,
 
     // If the given aggregate already has a resolved type, ensure the given
     // context is compatible.
-    if (agg->hasType()) {
+    if (agg->hasResolvedType()) {
         if (!TC.covers(agg->getType(), context)) {
             report(agg->getLocation(), diag::INCOMPATIBLE_TYPES);
             return 0;
