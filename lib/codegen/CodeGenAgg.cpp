@@ -139,13 +139,17 @@ private:
     /// Emits an allocation of a definite array type.
     CValue emitDefiniteAllocator(AllocatorExpr *expr, ArrayType *arrTy);
 
+    /// Emits an allocation for a constrained array type, returning the result
+    /// as a fat access value.
+    CValue emitConstrainedAllocator(AllocatorExpr *expr, ArrayType *arrTy);
+
     /// Emits an allocation initialized by a function call.
     CValue emitCallAllocator(AllocatorExpr *expr,
                              FunctionCallExpr *call, ArrayType *arrTy);
 
     /// Emits an allocation initialized by an aggregate.
     CValue emitAggregateAllocator(AllocatorExpr *expr,
-                                  AggregateExpr *agg, ArrayType *ArrTy);
+                                  AggregateExpr *agg, ArrayType *arrTy);
     //@}
 };
 
@@ -172,11 +176,12 @@ CValue ArrayEmitter::emitAllocator(AllocatorExpr *expr)
     if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(operand))
         operand = qual->getOperand();
 
+    ArrayType *operandTy = cast<ArrayType>(CGR.resolveType(operand));
+    if (operandTy->isConstrained())
+        return emitConstrainedAllocator(expr, operandTy);
+
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(operand))
         return emitCallAllocator(expr, call, arrTy);
-
-    if (AggregateExpr *agg = dyn_cast<AggregateExpr>(operand))
-        return emitAggregateAllocator(expr, agg, arrTy);
 
     assert(false && "Cannot codegen indefinite allocator yet!");
     return CValue::getFat(0);
@@ -200,12 +205,42 @@ CValue ArrayEmitter::emitDefiniteAllocator(AllocatorExpr *expr,
 
     llvm::Value *result = CRT.comma_alloc(Builder, size, align);
     result = Builder.CreatePointerCast(result, resultTy);
-    llvm::Value *dst = Builder.CreateConstInBoundsGEP1_32(result, 0);
 
     if (expr->isInitialized())
-        emit(expr->getInitializer(), dst, false);
+        emit(expr->getInitializer(), result, false);
 
     return CValue::get(result);
+}
+
+CValue ArrayEmitter::emitConstrainedAllocator(AllocatorExpr *expr,
+                                              ArrayType *arrTy)
+{
+    assert(arrTy->isConstrained());
+
+    const llvm::ArrayType *loweredTy;
+    const llvm::StructType *resultTy;
+    const llvm::PointerType *dataTy;
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+
+    loweredTy = CGT.lowerArrayType(arrTy);
+    resultTy = CGT.lowerFatAccessType(expr->getType());
+    dataTy = cast<llvm::PointerType>(resultTy->getElementType(0));
+
+    uint64_t size = CGT.getTypeSize(loweredTy);
+    unsigned align = CGT.getTypeAlignment(loweredTy);
+
+    llvm::Value *data = CRT.comma_alloc(Builder, size, align);
+    data = Builder.CreatePointerCast(data, dataTy);
+    CValue agg = emit(expr->getInitializer(), data, false);
+
+    llvm::Value *fatPtr = frame()->createTemp(resultTy);
+    llvm::Value *bounds = agg.second();
+    Builder.CreateStore(data, Builder.CreateStructGEP(fatPtr, 0));
+    if (isa<llvm::PointerType>(bounds->getType()))
+        bounds = Builder.CreateLoad(bounds);
+    Builder.CreateStore(bounds, Builder.CreateStructGEP(fatPtr, 1));
+    return CValue::getFat(fatPtr);
 }
 
 CValue ArrayEmitter::emitCallAllocator(AllocatorExpr *expr,
