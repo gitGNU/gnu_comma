@@ -428,7 +428,9 @@ Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
 
     // Otherwise, the context is unconstrained.
     //
-    // FIXME: Generate a constrained subtype here.
+    // FIXME: Generate a constrained subtype.  We need a constraint of the form
+    // S'First .. S'Val(S'Pos(S'First) + L - 1), where S is the index type and L
+    // is the length of this aggregate.
     agg->setType(context);
     return agg;
 }
