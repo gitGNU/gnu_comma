@@ -11,16 +11,12 @@
 -- Very simple priority queue of a fixed size.
 --
 -- FIXME: This test should be extended into a more realistic example as Comma's
--- capabilities permit.  For example, the maximum size of a queue should be
--- dynamic.
+-- capabilities permit.
 --
 domain Priority_Queue with
 
    function Create return %;
    -- Creates an empty priority queue.
-
-   function Max_Size return Natural;
-   -- Returns the maximum size of any priority queue.
 
    function Size (Queue : %) return Natural;
    -- Returns the number of elements contained in the given queue.
@@ -37,30 +33,38 @@ domain Priority_Queue with
    -- Program_Error is raised.
 
 add
-   type Data_Vector is array (Natural range 0..100) of Integer;
+   type Data_Vector is array (Natural range <>) of Integer;
+   type Data_Access is access Data_Vector;
 
    type Queue is record
-      Data : Data_Vector;
+      Data : Data_Access;
+      Size : Natural;
       Free : Natural;
    end record;
 
    carrier Rep is Queue;
 
+   procedure Grow (Q : in out Queue) is
+      Next_Size : Natural     := 2 * Q.Size;
+      Next_Buff : Data_Access := new Data_Vector'(0..Next_Size => 0);
+   begin
+      for I in 0..Q.Size loop
+         Next_Buff(I) := Q.Data(I);
+      end loop;
+      Q.Data := Next_Buff;
+      Q.Size := Next_Size;
+   end Grow;
+
    --
    -- Create
    --
    function Create return % is
+      Default_Size : Natural := 16;
    begin
-      return prj((Data => (others => 0), Free => 0));
+      return prj((Data => new Data_Vector'(0..Default_Size => 0),
+                  Size => Default_Size,
+                  Free => 0));
    end Create;
-
-   --
-   -- Max_Size
-   --
-   function Max_Size return Natural is
-   begin
-      return 100;
-   end Max_Size;
 
    --
    -- Size
@@ -85,8 +89,8 @@ add
       Idx : Natural := 0;
       Q   : Rep renames inj(Queue);
    begin
-      if Q.Free = Q.Data'Last then
-         raise Program_Error;
+      if Q.Free = Q.Size then
+         Grow(Q);
       end if;
 
       Q.Data(Q.Free) := I;
@@ -152,6 +156,7 @@ add
    procedure Run is
       import Priority_Queue;
       Q         : Priority_Queue := Create;
+      Max_Size  : Natural        := 2**8;
       Test_Data : Data_Vector    := (1..Max_Size => 0);
       Seed      : Integer        := 3822;
    begin
