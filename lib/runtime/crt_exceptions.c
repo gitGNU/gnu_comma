@@ -515,14 +515,17 @@ typedef enum {
 
 /*
  * This is the exception object thrown by the runtime.  It contains the
- * exceptions exinfo object, a pointer to a null terminated string yielding a
- * message, and a set of flags.  It is likely that more flags will be needed in
- * the future (this representation is not trying to be intentionally wasteful).
+ * exceptions exinfo object, the file name and line number of the exception
+ * occurrence, a pointer to a null terminated string yielding a message, and a
+ * set of flags.  It is likely that more flags will be needed in the future
+ * (this representation is not trying to be intentionally wasteful).
  */
 struct comma_exception {
     comma_exinfo_t id;
+    const char *file_name;
+    uint32_t line_number;
     char *message;
-    unsigned flags;
+    uint32_t flags;
     struct _Unwind_Exception header;
 };
 
@@ -919,7 +922,9 @@ static void _comma_cleanup_exception(_Unwind_Reason_Code reason,
  * The following function is called to allocate and raise a Comma exception
  * which has a null-terminated statically allocated string as a message.
  */
-void _comma_raise_exception(comma_exinfo_t info, const char *message)
+void _comma_raise_exception(comma_exinfo_t info,
+                            const char *file_name, uint32_t line_number,
+                            const char *message)
 {
     struct comma_exception *exception;
     struct _Unwind_Exception *exception_object;
@@ -929,6 +934,8 @@ void _comma_raise_exception(comma_exinfo_t info, const char *message)
      */
     exception = malloc(sizeof(struct comma_exception));
     exception->id = info;
+    exception->file_name = file_name;
+    exception->line_number = line_number;
     exception->message = (char*)message;
     exception->flags = 0;
 
@@ -951,8 +958,9 @@ void _comma_raise_exception(comma_exinfo_t info, const char *message)
  * The following function is called to allocate and raise a Comma exception
  * which allocates its own copy of the given message.
  */
-void _comma_raise_nexception(comma_exinfo_t info, const char *message,
-                             int32_t length)
+void _comma_raise_nexception(comma_exinfo_t info,
+                             const char *file_name, uint32_t line_number,
+                             const char *message, uint32_t length)
 {
     struct comma_exception *exception;
     struct _Unwind_Exception *exception_object;
@@ -962,6 +970,8 @@ void _comma_raise_nexception(comma_exinfo_t info, const char *message,
      */
     exception = malloc(sizeof(struct comma_exception));
     exception->id = info;
+    exception->file_name = file_name;
+    exception->line_number = line_number;
 
     if (message) {
         exception->message = malloc(length + 1);
@@ -1001,10 +1011,12 @@ void _comma_reraise_exception(struct comma_exception *exception)
 /*
  * Raises a specific system exception.
  */
-void _comma_raise_system(uint32_t id, const char *message)
+void _comma_raise_system(uint32_t id,
+                         const char *file_name, uint32_t line_number,
+                         const char *message)
 {
     comma_exinfo_t info = _comma_get_exception(id);
-    _comma_raise_exception(info, message);
+    _comma_raise_exception(info, file_name, line_number, message);
 }
 
 /*
@@ -1114,10 +1126,12 @@ void _comma_unhandled_exception(struct comma_exception *exception)
     const char *message = exception->message;
 
     if (message)
-        fprintf(stderr, "Unhandled exception: %s: %s\n",
+        fprintf(stderr, "Unhandled exception: %s:%d: %s: %s\n",
+                exception->file_name, exception->line_number,
                 *exception->id, message);
     else
-        fprintf(stderr, "Unhandled exception: %s\n",
+        fprintf(stderr, "Unhandled exception: %s:%d: %s\n",
+                exception->file_name, exception->line_number,
                 *exception->id);
 
     abort();

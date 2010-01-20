@@ -443,19 +443,23 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
 
 void CodeGenRoutine::emitRaiseStmt(RaiseStmt *stmt)
 {
+    CommaRT &CRT = CG.getRuntime();
     ExceptionDecl *exception = stmt->getExceptionDecl();
+    llvm::Value *fileName = CG.getModuleName();
+    llvm::Value *lineNum = CG.getSourceLine(stmt->getLocation());
 
     if (stmt->hasMessage()) {
         BoundsEmitter emitter(*this);
+        CValue arrValue = emitArrayExpr(stmt->getMessage(), 0, false);
         llvm::Value *message;
         llvm::Value *length;
-        CValue arrValue = emitArrayExpr(stmt->getMessage(), 0, false);
+
         message = arrValue.first();
         length = emitter.computeBoundLength(Builder, arrValue.second(), 0);
-        CG.getRuntime().raise(SRF, exception, message, length);
+        CRT.raise(SRF, exception, fileName, lineNum, message, length);
     }
     else
-        CG.getRuntime().raise(SRF, exception, 0, 0);
+        CRT.raise(SRF, exception, fileName, lineNum, 0, 0);
 }
 
 void CodeGenRoutine::emitPragmaStmt(PragmaStmt *stmt)

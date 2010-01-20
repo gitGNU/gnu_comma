@@ -102,33 +102,41 @@ public:
     /// Throws an exception.
     ///
     /// Calls registerException on the provided exception declaration, then
-    /// generates code for a raise.  \p message must be a pointer to a global
+    /// generates code for a raise.  \p fileName is an i8* yeilding the name of
+    /// the file or module the exception is raised in and \p lineNum is the
+    /// corresponding line number.  \p message must be a pointer to a global
     /// string of type i8* or null.
     void raise(SRFrame *frame, const ExceptionDecl *exception,
+               llvm::Value *fileName, llvm::Value *lineNum,
                llvm::GlobalVariable *message = 0);
 
     /// Throws an exception.
     ///
     /// Calls registerException on the provided exception declaration, then
-    /// generates code for a raise.  \p message is a Comma vector (one
-    /// dimension) of type String and \p length is its length (an i32).  The
-    /// supplied vector may be null.
+    /// generates code for a raise.  \p fileName is an i8* yeilding the name of
+    /// the file or module the exception is raised in and \p lineNum is the
+    /// corresponding line number. \p message is a Comma vector (one dimension)
+    /// of type String and \p length is its length (an i32).  The supplied
+    /// vector may be null.
     ///
     /// \note For compiler generated exceptions it is always preferable to raise
     /// using a static global as the runtime can avoid a copy of the message
     /// data in that case.
     void raise(SRFrame *frame, const ExceptionDecl *exception,
+               llvm::Value *fileName, llvm::Value *lineNum,
                llvm::Value *message = 0, llvm::Value *length = 0);
 
     /// Reraises the given exception object.
     void reraise(SRFrame *frame, llvm::Value *exception);
 
-    /// Convinience method to throw a PROGRAM_ERROR.
+    /// Convinience method to throw a Program_Error.
     void raiseProgramError(SRFrame *frame,
+                           llvm::Value *fileName, llvm::Value *lineNum,
                            llvm::GlobalVariable *message) const;
 
-    /// Convinience method to throw a CONSTRAINT_ERROR.
+    /// Convinience method to throw a Constraint_Error.
     void raiseConstraintError(SRFrame *frame,
+                              llvm::Value *fileName, llvm::Value *lineNum,
                               llvm::GlobalVariable *message) const;
 
     /// Generates a call to _comma_unhandled_exception.  This is only called by
@@ -264,11 +272,13 @@ private:
     /// Helper method for the various exception generators.  Raises an exception
     /// given an exinfo object and a static message.
     void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                     llvm::Value *fileName, llvm::Value *lineNum,
                      llvm::GlobalVariable *message) const;
 
     /// Helper method for the various exception generators.  Raises an exception
     /// given an exinfo object and a dynammic message.
     void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                     llvm::Value *fileName, llvm::Value *lineNum,
                      llvm::Value *message, llvm::Value *length) const;
 };
 

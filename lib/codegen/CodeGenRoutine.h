@@ -111,7 +111,7 @@ public:
     }
 
     /// Emits a null check for the given pointer value.
-    void emitNullAccessCheck(llvm::Value *pointer);
+    void emitNullAccessCheck(llvm::Value *pointer, Location loc);
 
 private:
     // Returns the llvm function we are generating code for.
@@ -165,7 +165,7 @@ private:
     llvm::Value *emitDiscreteConversion(Expr *expr, DiscreteType *target);
 
     /// Emits a range check over discrete types.
-    void emitDiscreteRangeCheck(llvm::Value *sourceVal,
+    void emitDiscreteRangeCheck(llvm::Value *sourceVal, Location loc,
                                 Type *sourceTy, DiscreteType *targetTy);
 
     /// Helper method for emitAbstractCall.

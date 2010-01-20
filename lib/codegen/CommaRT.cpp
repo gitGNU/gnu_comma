@@ -174,20 +174,23 @@ void CommaRT::defineUnhandledException()
 
 void CommaRT::defineRaiseException()
 {
-    // _comma_raise_exception takes an i8* holding the exinfo object and an i8*
+    // _comma_raise_exception takes an i8* holding the exinfo object, an i8*
+    // designating the file name, an i32 designating the line number, and an i8*
     // denoting the message.
     const llvm::Type *retTy = CG.getVoidTy();
 
     std::vector<const llvm::Type *> args;
     args.push_back(CG.getInt8PtrTy());
     args.push_back(CG.getInt8PtrTy());
+    args.push_back(CG.getInt32Ty());
+    args.push_back(CG.getInt8PtrTy());
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
 
     raiseStaticExceptionFn = CG.makeFunction(fnTy, "_comma_raise_exception");
     raiseStaticExceptionFn->setDoesNotReturn();
 
-    // _comma_raise_nexception takes an i8* holding the exinfo object, and i8*
-    // denoting the message, and an i32 as the length.
+    // _comma_raise_nexception is as _comma_raise_exception except that an
+    // additional i32 is given yielding the message length.
     args.push_back(CG.getInt32Ty());
     fnTy = llvm::FunctionType::get(retTy, args, false);
 
@@ -348,36 +351,41 @@ CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
 }
 
 void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
+                    llvm::Value *fileName, llvm::Value *lineNum,
                     llvm::GlobalVariable *message)
 {
     llvm::Value *exinfo = registerException(exception);
-    raiseExinfo(frame, exinfo, message);
+    raiseExinfo(frame, exinfo, fileName, lineNum, message);
 }
 
 void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
+                    llvm::Value *fileName, llvm::Value *lineNum,
                     llvm::Value *message, llvm::Value *length)
 {
     llvm::Value *exinfo = registerException(exception);
-    raiseExinfo(frame, exinfo, message, length);
+    raiseExinfo(frame, exinfo, fileName, lineNum, message, length);
 }
 
 void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                          llvm::Value *fileName, llvm::Value *lineNum,
                           llvm::GlobalVariable *message) const
 {
     llvm::IRBuilder<> &builder = frame->getIRBuilder();
     llvm::Constant *msgPtr = checkAndConvertMessage(message);
     if (llvm::BasicBlock *lpad = frame->getLandingPad()) {
         llvm::BasicBlock *norm = frame->makeBasicBlock("invoke.normal");
-        llvm::Value *args[2] = { exinfo, msgPtr };
-        builder.CreateInvoke(raiseStaticExceptionFn, norm, lpad, args, args+2);
+        llvm::Value *args[4] = { exinfo, fileName, lineNum, msgPtr };
+        builder.CreateInvoke(raiseStaticExceptionFn, norm, lpad, args, args+4);
         builder.SetInsertPoint(norm);
     }
     else
-        builder.CreateCall2(raiseStaticExceptionFn, exinfo, msgPtr);
+        builder.CreateCall4(raiseStaticExceptionFn, exinfo,
+                            fileName, lineNum, msgPtr);
     builder.CreateUnreachable();
 }
 
 void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+                          llvm::Value *fileName, llvm::Value *lineNum,
                           llvm::Value *message, llvm::Value *length) const
 {
     llvm::IRBuilder<> &builder = frame->getIRBuilder();
@@ -389,14 +397,15 @@ void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
         length = llvm::ConstantInt::get(CG.getInt32Ty(), 0);
     }
 
+    llvm::Value *args[5] = { exinfo, fileName, lineNum, message, length };
+
     if (llvm::BasicBlock *lpad = frame->getLandingPad()) {
         llvm::BasicBlock *norm = frame->makeBasicBlock("invoke.normal");
-        llvm::Value *args[3] = { exinfo, message, length };
-        builder.CreateInvoke(raiseUserExceptionFn, norm, lpad, args, args+3);
+        builder.CreateInvoke(raiseUserExceptionFn, norm, lpad, args, args+5);
         builder.SetInsertPoint(norm);
     }
     else
-        builder.CreateCall3(raiseUserExceptionFn, exinfo, message, length);
+        builder.CreateCall(raiseUserExceptionFn, args, args+5);
     builder.CreateUnreachable();
 }
 
@@ -416,15 +425,17 @@ void CommaRT::reraise(SRFrame *frame, llvm::Value *exception)
 }
 
 void CommaRT::raiseProgramError(SRFrame *frame,
+                                llvm::Value *fileName, llvm::Value *lineNum,
                                 llvm::GlobalVariable *message) const
 {
-    raiseExinfo(frame, theProgramErrorExinfo, message);
+    raiseExinfo(frame, theProgramErrorExinfo, fileName, lineNum, message);
 }
 
 void CommaRT::raiseConstraintError(SRFrame *frame,
+                                   llvm::Value *fileName, llvm::Value *lineNum,
                                    llvm::GlobalVariable *message) const
 {
-    raiseExinfo(frame, theConstraintErrorExinfo, message);
+    raiseExinfo(frame, theConstraintErrorExinfo, fileName, lineNum, message);
 }
 
 llvm::Constant *CommaRT::getEHPersonality() const

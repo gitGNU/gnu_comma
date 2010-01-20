@@ -14,6 +14,7 @@
 #include "DependencySet.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Decl.h"
+#include "comma/basic/TextProvider.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;
@@ -27,7 +28,8 @@ CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
     : M(M),
       TD(data),
       Resource(resource),
-      CRT(new CommaRT(*this)) { }
+      CRT(new CommaRT(*this)),
+      moduleName(0) { }
 
 CodeGen::~CodeGen()
 {
@@ -397,6 +399,22 @@ const DependencySet &CodeGen::getDependencySet(const Domoid *domoid)
     DependencySet *DS = new DependencySet(domoid);
     entry.second = DS;
     return *DS;
+}
+
+llvm::Constant *CodeGen::getModuleName()
+{
+    // Lazily construct the global on first call to this method.
+    if (moduleName)
+        return moduleName;
+
+    moduleName = emitInternString(M->getModuleIdentifier());
+    moduleName = getPointerCast(moduleName, getInt8PtrTy());
+    return moduleName;
+}
+
+SourceLocation CodeGen::getSourceLocation(Location loc)
+{
+    return getAstResource().getTextProvider().getSourceLocation(loc);
 }
 
 //===----------------------------------------------------------------------===//

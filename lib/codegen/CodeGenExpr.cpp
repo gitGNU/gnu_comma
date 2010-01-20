@@ -252,7 +252,7 @@ CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
 {
     CValue value = emitValue(expr->getPrefix());
     llvm::Value *pointer = value.first();
-    emitNullAccessCheck(pointer);
+    emitNullAccessCheck(pointer, expr->getLocation());
     return CValue::get(Builder.CreateLoad(pointer));
 }
 
@@ -299,7 +299,7 @@ CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
 }
 
 void
-CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
+CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal, Location loc,
                                        Type *sourceTy, DiscreteType *targetTy)
 {
     const llvm::IntegerType *loweredSourceTy;
@@ -383,14 +383,16 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
 
     // Raise a CONSTRAINT_ERROR exception if the check failed.
     Builder.SetInsertPoint(checkFailBB);
+    llvm::Value *fileName = CG.getModuleName();
+    llvm::Value *lineNum = CG.getSourceLine(loc);
     llvm::GlobalVariable *msg = CG.emitInternString("Range check failed!");
-    CRT.raiseConstraintError(SRF, msg);
+    CRT.raiseConstraintError(SRF, fileName, lineNum, msg);
 
     // Switch the context to the success block.
     Builder.SetInsertPoint(checkMergeBB);
 }
 
-void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer)
+void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer, Location loc)
 {
     llvm::BasicBlock *passBlock = SRF->makeBasicBlock("null.check.pass");
     llvm::BasicBlock *failBlock = SRF->makeBasicBlock("null.check.fail");
@@ -400,8 +402,10 @@ void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer)
     Builder.CreateCondBr(pred, failBlock, passBlock);
 
     Builder.SetInsertPoint(failBlock);
+    llvm::Value *fileName = CG.getModuleName();
+    llvm::Value *lineNum = CG.getSourceLine(loc);
     llvm::GlobalVariable *msg = CG.emitInternString("Null check failed.");
-    CRT.raiseProgramError(SRF, msg);
+    CRT.raiseProgramError(SRF, fileName, lineNum, msg);
 
     // Switch to the pass block.
     Builder.SetInsertPoint(passBlock);
@@ -443,7 +447,7 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
                "Unexpected expression type!");
     }
 
-    emitDiscreteRangeCheck(sourceVal, exprTy, targetTy);
+    emitDiscreteRangeCheck(sourceVal, expr->getLocation(), exprTy, targetTy);
 
     // Truncate/extend the value if needed to the target size.
     if (targetWidth < sourceWidth)

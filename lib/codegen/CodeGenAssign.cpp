@@ -102,7 +102,7 @@ void AssignmentEmitter::emitAssignment(DereferenceExpr *lhs, Expr *rhs)
 
     // Check that the target is not null and emit the rhs.
     Type *targetTy = CGR.resolveType(lhs->getType());
-    CGR.emitNullAccessCheck(target);
+    CGR.emitNullAccessCheck(target, lhs->getLocation());
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);
     else {

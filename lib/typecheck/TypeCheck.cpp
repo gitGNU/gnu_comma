@@ -1315,7 +1315,7 @@ bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
 Expr *TypeCheck::convertIfNeeded(Expr *expr, Type *target)
 {
     if (conversionRequired(expr->getType(), target))
-        return new ConversionExpr(expr, target);
+        return new ConversionExpr(expr, target, expr->getLocation());
     return expr;
 }
 

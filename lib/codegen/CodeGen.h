@@ -38,6 +38,9 @@ public:
     /// Returns the module we are generating code for.
     llvm::Module *getModule() { return M; }
 
+    /// Returns an i8* pointing the the name of this module.
+    llvm::Constant *getModuleName();
+
     /// Returns the llvm::TargetData used to generate code.
     const llvm::TargetData &getTargetData() const { return TD; }
 
@@ -279,6 +282,30 @@ public:
         return llvm::ArrayType::get(componentTy, 0);
     }
 
+    /// \name Location helpers.
+    ///
+    /// The following methods provide convenience functions for generating LLVM
+    /// values corresponding to line and column information.  All lines and
+    /// columns are represented as unsigned i32's.
+    //@{
+
+    /// Returns the detailed source location object corresponding to the given
+    /// raw location.
+    SourceLocation getSourceLocation(Location loc);
+
+    /// Returns the line of the given location as an i32.
+    llvm::ConstantInt *getSourceLine(Location loc) {
+        return llvm::ConstantInt::get(getInt32Ty(),
+                                      getSourceLocation(loc).getLine());
+    }
+
+    /// Returns the column of the given location is an i32.
+    llvm::ConstantInt *getSourceColumn(Location loc) {
+        return llvm::ConstantInt::get(getInt32Ty(),
+                                      getSourceLocation(loc).getColumn());
+    }
+    //@}
+
 private:
     /// The Module we are emiting code for.
     llvm::Module *M;
@@ -310,6 +337,12 @@ private:
     /// information will be encapsulated in an as-yet undefined class.
     typedef llvm::DenseMap<const Domoid*, DependencySet*> DependenceMap;
     DependenceMap dependenceTable;
+
+    /// Name of this module is a constant internal global value (null terminated
+    /// C-string).
+    ///
+    /// This value is initialized when first requested thru the getModuleName method.
+    llvm::Constant *moduleName;
 
     /// Generates an InstanceInfo object and adds it to the instance table.
     ///
