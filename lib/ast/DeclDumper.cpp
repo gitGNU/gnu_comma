@@ -212,17 +212,7 @@ void DeclDumper::visitEnumerationDecl(EnumerationDecl *node)
     printHeader(node) << '>';
 }
 
-void DeclDumper::visitEnumSubtypeDecl(EnumSubtypeDecl *node)
-{
-    printHeader(node) << '>';
-}
-
 void DeclDumper::visitIntegerDecl(IntegerDecl *node)
-{
-    printHeader(node) << '>';
-}
-
-void DeclDumper::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node)
 {
     printHeader(node) << '>';
 }
@@ -230,16 +220,6 @@ void DeclDumper::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node)
 void DeclDumper::visitArrayDecl(ArrayDecl *node)
 {
     printHeader(node) << '>';
-}
-
-void DeclDumper::visitArraySubtypeDecl(ArraySubtypeDecl *node)
-{
-    printHeader(node) << '\n';
-    indent();
-    printIndentation();
-    dumpAST(node->getType());
-    dedent();
-    S << '>';
 }
 
 void DeclDumper::visitExceptionDecl(ExceptionDecl *node)

@@ -2,11 +2,12 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
 #include "TypeCheck.h"
+#include "comma/ast/AttribDecl.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/RangeAttrib.h"
 #include "comma/ast/TypeRef.h"
@@ -60,6 +61,11 @@ private:
     /// Checks a range attribute.
     RangeAttrib *checkRange(Ast *prefix, Location loc);
 
+    /// Checks a Pos or Val attribute and returns a SubroutineRef pointing at
+    /// the corresponding declaration or null if the prefix is not compatible
+    /// with such an attribute.
+    SubroutineRef *checkPosVal(Ast *prefix, Location loc);
+
     SourceLocation getSourceLoc(Location loc) const {
         return resource.getTextProvider().getSourceLocation(loc);
     }
@@ -81,6 +87,11 @@ Ast *AttributeChecker::checkAttribute(Ast *prefix, Location loc)
     case attrib::First:
     case attrib::Last:
         result = checkBound(prefix, loc);
+        break;
+
+    case attrib::Pos:
+    case attrib::Val:
+        result = checkPosVal(prefix, loc);
         break;
 
     case attrib::Range:
@@ -174,6 +185,34 @@ RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
     }
 
     return new ScalarRangeAttrib(prefixTy, loc);
+}
+
+SubroutineRef *AttributeChecker::checkPosVal(Ast *prefix, Location loc)
+{
+    assert((ID == attrib::Pos || ID == attrib::Val) &&
+           "Unexpected attribute ID!");
+
+    TypeRef *ref = dyn_cast<TypeRef>(prefix);
+
+    if (!(ref && ref->referencesTypeDecl())) {
+        report(prefix->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return 0;
+    }
+
+    TypeDecl *tyDecl = ref->getTypeDecl();
+    FunctionAttribDecl *attrib;
+
+    if (IntegerDecl *intDecl = dyn_cast<IntegerDecl>(tyDecl))
+        attrib = intDecl->getAttribute(ID);
+    else if (EnumerationDecl *enumDecl = dyn_cast<EnumerationDecl>(tyDecl))
+        attrib = enumDecl->getAttribute(ID);
+
+    if (!attrib) {
+        report(prefix->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
+        return 0;
+    }
+
+    return new SubroutineRef(loc, attrib);
 }
 
 } // end anonymous namespace.

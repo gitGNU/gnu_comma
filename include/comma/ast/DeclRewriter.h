@@ -84,12 +84,10 @@ public:
     ProcedureDecl *rewriteProcedureDecl(ProcedureDecl *pdecl);
 
     EnumerationDecl *rewriteEnumerationDecl(EnumerationDecl *edecl);
-    EnumSubtypeDecl *rewriteEnumSubtypeDecl(EnumSubtypeDecl *decl);
 
     ArrayDecl *rewriteArrayDecl(ArrayDecl *adecl);
 
     IntegerDecl *rewriteIntegerDecl(IntegerDecl *idecl);
-    IntegerSubtypeDecl *rewriteIntegerSubtypeDecl(IntegerSubtypeDecl *decl);
 
     RecordDecl *rewriteRecordDecl(RecordDecl *rdecl);
 

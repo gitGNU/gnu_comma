@@ -25,10 +25,10 @@ namespace comma {
 /// declarations.
 ///
 /// Note that this class is a miscellaneous member of the AST in that it does
-/// not belong to one of a major branched (Type, Decl, Expr).
+/// not belong to one of the major branches (Type, Decl, Expr).
 class SubroutineRef : public Ast {
 
-    // The type used to represent the collection referenced declarations.
+    // The type used to represent the collection of referenced declarations.
     //
     // We use the smallest SmallVector we can since all SubroutineRefs are
     // eventually resolved to a single decl (when the program is well formed).

@@ -224,7 +224,7 @@ CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
     unsigned index = CGT.getComponentIndex(component);
     llvm::Value *ptr = Builder.CreateStructGEP(record.first(), index);
 
-    PrimaryType *componentTy = resolveType(expr);
+    Type *componentTy = resolveType(expr);
     if (componentTy->isFatAccessType())
         return CValue::getFat(ptr);
 
@@ -271,7 +271,7 @@ CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 
 CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
 {
-    PrimaryType *allocatedType = resolveType(expr->getAllocatedType());
+    Type *allocatedType = resolveType(expr->getAllocatedType());
     if (allocatedType->isCompositeType())
         return emitCompositeAllocator(expr);
 
@@ -300,26 +300,37 @@ CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
 
 void
 CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
-                                       DiscreteType *sourceTy,
-                                       DiscreteType *targetTy)
+                                       Type *sourceTy, DiscreteType *targetTy)
 {
-    DiscreteType *targetRootTy = targetTy->getRootType();
-    DiscreteType *sourceRootTy = sourceTy->getRootType();
+    const llvm::IntegerType *loweredSourceTy;
+    const llvm::IntegerType *loweredTargetTy;
+    loweredSourceTy = cast<llvm::IntegerType>(CGT.lowerType(sourceTy));
+    loweredTargetTy = cast<llvm::IntegerType>(CGT.lowerType(targetTy));
 
     // The "domain of computation" used for performing the range check.
     const llvm::IntegerType *docTy;
 
+    // Determine if the source type is signed.  The type universal_integer is
+    // always considered as unsigned.
+    bool isSigned;
+    if (DiscreteType *discTy = dyn_cast<DiscreteType>(sourceTy))
+        isSigned = discTy->isSigned();
+    else {
+        assert(sourceTy->isUniversalIntegerType());
+        isSigned = false;
+    }
+
     // Range checks need to be performed using the larger type (most often the
     // source type).  Find the appropriate type and extend the value if needed.
-    if (targetRootTy->getSize() > sourceRootTy->getSize()) {
-        docTy = CGT.lowerDiscreteType(targetTy);
-        if (sourceTy->isSigned())
+    if (loweredTargetTy->getBitWidth() > loweredSourceTy->getBitWidth()) {
+        docTy = loweredTargetTy;
+        if (isSigned)
             sourceVal = Builder.CreateSExt(sourceVal, docTy);
         else
             sourceVal = Builder.CreateZExt(sourceVal, docTy);
     }
     else
-        docTy = cast<llvm::IntegerType>(sourceVal->getType());
+        docTy = loweredSourceTy;
 
     llvm::Value *lower = 0;
     llvm::Value *upper = 0;
@@ -337,8 +348,8 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal,
     }
 
     // Extend the bounds if needed.
-    if (targetTy->getSize() < docTy->getBitWidth()) {
-        if (sourceTy->isSigned()) {
+    if (loweredTargetTy->getBitWidth() < docTy->getBitWidth()) {
+        if (targetTy->isSigned()) {
             lower = Builder.CreateSExt(lower, docTy);
             upper = Builder.CreateSExt(upper, docTy);
         }
@@ -399,39 +410,49 @@ void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer)
 llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
                                                     DiscreteType *targetTy)
 {
-    DiscreteType *sourceTy = cast<DiscreteType>(expr->getType());
-    unsigned targetWidth = targetTy->getSize();
-    unsigned sourceWidth = sourceTy->getSize();
-
     // Evaluate the source expression.
+    Type *exprTy = expr->getType();
     llvm::Value *sourceVal = emitValue(expr).first();
+    const llvm::IntegerType *loweredTy = CGT.lowerDiscreteType(targetTy);
 
-    // If the source and target types are identical, we are done.
-    if (sourceTy == targetTy)
+    // If the expression and target types are identical, we are done.
+    if (exprTy == targetTy)
         return sourceVal;
 
-    // If the target type contains the source type then a range check is unnessary.
-    if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
-        if (targetWidth == sourceWidth)
-            return sourceVal;
-        else if (targetWidth > sourceWidth) {
-            if (targetTy->isSigned())
-                return Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
-            else
-                return Builder.CreateZExt(sourceVal, CGT.lowerType(targetTy));
+    unsigned sourceWidth = cast<llvm::IntegerType>(sourceVal->getType())->getBitWidth();
+    unsigned targetWidth = loweredTy->getBitWidth();
+
+    if (DiscreteType *sourceTy = dyn_cast<DiscreteType>(exprTy)) {
+        // If the target type contains the source type then a range check is
+        // unnessary.
+        if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
+            if (targetWidth == sourceWidth)
+                return sourceVal;
+            else if (targetWidth > sourceWidth) {
+                if (targetTy->isSigned())
+                    return Builder.CreateSExt(sourceVal, loweredTy);
+                else
+                    return Builder.CreateZExt(sourceVal, loweredTy);
+            }
         }
     }
+    else {
+        // The expression must be of type universal_integer.  Always emit a
+        // range check in this case.
+        assert(exprTy->isUniversalIntegerType() &&
+               "Unexpected expression type!");
+    }
 
-    emitDiscreteRangeCheck(sourceVal, sourceTy, targetTy);
+    emitDiscreteRangeCheck(sourceVal, exprTy, targetTy);
 
     // Truncate/extend the value if needed to the target size.
     if (targetWidth < sourceWidth)
-        sourceVal = Builder.CreateTrunc(sourceVal, CGT.lowerType(targetTy));
+        sourceVal = Builder.CreateTrunc(sourceVal, loweredTy);
     else if (targetWidth > sourceWidth) {
         if (targetTy->isSigned())
-            sourceVal = Builder.CreateSExt(sourceVal, CGT.lowerType(targetTy));
+            sourceVal = Builder.CreateSExt(sourceVal, loweredTy);
         else
-            sourceVal = Builder.CreateZExt(sourceVal, CGT.lowerType(targetTy));
+            sourceVal = Builder.CreateZExt(sourceVal, loweredTy);
     }
     return sourceVal;
 }

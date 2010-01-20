@@ -93,6 +93,15 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
 {
     context = resolveType(context);
 
+    // If the context is a universal type, resolve according to the
+    // classification denoted by the type.
+    if (UniversalType *universalTy = dyn_cast<UniversalType>(context)) {
+        if (checkExprInContext(expr, universalTy->getClassification()))
+            return expr;
+        else
+            return 0;
+    }
+
     // The following sequence dispatches over the types of expressions which are
     // "sensitive" to context, meaning that we might need to patch up the AST so
     // that it conforms to the context.

@@ -97,8 +97,7 @@ DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
     }
 
     // Form a constrained discrete subtype constrained by the given bounds.
-    rangeTy = TC.getAstResource().createDiscreteSubtype(
-        rangeTy->getIdInfo(), rangeTy, lower, upper);
+    rangeTy = TC.getAstResource().createDiscreteSubtype(rangeTy, lower, upper);
 
     return rangeTy;
 }
@@ -110,7 +109,7 @@ DiscreteType *RangeChecker::checkSubtypeRange(DiscreteType *base,
         !(upper = TC.checkExprInContext(upper, base)))
         return 0;
 
-    return TC.getAstResource().createDiscreteSubtype(0, base, lower, upper);
+    return TC.getAstResource().createDiscreteSubtype(base, lower, upper);
 }
 
 bool RangeChecker::resolveRange(Range *range, DiscreteType *type)

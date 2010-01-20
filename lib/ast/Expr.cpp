@@ -139,6 +139,15 @@ FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective,
     setTypeForConnective();
 }
 
+FunctionCallExpr::FunctionCallExpr(FunctionDecl *connective, Location loc,
+                                   Expr **posArgs, unsigned numPos,
+                                   KeywordSelector **keyArgs, unsigned numKeys)
+    : Expr(AST_FunctionCallExpr, loc),
+      SubroutineCall(connective, posArgs, numPos, keyArgs, numKeys)
+{
+    setTypeForConnective();
+}
+
 FunctionCallExpr::FunctionCallExpr(SubroutineRef *connective)
     : Expr(AST_FunctionCallExpr, connective->getLocation()),
       SubroutineCall(connective, 0, 0, 0, 0)

@@ -102,6 +102,9 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
 
     case Ast::AST_IncompleteType:
         return lowerIncompleteType(cast<IncompleteType>(type));
+
+    case Ast::AST_UniversalType:
+        return lowerUniversalType(cast<UniversalType>(type));
     }
 }
 
@@ -128,7 +131,7 @@ CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
     return cast<DomainType>(*I);
 }
 
-const PrimaryType *CodeGenTypes::resolveType(const Type *type)
+const Type *CodeGenTypes::resolveType(const Type *type)
 {
     if (const DomainType *domTy = dyn_cast<DomainType>(type)) {
 
@@ -157,7 +160,7 @@ const PrimaryType *CodeGenTypes::resolveType(const Type *type)
     else if (const IncompleteType *IT = dyn_cast<IncompleteType>(type))
         return resolveType(IT->getCompleteType());
 
-    return cast<PrimaryType>(type);
+    return type;
 }
 
 const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
@@ -453,6 +456,30 @@ const llvm::Type *CodeGenTypes::lowerAccessType(const AccessType *type)
         return lowerFatAccessType(type);
 }
 
+const llvm::Type *CodeGenTypes::lowerUniversalType(const UniversalType *type)
+{
+    if (type->isUniversalIntegerType()) {
+        // One might think that we cannot lower a value of type
+        // universal_integer since such a type morally has arbitrary precision.
+        // However, in practice there is never a case where the value of such a
+        // type is exceeds the capacity of the machine.  This is due several
+        // facts:
+        //
+        //    - the language does not produce individual values of universal
+        //      type that exceed the machines representational limits.
+        //
+        //    - universal types do not provide operations and so must always go
+        //      thru fixed width arithmetic channels.
+        //
+        //    - Static expressions are evaluated and diagnosed at compile time.
+        return CG.getIntPtrTy();
+    }
+    else {
+        assert(false && "Cannot lower the given universal type.");
+    }
+    return 0;
+}
+
 unsigned CodeGenTypes::getComponentIndex(const ComponentDecl *component)
 {
     ComponentIndexMap::iterator I = ComponentIndices.find(component);
@@ -522,7 +549,12 @@ CodeGenTypes::getConvention(const SubroutineDecl *decl)
     // simple convention is reasonable.
     if (!fdecl) return CC_Simple;
 
-    const PrimaryType *targetTy = resolveType(fdecl->getReturnType());
+    const PrimaryType *targetTy;
+    targetTy = dyn_cast<PrimaryType>(resolveType(fdecl->getReturnType()));
+
+    // If this is not a primary type use the simple convention.
+    if (!targetTy)
+        return CC_Simple;
 
     // If the return type is a fat access type we always use the sret
     // convention.

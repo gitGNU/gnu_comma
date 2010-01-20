@@ -90,13 +90,13 @@ public:
                                     unsigned numElems, DeclRegion *parent);
 
     /// Creates a constrained enumeration subtype declaration node.
-    EnumSubtypeDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+    EnumerationDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
                                            EnumerationType *subtype,
                                            Expr *low, Expr *high,
                                            DeclRegion *parent);
 
     /// Creates an unconstrained enumeration subtype declaration node.
-    EnumSubtypeDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
+    EnumerationDecl *createEnumSubtypeDecl(IdentifierInfo *name, Location loc,
                                            EnumerationType *subtype,
                                            DeclRegion *parent);
 
@@ -104,13 +104,13 @@ public:
     EnumerationType *createEnumType(EnumerationDecl *decl);
 
     /// Returns an unconstrained subtype of the given EnumerationType.
-    EnumerationType *createEnumSubtype(IdentifierInfo *name,
-                                       EnumerationType *base);
+    EnumerationType *createEnumSubtype(EnumerationType *base,
+                                       EnumerationDecl *decl = 0);
 
     /// Returns a constrained enumeration subtype.
-    EnumerationType *createEnumSubtype(IdentifierInfo *name,
-                                       EnumerationType *base,
-                                       Expr *low, Expr *high);
+    EnumerationType *createEnumSubtype(EnumerationType *base,
+                                       Expr *low, Expr *high,
+                                       EnumerationDecl *decl = 0);
     //@}
 
     /// \name Integer declaration and type constructors.
@@ -121,48 +121,52 @@ public:
                                    DeclRegion *parent);
 
     /// Creates a constrained integer subtype declaration node.
-    IntegerSubtypeDecl *
-    createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
-                             IntegerType *subtype,
-                             Expr *lower, Expr *upper,
-                             DeclRegion *parent);
+    IntegerDecl *createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                                          IntegerType *subtype,
+                                          Expr *lower, Expr *upper,
+                                          DeclRegion *parent);
 
     /// Creates an unconstrained integer subtype declaration node.
-    IntegerSubtypeDecl *
-    createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
-                             IntegerType *subtype,
-                             DeclRegion *parent);
+    IntegerDecl *createIntegerSubtypeDecl(IdentifierInfo *name, Location loc,
+                                          IntegerType *subtype,
+                                          DeclRegion *parent);
 
     /// Returns an IntegerType node with the given static bounds.
     IntegerType *createIntegerType(IntegerDecl *decl,
                                    const llvm::APInt &low,
                                    const llvm::APInt &high);
 
-    /// Returns an integer subtype node with the given bounds.
-    IntegerType *createIntegerSubtype(IdentifierInfo *name,
-                                      IntegerType *base,
-                                      Expr *low, Expr *high);
+    /// Returns an integer subtype node constrained over the given bounds.
+    ///
+    /// If \p decl is null an anonymous integer subtype is created.  Otherwise
+    /// the subtype is associated with the given integer subtype declaration.
+    IntegerType *createIntegerSubtype(IntegerType *base, Expr *low, Expr *high,
+                                      IntegerDecl *decl = 0);
 
-    /// Returns an integer subtype node constrained to the given bounds.
+    /// Returns an anonymous integer subtype node constrained over the given
+    /// bounds.
     ///
     /// The resulting subtype will have IntegerLiteral expressions generated to
     /// encapsulate the provided constants.
-    IntegerType *createIntegerSubtype(IdentifierInfo *name,
-                                      IntegerType *base,
+    ///
+    /// If \o decl is null an anonymous integer subtype is created.  Otherwise
+    /// the subtype is associated with the given integer subtype declaration.
+    IntegerType *createIntegerSubtype(IntegerType *base,
                                       const llvm::APInt &low,
-                                      const llvm::APInt &high);
+                                      const llvm::APInt &high,
+                                      IntegerDecl *decl = 0);
 
     /// Returns an unconstrained integer subtype.
-    IntegerType *createIntegerSubtype(IdentifierInfo *name,
-                                      IntegerType *base);
+    IntegerType *createIntegerSubtype(IntegerType *base,
+                                      IntegerDecl *decl = 0);
     //@}
 
     /// Creates a discrete subtype with the given bounds as constraints.
     ///
     /// The actual type returned depends on the actual type of the given base.
-    DiscreteType *createDiscreteSubtype(IdentifierInfo *name,
-                                        DiscreteType *base,
-                                        Expr *low, Expr *high);
+    DiscreteType *createDiscreteSubtype(DiscreteType *base,
+                                        Expr *low, Expr *high,
+                                        TypeDecl *decl = 0);
 
     /// \name Array declaration and type constructors.
     //@{
@@ -276,10 +280,10 @@ public:
     IntegerDecl *getTheIntegerDecl() const { return theIntegerDecl; }
     IntegerType *getTheIntegerType() const;
 
-    IntegerSubtypeDecl *getTheNaturalDecl() const { return theNaturalDecl; }
+    IntegerDecl *getTheNaturalDecl() const { return theNaturalDecl; }
     IntegerType *getTheNaturalType() const;
 
-    IntegerSubtypeDecl *getThePositiveDecl() const { return thePositiveDecl; }
+    IntegerDecl *getThePositiveDecl() const { return thePositiveDecl; }
     IntegerType *getThePositiveType() const;
 
     ArrayDecl *getTheStringDecl() const { return theStringDecl; }
@@ -309,8 +313,8 @@ private:
     EnumerationDecl *theCharacterDecl;
     IntegerDecl *theRootIntegerDecl;
     IntegerDecl *theIntegerDecl;
-    IntegerSubtypeDecl *theNaturalDecl;
-    IntegerSubtypeDecl *thePositiveDecl;
+    IntegerDecl *theNaturalDecl;
+    IntegerDecl *thePositiveDecl;
     ArrayDecl *theStringDecl;
     ExceptionDecl *theProgramError;
     ExceptionDecl *theConstraintError;

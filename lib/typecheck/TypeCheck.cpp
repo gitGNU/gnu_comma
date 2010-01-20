@@ -65,9 +65,9 @@ void TypeCheck::populateInitialEnvironment()
 
     // Positive and Natural are subtypes of Integer, and so do not export
     // any additional declarations.
-    IntegerSubtypeDecl *thePositiveDecl = resource.getThePositiveDecl();
+    IntegerDecl *thePositiveDecl = resource.getThePositiveDecl();
     scope.addDirectDecl(thePositiveDecl);
-    IntegerSubtypeDecl *theNaturalDecl = resource.getTheNaturalDecl();
+    IntegerDecl *theNaturalDecl = resource.getTheNaturalDecl();
     scope.addDirectDecl(theNaturalDecl);
 
     EnumerationDecl *theCharacterDecl = resource.getTheCharacterDecl();
@@ -573,7 +573,7 @@ ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
         IntegerType *intTy = cast<IntegerType>(idxTy);
         Expr *lowerExpr = new IntegerLiteral(lower, intTy, 0);
         Expr *upperExpr = new IntegerLiteral(upper, intTy, 0);
-        idxTy = resource.createIntegerSubtype(0, intTy, lowerExpr, upperExpr);
+        idxTy = resource.createIntegerSubtype(intTy, lowerExpr, upperExpr);
         return resource.createArraySubtype(0, arrTy, &idxTy);
     }
 
@@ -1249,20 +1249,7 @@ Location TypeCheck::getNodeLoc(Node node)
     assert(!node.isNull() && "Cannot get locations from null nodes!");
     assert(node.isValid() && "Cannot get locations from invalid nodes!");
 
-    if (Expr *expr = lift_node<Expr>(node))
-        return expr->getLocation();
-
-    if (TypeRef *ref = lift_node<TypeRef>(node))
-        return ref->getLocation();
-
-    if (SubroutineRef *ref = lift_node<SubroutineRef>(node))
-        return ref->getLocation();
-
-    if (ExceptionRef *ref = lift_node<ExceptionRef>(node))
-        return ref->getLocation();
-
-    ProcedureCallStmt *call = cast_node<ProcedureCallStmt>(node);
-    return call->getLocation();
+    return cast_node<Ast>(node)->getLocation();
 }
 
 bool TypeCheck::covers(Type *A, Type *B)
@@ -1291,20 +1278,23 @@ bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
     if (sourceTy == targetTy)
         return false;
 
+    // If the source type is universal_integer convert.
+    if (sourceTy->isUniversalIntegerType())
+        return true;
+
     PrimaryType *source = dyn_cast<PrimaryType>(sourceTy);
     PrimaryType *target = dyn_cast<PrimaryType>(targetTy);
 
     // If either of the types are incomplete, attempt to resolve to their
     // completions.
-    if (IncompleteType *IT = dyn_cast<IncompleteType>(source)) {
+    if (IncompleteType *IT = dyn_cast_or_null<IncompleteType>(source)) {
         if (IT->hasCompletion())
             source = IT->getCompleteType();
     }
-    if (IncompleteType *IT = dyn_cast<IncompleteType>(target)) {
+    if (IncompleteType *IT = dyn_cast_or_null<IncompleteType>(target)) {
         if (IT->hasCompletion())
             target = IT->getCompleteType();
     }
-
 
     if (!(source && target))
         return false;

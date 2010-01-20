@@ -995,7 +995,6 @@ public:
         return const_cast<SubroutineDecl*>(this)->getBody();
     }
 
-
     /// Returns true if this subroutine represents a primitive operation.
     bool isPrimitive() const { return opID != PO::NotPrimitive; }
 
@@ -1192,10 +1191,7 @@ public:
 
     // Support for isa and dyn_cast.
     static bool classof(const FunctionDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return (node->getKind() == AST_FunctionDecl ||
-                node->getKind() == AST_EnumLiteral);
-    }
+    static bool classof(const Ast *node) { return denotesFunctionDecl(node); }
 
 protected:
     // Constructor for use by EnumLiteral.
@@ -1203,10 +1199,23 @@ protected:
                  IdentifierInfo *name, Location loc,
                  EnumerationType *returnType, DeclRegion *parent);
 
+    // Constructor for use by FunctionAttribDecl.
+    FunctionDecl(AstKind kind, IdentifierInfo *name, Location loc,
+                 IdentifierInfo **keywords, FunctionType *type,
+                 DeclRegion *parent)
+        : SubroutineDecl(kind, name, loc, keywords, type, parent),
+          correspondingType(type) { }
+
 private:
     FunctionType *correspondingType;
 
     void initializeCorrespondingType(AstResource &resource, Type *returnType);
+
+    static bool denotesFunctionDecl(const Ast *node) {
+        AstKind kind = node->getKind();
+        return (kind == AST_FunctionDecl || kind == AST_EnumLiteral ||
+                kind == AST_PosAD || kind == AST_ValAD);
+    }
 };
 
 //===----------------------------------------------------------------------===//
@@ -1364,42 +1373,9 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// SubtypeDecl
-//
-/// Common base class for all subtype declaration nodes.
-class SubtypeDecl : public TypeDecl {
-
-public:
-    virtual ~SubtypeDecl() { }
-
-    static bool classof(const SubtypeDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->denotesSubtypeDecl();
-    }
-
-protected:
-    // Constructs a SubtypeDecl node when a type is immediately available.
-    SubtypeDecl(AstKind kind, IdentifierInfo *name, PrimaryType *type,
-                Location loc, DeclRegion *region = 0)
-        : TypeDecl(kind, name, loc, region) {
-        assert(this->denotesSubtypeDecl());
-    }
-
-    // Constructs a SubtypeDecl node when a type is not immediately available.
-    // Users of this constructor must set the corresponding type.
-    SubtypeDecl(AstKind kind, IdentifierInfo *name, Location loc,
-                DeclRegion *region = 0)
-        : TypeDecl(kind, name, loc, region) {
-        assert(this->denotesSubtypeDecl());
-    }
-};
-
-//===----------------------------------------------------------------------===//
 // CarrierDecl
 //
 // Declaration of a domains carrier type.
-//
-// FIXME: A CarrierDecl should not be a TypeDecl, but rather a SubtypeDecl.
 class CarrierDecl : public TypeDecl {
 
 public:
@@ -1431,7 +1407,17 @@ public:
 // EnumerationDecl
 class EnumerationDecl : public TypeDecl, public DeclRegion {
 
+    /// This enumeration provides encodings for various flags which are munged
+    /// into the bits field of this node.
+    enum PropertyFlag {
+        Subtype_FLAG   = 1 << 0, // Set when this is a subtype decl.
+        Character_FLAG = 1 << 1  // Set when this is a character decl.
+    };
+
 public:
+    /// Returns true if this declaration denotes a subtype declaration.
+    bool isSubtypeDeclaration() const { return bits & Subtype_FLAG; }
+
     /// Populates the declarative region of this type with all implicit
     /// operations.  This must be called once the type has been constructed to
     /// gain access to the types operations.
@@ -1444,6 +1430,16 @@ public:
     }
     EnumerationType *getType() {
         return llvm::cast<EnumerationType>(CorrespondingType);
+    }
+    //@}
+
+    //@{
+    /// \brief Returns the base subtype of this enumeration type declaration.
+    const EnumerationType *getBaseSubtype() const {
+        return getType()->getRootType()->getBaseSubtype();
+    }
+    EnumerationType *getBaseSubtype() {
+        return getType()->getRootType()->getBaseSubtype();
     }
     //@}
 
@@ -1474,10 +1470,10 @@ public:
     //
     // This method should be called if any of the literals constituting this
     // declaration are character literals.
-    void markAsCharacterType() { bits = 1; }
+    void markAsCharacterType() { bits |= Character_FLAG; }
 
     // Returns true if this declaration denotes a character enumeration.
-    bool isCharacterType() const { return bits == 1; }
+    bool isCharacterType() const { return bits & Character_FLAG; }
 
     // Locates the EnumLiteral corresponding to the given character, or null if
     // no such literal exists.
@@ -1497,6 +1493,18 @@ public:
         return lit->getIndex();
     }
 
+    /// Returns the declaration corresponding to the Pos attribute.
+    PosAD *getPosAttribute() { return posAttribute; }
+
+    /// Returns the declaration corresponding to the Val attribute.
+    ValAD *getValAttribute() { return valAttribute; }
+
+    /// Returns a Pos or Val attribute corresponding to the given ID.
+    ///
+    /// If the given ID does not correspond to an attribute defined for this
+    /// type an assertion will fire.
+    FunctionAttribDecl *getAttribute(attrib::AttributeID ID);
+
     static bool classof(const EnumerationDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_EnumerationDecl;
@@ -1504,10 +1512,24 @@ public:
 
 private:
     // Private constructors for use by AstResource.
+
+    /// Constructs an enumeration declaration.
+    ///
+    /// \param elems A sequence of pairs giving the defining identifier and
+    /// location for each enumeration literal provided by this declaration.
     EnumerationDecl(AstResource &resource,
                     IdentifierInfo *name, Location loc,
                     std::pair<IdentifierInfo*, Location> *elems,
                     unsigned numElems, DeclRegion *parent);
+
+    /// Constructs an unconstrained enumeration subtype declaration.
+    EnumerationDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                    EnumerationType *subtype, DeclRegion *region);
+
+    /// Constructs a constrained enumeration subtype declaration.
+    EnumerationDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                    EnumerationType *subtype, Expr *lower, Expr *upper,
+                    DeclRegion *region);
 
     friend class AstResource;
 
@@ -1518,66 +1540,9 @@ private:
 
     // The number of EnumLiteral's associated with this enumeration.
     uint32_t numLiterals;
-};
 
-//===----------------------------------------------------------------------===//
-// EnumSubtypeDecl
-//
-/// Representation of enumeration subtype declaration nodes.
-class EnumSubtypeDecl : public SubtypeDecl {
-
-public:
-    //@{
-    /// \brief Returns the subtype defined by this declaration.
-    const EnumerationType *getType() const {
-        return llvm::cast<EnumerationType>(CorrespondingType);
-    }
-    EnumerationType *getType() {
-        return llvm::cast<EnumerationType>(CorrespondingType);
-    }
-    //@}
-
-    // Support isa/dyn_cast.
-    static bool classof(const EnumSubtypeDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_EnumSubtypeDecl;
-    }
-
-private:
-    /// \name Constructors
-    ///
-    /// The following constructors are provided for use by AstResource.
-    ///
-    /// All constructors take the following arguments.
-    ///
-    ///   - A reference to the AstResource which is performing the allocation.
-    ///
-    ///   - An IdentifierInfo naming the declaration.
-    ///
-    ///   - A location denoting the position of the defining identifier in the
-    ///     source.
-    ///
-    ///   - An EnumerationType node denoting the subtype this declaration
-    ///     extends.
-    ///
-    ///   - The declarative region in which the subtype declaration appears.
-    //@{
-
-    /// Constructs an unconstrained enumeration subtype declaration.
-    EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name, Location loc,
-                    EnumerationType *subtype, DeclRegion *region);
-
-    /// Constructs a constrained enumeration subtype declaration.
-    ///
-    /// \p lower Expression denoting the lower constraint on this type.
-    ///
-    /// \p upper Expression denoting the upper constraint on this type.
-    EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name, Location loc,
-                    EnumerationType *subtype,
-                    Expr *lower, Expr *upper, DeclRegion *region);
-    //@}
-
-    friend class AstResource;
+    PosAD *posAttribute;        // Declaration node for the Pos attribute.
+    ValAD *valAttribute;        // Declaration node for the Val attribute.
 };
 
 //===----------------------------------------------------------------------===//
@@ -1587,13 +1552,16 @@ private:
 class IntegerDecl : public TypeDecl, public DeclRegion {
 
 public:
+    /// Returns true if this declaration declares an integer subtype.
+    bool isSubtypeDeclaration() const { return bits; }
+
     /// Populates the declarative region of this type with all implicit
     /// operations.  This must be called once the type has been constructed to
     /// gain access to the types operations.
     void generateImplicitDeclarations(AstResource &resource);
 
     //@{
-    /// \brief Returns the first subtype of this integer declaration.
+    /// \brief Returns the subtype defined by this integer declaration.
     ///
     /// This method returns the first subtype of this declaration, or in the
     /// special case of root_integer, the unconstrained base subtype.
@@ -1629,6 +1597,18 @@ public:
     const Expr *getHighBoundExpr() const { return highExpr; }
     //@}
 
+    /// Returns the declaration corresponding to the Pos attribute.
+    PosAD *getPosAttribute() { return posAttribute; }
+
+    /// Returns the declaration corresponding to the Val attribute.
+    ValAD *getValAttribute() { return valAttribute; }
+
+    /// Returns a Pos or Val attribute corresponding to the given ID.
+    ///
+    /// If the given ID does not correspond to an attribute defined for this
+    /// type an assertion will fire.
+    FunctionAttribDecl *getAttribute(attrib::AttributeID ID);
+
     static bool classof(const IntegerDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerDecl;
@@ -1647,7 +1627,7 @@ private:
     ///
     /// \p lower Expression denoting the lower bound of this integer type.
     ///
-    /// \p upper Expression denoting the upper bounds of this integer type.
+    /// \p upper Expression denoting the upper bound of this integer type.
     ///
     /// \p parent The declarative region in which the integer type declaration
     ///    appears.
@@ -1655,74 +1635,24 @@ private:
                 IdentifierInfo *name, Location loc,
                 Expr *lower, Expr *upper, DeclRegion *parent);
 
-    friend class AstResource;
-
-    Expr *lowExpr;              ///< Expr forming the lower bound.
-    Expr *highExpr;             ///< Expr forming the high bound.
-};
-
-//===----------------------------------------------------------------------===//
-// IntegerSubtypeDecl
-//
-/// These nodes represent integer subtype declarations.
-class IntegerSubtypeDecl : public SubtypeDecl {
-
-public:
-    //@{
-    /// \brief Returns the subtype defined by this declaration.
-    const IntegerType *getType() const {
-        return llvm::cast<IntegerType>(CorrespondingType);
-    }
-    IntegerType *getType() {
-        return llvm::cast<IntegerType>(CorrespondingType);
-    }
-    //@}
-
-    // Support isa/dyn_cast.
-    static bool classof(const IntegerSubtypeDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_IntegerSubtypeDecl;
-    }
-
-private:
-    /// \name Constructors.
-    ///
-    /// The following constructors are provided for use by AstResource.
-    ///
-    /// All constructors take the following arguments:
-    ///
-    ///    - A reference to the AstResource which is performing the allocation.
-    ///
-    ///    - An IdentifierInfo naming the declaration.
-    ///
-    ///    - A location denoting the position of the declarations name in the
-    ///    source.
-    ///
-    ///    - The declarative region in which the subtype declaration appears.
-    //@{
-
     /// Constructs an unconstrained integer subtype declaration.
-    ///
-    /// \p subtype The subtype which this subtype declaration extends.
-    IntegerSubtypeDecl(AstResource &resource,
-                       IdentifierInfo *name, Location loc,
-                       IntegerType *subtype, DeclRegion *parent);
+    IntegerDecl(AstResource &resource,
+                IdentifierInfo *name, Location loc,
+                IntegerType *subtype, DeclRegion *parent);
 
     /// Constructs a constrained integer subtype declaration.
-    ///
-    /// \p subtype The subtype which this subtype constrains.
-    ///
-    /// \p lower Expression denoting the lower constraint of this integer type.
-    ///
-    /// \p upper Expression denoting the upper constraint of this integer type.
-    IntegerSubtypeDecl(AstResource &resource,
-                       IdentifierInfo *name, Location loc,
-                       IntegerType *subtype,
-                       Expr *lower, Expr *upper, DeclRegion *parent);
-    //@}
+    IntegerDecl(AstResource &resource,
+                IdentifierInfo *name, Location loc,
+                IntegerType *subtype,
+                Expr *lower, Expr *upper, DeclRegion *parent);
 
     friend class AstResource;
 
+    Expr *lowExpr;              // Expr forming the lower bound.
+    Expr *highExpr;             // Expr forming the high bound.
+
+    PosAD *posAttribute;        // Declaration node for the Pos attribute.
+    ValAD *valAttribute;        // Declaration node for the Val attribute.
 };
 
 //===----------------------------------------------------------------------===//
@@ -1788,73 +1718,6 @@ private:
               IdentifierInfo *name, Location loc,
               unsigned rank, DSTDefinition **indices,
               Type *component, bool isConstrained, DeclRegion *parent);
-
-    friend class AstResource;
-
-    IndexVec indices;
-};
-
-//===----------------------------------------------------------------------===//
-// ArraySubtypeDecl
-//
-/// These nodes represent array subtype declarations.
-class ArraySubtypeDecl : public SubtypeDecl {
-
-    // Type used to store the DSTDefinitions defining the indices of this array.
-    typedef llvm::SmallVector<DSTDefinition*, 4> IndexVec;
-
-public:
-    //@{
-    /// \brief Returns the subtype defined by this declaration.
-    const ArrayType *getType() const {
-        return llvm::cast<ArrayType>(CorrespondingType);
-    }
-    ArrayType *getType() {
-        return llvm::cast<ArrayType>(CorrespondingType);
-    }
-    //@}
-
-    // Support isa/dyn_cast.
-    static bool classof(const ArraySubtypeDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_ArraySubtypeDecl;
-    }
-
-private:
-    /// \name Constructors.
-    ///
-    /// The following constructors are provided for use by AstResource.
-    ///
-    /// All constructors take the following arguments.
-    ///
-    ///   - A reference to the AstResource which is performing the allocation.
-    ///
-    ///   - An IdentifierInfo naming the declaration.
-    ///
-    ///   - A location denoting the position of the declarations  name in the
-    ///     source.
-    ///
-    ///   - An ArrayType node representing the parent type of this subtype.
-    ///
-    ///   - The declarative region in which the subtype declaration appears.
-
-    //@{
-    /// Constructs an unconstrained array subtype declaration (effecively an
-    /// alias for \p subtype).
-    ArraySubtypeDecl(AstResource &resource,
-                     IdentifierInfo *name, Location loc,
-                     ArrayType *subtype, DeclRegion *parent);
-
-    /// Constructs a constrained array subtype declaration.
-    ///
-    /// \p indices A set of discrete subtype definitions which define the
-    /// constraints of this arrays indices.  The number of indices supplied must
-    /// match the dimensionality of \p subtype.
-    ArraySubtypeDecl(AstResource &resource,
-                     IdentifierInfo *name, Location loc,
-                     ArrayType *subtype, DSTDefinition **indices,
-                     DeclRegion *parent);
-    //@}
 
     friend class AstResource;
 

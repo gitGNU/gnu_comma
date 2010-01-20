@@ -75,7 +75,7 @@ void AssignmentEmitter::emitAssignment(SelectedExpr *lhs, Expr *rhs)
     // the storage provided by the lhs.  It is a fat access type then store into
     // the data pointer.  Otherwise, simply store the lhs.
     llvm::Value *target = CGR.emitSelectedRef(lhs).first();
-    PrimaryType *targetTy = CGR.resolveType(lhs->getType());
+    Type *targetTy = CGR.resolveType(lhs->getType());
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);
     else if (targetTy->isFatAccessType()) {
@@ -101,7 +101,7 @@ void AssignmentEmitter::emitAssignment(DereferenceExpr *lhs, Expr *rhs)
     }
 
     // Check that the target is not null and emit the rhs.
-    PrimaryType *targetTy = CGR.resolveType(lhs->getType());
+    Type *targetTy = CGR.resolveType(lhs->getType());
     CGR.emitNullAccessCheck(target);
     if (targetTy->isCompositeType())
         CGR.emitCompositeExpr(rhs, target, false);

@@ -253,7 +253,7 @@ CodeGenRoutine::emitRangeAttrib(RangeAttrib *attrib)
     return bounds;
 }
 
-PrimaryType *CodeGenRoutine::resolveType(Type *type)
+Type *CodeGenRoutine::resolveType(Type *type)
 {
     if (DomainType *domTy = dyn_cast<DomainType>(type)) {
         DomainInstanceDecl *instance;
@@ -273,5 +273,5 @@ PrimaryType *CodeGenRoutine::resolveType(Type *type)
     else if (IncompleteType *IT = dyn_cast<IncompleteType>(type))
         return resolveType(IT->getCompleteType());
 
-    return cast<PrimaryType>(type);
+    return type;
 }

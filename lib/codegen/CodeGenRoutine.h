@@ -105,8 +105,8 @@ public:
     CValue emitIndexedArrayRef(IndexedArrayExpr *expr);
     CValue emitSelectedRef(SelectedExpr *expr);
 
-    PrimaryType *resolveType(Type *type);
-    PrimaryType *resolveType(Expr *expr) {
+    Type *resolveType(Type *type);
+    Type *resolveType(Expr *expr) {
         return resolveType(expr->getType());
     }
 
@@ -166,8 +166,7 @@ private:
 
     /// Emits a range check over discrete types.
     void emitDiscreteRangeCheck(llvm::Value *sourceVal,
-                                DiscreteType *sourceTy,
-                                DiscreteType *targetTy);
+                                Type *sourceTy, DiscreteType *targetTy);
 
     /// Helper method for emitAbstractCall.
     ///
@@ -183,9 +182,6 @@ private:
     void emitPragmaAssert(PragmaAssert *pragma);
 
     void emitCompositeObjectDecl(ObjectDecl *objDecl);
-
-    void emitIntegerSubtypeDecl(IntegerSubtypeDecl *subDecl);
-    void emitEnumSubtypeDecl(EnumSubtypeDecl *subDecl);
 
     /// Forms X**N via calls to the runtime.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);

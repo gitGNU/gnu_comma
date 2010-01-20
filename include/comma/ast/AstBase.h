@@ -33,7 +33,6 @@ class AllocatorExpr;
 class ArrayBoundAE;
 class ArrayDecl;
 class ArrayRangeAttrib;
-class ArraySubtypeDecl;
 class ArrayType;
 class AssignmentStmt;
 class Ast;
@@ -61,13 +60,13 @@ class DSTDefinition;
 class EnumerationDecl;
 class EnumLiteral;
 class EnumerationType;
-class EnumSubtypeDecl;
 class ExceptionDecl;
 class ExceptionRef;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
 class ForStmt;
+class FunctionAttribDecl;
 class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
@@ -83,7 +82,6 @@ class IncompleteTypeDecl;
 class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
-class IntegerSubtypeDecl;
 class IntegerType;
 class KeywordSelector;
 class LastAE;
@@ -96,6 +94,7 @@ class NullStmt;
 class ObjectDecl;
 class ParamValueDecl;
 class PercentDecl;
+class PosAD;
 class Pragma;
 class PragmaAssert;
 class PragmaImport;
@@ -126,11 +125,11 @@ class SubroutineCall;
 class SubroutineDecl;
 class SubroutineRef;
 class SubroutineType;
-class SubtypeDecl;
 class Type;
 class TypeDecl;
 class TypeRef;
 class UniversalType;
+class ValAD;
 class ValueDecl;
 class VarietyDecl;
 class VarietyType;
@@ -192,10 +191,6 @@ public:
         AST_DomainInstanceDecl, ///< DomainInstanceDecl
         AST_PercentDecl,        ///< PercentDecl
 
-        AST_ArraySubtypeDecl,   ///< ArraySubtypeDecl
-        AST_EnumSubtypeDecl,    ///< EnumSubtypeDecl
-        AST_IntegerSubtypeDecl, ///< IntegerSubtypeDecl
-
         AST_SigInstanceDecl,    ///< SigInstanceDecl
 
         //
@@ -206,9 +201,15 @@ public:
         AST_ParamValueDecl,     ///< ParamValueDecl
         AST_RenamedObjectDecl,  ///< RenamedObjectDecl
 
-        AST_FunctionDecl,       ///< FunctionDecl
+        //
+        // Subroutine declaration nodes.
+        //
         AST_ProcedureDecl,      ///< ProcedureDecl
+        AST_FunctionDecl,       ///< FunctionDecl
         AST_EnumLiteral,        ///< EnumLiteral
+        AST_PosAD,              ///< PosAD
+        AST_ValAD,              ///< ValAD
+
         AST_ImportDecl,         ///< ImportDecl
         AST_ExceptionDecl,      ///< ExceptionDecl
         AST_ComponentDecl,      ///< ComponentDecl
@@ -249,7 +250,9 @@ public:
         AST_SelectedExpr,       ///< SelectedExpr
         AST_StringLiteral,      ///< StringLiteral
 
+        //
         // Expr attributes.
+        //
         AST_FirstAE,            ///< FirstAE
         AST_FirstArrayAE,       ///< FirstArrayAE
         AST_LastArrayAE,        ///< LastArrayAE
@@ -298,16 +301,16 @@ public:
         LAST_ModelDecl = AST_FunctorDecl,
 
         FIRST_TypeDecl = AST_AccessDecl,
-        LAST_TypeDecl = AST_IntegerSubtypeDecl,
-
-        FIRST_SubtypeDecl = AST_ArraySubtypeDecl,
-        LAST_SubtypeDecl = AST_IntegerSubtypeDecl,
+        LAST_TypeDecl = AST_PercentDecl,
 
         FIRST_DomainType = AST_AbstractDomainDecl,
         LAST_DomainType = AST_PercentDecl,
 
         FIRST_ValueDecl = AST_LoopDecl,
         LAST_ValueDecl = AST_RenamedObjectDecl,
+
+        FIRST_SubroutineDecl = AST_ProcedureDecl,
+        LAST_SubroutineDecl = AST_ValAD,
 
         FIRST_Type = AST_UniversalType,
         LAST_Type = AST_RecordType,
@@ -371,17 +374,10 @@ public:
         return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
     }
 
-    /// Returns true if this node denotes a subtype declaration.
-    bool denotesSubtypeDecl() const {
-        return (FIRST_SubtypeDecl <= kind && kind <= LAST_SubtypeDecl);
-    }
-
     /// Returns true if this node denotes a subroutine decl (i.e. either
     /// a procedure or function decl).
     bool denotesSubroutineDecl() const {
-        return (kind == AST_FunctionDecl ||
-                kind == AST_ProcedureDecl ||
-                kind == AST_EnumLiteral);
+        return (FIRST_SubroutineDecl <= kind && kind <= LAST_SubroutineDecl);
     }
 
     /// Returns true if this node denotes a Value.

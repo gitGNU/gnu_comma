@@ -101,13 +101,10 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
         break;
     case DISPATCH(AbstractDomainDecl, node);
     case DISPATCH(ArrayDecl, node);
-    case DISPATCH(ArraySubtypeDecl, node);
     case DISPATCH(CarrierDecl, node);
     case DISPATCH(DomainInstanceDecl, node);
     case DISPATCH(EnumerationDecl, node);
-    case DISPATCH(EnumSubtypeDecl, node);
     case DISPATCH(IntegerDecl, node);
-    case DISPATCH(IntegerSubtypeDecl, node);
     case DISPATCH(PercentDecl, node);
     case DISPATCH(IncompleteTypeDecl, node);
     };
@@ -124,18 +121,6 @@ void DeclVisitor::visitValueDecl(ValueDecl *node)
     case DISPATCH(LoopDecl, node);
     case DISPATCH(RenamedObjectDecl, node);
     };
-}
-
-void DeclVisitor::visitSubtypeDecl(SubtypeDecl *node)
-{
-    switch (node->getKind()) {
-    default:
-        assert(false && "Cannot visit this kind of node!");
-        break;
-    case DISPATCH(ArraySubtypeDecl, node);
-    case DISPATCH(EnumSubtypeDecl, node);
-    case DISPATCH(IntegerSubtypeDecl, node);
-    }
 }
 
 void DeclVisitor::visitDomainTypeDecl(DomainTypeDecl *node)
@@ -182,10 +167,7 @@ void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }
 void DeclVisitor::visitRenamedObjectDecl(RenamedObjectDecl *node) { }
 void DeclVisitor::visitEnumLiteral(EnumLiteral *node) { }
 void DeclVisitor::visitEnumerationDecl(EnumerationDecl *node) { }
-void DeclVisitor::visitEnumSubtypeDecl(EnumSubtypeDecl *node) { }
 void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
-void DeclVisitor::visitIntegerSubtypeDecl(IntegerSubtypeDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }
-void DeclVisitor::visitArraySubtypeDecl(ArraySubtypeDecl *node) { }
 void DeclVisitor::visitExceptionDecl(ExceptionDecl *node) { }
 void DeclVisitor::visitIncompleteTypeDecl(IncompleteTypeDecl *node) { }

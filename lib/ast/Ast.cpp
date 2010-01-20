@@ -36,10 +36,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "DomainInstanceDecl",
     "PercentDecl",
 
-    "ArraySubtypeDecl",
-    "EnumSubtypeDecl",
-    "IntegerSubtypeDecl",
-
     "SigInstanceDecl",
 
     "LoopDecl",
@@ -47,9 +43,11 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "ParamValueDecl",
     "RenamedObjectDecl",
 
-    "FunctionDecl",
     "ProcedureDecl",
+    "FunctionDecl",
     "EnumLiteral",
+    "PosAD",
+    "ValAD",
     "ImportDecl",
     "ExceptionDecl",
     "ComponentDecl",

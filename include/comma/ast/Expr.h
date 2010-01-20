@@ -196,6 +196,12 @@ public:
                      Expr **positionalArgs, unsigned numPositional,
                      KeywordSelector **keyedArgs, unsigned numKeys);
 
+    /// Creates a resolved function call expression over the given function
+    /// declaration.
+    FunctionCallExpr(FunctionDecl *connective, Location loc,
+                     Expr **positionalArgs, unsigned numPositional,
+                     KeywordSelector **keyedArgs, unsigned numKeys);
+
     /// Create a nullary function call expression using the given SubroutineRef
     /// as connective.
     FunctionCallExpr(SubroutineRef *connective);

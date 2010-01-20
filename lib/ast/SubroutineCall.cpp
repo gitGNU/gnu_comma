@@ -2,10 +2,11 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribDecl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
@@ -196,6 +197,11 @@ void SubroutineCall::setArgument(key_iterator I, Expr *expr)
 
     if ((index = argExprIndex(target)) >= 0)
         arguments[index] = expr;
+}
+
+bool SubroutineCall::isAttributeCall() const
+{
+    return isUnambiguous() && isa<FunctionAttribDecl>(getConnective());
 }
 
 bool SubroutineCall::isDirectCall() const

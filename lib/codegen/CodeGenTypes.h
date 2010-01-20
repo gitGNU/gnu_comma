@@ -57,6 +57,8 @@ public:
 
     const llvm::Type *lowerAccessType(const AccessType *type);
 
+    const llvm::Type *lowerUniversalType(const UniversalType *type);
+
     /// Returns the structure type used to hold the bounds of an unconstrained
     /// array.
     const llvm::StructType *lowerArrayBounds(const ArrayType *arrTy);
@@ -87,7 +89,7 @@ public:
     ///
     /// FIXME: This method is a close cousin to CGR's resolveType.  It might be
     /// best remove CGR's version and use this one everywhere.
-    const PrimaryType *resolveType(const Type *type);
+    const Type *resolveType(const Type *type);
 
     /// \name Calling Conventions.
     ///

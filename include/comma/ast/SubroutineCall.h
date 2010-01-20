@@ -87,6 +87,9 @@ public:
         return isUnambiguous() && getConnective()->isPrimitive();
     }
 
+    /// Returns true if the connective of this call is an attribute.
+    bool isAttributeCall() const;
+
     /// \name Call Types.
     ///
     /// The following predicates provide a classification of calls from the

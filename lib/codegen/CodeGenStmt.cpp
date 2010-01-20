@@ -213,14 +213,6 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
             emitObjectDecl(cast<ObjectDecl>(decl));
             break;
 
-        case Ast::AST_IntegerSubtypeDecl:
-            emitIntegerSubtypeDecl(cast<IntegerSubtypeDecl>(decl));
-            break;
-
-        case Ast::AST_EnumSubtypeDecl:
-            emitEnumSubtypeDecl(cast<EnumSubtypeDecl>(decl));
-            break;
-
         case Ast::AST_RenamedObjectDecl:
             emitRenamedObjectDecl(cast<RenamedObjectDecl>(decl));
             break;

@@ -16,6 +16,8 @@
 #include "RangeChecker.h"
 #include "TypeCheck.h"
 #include "comma/ast/AggExpr.h"
+#include "comma/ast/AttribDecl.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/DiagPrint.h"
 
 #include "llvm/ADT/SetVector.h"
@@ -369,7 +371,7 @@ Expr *ArrayAggChecker::resolveAggregateExpr(AggregateExpr *agg,
 }
 
 Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
-                                                 ArrayType *context)
+                                                ArrayType *context)
 {
     assert(agg->isPurelyPositional());
 
@@ -426,12 +428,38 @@ Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
         return new ConversionExpr(agg, context);
     }
 
-    // Otherwise, the context is unconstrained.
-    //
-    // FIXME: Generate a constrained subtype.  We need a constraint of the form
-    // S'First .. S'Val(S'Pos(S'First) + L - 1), where S is the index type and L
-    // is the length of this aggregate.
-    agg->setType(context);
+    // Otherwise, the context is unconstrained.  Generate a constrained subtype.
+    // We need a constraint of the form S'First .. S'Val(L - 1), where S is the
+    // index type and L is the length of this aggregate.
+    DiscreteType *idxTy = context->getIndexType(0);
+    ValAD *attrib = idxTy->getValAttribute();
+
+    // Build an integer literal corresponding to the length of this aggregate.
+    // Note that integer literals are represented as "minimally sized" signed
+    // values.
+    unsigned bits = 32 - llvm::CountLeadingZeros_32(numComponents) + 1;
+    llvm::APInt L(bits, numComponents - 1);
+    Expr *arg = new IntegerLiteral(L, 0);
+
+    // Build a call to the Val attribute.
+    FunctionCallExpr *upper = new FunctionCallExpr(attrib, 0, &arg, 1, 0, 0);
+
+    // Build an attribute expression for the lower bound.
+    FirstAE *lower = new FirstAE(idxTy, 0);
+
+    // Check the lower and upper bounds in the context of the index type.
+    assert(TC.checkExprInContext(lower, idxTy) && "Invalid implicit expr!");
+    assert(TC.checkExprInContext(upper, idxTy) && "Invalid implicit expr!");
+
+    // Create the discrete subtype for the index.
+    DiscreteType *newIdxTy = TC.getAstResource().createDiscreteSubtype
+        (idxTy, lower, upper);
+
+    // Finally create and set the new constrained array type for the aggregate.
+    ArrayType *newArrTy = TC.getAstResource().createArraySubtype
+        (context->getIdInfo(), context, &newIdxTy);
+
+    agg->setType(newArrTy);
     return agg;
 }
 
@@ -448,7 +476,7 @@ bool ArrayAggChecker::checkSinglyKeyedAgg(AggregateExpr *agg,
         Expr *lower = (*agg->key_begin())->getLowerExpr();
         Expr *upper = (*agg->key_begin())->getUpperExpr();
         refinedIndexType = resource.createDiscreteSubtype(
-            indexTy->getIdInfo(), indexTy, lower, upper);
+            indexTy, lower, upper);
     }
     return true;
 }
@@ -651,7 +679,7 @@ bool ArrayAggChecker::ensureDistinctKeys(ArrayType *contextTy, bool hasOthers)
         Expr *lower = keyVec.front()->getLowerExpr();
         Expr *upper = keyVec.back()->getUpperExpr();
         refinedIndexType = resource.createDiscreteSubtype(
-            indexTy->getIdInfo(), indexTy, lower, upper);
+            indexTy, lower, upper);
     }
     return true;
 }

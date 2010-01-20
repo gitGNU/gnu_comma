@@ -129,33 +129,6 @@ DeclRewriter::rewriteEnumerationDecl(EnumerationDecl *edecl)
     return result;
 }
 
-EnumSubtypeDecl *DeclRewriter::rewriteEnumSubtypeDecl(EnumSubtypeDecl *decl)
-{
-    IdentifierInfo *name = decl->getIdInfo();
-    EnumerationType *sourceTy = decl->getType();
-    AstResource &resource = getAstResource();
-
-    EnumerationType *ancestorTy;
-    ancestorTy = cast<EnumerationType>(decl->getType()->getAncestorType());
-    ancestorTy = cast<EnumerationType>(rewriteType(ancestorTy));
-
-    EnumSubtypeDecl *result;
-
-    if (sourceTy->isConstrained()) {
-        Range *range = sourceTy->getConstraint();
-        Expr *lower = rewriteExpr(range->getLowerBound());
-        Expr *upper = rewriteExpr(range->getUpperBound());
-        result = resource.createEnumSubtypeDecl
-            (name, 0, ancestorTy, lower, upper, context);
-    }
-    else
-        result = resource.createEnumSubtypeDecl(name, 0, ancestorTy, context);
-
-    addTypeRewrite(sourceTy, result->getType());
-    addDeclRewrite(decl, result);
-    return result;
-}
-
 ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
 {
     IdentifierInfo *name = adecl->getIdInfo();
@@ -213,34 +186,6 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
 
     addDeclRewrite(idecl, result);
     mirrorRegion(idecl, result);
-    return result;
-}
-
-IntegerSubtypeDecl *
-DeclRewriter::rewriteIntegerSubtypeDecl(IntegerSubtypeDecl *decl)
-{
-    IdentifierInfo *name = decl->getIdInfo();
-    IntegerType *sourceTy = decl->getType();
-    AstResource &resource = getAstResource();
-
-    IntegerType *ancestorTy;
-    ancestorTy = cast<IntegerType>(decl->getType()->getAncestorType());
-    ancestorTy = cast<IntegerType>(rewriteType(ancestorTy));
-
-    IntegerSubtypeDecl *result;
-    if (sourceTy->isConstrained()) {
-        Range *range = sourceTy->getConstraint();
-        Expr *lower = rewriteExpr(range->getLowerBound());
-        Expr *upper = rewriteExpr(range->getUpperBound());
-        result = resource.createIntegerSubtypeDecl
-            (name, 0, ancestorTy, lower, upper, context);
-    }
-    else
-        result = resource.createIntegerSubtypeDecl
-            (name, 0, ancestorTy, context);
-
-    addTypeRewrite(sourceTy, result->getType());
-    addDeclRewrite(decl, result);
     return result;
 }
 
@@ -356,16 +301,8 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
         result = rewriteIntegerDecl(cast<IntegerDecl>(decl));
         break;
 
-    case Ast::AST_IntegerSubtypeDecl:
-        result = rewriteIntegerSubtypeDecl(cast<IntegerSubtypeDecl>(decl));
-        break;
-
     case Ast::AST_EnumerationDecl:
         result = rewriteEnumerationDecl(cast<EnumerationDecl>(decl));
-        break;
-
-    case Ast::AST_EnumSubtypeDecl:
-        result = rewriteEnumSubtypeDecl(cast<EnumSubtypeDecl>(decl));
         break;
 
     case Ast::AST_ArrayDecl:

@@ -250,7 +250,7 @@ void Parser::seekNameEnd()
 
 bool Parser::consumeName()
 {
-    // Identify direct names.  If we cannot consume a direct name we simple
+    // Identify direct names.  If we cannot consume a direct name we simply
     // return false.
     switch (currentTokenCode()) {
     default:
@@ -280,6 +280,7 @@ bool Parser::consumeName()
                 break;
             case Lexer::TKN_IDENTIFIER:
             case Lexer::TKN_CHARACTER:
+            case Lexer::TKN_ALL:
                 ignoreToken();
                 break;
             };

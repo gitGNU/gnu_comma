@@ -14,6 +14,7 @@
 #include "DependencySet.h"
 #include "SRInfo.h"
 #include "comma/ast/AstRewriter.h"
+#include "comma/ast/AttribDecl.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Stmt.h"
 
@@ -105,9 +106,12 @@ private:
     /// \see emitArg()
     void emitArrayArgument(Expr *expr, PM::ParameterMode mode, ArrayType *type);
 
-    /// Gernerates a call to a primitive subroutine, returning the computed
+    /// Generates a call to a primitive subroutine, returning the computed
     /// result.
     llvm::Value *emitPrimitiveCall();
+
+    /// Generates a call to function provided by an attribute.
+    llvm::Value *emitAttributeCall();
 
     /// \name Primitive Call Emitters.
     //@{
@@ -126,6 +130,12 @@ private:
 
     /// Synthesizes a "/=" operation.
     llvm::Value *emitNE(llvm::Value *lhs, llvm::Value *rhs);
+    //@}
+
+    /// \name Attribute Call Emitters.
+    //@{
+    llvm::Value *emitAttribute(PosAD *attrib);
+    llvm::Value *emitAttribute(ValAD *attrib);
     //@}
 
     /// Generates any implicit first arguments for the current call expression
@@ -190,6 +200,10 @@ CValue CallEmitter::emitSimpleCall(SubroutineCall *call)
     if (SRCall->isPrimitive())
         return CValue::get(emitPrimitiveCall());
 
+    // Similarly for attribute functions.
+    if (SRCall->isAttributeCall())
+        return CValue::get(emitAttributeCall());
+
     // Prepare any implicit parameters and resolve the SRInfo corresponding to
     // the call.
     SRInfo *callInfo = prepareCall();
@@ -205,7 +219,7 @@ CValue CallEmitter::emitSimpleCall(SubroutineCall *call)
 CValue CallEmitter::emitCompositeCall(FunctionCallExpr *call, llvm::Value *dst)
 {
     SRCall = call;
-    const PrimaryType *callTy = CGT.resolveType(call->getType());
+    const Type *callTy = CGT.resolveType(call->getType());
 
     // If the destination is null allocate a temporary.
     if (dst == 0) {
@@ -537,6 +551,88 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
     return result;
 }
 
+llvm::Value *CallEmitter::emitAttributeCall()
+{
+    FunctionAttribDecl *attrib = cast<FunctionAttribDecl>(SRCall->getConnective());
+    llvm::Value *result;
+
+    switch (attrib->getKind()) {
+    default:
+        assert(false && "Unexpected attribute kind!");
+        result = 0;
+        break;
+
+    case Ast::AST_PosAD:
+        result = emitAttribute(cast<PosAD>(attrib));
+        break;
+
+    case Ast::AST_ValAD:
+        result = emitAttribute(cast<ValAD>(attrib));
+        break;
+
+    };
+
+    return result;
+}
+
+llvm::Value *CallEmitter::emitAttribute(PosAD *attrib)
+{
+    BoundsEmitter emitter(CGR);
+
+    // The return type is of type universal_integer.  Perform the following
+    // calculations in this domain (this is always the widest integer type
+    // provided by the target).
+    UniversalType *retTy;
+    const llvm::IntegerType *targetTy;
+    retTy = cast<UniversalType>(attrib->getReturnType());
+    targetTy = cast<llvm::IntegerType>(CGT.lowerUniversalType(retTy));
+
+    Expr *argExpr = *SRCall->begin_arguments();
+    DiscreteType *argTy = cast<DiscreteType>(argExpr->getType());
+    llvm::Value *arg = CGR.emitValue(argExpr).first();
+    const llvm::Type *sourceTy = cast<llvm::IntegerType>(arg->getType());
+
+    // Compute the bounds of the type.
+    llvm::Value *lower = emitter.getLowerBound(Builder, argTy);
+
+    // Convert to the target type if needed.
+    if (sourceTy != targetTy) {
+        if (argTy->isSigned()) {
+            arg = Builder.CreateSExt(arg, targetTy);
+            lower = Builder.CreateSExt(lower, targetTy);
+        }
+        else {
+            arg = Builder.CreateZExt(arg, targetTy);
+            lower = Builder.CreateZExt(lower, targetTy);
+        }
+    }
+
+    // Subtract the argument from the lower bound.
+    return Builder.CreateSub(arg, lower);
+}
+
+llvm::Value *CallEmitter::emitAttribute(ValAD *attrib)
+{
+    BoundsEmitter emitter(CGR);
+
+    // FIXME: The argument is of type universal_integer.  The type checker does
+    // not guarantee that this value is within the bounds of the return type.
+    // Emit a range check.
+    Expr *argExpr = *SRCall->begin_arguments();
+    llvm::Value *arg = CGR.emitValue(argExpr).first();
+
+    DiscreteType *returnTy = cast<DiscreteType>(attrib->getReturnType());
+    const llvm::Type *targetTy = CGT.lowerType(returnTy);
+
+    // Truncate to the target type if needed.
+    if (arg->getType() != targetTy)
+        arg = Builder.CreateTrunc(arg, targetTy);
+
+    // Compute the bounds of the type and add the argument to the lower bound.
+    llvm::Value *lower = emitter.getLowerBound(Builder, returnTy);
+    return Builder.CreateAdd(arg, lower);
+}
+
 llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
 {
     CommaRT &CRT = CG.getRuntime();
@@ -806,7 +902,7 @@ CValue CodeGenRoutine::emitFunctionCall(FunctionCallExpr *expr)
 {
     CallEmitter emitter(*this, Builder);
 
-    if (resolveType(expr->getType())->isFatAccessType())
+    if (resolveType(expr)->isFatAccessType())
         return emitter.emitCompositeCall(expr, 0);
     else
         return emitter.emitSimpleCall(expr);

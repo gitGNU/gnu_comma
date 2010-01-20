@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -12,6 +12,7 @@
 /// \brief Implementation of the compile-time expression evaluation routines.
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribDecl.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 
@@ -32,6 +33,41 @@ namespace {
 /// \return True if \p expr was static and \p result was set. False otherwise.
 bool staticDiscreteFunctionValue(const FunctionCallExpr *expr,
                                  llvm::APInt &result);
+
+/// Helper for staticDiscreteFunctionValue.
+///
+/// Attepmts to evaluate the given function call expression using an attribute
+/// connective.
+bool staticDiscreteFunctionAttribValue(const FunctionCallExpr *expr,
+                                       llvm::APInt &result);
+
+/// Attempts to evaluate a Pos attribute staticly.
+///
+/// \param prefix The discrete type forming the prefix to the attribute.
+///
+/// \param arg The argument supplied to the attribute.
+///
+/// \param result If the attribute was successfully evaluated \p result is set
+/// to the computed value.
+///
+/// \return True if the attribute was static and \p result was set.  False
+/// otherwise.
+bool staticDiscretePosAttribValue(const DiscreteType *prefix, const Expr *arg,
+                                  llvm::APInt &result);
+
+/// Attempts to evaluate a Val attribute staticly.
+///
+/// \param prefix The discrete type forming the prefix to the attribute.
+///
+/// \param arg The argument supplied to the attribute.
+///
+/// \param result If the attribute was successfully evaluated \p result is set
+/// to the computed value.
+///
+/// \return True if the attribute was static and \p result was set.  False
+/// otherwise.
+bool staticDiscreteValAttribValue(const DiscreteType *prefix, const Expr *arg,
+                                  llvm::APInt &result);
 
 /// Attempts to evaluate a static, unary, discrete valued function call.
 ///
@@ -121,7 +157,7 @@ bool staticDiscreteFunctionValue(const FunctionCallExpr *expr,
     PO::PrimitiveID ID = getCallPrimitive(expr);
 
     if (ID == PO::NotPrimitive)
-        return false;
+        return staticDiscreteFunctionAttribValue(expr, result);
 
     typedef FunctionCallExpr::const_arg_iterator iterator;
     iterator I = expr->begin_arguments();
@@ -147,6 +183,90 @@ bool staticDiscreteFunctionValue(const FunctionCallExpr *expr,
     else
         // All other primitives do not denote integer valued expressions.
         return false;
+}
+
+bool staticDiscreteFunctionAttribValue(const FunctionCallExpr *expr,
+                                       llvm::APInt &result)
+{
+    bool success = false;
+    const FunctionAttribDecl *decl;
+
+    if (expr->isAmbiguous() ||
+        !(decl = dyn_cast<FunctionAttribDecl>(expr->getConnective())))
+        return false;
+
+    switch (decl->getKind()) {
+
+    default:
+        // Not staticly evaluable.
+        success = false;
+        break;
+
+    case Ast::AST_PosAD: {
+        const PosAD *attrib = cast<PosAD>(decl);
+        success = staticDiscretePosAttribValue
+            (attrib->getPrefix(), *expr->begin_arguments(), result);
+        break;
+    }
+
+    case Ast::AST_ValAD: {
+        const ValAD *attrib = cast<ValAD>(decl);
+        success = staticDiscreteValAttribValue
+            (attrib->getPrefix(), *expr->begin_arguments(), result);
+    }
+    };
+
+    return success;
+}
+
+bool staticDiscretePosAttribValue(const DiscreteType *prefix, const Expr *arg,
+                                  llvm::APInt &result)
+{
+    llvm::APInt lower;
+    llvm::APInt pos;
+
+    // Obtain the lower bound of the discrete type if possible.
+    if (const Range *constraint = prefix->getConstraint()) {
+        if (constraint->hasStaticLowerBound())
+            lower = constraint->getStaticLowerBound();
+        else
+            return false;
+    }
+    else
+        prefix->getLowerLimit(lower);
+
+    // Attempt to evaluate the argument.
+    if (!arg->staticDiscreteValue(pos))
+        return false;
+
+    // The position of the argument is its value minus the lower limit.
+    result = subtract(pos, lower);
+    return true;
+}
+
+bool staticDiscreteValAttribValue(const DiscreteType *prefix, const Expr *arg,
+                                  llvm::APInt &result)
+{
+    llvm::APInt lower;
+    llvm::APInt val;
+
+    // Obtain the lower bound of the discrete type if possible.
+    if (const Range *constraint = prefix->getConstraint()) {
+        if (constraint->hasStaticLowerBound())
+            lower = constraint->getStaticLowerBound();
+        else
+            return false;
+    }
+    else
+        prefix->getLowerLimit(lower);
+
+    // Attempt to evaluate the argument.
+    if (!arg->staticDiscreteValue(val))
+        return false;
+
+    // The value of this attribute is the position number plus the lower limit.
+    result = add(val, lower);
+    return true;
 }
 
 bool staticDiscreteBinaryValue(PO::PrimitiveID ID,

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/ast/AstResource.h"
+#include "comma/ast/AttribDecl.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DeclRewriter.h"
@@ -917,7 +918,7 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
 
     // Construct the subtype.
     EnumerationType *subtype;
-    subtype = resource.createEnumSubtype(name, root, lower, upper);
+    subtype = resource.createEnumSubtype(root, lower, upper);
     CorrespondingType = subtype;
 
     // Construct enumeration literals for each Id/Location pair and add them to
@@ -929,10 +930,46 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
             new EnumLiteral(resource, name, loc, i, subtype, this);
         addDecl(elem);
     }
+
+    // Now that the type is in place initialize the required attribute
+    // declarations.
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
+}
+
+EnumerationDecl::EnumerationDecl(AstResource &resource, IdentifierInfo *name,
+                                 Location loc,
+                                 EnumerationType *subtype, DeclRegion *region)
+    : TypeDecl(AST_EnumerationDecl, name, loc, region),
+      DeclRegion(AST_EnumerationDecl, region),
+      numLiterals(0)
+{
+    bits |= Subtype_FLAG;       // Mark this as a subtype.
+    CorrespondingType = resource.createEnumSubtype(subtype, this);
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
+}
+
+EnumerationDecl::EnumerationDecl(AstResource &resource, IdentifierInfo *name,
+                                 Location loc,
+                                 EnumerationType *subtype,
+                                 Expr *lower, Expr *upper, DeclRegion *region)
+    : TypeDecl(AST_EnumerationDecl, name, loc, region),
+      DeclRegion(AST_EnumerationDecl, region),
+      numLiterals(0)
+{
+    bits |= Subtype_FLAG;       // Mark this as a subtype.
+    CorrespondingType = resource.createEnumSubtype(subtype, lower, upper, this);
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
 }
 
 void EnumerationDecl::generateImplicitDeclarations(AstResource &resource)
 {
+    // Subtype declarations do not provide any additional operations.
+    if (isSubtypeDeclaration())
+        return;
+
     EnumerationType *type = getType();
     Location loc = getLocation();
 
@@ -1013,24 +1050,26 @@ EnumLiteral *EnumerationDecl::getLastLiteral()
     return 0;
 }
 
-//===----------------------------------------------------------------------===//
-// EnumSubtypeDecl
-
-EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
-                                 Location loc,
-                                 EnumerationType *subtype, DeclRegion *region)
-    : SubtypeDecl(AST_EnumSubtypeDecl, name, loc, region)
+FunctionAttribDecl *EnumerationDecl::getAttribute(attrib::AttributeID ID)
 {
-    CorrespondingType = resource.createEnumSubtype(name, subtype);
-}
+    FunctionAttribDecl *attrib = 0;
 
-EnumSubtypeDecl::EnumSubtypeDecl(AstResource &resource, IdentifierInfo *name,
-                                 Location loc,
-                                 EnumerationType *subtype,
-                                 Expr *lower, Expr *upper, DeclRegion *region)
-    : SubtypeDecl(AST_EnumSubtypeDecl, name, loc, region)
-{
-    CorrespondingType = resource.createEnumSubtype(name, subtype, lower, upper);
+    switch (ID) {
+
+    default:
+        assert(false && "Invalid attribute for enumeration type!");
+        attrib = 0;
+        break;
+
+    case attrib::Pos:
+        attrib = getPosAttribute();
+        break;
+
+    case attrib::Val:
+        attrib = getValAttribute();
+    }
+
+    return attrib;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1044,9 +1083,6 @@ IntegerDecl::IntegerDecl(AstResource &resource,
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lower), highExpr(upper)
 {
-    // Clear the subclass bits.
-    Ast::bits = 0;
-
     llvm::APInt lowVal;
     llvm::APInt highVal;
 
@@ -1057,8 +1093,41 @@ IntegerDecl::IntegerDecl(AstResource &resource,
     upper->staticDiscreteValue(highVal);
 
     IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
-    CorrespondingType =
-        resource.createIntegerSubtype(name, base, lowVal, highVal);
+    CorrespondingType = resource.createIntegerSubtype(base, lowVal, highVal);
+
+    // Initialize the required attribute declarations now that the type is in
+    // place.
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
+}
+
+
+IntegerDecl::IntegerDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         IntegerType *subtype, DeclRegion *parent)
+    : TypeDecl(AST_IntegerDecl, name, loc, parent),
+      DeclRegion(AST_IntegerDecl, parent),
+      lowExpr(0), highExpr(0)
+{
+    bits = true;                // Mark this as a subtype.
+    CorrespondingType = resource.createIntegerSubtype(subtype, this);
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
+}
+
+IntegerDecl::IntegerDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         IntegerType *subtype,
+                         Expr *lower, Expr *upper, DeclRegion *parent)
+    : TypeDecl(AST_IntegerDecl, name, loc, parent),
+      DeclRegion(AST_IntegerDecl, parent),
+      lowExpr(lower), highExpr(upper)
+{
+    bits = true;                // Mark this as a subtype.
+    CorrespondingType = resource.createIntegerSubtype
+        (subtype, lower, upper, this);
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
 }
 
 // Note that we could perform these initializations in the constructor, but it
@@ -1066,6 +1135,10 @@ IntegerDecl::IntegerDecl(AstResource &resource,
 // declared.  For now this is a separate method which called separately.
 void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
 {
+    // Subtype declarations do not provide any additional operations.
+    if (isSubtypeDeclaration())
+        return;
+
     IntegerType *type = getBaseSubtype();
     Location loc = getLocation();
 
@@ -1086,26 +1159,26 @@ void IntegerDecl::generateImplicitDeclarations(AstResource &resource)
     addDecl(resource.createPrimitiveDecl(PO::POS_op, loc, type, this));
 }
 
-//===----------------------------------------------------------------------===//
-// IntegerSubtypeDecl
-
-IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
-                                       IdentifierInfo *name, Location loc,
-                                       IntegerType *subtype, DeclRegion *parent)
-    : SubtypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
+FunctionAttribDecl *IntegerDecl::getAttribute(attrib::AttributeID ID)
 {
-    CorrespondingType = resource.createIntegerSubtype(name, subtype);
-}
+    FunctionAttribDecl *attrib = 0;
 
-IntegerSubtypeDecl::IntegerSubtypeDecl(AstResource &resource,
-                                       IdentifierInfo *name, Location loc,
-                                       IntegerType *subtype,
-                                       Expr *lower, Expr *upper,
-                                       DeclRegion *parent)
-    : SubtypeDecl(AST_IntegerSubtypeDecl, name, loc, parent)
-{
-    CorrespondingType =
-        resource.createIntegerSubtype(name, subtype, lower, upper);
+    switch (ID) {
+
+    default:
+        assert(false && "Invalid attribute for integer type!");
+        attrib = 0;
+        break;
+
+    case attrib::Pos:
+        attrib = getPosAttribute();
+        break;
+
+    case attrib::Val:
+        attrib = getValAttribute();
+    }
+
+    return attrib;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1130,34 +1203,6 @@ ArrayDecl::ArrayDecl(AstResource &resource,
 
     // Create the first subtype.
     CorrespondingType = resource.createArraySubtype(name, base);
-}
-
-//===----------------------------------------------------------------------===//
-// ArraySubtypeDecl
-
-ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
-                                   IdentifierInfo *name, Location loc,
-                                   ArrayType *subtype, DeclRegion *parent)
-    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent)
-{
-    CorrespondingType = resource.createArraySubtype(name, subtype);
-}
-
-ArraySubtypeDecl::ArraySubtypeDecl(AstResource &resource,
-                                   IdentifierInfo *name, Location loc,
-                                   ArrayType *subtype, DSTDefinition **indices,
-                                   DeclRegion *parent)
-    : SubtypeDecl(AST_ArraySubtypeDecl, name, loc, parent),
-      indices(indices, indices + subtype->getRank())
-{
-    // Extract the type nodes of the DSTDefinitions.
-    unsigned rank = subtype->getRank();
-    llvm::SmallVector<DiscreteType*, 8> indexTypes(rank);
-    for (unsigned i = 0; i < rank; ++i)
-        indexTypes[i] = indices[0]->getType();
-
-    CorrespondingType =
-        resource.createArraySubtype(name, subtype, &indexTypes[0]);
 }
 
 //===----------------------------------------------------------------------===//

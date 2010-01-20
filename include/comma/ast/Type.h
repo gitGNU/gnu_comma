@@ -82,6 +82,18 @@ public:
     /// Returns true if this is a universal type.
     bool isUniversalType() const;
 
+    /// Returns true if this is the universal integer type.
+    bool isUniversalIntegerType() const;
+
+    /// Returns true if this is the universal access type.
+    bool isUniversalAccessType() const;
+
+    /// Returns true if this is the universal fixed type.
+    bool isUniversalFixedType() const;
+
+    /// Returns true if this is the universal real type.
+    bool isUniversalRealType() const;
+
     /// Returns true if this is a universal type which contains (or covers) the
     /// given type.
     bool isUniversalTypeOf(const Type *type) const;
@@ -274,11 +286,20 @@ public:
 
     /// \name Predicates.
     //@{
-    bool isUniversalInteger() const { return this == universal_integer; }
-    bool isUniversalAccess()  const { return this == universal_access;  }
-    bool isUniversalFixed()   const { return this == universal_fixed;   }
-    bool isUniversalReal()    const { return this == universal_real;    }
+    bool isUniversalIntegerType() const { return this == universal_integer; }
+    bool isUniversalAccessType()  const { return this == universal_access;  }
+    bool isUniversalFixedType()   const { return this == universal_fixed;   }
+    bool isUniversalRealType()    const { return this == universal_real;    }
     //@}
+
+    /// Returns the classification this universal type represents.
+    Classification getClassification() const {
+        // FIXME: Support all classifications.
+        if (isUniversalIntegerType())
+            return CLASS_Integer;
+        assert(isUniversalAccessType() && "Unexpected universal type!");
+        return CLASS_Access;
+    }
 
     // Support isa/dyn_cast.
     static bool classof(const UniversalType *node) { return true; }
@@ -678,6 +699,14 @@ public:
         return false;
     }
 
+    /// Returns the declaration corresponding to the Pos attribute for this
+    /// type.
+    virtual PosAD *getPosAttribute() = 0;
+
+    /// Returns the declaration corresponding to the Val attribute for this
+    /// type.
+    virtual ValAD *getValAttribute() = 0;
+
     // Support isa/dyn_cast.
     static bool classof(const DiscreteType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -755,6 +784,22 @@ public:
     const EnumerationType *getBaseSubtype() const;
     //@}
 
+    //@{
+    /// Returns the underlying enumeration declaration for this type.
+    const EnumerationDecl *getDefiningDecl() const {
+        return const_cast<EnumerationType*>(this)->getDefiningDecl();
+    }
+    EnumerationDecl *getDefiningDecl();
+    //@}
+
+    /// Returns the declaration corresponding to the Pos attribute for this
+    /// type.
+    PosAD *getPosAttribute();
+
+    /// Returns the declaration corresponding to the Val attribute for this
+    /// type.
+    ValAD *getValAttribute();
+
     // Support isa and dyn_cast.
     static bool classof(const EnumerationType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -772,14 +817,13 @@ private:
                                    EnumerationDecl *decl);
 
     /// Builds an unconstrained enumeration subtype.
-    static EnumerationType *
-    createSubtype(EnumerationType *rootType, IdentifierInfo *name);
+    static EnumerationType *createSubtype(EnumerationType *rootType,
+                                          EnumerationDecl *decl = 0);
 
     /// Builds a constrained enumeration subtype over the given bounds.
-    static EnumerationType *
-    createConstrainedSubtype(EnumerationType *rootType,
-                             Expr *lowerBound, Expr *upperBound,
-                             IdentifierInfo *name);
+    static EnumerationType *createConstrainedSubtype(EnumerationType *rootType,
+                                                     Expr *lower, Expr *upper,
+                                                     EnumerationDecl *decl);
     //@}
     friend class AstResource;
 
@@ -805,9 +849,6 @@ protected:
         : DiscreteType(AST_EnumerationType, rootOrParent, isSubtypeKind(kind)) {
         bits = kind;
     }
-
-    /// Returns the underlying enumeration declaration for this type.
-    const EnumerationDecl *getDeclaration() const;
 
 public:
     /// Returns the EnumKind of this node.  For internal use only.
@@ -874,6 +915,14 @@ public:
     }
     //@}
 
+    /// Returns the declaration corresponding to the Pos attribute for this
+    /// type.
+    PosAD *getPosAttribute();
+
+    /// Returns the declaration corresponding to the Val attribute for this
+    /// type.
+    ValAD *getValAttribute();
+
     /// Support isa and dyn_cast.
     static bool classof(const IntegerType *node) { return true; }
     static bool classof(const Ast *node) {
@@ -887,22 +936,33 @@ private:
     /// various types of IntegerType nodes.
     //@{
 
-    /// Builds a root integer type with the given static bounds.
+    /// Builds a root integer type with the given bounds.
     static IntegerType *create(AstResource &resource, IntegerDecl *decl,
                                const llvm::APInt &lower,
                                const llvm::APInt &upper);
 
     /// Builds an unconstrained integer subtype.
-    static IntegerType *
-    createSubtype(IntegerType *rootType, IdentifierInfo *name);
+    static IntegerType *createSubtype(IntegerType *rootType,
+                                      IntegerDecl *decl = 0);
 
     /// Builds a constrained integer subtype over the given bounds.
-    static IntegerType *
-    createConstrainedSubtype(IntegerType *rootType,
-                             Expr *lowerBound, Expr *upperBound,
-                             IdentifierInfo *name);
+    ///
+    /// If \p decl is null an anonymous integer subtype is created.  Otherwise
+    /// the constructed type is associated with the given declaration.
+    static IntegerType *createConstrainedSubtype(IntegerType *rootType,
+                                                 Expr *lower, Expr *upper,
+                                                 IntegerDecl *decl);
+
     //@}
     friend class AstResource;
+
+    //@{
+    /// Returns the declaration defining this integer type.
+    const IntegerDecl *getDefiningDecl() const {
+        return const_cast<IntegerType*>(this)->getDefiningDecl();
+    }
+    virtual IntegerDecl *getDefiningDecl() = 0;
+    //@}
 
 protected:
     /// IntegerType nodes are implemented using three internal classes

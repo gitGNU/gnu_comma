@@ -36,7 +36,7 @@ bool Type::memberOf(Classification ID) const
     case CLASS_Enum:
         return isEnumType();
     case CLASS_Integer:
-        return isIntegerType();
+        return isIntegerType() || isUniversalIntegerType();
     case CLASS_Composite:
         return isCompositeType();
     case CLASS_Array:
@@ -44,7 +44,7 @@ bool Type::memberOf(Classification ID) const
     case CLASS_String:
         return isStringType();
     case CLASS_Access:
-        return isAccessType();
+        return isAccessType() || isUniversalAccessType();
     }
 }
 
@@ -118,19 +118,43 @@ bool Type::isUniversalType() const
     return isa<UniversalType>(this);
 }
 
+bool Type::isUniversalIntegerType() const
+{
+    if (const UniversalType *univTy = dyn_cast<UniversalType>(this))
+        return univTy->isUniversalIntegerType();
+    return false;
+}
+
+bool Type::isUniversalAccessType() const
+{
+    if (const UniversalType *univTy = dyn_cast<UniversalType>(this))
+        return univTy->isUniversalAccessType();
+    return false;
+}
+
+bool Type::isUniversalFixedType() const
+{
+    if (const UniversalType *univTy = dyn_cast<UniversalType>(this))
+        return univTy->isUniversalFixedType();
+    return false;
+}
+
+bool Type::isUniversalRealType() const
+{
+    if (const UniversalType *univTy = dyn_cast<UniversalType>(this))
+        return univTy->isUniversalRealType();
+    return false;
+}
+
 bool Type::isUniversalTypeOf(const Type *type) const
 {
-    if (const UniversalType *utype = dyn_cast<UniversalType>(this)) {
-        if (utype->isUniversalInteger())
-            return type->memberOf(CLASS_Integer);
-        if (utype->isUniversalAccess())
-            return type->memberOf(CLASS_Access);
-
-        // FIXME: We do not yet have memberOf predicates for fixed or real
-        // types.
+    if (type->isUniversalIntegerType())
+        return type->memberOf(CLASS_Integer);
+    if (type->isUniversalAccessType())
+        return type->memberOf(CLASS_Access);
+    if (type->isUniversalFixedType() || type->isUniversalRealType())
         assert(false && "Cannot handle this kind of universal type yet!");
-        return false;
-    }
+
     return false;
 }
 
@@ -576,20 +600,32 @@ class UnconstrainedEnumType : public EnumerationType {
 
 public:
     UnconstrainedEnumType(EnumerationType *base,
-                          IdentifierInfo *name = 0)
+                          EnumerationDecl *decl = 0)
         : EnumerationType(UnconstrainedEnumType_KIND, base),
-          idInfo(name) { }
+          definingDecl(decl) {
+        assert(decl == 0 || decl->isSubtypeDeclaration());
+    }
 
     /// Returns true if this is an anonymous subtype.
-    bool isAnonymous() const { return idInfo == 0; }
+    bool isAnonymous() const { return definingDecl == 0; }
 
     /// Returns the identifier which most appropriately names this subtype.
     ///
     /// If this subtype is anonymous, the identifier returned is that of the
     /// root type.
     IdentifierInfo *getIdInfo() const {
-        return idInfo ? idInfo : getRootType()->getIdInfo();
+        if (isAnonymous())
+            return getRootType()->getIdInfo();
+        else
+            return definingDecl->getIdInfo();
     }
+
+    //@{
+    /// Returns the defining declaration of this subtype or null if this is an
+    /// anonymous subtype.
+    const EnumerationDecl *getDefiningDecl() const { return definingDecl; }
+    EnumerationDecl *getDefiningDecl() { return definingDecl; }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const UnconstrainedEnumType *node) { return true; }
@@ -598,7 +634,7 @@ public:
     }
 
 private:
-    IdentifierInfo *idInfo;
+    EnumerationDecl *definingDecl;
 };
 
 class ConstrainedEnumType : public EnumerationType {
@@ -606,20 +642,23 @@ class ConstrainedEnumType : public EnumerationType {
 public:
     ConstrainedEnumType(EnumerationType *base,
                         Expr *lowerBound, Expr *upperBound,
-                        IdentifierInfo *name = 0)
+                        EnumerationDecl *decl = 0)
         : EnumerationType(ConstrainedEnumType_KIND, base),
           constraint(new Range(lowerBound, upperBound, base)),
-          idInfo(name) { }
+          definingDecl(decl) { }
 
     /// Returns true if this is an anonymous subtype.
-    bool isAnonymous() const { return idInfo == 0; }
+    bool isAnonymous() const { return definingDecl == 0; }
 
     /// Returns the identifier which most appropriately names this subtype.
     ///
     /// If this is an anonymous type, returns the identifier of the underlying
     /// root type.
     IdentifierInfo *getIdInfo() const {
-        return idInfo ? idInfo : getRootType()->getIdInfo();
+        if (isAnonymous())
+            return getRootType()->getIdInfo();
+        else
+            return definingDecl->getIdInfo();
     }
 
     //@{
@@ -632,6 +671,13 @@ public:
     /// statically known.
     bool isStaticallyConstrained() const { return constraint->isStatic(); }
 
+    //@{
+    /// Returns the defining declaration of this subtype or null if this is an
+    /// anonymous subtype.
+    const EnumerationDecl *getDefiningDecl() const { return definingDecl; }
+    EnumerationDecl *getDefiningDecl() { return definingDecl; }
+    //@}
+
     // Support isa/dyn_cast.
     static bool classof(const ConstrainedEnumType *node) { return true; }
     static bool classof(const EnumerationType *node) {
@@ -639,8 +685,8 @@ public:
     }
 
 private:
-    Range *constraint;          ///< The constraint on this subtype.
-    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
+    Range *constraint;             ///< The constraint on this subtype.
+    EnumerationDecl *definingDecl; ///< Defining decl or null.
 };
 
 } // end anonymous namespace.
@@ -649,14 +695,8 @@ RootEnumType::RootEnumType(AstResource &resource, EnumerationDecl *decl)
     : EnumerationType(RootEnumType_KIND, 0),
       definingDecl(decl)
 {
-    // Build the base unconstrained subtype node.  This type is given the name
-    // "I'Base" where I is the defining identifier of the corresponding
-    // declaration.
-    llvm::Twine name(definingDecl->getString());
-    name = name + "'Base";
-    IdentifierInfo *id = resource.getIdentifierInfo(name.str());
-    baseType = cast<UnconstrainedEnumType>(
-        resource.createEnumSubtype(id, this));
+    // Build the base unconstrained subtype node.
+    baseType = cast<UnconstrainedEnumType>(resource.createEnumSubtype(this));
 }
 
 uint64_t RootEnumType::getSize() const
@@ -675,15 +715,15 @@ EnumerationType *RootEnumType::getBaseSubtype()
     return baseType;
 }
 
-const EnumerationDecl *EnumerationType::getDeclaration() const
+EnumerationDecl *EnumerationType::getDefiningDecl()
 {
-    const RootEnumType *root = cast<RootEnumType>(getRootType());
+    RootEnumType *root = cast<RootEnumType>(getRootType());
     return root->getDefiningDecl();
 }
 
 bool EnumerationType::isCharacterType() const
 {
-    return getDeclaration()->isCharacterType();
+    return getDefiningDecl()->isCharacterType();
 };
 
 uint64_t EnumerationType::getNumLiterals() const
@@ -731,6 +771,19 @@ EnumerationType *EnumerationType::getBaseSubtype()
     return root->getBaseSubtype();
 }
 
+
+PosAD *EnumerationType::getPosAttribute()
+{
+    assert(false && "Enumeration attributes not yet implemented!");
+    return 0;
+}
+
+ValAD *EnumerationType::getValAttribute()
+{
+    assert(false && "Enumeration attributes not yet implemented!");
+    return 0;
+}
+
 EnumerationType *EnumerationType::create(AstResource &resource,
                                          EnumerationDecl *decl)
 {
@@ -738,17 +791,17 @@ EnumerationType *EnumerationType::create(AstResource &resource,
 }
 
 EnumerationType *EnumerationType::createSubtype(EnumerationType *type,
-                                                IdentifierInfo *name)
+                                                EnumerationDecl *decl)
 {
-    return new UnconstrainedEnumType(type, name);
+    return new UnconstrainedEnumType(type, decl);
 }
 
 EnumerationType *
 EnumerationType::createConstrainedSubtype(EnumerationType *type,
                                           Expr *lowerBound, Expr *upperBound,
-                                          IdentifierInfo *name)
+                                          EnumerationDecl *decl)
 {
-    return new ConstrainedEnumType(type, lowerBound, upperBound, name);
+    return new ConstrainedEnumType(type, lowerBound, upperBound, decl);
 }
 
 //===----------------------------------------------------------------------===//
@@ -811,22 +864,24 @@ private:
 class ConstrainedIntegerType : public IntegerType {
 
 public:
-    ConstrainedIntegerType(IntegerType *base,
-                           Expr *lowerBound, Expr *upperBound,
-                           IdentifierInfo *name = 0)
+    ConstrainedIntegerType(IntegerType *base, Expr *lower, Expr *upper,
+                           IntegerDecl *decl = 0)
         : IntegerType(ConstrainedIntegerType_KIND, base),
-          constraint(new Range(lowerBound, upperBound, base)),
-          idInfo(name) { }
+          constraint(new Range(lower, upper, base)),
+          definingDecl(decl) { }
 
     /// Returns true if this is an anonymous subtype.
-    bool isAnonymous() const { return idInfo == 0; }
+    bool isAnonymous() const { return definingDecl == 0; }
 
     /// Returns the identifier which most appropriately names this subtype.
     ///
     /// If this is an anonymous subtype, the identifier returned is that of the
     /// root type.
     IdentifierInfo *getIdInfo() const {
-        return idInfo ? idInfo : getRootType()->getIdInfo();
+        if (isAnonymous())
+            return getRootType()->getIdInfo();
+        else
+            return definingDecl->getIdInfo();
     }
 
     //@{
@@ -839,6 +894,13 @@ public:
     /// statically constrained.
     bool isStaticallyConstrained() const { return constraint->isStatic(); }
 
+    //@{
+    /// Returns the defining declaration of this subtype or null if this is an
+    /// anonymous subtype.
+    const IntegerDecl *getDefiningDecl() const { return definingDecl;  }
+    IntegerDecl *getDefiningDecl() { return definingDecl; }
+    //@}
+
     // Support isa/dyn_cast.
     static bool classof(const ConstrainedIntegerType *node) { return true; }
     static bool classof(const IntegerType *node) {
@@ -846,27 +908,39 @@ public:
     }
 
 private:
-    Range *constraint;          ///< the constraints on this subtype.
-    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
+    Range *constraint;          ///< subtype constraints.
+    IntegerDecl *definingDecl;  ///< Defining decl or null.
 };
 
 class UnconstrainedIntegerType : public IntegerType {
 
 public:
     UnconstrainedIntegerType(IntegerType *base,
-                             IdentifierInfo *name = 0)
+                             IntegerDecl *decl = 0)
         : IntegerType(UnconstrainedIntegerType_KIND, base),
-          idInfo(name) { }
+          definingDecl(decl) {
+        assert(decl == 0 || decl->isSubtypeDeclaration());
+    }
 
     /// Returns true if this is an anonymous subtype.
-    bool isAnonymous() const { return idInfo == 0; }
+    bool isAnonymous() const { return definingDecl == 0; }
+
+    //@{
+    /// Returns the defining decl of this subtype or null if this is an
+    /// anonymous subtype.
+    const IntegerDecl *getDefiningDecl() const { return definingDecl; }
+    IntegerDecl *getDefiningDecl() { return definingDecl; }
+    //@}
 
     /// Returns the identifier which most appropriately names this subtype.
     ///
     /// If this is an anonymous subtype, the identifier returned is that of the
     /// root type.
     IdentifierInfo *getIdInfo() const {
-        return idInfo ? idInfo : getRootType()->getIdInfo();
+        if (isAnonymous())
+            return getRootType()->getIdInfo();
+        else
+            return definingDecl->getIdInfo();
     }
 
     // Support isa/dyn_cast.
@@ -876,7 +950,7 @@ public:
     }
 
 private:
-    IdentifierInfo *idInfo;     ///< The name of this subtype or null.
+    IntegerDecl *definingDecl;  ///< Defining decl or null.
 };
 
 } // end anonymous namespace.
@@ -890,14 +964,9 @@ RootIntegerType::RootIntegerType(AstResource &resource,
 {
     initBounds(low, high);
 
-    // Build the base unconstrained subtype node.  This type is given the name
-    // "I'Base", where I is the defining identifier of the corresponding
-    // declaration.
-    llvm::Twine name(definingDecl->getString());
-    name = name + "'Base";
-    IdentifierInfo *id = resource.getIdentifierInfo(name.str());
-    baseType = cast<UnconstrainedIntegerType>(
-        resource.createIntegerSubtype(id, this));
+    // Build the base unconstrained subtype node.
+    baseType = cast<UnconstrainedIntegerType>
+        (resource.createIntegerSubtype(this));
 }
 
 void RootIntegerType::initBounds(const llvm::APInt &low,
@@ -922,17 +991,17 @@ IntegerType *IntegerType::create(AstResource &resource, IntegerDecl *decl,
 }
 
 IntegerType *IntegerType::createSubtype(IntegerType *type,
-                                        IdentifierInfo *name)
+                                        IntegerDecl *decl)
 {
-    return new UnconstrainedIntegerType(type, name);
+    return new UnconstrainedIntegerType(type, decl);
 }
 
 IntegerType *IntegerType::createConstrainedSubtype(IntegerType *type,
                                                    Expr *lowerBound,
                                                    Expr *upperBound,
-                                                   IdentifierInfo *name)
+                                                   IntegerDecl *decl)
 {
-    return new ConstrainedIntegerType(type, lowerBound, upperBound, name);
+    return new ConstrainedIntegerType(type, lowerBound, upperBound, decl);
 }
 
 IntegerType *IntegerType::getBaseSubtype()
@@ -997,6 +1066,16 @@ uint64_t IntegerType::getSize() const
 {
     const RootIntegerType *root = cast<RootIntegerType>(getRootType());
     return root->getSize();
+}
+
+PosAD *IntegerType::getPosAttribute()
+{
+    return getDefiningDecl()->getPosAttribute();
+}
+
+ValAD *IntegerType::getValAttribute()
+{
+    return getDefiningDecl()->getValAttribute();
 }
 
 //===----------------------------------------------------------------------===//

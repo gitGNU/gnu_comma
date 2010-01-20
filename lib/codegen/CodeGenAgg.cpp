@@ -147,9 +147,9 @@ private:
     CValue emitCallAllocator(AllocatorExpr *expr,
                              FunctionCallExpr *call, ArrayType *arrTy);
 
-    /// Emits an allocation initialized by an aggregate.
-    CValue emitAggregateAllocator(AllocatorExpr *expr,
-                                  AggregateExpr *agg, ArrayType *arrTy);
+    /// Emits an allocation initialized by an unconstrained value.
+    CValue emitValueAllocator(AllocatorExpr *expr,
+                              ValueDecl *value, ArrayType *arrTy);
     //@}
 };
 
@@ -180,10 +180,18 @@ CValue ArrayEmitter::emitAllocator(AllocatorExpr *expr)
     if (operandTy->isConstrained())
         return emitConstrainedAllocator(expr, operandTy);
 
+    // Function calls, formal parameters and object declarations are the only
+    // types of expression which can have an unconstrained type.
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(operand))
         return emitCallAllocator(expr, call, arrTy);
 
-    assert(false && "Cannot codegen indefinite allocator yet!");
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(operand)) {
+        ValueDecl *value = dyn_cast<ValueDecl>(ref->getDeclaration());
+        if (value)
+            return emitValueAllocator(expr, value, arrTy);
+    }
+
+    assert(false && "Unexpected unconstrained allocator initializer!");
     return CValue::getFat(0);
 }
 
@@ -302,57 +310,53 @@ CValue ArrayEmitter::emitCallAllocator(AllocatorExpr *expr,
     return CValue::getFat(fatPtr);
 }
 
-CValue ArrayEmitter::emitAggregateAllocator(AllocatorExpr *expr,
-                                            AggregateExpr *agg,
-                                            ArrayType *arrTy)
+CValue ArrayEmitter::emitValueAllocator(AllocatorExpr *expr,
+                                        ValueDecl *param,
+                                        ArrayType *arrTy)
 {
-    llvm::Value *bounds;
-
-    if (agg->isPurelyPositional())
-        bounds = emitter.synthAggregateBounds(Builder, agg);
-    else if (agg->hasStaticIndices()) {
-        DiscreteType *indexTy = arrTy->getIndexType(0);
-        bounds = emitter.synthScalarBounds(Builder, indexTy);
-    }
-    else {
-        assert(agg->numKeys() == 1);
-        AggregateExpr::key_iterator I = agg->key_begin();
-        Range *range = cast<Range>((*I)->getRep());
-        bounds = emitter.synthRange(Builder, range);
-    }
-
-    // Compute the size and alignment of the array.
-    llvm::Value *length;
-    llvm::Value *size;
-    unsigned align;
-    const llvm::Type *componentTy;
-    const llvm::Type *resultTy;
-
-    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+    CodeGen &CG = CGR.getCodeGen();
+    CommaRT &CRT = CG.getRuntime();
     CodeGenTypes &CGT = CGR.getCGC().getCGT();
 
+    const llvm::Type *componentTy;
+    const llvm::PointerType *targetTy;
+    const llvm::StructType *fatTy;
+
     componentTy = CGT.lowerType(arrTy->getComponentType());
-    resultTy = CGT.lowerType(arrTy)->getPointerTo();
+    targetTy = CG.getVLArrayTy(componentTy)->getPointerTo();
+    fatTy = CGT.lowerFatAccessType(expr->getType());
 
-    length = emitter.computeTotalBoundLength(Builder, bounds);
-    size = llvm::ConstantInt::get(length->getType(),
-                                  CGT.getTypeSize(componentTy));
-    size = Builder.CreateMul(length, size);
-    align = CGT.getTypeAlignment(componentTy);
+    llvm::Value *fatPtr = frame()->createTemp(fatTy);
+    llvm::Value *data   = frame()->lookup(param, activation::Slot);
+    llvm::Value *bounds = frame()->lookup(param, activation::Bounds);
+    llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
 
-    llvm::Value *result = CRT.comma_alloc(Builder, size, align);
-    result = Builder.CreatePointerCast(result, resultTy);
-    llvm::Value *dst = Builder.CreateConstInBoundsGEP1_32(result, 0);
+    // Allocate the required memory and copy the data over.
+    uint64_t size = CGT.getTypeSize(componentTy);
+    unsigned align = CGT.getTypeAlignment(componentTy);
 
-    CValue aggregate = emitAggregate(agg, dst);
+    llvm::Value *dimension = Builder.CreateMul
+        (length, llvm::ConstantInt::get(length->getType(), size));
 
-    // Pack the result into a fat pointer.
-    resultTy = CGT.lowerFatAccessType(expr->getType());
-    result = frame()->createTemp(resultTy);
-    Builder.CreateStore(aggregate.first(), Builder.CreateStructGEP(result, 0));
-    Builder.CreateStore(aggregate.second(), Builder.CreateStructGEP(result, 1));
-    return CValue::getFat(result);
+    // Store the bounds into the fat pointer structure.
+    Builder.CreateStore(Builder.CreateLoad(bounds),
+                        Builder.CreateStructGEP(fatPtr, 1));
+
+    // Allocate a destination for the array and stor the data into the
+    // destination.
+    llvm::Value *dst = CRT.comma_alloc(Builder, dimension, align);
+    llvm::Function *memcpy = CG.getMemcpy32();
+    data = Builder.CreatePointerCast(data, CG.getInt8PtrTy());
+    Builder.CreateCall4(memcpy, dst, data, dimension,
+                        llvm::ConstantInt::get(CG.getInt32Ty(), align));
+
+    // Update the fat pointer with the allocated data.
+    Builder.CreateStore(Builder.CreatePointerCast(dst, targetTy),
+                        Builder.CreateStructGEP(fatPtr, 0));
+
+    return CValue::getFat(fatPtr);
 }
+
 
 CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 {
@@ -1102,7 +1106,7 @@ CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
 
 void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    PrimaryType *componentTy = CGR.resolveType(expr->getType());
+    Type *componentTy = CGR.resolveType(expr->getType());
     if (componentTy->isCompositeType())
         CGR.emitCompositeExpr(expr, dst, false);
     else if (componentTy->isFatAccessType()) {
@@ -1280,7 +1284,7 @@ CodeGenRoutine::emitCompositeExpr(Expr *expr, llvm::Value *dst, bool genTmp)
 CValue
 CodeGenRoutine::emitCompositeAllocator(AllocatorExpr *expr)
 {
-    PrimaryType *type = resolveType(expr->getAllocatedType());
+    Type *type = resolveType(expr->getAllocatedType());
 
     if (isa<ArrayType>(type)) {
         ArrayEmitter emitter(*this, Builder);

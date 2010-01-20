@@ -47,7 +47,6 @@ public:
     virtual void visitDomoid(Domoid *node);
     virtual void visitSubroutineDecl(SubroutineDecl *node);
     virtual void visitTypeDecl(TypeDecl *node);
-    virtual void visitSubtypeDecl(SubtypeDecl *node);
     virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitValueDecl(ValueDecl *node);
     ///@}
@@ -82,11 +81,8 @@ public:
     virtual void visitRenamedObjectDecl(RenamedObjectDecl *node);
     virtual void visitEnumLiteral(EnumLiteral *node);
     virtual void visitEnumerationDecl(EnumerationDecl *node);
-    virtual void visitEnumSubtypeDecl(EnumSubtypeDecl *node);
     virtual void visitIntegerDecl(IntegerDecl *node);
-    virtual void visitIntegerSubtypeDecl(IntegerSubtypeDecl *node);
     virtual void visitArrayDecl(ArrayDecl *node);
-    virtual void visitArraySubtypeDecl(ArraySubtypeDecl *node);
     virtual void visitExceptionDecl(ExceptionDecl *node);
     virtual void visitIncompleteTypeDecl(IncompleteTypeDecl *node);
     ///@}

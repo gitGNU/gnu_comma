@@ -1,0 +1,25 @@
+-- Fat access type checks.
+
+domain Test with
+   procedure Run;
+add
+
+   type String_Access is access String;
+
+   procedure Check (P : String_Access) is
+   begin
+      for I in P.all'Range loop
+         pragma Assert(P.all(I) = 'x');
+      end loop;
+   end Check;
+
+   procedure Run is
+      S_Ptr1 : String_Access := new String'("xxxxxxxxxx");
+      S_Ptr2 : String_Access := new String'(1..10 => 'x');
+   begin
+      Check(S_Ptr1);
+      Check(S_Ptr2);
+   end Run;
+
+end Test;
+
