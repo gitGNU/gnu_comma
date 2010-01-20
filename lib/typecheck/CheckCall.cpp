@@ -470,17 +470,8 @@ bool TypeCheck::checkSubroutineCallArguments(SubroutineCall *call)
 
 Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
 {
-    if (!call->isAmbiguous()) {
-        // The function call is not ambiguous.  Ensure that the return type of
-        // the call covers the target type and generate a conversion if
-        // necessary.
-        if (covers(call->getType(), targetType))
-            return convertIfNeeded(call, targetType);
-
-        // FIXME: Need a better diagnostic here.
-        report(call->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return 0;
-    }
+    if (!call->isAmbiguous())
+        return checkExprAndDereferenceInContext(call, targetType);
 
     FunctionDecl *preference = resolvePreferredConnective(call, targetType);
 
@@ -495,7 +486,7 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     }
 
     // Resolve the call and check its final interpretation.  Inject any implicit
-    // conversions needed by the arguments and on the return value.
+    // conversions or dereferences needed by the arguments and on the return value.
     call->resolveConnective(preference);
     if (!checkSubroutineCallArguments(call))
         return 0;

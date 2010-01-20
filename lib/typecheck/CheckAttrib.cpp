@@ -24,13 +24,16 @@ namespace {
 class AttributeChecker {
 
 public:
-    AttributeChecker(AstResource &resource, Diagnostic &diag,
-                     attrib::AttributeID ID)
-        : resource(resource), diagnostic(diag), ID(ID) { }
+    AttributeChecker(TypeCheck &TC, attrib::AttributeID ID)
+        : TC(TC),
+          resource(TC.getAstResource()),
+          diagnostic(TC.getDiagnostic()),
+          ID(ID) { }
 
     Ast *checkAttribute(Ast *prefix, Location loc);
 
 private:
+    TypeCheck &TC;
     AstResource &resource;
     Diagnostic &diagnostic;
     attrib::AttributeID ID;
@@ -154,16 +157,21 @@ ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
 
 RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
 {
-    // If the prefix denotes an expression, it must be of array type.
+    // If the prefix denotes an expression it must resolve to an array type
+    // including any implicit dereferencing.
     if (Expr *expr = dyn_cast<Expr>(prefix)) {
-
-        // FIXME: If the prefix expression does not have a type, then we should
-        // attempt to resolve it wrt a Type::Classification of CLASS_Array.
-        assert(expr->hasResolvedType() && "Cannot resolve array prefix yet!");
+        if (!(expr->hasResolvedType() ||
+              TC.checkExprInContext(expr, Type::CLASS_Array)))
+            return 0;
 
         if (!isa<ArrayType>(expr->getType())) {
-            report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
-            return 0;
+            Type *type = expr->getType();
+            if ((type = TC.getCoveringDereference(type, Type::CLASS_Array)))
+                expr = TC.implicitlyDereference(expr, type);
+            else {
+                report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
+                return 0;
+            }
         }
         return new ArrayRangeAttrib(expr, loc);
     }
@@ -221,6 +229,6 @@ SubroutineRef *AttributeChecker::checkPosVal(Ast *prefix, Location loc)
 Ast *TypeCheck::checkAttribute(attrib::AttributeID ID,
                                Ast *prefix, Location loc)
 {
-    AttributeChecker AC(resource, diagnostic, ID);
+    AttributeChecker AC(*this, ID);
     return AC.checkAttribute(prefix, loc);
 }

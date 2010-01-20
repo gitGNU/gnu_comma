@@ -55,6 +55,9 @@ public:
     /// Returns true if this is a procedure call statement.
     bool isaProcedureCall() const;
 
+    /// Returns true if this call is thru an operator.
+    bool denotesOperator() const;
+
     //@{
     /// Returns this as a FunctionCallExpr or null.
     FunctionCallExpr *asFunctionCall();

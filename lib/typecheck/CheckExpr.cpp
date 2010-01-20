@@ -16,6 +16,7 @@
 #include <algorithm>
 
 using namespace comma;
+using llvm::cast_or_null;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
@@ -61,7 +62,16 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
         return new IndexedArrayExpr(expr, &indices[0], indices.size());
     }
 
-    ArrayType *arrTy = dyn_cast<ArrayType>(expr->getType());
+    ArrayType *arrTy;
+    bool requiresDereference = false;
+
+    if (!(arrTy = dyn_cast<ArrayType>(expr->getType()))) {
+        Type *type = expr->getType();
+        type = getCoveringDereference(type, Type::CLASS_Array);
+        arrTy = cast_or_null<ArrayType>(type);
+        requiresDereference = arrTy != 0;
+    }
+
     if (!arrTy) {
         report(loc, diag::EXPECTED_ARRAY_FOR_INDEX);
         return 0;
@@ -83,8 +93,11 @@ IndexedArrayExpr *TypeCheck::acceptIndexedArray(Expr *expr,
             allOK = false;
     }
 
-    if (allOK)
+    if (allOK) {
+        if (requiresDereference)
+            expr = implicitlyDereference(expr, arrTy);
         return new IndexedArrayExpr(expr, &indices[0], numIndices);
+    }
     else
         return 0;
 }
@@ -122,12 +135,7 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
 
     assert(expr->hasResolvedType() && "Expression does not have a resolved type!");
 
-    if (covers(resolveType(expr->getType()), context))
-        return convertIfNeeded(expr, context);
-
-    // FIXME: Need a better diagnostic here.
-    report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
-    return 0;
+    return checkExprAndDereferenceInContext(expr, context);
 }
 
 bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
@@ -156,6 +164,30 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
         return false;
     }
     return true;
+}
+
+Expr *TypeCheck::checkExprAndDereferenceInContext(Expr *expr, Type *context)
+{
+    assert(expr->hasType() && "Expected resolved expression!");
+
+    Type *exprTy = resolveType(expr);
+
+    // Check if the expression satisfies the given context.  If so, perform any
+    // required conversions and return.
+    if (covers(exprTy, context))
+        return convertIfNeeded(expr, context);
+
+    // If implicit dereferencing of the expression can yield an expression of
+    // the appropriate type, and the expression itself denotes a name,
+    // implicitly dereference the expression.
+    if (getCoveringDereference(exprTy, context) && expr->denotesName()) {
+        expr = implicitlyDereference(expr, context);
+        return convertIfNeeded(expr, context);
+    }
+
+    // FIXME: Need a better diagnostic here.
+    report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
+    return 0;
 }
 
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,
@@ -309,12 +341,8 @@ Expr *TypeCheck::resolveAllocatorExpr(AllocatorExpr *alloc, Type *context)
 
 Expr *TypeCheck::resolveSelectedExpr(SelectedExpr *select, Type *context)
 {
-    if (select->hasResolvedType()) {
-        if (covers(select->getType(), context))
-            return convertIfNeeded(select, context);
-        report(select->getLocation(), diag::INCOMPATIBLE_TYPES);
-        return 0;
-    }
+    if (select->hasResolvedType())
+        return checkExprAndDereferenceInContext(select, context);
 
     // FIXME: The following is not general enough.  A full implementation is
     // waiting on a reorganization of the type check code that incapsultes the

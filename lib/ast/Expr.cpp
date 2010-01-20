@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
 
@@ -125,6 +126,34 @@ Expr *Expr::ignoreInjPrj()
             break;
         }
     }
+}
+
+bool Expr::denotesName() const
+{
+    bool result = false;
+
+    switch (getKind()) {
+
+    default:
+        result = isa<AttribExpr>(this);
+        break;
+
+    case AST_DeclRefExpr:
+    case AST_SelectedExpr:
+    case AST_IndexedArrayExpr:
+    case AST_ConversionExpr:
+    case AST_DereferenceExpr:
+    case AST_InjExpr:
+    case AST_PrjExpr:
+        result = true;
+        break;
+
+    case AST_FunctionCallExpr:
+        result = !cast<FunctionCallExpr>(this)->denotesOperator();
+        break;
+    }
+
+    return result;
 }
 
 //===----------------------------------------------------------------------===//

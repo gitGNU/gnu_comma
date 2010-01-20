@@ -2,14 +2,18 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef COMMA_BASIC_PRIMITIVEOPS_HDR_GUARD
 #define COMMA_BASIC_PRIMITIVEOPS_HDR_GUARD
 
+#include "llvm/ADT/StringRef.h"
+
 namespace comma {
+
+class IdentifierInfo;
 
 namespace primitive_ops {
 
@@ -89,6 +93,24 @@ inline bool denotesUnaryOp(PrimitiveID ID) {
 inline bool denotesBinaryOp(PrimitiveID ID) {
     return (FIRST_BINARY_OP <= ID) && (ID <= LAST_BINARY_OP);
 }
+
+/// Returns true if the given string names a binary operator.
+bool denotesBinaryOp(const llvm::StringRef &string);
+
+/// Returns true if the given string names a unary operator.
+bool denotesUnaryOp(const llvm::StringRef &string);
+
+/// Returns true if the given string names an operator.
+bool denotesOperator(const llvm::StringRef &string);
+
+/// Returns true if the given IdentifierInfo names a binary operator.
+bool denotesBinaryOp(const comma::IdentifierInfo *idInfo);
+
+/// Returns true if the given IdentifierInfo names a unary operator.
+bool denotesUnaryOp(const comma::IdentifierInfo *idInfo);
+
+/// Returns true if the given IdentifierInfo names an operator.
+bool denotesOperator(const comma::IdentifierInfo *idInfo);
 
 /// Returns the name of a primitive unary operator.
 inline const char *getOpName(PrimitiveID ID) {

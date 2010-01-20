@@ -11,6 +11,7 @@
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/SubroutineCall.h"
+#include "comma/basic/PrimitiveOps.h"
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -102,6 +103,15 @@ bool SubroutineCall::isaFunctionCall() const
 bool SubroutineCall::isaProcedureCall() const
 {
     return isa<ProcedureCallStmt>(this);
+}
+
+bool SubroutineCall::denotesOperator() const
+{
+    if (isaFunctionCall() && isUnambiguous()) {
+        IdentifierInfo *idInfo = getConnective()->getIdInfo();
+        return PO::denotesOperator(idInfo);
+    }
+    return false;
 }
 
 FunctionCallExpr *SubroutineCall::asFunctionCall()

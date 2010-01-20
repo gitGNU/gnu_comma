@@ -132,12 +132,8 @@ public:
 
     Node acceptProcedureCall(Node name);
 
-    // Called for "inj" expressions.  loc is the location of the inj token and
-    // expr is its argument.
     Node acceptInj(Location loc, Node expr);
 
-    // Called for "prj" expressions.  loc is the location of the prj token and
-    // expr is its argument.
     Node acceptPrj(Location loc, Node expr);
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
@@ -243,6 +239,28 @@ public:
     /// Wraps the given expression in a ConversionExpr if needed.
     static Expr *convertIfNeeded(Expr *expr, Type *target);
 
+    /// Returns a dereferenced type of \p source which covers the type \p target
+    /// or null if no such type exists.
+    static Type *getCoveringDereference(Type *source, Type *target);
+
+    /// Returns a dereferenced type of \p source which satisfies the given
+    /// target classification or null if no such type exists.
+    static Type *getCoveringDereference(Type *source, Type::Classification ID);
+
+    /// Implicitly wraps the given expression in DereferenceExpr nodes utill its
+    /// type covers \p target.
+    ///
+    /// The given expression must have an access type which can be dereferenced
+    /// to the given target type.
+    Expr *implicitlyDereference(Expr *expr, Type *target);
+
+    /// Implicitly wraps the given expression in DereferenceExpr nodes utill its
+    /// type satisfies the given type classification.
+    ///
+    /// The given expression must have an access type which can be dereferenced
+    /// to yield a type beloging to the given classification.
+    Expr *implicitlyDereference(Expr *expr, Type::Classification ID);
+
     /// \brief Typechecks the given expression in the given type context.
     ///
     /// This is a main entry point into the top-down phase of the type checker.
@@ -254,6 +272,13 @@ public:
     /// context.  This method returns true if the expression was successfully
     /// checked.  Otherwise, false is returned an diagnostics are emitted.
     bool checkExprInContext(Expr *expr, Type::Classification ID);
+
+    /// Typechecks the given \em resolved expression in the given type context
+    /// introducing any implicit dereferences required to conform to the context
+    /// type.
+    ///
+    /// Returns the (possibly updated) expression on success or null on error.
+    Expr *checkExprAndDereferenceInContext(Expr *expr, Type *context);
 
     /// Returns true if \p expr is a static integer expression.  If so,
     /// initializes \p result to a signed value which can accommodate the given
@@ -501,6 +526,9 @@ private:
     /// Similar to ensureCompleteTypeDecl, but operates over type nodes.
     Type *resolveType(Type *type) const;
 
+    /// Resolves the type of the given expression.
+    Type *resolveType(Expr *expr) const { return resolveType(expr->getType()); }
+
     // Resolves the type of the given integer literal, and ensures that the
     // given type context is itself compatible with the literal provided.
     // Returns a valid expression node (possibly different from \p intLit) if
@@ -668,12 +696,6 @@ private:
     // signature.  Returns true if the constraints are satisfied.  Otherwise,
     // false is returned and diagnostics are posted.
     bool ensureExportConstraints(AddDecl *add);
-
-    /// Returns true if the IdentifierInfo \p info can name a binary function.
-    bool namesBinaryFunction(IdentifierInfo *info);
-
-    /// Returns true if the IdentifierInfo \p info can name a unary function.
-    bool namesUnaryFunction(IdentifierInfo *info);
 
     // Returns true if the given decl is equivalent to % in the context of the
     // current domain.

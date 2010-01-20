@@ -133,6 +133,10 @@ public:
     /// operand.
     Expr *ignoreInjPrj();
 
+    /// Returns true if this node denotes a name as defined in the Comma
+    /// grammar.
+    bool denotesName() const;
+
     // Support isa/dyn_cast.
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {

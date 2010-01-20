@@ -20,6 +20,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
+#include "comma/basic/PrimitiveOps.h"
 
 using namespace comma;
 using llvm::dyn_cast;
@@ -119,8 +120,8 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
     // Ensure that if this function names a binary or unary operator it has the
     // required arity.
     if (routineStencil.denotesFunction()) {
-        bool namesUnary = namesUnaryFunction(name);
-        bool namesBinary = namesBinaryFunction(name);
+        bool namesUnary = PO::denotesUnaryOp(name);
+        bool namesBinary = PO::denotesBinaryOp(name);
 
         if (namesUnary || namesBinary) {
             bool allOK = true;

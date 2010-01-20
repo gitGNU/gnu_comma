@@ -1199,51 +1199,6 @@ bool TypeCheck::introduceTypeDeclaration(TypeDecl *decl)
     return true;
 }
 
-/// Returns true if the IdentifierInfo \p info can name a binary function.
-bool TypeCheck::namesBinaryFunction(IdentifierInfo *info)
-{
-    const char* name = info->getString();
-    size_t length = std::strlen(name);
-
-    if (length > 2)
-        return false;
-
-    if (length == 1) {
-        switch (*name) {
-        default:
-            return false;
-        case '=':
-        case '+':
-        case '*':
-        case '-':
-        case '>':
-        case '<':
-            return true;
-        }
-    }
-    else
-        return (std::strncmp(name, "<=", 2) == 0 ||
-                std::strncmp(name, ">=", 2) == 0);
-}
-
-bool TypeCheck::namesUnaryFunction(IdentifierInfo *info)
-{
-    const char* name = info->getString();
-    size_t length = std::strlen(name);
-
-    if (length == 1) {
-        switch (*name) {
-        default:
-            return false;
-        case '+':
-        case '-':
-            return true;
-        }
-    }
-    else
-        return false;
-}
-
 Location TypeCheck::getNodeLoc(Node node)
 {
     assert(!node.isNull() && "Cannot get locations from null nodes!");
@@ -1316,6 +1271,52 @@ Expr *TypeCheck::convertIfNeeded(Expr *expr, Type *target)
 {
     if (conversionRequired(expr->getType(), target))
         return new ConversionExpr(expr, target, expr->getLocation());
+    return expr;
+}
+
+Type *TypeCheck::getCoveringDereference(Type *source, Type *target)
+{
+    while (AccessType *access = dyn_cast<AccessType>(source)) {
+        source = access->getTargetType();
+        if (covers(source, target))
+            return source;
+    }
+    return false;
+}
+
+Type *TypeCheck::getCoveringDereference(Type *source, Type::Classification ID)
+{
+    while (AccessType *access = dyn_cast<AccessType>(source)) {
+        source = access->getTargetType();
+        if (source->memberOf(ID))
+            return source;
+    }
+    return false;
+}
+
+Expr *TypeCheck::implicitlyDereference(Expr *expr, Type *target)
+{
+    Type *source = resolveType(expr);
+    while (isa<AccessType>(source)) {
+        expr = new DereferenceExpr(expr, expr->getLocation(), true);
+        source = resolveType(expr);
+        if (covers(source, target))
+            return expr;
+    }
+    assert(false && "Implicit dereferencing failed!");
+    return expr;
+}
+
+Expr *TypeCheck::implicitlyDereference(Expr *expr, Type::Classification ID)
+{
+    Type *source = resolveType(expr);
+    while (isa<AccessType>(source)) {
+        expr = new DereferenceExpr(expr, expr->getLocation(), true);
+        source = resolveType(expr);
+        if (source->memberOf(ID))
+            return expr;
+    }
+    assert(false && "Implicit dereferencing failed!");
     return expr;
 }
 
