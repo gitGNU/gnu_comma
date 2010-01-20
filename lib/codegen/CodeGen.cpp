@@ -174,29 +174,6 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     CRT->assertFail(Builder, msgPtr);
 }
 
-llvm::GlobalVariable *CodeGen::getEHInfo()
-{
-    static llvm::GlobalVariable *ehInfo = 0;
-
-    if (ehInfo)
-        return ehInfo;
-
-    llvm::PointerType *bytePtr = getPointerType(getInt8Ty());
-
-    std::vector<const llvm::Type*> members;
-    members.push_back(getInt64Ty());
-    members.push_back(bytePtr);
-    llvm::StructType *theType = getStructTy(members);
-
-    std::vector<llvm::Constant*> elts;
-    elts.push_back(llvm::ConstantInt::get(getInt64Ty(), uint64_t(3)));
-    elts.push_back(getPointerCast(emitInternString("Comma Exception"), bytePtr));
-    llvm::Constant *theInfo = llvm::ConstantStruct::get(theType, elts);
-
-    ehInfo = makeInternGlobal(theInfo, true);
-    return ehInfo;
-}
-
 llvm::Function *CodeGen::getMemcpy64() const
 {
     const llvm::Type *Tys[1] = { getInt64Ty() };

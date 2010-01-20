@@ -178,9 +178,6 @@ public:
     llvm::Function *getEHTypeidIntrinsic() const;
     //@}
 
-    /// Returns a pointer to a global exception object.
-    llvm::GlobalVariable *getEHInfo();
-
     /// Returns an llvm "opaque" type.
     const llvm::OpaqueType *getOpaqueTy() const {
         return llvm::OpaqueType::get(getLLVMContext());
