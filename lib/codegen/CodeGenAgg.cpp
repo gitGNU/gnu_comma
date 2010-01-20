@@ -229,25 +229,48 @@ CValue ArrayEmitter::emitConstrainedAllocator(AllocatorExpr *expr,
     const llvm::StructType *resultTy;
     const llvm::PointerType *dataTy;
     CodeGenTypes &CGT = CGR.getCGC().getCGT();
-    CommaRT &CRT = CGR.getCodeGen().getRuntime();
+    CodeGen &CG = CGR.getCodeGen();
+    CommaRT &CRT = CG.getRuntime();
 
     loweredTy = CGT.lowerArrayType(arrTy);
     resultTy = CGT.lowerFatAccessType(expr->getType());
     dataTy = cast<llvm::PointerType>(resultTy->getElementType(0));
 
-    uint64_t size = CGT.getTypeSize(loweredTy);
-    unsigned align = CGT.getTypeAlignment(loweredTy);
+    // Compute the size of the array.  Use static information if possible,
+    // otherwise compute at runtime.
+    llvm::Value *size;
+    if (arrTy->isStaticallyConstrained()) {
+        uint64_t staticSize = CGT.getTypeSize(loweredTy);
+        size = llvm::ConstantInt::get(CG.getInt32Ty(), staticSize);
+    }
+    else {
+        BoundsEmitter emitter(CGR);
+        uint64_t staticSize = CGT.getTypeSize(loweredTy->getElementType());
+        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+        llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
+        size = llvm::ConstantInt::get(CG.getInt32Ty(), staticSize);
+        size = Builder.CreateMul(size, length);
+    }
 
+    // Allocate space for the data and cast the raw memory pointer to the
+    // expected type.  Evaluate the initializer using the allocated memory as
+    // storage.
+    unsigned align = CGT.getTypeAlignment(loweredTy);
     llvm::Value *data = CRT.comma_alloc(Builder, size, align);
     data = Builder.CreatePointerCast(data, dataTy);
     CValue agg = emit(expr->getInitializer(), data, false);
 
+    // Create a temporary to hold the fat pointer and store the data pointer.
     llvm::Value *fatPtr = frame()->createTemp(resultTy);
     llvm::Value *bounds = agg.second();
     Builder.CreateStore(data, Builder.CreateStructGEP(fatPtr, 0));
+
+    // Load the bounds if needed and populate the fat pointer.
     if (isa<llvm::PointerType>(bounds->getType()))
         bounds = Builder.CreateLoad(bounds);
     Builder.CreateStore(bounds, Builder.CreateStructGEP(fatPtr, 1));
+
+    // Finished.
     return CValue::getFat(fatPtr);
 }
 
