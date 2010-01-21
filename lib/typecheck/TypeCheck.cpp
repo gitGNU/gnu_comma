@@ -80,6 +80,7 @@ void TypeCheck::populateInitialEnvironment()
     // Add the standard exception objects into scope.
     scope.addDirectDecl(resource.getTheProgramError());
     scope.addDirectDecl(resource.getTheConstraintError());
+    scope.addDirectDecl(resource.getTheAssertionError());
 }
 
 void TypeCheck::deleteNode(Node &node)
@@ -1377,26 +1378,22 @@ void TypeCheck::acceptPragmaImport(Location pragmaLoc,
 
 PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
 {
-    // Currently, assert pragmas take a single boolean valued argument.  The
-    // parser knows this.
-    assert(args.size() == 1 && "Wrong number of arguments for pragma Assert!");
-    Expr *pred = cast_node<Expr>(args[0]);
+    // Assert pragmas take a required boolean valued predicate and an optional
+    // string valued message.  The parser is aware of this.
+    Expr *pred = ensureExpr(args[0]);
+    Expr *msg = 0;
 
-    if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
-        // Get a string representing the source location of the assertion.
-        //
-        // FIXME: We should be calling a utility routine to parse the source
-        // location.
-        std::string message;
-        SourceLocation sloc = getSourceLoc(loc);
-        llvm::raw_string_ostream stream(message);
-        std::string identity = sloc.getTextProvider()->getIdentity();
-        stream << "Assertion failed at "
-               << identity << ":"
-               << sloc.getLine() << ":" << sloc.getColumn() << ".\n";
-        return new PragmaAssert(loc, pred, stream.str());
+    if (!(pred && checkExprInContext(pred, resource.getTheBooleanType())))
+        return 0;
+
+    if (args.size() == 2) {
+        if (!(msg = ensureExpr(args[1])))
+            return 0;
+        if (!(msg = checkExprInContext(msg, resource.getTheStringType())))
+            return 0;
     }
-    return 0;
+
+    return new PragmaAssert(loc, pred, msg);
 }
 
 Checker *Checker::create(Diagnostic      &diag,

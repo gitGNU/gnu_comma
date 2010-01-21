@@ -31,7 +31,8 @@ typedef char **comma_exinfo_t;
  */
 typedef enum {
     COMMA_CONSTRAINT_ERROR_E,
-    COMMA_PROGRAM_ERROR_E
+    COMMA_PROGRAM_ERROR_E,
+    COMMA_ASSERTION_ERROR_E
 } comma_exception_id;
 
 /*

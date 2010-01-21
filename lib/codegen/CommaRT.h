@@ -139,6 +139,11 @@ public:
                               llvm::Value *fileName, llvm::Value *lineNum,
                               llvm::GlobalVariable *message) const;
 
+    /// Convinience method to throw a Assertion_Error.
+    void raiseAssertionError(SRFrame *frame,
+                             llvm::Value *fileName, llvm::Value *lineNum,
+                             llvm::Value *message, llvm::Value *length) const;
+
     /// Generates a call to _comma_unhandled_exception.  This is only called by
     /// the main routine when an exception has unwound the entire stack.  Its
     /// only argument is the unhandled exception object.
@@ -235,6 +240,7 @@ private:
     // Definitions of these globals are provided by libruntime.
     llvm::Constant *theProgramErrorExinfo;
     llvm::Constant *theConstraintErrorExinfo;
+    llvm::Constant *theAssertErrorExinfo;
 
     const llvm::PointerType *getDomainCtorPtrTy();
     const llvm::PointerType *getITablePtrTy();

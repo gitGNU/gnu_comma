@@ -1143,6 +1143,7 @@ void _comma_unhandled_exception(struct comma_exception *exception)
  */
 char *_comma_exinfo_program_error = "PROGRAM_ERROR";
 char *_comma_exinfo_constraint_error = "CONSTRAINT_ERROR";
+char *_comma_exinfo_assertion_error = "ASSERTION_ERROR";
 
 /*
  * API to access the system-level exinfo's.
@@ -1161,6 +1162,10 @@ comma_exinfo_t _comma_get_exception(comma_exception_id id)
 
     case COMMA_PROGRAM_ERROR_E:
         info = &_comma_exinfo_program_error;
+        break;
+
+    case COMMA_ASSERTION_ERROR_E:
+        info = &_comma_exinfo_assertion_error;
         break;
     }
     return info;

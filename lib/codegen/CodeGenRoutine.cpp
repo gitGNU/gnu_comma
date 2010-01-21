@@ -210,9 +210,7 @@ CValue CodeGenRoutine::emitValue(Expr *expr)
 void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
 {
     CValue condition = emitValue(pragma->getCondition());
-    llvm::GlobalVariable *msgVar = CG.emitInternString(pragma->getMessage());
-    llvm::Value *message =
-        CG.getPointerCast(msgVar, CG.getPointerType(CG.getInt8Ty()));
+    const llvm::PointerType *messageTy = CG.getInt8PtrTy();
 
     // Create basic blocks for when the assertion fires and another for the
     // continuation.
@@ -222,9 +220,27 @@ void CodeGenRoutine::emitPragmaAssert(PragmaAssert *pragma)
     // If the condition is true, the assertion does not fire.
     Builder.CreateCondBr(condition.first(), passBB, assertBB);
 
-    // Generate the call to _comma_assert_fail.
+    // Otherwise, evaluate the message if present and raise an Assert_Error
+    // exception.
     Builder.SetInsertPoint(assertBB);
-    CRT.assertFail(Builder, message);
+    llvm::Value *message;
+    llvm::Value *messageLength;
+
+    if (pragma->hasMessage()) {
+        BoundsEmitter emitter(*this);
+        CValue msg = emitCompositeExpr(pragma->getMessage(), 0, true);
+        message = msg.first();
+        message = Builder.CreatePointerCast(message, messageTy);
+        messageLength = emitter.computeTotalBoundLength(Builder, msg.second());
+    }
+    else {
+        message = llvm::ConstantPointerNull::get(messageTy);
+        messageLength = llvm::ConstantInt::get(CG.getInt32Ty(), 0);
+    }
+
+    llvm::Value *fileName = CG.getModuleName();
+    llvm::Value *lineNum = CG.getSourceLine(pragma->getLocation());
+    CRT.raiseAssertionError(SRF, fileName, lineNum, message, messageLength);
 
     // Switch to the continuation block.
     Builder.SetInsertPoint(passBB);

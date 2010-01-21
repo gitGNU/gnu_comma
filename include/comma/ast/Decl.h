@@ -167,8 +167,9 @@ public:
     /// defined primitive exception nodes, or to a user defined exception.
     enum ExceptionKind {
         User,                   ///< ID for user defined exceptions.
-        Program_Error,          ///< PROGRAM_ERROR.
-        Constraint_Error        ///< CONSTRAINT_ERROR.
+        Program_Error,          ///< Program_Error.
+        Constraint_Error,       ///< Constraint_Error.
+        Assertion_Error         ///< Assertion_Error
     };
 
     ExceptionKind getID() const { return static_cast<ExceptionKind>(bits); }

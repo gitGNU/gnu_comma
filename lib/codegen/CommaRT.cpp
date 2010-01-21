@@ -211,15 +211,20 @@ void CommaRT::defineExinfos()
     // Comma's predefined exception info objects are just external i8*'s with
     // definitions in libruntime (see lib/runtime/crt_exceptions.c).
     const llvm::Type *exinfoTy = CG.getInt8Ty();
+    llvm::Module *M = CG.getModule();
 
     theProgramErrorExinfo =
-        new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
+        new llvm::GlobalVariable(*M, exinfoTy, true,
                                  llvm::GlobalValue::ExternalLinkage,
                                  0, "_comma_exinfo_program_error");
     theConstraintErrorExinfo =
-        new llvm::GlobalVariable(*CG.getModule(), exinfoTy, true,
+        new llvm::GlobalVariable(*M, exinfoTy, true,
                                  llvm::GlobalValue::ExternalLinkage,
                                  0, "_comma_exinfo_constraint_error");
+    theAssertErrorExinfo =
+        new llvm::GlobalVariable(*M, exinfoTy, true,
+                                 llvm::GlobalValue::ExternalLinkage,
+                                 0, "_comma_exinfo_assertion_error");
 }
 
 void CommaRT::define_pow_i32_i32()
@@ -438,6 +443,15 @@ void CommaRT::raiseConstraintError(SRFrame *frame,
     raiseExinfo(frame, theConstraintErrorExinfo, fileName, lineNum, message);
 }
 
+void
+CommaRT::raiseAssertionError(SRFrame *frame,
+                             llvm::Value *fileName, llvm::Value *lineNum,
+                             llvm::Value *message, llvm::Value *length) const
+{
+    raiseExinfo(frame, theAssertErrorExinfo,
+                fileName, lineNum, message, length);
+}
+
 llvm::Constant *CommaRT::getEHPersonality() const
 {
     return CG.getPointerCast(EHPersonalityFn, CG.getInt8PtrTy());
@@ -469,6 +483,10 @@ llvm::Constant *CommaRT::registerException(const ExceptionDecl *except)
 
     case ExceptionDecl::Constraint_Error:
         exinfo = theConstraintErrorExinfo;
+        break;
+
+    case ExceptionDecl::Assertion_Error:
+        exinfo = theAssertErrorExinfo;
         break;
     }
     return exinfo;

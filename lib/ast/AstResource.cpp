@@ -181,6 +181,10 @@ void AstResource::initializeExceptions()
     IdentifierInfo *CEName = getIdentifierInfo("Constraint_Error");
     ExceptionDecl::ExceptionKind CEKind = ExceptionDecl::Constraint_Error;
     theConstraintError = new ExceptionDecl(CEKind, CEName, 0, 0);
+
+    IdentifierInfo *AEName = getIdentifierInfo("Assertion_Error");
+    ExceptionDecl::ExceptionKind AEKind = ExceptionDecl::Assertion_Error;
+    theAssertionError = new ExceptionDecl(AEKind, AEName, 0, 0);
 }
 
 /// Accessors to the language defined types.  We keep these out of line since we

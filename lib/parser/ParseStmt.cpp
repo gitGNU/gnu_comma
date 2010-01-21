@@ -363,14 +363,29 @@ Node Parser::parsePragmaAssert(IdentifierInfo *name, Location loc)
 {
     if (requireToken(Lexer::TKN_LPAREN)) {
         NodeVector args;
-        Node condition = parseExpr();
 
-        if (condition.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
+        Node condition = parseExpr();
+        if (condition.isInvalid()) {
             seekToken(Lexer::TKN_RPAREN);
-        else {
-            args.push_back(condition);
-            return client.acceptPragmaStmt(name, loc, args);
+            return getInvalidNode();
         }
+        args.push_back(condition);
+
+        if (reduceToken(Lexer::TKN_COMMA)) {
+            Node message = parseExpr();
+            if (message.isInvalid()) {
+                seekToken(Lexer::TKN_RPAREN);
+                return getInvalidNode();
+            }
+            args.push_back(message);
+        }
+
+        if (!requireToken(Lexer::TKN_RPAREN)) {
+            seekToken(Lexer::TKN_RPAREN);
+            return getInvalidNode();
+        }
+        else
+            return client.acceptPragmaStmt(name, loc, args);
     }
     seekSemi();
     return getInvalidNode();

@@ -291,6 +291,7 @@ public:
 
     ExceptionDecl *getTheProgramError() const { return theProgramError; }
     ExceptionDecl *getTheConstraintError() const { return theConstraintError; }
+    ExceptionDecl *getTheAssertionError() const { return theAssertionError; }
     //@}
 
 private:
@@ -318,6 +319,7 @@ private:
     ArrayDecl *theStringDecl;
     ExceptionDecl *theProgramError;
     ExceptionDecl *theConstraintError;
+    ExceptionDecl *theAssertionError;
 
     /// \name Language Defined Type Initialization.
     ///

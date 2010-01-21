@@ -71,15 +71,32 @@ protected:
 class PragmaAssert : public Pragma {
 
 public:
-    PragmaAssert(Location loc, Expr *condition, const std::string &message)
+    PragmaAssert(Location loc, Expr *condition, Expr *message = 0)
         : Pragma(pragma::Assert, loc),
           condition(condition),
           message(message) { }
 
+    //@{
+    /// Returns the condition this assertion tests.
     const Expr *getCondition() const { return condition; }
     Expr *getCondition() { return condition; }
+    //@}
 
-    const std::string &getMessage() const { return message; }
+    //@{
+    /// Returns the message associated with this assertion or null if there is
+    /// no such message.
+    const Expr *getMessage() const { return message; }
+    Expr *getMessage() { return message; }
+    //@}
+
+    /// Returns true if this assertion has been associated with a message.
+    bool hasMessage() const { return message != 0; }
+
+    /// Sets the condition of this assertion.
+    void setCondition(Expr *condition) { this->condition = condition; }
+
+    /// Sets the message of this assertion.
+    void setMessage(Expr *message) { this->message = message; }
 
     // Support isa and dyn_cast.
     static bool classof(const PragmaAssert *pragma) { return true; }
@@ -89,7 +106,7 @@ public:
 
 private:
     Expr *condition;
-    std::string message;
+    Expr *message;
 };
 
 //===----------------------------------------------------------------------===//
