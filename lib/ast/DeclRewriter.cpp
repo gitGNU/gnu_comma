@@ -377,6 +377,10 @@ Type *DeclRewriter::rewriteType(Type *type)
     case Ast::AST_IncompleteType:
         result = rewriteIncompleteType(cast<IncompleteType>(type));
         break;
+
+    case Ast::AST_ArrayType:
+        result = rewriteArrayType(cast<ArrayType>(type));
+        break;
     }
     return result;
 }
@@ -403,6 +407,14 @@ IncompleteType *DeclRewriter::rewriteIncompleteType(IncompleteType *type)
     if (declaration->getDeclRegion() != origin)
         return type;
     return rewriteIncompleteTypeDecl(declaration)->getType();
+}
+
+ArrayType *DeclRewriter::rewriteArrayType(ArrayType *type)
+{
+    ArrayDecl *declaration = type->getDefiningDecl();
+    if (declaration->getDeclRegion() != origin)
+        return type;
+    return rewriteArrayDecl(declaration)->getType();
 }
 
 IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)

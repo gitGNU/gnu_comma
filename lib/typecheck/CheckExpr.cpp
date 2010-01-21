@@ -351,7 +351,7 @@ Expr *TypeCheck::resolveSelectedExpr(SelectedExpr *select, Type *context)
     IdentifierInfo *selector = select->getSelectorIdInfo();
 
     FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(prefix);
-    assert(prefix && "Cannot resolve this type of selected expression!");
+    assert(call && "Cannot resolve this type of selected expression!");
 
     if (!(prefix = resolveFunctionCall(call, selector, context)))
         return 0;

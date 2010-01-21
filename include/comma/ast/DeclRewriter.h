@@ -131,6 +131,7 @@ private:
     Type *rewriteType(Type *type);
     AccessType *rewriteAccessType(AccessType *type);
     RecordType *rewriteRecordType(RecordType *type);
+    ArrayType *rewriteArrayType(ArrayType *type);
     IncompleteType *rewriteIncompleteType(IncompleteType *type);
 
     Expr *rewriteExpr(Expr *expr);

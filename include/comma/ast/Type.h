@@ -1075,6 +1075,16 @@ public:
     }
     //@}
 
+    //@{
+    /// Returns the declaration defining this array type.
+    const ArrayDecl *getDefiningDecl() const {
+        return getRootType()->definingDecl.get<ArrayDecl*>();
+    }
+    ArrayDecl *getDefiningDecl() {
+        return getRootType()->definingDecl.get<ArrayDecl*>();
+    }
+    //@}
+
     // Support isa and dyn_cast.
     static bool classof(const ArrayType *node) { return true; }
     static bool classof(const Ast *node) {
