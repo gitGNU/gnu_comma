@@ -78,12 +78,6 @@ public:
     const DomainInfo *getDomainInfo() const { return DInfo; }
     const DomainInstance *getDomainInstance() const { return DInstance; }
 
-    /// Generates a call to _comma_assert_fail using the given message (which
-    /// must be a i8*, pointing to a null-terminated C string).
-    ///
-    /// A call to _comma_assert_fail does not return.
-    void assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const;
-
     /// \name Exception Handling.
     ///
     /// The following methods provide access to the exception handling component
@@ -214,7 +208,6 @@ private:
 
     // Function declarations for the comma runtime functions.
     llvm::Function *getDomainFn;
-    llvm::Function *assertFailFn;
     llvm::Function *EHPersonalityFn;
     llvm::Function *unhandledExceptionFn;
     llvm::Function *raiseStaticExceptionFn;
@@ -247,7 +240,6 @@ private:
 
     // Methods which build the LLVM IR for the comma runtime functions.
     void defineGetDomain();
-    void defineAssertFail();
     void defineEHPersonality();
     void defineUnhandledException();
     void defineRaiseException();

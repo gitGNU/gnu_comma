@@ -104,7 +104,6 @@ const llvm::PointerType *CommaRT::getITablePtrTy()
 void CommaRT::generateRuntimeFunctions()
 {
     defineGetDomain();
-    defineAssertFail();
     defineEHPersonality();
     defineUnhandledException();
     defineRaiseException();
@@ -132,21 +131,6 @@ void CommaRT::defineGetDomain()
     llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, true);
 
     getDomainFn = CG.makeFunction(fnTy, "_comma_get_domain");
-}
-
-void CommaRT::defineAssertFail()
-{
-    const llvm::Type *retTy = CG.getVoidTy();
-
-    std::vector<const llvm::Type *> args;
-    args.push_back(CG.getInt8PtrTy());
-
-    // _comma_assert_fail takes a pointer to a C string as argument, and does
-    // not return.
-    llvm::FunctionType *fnTy = llvm::FunctionType::get(retTy, args, false);
-
-    assertFailFn = CG.makeFunction(fnTy, "_comma_assert_fail");
-    assertFailFn->setDoesNotReturn();
 }
 
 void CommaRT::defineEHPersonality()
@@ -323,12 +307,6 @@ llvm::Value *CommaRT::getDomain(llvm::IRBuilder<> &builder,
     assert(args.front()->getType() == getType<CRT_DomainInfo>()
            && "First argument is not a domain_info_t!");
     return builder.CreateCall(getDomainFn, args.begin(), args.end());
-}
-
-void CommaRT::assertFail(llvm::IRBuilder<> &builder, llvm::Value *message) const
-{
-    builder.CreateCall(assertFailFn, message);
-    builder.CreateUnreachable();
 }
 
 void CommaRT::unhandledException(llvm::IRBuilder<> &builder,

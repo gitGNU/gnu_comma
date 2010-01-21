@@ -139,7 +139,6 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     llvm::Value *eh_person = CRT->getEHPersonality();
     llvm::Function *eh_except = getEHExceptionIntrinsic();
     llvm::Function *eh_select = getEHSelectorIntrinsic();
-    llvm::Function *eh_typeid = getEHTypeidIntrinsic();
 
     // The exception object produced by a call to _comma_raise.
     llvm::Value *except = Builder.CreateCall(eh_except);
@@ -150,30 +149,11 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     args.push_back(except);
     args.push_back(eh_person);
     args.push_back(getNullPointer(getInt8PtrTy()));
-    llvm::Value *infodx = Builder.CreateCall(eh_select, args.begin(), args.end());
+    Builder.CreateCall(eh_select, args.begin(), args.end());
 
-    // The returned index must be positive and it must match the id for our
-    // exception info object.  Generate a call to _comma_assert_fail if these
-    // conditions are not met.
-    llvm::Value *targetdx = Builder.CreateCall(eh_typeid,
-                                               getNullPointer(getInt8PtrTy()));
-    llvm::BasicBlock *catchAllBB = makeBasicBlock("catch-all", entry);
-    llvm::BasicBlock *assertBB = makeBasicBlock("assert-fail", entry);
-    llvm::Value *cond = Builder.CreateICmpEQ(infodx, targetdx);
-    Builder.CreateCondBr(cond, catchAllBB, assertBB);
-
-    // The catch-all should certainly succeed.  Call into
-    // _comma_unhandled_exception, passing it the exception object.  This
-    // function never returns.
-    Builder.SetInsertPoint(catchAllBB);
+    // Call into _comma_unhandled_exception and pass it the exception object.
+    // This function never returns.
     CRT->unhandledException(Builder, except);
-
-    // Assertion case for when the catch-all failed.  This should never happen.
-    Builder.SetInsertPoint(assertBB);
-    llvm::GlobalVariable *message =
-        emitInternString("Unhandled exception in main!");
-    llvm::Value *msgPtr = getPointerCast(message, getPointerType(getInt8Ty()));
-    CRT->assertFail(Builder, msgPtr);
 }
 
 llvm::Function *CodeGen::getMemcpy64() const
