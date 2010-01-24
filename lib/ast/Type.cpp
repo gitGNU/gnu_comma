@@ -45,6 +45,8 @@ bool Type::memberOf(Classification ID) const
         return isStringType();
     case CLASS_Access:
         return isAccessType() || isUniversalAccessType();
+    case CLASS_Record:
+        return isRecordType();
     }
 }
 

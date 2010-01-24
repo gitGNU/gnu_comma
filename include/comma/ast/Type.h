@@ -40,7 +40,8 @@ public:
         CLASS_Composite,
         CLASS_Array,
         CLASS_String,
-        CLASS_Access
+        CLASS_Access,
+        CLASS_Record
     };
 
     /// Returns true if this type is a member of the given classification.
