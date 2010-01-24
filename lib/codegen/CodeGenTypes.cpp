@@ -483,6 +483,14 @@ const llvm::Type *CodeGenTypes::lowerUniversalType(const UniversalType *type)
 unsigned CodeGenTypes::getComponentIndex(const ComponentDecl *component)
 {
     ComponentIndexMap::iterator I = ComponentIndices.find(component);
+
+    // Lookup can fail if the record type associated with this component has not
+    // been lowered yet.
+    if (I == ComponentIndices.end()) {
+        lowerRecordType(component->getDeclRegion()->getType());
+        I = ComponentIndices.find(component);
+    }
+
     assert (I != ComponentIndices.end()  && "Component index does not exist!");
     return I->second;
 }
