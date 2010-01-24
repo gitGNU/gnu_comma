@@ -241,11 +241,11 @@ public:
 
     /// Returns a dereferenced type of \p source which covers the type \p target
     /// or null if no such type exists.
-    static Type *getCoveringDereference(Type *source, Type *target);
+    Type *getCoveringDereference(Type *source, Type *target);
 
     /// Returns a dereferenced type of \p source which satisfies the given
     /// target classification or null if no such type exists.
-    static Type *getCoveringDereference(Type *source, Type::Classification ID);
+    Type *getCoveringDereference(Type *source, Type::Classification ID);
 
     /// Implicitly wraps the given expression in DereferenceExpr nodes utill its
     /// type covers \p target.

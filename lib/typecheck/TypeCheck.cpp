@@ -1278,21 +1278,21 @@ Expr *TypeCheck::convertIfNeeded(Expr *expr, Type *target)
 Type *TypeCheck::getCoveringDereference(Type *source, Type *target)
 {
     while (AccessType *access = dyn_cast<AccessType>(source)) {
-        source = access->getTargetType();
+        source = resolveType(access->getTargetType());
         if (covers(source, target))
             return source;
     }
-    return false;
+    return 0;
 }
 
 Type *TypeCheck::getCoveringDereference(Type *source, Type::Classification ID)
 {
     while (AccessType *access = dyn_cast<AccessType>(source)) {
-        source = access->getTargetType();
+        source = resolveType(access->getTargetType());
         if (source->memberOf(ID))
             return source;
     }
-    return false;
+    return 0;
 }
 
 Expr *TypeCheck::implicitlyDereference(Expr *expr, Type *target)
