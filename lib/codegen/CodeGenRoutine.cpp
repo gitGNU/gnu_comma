@@ -271,23 +271,5 @@ CodeGenRoutine::emitRangeAttrib(RangeAttrib *attrib)
 
 Type *CodeGenRoutine::resolveType(Type *type)
 {
-    if (DomainType *domTy = dyn_cast<DomainType>(type)) {
-        DomainInstanceDecl *instance;
-
-        // AbstractDecl's resolve wrt the current instances arguments,
-        // PercentDecl's resolve to the current instance, and
-        // DomainInstanceDecl's simply resolve to themselves.
-        if (AbstractDomainDecl *decl = domTy->getAbstractDecl())
-            instance = CGC.rewriteAbstractDecl(decl);
-        else if (domTy->getPercentDecl())
-            instance = CGC.getInstanceInfo()->getInstanceDecl();
-        else
-            instance = domTy->getInstanceDecl();
-
-        return resolveType(instance->getRepresentationType());
-    }
-    else if (IncompleteType *IT = dyn_cast<IncompleteType>(type))
-        return resolveType(IT->getCompleteType());
-
-    return type;
+    return const_cast<Type*>(CGT.resolveType(type));
 }

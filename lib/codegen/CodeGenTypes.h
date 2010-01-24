@@ -86,9 +86,6 @@ public:
     /// In the case a domain types this method resolves the underlying
     /// representation.  In the case of incomplete types this method resolves
     /// the completion.
-    ///
-    /// FIXME: This method is a close cousin to CGR's resolveType.  It might be
-    /// best remove CGR's version and use this one everywhere.
     const Type *resolveType(const Type *type);
 
     /// \name Calling Conventions.
