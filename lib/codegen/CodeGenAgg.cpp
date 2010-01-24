@@ -445,7 +445,7 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     }
     else {
         assert(false && "Invalid type of array expr!");
-        return CValue::getAgg(0, 0);
+        return CValue::getArray(0, 0);
     }
 
     llvm::Value *length = 0;
@@ -465,15 +465,15 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         if (!length)
             length = emitter.computeTotalBoundLength(Builder, bounds);
         CGR.emitArrayCopy(components, dst, length, componentTy);
-        return CValue::getAgg(dst, bounds);
+        return CValue::getArray(dst, bounds);
     }
     else
-        return CValue::getAgg(components, bounds);
+        return CValue::getArray(components, bounds);
 }
 
 void ArrayEmitter::emitComponent(Expr *expr, llvm::Value *dst)
 {
-    Type *exprTy = expr->getType();
+    Type *exprTy = CGR.resolveType(expr);
 
     if (exprTy->isCompositeType())
         CGR.emitCompositeExpr(expr, dst, false);
@@ -493,7 +493,7 @@ CValue ArrayEmitter::emitCall(FunctionCallExpr *call, llvm::Value *dst)
     if (arrTy->isConstrained()) {
         CValue data = CGR.emitCompositeCall(call, dst);
         llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
-        return CValue::getAgg(data.first(), bounds);
+        return CValue::getArray(data.first(), bounds);
     }
 
     // Unconstrained (indefinite type) use the vstack.  The callee cannot know
@@ -544,7 +544,7 @@ CValue ArrayEmitter::emitStringLiteral(StringLiteral *expr)
     boundPtr = new llvm::GlobalVariable(
         *CG.getModule(), boundData->getType(), true,
         llvm::GlobalValue::InternalLinkage, boundData, "bounds.data");
-    return CValue::getAgg(dataPtr, boundPtr);
+    return CValue::getArray(dataPtr, boundPtr);
 }
 
 CValue ArrayEmitter::emitArrayConversion(ConversionExpr *convert,
@@ -685,7 +685,7 @@ CValue ArrayEmitter::emitPositionalAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Emit an "others" clause if present.
     emitOthers(expr, dst, bounds, components.size());
-    return CValue::getAgg(dst, bounds);
+    return CValue::getArray(dst, bounds);
 }
 
 CValue ArrayEmitter::emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
@@ -780,7 +780,7 @@ CValue ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
         emitDiscreteComponent(I, dst, lower);
     fillInOthers(agg, dst, lower, upper);
 
-    return CValue::getAgg(dst, bounds);
+    return CValue::getArray(dst, bounds);
 }
 
 void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
@@ -895,7 +895,7 @@ CValue ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Set the insert point to the merge block and return.
     Builder.SetInsertPoint(mergeBB);
-    return CValue::getAgg(dst, bounds);
+    return CValue::getArray(dst, bounds);
 }
 
 CValue ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
@@ -916,7 +916,7 @@ CValue ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Emit the others expression.
     emitOthers(expr, dst, bounds, 0);
-    return CValue::getAgg(dst, bounds);
+    return CValue::getArray(dst, bounds);
 }
 
 llvm::Value *ArrayEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
@@ -1098,10 +1098,10 @@ CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         llvm::Value *align = llvm::ConstantInt::get(
             CG.getInt32Ty(), CG.getTargetData().getABITypeAlignment(recTy));
         Builder.CreateCall4(memcpy, target, source, len, align);
-        return CValue::get(dst);
+        return CValue::getRecord(dst);
     }
     else
-        return CValue::get(rec);
+        return CValue::getRecord(rec);
 }
 
 CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
@@ -1124,7 +1124,7 @@ CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
     // Emit any `others' components.
     emitOthersComponents(agg, dst, components);
 
-    return CValue::get(dst);
+    return CValue::getRecord(dst);
 }
 
 void RecordEmitter::emitComponent(Expr *expr, llvm::Value *dst)

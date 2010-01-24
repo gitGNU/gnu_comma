@@ -196,7 +196,7 @@ CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
 
     if (componentTy->isArrayType()) {
         arrTy = cast<ArrayType>(componentTy);
-        return CValue::getAgg(component, BE.synthArrayBounds(Builder, arrTy));
+        return CValue::getArray(component, BE.synthArrayBounds(Builder, arrTy));
     }
 
     if (componentTy->isFatAccessType())
@@ -233,7 +233,7 @@ CValue CodeGenRoutine::emitSelectedRef(SelectedExpr *expr)
         ArrayType *arrTy = cast<ArrayType>(componentTy);
         BoundsEmitter emitter(*this);
         llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
-        return CValue::getAgg(ptr, bounds);
+        return CValue::getArray(ptr, bounds);
     }
 
     return CValue::get(ptr);

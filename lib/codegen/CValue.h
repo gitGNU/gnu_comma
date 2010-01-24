@@ -39,17 +39,26 @@ public:
         Fat
     };
 
+    //@{
     /// Returns the first value associated with this CValue.
     llvm::Value *first() { return primary; }
+    const llvm::Value *first() const { return primary; }
+    //@}
 
+    //@{
     /// Returns the second value associated with this CValue.
     llvm::Value *second() { return secondary.getPointer(); }
+    const llvm::Value *second() const { return secondary.getPointer(); }
+    //@}
 
     /// Returns true if this denotes a simple value.
     bool isSimple() const { return secondary.getInt() == Simple; }
 
-    /// Returns true if this denotes an Aggregate value.
+    /// Returns true if this denotes an aggregate value.
     bool isAggregate() const { return secondary.getInt() == Aggregate; }
+
+    /// Returns true if this denotes an array value.
+    bool isArray() const { return isAggregate() && second() != 0; }
 
     /// Returns true if this denotes a fat access value.
     bool isFat() const { return secondary.getInt() == Fat; }
@@ -60,8 +69,12 @@ public:
         return CValue(V1, 0, Simple);
     }
 
-    static CValue getAgg(llvm::Value *V1, llvm::Value *V2) {
+    static CValue getArray(llvm::Value *V1, llvm::Value *V2) {
         return CValue(V1, V2, Aggregate);
+    }
+
+    static CValue getRecord(llvm::Value *V1) {
+        return CValue(V1, 0, Aggregate);
     }
 
     static CValue getFat(llvm::Value *V1) {

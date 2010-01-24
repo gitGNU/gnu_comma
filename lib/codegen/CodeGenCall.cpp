@@ -297,7 +297,7 @@ CValue CallEmitter::emitVStackCall(FunctionCallExpr *call)
     dataSlot = Builder.CreatePointerCast(dataSlot, dataTy);
 
     // Return the temps.
-    return CValue::getAgg(dataSlot, boundsSlot);
+    return CValue::getArray(dataSlot, boundsSlot);
 }
 
 void CallEmitter::emitProcedureCall(ProcedureCallStmt *call)
