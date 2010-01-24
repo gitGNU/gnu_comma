@@ -16,6 +16,7 @@
 #include "comma/basic/Attributes.h"
 
 using namespace comma;
+using llvm::cast_or_null;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
@@ -269,8 +270,16 @@ Ast *TypeCheck::processSelectedComponent(Expr *expr,
     if (!expr->hasResolvedType())
         return new SelectedExpr(expr, name, loc);
 
-    // Currently, the prefix to a selected component must be of record type.
-    RecordType *prefixTy = dyn_cast<RecordType>(resolveType(expr->getType()));
+    RecordType *prefixTy;
+    Type *exprTy = resolveType(expr->getType());
+    bool requiresDereference = false;
+
+    if (!(prefixTy = dyn_cast<RecordType>(exprTy))) {
+        exprTy = getCoveringDereference(exprTy, Type::CLASS_Record);
+        prefixTy = cast_or_null<RecordType>(exprTy);
+        requiresDereference = prefixTy != 0;
+    }
+
     if (!prefixTy) {
         report(expr->getLocation(), diag::INVALID_PREFIX_FOR_COMPONENT) << name;
         return 0;
@@ -285,6 +294,8 @@ Ast *TypeCheck::processSelectedComponent(Expr *expr,
         return 0;
     }
 
+    if (requiresDereference)
+        expr = implicitlyDereference(expr, prefixTy);
     return new SelectedExpr(expr, component, loc, component->getType());
 }
 
