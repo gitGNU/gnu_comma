@@ -2,7 +2,7 @@
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
-# Copyright (C) 2008, Stephen Wilson
+# Copyright (C) 2008-2010, Stephen Wilson
 #
 ##----------------------------------------------------------------------------##
 
@@ -81,9 +81,36 @@ verbose_build = @VERBOSE_BUILD@
 optimized_build = @OPTIMIZED_BUILD@
 
 #
+# The following list of commands are required to build the system.
+#
+RM     := @RM@
+MKDIR  := @MKDIR_P@
+RANLIB := @RANLIB@
+AR     := @AR@
+ECHO   := @ECHO@
+SED    := @SED@
+
+#
+# Non-standard tools on which we rely: The LLVM configurations tool, xsltproc
+# for xml translation (docbook), runtest (DejGNU), and doxygen.
+#
+LLVM_CONFIG := @LLVM_CONFIG@
+XSLTPROC := @XSLTPROC@
+DOXYGEN := @DOXYGEN@
+RUNTEST := @RUNTEST@
+
+#
 # LLVM preprocessor flags.
 #
-llvm_cpp_flags = $(shell $(LLVM_CONFIG) --cppflags)
+llvm_cpp_flags := $(shell $(LLVM_CONFIG) --cppflags)
+
+#
+# If llvm was compiled as a Release-Asserts build then llvm-config defines
+# NDEBUG.  We want control over assertions so filter out the definition if
+# present.
+#
+llvm_cpp_flags := $(shell $(ECHO) $(llvm_cpp_flags) | \
+	$(SED) 's/[ \t]-D[ \t]*NDEBUG\>//g')
 
 #
 # Comma specific preprocessor flags.
@@ -115,25 +142,6 @@ cxx_flags += -Wall -fno-rtti -fno-exceptions $(CXXFLAGS)
 # Default C compiler switches.
 #
 c_flags += -Wall $(CFLAGS)
-
-#
-# The following list of commands are required to build the system.
-#
-RM     := @RM@
-MKDIR  := @MKDIR_P@
-RANLIB := @RANLIB@
-AR     := @AR@
-ECHO   := @@ECHO@
-SED    := @SED@
-
-#
-# Non-standard tools on which we rely: The LLVM configurations tool, xsltproc
-# for xml translation (docbook), runtest (DejGNU), and doxygen.
-#
-LLVM_CONFIG := @LLVM_CONFIG@
-XSLTPROC := @XSLTPROC@
-DOXYGEN := @DOXYGEN@
-RUNTEST := @RUNTEST@
 
 #
 # Enable the verbose build switch if enabled.
