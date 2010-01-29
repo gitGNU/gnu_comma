@@ -325,6 +325,7 @@ CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
         if (llvm::Constant *init = message->getInitializer()) {
             llvm::ConstantArray *arr = cast<llvm::ConstantArray>(init);
             assert(arr->isCString() && "Message is not null terminated!");
+            ((void*)arr);
         }
         result = CG.getPointerCast(message, CG.getInt8PtrTy());
     }

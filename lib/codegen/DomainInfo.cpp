@@ -249,6 +249,7 @@ void DomainInfo::genFunctorRequirement(llvm::IRBuilder<> &builder,
         if (const PercentDecl *pdecl = argTy->getPercentDecl()) {
             assert(pdecl->getDefinition() == DS.getCapsule() &&
                    "Percent node does not represent the current domain!");
+            ((void*)pdecl);
 
             // The argument to this functor is %. Simply push the given percent
             // value onto get_domains argument list.

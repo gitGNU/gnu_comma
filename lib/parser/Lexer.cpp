@@ -695,6 +695,7 @@ void Lexer::forgetExcursion()
 
     if (positionStack.empty()) {
         assert(saved_index == 0 && "index/position mismatch!");
+        ((void)saved_index);
         tokens.clear();
     }
 }
