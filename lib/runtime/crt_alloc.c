@@ -13,7 +13,7 @@
 
 #include <stdlib.h>
 
-void *_comma_alloc(size_t bytes, uint32_t align)
+void *_comma_alloc(uint64_t bytes, uint32_t align)
 {
     // Ingnore the alignment.
     return malloc(bytes);
