@@ -119,12 +119,17 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
 {
     Type *objTy = resolveType(objDecl->getType());
-    Expr *objExpr = objDecl->getRenamedExpr();
+    Expr *objExpr = objDecl->getRenamedExpr()->ignoreInjPrj();
     llvm::Value *objValue;
 
     // Emit a renamed object declaration as a reference to its renamed
     // expression and associate the result with the declaration.
-    if (objTy->isCompositeType())
+    if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(objExpr)) {
+        // In all cases the renamed target has already been evaluated.  Simply
+        // equate the declarations.
+        objValue = SRF->lookup(DRE->getDeclaration(), activation::Slot);
+    }
+    else if (objTy->isCompositeType())
         objValue = emitCompositeExpr(objExpr, 0, false).first();
     else
         objValue = emitReference(objExpr).first();

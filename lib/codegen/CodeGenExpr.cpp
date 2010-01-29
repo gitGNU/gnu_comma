@@ -22,36 +22,47 @@ using llvm::isa;
 
 CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 {
-    DeclRefExpr *refExpr = cast<DeclRefExpr>(expr);
-    ValueDecl *refDecl = refExpr->getDeclaration();
+    ValueDecl *refDecl = expr->getDeclaration();
+    Type *exprType = resolveType(expr->getType());
     llvm::Value *exprValue = SRF->lookup(refDecl, activation::Slot);
+
+    // Fat access types are always represented as a pointer to the underlying
+    // data.  Regardless of the actual declaration kind we have the proper
+    // representation.
+    if (exprType->isFatAccessType())
+        return CValue::getFat(exprValue);
+
+    // If we have a renamed object decl which simply renames another declaration
+    // (after stripping any inj/prj's) emit the object as an alias for its rhs.
+    // Otherwise the renamed declaration is associated with a slot to the
+    // (already emitted) value.
+    if (RenamedObjectDecl *ROD = dyn_cast<RenamedObjectDecl>(refDecl)) {
+        Expr *renamedExpr = ROD->getRenamedExpr()->ignoreInjPrj();
+        if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(renamedExpr))
+            return emitDeclRefExpr(DRE);
+        else
+            return CValue::get(Builder.CreateLoad(exprValue));
+    }
+
+    // For an object declaration just load the value.
+    if (isa<ObjectDecl>(refDecl))
+        return CValue::get(Builder.CreateLoad(exprValue));
+
+    // If the declaration references a parameter and the mode is either "out" or
+    // "in out", load the actual value.
+    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
+        PM::ParameterMode paramMode = pvDecl->getParameterMode();
+        if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
+            exprValue = Builder.CreateLoad(exprValue);
+        return CValue::get(exprValue);
+    }
 
     // LoopDecl's are always associated directly with their value.
     if (isa<LoopDecl>(refDecl))
         return CValue::get(exprValue);
 
-    if (resolveType(expr->getType())->isFatAccessType()) {
-        // Fat access types are always represented as a pointer to the
-        // underlying structure.  Regardless of whether the declaration is an
-        // object or formal parameter, we have the proper representation.
-        return CValue::getFat(exprValue);
-    }
-
-    if (ParamValueDecl *pvDecl = dyn_cast<ParamValueDecl>(refDecl)) {
-        // If the declaration references a parameter and the mode is either
-        // "out" or "in out", load the actual value.
-        PM::ParameterMode paramMode = pvDecl->getParameterMode();
-        if (paramMode == PM::MODE_OUT || paramMode == PM::MODE_IN_OUT)
-            exprValue = Builder.CreateLoad(exprValue);
-    }
-    else {
-        // We must have an object declaration.  Unless the object is a fat
-        // access load the value (we always represent fat pointers as pointers
-        // to the underlying structure, just like we do for any other aggregate).
-        assert(isa<ObjectDecl>(refDecl) && "Unexpected type of expression!");
-        exprValue = Builder.CreateLoad(exprValue);
-    }
-    return CValue::get(exprValue);
+    assert(false && "Unexpected type of expression!");
+    return CValue::get(0);
 }
 
 CValue CodeGenRoutine::emitInjExpr(InjExpr *expr)
