@@ -24,7 +24,8 @@ add
    end Pred;
 
    procedure Run is
-      P : % := prj(new Rec'(F => 0));
+      I : Rep := new Rec'(F => 0);
+      P : % renames prj(I);
    begin
       Modify(P);
       pragma Assert(Pred(P));
