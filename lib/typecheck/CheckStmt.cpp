@@ -92,7 +92,7 @@ Node TypeCheck::acceptAssignmentStmt(Node targetNode, Node valueNode)
         return getInvalidNode();
 
     if (!target->isMutable(immutable)) {
-        Location loc = immutable->getLocation();
+        Location loc = target->getLocation();
 
         // Diagnose common assignment mistakes.
         if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(immutable)) {
