@@ -126,10 +126,10 @@ private:
     llvm::Value *emitRem(llvm::Value *lhs, llvm::Value *rhs);
 
     /// Synthesizes a "=" operation.
-    llvm::Value *emitEQ(llvm::Value *lhs, llvm::Value *rhs);
+    llvm::Value *emitEQ(Type *argTy, llvm::Value *lhs, llvm::Value *rhs);
 
     /// Synthesizes a "/=" operation.
-    llvm::Value *emitNE(llvm::Value *lhs, llvm::Value *rhs);
+    llvm::Value *emitNE(Type *argTy, llvm::Value *lhs, llvm::Value *rhs);
     //@}
 
     /// \name Attribute Call Emitters.
@@ -464,6 +464,7 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
     else if (PO::denotesBinaryOp(ID)) {
         assert(arguments.size() == 2 && "Arity mismatch!");
 
+        Type *argTy = srDecl->getParamType(0);
         llvm::Value *lhs = arguments[0];
         llvm::Value *rhs = arguments[1];
 
@@ -473,11 +474,11 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             break;
 
         case PO::EQ_op:
-            result = emitEQ(lhs, rhs);
+            result = emitEQ(argTy, lhs, rhs);
             break;
 
         case PO::NE_op:
-            result = emitNE(lhs, rhs);
+            result = emitNE(argTy, lhs, rhs);
             break;
 
         case PO::ADD_op:
@@ -704,11 +705,18 @@ llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)
     return Builder.CreateSRem(lhs, rhs);
 }
 
-llvm::Value *CallEmitter::emitEQ(llvm::Value *lhs, llvm::Value *rhs)
+llvm::Value *CallEmitter::emitEQ(Type *argTy,
+                                 llvm::Value *lhs, llvm::Value *rhs)
 {
-    // If the operands are pointer types cast them to integer values for the
-    // purpose of comparison.
-    if (isa<llvm::PointerType>(lhs->getType())) {
+    if (argTy->isFatAccessType()) {
+        // Fat access types are compared wrt the value of the embedded pointer.
+        lhs = Builder.CreateLoad(Builder.CreateStructGEP(lhs, 0));
+        rhs = Builder.CreateLoad(Builder.CreateStructGEP(rhs, 0));
+        lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
+        rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
+    }
+    else if (argTy->isThinAccessType()) {
+        // Cast thin pointer types to the corresponding integer value.
         lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
         rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
     }
@@ -716,11 +724,17 @@ llvm::Value *CallEmitter::emitEQ(llvm::Value *lhs, llvm::Value *rhs)
     return Builder.CreateICmpEQ(lhs, rhs);
 }
 
-llvm::Value *CallEmitter::emitNE(llvm::Value *lhs, llvm::Value *rhs)
+llvm::Value *CallEmitter::emitNE(Type *argTy, llvm::Value *lhs, llvm::Value *rhs)
 {
-    // If the operands are pointer types cast them to integer values for the
-    // purpose of comparison.
-    if (isa<llvm::PointerType>(lhs->getType())) {
+    if (argTy->isFatAccessType()) {
+        // Fat access types are compared wrt the value of the embedded pointer.
+        lhs = Builder.CreateLoad(Builder.CreateStructGEP(lhs, 0));
+        rhs = Builder.CreateLoad(Builder.CreateStructGEP(rhs, 0));
+        lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
+        rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
+    }
+    else if (argTy->isThinAccessType()) {
+        // Cast thin pointer types to the corresponding integer value.
         lhs = Builder.CreatePtrToInt(lhs, CG.getIntPtrTy());
         rhs = Builder.CreatePtrToInt(rhs, CG.getIntPtrTy());
     }
