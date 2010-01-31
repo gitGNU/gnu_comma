@@ -204,9 +204,7 @@ bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
     Stmt *stmt = cast_node<Stmt>(stmtNode);
     StmtSequence *seq;
 
-    if (SubroutineDecl *SR = lift_node<SubroutineDecl>(contextNode))
-        seq = SR->getBody();
-    else if (BlockStmt *block = lift_node<BlockStmt>(contextNode))
+    if (BlockStmt *block = lift_node<BlockStmt>(contextNode))
         seq = block;
     else if (HandlerStmt *handler = lift_node<HandlerStmt>(contextNode))
         seq = handler;

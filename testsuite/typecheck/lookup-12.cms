@@ -1,0 +1,23 @@
+-- Ensure handlers cannot see the contents of their associated blocks.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      X : Integer := 0;
+   begin
+
+      declare
+         Y : Integer := 0;
+      begin
+         null;
+      exception
+         -- EXPECTED-ERROR: is not visible
+         when others => Y := 1;
+      end;
+
+   exception
+      -- EXPECTED-ERROR: is not visible
+      when others => X := 1;
+   end Run;
+end Test;

@@ -80,6 +80,7 @@ public:
     Node endSubroutineDeclaration(bool definitionFollows);
 
     Node beginSubroutineDefinition(Node declarationNode);
+    void endSubroutineBody(Node contextNode);
     void endSubroutineDefinition();
 
     Node acceptDirectName(IdentifierInfo *name, Location loc,

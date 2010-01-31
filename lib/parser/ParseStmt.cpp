@@ -212,27 +212,32 @@ Node Parser::parseBlockStmt()
         }
     }
 
-    if (requireToken(Lexer::TKN_BEGIN)) {
-        while (!currentTokenIs(Lexer::TKN_END) &&
-               !currentTokenIs(Lexer::TKN_EXCEPTION) &&
-               !currentTokenIs(Lexer::TKN_EOT)) {
-            Node stmt = parseStatement();
-            if (stmt.isValid())
-                client.acceptStmt(block, stmt);
-        }
-
-        if (currentTokenIs(Lexer::TKN_EXCEPTION))
-            parseExceptionStmt(block);
-
-        if (parseEndTag(label)) {
-            client.endBlockStmt(block);
-            return block;
-        }
+    if (!requireToken(Lexer::TKN_BEGIN)) {
+        client.endBlockStmt(block);
+        seekAndConsumeEndTag(label);
+        return getInvalidNode();
     }
 
+    // Consume each statement in the block.
+    while (!currentTokenIs(Lexer::TKN_END) &&
+           !currentTokenIs(Lexer::TKN_EXCEPTION) &&
+           !currentTokenIs(Lexer::TKN_EOT)) {
+        Node stmt = parseStatement();
+        if (stmt.isValid())
+            client.acceptStmt(block, stmt);
+    }
+
+    // Inform the client all statements have been consumed.
     client.endBlockStmt(block);
-    seekAndConsumeEndTag(label);
-    return getInvalidNode();
+
+    // Process any exception handlers.
+    if (currentTokenIs(Lexer::TKN_EXCEPTION))
+        parseExceptionStmt(block);
+
+    // Finish up.
+    if (!parseEndTag(label))
+        seekAndConsumeEndTag(label);
+    return block;
 }
 
 Node Parser::parseWhileStmt()

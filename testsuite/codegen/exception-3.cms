@@ -11,13 +11,15 @@ add
    procedure Run is
       Count : Natural := 0;
    begin
-      for I in 1..10 loop
-         Count := Count + 1;
-         Throw;
-      end loop;
-   exception
-      when others =>
-         pragma Assert(Count = 1);
+      begin
+         for I in 1..10 loop
+            Count := Count + 1;
+            Throw;
+         end loop;
+      exception
+         when others =>
+            pragma Assert(Count = 1);
+      end;
    end Run;
 end Test;
 

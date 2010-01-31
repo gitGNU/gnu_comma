@@ -21,10 +21,12 @@ add
    procedure Run is
       Count : Natural := 0;
    begin
-      Count := Foo(Count);
-   exception
-      when others =>
-         pragma Assert(Count = 0);
+      begin
+         Count := Foo(Count);
+      exception
+         when others => null;
+      end;
+      pragma Assert(Count = 0);
    end Run;
 end Test;
 

@@ -333,13 +333,19 @@ public:
     /// Once a declaration has been parsed, a context for a definition is
     /// introduced with a call to beginSubroutineDefinition (assuming the
     /// declaration has a definition), passing in the node returned from
-    /// endSubroutineDeclaration.  The returned Node will be used as the
-    /// first parameter to acceptStmt for each statement constituting the body
-    /// of the definition.
+    /// endSubroutineDeclaration.  The returned Node will be used as the first
+    /// parameter to acceptStmt and endHandlerStmt for each statement and
+    /// exception handler constituting the definition.
     virtual Node beginSubroutineDefinition(Node declarationNode) = 0;
 
-    /// Once the body of a subroutine has been parsed, this callback is invoked
-    /// to singnal the completion of the definition.
+    /// Once the sequence of statements constituting the body of the subroutine
+    /// has been parsed (not counting any exception handlers), this method is
+    /// invoked to inform the client of the completion of the body.
+    virtual void endSubroutineBody(Node context) = 0;
+
+    /// Once endSubroutineBody has been called and any exception handlers have
+    /// been processed this callback is invoked to signal the completion of the
+    /// definition.
     virtual void endSubroutineDefinition() = 0;
     //@}
 

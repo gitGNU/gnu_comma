@@ -201,8 +201,8 @@ Node TypeCheck::endSubroutineDeclaration(bool definitionFollows)
 
 Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
 {
-    SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
     declarationNode.release();
+    SubroutineDecl *srDecl = cast_node<SubroutineDecl>(declarationNode);
 
     // Enter a scope for the subroutine definition.  Add the subroutine itself
     // as an element of the new scope and add the formal parameters.  This
@@ -210,27 +210,69 @@ Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
     scope.push(SUBROUTINE_SCOPE);
     scope.addDirectDeclNoConflicts(srDecl);
     typedef SubroutineDecl::param_iterator param_iterator;
-    for (param_iterator I = srDecl->begin_params();
-         I != srDecl->end_params(); ++I)
+    for (param_iterator I = srDecl->begin_params(), E = srDecl->end_params();
+         I != E; ++I)
         scope.addDirectDeclNoConflicts(*I);
 
     // Allocate a BlockStmt for the subroutines body and make this block the
     // current declarative region.
     assert(!srDecl->hasBody() && "Current subroutine already has a body!");
+
     BlockStmt *block = new BlockStmt(0, srDecl, srDecl->getIdInfo());
     srDecl->setBody(block);
-    declarativeRegion = block;
-    return declarationNode;
+    pushDeclarativeRegion(block);
+    Node blockNode = getNode(block);
+    blockNode.release();
+    return blockNode;
+}
+
+void TypeCheck::endSubroutineBody(Node contextNode)
+{
+    // The parser is finished with the subroutine body.  Pop the scope and set
+    // the current declarative region to the containing subroutine declaration.
+    popDeclarativeRegion();
+    scope.pop();
+
+    // FIXME: This burns cycles in the common case when a subroutine does not
+    // have handlers.  Push a new scope and add the subroutine and formal
+    // parameters so that they are visible to any handlers.
+    //
+    // What does this code solve?  Consider:
+    //
+    //   procedure P (X : T) is
+    //      X : T;
+    //   begin
+    //      null;
+    //   exception
+    //      when others => Foo(X);
+    //   end P;
+    //
+    // We cannot push two scopes for the subroutine (one for the subroutine and
+    // the parameters, another for the body and its local declarations) since
+    // then the local declaration of X will be interpreted as shadowing the
+    // formal parameter X instead of conflicting.  However, the the handler must
+    // see the formal parameter (and subroutine declaration) but not any
+    // bindings local to the body proper.
+    //
+    // The solution to this inefficiency would be to teach beginHandlerStmt to
+    // inspect the current context and push/populate a new scope if needed, or
+    // add a new pair of ParseClient callbacks to delimit all handlers and do
+    // the work there.
+    SubroutineDecl *srDecl = cast<SubroutineDecl>(currentDeclarativeRegion());
+    scope.push(SUBROUTINE_SCOPE);
+    scope.addDirectDeclNoConflicts(srDecl);
+    typedef SubroutineDecl::param_iterator param_iterator;
+    for (param_iterator I = srDecl->begin_params(), E = srDecl->end_params();
+         I != E; ++I)
+        scope.addDirectDeclNoConflicts(*I);
 }
 
 void TypeCheck::endSubroutineDefinition()
 {
     assert(scope.getKind() == SUBROUTINE_SCOPE);
 
-    // We established two levels of declarative regions in
-    // beginSubroutineDefinition: one for the BlockStmt constituting the body
-    // and another corresponding to the subroutine itself.  Pop them both.
-    declarativeRegion = declarativeRegion->getParent()->getParent();
+    // Pop the declarative region and scope corresponding to the current subroutine.
+    popDeclarativeRegion();
     scope.pop();
 }
 

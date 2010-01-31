@@ -970,7 +970,7 @@ Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
 
 void Parser::parseSubroutineBody(Node declarationNode)
 {
-    Node routine = client.beginSubroutineDefinition(declarationNode);
+    Node context = client.beginSubroutineDefinition(declarationNode);
 
     while (!currentTokenIs(Lexer::TKN_BEGIN) &&
            !currentTokenIs(Lexer::TKN_EOT)) {
@@ -981,6 +981,7 @@ void Parser::parseSubroutineBody(Node declarationNode)
             report(diag::UNEXPECTED_TOKEN_WANTED)
                 << currentToken().getString()
                 << Lexer::tokenString(Lexer::TKN_BEGIN);
+            client.endSubroutineBody(context);
             goto PARSE_END_TAG;
         }
 
@@ -995,11 +996,15 @@ void Parser::parseSubroutineBody(Node declarationNode)
            !currentTokenIs(Lexer::TKN_EOT)) {
         Node stmt = parseStatement();
         if (stmt.isValid())
-            client.acceptStmt(routine, stmt);
+            client.acceptStmt(context, stmt);
     }
 
+    // We are finished with the main body of the subroutine.  Inform the client.
+    client.endSubroutineBody(context);
+
+    // Parse any exception handlers.
     if (currentTokenIs(Lexer::TKN_EXCEPTION))
-        parseExceptionStmt(routine);
+        parseExceptionStmt(context);
 
 PARSE_END_TAG:
     EndTagEntry tagEntry = endTagStack.top();
