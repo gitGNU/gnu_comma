@@ -500,12 +500,12 @@ llvm::Value *CodeGenRoutine::emitScalarBoundAE(ScalarBoundAE *AE)
 
 llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
 {
+    BoundsEmitter emitter(*this);
     ArrayType *arrTy = AE->getPrefixType();
 
     if (arrTy->isConstrained()) {
         // For constrained arrays the bound can be generated with reference to
         // the index subtype alone.
-        BoundsEmitter emitter(*this);
         IntegerType *indexTy = AE->getType();
         if (AE->isFirst())
             return emitter.getLowerBound(Builder, indexTy);
@@ -513,22 +513,14 @@ llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
             return emitter.getUpperBound(Builder, indexTy);
     }
 
-    // FIXME:  Only a DeclRefExpr prefix is supported for unconstrained arrays
-    // at the moment.
-    DeclRefExpr *ref;
-    llvm::Value *bounds;
-    unsigned offset;
+    // Otherwise emit the prefix as a reference to the array and obtain the
+    // bounds.
+    CValue arrValue = emitCompositeExpr(AE->getPrefix(), 0, false);
+    llvm::Value *bounds = arrValue.second();
+    unsigned dimension = AE->getDimension();
 
-    ref = cast<DeclRefExpr>(AE->getPrefix());
-    bounds = SRF->lookup(ref->getDeclaration(), activation::Bounds);
-    offset = AE->getDimension() * 2;
-
-    // The bounds structure is organized as a set of low/high pairs.  Offset
-    // points to the low entry -- adjust if needed.
-    if (AE->isLast())
-        ++offset;
-
-    // GEP and load the required bound.
-    llvm::Value *bound = Builder.CreateStructGEP(bounds, offset);
-    return Builder.CreateLoad(bound);
+    if (AE->isFirst())
+        return emitter.getLowerBound(Builder, bounds, dimension);
+    else
+        return emitter.getUpperBound(Builder, bounds, dimension);
 }
