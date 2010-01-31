@@ -446,6 +446,9 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
             components = value.first();
             bounds = emitter.synthArrayBounds(Builder, arrTy);
         }
+
+        // Check that the component pointer is non-null.
+        CGR.emitNullAccessCheck(components, deref->getLocation());
     }
     else {
         assert(false && "Invalid type of array expr!");
@@ -1114,8 +1117,10 @@ CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
         rec = CGR.emitSelectedRef(sel).first();
     }
     else if (DereferenceExpr *deref = dyn_cast<DereferenceExpr>(expr)) {
-        // Emit the prefix as a value, yielding a pointer to the record.
+        // Emit the prefix as a value, yielding a pointer to the record.  Check
+        // that the result is non-null.
         rec = CGR.emitValue(deref->getPrefix()).first();
+        CGR.emitNullAccessCheck(rec, deref->getLocation());
     }
 
     assert(rec && "Could not codegen record expression!");
