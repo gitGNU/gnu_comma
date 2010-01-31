@@ -52,6 +52,7 @@ void ExprVisitor::visitExpr(Expr *node)
         case DISPATCH(QualifiedExpr, node);
         case DISPATCH(DereferenceExpr, node);
         case DISPATCH(AllocatorExpr, node);
+        case DISPATCH(DiamondExpr, node);
         };
     }
 }
@@ -86,6 +87,7 @@ void ExprVisitor::visitNullExpr(NullExpr *node) { }
 void ExprVisitor::visitQualifiedExpr(QualifiedExpr *node) { }
 void ExprVisitor::visitDereferenceExpr(DereferenceExpr *node) { }
 void ExprVisitor::visitAllocatorExpr(AllocatorExpr *node) { }
+void ExprVisitor::visitDiamondExpr(DiamondExpr *node) { }
 
 void ExprVisitor::visitFirstAE(FirstAE *node) { }
 void ExprVisitor::visitFirstArrayAE(FirstArrayAE *node) { }

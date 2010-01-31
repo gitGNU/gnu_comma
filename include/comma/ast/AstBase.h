@@ -50,6 +50,7 @@ class DeclRegion;
 class DeclRefExpr;
 class DeclRewriter;
 class DereferenceExpr;
+class DiamondExpr;
 class DiscreteType;
 class DomainDecl;
 class DomainInstanceDecl;
@@ -237,6 +238,7 @@ public:
         //
         AST_AllocatorExpr,      ///< AllocatorExpr
         AST_ConversionExpr,     ///< ConversionExpr
+        AST_DiamondExpr,        ///< DiamondExpr
         AST_DeclRefExpr,        ///< DeclRefExpr
         AST_DereferenceExpr,    ///< DereferenceExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr

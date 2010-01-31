@@ -43,6 +43,7 @@ public:
     virtual void visitQualifiedExpr(QualifiedExpr *node);
     virtual void visitDereferenceExpr(DereferenceExpr *node);
     virtual void visitAllocatorExpr(AllocatorExpr *node);
+    virtual void visitDiamondExpr(DiamondExpr *node);
 
     /// Visitors over AttribExpr nodes.
     virtual void visitFirstAE(FirstAE *node);

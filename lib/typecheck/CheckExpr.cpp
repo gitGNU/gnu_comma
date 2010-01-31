@@ -132,6 +132,8 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveAllocatorExpr(alloc, context);
     if (SelectedExpr *select = dyn_cast<SelectedExpr>(expr))
         return resolveSelectedExpr(select, context);
+    if (DiamondExpr *diamond = dyn_cast<DiamondExpr>(expr))
+        return resolveDiamondExpr(diamond, context);
 
     assert(expr->hasResolvedType() && "Expression does not have a resolved type!");
 
@@ -146,10 +148,10 @@ bool TypeCheck::checkExprInContext(Expr *expr, Type::Classification ID)
     else if (IntegerLiteral *lit = dyn_cast<IntegerLiteral>(expr)) {
         return resolveIntegerLiteral(lit, ID);
     }
-    else if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr)) {
+    else if (isa<AggregateExpr>(expr)) {
         // Classification is never a rich enough context to resolve aggregate
         // expressions.
-        report(agg->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
+        report(expr->getLocation(), diag::INVALID_CONTEXT_FOR_AGGREGATE);
         return false;
     }
 
@@ -188,6 +190,18 @@ Expr *TypeCheck::checkExprAndDereferenceInContext(Expr *expr, Type *context)
     // FIXME: Need a better diagnostic here.
     report(expr->getLocation(), diag::INCOMPATIBLE_TYPES);
     return 0;
+}
+
+Expr *TypeCheck::resolveDiamondExpr(DiamondExpr *diamond, Type *context)
+{
+    if (diamond->hasType()) {
+        assert(covers(diamond->getType(), context) &&
+               "Cannot resolve to a different type.");
+        return diamond;
+    }
+
+    diamond->setType(context);
+    return diamond;
 }
 
 bool TypeCheck::resolveIntegerLiteral(IntegerLiteral *lit,

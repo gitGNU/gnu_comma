@@ -168,6 +168,12 @@ llvm::Function *CodeGen::getMemcpy32() const
     return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memcpy, Tys, 1);
 }
 
+llvm::Function *CodeGen::getMemset32() const
+{
+    const llvm::Type *Tys[1] = { getInt32Ty() };
+    return llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::memset, Tys, 1);
+}
+
 llvm::Function *CodeGen::getEHExceptionIntrinsic() const
 {
     return getLLVMIntrinsic(llvm::Intrinsic::eh_exception);

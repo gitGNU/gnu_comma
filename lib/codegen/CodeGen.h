@@ -174,6 +174,9 @@ public:
     /// Returns a function declaration for the llvm.memcpy.i32 intrinsic.
     llvm::Function *getMemcpy32() const;
 
+    /// Returns a function declaration for the llvm.memset.i32 intrinsic.
+    llvm::Function *getMemset32() const;
+
     /// \name Accessors to the llvm exception intrinsics.
     //@{
     llvm::Function *getEHExceptionIntrinsic() const;

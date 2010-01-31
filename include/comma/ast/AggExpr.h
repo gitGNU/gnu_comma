@@ -382,7 +382,7 @@ public:
 
     /// Constructs an empty AggregateExpr.  Components of this aggregate are
     /// introduced via calls to addComponent().
-    AggregateExpr(Location loc) : Expr(AST_AggregateExpr, loc) { }
+    AggregateExpr(Location loc) : Expr(AST_AggregateExpr, loc), others(0) { }
 
     /// \brief Returns true if this aggregate is empty.
     ///
@@ -583,29 +583,14 @@ public:
     //@}
     //@}
 
-    /// \name Others Components.
-    ///
-    /// An enumeration defining the kind of "others" component associated with
-    /// this aggregate.
-    enum OthersKind {
-        Others_None,           ///< There is no \c others component.
-        Others_Undef,          ///< Indicates a <tt>others => <></tt> component.
-        Others_Expr            ///< An expression has been given for \c others.
-    };
-
-    /// Returns the kind of \c others component associated with this aggregate.
-    OthersKind getOthersKind() const { return others.getInt(); }
-
     /// Returns true if this aggregate has a \c others component.
-    bool hasOthers() const { return getOthersKind() != Others_None; }
+    bool hasOthers() const { return others != 0; }
 
     //@{
-    /// Returns the expression associated with a \c others component.
-    ///
-    /// \returns If hasOthers() returns \c Others_Expr then this method returns
-    /// the associated expression.  Otherwise, this method returns null.
-    Expr *getOthersExpr() { return others.getPointer(); }
-    const Expr *getOthersExpr() const { return others.getPointer(); }
+    /// Returns the expression associated with a \c others component or null if
+    /// there is no others expression.
+    Expr *getOthersExpr() { return others; }
+    const Expr *getOthersExpr() const { return others; }
     //@}
 
     /// \brief Returns the location of the \c others reserved word, or an
@@ -623,25 +608,14 @@ public:
     void addOthersExpr(Location loc, Expr *component) {
         assert(!hasOthers() && "Others component already set!");
         othersLoc = loc;
-        others.setPointer(component);
-        others.setInt(Others_Expr);
-    }
-
-    /// Associates an undefined \c others component with this aggregate.
-    ///
-    /// \param loc Location of the \c others reserved word.
-    void addOthersUndef(Location loc) {
-        assert(!hasOthers() && "Others component already set!");
-        othersLoc = loc;
-        others.setPointer(0);
-        others.setInt(Others_Undef);
+        others = component;
     }
 
     /// Replaces an existing others expression.
     void setOthersExpr(Expr *expr) {
-        assert(getOthersKind() == Others_Expr &&
+        assert(hasOthers() &&
                "Cannot reset the others expr of this kind of aggregate!");
-        others.setPointer(expr);
+        others = expr;
     }
     //@}
 
@@ -664,10 +638,9 @@ private:
     // Location of the "others" reserved word.
     Location othersLoc;
 
-    // Expression associated with an "others" component munged together with a
-    // tag describing the shape of this component.
-    typedef llvm::PointerIntPair<Expr*, 2, OthersKind> OthersComponent;
-    OthersComponent others;
+    // Expression associated with an "others" component or null if this
+    // aggregate does not provide such a component.
+    Expr *others;
 };
 
 } // end comma namespace.

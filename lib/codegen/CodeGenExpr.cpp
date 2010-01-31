@@ -280,6 +280,29 @@ CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
     return CValue::get(0);
 }
 
+CValue CodeGenRoutine::emitDefaultValue(Type *type)
+{
+    type = resolveType(type);
+    const llvm::Type *loweredTy = CGT.lowerType(type);
+
+    // Default value for a fat access value is a null temporary.
+    if (type->isFatAccessType()) {
+        llvm::Value *slot = SRF->createTemp(loweredTy);
+        llvm::Value *fatValue = llvm::ConstantAggregateZero::get(loweredTy);
+        Builder.CreateStore(fatValue, slot);
+        return CValue::getFat(slot);
+    }
+
+    // Null pointers for thin access types.
+    if (type->isThinAccessType()) {
+        const llvm::PointerType *ptrTy = cast<llvm::PointerType>(loweredTy);
+        return CValue::get(llvm::ConstantPointerNull::get(ptrTy));
+    }
+
+    // FIXME: Currently all other values are simple integers.
+    return CValue::get(llvm::ConstantInt::get(loweredTy, 0));
+}
+
 CValue CodeGenRoutine::emitAllocatorValue(AllocatorExpr *expr)
 {
     Type *allocatedType = resolveType(expr->getAllocatedType());

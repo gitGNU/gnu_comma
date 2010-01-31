@@ -207,6 +207,9 @@ CValue CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_AllocatorExpr:
         return emitAllocatorValue(cast<AllocatorExpr>(expr));
+
+    case Ast::AST_DiamondExpr:
+        return emitDefaultValue(expr->getType());
     }
 
     return CValue::get(0);

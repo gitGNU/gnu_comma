@@ -66,6 +66,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "AllocatorExpr",
     "ConversionExpr",
+    "DiamondExpr",
     "DeclRefExpr",
     "DereferenceExpr",
     "FunctionCallExpr",

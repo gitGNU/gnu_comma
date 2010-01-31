@@ -106,7 +106,8 @@ public:
     Node acceptAggregateKey(Node lower, Node upper);
     Node acceptAggregateKey(IdentifierInfo *name, Location loc);
     Node acceptAggregateKey(Node key);
-    void acceptKeyedAggregateComponent(NodeVector &keys, Node expr);
+    void acceptKeyedAggregateComponent(NodeVector &keys,
+                                       Node expr, Location loc);
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
@@ -567,6 +568,9 @@ private:
     // Resolves a selected component expression with respect to the given target
     // type.
     Expr *resolveSelectedExpr(SelectedExpr *select, Type *context);
+
+    // Resolves a diamond expression to the given target type.
+    Expr *resolveDiamondExpr(DiamondExpr *diamond, Type *context);
 
     // Resolves the given call expression to one which satisfies the given
     // target type.  Returns a valid expression if the call was successfully

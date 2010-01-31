@@ -460,9 +460,12 @@ bool Parser::parseAggregateComponent(bool &seenKeyedComponent)
 
     seenKeyedComponent = true;
     if (requireToken(Lexer::TKN_RDARROW)) {
-        Node expr = parseExpr();
+        Node expr = getNullNode();
+        Location loc = currentLocation();
+        if (!reduceToken(Lexer::TKN_DIAMOND))
+            expr = parseExpr();
         if (expr.isValid())
-            client.acceptKeyedAggregateComponent(keys, expr);
+            client.acceptKeyedAggregateComponent(keys, expr, loc);
     }
     return true;
 }

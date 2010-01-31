@@ -377,7 +377,7 @@ public:
     /// client is notified with a call to acceptPositionalAggregateComponent.
     ///
     /// Next, every keyed component is processed.  This is a two stage affair.
-    /// For each key one of the acceptAggregateKey method is invoked.  Finally,
+    /// For each key one of the acceptAggregateKey methods is invoked.  Finally,
     /// acceptKeyedAggregateComponent is called with a NodeVector containing
     /// each key along with the associated expression.
     ///
@@ -419,11 +419,20 @@ public:
     /// Provides a vector of keys and associated expression for a keyed
     /// aggregate component.
     ///
+    /// \param keys A vector of valid nodes as returned by acceptAggregateKey.
+    ///
+    /// \param expr Expression denoting the value associated with the given
+    /// keys, or a null node if a diamond was parsed.
+    ///
+    /// \param loc Location of the given expression (for use when \p expr is
+    /// null).
+    ///
     /// \note The parser will always call this method if it is able to parse the
     /// associated expression.  This means that \p keys may be empty if none of
     /// the keys parsed correctly or the client returned an invalid node for
     /// them all.
-    virtual void acceptKeyedAggregateComponent(NodeVector &keys, Node expr) = 0;
+    virtual void acceptKeyedAggregateComponent(NodeVector &keys,
+                                               Node expr, Location loc) = 0;
 
     /// Indicates an "others" component.  If this callback is invoked, it is
     /// always the last component processed by the parser.

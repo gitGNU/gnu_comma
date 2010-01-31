@@ -1043,11 +1043,19 @@ Node TypeCheck::acceptAggregateKey(Node keyNode)
 }
 
 void TypeCheck::acceptKeyedAggregateComponent(NodeVector &keyNodes,
-                                              Node exprNode)
+                                              Node exprNode, Location loc)
 {
-    Expr *expr = ensureExpr(exprNode);
+    // When exprNode is null the parser consumed an <> token.
+    Expr *expr = 0;
+    if (!exprNode.isNull()) {
+        if (!(expr = ensureExpr(exprNode)))
+            return;
+    }
 
-    if (!expr || keyNodes.empty())
+    // This callback is always envoked when the expression was parsed.  If the
+    // vector of keys is empty there were to many parse/semantic errors to form
+    // a valid component.  Return.
+    if (keyNodes.empty())
         return;
 
     // Convert the key nodes to their required Ast form.
@@ -1057,10 +1065,13 @@ void TypeCheck::acceptKeyedAggregateComponent(NodeVector &keyNodes,
     KeyVec keys(Mapper(keyNodes.begin(), Caster()),
                 Mapper(keyNodes.end(), Caster()));
 
-    // Build the needed key list and add it to the current aggregate.
+    // Build the needed key list and add it to the current aggregate.  If expr
+    // is null allocate a DiamondExpr.
     keyNodes.release();
     exprNode.release();
     ComponentKeyList *KL;
+    if (expr == 0)
+        expr = new DiamondExpr(loc);
     KL = ComponentKeyList::create(&keys[0], keys.size(), expr);
     aggregateStack.top()->addComponent(KL);
 }
@@ -1068,14 +1079,15 @@ void TypeCheck::acceptKeyedAggregateComponent(NodeVector &keyNodes,
 void TypeCheck::acceptAggregateOthers(Location loc, Node nodeComponent)
 {
     AggregateExpr *agg = aggregateStack.top();
+    Expr *component = 0;
 
     if (nodeComponent.isNull())
-        agg->addOthersUndef(loc);
-    else {
-        Expr *component = ensureExpr(nodeComponent);
-        nodeComponent.release();
-        agg->addOthersExpr(loc, component);
-    }
+        component = new DiamondExpr(loc);
+    else
+        component = ensureExpr(nodeComponent);
+
+    nodeComponent.release();
+    agg->addOthersExpr(loc, component);
 }
 
 Node TypeCheck::endAggregate()

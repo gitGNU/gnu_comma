@@ -841,6 +841,27 @@ private:
     OperandUnion operand;
 };
 
+//===----------------------------------------------------------------------===//
+// DiamondExpr
+//
+/// \class
+///
+/// A DiamondExpr is a very simple node which correspond to the occurrence of an
+/// "<>" token in an expression.  Such expressions denote the default value
+/// corresponding to the associated type.
+class DiamondExpr : public Expr {
+
+public:
+    DiamondExpr(Location loc, Type *type = 0)
+        : Expr(AST_DiamondExpr, type, loc) { }
+
+    // Support isa/dyn_cast.
+    static bool classof(const DiamondExpr *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_DiamondExpr;
+    }
+};
+
 } // End comma namespace.
 
 #endif

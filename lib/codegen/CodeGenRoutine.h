@@ -155,6 +155,7 @@ private:
     CValue emitSelectedValue(SelectedExpr *expr);
     CValue emitNullExpr(NullExpr *expr);
     CValue emitDereferencedValue(DereferenceExpr *expr);
+    CValue emitDefaultValue(Type *type);
     CValue emitAllocatorValue(AllocatorExpr *expr);
     CValue emitCompositeAllocator(AllocatorExpr *expr);
 

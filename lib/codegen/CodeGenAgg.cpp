@@ -99,6 +99,7 @@ private:
                                bool genTmp);
     CValue emitCall(FunctionCallExpr *call, llvm::Value *dst);
     CValue emitAggregate(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitDefault(ArrayType *type, llvm::Value *dst);
     CValue emitStringLiteral(StringLiteral *expr);
 
     /// Allocates a temporary array.
@@ -405,6 +406,9 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
         return emit(qual->getOperand(), dst, genTmp);
 
+    if (isa<DiamondExpr>(expr))
+        return emitDefault(arrTy, dst);
+
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
         ValueDecl *decl = ref->getDeclaration();
         components = frame()->lookup(decl, activation::Slot);
@@ -507,6 +511,36 @@ CValue ArrayEmitter::emitAggregate(AggregateExpr *expr, llvm::Value *dst)
     if (expr->isPurelyPositional())
         return emitPositionalAgg(expr, dst);
     return emitKeyedAgg(expr, dst);
+}
+
+CValue ArrayEmitter::emitDefault(ArrayType *arrTy, llvm::Value *dst)
+{
+    CodeGen &CG = CGR.getCodeGen();
+    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+
+    llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+    llvm::Value *length = 0;
+
+    // If a destination is not provided allocate a temporary of the required size.
+    if (!dst)
+        length = allocArray(arrTy, bounds, dst);
+    else
+        length = emitter.computeTotalBoundLength(Builder, bounds);
+
+    // Memset the destination to zero.
+    const llvm::Type *componentTy = CGT.lowerType(arrTy->getComponentType());
+    uint64_t componentSize = CGT.getTypeSize(componentTy);
+    unsigned align = CGT.getTypeAlignment(componentTy);
+    llvm::Function *memset = CG.getMemset32();
+    llvm::Value *size = Builder.CreateMul
+        (length, llvm::ConstantInt::get(length->getType(), componentSize));
+    llvm::Value *raw = Builder.CreatePointerCast(dst, CG.getInt8PtrTy());
+
+    Builder.CreateCall4(memset, raw, llvm::ConstantInt::get(CG.getInt8Ty(), 0),
+                        size, llvm::ConstantInt::get(CG.getInt32Ty(), align));
+
+    // Return the generated aggregate.
+    return CValue::getArray(dst, bounds);
 }
 
 CValue ArrayEmitter::emitStringLiteral(StringLiteral *expr)
@@ -786,10 +820,7 @@ CValue ArrayEmitter::emitStaticKeyedAgg(AggregateExpr *agg, llvm::Value *dst)
 void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
                                 llvm::Value *lower, llvm::Value *upper)
 {
-    // If this aggregate does not specify an others component we are done.
-    //
-    // FIXME: If an undefined others component is specified we should be
-    // initializing the components with their default value (if any).
+    // If there is no others expression we are done.
     Expr *others = agg->getOthersExpr();
     if (!others)
         return;
@@ -984,6 +1015,9 @@ private:
     /// with the components defined by \p agg.
     CValue emitAggregate(AggregateExpr *agg, llvm::Value *dst);
 
+    /// Emits a default initialized value of the given record type.
+    CValue emitDefault(RecordType *type, llvm::Value *dst);
+
     /// A reference to the following type is passed to the various helper
     /// methods which implement emitAggregate.  Each method populates the set
     /// with the components they emitted.  This set is used to implement
@@ -1062,6 +1096,11 @@ CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
     if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
         return emit(qual->getOperand(), dst, genTmp);
 
+    if (isa<DiamondExpr>(expr)) {
+        RecordType *recTy = cast<RecordType>(CGR.resolveType(expr));
+        return emitDefault(recTy, dst);
+    }
+
     llvm::Value *rec = 0;
 
     if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
@@ -1123,6 +1162,30 @@ CValue RecordEmitter::emitAggregate(AggregateExpr *agg, llvm::Value *dst)
 
     // Emit any `others' components.
     emitOthersComponents(agg, dst, components);
+
+    return CValue::getRecord(dst);
+}
+
+CValue RecordEmitter::emitDefault(RecordType *type, llvm::Value *dst)
+{
+    CodeGen &CG = CGR.getCodeGen();
+    const llvm::StructType *loweredType = CGT.lowerRecordType(type);
+
+    // If the destination is null create a temporary to hold the record.
+    if (dst == 0)
+        dst = frame()->createTemp(loweredType);
+
+    // Zero initialize the record.
+    uint64_t size = CGT.getTypeSize(loweredType);
+    unsigned align = CGT.getTypeAlignment(loweredType);
+    const llvm::Type *i32Ty = CG.getInt32Ty();
+    llvm::Function *memset = CG.getMemset32();
+    llvm::Value *raw = Builder.CreatePointerCast(dst, CG.getInt8PtrTy());
+
+    Builder.CreateCall4(memset, raw,
+                        llvm::ConstantInt::get(CG.getInt8Ty(), 0),
+                        llvm::ConstantInt::get(i32Ty, size),
+                        llvm::ConstantInt::get(i32Ty, align));
 
     return CValue::getRecord(dst);
 }
@@ -1189,15 +1252,10 @@ void RecordEmitter::emitOthersComponents(AggregateExpr *agg, llvm::Value *dst,
     if (!agg->hasOthers())
         return;
 
-    // FIXME:  We should be default initializing components if there is no
-    // expression associated with the others clause.
-    Expr *others = agg->getOthersExpr();
-    if (!others)
-        return;
-
     // Iterate over the full set of components provided by the underlying record
     // declaration.  Emit all components that are not already present in the
     // provided set.
+    Expr *others = agg->getOthersExpr();
     RecordDecl *recDecl = cast<RecordType>(agg->getType())->getDefiningDecl();
     unsigned numComponents = recDecl->numComponents();
     for (unsigned i = 0 ; i < numComponents; ++i) {

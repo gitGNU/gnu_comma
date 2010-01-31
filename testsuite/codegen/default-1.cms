@@ -1,0 +1,65 @@
+-- Check default initialization in contexts involving "<>".
+
+domain Test with
+   procedure Run;
+add
+
+   type Idx is range 1..10;
+
+   type Fat is access String;
+
+   type Thin is access Integer;
+
+   type IVec is array (Idx) of Integer;
+   type FVec is array (Idx) of Fat;
+
+   type Rec is record
+      I  : Integer;
+      F  : Fat;
+      T  : Thin;
+      IV : IVec;
+      FV : FVec;
+   end record;
+
+   type RVec is array (Idx) of Rec;
+
+   procedure Assert_Null_Rec(R : Rec) is
+   begin
+      pragma Assert(R.I = 0);
+      pragma Assert(R.F = null);
+      pragma Assert(R.T = null);
+
+      for I in R.IV'Range loop
+         pragma Assert(R.IV(I) = 0);
+      end loop;
+
+      for I in R.FV'Range loop
+         pragma Assert(R.FV(I) = null);
+      end loop;
+
+   end Assert_Null_Rec;
+
+   procedure Run is
+      R  : Rec  := (I => <>, F => <>, T => <>, IV => <>, FV => <>);
+      IV : IVec := (others => <>);
+      FV : FVec := (others => <>);
+      RV : RVec := (others => <>);
+   begin
+      Assert_Null_Rec(R);
+
+      for I in IV'Range loop
+         pragma Assert(IV(I) = 0);
+      end loop;
+
+      for I in FV'Range loop
+         pragma Assert(FV(I) = null);
+      end loop;
+
+      for I in RV'Range loop
+         Assert_Null_Rec(RV(I));
+      end loop;
+
+   end Run;
+
+end Test;
+
