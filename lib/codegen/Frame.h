@@ -75,8 +75,8 @@ public:
 
     /// \name Subframe Methods.
     //@{
-    /// Pushes a new subframe and makes it current.
-    void pushFrame();
+    /// Pushes a new subframe and associates it with the given basic block.
+    void pushFrame(llvm::BasicBlock *associatedBB);
 
     /// Pop's the current subframe.
     void popFrame();
@@ -154,7 +154,8 @@ private:
     class Subframe {
 
     public:
-        Subframe(SRFrame *context, Subframe *parent);
+        Subframe(SRFrame *context, Subframe *parent,
+                 llvm::BasicBlock *entryBB);
         ~Subframe();
 
         /// Returns true if this is a nested subframe.
@@ -183,6 +184,9 @@ private:
         /// requireLandingPad has yet to be called on this subframe.
         llvm::BasicBlock *getLandingPad() { return landingPad; }
 
+        /// Returns the basic block associated with this frame on construction.
+        llvm::BasicBlock *getEntryBB() { return entryBB; }
+
     private:
         /// Back-link to the managing SRFrame.
         SRFrame *SRF;
@@ -195,8 +199,11 @@ private:
         /// restoration pointer for use in a stackrestore call.
         llvm::Value *restorePtr;
 
-        /// Non-null when
+        /// The landing pad associated with this subframe or null.
         llvm::BasicBlock *landingPad;
+
+        /// The entry block associated given to this subframe when constructed.
+        llvm::BasicBlock *entryBB;
     };
 
     /// The SRInfo object associated with the subroutine this frame is

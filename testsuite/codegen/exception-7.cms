@@ -1,0 +1,25 @@
+-- Check exceptions passing thru variable length stack allocations.
+
+domain Test with
+   procedure Run;
+add
+
+   procedure Throw is
+   begin
+      raise Program_Error;
+   end Throw;
+
+   function Make_String return String is
+   begin
+      return "A string.";
+   end Make_String;
+
+   procedure Run is
+      S : String := Make_String; -- Variable length stack allocation.
+   begin
+      Throw;
+   exception
+      when others => null;
+   end Run;
+end Test;
+

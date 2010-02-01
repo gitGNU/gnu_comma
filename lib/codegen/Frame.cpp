@@ -25,11 +25,13 @@ activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
     return 0;
 }
 
-SRFrame::Subframe::Subframe(SRFrame *SRF, Subframe *parent)
+SRFrame::Subframe::Subframe(SRFrame *SRF, Subframe *parent,
+                            llvm::BasicBlock *entryBB)
     : SRF(SRF),
       parent(parent),
       restorePtr(0),
-      landingPad(0) { }
+      landingPad(0),
+      entryBB(entryBB) { }
 
 SRFrame::Subframe::~Subframe()
 {
@@ -42,11 +44,17 @@ void SRFrame::Subframe::emitStacksave()
         return;
 
     llvm::Module *M;
-    llvm::Function *save;
+    llvm::Function *stacksave;
+    llvm::BasicBlock *savedBB;
+    llvm::IRBuilder<> &Builder = SRF->getIRBuilder();
 
     M = SRF->getSRInfo()->getLLVMModule();
-    save = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stacksave);
-    restorePtr = SRF->getIRBuilder().CreateCall(save);
+    stacksave = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::stacksave);
+
+    savedBB = Builder.GetInsertBlock();
+    Builder.SetInsertPoint(entryBB, entryBB->begin());
+    restorePtr = SRF->getIRBuilder().CreateCall(stacksave);
+    Builder.SetInsertPoint(savedBB);
 }
 
 void SRFrame::Subframe::emitStackrestore()
@@ -105,7 +113,7 @@ SRFrame::SRFrame(SRInfo *routineInfo,
     injectSubroutineArgs(CGR);
 
     // Create the first implicit subframe.
-    pushFrame();
+    pushFrame(allocaBB);
 }
 
 SRFrame::~SRFrame()
@@ -157,9 +165,9 @@ void SRFrame::removeLandingPad()
     }
 }
 
-void SRFrame::pushFrame()
+void SRFrame::pushFrame(llvm::BasicBlock *associatedBB)
 {
-    currentSubframe = new Subframe(this, currentSubframe);
+    currentSubframe = new Subframe(this, currentSubframe, associatedBB);
 }
 
 void SRFrame::popFrame()

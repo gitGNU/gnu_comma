@@ -181,17 +181,16 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
                                                 llvm::BasicBlock *predecessor)
 {
     assert(block && "NULL block statement!");
+
     std::string label;
-
-    SRF->pushFrame();
-
-    if (block->isHandled())
-        SRF->addLandingPad();
-
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
     llvm::BasicBlock *BB = SRF->makeBasicBlock(label);
+    SRF->pushFrame(BB);
+
+    if (block->isHandled())
+        SRF->addLandingPad();
 
     if (predecessor) {
         Builder.CreateBr(BB);
@@ -255,7 +254,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 
     // Emit the true branch in its own frame. If generation of the consequent
     // did not result in a terminator, create a branch to the merge block.
-    SRF->pushFrame();
+    SRF->pushFrame(thenBB);
     emitStmt(ite->getConsequent());
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(mergeBB);
@@ -276,7 +275,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
 
-        SRF->pushFrame();
+        SRF->pushFrame(bodyBB);
         emitStmt(I->getConsequent());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
@@ -286,7 +285,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     if (ite->hasAlternate()) {
         Builder.SetInsertPoint(elseBB);
 
-        SRF->pushFrame();
+        SRF->pushFrame(elseBB);
         emitStmt(ite->getAlternate());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
@@ -314,7 +313,7 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 
     // Generate the body.
     Builder.SetInsertPoint(bodyBB);
-    SRF->pushFrame();
+    SRF->pushFrame(bodyBB);
     emitStmt(stmt->getBody());
     SRF->popFrame();
 
@@ -404,7 +403,7 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     // Emit the body of the loop and terminate the resulting insertion point
     // with a branch to the entry block.
     Builder.SetInsertPoint(bodyBB);
-    SRF->pushFrame();
+    SRF->pushFrame(bodyBB);
     phi = Builder.CreatePHI(iterTy, "loop.param");
     phi->addIncoming(iter, dominatorBB);
     phi->addIncoming(next, iterBB);
@@ -428,7 +427,7 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
     Builder.SetInsertPoint(bodyBB);
 
     // Generate the body.
-    SRF->pushFrame();
+    SRF->pushFrame(bodyBB);
     emitStmt(stmt->getBody());
     SRF->popFrame();
 

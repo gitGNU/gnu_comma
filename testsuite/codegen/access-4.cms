@@ -1,0 +1,53 @@
+-- Ensure null dereferences are checked at runtime.
+
+domain Test with
+   procedure Run;
+add
+   type FPtr is access String;
+   type TPtr is access Integer;
+
+   type Rec is record
+      F : FPtr;
+      T : TPtr;
+   end record;
+
+   type Rptr is access Rec;
+
+   procedure Run is
+      F : FPtr := null;
+      T : TPtr := null;
+      R : Rec  := Rec'(F => null, T => null);
+   begin
+      declare
+         I : Integer := T;
+      begin
+         pragma Assert(false, "Expected null check.");
+      exception
+         when Program_Error => null;
+      end;
+
+      declare
+         S : String := F;
+      begin
+         pragma Assert(false, "Expected null check.");
+      exception
+         when Program_Error => null;
+      end;
+
+      declare
+         I : Integer := R.T;
+      begin
+         pragma Assert(false, "Expected null check.");
+      exception
+         when Program_Error => null;
+      end;
+
+      declare
+         S : String := R.F;
+      begin
+         pragma Assert(false, "Expected null check.");
+      exception
+         when Program_Error => null;
+      end;
+   end Run;
+end Test;
