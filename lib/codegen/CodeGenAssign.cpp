@@ -62,6 +62,11 @@ void AssignmentEmitter::emitAssignment(DeclRefExpr *lhs, Expr *rhs)
         // Evaluate the rhs into the storage provided by the lhs.
         CGR.emitCompositeExpr(rhs, target, false);
     }
+    else if (targetTy->isFatAccessType()) {
+        // Load the pointer to the fat access struct and store into the target.
+        llvm::Value *source = CGR.emitValue(rhs).first();
+        Builder.CreateStore(Builder.CreateLoad(source), target);
+    }
     else {
         // The lhs is a simple variable reference.  Just emit and store.
         llvm::Value *source = CGR.emitValue(rhs).first();

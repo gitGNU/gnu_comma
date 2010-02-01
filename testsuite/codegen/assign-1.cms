@@ -1,0 +1,12 @@
+-- Check assignments to fat access types.
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      type Ptr is access String;
+      P : Ptr := new String'("Test");
+   begin
+      P := new String'("Pass");
+   end Run;
+end Test;
