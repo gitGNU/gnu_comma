@@ -166,12 +166,12 @@ proc runTestsSyntaxOnly { test_inputs } {
             set error_status [lindex $error_code 2]
 
             #
-            # If the error class is CHILDSTATUS, use the true exit status from
-            # the driver.  Otherwise, we have an exceptional condition
+            # If the error class is CHILDSTATUS or NONE use the true exit status
+            # from the driver.  Otherwise, we have an exceptional condition
             # (segfault, assertion, etc).  The latter case always results in a
             # FAIL.
             #
-            if { $error_class == "CHILDSTATUS" } {
+            if { $error_class == "CHILDSTATUS" || $error_class == "NONE" } {
                 set retval $error_status
             } else {
                 fail [concat $error_class $test_input]
@@ -240,12 +240,12 @@ proc runCompiledTests { test_inputs } {
             set error_status [lindex $error_code 2]
 
             #
-            # If the error class is CHILDSTATUS, use the true exit status from
-            # the test program.  Otherwise, we have an exceptional condition
-            # (segfault, assertion, etc).  The latter case always results in a
-            # FAIL.
+            # If the error class is CHILDSTATUS or NONE use the true exit status
+            # from the test program.  Otherwise, we have an exceptional
+            # condition (segfault, assertion, etc).  The latter case always
+            # results in a FAIL.
             #
-            if { $error_class == "CHILDSTATUS" } {
+            if { $error_class == "CHILDSTATUS" || $error_class == "NONE" } {
                 set retval $error_status
             } else {
                 fail [concat $error_class $test_prog]
