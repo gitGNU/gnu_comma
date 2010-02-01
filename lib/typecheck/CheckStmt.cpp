@@ -129,7 +129,7 @@ Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
     if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
-        StmtSequence *consequents = new StmtSequence(I, E);
+        StmtSequence *consequents = new StmtSequence(loc, I, E);
 
         conditionNode.release();
         consequentNodes.release();
@@ -149,7 +149,7 @@ Node TypeCheck::acceptElseStmt(Location loc, Node ifNode,
 
     iterator I(alternateNodes.begin(), caster());
     iterator E(alternateNodes.end(), caster());
-    StmtSequence *alternates = new StmtSequence(I, E);
+    StmtSequence *alternates = new StmtSequence(loc, I, E);
 
     cond->setAlternate(loc, alternates);
     alternateNodes.release();
@@ -168,7 +168,7 @@ Node TypeCheck::acceptElsifStmt(Location loc, Node ifNode, Node conditionNode,
     if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         iterator I(consequentNodes.begin(), caster());
         iterator E(consequentNodes.end(), caster());
-        StmtSequence *consequents = new StmtSequence(I, E);
+        StmtSequence *consequents = new StmtSequence(loc, I, E);
 
         cond->addElsif(loc, pred, consequents);
         conditionNode.release();
@@ -213,6 +213,18 @@ bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
         return false;
     }
 
+    // If this sequence of statements is non-empty ensure the next statement
+    // does not follow a terminator.  Unreachable statements are not considered
+    // an error, so we return true and let the node reclaim the unused
+    // statement.
+    if (!seq->isEmpty()) {
+        Stmt *predecessor = seq->back();
+        if (predecessor->isTerminator()) {
+            report(stmt->getLocation(), diag::UNREACHABLE_STATEMENT);
+            return true;
+        }
+    }
+
     stmtNode.release();
     seq->addStmt(stmt);
     return true;
@@ -231,7 +243,7 @@ Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
 
     iterator I(stmtNodes.begin(), caster());
     iterator E(stmtNodes.end(), caster());
-    StmtSequence *body = new StmtSequence(I, E);
+    StmtSequence *body = new StmtSequence(loc, I, E);
 
     conditionNode.release();
     stmtNodes.release();
@@ -245,7 +257,7 @@ Node TypeCheck::acceptLoopStmt(Location loc, NodeVector &stmtNodes)
 
     iterator I(stmtNodes.begin(), caster());
     iterator E(stmtNodes.end(), caster());
-    StmtSequence *body = new StmtSequence(I, E);
+    StmtSequence *body = new StmtSequence(loc, I, E);
 
     stmtNodes.release();
     return getNode(new LoopStmt(loc, body));

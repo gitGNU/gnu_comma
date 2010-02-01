@@ -1,0 +1,18 @@
+
+domain Test with
+   procedure Run;
+add
+   procedure Throw is
+      X : Integer;
+   begin
+      raise Program_Error;
+      X := 0;                   -- EXPECTED-WARNING: Unreachable statement
+   end Throw;
+
+   procedure Run is
+      X : Integer;
+   begin
+      return;
+      X := 0;                   -- EXPECTED-WARNING: Unreachable statement
+   end Run;
+end Test;

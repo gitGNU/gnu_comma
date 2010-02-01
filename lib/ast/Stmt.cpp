@@ -10,6 +10,7 @@
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/Pragma.h"
 #include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
 
@@ -19,6 +20,13 @@ using namespace comma;
 using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
+
+//===----------------------------------------------------------------------===//
+// Stmt
+bool Stmt::isTerminator() const
+{
+    return isa<ReturnStmt>(this) || isa<RaiseStmt>(this);
+}
 
 //===----------------------------------------------------------------------===//
 // StmtSequence
@@ -47,8 +55,8 @@ bool StmtSequence::handles(const ExceptionDecl *exception) const
 //===----------------------------------------------------------------------===//
 // HandlerStmt
 HandlerStmt::HandlerStmt(Location loc, ExceptionRef **refs, unsigned numRefs)
-    : StmtSequence(AST_HandlerStmt),
-      loc(loc), numChoices(numRefs)
+    : StmtSequence(AST_HandlerStmt, loc),
+      numChoices(numRefs)
 {
     choices = new ExceptionRef*[numChoices];
     std::memcpy(choices, refs, sizeof(ExceptionRef*)*numRefs);
@@ -69,9 +77,8 @@ bool HandlerStmt::handles(const ExceptionDecl *exception) const
 ProcedureCallStmt::ProcedureCallStmt(SubroutineRef *ref,
                                      Expr **posArgs, unsigned numPos,
                                      KeywordSelector **keys, unsigned numKeys)
-    : Stmt(AST_ProcedureCallStmt),
-      SubroutineCall(ref, posArgs, numPos, keys, numKeys),
-      location(ref->getLocation())
+    : Stmt(AST_ProcedureCallStmt, ref->getLocation()),
+      SubroutineCall(ref, posArgs, numPos, keys, numKeys)
 {
     assert(ref->isResolved() && "Cannot form unresolved procedure calls!");
 }
@@ -84,19 +91,31 @@ ReturnStmt::~ReturnStmt()
 }
 
 //===----------------------------------------------------------------------===//
+// AssignmentStmt
+AssignmentStmt::AssignmentStmt(Expr *target, Expr *value)
+    : Stmt(AST_AssignmentStmt, target->getLocation()),
+      target(target), value(value) { }
+
+//===----------------------------------------------------------------------===//
 // ForStmt
 
 ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, DSTDefinition *control)
-    : Stmt(AST_ForStmt),
-      location(loc),
+    : Stmt(AST_ForStmt, loc),
       iterationDecl(iterationDecl),
-      control(control)
+      control(control),
+      body(loc)
 {
     assert(control->getTag() != DSTDefinition::Unconstrained_DST &&
            "Invalid discrete subtype definition for loop control!");
     assert(control->getType() == iterationDecl->getType() &&
            "Inconsistent types!");
 }
+
+//===----------------------------------------------------------------------===//
+// PragmaStmt
+PragmaStmt::PragmaStmt(Pragma *pragma)
+    : Stmt(AST_PragmaStmt, pragma->getLocation()), pragma(pragma)
+{ }
 
 //===----------------------------------------------------------------------===//
 // RaiseStmt

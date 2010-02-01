@@ -276,3 +276,5 @@ DIAGNOSTIC(UNKNOWN_SELECTED_COMPONENT, ERROR,
            "The name `%0' does not denote a component in type `%1'.")
 DIAGNOSTIC(INVALID_CONTEXT_FOR_INCOMPLETE_TYPE, ERROR,
            "Invalid context for incomplete type.")
+DIAGNOSTIC(UNREACHABLE_STATEMENT, WARNING,
+           "Unreachable statement.")

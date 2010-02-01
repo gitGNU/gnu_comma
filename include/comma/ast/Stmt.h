@@ -22,13 +22,23 @@ class Pragma;
 class Stmt : public Ast {
 
 protected:
-    Stmt(AstKind kind) : Ast(kind) { }
+    Stmt(AstKind kind, Location loc) : Ast(kind), location(loc) { }
 
 public:
+    /// Returns the location of this statement.
+    Location getLocation() const { return location; }
+
+    /// Returns true if this statement represents a \c return or \c raise.
+    bool isTerminator() const;
+
+    // Support isa/dyn_cast.
     static bool classof(const Stmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesStmt();
     }
+
+private:
+    Location location;
 };
 
 //===----------------------------------------------------------------------===//
@@ -43,15 +53,15 @@ class StmtSequence : public Stmt {
     HandlerVec handlers;
 
 protected:
-    StmtSequence(AstKind kind) : Stmt(kind) { }
+    StmtSequence(AstKind kind, Location loc) : Stmt(kind, loc) { }
 
 public:
-    StmtSequence() : Stmt(AST_StmtSequence) { }
+    StmtSequence(Location loc) : Stmt(AST_StmtSequence, loc) { }
 
     /// Construct a statement sequence given a pair of Stmt producing iterators.
     template <class Iter>
-    StmtSequence(Iter I, Iter E)
-        : Stmt(AST_StmtSequence),
+    StmtSequence(Location loc, Iter I, Iter E)
+        : Stmt(AST_StmtSequence, loc),
           statements(I, E) { }
 
     /// Adds a single statement to the end of this sequence.
@@ -67,6 +77,21 @@ public:
 
     /// Returns the number of statements contained in this sequence.
     unsigned numStatements() const { return statements.size(); }
+
+    /// Returns true if this statement sequence is empty.
+    bool isEmpty() const { return numStatements() == 0; }
+
+    //@{
+    /// Returns the first statement in this sequence.
+    Stmt *front() { return statements.front(); }
+    const Stmt *front() const { return statements.front(); }
+    //@}
+
+    //@{
+    /// Returns the last statement in this sequence.
+    Stmt *back() { return statements.back(); }
+    const Stmt *back() const { return statements.back(); }
+    //@}
 
     //@{
     /// Iterators over the statements provided by this StmtSequence.
@@ -139,10 +164,6 @@ public:
     /// "catch-all", corresponding to the code <tt>when others</tt>.
     HandlerStmt(Location loc, ExceptionRef **choices, unsigned numChoices);
 
-    /// Returns the location of the \c when reserved word intorducing this
-    /// handler.
-    Location getLocation() const { return loc; }
-
     /// Returns the number of exception choices associated with this handlers.
     unsigned getNumChoices() const { return numChoices; }
 
@@ -171,7 +192,6 @@ public:
     }
 
 private:
-    Location loc;
     unsigned numChoices;
     ExceptionRef **choices;
 };
@@ -187,9 +207,8 @@ public:
     BlockStmt(Location        loc,
               DeclRegion     *parent,
               IdentifierInfo *label = 0)
-        : StmtSequence(AST_BlockStmt),
+        : StmtSequence(AST_BlockStmt, loc),
           DeclRegion(AST_BlockStmt, parent),
-          location(loc),
           label(label) { }
 
     // Returns true if this block has an associated label.
@@ -199,15 +218,13 @@ public:
     // label.
     IdentifierInfo *getLabel() { return label; }
 
-    Location getLocation() { return location; }
-
+    // Support isa/dyn_cast.
     static bool classof(const BlockStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_BlockStmt;
     }
 
 private:
-    Location        location;
     IdentifierInfo *label;
 };
 
@@ -222,8 +239,11 @@ public:
                       Expr **positionalArgs, unsigned numPositional,
                       KeywordSelector **keyedArgs, unsigned numKeys);
 
-    /// Returns the location of this procedure call.
-    Location getLocation() const { return location; }
+    /// Returns the location of this procedure call statement.
+    Location getLocation() const {
+        // Required since SubroutineCall::getLocation is pure virtual.
+        return Stmt::getLocation();
+    }
 
     //@{
     /// Returns the procedure declaration underlying this call.
@@ -240,21 +260,15 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ProcedureCallStmt;
     }
-
-private:
-    Location location;
 };
 
 //===----------------------------------------------------------------------===//
 // ReturnStmt.
 class ReturnStmt : public Stmt {
 
-    Expr    *returnExpr;
-    Location location;
-
 public:
     ReturnStmt(Location loc, Expr *expr = 0)
-        : Stmt(AST_ReturnStmt), returnExpr(expr), location(loc) { }
+        : Stmt(AST_ReturnStmt, loc), returnExpr(expr) { }
 
     ~ReturnStmt();
 
@@ -263,24 +277,21 @@ public:
     const Expr *getReturnExpr() const { return returnExpr; }
     Expr *getReturnExpr() { return returnExpr; }
 
-    Location getLocation() const { return location; }
-
     static bool classof(const ReturnStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_ReturnStmt;
     }
+
+private:
+    Expr *returnExpr;
 };
 
 //===----------------------------------------------------------------------===//
 // AssignmentStmt
 class AssignmentStmt : public Stmt {
 
-    Expr *target;
-    Expr *value;
-
 public:
-    AssignmentStmt(Expr *target, Expr *value)
-        : Stmt(AST_AssignmentStmt), target(target), value(value) { }
+    AssignmentStmt(Expr *target, Expr *value);
 
     Expr *getTarget() { return target; }
     const Expr *getTarget() const { return target; }
@@ -288,10 +299,15 @@ public:
     Expr *getAssignedExpr() { return value; }
     const Expr *getAssignedExpr() const { return value; }
 
+    // Support isa/dyn_cast.
     static bool classof(const AssignmentStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_AssignmentStmt;
     }
+
+private:
+    Expr *target;
+    Expr *value;
 };
 
 //===----------------------------------------------------------------------===//
@@ -304,8 +320,7 @@ public:
     // each component.  Similarly, one must call setAlternate to define the
     // "else" component.
     IfStmt(Location loc, Expr *condition, StmtSequence *consequent)
-        : Stmt(AST_IfStmt),
-          ifLocation(loc),
+        : Stmt(AST_IfStmt, loc),
           elseLocation(0),
           condition(condition),
           consequent(consequent),
@@ -382,7 +397,7 @@ public:
     bool hasElsif() const { return !elsifs.empty(); }
 
     // Returns the location of the "if" token.
-    Location getIfLocation() const { return ifLocation; }
+    Location getIfLocation() const { return Stmt::getLocation(); }
 
     // Returns the location of the "else" token if an alternate branch exists.
     Location getElseLocation() const { return elseLocation; }
@@ -393,7 +408,6 @@ public:
     }
 
 private:
-    Location      ifLocation;
     Location      elseLocation;
     Expr         *condition;
     StmtSequence *consequent;
@@ -409,8 +423,7 @@ class WhileStmt : public Stmt {
 
 public:
     WhileStmt(Location loc, Expr *condition, StmtSequence *body)
-        : Stmt(AST_WhileStmt),
-          location(loc),
+        : Stmt(AST_WhileStmt, loc),
           condition(condition),
           body(body) { }
 
@@ -422,16 +435,12 @@ public:
     StmtSequence *getBody() { return body; }
     const StmtSequence *getBody() const { return body; }
 
-    // Returns the location of the 'while' reserved word starting this loop.
-    Location getLocation() { return location; }
-
     static bool classof(const WhileStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_WhileStmt;
     }
 
 private:
-    Location location;
     Expr *condition;
     StmtSequence *body;
 };
@@ -474,9 +483,6 @@ public:
     /// Marks that this loop is reversed.
     void markAsReversed() { bits = 1; }
 
-    /// Returns the location of the 'for' reserved word.
-    Location getLocation() { return location; }
-
     //@{
     /// Retururns the StmtSequence forming the body of this loop.
     ///
@@ -493,7 +499,6 @@ public:
     }
 
 private:
-    Location location;
     LoopDecl *iterationDecl;
     DSTDefinition *control;
     StmtSequence body;
@@ -507,8 +512,7 @@ class LoopStmt : public Stmt {
 
 public:
     LoopStmt(Location loc, StmtSequence *body)
-        : Stmt(AST_LoopStmt),
-          location(loc),
+        : Stmt(AST_LoopStmt, loc),
           body(body) { }
 
     //@{
@@ -517,9 +521,6 @@ public:
     StmtSequence *getBody() { return body; }
     //@}
 
-    /// Returns the location of the 'loop' reserved word.
-    Location getLocation() { return location; }
-
     // Support isa/dyn_cast.
     static bool classof(const LoopStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -527,7 +528,6 @@ public:
     }
 
 private:
-    Location location;
     StmtSequence *body;
 };
 
@@ -539,11 +539,16 @@ private:
 class PragmaStmt : public Stmt {
 
 public:
-    PragmaStmt(Pragma *pragma)
-        : Stmt(AST_PragmaStmt), pragma(pragma) { }
+    PragmaStmt(Pragma *pragma);
 
     const Pragma *getPragma() const { return pragma; }
     Pragma *getPragma() { return pragma; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const PragmaStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PragmaStmt;
+    }
 
 private:
     Pragma *pragma;
@@ -563,11 +568,8 @@ public:
     /// \param message Optional expression of type String serving as the message
     /// to be attached to the exception.
     RaiseStmt(Location loc, ExceptionRef *exception, Expr *message = 0)
-        : Stmt(AST_RaiseStmt),
-          loc(loc), ref(exception), message(message) { }
-
-    /// Returns the location of this raise statement.
-    Location getLocation() const { return loc; }
+        : Stmt(AST_RaiseStmt, loc),
+          ref(exception), message(message) { }
 
     /// Returns the associated exception declaration.
     //@{
@@ -604,7 +606,6 @@ public:
     }
 
 private:
-    Location loc;
     ExceptionRef *ref;
     Expr *message;
 };
@@ -615,19 +616,13 @@ class NullStmt : public Stmt {
 
 public:
     /// Constructs a null statement at the given location.
-    NullStmt(Location loc) : Stmt(AST_NullStmt), loc(loc) { }
-
-    /// Returns the location of this null statement.
-    Location getLocation() const { return loc; }
+    NullStmt(Location loc) : Stmt(AST_NullStmt, loc) { }
 
     // Support isa/dyn_cast.
     static bool classof(const NullStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_NullStmt;
     }
-
-private:
-    Location loc;
 };
 
 } // End comma namespace.
