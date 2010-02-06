@@ -155,6 +155,8 @@ DIAGNOSTIC(REDECLARATION, ERROR,
            "Redeclaration of `%0'.")
 DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
+DIAGNOSTIC(REDUNDANT_SIGNATURE_INCLUSION, WARNING,
+           "Redundant inclusion of signature `%0'.")
 DIAGNOSTIC(CONFLICTING_SIGNATURE_INCLUSION, ERROR,
            "Inclusion of signature `%0' provides conflicting declarations.")
 DIAGNOSTIC(MISSING_EXPORT, ERROR,

@@ -487,13 +487,14 @@ private:
     /// Brings the implicit declarations provided by \p decl into scope.
     void acquireImplicitDeclarations(Decl *decl);
 
-    /// Using the current model as context, rewrites the set of declarations
-    /// provided by the given signature.  For each declaration which does not
-    /// conflict with any other immediate declaration in scope, the declaration
-    /// is added both to the scope and to the current DeclRegion.  The given
-    /// Location is the position of the super signature indication. This method
-    /// is used to implement acceptSupersignature.
-    void acquireSignatureDeclarations(SigInstanceDecl *sig, Location loc);
+    /// Using the current model as context, rewrites the set of immediate
+    /// declarations provided by the given signature.  Each declaration that
+    /// does not conflict with another declaration in scope is is added both to
+    /// the scope and to the current DeclRegion.  The given Location is the
+    /// position of the super signature indication.  This method is used to
+    /// implement acceptSupersignature.
+    void acquireImmediateSignatureDeclarations(SigInstanceDecl *sig,
+                                               Location loc);
 
     /// Ensures the given Node resolves to a complete type declaration.
     ///

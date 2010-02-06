@@ -1,0 +1,15 @@
+-- Ensure duplicate supersignatures are properly merged.
+
+signature S with
+   procedure Foo;
+end S;
+
+signature Left is S end Left;
+signature Right is S end Right;
+
+signature T is Left and Right end T;
+
+domain D is T add
+   procedure Foo is begin null; end Foo;
+end D;
+

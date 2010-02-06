@@ -159,11 +159,41 @@ void TypeCheck::acceptSupersignature(Node typeNode)
         return;
     }
 
-    getCurrentModel()->addDirectSignature(superSig);
+    Sigoid *source = superSig->getSigoid();
+    ModelDecl *target = getCurrentModel();
+    const SignatureSet &sourceSet = source->getSignatureSet();
+    const SignatureSet &targetSet = target->getSignatureSet();
 
-    // Bring all of the declarations defined by this super signature into scope
-    // and add them to the current declarative region.
-    acquireSignatureDeclarations(superSig, loc);
+    // If the target set already contains the given signature we are done.
+    if (targetSet.contains(superSig)) {
+        report(loc, diag::REDUNDANT_SIGNATURE_INCLUSION)
+            << superSig->getIdInfo();
+        return;
+    }
+
+    // Establish rewrites corresponding to the given instance.
+    AstRewriter rewrites(resource);
+    rewrites.installRewrites(superSig);
+    rewrites.addTypeRewrite(source->getPercentType(), target->getPercentType());
+
+    // Iterate over the set of supersignatures provided by the source set.
+    // Rewrite each to match the environment of the target.
+    for (SignatureSet::iterator I = sourceSet.begin(), E = sourceSet.end();
+         I != E; ++I) {
+        SigInstanceDecl *candidate = rewrites.rewriteSigInstance(*I);
+
+        // Ignore if the target set already contains the candidate.
+        if (targetSet.contains(candidate))
+            continue;
+
+        // Aquire the immediate declarations provided by the candidate.
+        acquireImmediateSignatureDeclarations(candidate, loc);
+    }
+
+    // Finally, introduce the direct signature itself and bring in the
+    // corresponding direct declarations.
+    target->addDirectSignature(superSig);
+    acquireImmediateSignatureDeclarations(superSig, loc);
 }
 
 void TypeCheck::beginSignatureProfile()
@@ -204,7 +234,8 @@ void TypeCheck::acquireImplicitDeclarations(Decl *decl)
         scope.addDirectDeclNoConflicts(*I);
 }
 
-void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig, Location loc)
+void TypeCheck::acquireImmediateSignatureDeclarations(SigInstanceDecl *sig,
+                                                      Location loc)
 {
     typedef DeclRegion::DeclIter iterator;
     PercentDecl *sigPercent = sig->getSigoid()->getPercent();
@@ -218,6 +249,10 @@ void TypeCheck::acquireSignatureDeclarations(SigInstanceDecl *sig, Location loc)
 
     iterator E = sigPercent->endDecls();
     for (iterator I = sigPercent->beginDecls(); I != E; ++I) {
+        // Ignore any non-immediate declarations.
+        if (!(*I)->isImmediate())
+            continue;
+
         // Apply the rewrite rules, constructing a new declaration node in the
         // process.
         Decl *candidate = rewrites.rewriteDecl(*I);
