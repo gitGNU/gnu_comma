@@ -2,7 +2,7 @@
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
-# Copyright (C) 2009, Stephen Wilson
+# Copyright (C) 2009-2010, Stephen Wilson
 #
 ##----------------------------------------------------------------------------##
 
@@ -165,15 +165,19 @@ proc runTestsSyntaxOnly { test_inputs } {
             set error_class [lindex $error_code 0]
             set error_status [lindex $error_code 2]
 
-            #
-            # If the error class is CHILDSTATUS or NONE use the true exit status
-            # from the driver.  Otherwise, we have an exceptional condition
-            # (segfault, assertion, etc).  The latter case always results in a
-            # FAIL.
-            #
-            if { $error_class == "CHILDSTATUS" || $error_class == "NONE" } {
+            if { $error_class == "NONE" } {
+                # When the error class is NONE then the exit status from the
+                # driver was zero but we printed something to stderr.  This
+                # happens for warnings.  TCL does not set the exit code field in
+                # this case.
+                set retval 0
+            } elseif { $error_class == "CHILDSTATUS" } {
+                # If the error class is CHILDSTATUS use the true exit status
+                # from the driver.
                 set retval $error_status
             } else {
+                # Otherwise, we have an exceptional condition (segfault,
+                # assertion, etc).  The latter case always results in a FAIL.
                 fail [concat $error_class $test_input]
                 continue
             }
@@ -216,23 +220,22 @@ proc runCompiledTests { test_inputs } {
         set retval [catch $driver_invocation errmsg]
 
         #
-        # Compilation should always succeed.
+        # Compilation should always succeed, perhaps with warnings.
         #
         if { $retval != 0 } {
             set error_code $::errorCode
             set error_class [lindex $error_code 0]
-            fail [concat $error_class $driver_invocation $errmsg]
-            continue
+
+            if { $error_class != "NONE" } {
+                fail [concat $error_class $driver_invocation $errmsg]
+                continue
+            }
         }
 
         #
-        # If the error class of the driver is CHILDSTATUS, use the true exit
-        # status from the test program.  Otherwise, we have an exceptional
-        # condition (segfault, assertion, etc).  The latter case always results
-        # in a FAIL.
+        # Exectue the test program.
         #
         set retval [catch { exec $test_prog } errmsg]
-
 
         if { $retval != 0 } {
             set error_code $::errorCode
@@ -245,7 +248,9 @@ proc runCompiledTests { test_inputs } {
             # condition (segfault, assertion, etc).  The latter case always
             # results in a FAIL.
             #
-            if { $error_class == "CHILDSTATUS" || $error_class == "NONE" } {
+            if { $error_class == "NONE" } {
+                set retval 0
+            } elseif { $error_class == "CHILDSTATUS" } {
                 set retval $error_status
             } else {
                 fail [concat $error_class $test_prog]
