@@ -66,8 +66,10 @@ private:
             break;
         case AST_PosAD:
             ID = attrib::Pos;
+            break;
         case AST_ValAD:
             ID = attrib::Val;
+            break;
         }
         return ID;
     }
