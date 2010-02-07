@@ -50,8 +50,6 @@ std::string getSubroutineName(const SubroutineDecl *srd)
             return "0less";
         else if (strncmp(name, "=", 1) == 0)
             return "0equal";
-        else if (strncmp(name, "/=", 1) == 0)
-            return "0nequal";
         else if (strncmp(name, ">", 1) == 0)
             return "0great";
         else if (strncmp(name, "@", 1) == 0)
@@ -86,7 +84,7 @@ std::string getSubroutineName(const SubroutineDecl *srd)
             return "0dgreat";
         else if  (strncmp(name, "||", 2) == 0)
             return "0dbar";
-        else if (strncmp(name, "~=", 2) == 0)
+        else if (strncmp(name, "/=", 2) == 0)
             return "0nequal";
         else
             return name;
