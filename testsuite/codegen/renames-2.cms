@@ -1,0 +1,42 @@
+-- Ensure renamed object declarations of composite type are associated with the
+-- correct bounds.
+
+domain D with
+   type A is array (Positive range <>) of Integer;
+   function  Create (Value : A) return %;
+   function Lower (Value : %) return Positive;
+   function Upper (Value : %) return Positive;
+add
+   carrier Rep is A;
+
+   function Create (Value : A) return % is
+   begin
+      return prj(Value);
+   end Create;
+
+   function Lower (Value : %) return Positive is
+      R : Rep renames inj(Value);
+   begin
+      return R'First;
+   end Lower;
+
+   function Upper (Value : %) return Positive is
+      R : Rep renames inj(Value);
+   begin
+      return R'Last;
+   end Upper;
+end D;
+
+domain Test with
+   procedure Run;
+add
+   procedure Run is
+      import D;
+      X : D := Create(A'(1, 2, 3));
+   begin
+      pragma Assert (Lower(X) = 1);
+      pragma Assert (Upper(X) = 3);
+   end Run;
+end Test;
+
+

@@ -124,19 +124,35 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
     Type *objTy = resolveType(objDecl->getType());
     Expr *objExpr = objDecl->getRenamedExpr()->ignoreInjPrj();
     llvm::Value *objValue;
+    llvm::Value *objBounds;
 
-    // Emit a renamed object declaration as a reference to its renamed
-    // expression and associate the result with the declaration.
+    // For DecRefExpr's the target of the rename has already been evaluated.
+    // Simply equate the declarations.
     if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(objExpr)) {
-        // In all cases the renamed target has already been evaluated.  Simply
-        // equate the declarations.
-        objValue = SRF->lookup(DRE->getDeclaration(), activation::Slot);
-    }
-    else if (objTy->isCompositeType())
-        objValue = emitCompositeExpr(objExpr, 0, false).first();
-    else
-        objValue = emitReference(objExpr).first();
+        ValueDecl *decl = DRE->getDeclaration();
 
+        objValue = SRF->lookup(decl, activation::Slot);
+        SRF->associate(objDecl, activation::Slot, objValue);
+
+        if (objTy->isCompositeType()) {
+            objBounds = SRF->lookup(decl, activation::Bounds);
+            SRF->associate(objDecl, activation::Bounds, objBounds);
+        }
+        return;
+    }
+
+    // Otherwise evaluate the target as a reference if possible.
+    if (objTy->isCompositeType()) {
+        CValue result = emitCompositeExpr(objExpr, 0, false);
+        objValue = result.first();
+        objBounds = result.second();
+
+        SRF->associate(objDecl, activation::Slot, objValue);
+        SRF->associate(objDecl, activation::Bounds, objBounds);
+        return;
+    }
+
+    objValue = emitReference(objExpr).first();
     SRF->associate(objDecl, activation::Slot, objValue);
 }
 
