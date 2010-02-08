@@ -617,7 +617,7 @@ public:
     /// root type.
     IdentifierInfo *getIdInfo() const {
         if (isAnonymous())
-            return getRootType()->getIdInfo();
+            return getAncestorType()->getIdInfo();
         else
             return definingDecl->getIdInfo();
     }
@@ -658,7 +658,7 @@ public:
     /// root type.
     IdentifierInfo *getIdInfo() const {
         if (isAnonymous())
-            return getRootType()->getIdInfo();
+            return getAncestorType()->getIdInfo();
         else
             return definingDecl->getIdInfo();
     }
@@ -881,7 +881,7 @@ public:
     /// root type.
     IdentifierInfo *getIdInfo() const {
         if (isAnonymous())
-            return getRootType()->getIdInfo();
+            return getAncestorType()->getIdInfo();
         else
             return definingDecl->getIdInfo();
     }
@@ -940,7 +940,7 @@ public:
     /// root type.
     IdentifierInfo *getIdInfo() const {
         if (isAnonymous())
-            return getRootType()->getIdInfo();
+            return getAncestorType()->getIdInfo();
         else
             return definingDecl->getIdInfo();
     }
@@ -1122,8 +1122,7 @@ IdentifierInfo *ArrayType::getIdInfo() const
 {
     if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
         return idInfo;
-    const ArrayType *root = getRootType();
-    return root->definingDecl.get<ArrayDecl*>()->getIdInfo();
+    return getAncestorType()->getIdInfo();
 }
 
 uint64_t ArrayType::length() const
@@ -1182,7 +1181,7 @@ IdentifierInfo *RecordType::getIdInfo() const
 {
     if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
         return idInfo;
-    return getDefiningDecl()->getIdInfo();
+    return getAncestorType()->getIdInfo();
 }
 
 unsigned RecordType::numComponents() const
@@ -1217,7 +1216,7 @@ IdentifierInfo *AccessType::getIdInfo() const
 {
     if (IdentifierInfo *idInfo = definingDecl.dyn_cast<IdentifierInfo*>())
         return idInfo;
-    return getDefiningDecl()->getIdInfo();
+    return getAncestorType()->getIdInfo();
 }
 
 
