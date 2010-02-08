@@ -503,6 +503,8 @@ CValue CodeGenRoutine::emitAttribExpr(AttribExpr *expr)
         result = emitScalarBoundAE(scalarAE);
     else if (ArrayBoundAE *arrayAE = dyn_cast<ArrayBoundAE>(expr))
         result = emitArrayBoundAE(arrayAE);
+    else if (LengthAE *lengthAE = dyn_cast<LengthAE>(expr))
+        result = emitLengthAE(lengthAE);
     else {
         assert(false && "Cannot codegen attribute yet!");
         result = 0;
@@ -546,4 +548,44 @@ llvm::Value *CodeGenRoutine::emitArrayBoundAE(ArrayBoundAE *AE)
         return emitter.getLowerBound(Builder, bounds, dimension);
     else
         return emitter.getUpperBound(Builder, bounds, dimension);
+}
+
+llvm::Value *CodeGenRoutine::emitLengthAE(LengthAE *AE)
+{
+    llvm::Value *result = 0;
+
+    if (Expr *prefix = AE->getPrefixExpr()) {
+        // Emit the prefix as a simple reference to the array without generating
+        // a temporary if possible.
+        CValue array = emitCompositeExpr(prefix, 0, false);
+        unsigned dimension = AE->getDimension();
+        BoundsEmitter emitter(*this);
+        result = emitter.computeBoundLength(Builder, array.second(), dimension);
+    }
+    else {
+        // FIXME: Support array subtype prefixes.
+        assert(false && "Cannot codegen attribute!");
+        return 0;
+    }
+
+    // Extend or truncate to satisfy the target type (the length of an array is
+    // always computed as an i32).
+    DiscreteType *attribTy = cast<DiscreteType>(resolveType(AE->getType()));
+    const llvm::IntegerType *targetTy =
+        cast<llvm::IntegerType>(CGT.lowerType(attribTy));
+    const llvm::IntegerType *sourceTy =
+        cast<llvm::IntegerType>(result->getType());
+
+    unsigned targetWidth = targetTy->getBitWidth();
+    unsigned sourceWidth = sourceTy->getBitWidth();
+
+    if (targetWidth < sourceWidth)
+        result = Builder.CreateTrunc(result, targetTy);
+    else if (targetWidth > sourceWidth) {
+        if (attribTy->isSigned())
+            result = Builder.CreateSExt(result, targetTy);
+        else
+            result = Builder.CreateZExt(result, targetTy);
+    }
+    return result;
 }

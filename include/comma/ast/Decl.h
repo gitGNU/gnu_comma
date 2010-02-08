@@ -1211,12 +1211,7 @@ private:
     FunctionType *correspondingType;
 
     void initializeCorrespondingType(AstResource &resource, Type *returnType);
-
-    static bool denotesFunctionDecl(const Ast *node) {
-        AstKind kind = node->getKind();
-        return (kind == AST_FunctionDecl || kind == AST_EnumLiteral ||
-                kind == AST_PosAD || kind == AST_ValAD);
-    }
+    static bool denotesFunctionDecl(const Ast *node);
 };
 
 //===----------------------------------------------------------------------===//

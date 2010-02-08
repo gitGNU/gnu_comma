@@ -8,6 +8,7 @@
 
 #include "CodeGenRoutine.h"
 #include "DependencySet.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/AggExpr.h"
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
@@ -64,6 +65,7 @@ private:
     void visitQualifiedExpr(QualifiedExpr *node);
     void visitDereferenceExpr(DereferenceExpr *node);
     void visitAllocatorExpr(AllocatorExpr *node);
+    void visitLengthAE(LengthAE *node);
     //@}
 
     void addDependents(const DomainInstanceDecl *instance);
@@ -272,6 +274,12 @@ void DependencyScanner::visitAllocatorExpr(AllocatorExpr *node)
 {
     if (node->isInitialized())
         visitExpr(node->getInitializer());
+}
+
+void DependencyScanner::visitLengthAE(LengthAE *node)
+{
+    if (Expr *prefix = node->getPrefixExpr())
+        visitExpr(prefix);
 }
 
 //===----------------------------------------------------------------------===//

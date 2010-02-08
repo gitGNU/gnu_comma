@@ -49,6 +49,7 @@ public:
     virtual void visitFirstAE(FirstAE *node);
     virtual void visitFirstArrayAE(FirstArrayAE *node);
     virtual void visitLastArrayAE(LastArrayAE *node);
+    virtual void visitLengthAE(LengthAE *node);
     virtual void visitLastAE(LastAE *node);
 };
 

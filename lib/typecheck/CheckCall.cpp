@@ -113,9 +113,10 @@ bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
     if (arg->hasResolvedType())
         return covers(arg->getType(), targetType);
 
-    // We have an unresolved argument expression.  If the expression is an
-    // integer literal it is compatible if the target is an integer type.
-    if (isa<IntegerLiteral>(arg))
+    // We have an unresolved argument expression.  If the argument has a
+    // universal integer type it is compatible if the target is any integer
+    // type.
+    if (arg->hasType() && arg->getType()->isUniversalIntegerType())
         return targetType->isIntegerType();
 
     // Similarly for null expressions, but in this case the target must be an

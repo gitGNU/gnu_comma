@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -47,7 +47,7 @@ public:
 
 protected:
     /// Constructs an AttribExpr when the type of the attribute is known.
-    AttribExpr(AstKind kind, Ast *prefix, PrimaryType *type, Location loc)
+    AttribExpr(AstKind kind, Ast *prefix, Type *type, Location loc)
         : Expr(kind, type, loc),
           prefix(prefix) {
         bits = correspondingID(kind);
@@ -169,7 +169,7 @@ public:
 class ArrayBoundAE : public AttribExpr {
 
 public:
-    /// Returns true if the dimension associated with this arrtibute is
+    /// Returns true if the dimension associated with this attribute is
     /// implicit.
     bool hasImplicitDimension() const { return dimExpr == 0; }
 
@@ -324,6 +324,83 @@ public:
     static bool classof(const Ast *node) {
         return node->getKind() == AST_LastArrayAE;
     }
+};
+
+//===----------------------------------------------------------------------===//
+// LengthAE
+//
+/// Represents the attribute <tt>A'Last(N)</tt> where \c A is an object of array
+/// type or a constrained array subtype and \c N is a positive static integer
+/// expression denoting the dimension to which the attribute applies.  The
+/// dimension is not required to be explicit, in which case the index defaults
+/// to 1.
+class LengthAE : public AttribExpr {
+
+public:
+    /// Creates a \c Length attribute expression.  The default type for this
+    /// attribute is universal_integer.
+    ///
+    /// \param prefix An expression which must resolve to an array type.
+    ///
+    /// \param loc The location of the attribute.
+    ///
+    /// \param dimension A positive static integer expression which does not
+    /// exceed the dimensionality of the type of \p prefix.  If null, then this
+    /// dimension is implicitly zero.
+    LengthAE(Expr *prefix, Location loc, Expr *dimension = 0);
+
+    /// Returns true if the dimension associated with this attribute is
+    /// implicit.
+    bool hasImplicitDimension() const { return dimExpr == 0; }
+
+    //@{
+    /// Returns the dimension expression associated with this attribute or null
+    /// if the dimension is implicit for this node.
+    const Expr *getDimensionExpr() const { return dimExpr; }
+    Expr *getDimensionExpr() { return dimExpr; }
+    //@}
+
+    /// Returns the zero based dimension associated with this attribute.
+    unsigned getDimension() const { return dimValue; }
+
+    //@{
+    /// Returns the prefix of this attribute as an Expr, or null if the prefix
+    /// is a constrained array subtype.
+    const Expr *getPrefixExpr() const {
+        return llvm::dyn_cast<Expr>(getPrefix());
+    }
+    Expr *getPrefixExpr() { return llvm::dyn_cast<Expr>(getPrefix()); }
+    //@}
+
+    //@{
+    /// Returns the type of the prefix.
+    const ArrayType *getPrefixType() const {
+        return const_cast<LengthAE*>(this)->getPrefixType();
+    }
+    ArrayType *getPrefixType() {
+        ArrayType *prefixTy;
+        if (Expr *prefix = getPrefixExpr())
+            prefixTy = llvm::cast<ArrayType>(prefix->getType());
+        else
+            prefixTy = llvm::cast<ArrayType>(getPrefix());
+        return prefixTy;
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const LastAE *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_LengthAE;
+    }
+
+private:
+    /// Expression node defining the associated dimension, or null if this
+    /// dimension is implicit.
+    Expr *dimExpr;
+
+    /// The static value of the dimension expression, or 0 if this dimension is
+    /// implicit.
+    unsigned dimValue;
 };
 
 //===----------------------------------------------------------------------===//

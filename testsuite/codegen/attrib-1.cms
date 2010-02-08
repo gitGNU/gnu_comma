@@ -1,0 +1,27 @@
+-- Codegen tests for the Length attribute.
+
+domain Test with
+   procedure Run;
+add
+   type A is array (Positive range <>) of Integer;
+
+   function Make (P : Positive) return A is
+   begin
+      return (1..P => 0);
+   end Make;
+
+   procedure Run is
+      L_10 : A := (1..10 => 0);
+      L_0  : A := (2..1  => 0);
+      L_20 : A := (1 | 2 | 3 => 0, 4..10 => 0, 11..20 => 0);
+      L_11 : A := Make(11);
+      L_1  : A := Make(1);
+   begin
+      pragma Assert(L_10'Length = 10);
+      pragma Assert(L_0 'Length = 0);
+      pragma Assert(L_20'Length = 20);
+      pragma Assert(L_11'Length = 11);
+      pragma Assert(L_1 'Length = 1);
+      null;
+   end Run;
+end Test;

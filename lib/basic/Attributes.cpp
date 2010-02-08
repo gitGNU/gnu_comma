@@ -17,6 +17,7 @@ namespace {
 
 static const char *attributeNames[] = {
     "First",
+    "Length",
     "Pos",
     "Val",
     "Last",

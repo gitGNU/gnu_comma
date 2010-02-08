@@ -33,6 +33,7 @@ enum AttributeID {
     // Expression attributes.
     //
     First,
+    Length,
     Pos,
     Val,
     Last,

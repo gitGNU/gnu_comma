@@ -83,6 +83,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "FirstAE",
     "FirstArrayAE",
     "LastArrayAE",
+    "LengthAE",
     "LastAE",
 
     "AssignmentStmt",

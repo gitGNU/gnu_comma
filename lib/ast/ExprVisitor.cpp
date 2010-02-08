@@ -66,6 +66,7 @@ void ExprVisitor::visitAttribExpr(AttribExpr *node)
     case DISPATCH(FirstAE, node);
     case DISPATCH(FirstArrayAE, node);
     case DISPATCH(LastArrayAE, node);
+    case DISPATCH(LengthAE, node);
     case DISPATCH(LastAE, node);
     };
 }
@@ -92,4 +93,5 @@ void ExprVisitor::visitDiamondExpr(DiamondExpr *node) { }
 void ExprVisitor::visitFirstAE(FirstAE *node) { }
 void ExprVisitor::visitFirstArrayAE(FirstArrayAE *node) { }
 void ExprVisitor::visitLastArrayAE(LastArrayAE *node) { }
+void ExprVisitor::visitLengthAE(LengthAE *node) { }
 void ExprVisitor::visitLastAE(LastAE *node) { }

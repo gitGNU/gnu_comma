@@ -87,6 +87,7 @@ class IntegerType;
 class KeywordSelector;
 class LastAE;
 class LastArrayAE;
+class LengthAE;
 class LoopDecl;
 class LoopStmt;
 class ModelDecl;
@@ -258,6 +259,7 @@ public:
         AST_FirstAE,            ///< FirstAE
         AST_FirstArrayAE,       ///< FirstArrayAE
         AST_LastArrayAE,        ///< LastArrayAE
+        AST_LengthAE,           ///< LengthAE
         AST_LastAE,             ///< LastAE
 
         //

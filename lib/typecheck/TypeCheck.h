@@ -574,6 +574,9 @@ private:
     // Resolves a diamond expression to the given target type.
     Expr *resolveDiamondExpr(DiamondExpr *diamond, Type *context);
 
+    // Resolves an attribute expression to the given target type.
+    Expr *resolveAttribExpr(AttribExpr *attrib, Type *context);
+
     // Resolves the given call expression to one which satisfies the given
     // target type.  Returns a valid expression if the call was successfully
     // checked (possibly different from \p call).  Otherwise, null is returned

@@ -161,6 +161,7 @@ private:
 
     llvm::Value *emitScalarBoundAE(ScalarBoundAE *expr);
     llvm::Value *emitArrayBoundAE(ArrayBoundAE *expr);
+    llvm::Value *emitLengthAE(LengthAE *expr);
 
     // Conversion emitters.
     llvm::Value *emitDiscreteConversion(Expr *expr, DiscreteType *target);

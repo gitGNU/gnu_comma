@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "TypeCheck.h"
+#include "comma/ast/AttribExpr.h"
 #include "comma/ast/AggExpr.h"
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Stmt.h"
@@ -134,6 +135,8 @@ Expr *TypeCheck::checkExprInContext(Expr *expr, Type *context)
         return resolveSelectedExpr(select, context);
     if (DiamondExpr *diamond = dyn_cast<DiamondExpr>(expr))
         return resolveDiamondExpr(diamond, context);
+    if (AttribExpr *attrib = dyn_cast<AttribExpr>(expr))
+        return resolveAttribExpr(attrib, context);
 
     assert(expr->hasResolvedType() && "Expression does not have a resolved type!");
 

@@ -597,6 +597,13 @@ void FunctionDecl::initializeCorrespondingType(AstResource &resource,
         resource.getFunctionType(paramTypes.data(), numParameters, returnType);
 }
 
+bool FunctionDecl::denotesFunctionDecl(const Ast *node)
+{
+    AstKind kind = node->getKind();
+    return (kind == AST_FunctionDecl || kind == AST_EnumLiteral ||
+            llvm::isa<FunctionAttribDecl>(node));
+}
+
 //===----------------------------------------------------------------------===//
 // IncompleteTypeDecl
 
