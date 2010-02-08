@@ -2,7 +2,7 @@
 --
 -- This file is distributed under the MIT license. See LICENSE.txt for details.
 --
--- Copyright (C) 2009, Stephen Wilson
+-- Copyright (C) 2009-2010, Stephen Wilson
 --
 --===------------------------------------------------------------------------===
 
@@ -44,11 +44,13 @@ domain F is Type_Sig(D) with
 add
    import D;
 
-   carrier Rep is D_Vec;
+   type D_Vec_Access is access D_Vec;
+
+   carrier Rep is D_Vec_Access;
 
    function Make return % is
    begin
-      return prj((1..10 => From_Int(16)));
+      return prj(new D_Vec'(1..10 => From_Int(16)));
    end Make;
 
    function Convert (P : %) return D_Vec is

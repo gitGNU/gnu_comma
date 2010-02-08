@@ -320,13 +320,20 @@ void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
     if (!tyDecl)
         return;
 
-    if (tyDecl->getType()->involvesPercent()) {
+    PrimaryType *carrierTy = tyDecl->getType();
+
+    if (carrierTy->involvesPercent()) {
         report(loc, diag::SELF_RECURSIVE_TYPE_DECLARATION);
         return;
     }
 
+    if (carrierTy->isIndefiniteType()) {
+        report(loc, diag::INDEFINITE_CARRIER_TYPE);
+        return;
+    }
+
     CarrierDecl *carrier;
-    carrier = new CarrierDecl(resource, name, tyDecl->getType(), loc);
+    carrier = new CarrierDecl(resource, name, carrierTy, loc);
     if (Decl *conflict = scope.addDirectDecl(carrier)) {
         report(loc, diag::CONFLICTING_DECLARATION)
             << name << getSourceLoc(conflict->getLocation());

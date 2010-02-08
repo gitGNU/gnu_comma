@@ -1,0 +1,5 @@
+-- Ensure that domains cannot be defined with indefinite subtype as carrier.
+
+domain Test add
+   carrier Rep is String;       -- EXPECTED-ERROR: may not be indefinite
+end Test;

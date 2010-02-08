@@ -7,21 +7,22 @@ domain D with
    function Lower (Value : %) return Positive;
    function Upper (Value : %) return Positive;
 add
-   carrier Rep is A;
+   type A_Access is access A;
+   carrier Rep is A_Access;
 
    function Create (Value : A) return % is
    begin
-      return prj(Value);
+      return prj(new A'(Value));
    end Create;
 
    function Lower (Value : %) return Positive is
-      R : Rep renames inj(Value);
+      R : A renames inj(Value).all;
    begin
       return R'First;
    end Lower;
 
    function Upper (Value : %) return Positive is
-      R : Rep renames inj(Value);
+      R : A renames inj(Value).all;
    begin
       return R'Last;
    end Upper;
