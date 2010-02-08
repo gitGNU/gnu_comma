@@ -780,6 +780,16 @@ public:
     //@}
 
     //@{
+    /// Specialize PrimaryType::getAncestorType().
+    EnumerationType *getAncestorType() {
+        return llvm::cast<EnumerationType>(PrimaryType::getAncestorType());
+    }
+    const EnumerationType *getAncestorType() const {
+        return llvm::cast<EnumerationType>(PrimaryType::getAncestorType());
+    }
+    //@}
+
+    //@{
     /// Returns the base (unconstrained) subtype of this enumeration type.
     EnumerationType *getBaseSubtype();
     const EnumerationType *getBaseSubtype() const;
@@ -913,6 +923,16 @@ public:
     }
     const IntegerType *getRootType() const {
         return llvm::cast<IntegerType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getAncestorType().
+    IntegerType *getAncestorType() {
+        return llvm::cast<IntegerType>(PrimaryType::getAncestorType());
+    }
+    const IntegerType *getAncestorType() const {
+        return llvm::cast<IntegerType>(PrimaryType::getAncestorType());
     }
     //@}
 
@@ -1077,6 +1097,16 @@ public:
     //@}
 
     //@{
+    /// Specialize PrimaryType::getAncestorType().
+    ArrayType *getAncestorType() {
+        return llvm::cast<ArrayType>(PrimaryType::getAncestorType());
+    }
+    const ArrayType *getAncestorType() const {
+        return llvm::cast<ArrayType>(PrimaryType::getAncestorType());
+    }
+    //@}
+
+    //@{
     /// Returns the declaration defining this array type.
     const ArrayDecl *getDefiningDecl() const {
         return getRootType()->definingDecl.get<ArrayDecl*>();
@@ -1148,6 +1178,16 @@ public:
     }
     const RecordType *getRootType() const {
         return llvm::cast<RecordType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getAncestorType().
+    RecordType *getAncestorType() {
+        return llvm::cast<RecordType>(PrimaryType::getAncestorType());
+    }
+    const RecordType *getAncestorType() const {
+        return llvm::cast<RecordType>(PrimaryType::getAncestorType());
     }
     //@}
 
@@ -1225,6 +1265,16 @@ public:
     }
     const AccessType *getRootType() const {
         return llvm::cast<AccessType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getAncestorType().
+    AccessType *getAncestorType() {
+        return llvm::cast<AccessType>(PrimaryType::getAncestorType());
+    }
+    const AccessType *getAncestorType() const {
+        return llvm::cast<AccessType>(PrimaryType::getAncestorType());
     }
     //@}
 
