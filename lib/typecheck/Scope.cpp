@@ -237,7 +237,7 @@ bool Scope::addImport(DomainType *type)
 }
 
 Decl *Scope::addDirectDecl(Decl *decl) {
-    assert(!llvm::isa<DomainInstanceDecl>(decl) &&
+    assert(!isa<DomainInstanceDecl>(decl) &&
            "Cannot add domain instance declarations to a scope!");
     if (Decl *conflict = findConflictingDirectDecl(decl))
         return conflict;
@@ -247,7 +247,7 @@ Decl *Scope::addDirectDecl(Decl *decl) {
 
 void Scope::addDirectDeclNoConflicts(Decl *decl)
 {
-    assert(!llvm::isa<DomainInstanceDecl>(decl) &&
+    assert(!isa<DomainInstanceDecl>(decl) &&
            "Cannot add domain instance declarations to a scope!");
     assert(findConflictingDirectDecl(decl) == 0 &&
            "Conflicting decl found when there should be none!");
