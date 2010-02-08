@@ -11,6 +11,7 @@
 #include "comma/parser/Parser.h"
 #include "comma/typecheck/Checker.h"
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Module.h"
 #include "llvm/Support/CommandLine.h"
@@ -63,6 +64,11 @@ llvm::cl::opt<std::string>
 OutputFile("o",
            llvm::cl::desc("Defines the output file."),
            llvm::cl::init("-"));
+
+// Disable optimizations.
+llvm::cl::opt<bool>
+DisableOpt("disable-opt",
+           llvm::cl::desc("Disable all optimizations."));
 
 namespace {
 
@@ -221,18 +227,24 @@ int outputExec(llvm::Module *M)
     }
 
     // Build the argument vector for llvm-ld and execute.
-    const char *args[8];
-    args[0] = llvm_ld.c_str();
-    args[1] = "-native";
-    args[2] = "-o";
-    args[3] = outputPath.c_str();
-    args[4] = libflag.c_str();
-    args[5] = "-lruntime";
-    args[6] = tmpBitcode.c_str();
-    args[7] = 0;
+    llvm::SmallVector<const char*, 16> args;
+    args.push_back(llvm_ld.c_str());
+    args.push_back("-native");
+    args.push_back("-o");
+    args.push_back(outputPath.c_str());
+    args.push_back(libflag.c_str());
+    args.push_back("-lruntime");
+    args.push_back(tmpBitcode.c_str());
+
+    // Disable optimizations if requested.
+    if (DisableOpt)
+        args.push_back("-disable-opt");
+
+    // Terminate the argument list.
+    args.push_back(0);
 
     bool status =
-        llvm::sys::Program::ExecuteAndWait(llvm_ld, args, 0, 0, 0, 0, &message);
+        llvm::sys::Program::ExecuteAndWait(llvm_ld, &args[0], 0, 0, 0, 0, &message);
 
     tmpBitcode.eraseFromDisk(false, &message);
     if (!message.empty()) {
