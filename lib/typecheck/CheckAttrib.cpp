@@ -165,12 +165,8 @@ ScalarBoundAE *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
 
 ArrayBoundAE *AttributeChecker::checkArrayBound(Expr *prefix, Location loc)
 {
-    ArrayType *arrTy = dyn_cast<ArrayType>(prefix->getType());
-
-    if (!arrTy) {
-        report(loc, diag::ATTRIB_OF_NON_ARRAY) << attributeName();
+    if (!(prefix = resolveArrayType(prefix, loc)))
         return 0;
-    }
 
     if (ID == attrib::First)
         return new FirstArrayAE(prefix, loc);
