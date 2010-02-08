@@ -88,9 +88,10 @@ bool Type::isRecordType() const
 
 bool Type::isStringType() const
 {
-    const ArrayType *arrTy = const_cast<Type*>(this)->getAsArrayType();
+    const ArrayType *arrTy = dyn_cast<ArrayType>(this);
     if (arrTy && arrTy->isVector()) {
-        EnumerationType *enumTy = arrTy->getComponentType()->getAsEnumType();
+        const Type *compTy = arrTy->getComponentType();
+        const EnumerationType *enumTy = dyn_cast<EnumerationType>(compTy);
         return enumTy && enumTy->isCharacterType();
     }
     return false;
@@ -158,21 +159,6 @@ bool Type::isUniversalTypeOf(const Type *type) const
         assert(false && "Cannot handle this kind of universal type yet!");
 
     return false;
-}
-
-ArrayType *Type::getAsArrayType()
-{
-    return dyn_cast<ArrayType>(this);
-}
-
-IntegerType *Type::getAsIntegerType()
-{
-    return dyn_cast<IntegerType>(this);
-}
-
-EnumerationType *Type::getAsEnumType()
-{
-    return dyn_cast<EnumerationType>(this);
 }
 
 bool Type::involvesPercent() const

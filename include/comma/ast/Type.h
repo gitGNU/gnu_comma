@@ -99,10 +99,6 @@ public:
     /// given type.
     bool isUniversalTypeOf(const Type *type) const;
 
-    ArrayType *getAsArrayType();
-    IntegerType *getAsIntegerType();
-    EnumerationType *getAsEnumType();
-
     /// Returns true if this type involves a percent node.
     ///
     /// More precisely, this method returns true if the node itself denotes
