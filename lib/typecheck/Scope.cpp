@@ -264,8 +264,8 @@ bool Scope::directDeclsConflict(Decl *X, Decl *Y) const
     // types).
     SubroutineDecl *XSDecl = dyn_cast<SubroutineDecl>(X);
     SubroutineDecl *YSDecl = dyn_cast<SubroutineDecl>(Y);
-    if (XSDecl && YSDecl && XSDecl->getType() != YSDecl->getType())
-        return false;
+    if (XSDecl && YSDecl)
+        return SubroutineDecl::compareProfiles(XSDecl, YSDecl);
     return true;
 }
 

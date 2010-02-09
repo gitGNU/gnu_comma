@@ -1,0 +1,20 @@
+-- Ensure subroutine profiles which reduce to a common root type conflict.
+
+signature Test with
+
+   procedure Foo (X : Integer);
+   -- EXPECTED-ERROR: conflicts with declaration
+   procedure Foo (X : Positive);
+
+   function Bar (A : Boolean; Y : Integer) return Integer;
+   -- EXPECTED-ERROR: conflicts with declaration
+   function Bar (A : Boolean; Y : Positive) return Integer;
+
+   function Baz (A : Boolean; Y : Integer) return Integer;
+   -- EXPECTED-ERROR: conflicts with declaration
+   function Baz (A : Boolean; Y : Integer) return Positive;
+
+end Test;
+
+
+
