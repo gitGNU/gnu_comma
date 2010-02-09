@@ -148,8 +148,9 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
         // FIXME: It should be possible to construct an ArrayDecl over a set of
         // DiscreteType's instead of always requiring DSTDef's.
         DiscreteType *indexTy;
+        Location loc = adecl->getDSTDefinition(i)->getLocation();
         indexTy = cast<DiscreteType>(rewriteType(adecl->getIndexType(i)));
-        indices[i] = new DSTDefinition(0, indexTy, DSTDefinition::Type_DST);
+        indices[i] = new DSTDefinition(loc, indexTy, DSTDefinition::Type_DST);
     }
 
     ArrayDecl *result;

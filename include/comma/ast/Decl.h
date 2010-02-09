@@ -1700,6 +1700,18 @@ public:
     Type *getComponentType() { return getType()->getComponentType(); }
     //@}
 
+    //@{
+    /// Returns the discrete subtype definition node for the i'th index.
+    ///
+    /// Reminder: Discrete subtype definitions provide information about the
+    /// source syntax used to declare the index.  Consequently, they do not
+    /// provide any additional semantic information about the index type.
+    const DSTDefinition *getDSTDefinition(unsigned i) const {
+        return indices[i];
+    }
+    DSTDefinition *getDSTDefinition(unsigned i) { return indices[i]; }
+    //@}
+
     /// Returns true if this declaration is constrained.
     bool isConstrained() const { return getType()->isConstrained(); }
 
