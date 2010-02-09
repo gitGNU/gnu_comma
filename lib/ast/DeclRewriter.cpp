@@ -62,7 +62,8 @@ FunctionDecl *DeclRewriter::rewriteFunctionDecl(FunctionDecl *fdecl)
 
     FunctionDecl *result =
         new FunctionDecl(getAstResource(),
-                         fdecl->getIdInfo(), 0, params.data(), arity,
+                         fdecl->getIdInfo(), fdecl->getLocation(),
+                         params.data(), arity,
                          rewriteType(fdecl->getReturnType()), context);
     result->setOrigin(fdecl);
     addDeclRewrite(fdecl, result);
@@ -79,13 +80,15 @@ ProcedureDecl *DeclRewriter::rewriteProcedureDecl(ProcedureDecl *pdecl)
         Type *newType = rewriteType(origParam->getType());
         ParamValueDecl *newParam =
             new ParamValueDecl(origParam->getIdInfo(), newType,
-                               origParam->getExplicitParameterMode(), 0);
+                               origParam->getExplicitParameterMode(),
+                               origParam->getLocation());
         params.push_back(newParam);
     }
 
     ProcedureDecl *result =
         new ProcedureDecl(getAstResource(),
-                          pdecl->getIdInfo(), 0, params.data(), arity, context);
+                          pdecl->getIdInfo(), pdecl->getLocation(),
+                          params.data(), arity, context);
     result->setOrigin(pdecl);
     addDeclRewrite(pdecl, result);
     return result;
@@ -113,12 +116,12 @@ DeclRewriter::rewriteEnumerationDecl(EnumerationDecl *edecl)
         if (!lit)
             continue;
         IdentifierInfo *litId = lit->getIdInfo();
-        elems.push_back(Pair(litId, 0));
+        elems.push_back(Pair(litId, lit->getLocation()));
     }
 
     AstResource &resource = getAstResource();
-    EnumerationDecl *result =
-        resource.createEnumDecl(name, 0, &elems[0], elems.size(), context);
+    EnumerationDecl *result = resource.createEnumDecl
+        (name, edecl->getLocation(), &elems[0], elems.size(), context);
     result->generateImplicitDeclarations(resource);
     result->setOrigin(edecl);
 
@@ -151,7 +154,8 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
 
     ArrayDecl *result;
     AstResource &resource = getAstResource();
-    result = resource.createArrayDecl(name, 0, rank, &indices[0],
+    result = resource.createArrayDecl(name, adecl->getLocation(),
+                                      rank, &indices[0],
                                       component, isConstrained, context);
     result->setOrigin(adecl);
 
@@ -165,13 +169,14 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
 IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
 {
     IdentifierInfo *name = idecl->getIdInfo();
+    Location loc = idecl->getLocation();
     Expr *lower = rewriteExpr(idecl->getLowBoundExpr());
     Expr *upper = rewriteExpr(idecl->getHighBoundExpr());
 
     IntegerDecl *result;
     AstResource &resource = getAstResource();
 
-    result = resource.createIntegerDecl(name, 0, lower, upper, context);
+    result = resource.createIntegerDecl(name, loc, lower, upper, context);
     result->generateImplicitDeclarations(resource);
     result->setOrigin(idecl);
 
@@ -197,15 +202,17 @@ RecordDecl *DeclRewriter::rewriteRecordDecl(RecordDecl *decl)
 
     IdentifierInfo *name = decl->getIdInfo();
     AstResource &resource = getAstResource();
-    result = resource.createRecordDecl(name, 0, context);
+    result = resource.createRecordDecl(name, decl->getLocation(), context);
 
     typedef DeclRegion::DeclIter decl_iterator;
     decl_iterator I = decl->beginDecls();
     decl_iterator E = decl->endDecls();
     for ( ; I != E; ++I) {
         if (ComponentDecl *orig = dyn_cast<ComponentDecl>(*I)) {
+            IdentifierInfo *componentID = orig->getIdInfo();
+            Location componentLoc = orig->getLocation();
             Type *componentTy = rewriteType(orig->getType());
-            result->addComponent(orig->getIdInfo(), 0, componentTy);
+            result->addComponent(componentID, componentLoc, componentTy);
         }
     }
 
@@ -223,7 +230,8 @@ DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
         return result;
 
     IdentifierInfo *name = ITD->getIdInfo();
-    result = getAstResource().createIncompleteTypeDecl(name, 0, context);
+    Location loc = ITD->getLocation();
+    result = getAstResource().createIncompleteTypeDecl(name, loc, context);
 
     // Provide a mapping from the original declaration to the new one.  We do
     // this before rewriting the completion (if any) to avoid circularites.
@@ -247,8 +255,9 @@ CarrierDecl *DeclRewriter::rewriteCarrierDecl(CarrierDecl *carrier)
         return result;
 
     IdentifierInfo *name = carrier->getIdInfo();
+    Location loc = carrier->getLocation();
     PrimaryType *rep = cast<PrimaryType>(rewriteType(carrier->getType()));
-    result = new CarrierDecl(getAstResource(), name, rep, 0);
+    result = new CarrierDecl(getAstResource(), name, rep, loc);
 
     addTypeRewrite(carrier->getType(), result->getType());
     addDeclRewrite(carrier, result);
@@ -263,6 +272,7 @@ AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
 
     AstResource &resource = getAstResource();
     IdentifierInfo *name = access->getIdInfo();
+    Location loc = access->getLocation();
     Type *targetType = rewriteType(access->getType()->getTargetType());
 
     // An access type can ultimately reference itself via the target type.  If
@@ -278,7 +288,7 @@ AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
     if ((result = cast_or_null<AccessDecl>(findRewrite(access))))
         return result;
 
-    result = resource.createAccessDecl(name, 0, targetType, context);
+    result = resource.createAccessDecl(name, loc, targetType, context);
     result->generateImplicitDeclarations(resource);
     result->setOrigin(access);
     addTypeRewrite(access->getType(), result->getType());
@@ -421,7 +431,7 @@ IntegerLiteral *DeclRewriter::rewriteIntegerLiteral(IntegerLiteral *lit)
 {
     IntegerType *targetTy = cast<IntegerType>(rewriteType(lit->getType()));
     const llvm::APInt &value = lit->getValue();
-    return new IntegerLiteral(value, targetTy, 0);
+    return new IntegerLiteral(value, targetTy, lit->getLocation());
 }
 
 FunctionCallExpr *
@@ -441,22 +451,36 @@ DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
     for (unsigned idx = 0; I != E; ++I, ++idx)
         args[idx] = rewriteExpr(*I);
 
-    SubroutineRef *ref = new SubroutineRef(0, connective);
+    SubroutineRef *ref = new SubroutineRef(call->getLocation(), connective);
     return new FunctionCallExpr(ref, args, numArgs, 0, 0);
 }
 
 AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
 {
     AttribExpr *result = 0;
+    Location loc = attrib->getLocation();
 
     if (ScalarBoundAE *bound = dyn_cast<ScalarBoundAE>(attrib)) {
         IntegerType *prefix;
         prefix = cast<IntegerType>(rewriteType(bound->getPrefix()));
 
         if (bound->isFirst())
-            result = new FirstAE(prefix, 0);
+            result = new FirstAE(prefix, loc);
         else
-            result = new LastAE(prefix, 0);
+            result = new LastAE(prefix, loc);
+    }
+    if (LengthAE *length = dyn_cast<LengthAE>(attrib)) {
+        // FIXME: Support array subtype prefix.
+        Expr *prefix = length->getPrefixExpr();
+        assert(prefix && "Cannot retwrite attribute!");
+
+        prefix = rewriteExpr(prefix);
+        if (length->hasImplicitDimension())
+            result = new LengthAE(prefix, loc);
+        else {
+            Expr *dimension = rewriteExpr(length->getDimensionExpr());
+            result = new LengthAE(prefix, loc, dimension);
+        }
     }
     else {
         ArrayBoundAE *bound = cast<ArrayBoundAE>(attrib);
@@ -464,16 +488,16 @@ AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
 
         if (bound->hasImplicitDimension()) {
             if (bound->isFirst())
-                result = new FirstArrayAE(prefix, 0);
+                result = new FirstArrayAE(prefix, loc);
             else
-                result = new LastArrayAE(prefix, 0);
+                result = new LastArrayAE(prefix, loc);
         }
         else {
             Expr *dim = rewriteExpr(bound->getDimensionExpr());
             if (bound->isFirst())
-                result = new FirstArrayAE(prefix, dim, 0);
+                result = new FirstArrayAE(prefix, dim, loc);
             else
-                result = new LastArrayAE(prefix, dim, 0);
+                result = new LastArrayAE(prefix, dim, loc);
         }
     }
     return result;
@@ -483,7 +507,7 @@ ConversionExpr *DeclRewriter::rewriteConversion(ConversionExpr *conv)
 {
     Expr *operand = rewriteExpr(conv->getOperand());
     Type *targetTy = rewriteType(conv->getType());
-    return new ConversionExpr(operand, targetTy, 0);
+    return new ConversionExpr(operand, targetTy, conv->getLocation());
 }
 
 Expr *DeclRewriter::rewriteExpr(Expr *expr)
