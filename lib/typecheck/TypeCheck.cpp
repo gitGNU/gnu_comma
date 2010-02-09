@@ -982,6 +982,8 @@ void TypeCheck::acceptArrayDecl(IdentifierInfo *name, Location loc,
         return;
 
     // Create the declaration node.
+    indexNodes.release();
+    componentNode.release();
     DeclRegion *region = currentDeclarativeRegion();
     ArrayDecl *array =
         resource.createArrayDecl(name, loc, indices.size(), &indices[0],
