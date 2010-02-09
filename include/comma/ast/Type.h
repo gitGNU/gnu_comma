@@ -119,6 +119,12 @@ public:
     /// statically known.
     bool isDefiniteType() const { return !isIndefiniteType(); }
 
+    /// Returns true if this type is a subtype of the given type.
+    ///
+    /// All types are considered to be subtypes of themselves.
+    bool isSubtypeOf(const Type *type) const;
+
+    // Support isa/dyn_cast.
     static bool classof(const Type *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesType();
@@ -379,19 +385,6 @@ public:
 
     /// Returns true if this type is unconstrained.
     bool isUnconstrained() const { return !isConstrained(); }
-
-    /// Returns true if this type is a subtype of the given type.
-    ///
-    /// All types are considered to be subtypes of themselves.
-    bool isSubtypeOf(const PrimaryType *type) const {
-        const PrimaryType *cursor = this;
-        while (cursor->isSubtype()) {
-            if (cursor == type)
-                return true;
-            cursor = cursor->typeChain.getPointer();
-        }
-        return cursor == type;
-    }
 
     // Support isa/dyn_cast.
     static bool classof(const PrimaryType *node) { return true; }

@@ -213,6 +213,30 @@ bool Type::isIndefiniteType() const
     return false;
 }
 
+bool Type::isSubtypeOf(const Type *type) const
+{
+    // Types are subtypes of themselves.
+    if (this == type)
+        return true;
+
+    // Optimization.
+    if (getKind() != type->getKind())
+        return false;
+
+    // Walk the ancestor chain for primary types.
+    if (const PrimaryType *cursor = dyn_cast<PrimaryType>(this)) {
+        while (cursor->isSubtype()) {
+            if (cursor == type)
+                return true;
+            cursor = cursor->getAncestorType();
+        }
+        return cursor == type;
+    }
+
+    // Subtype relation does not hold.
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // SubroutineType
 
