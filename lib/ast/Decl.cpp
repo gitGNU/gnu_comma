@@ -548,6 +548,44 @@ const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const
     return 0;
 }
 
+bool SubroutineDecl::compareProfiles(const SubroutineDecl *X,
+                                     const SubroutineDecl *Y)
+{
+    unsigned arity = X->getArity();
+    bool procedureProfile = isa<ProcedureDecl>(X);
+
+    if (arity != Y->getArity())
+        return false;
+
+    if (procedureProfile && !isa<ProcedureDecl>(Y))
+        return false;
+
+    for (unsigned i = 0; i < arity; ++i) {
+        const Type *XargTy = X->getParamType(i);
+        const Type *YargTy = Y->getParamType(i);
+
+        if (XargTy != YargTy) {
+            const PrimaryType *Xp = dyn_cast<PrimaryType>(XargTy);
+            const PrimaryType *Yp = dyn_cast<PrimaryType>(YargTy);
+
+            if (Xp && Yp && Xp->getRootType() == Yp->getRootType())
+                continue;
+
+            return false;
+        }
+    }
+
+    if (procedureProfile)
+        return true;
+
+    const FunctionDecl *XF = cast<FunctionDecl>(X);
+    const FunctionDecl *YF = cast<FunctionDecl>(Y);
+
+    const Type *XretTy = XF->getReturnType();
+    const Type *YretTy = YF->getReturnType();
+    return XretTy->isSubtypeOf(YretTy) || YretTy->isSubtypeOf(XretTy);
+}
+
 //===----------------------------------------------------------------------===//
 // ProcedureDecl
 

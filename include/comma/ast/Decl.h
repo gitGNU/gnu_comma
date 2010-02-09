@@ -1027,6 +1027,21 @@ public:
     const_pragma_iterator end_pragmas() const { return pragmas.end(); }
     //@}
 
+    /// Compares the profiles of two subroutine declarations for equality.
+    ///
+    /// Two subroutine profiles are considered equal if:
+    ///
+    ///   - they both denotes procedures or functions;
+    ///
+    ///   - each have the same number of arguments;
+    ///
+    ///   - each argument type are equal or are derived from an common root;
+    ///
+    ///   - the return types (if present) are equal or derive from a common
+    ///     root.
+    static bool compareProfiles(const SubroutineDecl *X,
+                                const SubroutineDecl *Y);
+
     // Support for isa and dyn_cast.
     static bool classof(const SubroutineDecl *node) { return true; }
     static bool classof(const Ast *node) {
