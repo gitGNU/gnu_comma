@@ -438,6 +438,7 @@ FunctionCallExpr *
 DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
 {
     FunctionDecl *connective = call->getConnective();
+    Location loc = call->getLocation();
     unsigned numArgs = call->getNumArgs();
     Expr *args[numArgs];
 
@@ -451,8 +452,7 @@ DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
     for (unsigned idx = 0; I != E; ++I, ++idx)
         args[idx] = rewriteExpr(*I);
 
-    SubroutineRef *ref = new SubroutineRef(call->getLocation(), connective);
-    return new FunctionCallExpr(ref, args, numArgs, 0, 0);
+    return new FunctionCallExpr(connective, loc, args, numArgs, 0, 0);
 }
 
 AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
@@ -472,7 +472,7 @@ AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
     if (LengthAE *length = dyn_cast<LengthAE>(attrib)) {
         // FIXME: Support array subtype prefix.
         Expr *prefix = length->getPrefixExpr();
-        assert(prefix && "Cannot retwrite attribute!");
+        assert(prefix && "Cannot rewrite attribute!");
 
         prefix = rewriteExpr(prefix);
         if (length->hasImplicitDimension())
