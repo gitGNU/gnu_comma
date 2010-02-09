@@ -252,6 +252,49 @@ SubroutineType::SubroutineType(AstKind kind, Type **argTypes, unsigned numArgs)
     }
 }
 
+bool SubroutineType::compareProfiles(const SubroutineType *X,
+                                     const SubroutineType *Y)
+{
+    unsigned arity = X->getArity();
+    bool procedureProfile = isa<ProcedureType>(X);
+
+    if (arity != Y->getArity())
+        return false;
+
+    if (procedureProfile && !isa<ProcedureType>(Y))
+        return false;
+
+    for (unsigned i = 0; i < arity; ++i) {
+        const Type *XargTy = X->getArgType(i);
+        const Type *YargTy = Y->getArgType(i);
+
+        if (XargTy != YargTy) {
+            const PrimaryType *Xp = dyn_cast<PrimaryType>(XargTy);
+            const PrimaryType *Yp = dyn_cast<PrimaryType>(YargTy);
+
+            if (Xp && Yp && Xp->getRootType() == Yp->getRootType())
+                continue;
+
+            return false;
+        }
+    }
+
+    if (procedureProfile)
+        return true;
+
+    const FunctionType *XF = cast<FunctionType>(X);
+    const FunctionType *YF = cast<FunctionType>(Y);
+    const Type *XretTy = XF->getReturnType();
+    const Type *YretTy = YF->getReturnType();
+
+    if (XretTy != YretTy) {
+        const PrimaryType *Xp = dyn_cast<PrimaryType>(XretTy);
+        const PrimaryType *Yp = dyn_cast<PrimaryType>(YretTy);
+        return Xp && Yp && Xp->getRootType() == Yp->getRootType();
+    }
+    return true;
+}
+
 //===----------------------------------------------------------------------===//
 // UniversalType
 

@@ -161,6 +161,22 @@ public:
     arg_type_iterator end() const {
         return argumentTypes + numArguments; }
 
+    /// Compares the profiles of two subroutine types for equality.
+    ///
+    /// Two subroutine profiles are considered equal if:
+    ///
+    ///   - both denote procedures or functions;
+    ///
+    ///   - both have the same number of arguments;
+    ///
+    ///   - each corresponding pair of argument types are equal or both are
+    ///     derived from a common root;
+    ///
+    ///   - the return types (if present) are equal or derive from a common
+    ///     root.
+    static bool compareProfiles(const SubroutineType *X,
+                                const SubroutineType *Y);
+
     // Support isa and dyn_cast.
     static bool classof(const SubroutineType *node) { return true; }
     static bool classof(const Ast *node) {
