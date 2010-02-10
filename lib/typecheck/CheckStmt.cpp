@@ -257,12 +257,17 @@ Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode)
         return getInvalidNode();
 
     conditionNode.release();
-    return getNode(new WhileStmt(loc, pred));
+    WhileStmt *loop = new WhileStmt(loc, pred);
+    activeLoops.push(loop);
+    return getNode(loop);
 }
 
 Node TypeCheck::endWhileStmt(Node whileNode)
 {
     WhileStmt *loop = cast_node<WhileStmt>(whileNode);
+
+    assert(loop == activeLoops.top() && "Loop stack imbalance!");
+    activeLoops.pop();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.
@@ -274,12 +279,17 @@ Node TypeCheck::endWhileStmt(Node whileNode)
 
 Node TypeCheck::beginLoopStmt(Location loc)
 {
-    return getNode(new LoopStmt(loc));
+    LoopStmt *loop = new LoopStmt(loc);
+    activeLoops.push(loop);
+    return getNode(loop);
 }
 
 Node TypeCheck::endLoopStmt(Node loopNode)
 {
     LoopStmt *loop = cast_node<LoopStmt>(loopNode);
+
+    assert(loop == activeLoops.top() && "Loop stack imbalance!");
+    activeLoops.pop();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.
@@ -304,6 +314,7 @@ Node TypeCheck::beginForStmt(Location loc,
     // Push a scope for the for loop and then add the loop parameter.
     scope.push();
     scope.addDirectDecl(iter);
+    activeLoops.push(loop);
     controlNode.release();
     return getNode(loop);
 }
@@ -314,6 +325,9 @@ Node TypeCheck::endForStmt(Node forNode)
     scope.pop();
 
     ForStmt *loop = cast_node<ForStmt>(forNode);
+
+    assert(loop == activeLoops.top() && "Loop stack imbalance!");
+    activeLoops.pop();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.

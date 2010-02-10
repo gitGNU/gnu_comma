@@ -339,6 +339,12 @@ private:
     /// current context when processing aggregate expressions.
     std::stack<AggregateExpr*> aggregateStack;
 
+    /// Stack of active loop statements.
+    ///
+    /// On calls to begin{For, Loop, While}Stmt the corresponding node is pushed
+    /// onto this stack.  This enables certain control flow checks.
+    std::stack<IterationStmt*> activeLoops;
+
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.
     template <class T>
