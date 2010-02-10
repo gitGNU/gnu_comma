@@ -2,7 +2,7 @@
 #
 # This file is distributed under the MIT License.  See LICENSE.txt for details.
 #
-# Copyright (C) 2008, Stephen Wilson
+# Copyright (C) 2008, 2010 Stephen Wilson
 #
 ##----------------------------------------------------------------------------##
 
@@ -19,6 +19,7 @@ include $(LEVEL)/Makefile.common
 ifeq ($(enable_commaspec), 1)
 
 xml_sources := $(wildcard $(prj_srcdir)/*.xml)
+css_sources := $(prj_srcdir)/commaspec.css
 
 #
 # The current setup generates `chunked' html pages from the xml sources.  Thus,
@@ -28,18 +29,26 @@ xml_sources := $(wildcard $(prj_srcdir)/*.xml)
 #
 index_html := $(prj_objdir)/index.html
 
+#
+# CSS file to render the html pages.
+#
+commaspec_css := $(prj_objdir)/commaspec.css
+
 XSL := $(prj_srcdir)/commaspec.xsl
 CSS := $(prj_srcdir)/commaspec.css
 XML := $(prj_srcdir)/commaspec.xml
 
-all: $(index_html)
+all: $(index_html) $(commaspec_css)
 
 $(index_html): $(xml_sources) $(CSS) $(XSL)
-	$(ECHO) Building commaspec under $(prj_objdir)
+	$(verb) $(ECHO) Building commaspec under $(prj_objdir)
 	$(verb) $(XSLTPROC) --nonet                 \
 	                    --xinclude              \
 	                    --output $(prj_objdir)/ \
 	                    $(XSL) $(XML)
+
+$(commaspec_css): $(css_sources)
+	$(verb) cp $(css_sources) $(commaspec_css)
 
 endif # enable_commaspec
 
