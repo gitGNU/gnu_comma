@@ -3,7 +3,7 @@
 <!-- This file is distributed under the MIT License.  See LICENSE.txt for
      details.
 
-     Copyright 2008, Stephen Wilson
+     Copyright 2008, 2010, Stephen Wilson
      -->
 
 <xsl:stylesheet
@@ -17,6 +17,14 @@
 <xsl:param name="section.label.includes.component.label">1</xsl:param>
 <xsl:param name="ebnf.table.bgcolor">#F0F8FF</xsl:param>
 <xsl:param name="ebnf.table.border">1</xsl:param>
+
+<!-- Disable the title="" attribute in sections, thus preventing tooltips from
+     being displayed by the browser.
+
+     Thanks to Shlomi Fish (http://www.shlomifish.org/) for this piece of
+     "magic"! -->
+<xsl:template name="generate.html.title">
+</xsl:template>
 
 <xsl:param name="local.l10n.xml" select="document('')"/>
 <l:i18n xmlns:l="http://docbook.sourceforge.net/xmlns/l10n/1.0">
