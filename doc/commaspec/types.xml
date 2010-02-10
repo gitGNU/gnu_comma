@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2010, Stephen Wilson
+-->
+
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+         xml:id="types-subtypes">
+
+  <title>Types and Subtypes</title>
+
+  <para>
+    This chapter specifies the syntax and semantics of types and subtypes.
+  </para>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.type_declarations">
+    <title>Type Declarations</title>
+
+    <productionset><title>Type Declarations</title>
+    <production xml:id="ebnf.type_declaration">
+      <lhs>Type_Declaration</lhs>
+      <rhs>
+        type <nonterminal def="#ebnf.name">Name</nonterminal> is
+             <nonterminal def="#ebnf.type_definition">Type_Definition</nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.type_definition">
+      <lhs>Type_Definition</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.integer_type_definition">
+          Integer_Type_Definition
+        </nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+
+    <para>
+      Type declarations create new types
+    </para>
+
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.integer_types">
+    <title>Integer Types</title>
+
+    <productionset><title>Integer Type Definition</title>
+
+    <production xml:id="ebnf.integer_type_definition">
+      <lhs>Integer_Type_Definition</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.signed_integer_type_definition">
+          Signed_Integer_Type_Definition
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.unsigned_integer_type_definition">
+          Unsigned_Integer_Type_Definition
+        </nonterminal>
+      </rhs>
+    </production>
+
+
+    <production xml:id="ebnf.signed_integer_type_definition">
+      <lhs>Signed_Integer_Type_Definition</lhs>
+      <rhs>
+        range <nonterminal def="#ebnf.expression">Expression</nonterminal> ..
+              <nonterminal def="#ebnf.expression">Expression</nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.unsigned_integer_type_definition">
+      <lhs>Unsigned_Integer_Type_Definition</lhs>
+      <rhs>
+        mod <nonterminal def="#ebnf.expression">Expression</nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+
+
+  </sect1>
+</chapter>
