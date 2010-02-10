@@ -12,9 +12,16 @@
 <xsl:import href="http://docbook.sourceforge.net/release/xsl/current/html/chunk.xsl"/>
 
 <xsl:param name="use.extensions">0</xsl:param>
+
+<!-- Currently the commaspec is just a draft -->
+<xsl:param name="draft.mode">yes</xsl:param>
+
+<!-- Chunking and section configuration -->
 <xsl:param name="chunk.section.depth">0</xsl:param>
 <xsl:param name="section.autolabel">1</xsl:param>
 <xsl:param name="section.label.includes.component.label">1</xsl:param>
+
+<!-- EBNF configuration -->
 <xsl:param name="ebnf.table.bgcolor">#F0F8FF</xsl:param>
 <xsl:param name="ebnf.table.border">1</xsl:param>
 
@@ -40,7 +47,8 @@
    </l:l10n>
 </l:i18n>
 
+<!--  Do not use css for now.
 <xsl:param name="html.stylesheet">commaspec.css</xsl:param>
-
+-->
 
 </xsl:stylesheet>
