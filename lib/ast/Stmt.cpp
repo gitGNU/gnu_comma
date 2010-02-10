@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -105,12 +105,10 @@ AssignmentStmt::AssignmentStmt(Expr *target, Expr *value)
 
 //===----------------------------------------------------------------------===//
 // ForStmt
-
 ForStmt::ForStmt(Location loc, LoopDecl *iterationDecl, DSTDefinition *control)
-    : Stmt(AST_ForStmt, loc),
+    : IterationStmt(AST_ForStmt, loc),
       iterationDecl(iterationDecl),
-      control(control),
-      body(loc)
+      control(control)
 {
     assert(control->getTag() != DSTDefinition::Unconstrained_DST &&
            "Invalid discrete subtype definition for loop control!");
@@ -126,7 +124,6 @@ PragmaStmt::PragmaStmt(Pragma *pragma)
 
 //===----------------------------------------------------------------------===//
 // RaiseStmt
-
 const ExceptionDecl *RaiseStmt::getExceptionDecl() const
 {
     return ref->getException();

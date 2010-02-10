@@ -417,24 +417,57 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// IterationStmt
+//
+/// \class
+///
+/// \brief Common base class for all looping statements.
+class IterationStmt : public Stmt {
+
+public:
+    virtual ~IterationStmt() { }
+
+    //@{
+    /// Returns the body of this iteration statemement.
+    StmtSequence *getBody() { return &body; }
+    const StmtSequence *getBody() const { return &body; }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const IterationStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return denotesIterationStmt(node->getKind());
+    }
+
+protected:
+    IterationStmt(AstKind kind, Location loc)
+        : Stmt(kind, loc), body(loc) { assert(denotesIterationStmt(kind)); }
+
+    StmtSequence body;
+
+private:
+    static bool denotesIterationStmt(AstKind kind) {
+        return (kind == AST_ForStmt || kind == AST_WhileStmt ||
+                kind == AST_LoopStmt);
+    }
+};
+
+//===----------------------------------------------------------------------===//
 // WhileStmt
 //
 // Ast nodes representing the 'while' loop construct.
-class WhileStmt : public Stmt {
+class WhileStmt : public IterationStmt {
 
 public:
     WhileStmt(Location loc, Expr *condition)
-        : Stmt(AST_WhileStmt, loc),
-          condition(condition),
-          body(loc) { }
+        : IterationStmt(AST_WhileStmt, loc),
+          condition(condition) { }
 
-    // Returns the condition expression controlling this loop.
+    //@{
+    /// Returns the condition expression controlling this loop.
     Expr *getCondition() { return condition; }
     const Expr *getCondition() const { return condition; }
-
-    // Returns the body of this loop.
-    StmtSequence *getBody() { return &body; }
-    const StmtSequence *getBody() const { return &body; }
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const WhileStmt *node) { return true; }
@@ -444,14 +477,13 @@ public:
 
 private:
     Expr *condition;
-    StmtSequence body;
 };
 
 //===----------------------------------------------------------------------===//
 // ForStmt
 //
 /// This node represents the "for" loop iteration scheme.
-class ForStmt : public Stmt {
+class ForStmt : public IterationStmt {
 
 public:
     /// \brief Constructs a for-loop statement over the given declaration and
@@ -485,15 +517,6 @@ public:
     /// Marks that this loop is reversed.
     void markAsReversed() { bits = 1; }
 
-    //@{
-    /// Retururns the StmtSequence forming the body of this loop.
-    ///
-    /// Initially, this sequence is empty and must be populated via explicit
-    /// calls to StmtSequence::addStmt().
-    const StmtSequence *getBody() const { return &body; }
-    StmtSequence *getBody() { return &body; }
-    //@}
-
     // Support isa/dyn_cast.
     static bool classof(const ForStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -503,32 +526,22 @@ public:
 private:
     LoopDecl *iterationDecl;
     DSTDefinition *control;
-    StmtSequence body;
 };
 
 //===----------------------------------------------------------------------===//
 // LoopStmt
 //
 /// This class represents the simple "loop" statement.
-class LoopStmt : public Stmt {
+class LoopStmt : public IterationStmt {
 
 public:
-    LoopStmt(Location loc) : Stmt(AST_LoopStmt, loc), body(loc) { }
-
-    //@{
-    /// Returns the body of this loop.
-    const StmtSequence *getBody() const { return &body; }
-    StmtSequence *getBody() { return &body; }
-    //@}
+    LoopStmt(Location loc) : IterationStmt(AST_LoopStmt, loc) { }
 
     // Support isa/dyn_cast.
     static bool classof(const LoopStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_LoopStmt;
     }
-
-private:
-    StmtSequence body;
 };
 
 //===----------------------------------------------------------------------===//

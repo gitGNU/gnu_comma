@@ -85,6 +85,7 @@ class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
 class IntegerType;
+class IterationStmt;
 class KeywordSelector;
 class LastAE;
 class LastArrayAE;
