@@ -1022,6 +1022,7 @@ void TypeCheck::acceptRecordComponent(IdentifierInfo *name, Location loc,
         return;
     }
 
+    typeNode.release();
     ComponentDecl *component = record->addComponent(name, loc, componentTy);
     if (Decl *conflict = scope.addDirectDecl(component)) {
         SourceLocation sloc = getSourceLoc(conflict->getLocation());
@@ -1047,6 +1048,7 @@ void TypeCheck::acceptAccessTypeDecl(IdentifierInfo *name, Location loc,
     if (!targetDecl)
         return;
 
+    subtypeNode.release();
     DeclRegion *region = currentDeclarativeRegion();
     AccessDecl *access;
     access = resource.createAccessDecl(name, loc, targetDecl->getType(), region);
