@@ -250,24 +250,25 @@ Node Parser::parseWhileStmt()
 
     Location loc = ignoreToken();
     Node condition = parseExpr();
-    NodeVector stmts;
 
     if (condition.isInvalid() || !requireToken(Lexer::TKN_LOOP)) {
         seekEndLoop();
         return getInvalidNode();
     }
 
+    Node whileNode = client.beginWhileStmt(loc, condition);
+
     do {
         Node stmt = parseStatement();
         if (stmt.isValid())
-            stmts.push_back(stmt);
+            client.acceptStmt(whileNode, stmt);
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
-        return getInvalidNode();
+    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
+        seekEndLoop();
 
-    return client.acceptWhileStmt(loc, condition, stmts);
+    return client.endWhileStmt(whileNode);
 }
 
 Node Parser::parseLoopStmt()
@@ -275,19 +276,19 @@ Node Parser::parseLoopStmt()
     assert(currentTokenIs(Lexer::TKN_LOOP));
 
     Location loc = ignoreToken();
-    NodeVector stmts;
+    Node loopNode = client.beginLoopStmt(loc);
 
     do {
         Node stmt = parseStatement();
         if (stmt.isValid())
-            stmts.push_back(stmt);
+            client.acceptStmt(loopNode, stmt);
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
-        return getInvalidNode();
+    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
+        seekEndLoop();
 
-    return client.acceptLoopStmt(loc, stmts);
+    return client.endLoopStmt(loopNode);
 }
 
 Node Parser::parseForStmt()
@@ -310,26 +311,20 @@ Node Parser::parseForStmt()
         return getInvalidNode();
     }
 
-    Node forNode = client.beginForStmt(
-        forLoc, iterName, iterLoc, DST, isReversed);
+    Node forNode = client.beginForStmt
+        (forLoc, iterName, iterLoc, DST, isReversed);
 
-    NodeVector stmts;
     do {
         Node stmt = parseStatement();
         if (stmt.isValid())
-            stmts.push_back(stmt);
+            client.acceptStmt(forNode, stmt);
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    // Provide the client with the complete set of statements immediately since
-    // we must match the call to beginForStmt with the following call to
-    // endForStmt;
-    forNode = client.endForStmt(forNode, stmts);
+    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
+        seekEndLoop();
 
-    if (!requireToken(Lexer::TKN_END) || !requireToken(Lexer::TKN_LOOP))
-        return getInvalidNode();
-
-    return forNode;
+    return client.endForStmt(forNode);
 }
 
 Node Parser::parseExitStmt()

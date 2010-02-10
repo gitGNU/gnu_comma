@@ -455,12 +455,32 @@ public:
     virtual Node endAggregate() = 0;
     //@}
 
+    /// \name While Statements
+    ///
+    /// While statements are delimited by calles to beginWhileStmt and
+    /// endWhileStmt.  The statements constiuting the body of the loop are
+    /// provided via acceptStmt.
+    //@{
+    virtual Node beginWhileStmt(Location loc, Node condition) = 0;
+    virtual Node endWhileStmt(Node whileNode) = 0;
+    //@}
+
+    /// \name Loop Statements
+    ///
+    /// Loop statements are delimited by calles to beginLoopStmt and
+    /// endLoopStmt.  The statements constiuting the body of the loop are
+    /// provided via acceptStmt.
+    //@{
+    virtual Node beginLoopStmt(Location loc) = 0;
+    virtual Node endLoopStmt(Node loopNode) = 0;
+    //@}
 
     /// \name For Statement Callbacks.
     ///
     /// A \c for statement is introduced to the client with a call to
-    /// beginForStmt().  The parser processes each statement in the loop body
-    /// and terminates the construct with a call to endForStmt().
+    /// beginForStmt().  Each statement in the loop body is then provided to the
+    /// client via a call to acceptStmt.  The construct is terminated with a
+    /// call to endForStmt().
     //@{
 
     /// Begins a \c for statement.
@@ -488,11 +508,8 @@ public:
     ///
     /// \param forNode The Node returned by the previous call to beginForStmt().
     ///
-    /// \param bodyNodes A vector of nodes corresponding to each statement in
-    /// the loop body.
-    ///
     /// \return A node representing the completed \c for stmt.
-    virtual Node endForStmt(Node forNode, NodeVector &bodyNodes) = 0;
+    virtual Node endForStmt(Node forNode) = 0;
     //@}
 
     /// \name Discrete Subtype Definition Callbacks.
@@ -674,13 +691,6 @@ public:
     virtual Node acceptReturnStmt(Location loc, Node retNode) = 0;
 
     virtual Node acceptAssignmentStmt(Node target, Node value) = 0;
-
-    /// Called to inform the client of a while statement.
-    virtual Node acceptWhileStmt(Location loc, Node condition,
-                                 NodeVector &stmtNodes) = 0;
-
-    /// Called to inform the client of a loop statement.
-    virtual Node acceptLoopStmt(Location loc, NodeVector &stmtNodes) = 0;
 
     /// Called to inform the client of a raise statement.
     ///

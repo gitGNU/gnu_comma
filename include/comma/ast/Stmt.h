@@ -80,7 +80,7 @@ public:
     unsigned numStatements() const { return statements.size(); }
 
     /// Returns true if this statement sequence is empty.
-    bool isEmpty() const { return numStatements() == 0; }
+    bool empty() const { return numStatements() == 0; }
 
     //@{
     /// Returns the first statement in this sequence.
@@ -423,19 +423,20 @@ private:
 class WhileStmt : public Stmt {
 
 public:
-    WhileStmt(Location loc, Expr *condition, StmtSequence *body)
+    WhileStmt(Location loc, Expr *condition)
         : Stmt(AST_WhileStmt, loc),
           condition(condition),
-          body(body) { }
+          body(loc) { }
 
     // Returns the condition expression controlling this loop.
     Expr *getCondition() { return condition; }
     const Expr *getCondition() const { return condition; }
 
     // Returns the body of this loop.
-    StmtSequence *getBody() { return body; }
-    const StmtSequence *getBody() const { return body; }
+    StmtSequence *getBody() { return &body; }
+    const StmtSequence *getBody() const { return &body; }
 
+    // Support isa/dyn_cast.
     static bool classof(const WhileStmt *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_WhileStmt;
@@ -443,7 +444,7 @@ public:
 
 private:
     Expr *condition;
-    StmtSequence *body;
+    StmtSequence body;
 };
 
 //===----------------------------------------------------------------------===//
@@ -512,14 +513,12 @@ private:
 class LoopStmt : public Stmt {
 
 public:
-    LoopStmt(Location loc, StmtSequence *body)
-        : Stmt(AST_LoopStmt, loc),
-          body(body) { }
+    LoopStmt(Location loc) : Stmt(AST_LoopStmt, loc), body(loc) { }
 
     //@{
     /// Returns the body of this loop.
-    const StmtSequence *getBody() const { return body; }
-    StmtSequence *getBody() { return body; }
+    const StmtSequence *getBody() const { return &body; }
+    StmtSequence *getBody() { return &body; }
     //@}
 
     // Support isa/dyn_cast.
@@ -529,7 +528,7 @@ public:
     }
 
 private:
-    StmtSequence *body;
+    StmtSequence body;
 };
 
 //===----------------------------------------------------------------------===//

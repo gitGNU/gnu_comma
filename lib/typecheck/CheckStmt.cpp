@@ -201,23 +201,42 @@ void TypeCheck::endBlockStmt(Node blockNode)
 
 bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
 {
+    Stmt *context = cast_node<Stmt>(contextNode);
     Stmt *stmt = cast_node<Stmt>(stmtNode);
     StmtSequence *seq;
 
-    if (BlockStmt *block = lift_node<BlockStmt>(contextNode))
-        seq = block;
-    else if (HandlerStmt *handler = lift_node<HandlerStmt>(contextNode))
-        seq = handler;
-    else {
+    switch (context->getKind()) {
+
+    default:
         assert(false && "Invalid context for acceptStmt!");
         return false;
+
+    case Ast::AST_BlockStmt:
+        seq = cast<BlockStmt>(context);
+        break;
+
+    case Ast::AST_ForStmt:
+        seq = cast<ForStmt>(context)->getBody();
+        break;
+
+    case Ast::AST_WhileStmt:
+        seq = cast<WhileStmt>(context)->getBody();
+        break;
+
+    case Ast::AST_LoopStmt:
+        seq = cast<LoopStmt>(context)->getBody();
+        break;
+
+    case Ast::AST_HandlerStmt:
+        seq = cast<HandlerStmt>(context);
+        break;
     }
 
     // If this sequence of statements is non-empty ensure the next statement
     // does not follow a terminator.  Unreachable statements are not considered
     // an error, so we return true and let the node reclaim the unused
     // statement.
-    if (!seq->isEmpty()) {
+    if (!seq->empty()) {
         Stmt *predecessor = seq->back();
         if (predecessor->isTerminator()) {
             report(stmt->getLocation(), diag::UNREACHABLE_STATEMENT);
@@ -230,37 +249,44 @@ bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
     return true;
 }
 
-Node TypeCheck::acceptWhileStmt(Location loc, Node conditionNode,
-                                NodeVector &stmtNodes)
+Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode)
 {
-    typedef NodeCaster<Stmt> caster;
-    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+    Expr *pred = ensureExpr(conditionNode);
 
-    Expr *pred = cast_node<Expr>(conditionNode);
-
-    if (!(pred = checkExprInContext(pred, resource.getTheBooleanType())))
+    if (!pred)
         return getInvalidNode();
 
-    iterator I(stmtNodes.begin(), caster());
-    iterator E(stmtNodes.end(), caster());
-    StmtSequence *body = new StmtSequence(loc, I, E);
-
     conditionNode.release();
-    stmtNodes.release();
-    return getNode(new WhileStmt(loc, pred, body));
+    return getNode(new WhileStmt(loc, pred));
 }
 
-Node TypeCheck::acceptLoopStmt(Location loc, NodeVector &stmtNodes)
+Node TypeCheck::endWhileStmt(Node whileNode)
 {
-    typedef NodeCaster<Stmt> caster;
-    typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
+    WhileStmt *loop = cast_node<WhileStmt>(whileNode);
 
-    iterator I(stmtNodes.begin(), caster());
-    iterator E(stmtNodes.end(), caster());
-    StmtSequence *body = new StmtSequence(loc, I, E);
+    // It is possible that the body is empty due to parse/semantic errors.  Do
+    // not propagate empty for loops.
+    if (loop->getBody()->empty())
+        return getInvalidNode();
 
-    stmtNodes.release();
-    return getNode(new LoopStmt(loc, body));
+    return whileNode;
+}
+
+Node TypeCheck::beginLoopStmt(Location loc)
+{
+    return getNode(new LoopStmt(loc));
+}
+
+Node TypeCheck::endLoopStmt(Node loopNode)
+{
+    LoopStmt *loop = cast_node<LoopStmt>(loopNode);
+
+    // It is possible that the body is empty due to parse/semantic errors.  Do
+    // not propagate empty for loops.
+    if (loop->getBody()->empty())
+        return getInvalidNode();
+
+    return loopNode;
 }
 
 Node TypeCheck::beginForStmt(Location loc,
@@ -282,29 +308,18 @@ Node TypeCheck::beginForStmt(Location loc,
     return getNode(loop);
 }
 
-Node TypeCheck::endForStmt(Node forNode, NodeVector &bodyNodes)
+Node TypeCheck::endForStmt(Node forNode)
 {
     // Pop the scope we entered for this loop.
     scope.pop();
 
+    ForStmt *loop = cast_node<ForStmt>(forNode);
+
     // It is possible that the body is empty due to parse/semantic errors.  Do
-    // not construct empty for loops.
-    if (bodyNodes.empty())
+    // not propagate empty for loops.
+    if (loop->getBody()->empty())
         return getInvalidNode();
 
-    // There is nothing to do but embed the body statements into the for loop.
-    bodyNodes.release();
-    ForStmt *loop = cast_node<ForStmt>(forNode);
-    StmtSequence *body = loop->getBody();
-
-    NodeVector::iterator I = bodyNodes.begin();
-    NodeVector::iterator E = bodyNodes.end();
-    for ( ; I != E; ++I) {
-        Stmt *S = cast_node<Stmt>(*I);
-        body->addStmt(S);
-    }
-
-    // Just reuse the given forNode as it now references the updated AST.
     return forNode;
 }
 

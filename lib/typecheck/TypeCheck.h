@@ -112,9 +112,15 @@ public:
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
+    Node beginWhileStmt(Location loc, Node condition);
+    Node endWhileStmt(Node whileNode);
+
+    Node beginLoopStmt(Location loc);
+    Node endLoopStmt(Node loopNode);
+
     Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
                       Node control, bool isReversed);
-    Node endForStmt(Node forNode, NodeVector &bodyNodes);
+    Node endForStmt(Node forNode);
 
     Node acceptDSTDefinition(Node name, Node lower, Node upper);
     Node acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained);
@@ -176,10 +182,6 @@ public:
     Node acceptNullStmt(Location loc);
 
     bool acceptStmt(Node context, Node stmt);
-
-    Node acceptWhileStmt(Location loc, Node condition, NodeVector &stmtNodes);
-
-    Node acceptLoopStmt(Location loc, NodeVector &stmtNodes);
 
     Node acceptRaiseStmt(Location loc, Node exception, Node message);
 
