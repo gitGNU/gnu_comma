@@ -11,7 +11,7 @@
          xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
          xml:id="types-subtypes">
 
-  <title>Types and Subtypes</title>
+  <title>Types, Subtypes, and Declarations</title>
 
   <para>
     This chapter specifies the syntax and semantics of types and subtypes.
@@ -26,7 +26,10 @@
       <lhs>Type_Declaration</lhs>
       <rhs>
         type <nonterminal def="#ebnf.name">Name</nonterminal> is
-             <nonterminal def="#ebnf.type_definition">Type_Definition</nonterminal>
+        <nonterminal def="#ebnf.type_definition">
+          Type_Definition
+        </nonterminal>
+        ;
       </rhs>
     </production>
 
@@ -35,6 +38,10 @@
       <rhs>
         <nonterminal def="#ebnf.integer_type_definition">
           Integer_Type_Definition
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.enumeration_type_definition">
+          Enumeration_Type_Definition
         </nonterminal>
       </rhs>
     </production>
@@ -47,7 +54,91 @@
   </sect1>
 
   <!-- ===================================================================== -->
-  <sect1 xml:id="sect.integer_types">
+  <sect1 xml:id="sect.subtype_declarations">
+    <title>Subtype Declarations</title>
+
+    <productionset><title>Subtype Declarations</title>
+    <production xml:id="ebnf.subtype_indication">
+      <lhs>Subtype_Indication</lhs>
+
+      <rhs>
+        <nonterminal def="#ebnf.name">Name</nonterminal>
+        [
+        <nonterminal def="#ebnf.subtype_constraint">
+          Subtype_Constraint
+        </nonterminal>
+        ]
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.subtype_constraint">
+      <lhs>Subtype_Constraint</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.range_constraint">
+          Range_Constraint
+        </nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.range_constraint">
+      <lhs>Range_Constraint</lhs>
+      <rhs>
+        range <nonterminal def="#ebnf.range">Range</nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.scalar_types"><title>Scalar Types</title>
+  <productionset>
+    <production xml:id="ebnf.range">
+      <lhs>Range</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.expression">Expression</nonterminal>
+        ..
+        <nonterminal def="#ebnf.expression">Expression</nonterminal>
+        |
+          <nonterminal def="#ebnf.range_attribute_mark">
+            Range_Attribute_Mark
+          </nonterminal>
+      </rhs>
+    </production>
+  </productionset>
+
+  <!-- ===================================================================== -->
+  <sect2 xml:id="sect.enumeration_types">
+    <title>Enumeration Types</title>
+
+    <productionset><title>Enumeration Type Definition</title>
+
+    <production xml:id="ebnf.enumeration_type_definition">
+      <lhs>Enumeration_Type_Definition</lhs>
+      <rhs>
+        (
+        <nonterminal def="#ebnf.enumeration_literal">
+          Enumeration_Literal
+        </nonterminal>
+        { ,
+        <nonterminal def="#ebnf.enumeration_literal">
+          Enumeration_Literal
+        </nonterminal>
+        } )
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.enumeration_literal">
+      <lhs>Enumeration_Literal</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.identifier">Identifier</nonterminal> |
+        <nonterminal def="#ebnf.input_character">Input_Character</nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+  </sect2>
+
+  <!-- ===================================================================== -->
+  <sect2 xml:id="sect.integer_types">
     <title>Integer Types</title>
 
     <productionset><title>Integer Type Definition</title>
@@ -65,12 +156,11 @@
       </rhs>
     </production>
 
-
     <production xml:id="ebnf.signed_integer_type_definition">
       <lhs>Signed_Integer_Type_Definition</lhs>
       <rhs>
         range <nonterminal def="#ebnf.expression">Expression</nonterminal> ..
-              <nonterminal def="#ebnf.expression">Expression</nonterminal>
+        <nonterminal def="#ebnf.expression">Expression</nonterminal>
       </rhs>
     </production>
 
@@ -81,7 +171,101 @@
       </rhs>
     </production>
     </productionset>
-
-
+  </sect2>
   </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.array_types">
+    <title>Array Types</title>
+
+    <productionset><title>Array Type Definition</title>
+
+    <production xml:id="ebnf.array_type_definition">
+      <lhs>Array_Type_Definition</lhs>
+
+      <rhs>
+        <nonterminal def="#ebnf.constrained_array_type_definition">
+          Constrained_Array_Type_Definition
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.unconstrained_array_type_definition">
+          Unconstrained_Array_Type_Definition
+        </nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.constrained_array_type_definition">
+      <lhs>Constrained_Array_Type_Definition</lhs>
+      <rhs>
+        array (
+        <nonterminal def="#ebnf.discrete_subtype_definition">
+          Discrete_Subtype_Definition
+        </nonterminal>
+        { ,
+        <nonterminal def="#ebnf.discrete_subtype_definition">
+          Discrete_Subtype_Definition
+        </nonterminal>
+        } ) of
+        <nonterminal def="#ebnf.name">Name</nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.discrete_subtype_definition">
+      <lhs>Discrete_Subtype_Definition</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.subtype_indication">
+          Subtype_Indication
+        </nonterminal>
+        <nonterminal def="#ebnf.range">Range</nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.unconstrained_array_type_definition">
+      <lhs>Unconstrained_Array_Type_Definition</lhs>
+      <rhs>
+        array (
+        <nonterminal def="#ebnf.name">Name</nonterminal> range &lt;&gt;
+        { ,
+        <nonterminal def="#ebnf.name">Name</nonterminal> range &lt;&gt;
+        } ) of
+        <nonterminal def="#ebnf.name">Name</nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.record_types">
+    <title>Record Types</title>
+
+    <productionset><title>Record Type Definition</title>
+
+    <production xml:id="ebnf.record_type_definition">
+      <lhs>Record_Type_Definition</lhs>
+      <rhs>
+        record
+        <nonterminal def="#ebnf.record_component_definition">
+          Record_Component_Definition
+        </nonterminal>
+        ; {
+        <nonterminal def="#ebnf.record_component_definition">
+          Record_Component_Definition
+        </nonterminal>
+        ; } end record
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.record_component_definition">
+      <lhs>Record_Component_Definition</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.identifier">Identifier</nonterminal>
+        :
+        <nonterminal def="#ebnf.subtype_indication">
+          Subtype_Indication
+        </nonterminal>
+      </rhs>
+    </production>
+    </productionset>
+  </sect1>
+
 </chapter>

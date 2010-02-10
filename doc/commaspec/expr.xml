@@ -91,6 +91,44 @@
           </rhs>
         </production>
       </productionset>
+
+      <sect3>
+        <title>Range Attributes</title>
+        <productionset>
+          <production xml:id="ebnf.range_attribute_mark">
+            <lhs>Range_Attribute_Mark</lhs>
+            <rhs>
+              <nonterminal def="#ebnf.name">Name</nonterminal> ' Range
+              [ (
+              <nonterminal def="#ebnf.expression">Expression</nonterminal>
+              ) ]
+            </rhs>
+          </production>
+        </productionset>
+
+        <para>
+          For a range attribute mark of the form <code>X'Range(N)</code> the
+          prefix <replaceable>X</replaceable> must denote a scalar subtype, a
+          constrained array subtype, or a value of array type.
+        </para>
+
+        <para>
+          When the prefix <replaceable>X</replaceable> denotes a scalar subtype
+          a range arribute mark of the form <code>X'Range</code> is equivalent
+          to <code>X'First .. X'Last</code>.  An argument may not be supplied.
+        </para>
+
+        <para>
+          When the prefix <replaceable>X</replaceable> denotes a constrained
+          array subtype or a value of some array type then the argument, if
+          present, must be a static integer expression.  If an argument is not
+          supplied a then an implicit default argument of 0 is used.  A range
+          attribute mark of the form <code>X'Range(N)</code> is equivalent to a
+          range <code>A'First(N) .. A'Last(N)</code>, with the exception that
+          the prefix is evaluated only once.
+        </para>
+      </sect3>
+
     </sect2>
 
     <sect2>

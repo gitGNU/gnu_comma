@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file is distributed under the MIT License.  See LICENSE.txt for
+     details.
+
+     Copyright 2010, Stephen Wilson
+-->
+
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xi="http://www.w3.org/2001/XInclude"
+         xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+         xml:id="statements">
+
+  <title>Statements</title>
+
+  <para>
+    This chapter defines the statements of the Comma programming language.
+  </para>
+
+  <productionset>
+    <title>Statement</title>
+
+    <production xml:id="ebnf.statement">
+      <lhs>Statement</lhs>
+      <rhs>
+        <nonterminal def="#ebnf.block-statement">
+          Block_Statement
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.null-statement">
+          Null_Statement
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.iteration-statement">
+          Iteration_Statement
+        </nonterminal>
+        |
+        <nonterminal def="#ebnf.assignement-statement">
+          Assignment_Statement
+        </nonterminal>
+      </rhs>
+    </production>
+
+    <production xml:id="ebnf.null-statement">
+      <lhs>Null_Statement</lhs>
+      <rhs>null</rhs>
+    </production>
+  </productionset>
+
+  <para>
+    A null statement consists of the single reserved word <literal
+    role="reserved">null</literal> and has no effect.
+  </para>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.block-statements">
+    <title>Block Statements</title>
+
+    <productionset>
+      <title>Block Statement</title>
+
+      <production xml:id="ebnf.block-statement">
+        <lhs>Block_Statement</lhs>
+        <rhs>
+          [ <nonterminal def="#ebnf.identifier">Identifier</nonterminal> : ]
+          [ declare {
+          <nonterminal def="#ebnf.declarative-item">
+            Declarative Item
+          </nonterminal>
+          } ] <sbr/>
+
+          begin
+          <nonterminal def="#ebnf.sequence-of-statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          end [ <nonterminal def="#ebnf.identifier">Identifier</nonterminal> ]
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.sequence-of-statements">
+        <lhs>Sequence_Of_Statements</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.statement">Statement</nonterminal> ;
+          {  <nonterminal def="#ebnf.statement">Statement</nonterminal> ; }
+        </rhs>
+      </production>
+    </productionset>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.if-statements">
+    <title>If Statements</title>
+
+    <productionset xml:id="ebnf.if-statement">
+      <title>If Statement</title>
+
+      <production>
+        <lhs>If_Statement</lhs>
+
+        <rhs>
+          if <nonterminal def="#ebnf.expression">Expression</nonterminal>
+          then
+          <nonterminal def="#ebnf.sequence-of-statements">
+            Sequence_Of_Statements
+          </nonterminal> <sbr/>
+
+          {
+          elsif <nonterminal def="#ebnf.expression">Expression</nonterminal>
+          then
+          <nonterminal def="#ebnf.sequence-of-statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          } <sbr/>
+
+          [ else
+          <nonterminal def="#ebnf.sequence-of-statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          ] <sbr/>
+
+          end if
+        </rhs>
+      </production>
+    </productionset>
+
+    <example><title>Examples of if statements:</title>
+    <programlisting>
+      function Fib (X : Natural) return Natural is
+      begin
+         if X = 0 then
+            return 0;
+         elsif X = 1 then
+            return 1;
+         else
+            return Fib(X - 2) + Fib(X - 1);
+         end if;
+      end Fib;
+    </programlisting>
+    </example>
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.iteration-statements">
+    <title>Iteration Statements</title>
+
+    <productionset>
+      <title>Iteration Statement</title>
+
+      <production xml:id="ebnf.iteration-statement">
+        <lhs>Iteration_Statement</lhs>
+        <rhs>
+          [ <nonterminal def="#ebnf.loop-tag">Loop_Tag</nonterminal> : ]
+          <nonterminal def="#ebnf.loop-body">Loop_Body</nonterminal>
+          [ <nonterminal def="#ebnf.loop-tag">Loop_Tag</nonterminal> ]
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.loop-tag">
+        <lhs>Loop_Tag</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.identifier">Identifier</nonterminal>
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.loop-body">
+        <lhs>Loop_Body</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.loop-statement">Loop_Statement</nonterminal>
+          |
+          <nonterminal def="#ebnf.while-statement">While_Statement</nonterminal>
+          |
+          <nonterminal def="#ebnf.for-statement">For_Statement</nonterminal>
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.loop-statement">
+        <lhs>Loop_Statement</lhs>
+        <rhs>
+          loop
+          <nonterminal def="#ebnf.sequence_of_statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          end loop
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.while-statement">
+        <lhs>While_Statement</lhs>
+        <rhs>
+          while <nonterminal def="#ebnf.expression">Expression</nonterminal>
+          loop
+          <nonterminal def="#ebnf.sequence_of_statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          end loop
+        </rhs>
+      </production>
+
+      <production xml:id="ebnf.for-statement">
+        <lhs>For_Statement</lhs>
+        <rhs>
+          for <nonterminal def="#ebnf.identifier">Identifier</nonterminal> in
+          <nonterminal def="#ebnf.discrete_subtype_definition">
+            Discrete_Subtype_Definition
+          </nonterminal>
+          loop
+          <nonterminal def="#ebnf.sequence_of_statements">
+            Sequence_Of_Statements
+          </nonterminal>
+          end loop
+        </rhs>
+      </production>
+    </productionset>
+
+    <example><title>Examples of iteration statements:</title>
+    <programlisting>
+      type Data is array (Positive range &lt;&gt;) of Integer;
+
+      procedure Sort (V : in out Data) is
+      begin
+         if V'Length &lt; 2 then
+            return;
+         end if;
+
+         loop
+            declare
+               J      : Integer;
+               Tmp    : Integer;
+               Sorted : Boolean := true;
+            begin
+               for I in V'First .. V'Last - 1 loop
+                  J := I + 1;
+                  if V(J) &lt; V(I) then
+                     Tmp    := V(I);
+                     V(I)   := V(J);
+                     V(J)   := Tmp;
+                     Sorted := false;
+                  end if;
+               end loop;
+
+               exit when Sorted;
+            end;
+         end loop;
+      end Sort;
+    </programlisting>
+    </example>
+
+  </sect1>
+
+  <!-- ===================================================================== -->
+  <sect1 xml:id="sect.assignment-statements">
+    <title>Assignment Statements</title>
+
+    <productionset>
+      <title>Assignment Statement</title>
+
+      <production xml:id="ebnf.assignement-statement">
+        <lhs>Assignment_Statement</lhs>
+        <rhs>
+          <nonterminal def="#ebnf.name">Name</nonterminal>
+          :=
+          <nonterminal def="#ebnf.expression">Expression</nonterminal>
+        </rhs>
+      </production>
+    </productionset>
+  </sect1>
+
+</chapter>

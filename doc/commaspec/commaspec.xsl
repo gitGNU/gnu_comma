@@ -33,6 +33,15 @@
 <xsl:template name="generate.html.title">
 </xsl:template>
 
+
+<!-- Reserved words of the comma programming language are specified using the
+     "literal" entity with a role of "reserved".  Emit these in a bold
+     typewriter font. -->
+<xsl:template match="literal[@role = 'reserved']">
+  <b><tt><xsl:apply-templates /></tt></b>
+</xsl:template>
+
+
 <xsl:param name="local.l10n.xml" select="document('')"/>
 <l:i18n xmlns:l="http://docbook.sourceforge.net/xmlns/l10n/1.0">
    <l:l10n language="en">
