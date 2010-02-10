@@ -28,7 +28,8 @@ public:
     /// Returns the location of this statement.
     Location getLocation() const { return location; }
 
-    /// Returns true if this statement represents a \c return or \c raise.
+    /// Returns true if this statement represents a \c return a \c raise or an
+    /// \c exit statement that is not predicated over a condition.
     bool isTerminator() const;
 
     // Support isa/dyn_cast.
@@ -529,6 +530,62 @@ public:
 
 private:
     StmtSequence *body;
+};
+
+//===----------------------------------------------------------------------===//
+// ExitStmt
+//
+// Representation of exit statements.
+class ExitStmt : public Stmt {
+
+public:
+
+    /// Builds a simple exit statement without a destination tag.  If a
+    /// condition is to be associated with this statement node an additional
+    /// call to setCondition is required.
+    ExitStmt(Location loc) :
+        Stmt(AST_ExitStmt, loc), tag(0), condition(0) { }
+
+    /// Builds an exit statement with a destination tag.  If a condition is to
+    /// be associated with this statement node an additional call to
+    /// setCondition is required.
+    ExitStmt(Location loc, IdentifierInfo *tag, Location tagLoc) :
+        Stmt(AST_ExitStmt, loc), tag(tag), tagLoc(tagLoc), condition(0) { }
+
+    /// Returns true if an exit tag is associated with this statement.
+    bool hasTag() const { return tag != 0; }
+
+    /// Returns the tag associated with this statement or null if hasTag is
+    /// false.
+    IdentifierInfo *getTag() const { return tag; }
+
+    /// Returns the location of the exit tag, or an invalid location if a tag
+    /// has not been associated.
+    Location getTagLocation() const { return tagLoc; }
+
+    /// Returns true if this exit node has an associated condition.
+    bool hasCondition() const { return condition != 0; }
+
+    /// Unconditionally sets the condition associated with this exit statement.
+    void setCondition(Expr *expr) { condition = expr; }
+
+    //@{
+    /// Returns the condition associated with this exit statement or null if
+    /// hasConsdition returns false.
+    const Expr *getCondition() const { return condition; }
+    Expr *getCondition() { return condition; }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const ExitStmt *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ExitStmt;
+    }
+
+private:
+    IdentifierInfo *tag;
+    Location tagLoc;
+    Expr *condition;
 };
 
 //===----------------------------------------------------------------------===//

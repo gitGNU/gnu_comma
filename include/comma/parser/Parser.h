@@ -77,6 +77,7 @@ public:
     Node parseWhileStmt();
     Node parseLoopStmt();
     Node parseForStmt();
+    Node parseExitStmt();
     Node parsePragmaStmt();
     Node parseProcedureCallStatement();
     Node parseRaiseStmt();

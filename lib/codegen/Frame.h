@@ -70,13 +70,110 @@ public:
     llvm::IRBuilder<> &getIRBuilder() { return Builder; }
 
     /// Creates a basic block for this frame.
-    llvm::BasicBlock *makeBasicBlock(const std::string &name = "",
+    llvm::BasicBlock *makeBasicBlock(const llvm::Twine &name = "",
                                      llvm::BasicBlock *insertBefore = 0);
 
+    /// Subframes of the following sorts can be constructed.
+    enum SubframeKind {
+        Entry,                  ///< Entry point of a subroutine, tagged.
+        Block,                  ///< Block frame, possibly tagged.
+        Loop,                   ///< Loop frame, possibly tagged.
+    };
+
+    class Subframe {
+
+    public:
+        ~Subframe();
+
+        /// Returns the kind of this subframe.
+        SubframeKind getKind() const { return kind; }
+
+        /// Returns true if this is a nested subframe.
+        bool hasParent() const { return parent != 0; }
+
+        /// Returns the parent of this frame, or null if hasParent() returns
+        /// false.
+        Subframe *getParent() { return parent; }
+
+        /// Returns the landing pad basic block associated with this subframe as
+        /// a result of a call to requireLandingPad, or null if
+        /// requireLandingPad has yet to be called on this subframe.
+        llvm::BasicBlock *getLandingPad() { return landingPad; }
+
+        /// Returns the entry basic block associated with this frame.
+        llvm::BasicBlock *getEntryBB() { return entryBB; }
+
+        /// Returns the merge basic block associated with this frame.
+        llvm::BasicBlock *getMergeBB() { return mergeBB; }
+
+    private:
+        /// \name Interface for use by SRFrame.
+        //@{
+        Subframe(SubframeKind kind, SRFrame *context, Subframe *parent,
+                 const llvm::Twine &name);
+        Subframe(SubframeKind kind, SRFrame *context, Subframe *parent,
+                 llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB);
+
+        /// On the first call emits a stacksave instruction.  Subsequent calls
+        /// have no effect.
+        void emitStacksave();
+
+        /// Emits a stackrestore iff there was a previous call to
+        /// emitStacksave().
+        void emitStackrestore();
+
+        /// Associates a landing pad with this subframe.
+        void addLandingPad();
+
+        /// Removes the associated landing pad from this subframe.
+        void removeLandingPad() { landingPad = 0; }
+        //@}
+
+        friend class SRFrame;
+
+        /// The kind of this subframe.
+        SubframeKind kind;
+
+        /// Back-link to the managing SRFrame.
+        SRFrame *SRF;
+
+        /// The Subframe which contains this one, or null if this is a top-level
+        /// frame.
+        Subframe *parent;
+
+        /// Non-null when emitStacksave is called on this Subframe.  Holds the
+        /// restoration pointer for use in a stackrestore call.
+        llvm::Value *restorePtr;
+
+        /// The landing pad associated with this subframe or null.
+        llvm::BasicBlock *landingPad;
+
+        /// The entry block.
+        llvm::BasicBlock *entryBB;
+
+        /// The unified merge block.
+        llvm::BasicBlock *mergeBB;
+
+        Subframe(const Subframe &);             // Do not implement.
+        Subframe &operator =(const Subframe &); // Likewise.
+    };
+
     /// \name Subframe Methods.
+    ///
     //@{
-    /// Pushes a new subframe and associates it with the given basic block.
-    void pushFrame(llvm::BasicBlock *associatedBB);
+
+    /// Returns the currently active subframe.
+    Subframe *subframe() { return currentSubframe; }
+
+    /// Pushes a new subframe of the given kind and makes it current.  Returns a
+    /// basic block to be used as entry into this frame.
+    llvm::BasicBlock *pushFrame(SubframeKind kind,
+                                const llvm::Twine &name = "");
+
+    /// Pushes a new subframe of the given kind and makes it current.  Uses the
+    /// given basic blocks as entry and exit points for the subframe.
+    void pushFrame(SubframeKind kind,
+                   llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB = 0);
 
     /// Pop's the current subframe.
     void popFrame();
@@ -86,7 +183,6 @@ public:
 
     /// Adds a landing pad to the current subframe.
     void addLandingPad();
-    //@}
 
     /// Returns true if there exists a subframe with an active landing pad.
     bool hasLandingPad();
@@ -97,6 +193,12 @@ public:
 
     /// Removes the innermost landing pad from the subframe stack, if any.
     void removeLandingPad();
+
+    /// Returns the innermost subframe of the given kind, or null if such a
+    /// subframe does not exist.
+    Subframe *findFirstSubframe(SubframeKind kind);
+    //@}
+
 
     /// \name Allocation methods.
     //@{
@@ -149,61 +251,6 @@ private:
         void operator=(const ActivationEntry &);  // Likewise.
 
         llvm::iplist<activation::Property> plist;
-    };
-
-    class Subframe {
-
-    public:
-        Subframe(SRFrame *context, Subframe *parent,
-                 llvm::BasicBlock *entryBB);
-        ~Subframe();
-
-        /// Returns true if this is a nested subframe.
-        bool hasParent() const { return parent != 0; }
-
-        /// Returns the parent of this frame, or null if hasParent() returns
-        /// false.
-        Subframe *getParent() { return parent; }
-
-        /// On the first call emits a stacksave instruction.  Subsequent calls
-        /// have no effect.
-        void emitStacksave();
-
-        /// Emits a stackrestore iff there was a previous call to
-        /// emitStacksave().
-        void emitStackrestore();
-
-        /// Associates a landing pad with this subframe.
-        void addLandingPad();
-
-        /// Removes the associated landing pad from this subframe.
-        void removeLandingPad() { landingPad = 0; }
-
-        /// Returns the landing pad basic block associated with this subframe as
-        /// a result of a call to requireLandingPad, or null if
-        /// requireLandingPad has yet to be called on this subframe.
-        llvm::BasicBlock *getLandingPad() { return landingPad; }
-
-        /// Returns the basic block associated with this frame on construction.
-        llvm::BasicBlock *getEntryBB() { return entryBB; }
-
-    private:
-        /// Back-link to the managing SRFrame.
-        SRFrame *SRF;
-
-        /// The Subframe which contains this one, or null if this is a top-level
-        /// frame.
-        Subframe *parent;
-
-        /// Non-null when emitStacksave is called on this Subframe.  Holds the
-        /// restoration pointer for use in a stackrestore call.
-        llvm::Value *restorePtr;
-
-        /// The landing pad associated with this subframe or null.
-        llvm::BasicBlock *landingPad;
-
-        /// The entry block associated given to this subframe when constructed.
-        llvm::BasicBlock *entryBB;
     };
 
     /// The SRInfo object associated with the subroutine this frame is

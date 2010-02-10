@@ -120,6 +120,10 @@ public:
     Node acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained);
     Node acceptDSTDefinition(Node lower, Node upper);
 
+    Node acceptExitStmt(Location exitLoc,
+                        IdentifierInfo *tag, Location tagLoc,
+                        Node condition);
+
     bool acceptObjectDeclaration(Location loc, IdentifierInfo *name,
                                  Node type, Node initializer);
 

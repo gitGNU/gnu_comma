@@ -132,6 +132,7 @@ private:
     void emitWhileStmt(WhileStmt *stmt);
     void emitForStmt(ForStmt *stmt);
     void emitLoopStmt(LoopStmt *stmt);
+    void emitExitStmt(ExitStmt *stmt);
     void emitRaiseStmt(RaiseStmt *stmt);
     void emitPragmaStmt(PragmaStmt *stmt);
 

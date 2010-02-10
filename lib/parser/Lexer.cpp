@@ -271,6 +271,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_WHEN;
         else if (strncmp(str, "null", length) == 0)
             code = TKN_NULL;
+        else if (strncmp(str, "exit", length) == 0)
+            code = TKN_EXIT;
         break;
 
     case 5:

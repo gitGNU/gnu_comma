@@ -25,7 +25,14 @@ using llvm::isa;
 // Stmt
 bool Stmt::isTerminator() const
 {
-    return isa<ReturnStmt>(this) || isa<RaiseStmt>(this);
+    if (isa<ReturnStmt>(this) || isa<RaiseStmt>(this))
+        return true;
+
+    // Exit statements without a condition are considered terminators.
+    if (const ExitStmt *exit = dyn_cast<ExitStmt>(this))
+        return !exit->hasCondition();
+
+    return false;
 }
 
 //===----------------------------------------------------------------------===//

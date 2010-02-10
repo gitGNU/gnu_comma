@@ -524,6 +524,22 @@ public:
     virtual Node acceptDSTDefinition(Node lower, Node upper) = 0;
     //@}
 
+    /// \brief Indicates an exit statement to the client.
+    ///
+    /// \param exitLoc Location of the exit reserved word.
+    ///
+    /// \param tag Identifier this exit statement refers to or null if no taag
+    /// was provided.
+    ///
+    /// \param tagLog Location of \p tag, or an invalid location if \p tag is
+    /// null.
+    ///
+    /// \param condition Expression node describing the exit condition, or a
+    /// null node if no condition was provided.
+    virtual Node acceptExitStmt(Location exitLoc,
+                                IdentifierInfo *tag, Location tagLoc,
+                                Node condition) = 0;
+
     /// \name Block Callbacks.
     ///
     /// Blocks are introduced with a call to beginBlockStmt and terminated with

@@ -49,6 +49,10 @@ Node Parser::parseStatement()
         node = parseReturnStmt();
         break;
 
+    case Lexer::TKN_EXIT:
+        node = parseExitStmt();
+        break;
+
     case Lexer::TKN_RAISE:
         node = parseRaiseStmt();
         break;
@@ -326,6 +330,30 @@ Node Parser::parseForStmt()
         return getInvalidNode();
 
     return forNode;
+}
+
+Node Parser::parseExitStmt()
+{
+    assert(currentTokenIs(Lexer::TKN_EXIT));
+    Location exitLoc = ignoreToken();
+    IdentifierInfo *name = 0;
+    Location nameLoc = 0;
+
+    if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+        nameLoc = currentLocation();
+        name = parseIdentifier();
+    }
+
+    Node condition = getNullNode();
+    if (reduceToken(Lexer::TKN_WHEN)) {
+        condition = parseExpr();
+        if (condition.isInvalid()) {
+            seekSemi();
+            return getInvalidNode();
+        }
+    }
+
+    return client.acceptExitStmt(exitLoc, name, nameLoc, condition);
 }
 
 Node Parser::parsePragmaStmt()

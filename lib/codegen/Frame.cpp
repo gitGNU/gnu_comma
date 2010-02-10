@@ -25,13 +25,25 @@ activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
     return 0;
 }
 
-SRFrame::Subframe::Subframe(SRFrame *SRF, Subframe *parent,
-                            llvm::BasicBlock *entryBB)
-    : SRF(SRF),
+SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
+                            const llvm::Twine &name)
+    : kind(kind),
+      SRF(SRF),
       parent(parent),
       restorePtr(0),
       landingPad(0),
-      entryBB(entryBB) { }
+      entryBB(SRF->makeBasicBlock(name)),
+      mergeBB(SRF->makeBasicBlock("merge")) { }
+
+SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
+                            llvm::BasicBlock *entry, llvm::BasicBlock *merge)
+    : kind(kind),
+      SRF(SRF),
+      parent(parent),
+      restorePtr(0),
+      landingPad(0),
+      entryBB(entry),
+      mergeBB(merge) { }
 
 SRFrame::Subframe::~Subframe()
 {
@@ -93,10 +105,13 @@ SRFrame::SRFrame(SRInfo *routineInfo,
     llvm::Module *M = SRI->getLLVMModule();
     llvm::LLVMContext &Ctx = M->getContext();
     llvm::Function *Fn = SRI->getLLVMFunction();
-    allocaBB = llvm::BasicBlock::Create(Ctx, "alloca", Fn);
+    allocaBB = llvm::BasicBlock::Create(Ctx, "alloa", Fn);
     returnBB = llvm::BasicBlock::Create(Ctx, "return", Fn);
 
     Builder.SetInsertPoint(allocaBB);
+
+    // Populate the lookup tables with this functions arguments.
+    injectSubroutineArgs(CGR);
 
     // If we are generating a function which is using the struct return calling
     // convention map the return value to the first parameter of this function.
@@ -109,11 +124,8 @@ SRFrame::SRFrame(SRInfo *routineInfo,
             returnValue = createTemp(Fn->getReturnType());
     }
 
-    // Populate the lookup tables with this functions arguments.
-    injectSubroutineArgs(CGR);
-
-    // Create the first implicit subframe.
-    pushFrame(allocaBB);
+    // Push the inital subframe.
+    pushFrame(Entry, allocaBB, returnBB);
 }
 
 SRFrame::~SRFrame()
@@ -165,9 +177,30 @@ void SRFrame::removeLandingPad()
     }
 }
 
-void SRFrame::pushFrame(llvm::BasicBlock *associatedBB)
+SRFrame::Subframe *SRFrame::findFirstSubframe(SubframeKind kind)
 {
-    currentSubframe = new Subframe(this, currentSubframe, associatedBB);
+    Subframe *cursor = currentSubframe;
+    while (cursor) {
+        if (cursor->getKind() == kind)
+            return cursor;
+        cursor = cursor->getParent();
+    }
+    return 0;
+}
+
+llvm::BasicBlock *SRFrame::pushFrame(SubframeKind kind, const llvm::Twine &name)
+{
+    currentSubframe = new Subframe(kind, this, currentSubframe, name);
+    return currentSubframe->getEntryBB();
+}
+
+void SRFrame::pushFrame(SubframeKind kind,
+                        llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB)
+{
+    if (!mergeBB)
+        mergeBB = makeBasicBlock("merge");
+    currentSubframe =
+        new Subframe(kind, this, currentSubframe, entryBB, mergeBB);
 }
 
 void SRFrame::popFrame()
@@ -326,7 +359,7 @@ void SRFrame::emitEpilogue()
     Builder.SetInsertPoint(savedBB);
 }
 
-llvm::BasicBlock *SRFrame::makeBasicBlock(const std::string &name,
+llvm::BasicBlock *SRFrame::makeBasicBlock(const llvm::Twine &name,
                                           llvm::BasicBlock *insertBefore)
 {
     llvm::Function *fn = getLLVMFunction();

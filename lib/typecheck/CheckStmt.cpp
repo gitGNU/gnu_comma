@@ -308,6 +308,31 @@ Node TypeCheck::endForStmt(Node forNode, NodeVector &bodyNodes)
     return forNode;
 }
 
+Node TypeCheck::acceptExitStmt(Location exitLoc,
+                               IdentifierInfo *tag, Location tagLoc,
+                               Node conditionNode)
+{
+    // FIXME: Support named exits.
+    assert(tag == 0 && "Taged exits are not supported yet!");
+
+    Expr *condition = 0;
+
+    if (!conditionNode.isNull()) {
+        Type *theBoolean = resource.getTheBooleanType();
+        condition = ensureExpr(conditionNode);
+
+        if (!condition ||
+            !(condition = checkExprInContext(condition, theBoolean)))
+            return getInvalidNode();
+    }
+
+    ExitStmt *exit = new ExitStmt(exitLoc);
+    conditionNode.release();
+    if (condition)
+        exit->setCondition(condition);
+    return getNode(exit);
+}
+
 Node TypeCheck::acceptPragmaStmt(IdentifierInfo *name, Location loc,
                                  NodeVector &argNodes)
 {

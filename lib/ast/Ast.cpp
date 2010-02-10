@@ -92,6 +92,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "HandlerStmt",
     "IfStmt",
     "LoopStmt",
+    "ExitStmt",
     "NullStmt",
     "ProcedureCallStmt",
     "RaiseStmt",

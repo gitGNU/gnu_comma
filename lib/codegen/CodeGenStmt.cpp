@@ -71,6 +71,10 @@ void CodeGenRoutine::emitStmt(Stmt *stmt)
         emitRaiseStmt(cast<RaiseStmt>(stmt));
         break;
 
+    case Ast::AST_ExitStmt:
+        emitExitStmt(cast<ExitStmt>(stmt));
+        break;
+
     case Ast::AST_PragmaStmt:
         emitPragmaStmt(cast<PragmaStmt>(stmt));
         break;
@@ -186,8 +190,7 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     if (block->hasLabel())
         label = block->getLabel()->getString();
 
-    llvm::BasicBlock *BB = SRF->makeBasicBlock(label);
-    SRF->pushFrame(BB);
+    llvm::BasicBlock *BB = SRF->pushFrame(SRFrame::Block, label);
 
     if (block->isHandled())
         SRF->addLandingPad();
@@ -219,19 +222,21 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
     }
     emitStmtSequence(block);
 
-    if (block->isHandled()) {
-        // Terminate the current insertion point with a branch to a common block
-        // dominated by the sequence of statements and the exception handlers.
-        llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("handler.merge");
-        if (!Builder.GetInsertBlock()->getTerminator())
-            Builder.CreateBr(mergeBB);
+    // Terminate the current insertion point to the unified merge block if
+    // needed.
+    llvm::BasicBlock *mergeBB = SRF->subframe()->getMergeBB();
+    if (!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(mergeBB);
 
-        // Emit the handlers.  Insertion point is set to mergeBB on return.
+    // Emit exception handlers if needed.
+    if (block->isHandled()) {
         HandlerEmitter emitter(*this);
         emitter.emitHandlers(block, mergeBB);
     }
 
+    // Set the insertion point to the merge block.
     SRF->popFrame();
+    Builder.SetInsertPoint(mergeBB);
     return BB;
 }
 
@@ -254,7 +259,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
 
     // Emit the true branch in its own frame. If generation of the consequent
     // did not result in a terminator, create a branch to the merge block.
-    SRF->pushFrame(thenBB);
+    SRF->pushFrame(SRFrame::Block, thenBB, mergeBB);
     emitStmt(ite->getConsequent());
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(mergeBB);
@@ -275,7 +280,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
         Builder.CreateCondBr(pred, bodyBB, elseBB);
         Builder.SetInsertPoint(bodyBB);
 
-        SRF->pushFrame(bodyBB);
+        SRF->pushFrame(SRFrame::Block, bodyBB, mergeBB);
         emitStmt(I->getConsequent());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
@@ -285,7 +290,7 @@ void CodeGenRoutine::emitIfStmt(IfStmt *ite)
     if (ite->hasAlternate()) {
         Builder.SetInsertPoint(elseBB);
 
-        SRF->pushFrame(elseBB);
+        SRF->pushFrame(SRFrame::Block, elseBB, mergeBB);
         emitStmt(ite->getAlternate());
         if (!Builder.GetInsertBlock()->getTerminator())
             Builder.CreateBr(mergeBB);
@@ -313,7 +318,7 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
 
     // Generate the body.
     Builder.SetInsertPoint(bodyBB);
-    SRF->pushFrame(bodyBB);
+    SRF->pushFrame(SRFrame::Loop, bodyBB, mergeBB);
     emitStmt(stmt->getBody());
     SRF->popFrame();
 
@@ -403,7 +408,7 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     // Emit the body of the loop and terminate the resulting insertion point
     // with a branch to the entry block.
     Builder.SetInsertPoint(bodyBB);
-    SRF->pushFrame(bodyBB);
+    SRF->pushFrame(SRFrame::Loop, bodyBB, mergeBB);
     phi = Builder.CreatePHI(iterTy, "loop.param");
     phi->addIncoming(iter, dominatorBB);
     phi->addIncoming(next, iterBB);
@@ -427,7 +432,7 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
     Builder.SetInsertPoint(bodyBB);
 
     // Generate the body.
-    SRF->pushFrame(bodyBB);
+    SRF->pushFrame(SRFrame::Loop, bodyBB, mergeBB);
     emitStmt(stmt->getBody());
     SRF->popFrame();
 
@@ -438,6 +443,33 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
 
     // Finally, set mergeBB as the current insertion point.
     Builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenRoutine::emitExitStmt(ExitStmt *stmt)
+{
+    // FIXME: Support tagged exit statements.
+    assert(!stmt->hasTag() && "Cannot codegen tagged exits yet!");
+
+    // Since the exit is not tagged, locate the inner most subframe
+    // corresponding to a loop.
+    SRFrame::Subframe *loopFrame = SRF->findFirstSubframe(SRFrame::Loop);
+    assert(loopFrame && "Invalid context for exit stmt!");
+
+    // Get the basic block the loop dumps into.
+    llvm::BasicBlock *mergeBB = loopFrame->getMergeBB();
+
+    // Evaluate the condition if present.
+    if (stmt->hasCondition()) {
+        llvm::BasicBlock *continuationBB = SRF->makeBasicBlock("exit.continue");
+
+        // If the statement predicate is true, branch to the merge block of the
+        // loop.  Otherwise, continue with the current execution path.
+        llvm::Value *pred = emitValue(stmt->getCondition()).first();
+        Builder.CreateCondBr(pred, mergeBB, continuationBB);
+        Builder.SetInsertPoint(continuationBB);
+    }
+    else
+        Builder.CreateBr(mergeBB);
 }
 
 void CodeGenRoutine::emitRaiseStmt(RaiseStmt *stmt)

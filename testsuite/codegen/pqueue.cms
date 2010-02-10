@@ -200,23 +200,26 @@ add
    -- Sort
    --
    procedure Sort (V : in out Data_Vector) is
-      Swap_Seen : Boolean := true;
    begin
-      while Swap_Seen loop
+      loop
          declare
-            J : Positive;
-            T : Integer;
+            J      : Positive;
+            Tmp    : Integer;
+            Sorted : Boolean := true;
          begin
-            Swap_Seen := false;
+
             for I in V'First .. V'Last - 1 loop
                J := I + 1;
                if V(J) < V(I) then
-                  T    := V(I);
-                  V(I) := V(J);
-                  V(J) := T;
-                  Swap_Seen := true;
+                  Tmp    := V(I);
+                  V(I)   := V(J);
+                  V(J)   := Tmp;
+                  Sorted := false;
                end if;
             end loop;
+
+            exit when Sorted;
+
          end;
       end loop;
    end Sort;

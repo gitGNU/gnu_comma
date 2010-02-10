@@ -63,6 +63,7 @@ class EnumLiteral;
 class EnumerationType;
 class ExceptionDecl;
 class ExceptionRef;
+class ExitStmt;
 class Expr;
 class FirstAE;
 class FirstArrayAE;
@@ -271,6 +272,7 @@ public:
         AST_HandlerStmt,        ///< HandlerStmt
         AST_IfStmt,             ///< IfStmt
         AST_LoopStmt,           ///< LoopStmt
+        AST_ExitStmt,           ///< ExitStmt
         AST_NullStmt,           ///< NullStmt
         AST_ProcedureCallStmt,  ///< ProcedureCallStmt
         AST_RaiseStmt,          ///< RaiseStmt
