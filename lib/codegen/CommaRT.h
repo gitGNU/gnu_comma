@@ -25,7 +25,7 @@ namespace comma {
 class CodeGen;
 class DomainInfo;
 class DomainInstance;
-class SRFrame;
+class Frame;
 
 class CommaRT {
 
@@ -100,7 +100,7 @@ public:
     /// the file or module the exception is raised in and \p lineNum is the
     /// corresponding line number.  \p message must be a pointer to a global
     /// string of type i8* or null.
-    void raise(SRFrame *frame, const ExceptionDecl *exception,
+    void raise(Frame *frame, const ExceptionDecl *exception,
                llvm::Value *fileName, llvm::Value *lineNum,
                llvm::GlobalVariable *message = 0);
 
@@ -116,25 +116,25 @@ public:
     /// \note For compiler generated exceptions it is always preferable to raise
     /// using a static global as the runtime can avoid a copy of the message
     /// data in that case.
-    void raise(SRFrame *frame, const ExceptionDecl *exception,
+    void raise(Frame *frame, const ExceptionDecl *exception,
                llvm::Value *fileName, llvm::Value *lineNum,
                llvm::Value *message = 0, llvm::Value *length = 0);
 
     /// Reraises the given exception object.
-    void reraise(SRFrame *frame, llvm::Value *exception);
+    void reraise(Frame *frame, llvm::Value *exception);
 
     /// Convinience method to throw a Program_Error.
-    void raiseProgramError(SRFrame *frame,
+    void raiseProgramError(Frame *frame,
                            llvm::Value *fileName, llvm::Value *lineNum,
                            llvm::GlobalVariable *message) const;
 
     /// Convinience method to throw a Constraint_Error.
-    void raiseConstraintError(SRFrame *frame,
+    void raiseConstraintError(Frame *frame,
                               llvm::Value *fileName, llvm::Value *lineNum,
                               llvm::GlobalVariable *message) const;
 
     /// Convinience method to throw a Assertion_Error.
-    void raiseAssertionError(SRFrame *frame,
+    void raiseAssertionError(Frame *frame,
                              llvm::Value *fileName, llvm::Value *lineNum,
                              llvm::Value *message, llvm::Value *length) const;
 
@@ -269,13 +269,13 @@ private:
 
     /// Helper method for the various exception generators.  Raises an exception
     /// given an exinfo object and a static message.
-    void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+    void raiseExinfo(Frame *frame, llvm::Value *exinfo,
                      llvm::Value *fileName, llvm::Value *lineNum,
                      llvm::GlobalVariable *message) const;
 
     /// Helper method for the various exception generators.  Raises an exception
     /// given an exinfo object and a dynammic message.
-    void raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+    void raiseExinfo(Frame *frame, llvm::Value *exinfo,
                      llvm::Value *fileName, llvm::Value *lineNum,
                      llvm::Value *message, llvm::Value *length) const;
 };

@@ -43,8 +43,8 @@ class CodeGenRoutine {
     // Builder object used to construct LLVM IR.
     llvm::IRBuilder<> Builder;
 
-    // Frame encapsulating this functions IR.
-    SRFrame *SRF;
+    // Frame encapsulating this subroutines IR.
+    Frame *SRF;
 
 public:
     CodeGenRoutine(CGContext &CGC, SRInfo *info);
@@ -59,9 +59,9 @@ public:
     /// generated.
     SRInfo *getSRInfo() { return SRI; }
 
-    /// Returns the SRFrame object corresponding to the subroutine being
+    /// Returns the Frame object corresponding to the subroutine being
     /// generated.
-    SRFrame *getSRFrame() { return SRF; }
+    Frame *getFrame() { return SRF; }
 
     llvm::Value *getImplicitContext() const {
         return SRF->getImplicitContext();

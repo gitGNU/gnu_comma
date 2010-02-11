@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,7 +13,7 @@ using namespace comma;
 using namespace comma::activation;
 using llvm::dyn_cast;
 
-activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
+activation::Property *Frame::ActivationEntry::find(activation::Tag tag)
 {
     typedef llvm::iplist<activation::Property>::iterator iterator;
     iterator I = plist.begin();
@@ -25,8 +25,8 @@ activation::Property *SRFrame::ActivationEntry::find(activation::Tag tag)
     return 0;
 }
 
-SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
-                            const llvm::Twine &name)
+Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
+                          const llvm::Twine &name)
     : kind(kind),
       SRF(SRF),
       parent(parent),
@@ -35,8 +35,8 @@ SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
       entryBB(SRF->makeBasicBlock(name)),
       mergeBB(SRF->makeBasicBlock("merge")) { }
 
-SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
-                            llvm::BasicBlock *entry, llvm::BasicBlock *merge)
+Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
+                          llvm::BasicBlock *entry, llvm::BasicBlock *merge)
     : kind(kind),
       SRF(SRF),
       parent(parent),
@@ -45,12 +45,12 @@ SRFrame::Subframe::Subframe(SubframeKind kind, SRFrame *SRF, Subframe *parent,
       entryBB(entry),
       mergeBB(merge) { }
 
-SRFrame::Subframe::~Subframe()
+Frame::Subframe::~Subframe()
 {
     emitStackrestore();
 }
 
-void SRFrame::Subframe::emitStacksave()
+void Frame::Subframe::emitStacksave()
 {
     if (restorePtr)
         return;
@@ -69,7 +69,7 @@ void SRFrame::Subframe::emitStacksave()
     Builder.SetInsertPoint(savedBB);
 }
 
-void SRFrame::Subframe::emitStackrestore()
+void Frame::Subframe::emitStackrestore()
 {
     if (!restorePtr)
         return;
@@ -85,15 +85,15 @@ void SRFrame::Subframe::emitStackrestore()
     SRF->getIRBuilder().CreateCall(restore, restorePtr);
 }
 
-void SRFrame::Subframe::addLandingPad()
+void Frame::Subframe::addLandingPad()
 {
     if (landingPad)
         return;
     landingPad = SRF->makeBasicBlock("landingpad");
 }
 
-SRFrame::SRFrame(SRInfo *routineInfo,
-                 CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
+Frame::Frame(SRInfo *routineInfo,
+             CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
     : SRI(routineInfo),
       Builder(Builder),
       allocaBB(0),
@@ -128,7 +128,7 @@ SRFrame::SRFrame(SRInfo *routineInfo,
     pushFrame(Entry, allocaBB, returnBB);
 }
 
-SRFrame::~SRFrame()
+Frame::~Frame()
 {
     popFrame();
 
@@ -138,22 +138,22 @@ SRFrame::~SRFrame()
         delete I->second;
 }
 
-void SRFrame::stacksave()
+void Frame::stacksave()
 {
     currentSubframe->emitStacksave();
 }
 
-void SRFrame::addLandingPad()
+void Frame::addLandingPad()
 {
     currentSubframe->addLandingPad();
 }
 
-bool SRFrame::hasLandingPad()
+bool Frame::hasLandingPad()
 {
     return getLandingPad() != 0;
 }
 
-llvm::BasicBlock *SRFrame::getLandingPad()
+llvm::BasicBlock *Frame::getLandingPad()
 {
     llvm::BasicBlock *lpad = 0;
     Subframe *cursor = currentSubframe;
@@ -165,7 +165,7 @@ llvm::BasicBlock *SRFrame::getLandingPad()
     return lpad;
 }
 
-void SRFrame::removeLandingPad()
+void Frame::removeLandingPad()
 {
     Subframe *cursor = currentSubframe;
     while (cursor) {
@@ -177,7 +177,7 @@ void SRFrame::removeLandingPad()
     }
 }
 
-SRFrame::Subframe *SRFrame::findFirstSubframe(SubframeKind kind)
+Frame::Subframe *Frame::findFirstSubframe(SubframeKind kind)
 {
     Subframe *cursor = currentSubframe;
     while (cursor) {
@@ -188,14 +188,14 @@ SRFrame::Subframe *SRFrame::findFirstSubframe(SubframeKind kind)
     return 0;
 }
 
-llvm::BasicBlock *SRFrame::pushFrame(SubframeKind kind, const llvm::Twine &name)
+llvm::BasicBlock *Frame::pushFrame(SubframeKind kind, const llvm::Twine &name)
 {
     currentSubframe = new Subframe(kind, this, currentSubframe, name);
     return currentSubframe->getEntryBB();
 }
 
-void SRFrame::pushFrame(SubframeKind kind,
-                        llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB)
+void Frame::pushFrame(SubframeKind kind,
+                      llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB)
 {
     if (!mergeBB)
         mergeBB = makeBasicBlock("merge");
@@ -203,7 +203,7 @@ void SRFrame::pushFrame(SubframeKind kind,
         new Subframe(kind, this, currentSubframe, entryBB, mergeBB);
 }
 
-void SRFrame::popFrame()
+void Frame::popFrame()
 {
     assert(currentSubframe && "Subframe imbalance!");
     Subframe *old = currentSubframe;
@@ -211,7 +211,7 @@ void SRFrame::popFrame()
     delete old;
 }
 
-void SRFrame::emitReturn()
+void Frame::emitReturn()
 {
     // Iterate over the set of subframes and emit a stackrestore for each before
     // branching to the return block.  However, ignore the first implicit
@@ -223,7 +223,7 @@ void SRFrame::emitReturn()
     Builder.CreateBr(returnBB);
 }
 
-void SRFrame::injectSubroutineArgs(CodeGenRoutine &CGR)
+void Frame::injectSubroutineArgs(CodeGenRoutine &CGR)
 {
     SubroutineDecl *SRDecl = SRI->getDeclaration();
     llvm::Function *Fn = SRI->getLLVMFunction();
@@ -265,7 +265,7 @@ void SRFrame::injectSubroutineArgs(CodeGenRoutine &CGR)
     }
 }
 
-llvm::Value *SRFrame::createTemp(const llvm::Type *type)
+llvm::Value *Frame::createTemp(const llvm::Type *type)
 {
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
 
@@ -275,8 +275,8 @@ llvm::Value *SRFrame::createTemp(const llvm::Type *type)
     return slot;
 }
 
-void SRFrame::associate(const ValueDecl *decl, activation::Tag tag,
-                        llvm::Value *slot)
+void Frame::associate(const ValueDecl *decl, activation::Tag tag,
+                      llvm::Value *slot)
 {
     EntryMap::value_type &pair = entryTable.FindAndConstruct(decl);
     ActivationEntry *&entry = pair.second;
@@ -288,7 +288,7 @@ void SRFrame::associate(const ValueDecl *decl, activation::Tag tag,
     entry->add(new Property(tag, slot));
 }
 
-llvm::Value *SRFrame::lookup(const ValueDecl *decl, activation::Tag tag)
+llvm::Value *Frame::lookup(const ValueDecl *decl, activation::Tag tag)
 {
     EntryMap::iterator iter = entryTable.find(decl);
 
@@ -300,8 +300,8 @@ llvm::Value *SRFrame::lookup(const ValueDecl *decl, activation::Tag tag)
     return 0;
 }
 
-void SRFrame::associate(const PrimaryType *type, activation::Tag tag,
-                        llvm::Value *value)
+void Frame::associate(const PrimaryType *type, activation::Tag tag,
+                      llvm::Value *value)
 {
     assert(tag != activation::Slot && "Cannot associate types with slots!");
     EntryMap::value_type &pair = entryTable.FindAndConstruct(type);
@@ -314,7 +314,7 @@ void SRFrame::associate(const PrimaryType *type, activation::Tag tag,
     entry->add(new Property(tag, value));
 }
 
-llvm::Value *SRFrame::lookup(const PrimaryType *type, activation::Tag tag)
+llvm::Value *Frame::lookup(const PrimaryType *type, activation::Tag tag)
 {
     EntryMap::iterator iter = entryTable.find(type);
 
@@ -326,7 +326,7 @@ llvm::Value *SRFrame::lookup(const PrimaryType *type, activation::Tag tag)
     return 0;
 }
 
-void SRFrame::emitPrologue(llvm::BasicBlock *bodyBB)
+void Frame::emitPrologue(llvm::BasicBlock *bodyBB)
 {
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
     Builder.SetInsertPoint(allocaBB);
@@ -334,7 +334,7 @@ void SRFrame::emitPrologue(llvm::BasicBlock *bodyBB)
     Builder.SetInsertPoint(savedBB);
 }
 
-void SRFrame::emitEpilogue()
+void Frame::emitEpilogue()
 {
     llvm::Function *Fn = SRI->getLLVMFunction();
     llvm::BasicBlock *savedBB = Builder.GetInsertBlock();
@@ -359,8 +359,8 @@ void SRFrame::emitEpilogue()
     Builder.SetInsertPoint(savedBB);
 }
 
-llvm::BasicBlock *SRFrame::makeBasicBlock(const llvm::Twine &name,
-                                          llvm::BasicBlock *insertBefore)
+llvm::BasicBlock *Frame::makeBasicBlock(const llvm::Twine &name,
+                                        llvm::BasicBlock *insertBefore)
 {
     llvm::Function *fn = getLLVMFunction();
     llvm::LLVMContext &ctx = fn->getContext();

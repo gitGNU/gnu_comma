@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,7 +17,7 @@ using namespace comma;
 HandlerEmitter::HandlerEmitter(CodeGenRoutine &CGR)
     : CGR(CGR), CG(CGR.getCodeGen()), RT(CG.getRuntime()) { }
 
-SRFrame *HandlerEmitter::frame() { return CGR.getSRFrame(); }
+Frame *HandlerEmitter::frame() { return CGR.getFrame(); }
 
 llvm::Value *HandlerEmitter::emitSelector(llvm::Value *exception,
                                           StmtSequence *seq)

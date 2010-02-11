@@ -52,7 +52,7 @@ private:
     BoundsEmitter emitter;
     llvm::IRBuilder<> &Builder;
 
-    SRFrame *frame() { return CGR.getSRFrame(); }
+    Frame *frame() { return CGR.getFrame(); }
 
     /// \brief Fills in the components defined by the given aggregates others
     /// clause (if any).
@@ -1001,7 +1001,7 @@ private:
     BoundsEmitter emitter;
     llvm::IRBuilder<> &Builder;
 
-    SRFrame *frame() { return CGR.getSRFrame(); }
+    Frame *frame() { return CGR.getFrame(); }
 
     /// Emits a function call expression returning a record type as result.
     CValue emitCall(FunctionCallExpr *call, llvm::Value *dst);

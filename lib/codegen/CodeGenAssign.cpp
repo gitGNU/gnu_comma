@@ -28,7 +28,7 @@ class AssignmentEmitter {
 
 public:
     AssignmentEmitter(CodeGenRoutine &CGR)
-        : CGR(CGR), Builder(CGR.getSRFrame()->getIRBuilder()) { }
+        : CGR(CGR), Builder(CGR.getFrame()->getIRBuilder()) { }
 
     /// Emits the given assignment statement.
     void emit(AssignmentStmt *assignment);
@@ -41,7 +41,7 @@ private:
     llvm::IRBuilder<> &Builder;
 
     /// Returns the currently active frame.
-    SRFrame *frame() { return CGR.getSRFrame(); }
+    Frame *frame() { return CGR.getFrame(); }
 
     /// Various emitter helpers conditional on the type of the lhs.
     void emitAssignment(DeclRefExpr *lhs, Expr *rhs);

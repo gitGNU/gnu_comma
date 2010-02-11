@@ -46,7 +46,7 @@ void CodeGenRoutine::emit()
         return;
 
     // We need to codegen this subroutine.  Obtain a frame.
-    std::auto_ptr<SRFrame> SRFHandle(new SRFrame(SRI, *this, Builder));
+    std::auto_ptr<Frame> SRFHandle(new Frame(SRI, *this, Builder));
     SRF = SRFHandle.get();
     emitSubroutineBody();
     llvm::verifyFunction(*SRI->getLLVMFunction());

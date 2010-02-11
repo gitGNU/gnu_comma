@@ -75,7 +75,7 @@ BoundsEmitter::getScalarBounds(llvm::IRBuilder<> &Builder,
             // Try to lookup the bounds for this type in the current frame.  If
             // the lookup fails, evaluate the bounds an associate the result
             // with the type.
-            SRFrame *frame = CGR.getSRFrame();
+            Frame *frame = CGR.getFrame();
             llvm::Value *bounds = frame->lookup(type, activation::Bounds);
 
             if (!bounds) {

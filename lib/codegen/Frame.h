@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -48,15 +48,15 @@ private:
 
 }; // end activation namespace.
 
-class SRFrame {
+class Frame {
 
 public:
-    SRFrame(SRInfo *routineInfo,
+    Frame(SRInfo *routineInfo,
             CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder);
 
-    ~SRFrame();
+    ~Frame();
 
-    /// Returns the SRInfo object this SRFrame represents.
+    /// Returns the SRInfo object this Frame represents.
     SRInfo *getSRInfo() { return SRI; }
 
     /// Returns the subroutine associated with this frame.
@@ -107,11 +107,11 @@ public:
         llvm::BasicBlock *getMergeBB() { return mergeBB; }
 
     private:
-        /// \name Interface for use by SRFrame.
+        /// \name Interface for use by Frame.
         //@{
-        Subframe(SubframeKind kind, SRFrame *context, Subframe *parent,
+        Subframe(SubframeKind kind, Frame *context, Subframe *parent,
                  const llvm::Twine &name);
-        Subframe(SubframeKind kind, SRFrame *context, Subframe *parent,
+        Subframe(SubframeKind kind, Frame *context, Subframe *parent,
                  llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB);
 
         /// On the first call emits a stacksave instruction.  Subsequent calls
@@ -129,13 +129,13 @@ public:
         void removeLandingPad() { landingPad = 0; }
         //@}
 
-        friend class SRFrame;
+        friend class Frame;
 
         /// The kind of this subframe.
         SubframeKind kind;
 
-        /// Back-link to the managing SRFrame.
-        SRFrame *SRF;
+        /// Back-link to the managing Frame.
+        Frame *SRF;
 
         /// The Subframe which contains this one, or null if this is a top-level
         /// frame.
@@ -236,7 +236,7 @@ public:
 
 private:
     /// The following structure is used to hold information about alloca'd
-    /// objects within an SRFrame.
+    /// objects within an Frame.
     class ActivationEntry {
 
     public:

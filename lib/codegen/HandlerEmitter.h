@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,7 +24,7 @@ class BasicBlock;
 namespace comma {
 
 class CodeGenRoutine;
-class SRFrame;
+class Frame;
 class StmtSequence;
 
 //===----------------------------------------------------------------------===//
@@ -54,7 +54,7 @@ private:
     CommaRT &RT;
 
     /// Provides access to the current frame.
-    SRFrame *frame();
+    Frame *frame();
 
     /// Emits a call to llvm.eh.selector using the given exception object and
     /// which covers all of the exception occurrences handled by the given

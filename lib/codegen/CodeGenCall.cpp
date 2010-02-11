@@ -174,7 +174,7 @@ private:
     llvm::Value *emitCall(llvm::Function *fn);
 
     /// Access to the current frame.
-    SRFrame *frame() { return CGR.getSRFrame(); }
+    Frame *frame() { return CGR.getFrame(); }
 };
 
 llvm::Value *CallEmitter::emitCall(llvm::Function *fn)

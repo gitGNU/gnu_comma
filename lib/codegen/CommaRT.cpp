@@ -334,7 +334,7 @@ CommaRT::checkAndConvertMessage(llvm::GlobalVariable *message) const
     return result;
 }
 
-void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
+void CommaRT::raise(Frame *frame, const ExceptionDecl *exception,
                     llvm::Value *fileName, llvm::Value *lineNum,
                     llvm::GlobalVariable *message)
 {
@@ -342,7 +342,7 @@ void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
     raiseExinfo(frame, exinfo, fileName, lineNum, message);
 }
 
-void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
+void CommaRT::raise(Frame *frame, const ExceptionDecl *exception,
                     llvm::Value *fileName, llvm::Value *lineNum,
                     llvm::Value *message, llvm::Value *length)
 {
@@ -350,7 +350,7 @@ void CommaRT::raise(SRFrame *frame, const ExceptionDecl *exception,
     raiseExinfo(frame, exinfo, fileName, lineNum, message, length);
 }
 
-void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+void CommaRT::raiseExinfo(Frame *frame, llvm::Value *exinfo,
                           llvm::Value *fileName, llvm::Value *lineNum,
                           llvm::GlobalVariable *message) const
 {
@@ -368,7 +368,7 @@ void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
     builder.CreateUnreachable();
 }
 
-void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
+void CommaRT::raiseExinfo(Frame *frame, llvm::Value *exinfo,
                           llvm::Value *fileName, llvm::Value *lineNum,
                           llvm::Value *message, llvm::Value *length) const
 {
@@ -393,7 +393,7 @@ void CommaRT::raiseExinfo(SRFrame *frame, llvm::Value *exinfo,
     builder.CreateUnreachable();
 }
 
-void CommaRT::reraise(SRFrame *frame, llvm::Value *exception)
+void CommaRT::reraise(Frame *frame, llvm::Value *exception)
 {
     llvm::IRBuilder<> &builder = frame->getIRBuilder();
 
@@ -408,14 +408,14 @@ void CommaRT::reraise(SRFrame *frame, llvm::Value *exception)
     builder.CreateUnreachable();
 }
 
-void CommaRT::raiseProgramError(SRFrame *frame,
+void CommaRT::raiseProgramError(Frame *frame,
                                 llvm::Value *fileName, llvm::Value *lineNum,
                                 llvm::GlobalVariable *message) const
 {
     raiseExinfo(frame, theProgramErrorExinfo, fileName, lineNum, message);
 }
 
-void CommaRT::raiseConstraintError(SRFrame *frame,
+void CommaRT::raiseConstraintError(Frame *frame,
                                    llvm::Value *fileName, llvm::Value *lineNum,
                                    llvm::GlobalVariable *message) const
 {
@@ -423,7 +423,7 @@ void CommaRT::raiseConstraintError(SRFrame *frame,
 }
 
 void
-CommaRT::raiseAssertionError(SRFrame *frame,
+CommaRT::raiseAssertionError(Frame *frame,
                              llvm::Value *fileName, llvm::Value *lineNum,
                              llvm::Value *message, llvm::Value *length) const
 {
