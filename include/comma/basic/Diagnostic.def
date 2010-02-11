@@ -282,3 +282,5 @@ DIAGNOSTIC(INVALID_CONTEXT_FOR_INCOMPLETE_TYPE, ERROR,
            "Invalid context for incomplete type.")
 DIAGNOSTIC(UNREACHABLE_STATEMENT, WARNING,
            "Unreachable statement.")
+DIAGNOSTIC(EXIT_OUTSIDE_LOOP_CONTEXT, ERROR,
+           "Exit not associated with a loop.")

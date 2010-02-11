@@ -344,6 +344,12 @@ Node TypeCheck::acceptExitStmt(Location exitLoc,
     // FIXME: Support named exits.
     assert(tag == 0 && "Taged exits are not supported yet!");
 
+    // Ensure that a loop is active.
+    if (activeLoops.empty()) {
+        report(exitLoc, diag::EXIT_OUTSIDE_LOOP_CONTEXT);
+        return getInvalidNode();
+    }
+
     Expr *condition = 0;
 
     if (!conditionNode.isNull()) {
