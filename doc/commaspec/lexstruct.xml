@@ -30,13 +30,13 @@
       Comma programs are written using a subset of the 8-bit character set
       <acronym>ISO</acronym> 8859-1 (Latin-1). This subset is called the
       <firstterm>standard character set</firstterm> A character not present in
-      the standard character set but occuring in the source code will trigger a
+      the standard character set but occurring in the source code will trigger a
       compile time error.
     </para>
 
     <para>
       The following table associates with each character a name, the
-      hexadecimal value of its encoding, and a breif description.  The
+      hexadecimal value of its encoding, and a brief description.  The
       characters name is the standard glyph used to present that character if
       it is a graphic character.  For characters with no distinct (or visible)
       graphic representation, a symbolic name is provided.
@@ -77,25 +77,25 @@
     <title>Notational Conventions</title>
 
     <indexterm xml:id="index.notational-conventions">
-      <primary>notational conventaions</primary>
+      <primary>notational conventions</primary>
     </indexterm>
 
     <para>
 
-      The syntax of the following grammer rules make use of the following constructs:
+      The syntax of the following grammar rules make use of the following constructs:
 
       <variablelist spacing='compact'>
         <varlistentry>
           <term> [<replaceable>pattern</replaceable>] </term>
           <listitem> <para>
-            <replaceable>pattern</replaceable> my occur optionally.
+            <replaceable>pattern</replaceable> may occur optionally.
           </para> </listitem>
         </varlistentry>
 
         <varlistentry>
           <term> {<replaceable>pattern</replaceable>} </term>
           <listitem> <para>
-            <replaceable>pattern</replaceable> my occur zero or more times.
+            <replaceable>pattern</replaceable> may occur zero or more times.
           </para> </listitem>
         </varlistentry>
 
@@ -121,7 +121,7 @@
     <para>
       Input programs are scanned and divided into lines. Error messages
       reported by the compiler and associated tools will make use of the line
-      number to produce usefull diagnostic messages.  Line terminators also
+      number to produce useful diagnostic messages.  Line terminators also
       indicate the end of a comment.
     </para>
 
@@ -199,9 +199,9 @@
   </sect1>
 
   <sect1 xml:id="sect.seperators">
-    <title>Seperators</title>
+    <title>Separators</title>
     <para>
-      The following characters are the <emphasis>seperators</emphasis> (also
+      The following characters are the <emphasis>separators</emphasis> (also
       known as punctuators or delimiters).
     </para>
 
@@ -265,7 +265,7 @@
         <lhs>Identifier</lhs>
         <rhs>
 	  <nonterminal def="#ebnf.alpha">Alpha</nonterminal>
-	  { <nonterminal def="#ebnf.identifier_char">Indentifier_Char</nonterminal> }
+	  { <nonterminal def="#ebnf.identifier_char">Identifier_Char</nonterminal> }
         </rhs>
 	<constraint linkend="ebnf.identifier_constraint"/>
       </production>
@@ -407,7 +407,7 @@
       </para>
 
       <para>
-        For the sake of readability the underscore chracter '_' can be appear
+        For the sake of readability the underscore character '_' can be appear
         within an integer literal.  These characters are ignored and serve only
         to help improve readability.
       </para>
@@ -498,7 +498,7 @@
       </para>
 
       <productionset>
-        <title>Floting-point Literals</title>
+        <title>Floating-point Literals</title>
 
         <production xml:id="ebnf.float_literal">
           <lhs>Float_Literal</lhs>
