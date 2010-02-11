@@ -461,7 +461,8 @@ public:
     /// endWhileStmt.  The statements constiuting the body of the loop are
     /// provided via acceptStmt.
     //@{
-    virtual Node beginWhileStmt(Location loc, Node condition) = 0;
+    virtual Node beginWhileStmt(Location loc, Node condition,
+                                IdentifierInfo *tag, Location tagLoc) = 0;
     virtual Node endWhileStmt(Node whileNode) = 0;
     //@}
 
@@ -471,7 +472,8 @@ public:
     /// endLoopStmt.  The statements constiuting the body of the loop are
     /// provided via acceptStmt.
     //@{
-    virtual Node beginLoopStmt(Location loc) = 0;
+    virtual Node beginLoopStmt(Location loc,
+                               IdentifierInfo *tag, Location tagLoc) = 0;
     virtual Node endLoopStmt(Node loopNode) = 0;
     //@}
 
@@ -498,11 +500,17 @@ public:
     /// \param isReversed Set to true when the \c reverse reserved word was
     /// present in the loop specification.
     ///
+    /// \param tag Identifier naming this loop or null if a tag was not
+    /// supplied.
+    ///
+    /// \param tagLoc Location of \p tag.
+    ///
     /// \return A node representing the \c for loop being processed.  The
     /// returned value is supplied to the corresponding endForStmt() call.
     virtual Node beginForStmt(Location loc,
                               IdentifierInfo *iterName, Location iterLoc,
-                              Node control, bool isReversed) = 0;
+                              Node control, bool isReversed,
+                              IdentifierInfo *tag, Location tagLoc) = 0;
 
     /// Terminates a \c for statement.
     ///

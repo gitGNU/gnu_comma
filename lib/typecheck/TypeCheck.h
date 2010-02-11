@@ -112,14 +112,16 @@ public:
     void acceptAggregateOthers(Location loc, Node component);
     Node endAggregate();
 
-    Node beginWhileStmt(Location loc, Node condition);
+    Node beginWhileStmt(Location loc, Node condition,
+                        IdentifierInfo *tag, Location tagLoc);
     Node endWhileStmt(Node whileNode);
 
-    Node beginLoopStmt(Location loc);
+    Node beginLoopStmt(Location loc, IdentifierInfo *tag, Location tagLoc);
     Node endLoopStmt(Node loopNode);
 
     Node beginForStmt(Location loc, IdentifierInfo *iterName, Location iterLoc,
-                      Node control, bool isReversed);
+                      Node control, bool isReversed,
+                      IdentifierInfo *tag, Location tagLoc);
     Node endForStmt(Node forNode);
 
     Node acceptDSTDefinition(Node name, Node lower, Node upper);
@@ -343,7 +345,8 @@ private:
     ///
     /// On calls to begin{For, Loop, While}Stmt the corresponding node is pushed
     /// onto this stack.  This enables certain control flow checks.
-    std::stack<IterationStmt*> activeLoops;
+    typedef llvm::SmallVector<IterationStmt*, 8> ActiveLoopSet;
+    ActiveLoopSet activeLoops;
 
     /// Several support routines operate over llvm::SmallVector's.  Define a
     /// generic shorthand.

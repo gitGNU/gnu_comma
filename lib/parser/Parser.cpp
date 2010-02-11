@@ -278,25 +278,44 @@ bool Parser::seekEndIf()
     return false;
 }
 
-bool Parser::seekEndLoop()
+bool Parser::seekEndLoop(IdentifierInfo *tag)
 {
     unsigned depth = 1;
-    while (seekTokens(Lexer::TKN_WHILE, Lexer::TKN_END)) {
+    while (seekTokens(Lexer::TKN_FOR, Lexer::TKN_WHILE,
+                      Lexer::TKN_LOOP, Lexer::TKN_END)) {
         switch (currentTokenCode()) {
         default:
             return false;
 
         case Lexer::TKN_WHILE:
+        case Lexer::TKN_FOR:
+            seekToken(Lexer::TKN_LOOP);
+            ignoreToken();
+            depth++;
+            break;
+
+        case Lexer::TKN_LOOP:
             ignoreToken();
             depth++;
             break;
 
         case Lexer::TKN_END:
             ignoreToken();
-            if (reduceToken(Lexer::TKN_LOOP)) {
-                if (--depth == 0)
-                    return true;
+            if (!reduceToken(Lexer::TKN_LOOP) || --depth != 0)
+                continue;
+
+            if (tag)
+                return true;
+
+            IdentifierInfo *info = 0;
+            if (nextTokenIs(Lexer::TKN_IDENTIFIER)) {
+                info = getIdentifierInfo(peekToken());
             }
+            if (info == tag) {
+                ignoreToken();
+                return true;
+            }
+            return false;
         }
     }
     return false;
@@ -423,20 +442,10 @@ SEEK:
     return result;
 }
 
-bool Parser::blockStmtFollows()
+bool Parser::taggedStmtFollows()
 {
-    switch (currentTokenCode()) {
-
-    default:
-        return false;
-
-    case Lexer::TKN_IDENTIFIER:
-        return nextTokenIs(Lexer::TKN_COLON);
-
-    case Lexer::TKN_DECLARE:
-    case Lexer::TKN_BEGIN:
-        return true;
-    }
+    return (currentTokenIs(Lexer::TKN_IDENTIFIER) &&
+            nextTokenIs(Lexer::TKN_COLON));
 }
 
 bool Parser::qualificationFollows()
@@ -544,6 +553,34 @@ bool Parser::parseEndTag(IdentifierInfo *expectedTag)
         return true;
     }
     return false;
+}
+
+bool Parser::parseLoopEndTag(IdentifierInfo *expectedTag)
+{
+    Location tagLoc;
+    IdentifierInfo *tag;
+
+    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
+        return false;
+
+    if (expectedTag) {
+        if (currentTokenIs(Lexer::TKN_SEMI))
+            report(diag::EXPECTED_END_TAG) << expectedTag;
+        else {
+            tagLoc = currentLocation();
+            tag = parseFunctionIdentifier();
+            if (tag && tag != expectedTag)
+                report(tagLoc, diag::EXPECTED_END_TAG) << expectedTag;
+        }
+    }
+    else if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
+        // FIXME:  The above test is not general enough, since we could have
+        // operator tokens (TKN_PLUS, TKN_STAR, etc) labeling an "end".
+        tagLoc = currentLocation();
+        tag = parseIdentifier();
+        report(tagLoc, diag::UNEXPECTED_END_TAG) << tag;
+    }
+    return true;
 }
 
 void Parser::parseGenericFormalParams()

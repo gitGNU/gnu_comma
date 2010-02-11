@@ -433,6 +433,22 @@ public:
     const StmtSequence *getBody() const { return &body; }
     //@}
 
+    /// Returns true if this iteration statement is tagged.
+    bool isTagged() const { return tag != 0; }
+
+    /// Returns the tag identifying this iteration statement, or null is this is
+    /// untagged.
+    IdentifierInfo *getTag() const { return tag; }
+
+    /// Returns the location of this loops tag.
+    Location getTagLocation() const { return tagLoc; }
+
+    /// Sets the tag and tag location for this iteration statement,
+    void setTag(IdentifierInfo *tag, Location tagLoc) {
+        this->tag = tag;
+        this->tagLoc = tagLoc;
+    }
+
     // Support isa/dyn_cast.
     static bool classof(const IterationStmt *node) { return true; }
     static bool classof(const Ast *node) {
@@ -441,8 +457,12 @@ public:
 
 protected:
     IterationStmt(AstKind kind, Location loc)
-        : Stmt(kind, loc), body(loc) { assert(denotesIterationStmt(kind)); }
+        : Stmt(kind, loc), tag(0), tagLoc(0), body(loc) {
+        assert(denotesIterationStmt(kind));
+    }
 
+    IdentifierInfo *tag;
+    Location tagLoc;
     StmtSequence body;
 
 private:

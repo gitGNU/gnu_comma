@@ -25,8 +25,8 @@ activation::Property *Frame::ActivationEntry::find(activation::Tag tag)
     return 0;
 }
 
-Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
-                          const llvm::Twine &name)
+Subframe::Subframe(Kind kind, Frame *SRF, Subframe *parent,
+                   const llvm::Twine &name)
     : kind(kind),
       SRF(SRF),
       parent(parent),
@@ -35,8 +35,8 @@ Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
       entryBB(SRF->makeBasicBlock(name)),
       mergeBB(SRF->makeBasicBlock("merge")) { }
 
-Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
-                          llvm::BasicBlock *entry, llvm::BasicBlock *merge)
+Subframe::Subframe(Kind kind, Frame *SRF, Subframe *parent,
+                   llvm::BasicBlock *entry, llvm::BasicBlock *merge)
     : kind(kind),
       SRF(SRF),
       parent(parent),
@@ -45,12 +45,12 @@ Frame::Subframe::Subframe(SubframeKind kind, Frame *SRF, Subframe *parent,
       entryBB(entry),
       mergeBB(merge) { }
 
-Frame::Subframe::~Subframe()
+Subframe::~Subframe()
 {
     emitStackrestore();
 }
 
-void Frame::Subframe::emitStacksave()
+void Subframe::emitStacksave()
 {
     if (restorePtr)
         return;
@@ -69,7 +69,7 @@ void Frame::Subframe::emitStacksave()
     Builder.SetInsertPoint(savedBB);
 }
 
-void Frame::Subframe::emitStackrestore()
+void Subframe::emitStackrestore()
 {
     if (!restorePtr)
         return;
@@ -85,7 +85,7 @@ void Frame::Subframe::emitStackrestore()
     SRF->getIRBuilder().CreateCall(restore, restorePtr);
 }
 
-void Frame::Subframe::addLandingPad()
+void Subframe::addLandingPad()
 {
     if (landingPad)
         return;
@@ -125,7 +125,7 @@ Frame::Frame(SRInfo *routineInfo,
     }
 
     // Push the inital subframe.
-    pushFrame(Entry, allocaBB, returnBB);
+    pushFrame(Subframe::Entry, allocaBB, returnBB);
 }
 
 Frame::~Frame()
@@ -177,7 +177,7 @@ void Frame::removeLandingPad()
     }
 }
 
-Frame::Subframe *Frame::findFirstSubframe(SubframeKind kind)
+Subframe *Frame::findFirstSubframe(Subframe::Kind kind)
 {
     Subframe *cursor = currentSubframe;
     while (cursor) {
@@ -188,13 +188,13 @@ Frame::Subframe *Frame::findFirstSubframe(SubframeKind kind)
     return 0;
 }
 
-llvm::BasicBlock *Frame::pushFrame(SubframeKind kind, const llvm::Twine &name)
+llvm::BasicBlock *Frame::pushFrame(Subframe::Kind kind, const llvm::Twine &name)
 {
     currentSubframe = new Subframe(kind, this, currentSubframe, name);
     return currentSubframe->getEntryBB();
 }
 
-void Frame::pushFrame(SubframeKind kind,
+void Frame::pushFrame(Subframe::Kind kind,
                       llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB)
 {
     if (!mergeBB)

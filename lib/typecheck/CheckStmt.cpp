@@ -249,7 +249,8 @@ bool TypeCheck::acceptStmt(Node contextNode, Node stmtNode)
     return true;
 }
 
-Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode)
+Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode,
+                               IdentifierInfo *tag, Location tagLoc)
 {
     Expr *pred = ensureExpr(conditionNode);
 
@@ -258,7 +259,11 @@ Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode)
 
     conditionNode.release();
     WhileStmt *loop = new WhileStmt(loc, pred);
-    activeLoops.push(loop);
+
+    if (tag)
+        loop->setTag(tag, tagLoc);
+
+    activeLoops.push_back(loop);
     return getNode(loop);
 }
 
@@ -266,8 +271,8 @@ Node TypeCheck::endWhileStmt(Node whileNode)
 {
     WhileStmt *loop = cast_node<WhileStmt>(whileNode);
 
-    assert(loop == activeLoops.top() && "Loop stack imbalance!");
-    activeLoops.pop();
+    assert(loop == activeLoops.back() && "Loop stack imbalance!");
+    activeLoops.pop_back();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.
@@ -277,10 +282,15 @@ Node TypeCheck::endWhileStmt(Node whileNode)
     return whileNode;
 }
 
-Node TypeCheck::beginLoopStmt(Location loc)
+Node TypeCheck::beginLoopStmt(Location loc,
+                              IdentifierInfo *tag, Location tagLoc)
 {
     LoopStmt *loop = new LoopStmt(loc);
-    activeLoops.push(loop);
+
+    if (tag)
+        loop->setTag(tag, tagLoc);
+
+    activeLoops.push_back(loop);
     return getNode(loop);
 }
 
@@ -288,8 +298,8 @@ Node TypeCheck::endLoopStmt(Node loopNode)
 {
     LoopStmt *loop = cast_node<LoopStmt>(loopNode);
 
-    assert(loop == activeLoops.top() && "Loop stack imbalance!");
-    activeLoops.pop();
+    assert(loop == activeLoops.back() && "Loop stack imbalance!");
+    activeLoops.pop_back();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.
@@ -301,7 +311,8 @@ Node TypeCheck::endLoopStmt(Node loopNode)
 
 Node TypeCheck::beginForStmt(Location loc,
                              IdentifierInfo *iterName, Location iterLoc,
-                             Node controlNode, bool isReversed)
+                             Node controlNode, bool isReversed,
+                             IdentifierInfo *tag, Location tagLoc)
 {
     DSTDefinition *control = cast_node<DSTDefinition>(controlNode);
     DiscreteType *iterTy = control->getType();
@@ -311,10 +322,13 @@ Node TypeCheck::beginForStmt(Location loc,
     if (isReversed)
         loop->markAsReversed();
 
+    if (tag)
+        loop->setTag(tag, tagLoc);
+
     // Push a scope for the for loop and then add the loop parameter.
     scope.push();
     scope.addDirectDecl(iter);
-    activeLoops.push(loop);
+    activeLoops.push_back(loop);
     controlNode.release();
     return getNode(loop);
 }
@@ -326,8 +340,8 @@ Node TypeCheck::endForStmt(Node forNode)
 
     ForStmt *loop = cast_node<ForStmt>(forNode);
 
-    assert(loop == activeLoops.top() && "Loop stack imbalance!");
-    activeLoops.pop();
+    assert(loop == activeLoops.back() && "Loop stack imbalance!");
+    activeLoops.pop_back();
 
     // It is possible that the body is empty due to parse/semantic errors.  Do
     // not propagate empty for loops.
@@ -341,17 +355,33 @@ Node TypeCheck::acceptExitStmt(Location exitLoc,
                                IdentifierInfo *tag, Location tagLoc,
                                Node conditionNode)
 {
-    // FIXME: Support named exits.
-    assert(tag == 0 && "Taged exits are not supported yet!");
-
     // Ensure that a loop is active.
     if (activeLoops.empty()) {
         report(exitLoc, diag::EXIT_OUTSIDE_LOOP_CONTEXT);
         return getInvalidNode();
     }
 
-    Expr *condition = 0;
+    // If a tag was given ensure that an identically tagged loop exists.
+    if (tag) {
+        bool found = false;
+        ActiveLoopSet::iterator I = activeLoops.begin();
+        ActiveLoopSet::iterator E = activeLoops.end();
+        for ( ; I != E; ++I) {
+            IterationStmt *loop = *I;
+            if (loop->getTag() == tag) {
+                found = true;
+                break;
+            }
+        }
 
+        if (!found) {
+            report(tagLoc, diag::NONEXISTENT_LOOP_TAG) << tag;
+            return getInvalidNode();
+        }
+    }
+
+    // Check that the condition is boolean valued.
+    Expr *condition = 0;
     if (!conditionNode.isNull()) {
         Type *theBoolean = resource.getTheBooleanType();
         condition = ensureExpr(conditionNode);
@@ -361,7 +391,8 @@ Node TypeCheck::acceptExitStmt(Location exitLoc,
             return getInvalidNode();
     }
 
-    ExitStmt *exit = new ExitStmt(exitLoc);
+    ExitStmt *exit =
+        tag ? new ExitStmt(exitLoc, tag, tagLoc) : new ExitStmt(exitLoc);
     conditionNode.release();
     if (condition)
         exit->setCondition(condition);

@@ -73,10 +73,11 @@ public:
     Node parseIfStmt();
     Node parseReturnStmt();
     Node parseAssignmentStmt();
-    Node parseBlockStmt();
-    Node parseWhileStmt();
-    Node parseLoopStmt();
-    Node parseForStmt();
+    Node parseTaggedStmt();
+    Node parseBlockStmt(IdentifierInfo *tag = 0, Location loc = 0);
+    Node parseWhileStmt(IdentifierInfo *tag = 0, Location loc = 0);
+    Node parseLoopStmt(IdentifierInfo *tag = 0, Location loc = 0);
+    Node parseForStmt(IdentifierInfo *tag = 0, Location loc = 0);
     Node parseExitStmt();
     Node parsePragmaStmt();
     Node parseProcedureCallStatement();
@@ -210,8 +211,9 @@ private:
     bool seekEndIf();
 
     // Moves the token stream past an 'end loop' sequence, taking into account
-    // inner loop statmement.
-    bool seekEndLoop();
+    // inner loop statmements.  If \p tag is non-null, diagnose
+    // mismatched/missing end tags.
+    bool seekEndLoop(IdentifierInfo *tag = 0);
 
     bool seekToken(Lexer::Code code);
     bool seekAndConsumeToken(Lexer::Code code);
@@ -278,6 +280,9 @@ private:
     // parse fails due to a missing or unexpected end tag) and false otherwise.
     bool parseEndTag(IdentifierInfo *expectedTag = 0);
 
+    // Like parseEndTag(), but consumes a "end loop <tag>" sequence instead.
+    bool parseLoopEndTag(IdentifierInfo *expectedTag);
+
     // Seeks to the end of a Comma name.
     void seekNameEnd();
 
@@ -324,16 +329,11 @@ private:
     /// consumed.
     bool parseAggregateComponent(bool &seenKeyedComponent);
 
-    /// \brief Returns true if a block statement follows on the token stream.
+    /// \brief Returns true if a tagged statement follows on the token stream.
     ///
-    /// More precisely, returns true is the current token is
-    ///
-    ///   - an identifier followed by a colon;
-    ///
-    ///   - the reserved word `declare';
-    ///
-    ///   - the reserved word `begin'.
-    bool blockStmtFollows();
+    /// More precisely, returns true if we have an identifier followed by a
+    /// colon.
+    bool taggedStmtFollows();
 
     /// \brief Returns true if a qualified expression follows.
     ///

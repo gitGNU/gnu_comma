@@ -23,8 +23,8 @@ Node Parser::parseStatement()
     default:
         if (assignmentFollows())
             node = parseAssignmentStmt();
-        else if (blockStmtFollows())
-            node = parseBlockStmt();
+        else if (taggedStmtFollows())
+            node = parseTaggedStmt();
         else
             node = parseProcedureCallStatement();
         break;
@@ -47,6 +47,11 @@ Node Parser::parseStatement()
 
     case Lexer::TKN_RETURN:
         node = parseReturnStmt();
+        break;
+
+    case Lexer::TKN_DECLARE:
+    case Lexer::TKN_BEGIN:
+        node = parseBlockStmt();
         break;
 
     case Lexer::TKN_EXIT:
@@ -193,20 +198,51 @@ Node Parser::parseIfStmt()
     return Node(result);
 }
 
-Node Parser::parseBlockStmt()
+Node Parser::parseTaggedStmt()
 {
-    Location        loc   = currentLocation();
-    IdentifierInfo *label = 0;
+    assert(currentTokenIs(Lexer::TKN_IDENTIFIER) &&
+           nextTokenIs(Lexer::TKN_COLON));
 
-    assert(blockStmtFollows());
+    Location tagLoc = currentLocation();
+    IdentifierInfo *tag = parseIdentifier();
 
-    // Parse this blocks label, if available.
-    if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
-        label = parseIdentifier();
-        ignoreToken();          // Ignore the ":".
+    ignoreToken();              // Ignore the :
+    Node result = getInvalidNode();
+
+    switch (currentTokenCode()) {
+
+    default:
+        report(diag::UNEXPECTED_TOKEN) << currentTokenString();
+        seekSemi();
+        break;
+        return getInvalidNode();
+
+    case Lexer::TKN_DECLARE:
+    case Lexer::TKN_BEGIN:
+        result = parseBlockStmt(tag, tagLoc);
+        break;
+
+    case Lexer::TKN_FOR:
+        result = parseForStmt(tag, tagLoc);
+        break;
+
+    case Lexer::TKN_WHILE:
+        result = parseWhileStmt(tag, tagLoc);
+        break;
+
+    case Lexer::TKN_LOOP:
+        result = parseLoopStmt(tag, tagLoc);
+        break;
     }
+    return result;
+}
 
-    Node block = client.beginBlockStmt(loc, label);
+Node Parser::parseBlockStmt(IdentifierInfo *tag, Location loc)
+{
+    if (!tag)
+        loc = currentLocation();
+
+    Node block = client.beginBlockStmt(loc, tag);
 
     if (reduceToken(Lexer::TKN_DECLARE)) {
         while (!currentTokenIs(Lexer::TKN_BEGIN) &&
@@ -218,7 +254,7 @@ Node Parser::parseBlockStmt()
 
     if (!requireToken(Lexer::TKN_BEGIN)) {
         client.endBlockStmt(block);
-        seekAndConsumeEndTag(label);
+        seekAndConsumeEndTag(tag);
         return getInvalidNode();
     }
 
@@ -239,12 +275,12 @@ Node Parser::parseBlockStmt()
         parseExceptionStmt(block);
 
     // Finish up.
-    if (!parseEndTag(label))
-        seekAndConsumeEndTag(label);
+    if (!parseEndTag(tag))
+        seekAndConsumeEndTag(tag);
     return block;
 }
 
-Node Parser::parseWhileStmt()
+Node Parser::parseWhileStmt(IdentifierInfo *tag, Location tagLoc)
 {
     assert(currentTokenIs(Lexer::TKN_WHILE));
 
@@ -256,7 +292,7 @@ Node Parser::parseWhileStmt()
         return getInvalidNode();
     }
 
-    Node whileNode = client.beginWhileStmt(loc, condition);
+    Node whileNode = client.beginWhileStmt(loc, condition, tag, loc);
 
     do {
         Node stmt = parseStatement();
@@ -265,18 +301,18 @@ Node Parser::parseWhileStmt()
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
-        seekEndLoop();
+    if (!parseLoopEndTag(tag))
+        seekEndLoop(tag);
 
     return client.endWhileStmt(whileNode);
 }
 
-Node Parser::parseLoopStmt()
+Node Parser::parseLoopStmt(IdentifierInfo *tag, Location tagLoc)
 {
     assert(currentTokenIs(Lexer::TKN_LOOP));
 
     Location loc = ignoreToken();
-    Node loopNode = client.beginLoopStmt(loc);
+    Node loopNode = client.beginLoopStmt(loc, tag, tagLoc);
 
     do {
         Node stmt = parseStatement();
@@ -285,13 +321,13 @@ Node Parser::parseLoopStmt()
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
-        seekEndLoop();
+    if (!parseLoopEndTag(tag))
+        seekEndLoop(tag);
 
     return client.endLoopStmt(loopNode);
 }
 
-Node Parser::parseForStmt()
+Node Parser::parseForStmt(IdentifierInfo *tag, Location tagLoc)
 {
     assert(currentTokenIs(Lexer::TKN_FOR));
     Location forLoc = ignoreToken();
@@ -312,7 +348,7 @@ Node Parser::parseForStmt()
     }
 
     Node forNode = client.beginForStmt
-        (forLoc, iterName, iterLoc, DST, isReversed);
+        (forLoc, iterName, iterLoc, DST, isReversed, tag, tagLoc);
 
     do {
         Node stmt = parseStatement();
@@ -321,8 +357,8 @@ Node Parser::parseForStmt()
     } while (!currentTokenIs(Lexer::TKN_END) &&
              !currentTokenIs(Lexer::TKN_EOT));
 
-    if (!(requireToken(Lexer::TKN_END) && requireToken(Lexer::TKN_LOOP)))
-        seekEndLoop();
+    if (!parseLoopEndTag(tag))
+        seekEndLoop(tag);
 
     return client.endForStmt(forNode);
 }
