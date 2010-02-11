@@ -188,6 +188,19 @@ Subframe *Frame::findFirstSubframe(Subframe::Kind kind)
     return 0;
 }
 
+Subframe *Frame::findFirstNamedSubframe(const llvm::Twine &name)
+{
+    Subframe *cursor = currentSubframe;
+    std::string target = name.str();
+    while (cursor) {
+        llvm::StringRef ref = cursor->getName();
+        if (ref.equals(target))
+            return cursor;
+        cursor = cursor->getParent();
+    }
+    return 0;
+}
+
 llvm::BasicBlock *Frame::pushFrame(Subframe::Kind kind, const llvm::Twine &name)
 {
     currentSubframe = new Subframe(kind, this, currentSubframe, name);

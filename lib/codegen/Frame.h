@@ -66,6 +66,12 @@ public:
     /// Returns the kind of this subframe.
     Kind getKind() const { return kind; }
 
+    /// Returns the name of this subframe.
+    ///
+    /// The name of a subframe is defined to be the name (if any) associated
+    /// with the associated entry basic block.
+    const llvm::StringRef getName() const { return entryBB->getName(); }
+
     /// Returns true if this is a nested subframe.
     bool hasParent() const { return parent != 0; }
 
@@ -170,15 +176,17 @@ public:
     /// Returns the currently active subframe.
     Subframe *subframe() { return currentSubframe; }
 
-    /// Pushes a new subframe of the given kind and makes it current.  Returns a
-    /// basic block to be used as entry into this frame.
+    /// Pushes a new subframe of the given kind and name and makes it current.
+    /// Returns a basic block to be used as entry into this frame.  An exit
+    /// basic block is generated and accesable thru Subframe::getMergeBB().
     llvm::BasicBlock *pushFrame(Subframe::Kind kind,
                                 const llvm::Twine &name = "");
 
-    /// Pushes a new subframe of the given kind and makes it current.  Uses the
-    /// given basic blocks as entry and exit points for the subframe.
+    /// Pushes a new subframe of the given kind and name and makes it current.
+    /// Uses the given basic blocks as entry and exit points for the subframe.
     void pushFrame(Subframe::Kind kind,
-                   llvm::BasicBlock *entryBB, llvm::BasicBlock *mergeBB = 0);
+                   llvm::BasicBlock *entryBB,
+                   llvm::BasicBlock *mergeBB = 0);
 
     /// Pop's the current subframe.
     void popFrame();
@@ -199,9 +207,19 @@ public:
     /// Removes the innermost landing pad from the subframe stack, if any.
     void removeLandingPad();
 
-    /// Returns the innermost subframe of the given kind, or null if such a
-    /// subframe does not exist.
+    /// Returns the innermost subframe of the given kind, or null no such
+    /// subframe exists.
     Subframe *findFirstSubframe(Subframe::Kind kind);
+
+    //@{
+    /// Locates the innermost subframe with the given name, or null if no such
+    /// subframe exists.
+    Subframe *findFirstNamedSubframe(IdentifierInfo *name) {
+        return findFirstNamedSubframe(name->getString());
+    }
+    Subframe *findFirstNamedSubframe(const llvm::Twine &name);
+    //@}
+
     //@}
 
     /// \name Allocation methods.

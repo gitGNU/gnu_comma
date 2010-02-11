@@ -186,11 +186,13 @@ llvm::BasicBlock *CodeGenRoutine::emitBlockStmt(BlockStmt *block,
 {
     assert(block && "NULL block statement!");
 
-    std::string label;
-    if (block->hasLabel())
-        label = block->getLabel()->getString();
-
-    llvm::BasicBlock *BB = SRF->pushFrame(Subframe::Block, label);
+    llvm::BasicBlock *BB;
+    if (block->hasLabel()) {
+        const char *label = block->getLabel()->getString();
+        BB = SRF->pushFrame(Subframe::Block, label);
+    }
+    else
+        BB = SRF->pushFrame(Subframe::Block);
 
     if (block->isHandled())
         SRF->addLandingPad();
@@ -306,6 +308,11 @@ void CodeGenRoutine::emitWhileStmt(WhileStmt *stmt)
     llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("while.entry");
     llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("while.merge");
 
+    // If this loop is tagged name the body block after it (and the associated
+    // subframe).
+    if (stmt->isTagged())
+        bodyBB->setName(stmt->getTag()->getString());
+
     // Branch unconditionally from the current insertion point to the entry
     // block and set up our new context.  Emit the loop condition into the entry
     // block.
@@ -370,6 +377,11 @@ void CodeGenRoutine::emitForStmt(ForStmt *loop)
     llvm::PHINode *phi;
     const llvm::Type *iterTy = iter->getType();
 
+    // If this loop is tagged name the body block after it (and the associated
+    // subframe).
+    if (loop->isTagged())
+        bodyBB->setName(loop->getTag()->getString());
+
     // First, allocate a temporary to hold the iteration variable and
     // initialize.
     iterSlot = SRF->createTemp(iterTy);
@@ -427,6 +439,11 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
     llvm::BasicBlock *bodyBB = SRF->makeBasicBlock("loop.body");
     llvm::BasicBlock *mergeBB = SRF->makeBasicBlock("loop.merge");
 
+    // If this loop is tagged name the body block after it (and the associated
+    // subframe).
+    if (stmt->isTagged())
+        bodyBB->setName(stmt->getTag()->getString());
+
     // Branch unconditionally from the current insertion point to the loop body.
     Builder.CreateBr(bodyBB);
     Builder.SetInsertPoint(bodyBB);
@@ -447,12 +464,17 @@ void CodeGenRoutine::emitLoopStmt(LoopStmt *stmt)
 
 void CodeGenRoutine::emitExitStmt(ExitStmt *stmt)
 {
-    // FIXME: Support tagged exit statements.
-    assert(!stmt->hasTag() && "Cannot codegen tagged exits yet!");
+    Subframe *loopFrame = 0;
 
-    // Since the exit is not tagged, locate the inner most subframe
-    // corresponding to a loop.
-    Subframe *loopFrame = SRF->findFirstSubframe(Subframe::Loop);
+    // If the exit statement is tagged, lookup the corresponding frame by name.
+    // Otherwise, associate with the innermost loop frame.
+    if (stmt->hasTag()) {
+        const char *tag = stmt->getTag()->getString();
+        loopFrame = SRF->findFirstNamedSubframe(tag);
+    }
+    else
+        loopFrame = SRF->findFirstSubframe(Subframe::Loop);
+
     assert(loopFrame && "Invalid context for exit stmt!");
 
     // Get the basic block the loop dumps into.
