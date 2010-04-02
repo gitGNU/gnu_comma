@@ -1,0 +1,23 @@
+
+domain Test with
+   procedure Run;
+add
+   type Rec is record
+      F : Integer;
+   end record;
+
+   type Arr is array (Integer range 1..2) of Rec;
+
+   procedure Assign (A : in out Arr; R : Rec) is
+   begin
+      A(1) := R;
+   end Assign;
+
+   procedure Run is
+      A : Arr;
+      R : Rec := (F => 0);
+   begin
+      Assign(A, R);
+   end Run;
+end Test;
+

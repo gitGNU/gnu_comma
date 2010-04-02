@@ -210,6 +210,9 @@ CValue CodeGenRoutine::emitIndexedArrayRef(IndexedArrayExpr *IAE)
         return CValue::getArray(component, BE.synthArrayBounds(Builder, arrTy));
     }
 
+    if (componentTy->isRecordType())
+        return CValue::getRecord(component);
+
     if (componentTy->isFatAccessType())
         return CValue::getFat(component);
 
