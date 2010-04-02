@@ -13,7 +13,6 @@
 #include "comma/ast/Type.h"
 
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/DataTypes.h"
 
 #include <iostream>
 

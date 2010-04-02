@@ -158,8 +158,8 @@ llvm::Constant *DomainInfo::genConstructor(const Domoid *domoid)
     llvm::BasicBlock *initBB = CG.makeBasicBlock("init", ctor, constructBB);
     builder.SetInsertPoint(initBB);
 
-    llvm::Value *size = llvm::ConstantInt::get(CG.getInt32Ty(), DS.size());
-    capsules = builder.CreateMalloc(CRT.getType<CommaRT::CRT_DomainInstance>(), size);
+    const llvm::Type *capsuleTy = CRT.getType<CommaRT::CRT_DomainInstance>();
+    capsules = CRT.comma_alloc(builder, capsuleTy, DS.size());
     CRT.getDomainInstance()->setLocalVec(builder, instance, capsules);
     builder.CreateBr(constructBB);
 

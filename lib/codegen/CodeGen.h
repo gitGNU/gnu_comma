@@ -36,6 +36,7 @@ public:
     CommaRT &getRuntime() const { return *CRT; }
 
     /// Returns the module we are generating code for.
+    const llvm::Module *getModule() const { return M; }
     llvm::Module *getModule() { return M; }
 
     /// Returns an i8* pointing the the name of this module.
@@ -49,7 +50,7 @@ public:
 
     /// Returns the LLVMContext associated with this code generator.
     llvm::LLVMContext &getLLVMContext() const {
-        return llvm::getGlobalContext();
+        return getModule()->getContext();
     }
 
     /// \brief Inserts the given instance into the work list.

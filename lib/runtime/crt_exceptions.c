@@ -222,6 +222,11 @@ static unsigned char *parse_sleb128(unsigned char *start, int64_t *value)
  *
  * Note that this implementation uses memcpy to ensure that we do not do
  * unaligned memory accesses.
+ *
+ * FIXME: Use the dwarf encoding to adjust by the required base.  For example, a
+ * format of DW_EH_PE_funcrel would indicate that we interpret the entries as
+ * offsets relative to the value of _Unwind_GetRegionStart(), DW_EH_PE_pcrel
+ * indicates the value should be adjusted by the start pointer itself, etc.
  */
 static unsigned char *
 parse_dwarf_value(Dwarf_Encoding ID, unsigned char *start, uint64_t *value)
@@ -277,6 +282,59 @@ parse_dwarf_value(Dwarf_Encoding ID, unsigned char *start, uint64_t *value)
         memcpy(value, start, 8);
         return start + 8;
     }
+}
+
+/* Returns the size of the given encoding in bytes. */
+static unsigned dwarf_scale(Dwarf_Encoding ID)
+{
+    unsigned res;
+    switch (ID) {
+    default:
+        res = 1;
+        break;
+    case DW_EH_PE_udata2:
+    case DW_EH_PE_sdata2:
+        res = 2;
+        break;
+    case DW_EH_PE_udata4:
+    case DW_EH_PE_sdata4:
+        res = 4;
+        break;
+    case DW_EH_PE_udata8:
+    case DW_EH_PE_sdata8:
+        res = 8;
+        break;
+    }
+    return res;
+}
+
+static uint64_t load_dwarf_pointer(Dwarf_Encoding ID, void *ptr)
+{
+    uint64_t res;
+    switch (ID) {
+    default:
+        assert(0 && "Ivalid DWARF encoding!");
+        return 0;
+    case DW_EH_PE_udata2:
+        res = *((uint16_t*)ptr);
+        break;
+    case DW_EH_PE_sdata2:
+        res = *((int16_t*)ptr);
+        break;
+    case DW_EH_PE_udata4:
+        res = *((uint32_t*)ptr);
+        break;
+    case DW_EH_PE_sdata4:
+        res = *((int32_t*)ptr);
+        break;
+    case DW_EH_PE_udata8:
+        res = *((uint64_t*)ptr);
+        break;
+    case DW_EH_PE_sdata8:
+        res = *((int64_t*)ptr);
+        break;
+    }
+    return res;
 }
 
 /*===----------------------------------------------------------------------===
@@ -423,7 +481,7 @@ struct LSDA_Header {
     /*
      * DWARF format attribute used for interpreting @TTBase.
      */
-    unsigned char type_table_format;
+    unsigned char tt_format;
 
     /*
      * @TTBase table pointer.
@@ -578,13 +636,13 @@ static int parse_LSDA(struct _Unwind_Context *context, struct LSDA_Header *lsda)
         fatal_error("Unexpected DWARF value for @LPStart!");
 
     /*
-     * FIXME: Currently, we do not make use of the @TTBase format.  We assume it
-     * is DW_EH_PE_absptr and interpet the type table entries as such.  See
-     * match_exception() for a few more notes on the issue.
+     * FIXME: Currently we assume the type table format is DW_EH_PE_absptr and
+     * always interpet the type table entries as such.  See parse_dwarf_value()
+     * for a few more notes on the issue.
      */
-    lsda->type_table_format = *ptr;
+    lsda->tt_format = *ptr;
     ++ptr;
-    if (lsda->type_table_format != DW_EH_PE_absptr)
+    if ((lsda->tt_format & 0xF0) != DW_EH_PE_absptr)
         fatal_error("Unexpected type table format!");
 
     /*
@@ -631,7 +689,7 @@ static void dump_LSDA(struct LSDA_Header *lsda)
     fprintf(stderr, " lpstart     : %" PRIXPTR "\n",
             lsda->lpstart);
     fprintf(stderr, " tt format   : %u\n",
-            (unsigned)lsda->type_table_format);
+            (unsigned)lsda->tt_format);
     fprintf(stderr, " type_table  : %" PRIXPTR "\n",
             (uintptr_t)lsda->type_table);
     fprintf(stderr, " call format : %u\n",
@@ -823,31 +881,20 @@ match_exception(struct LSDA_Header *lsda,
         ptr = parse_Action_Record(ptr, &action);
 
         if (action.info_index > 0) {
-            /*
-             * FIXME: We should be using the type table format here to interpret
-             * both the size of the entries themselves and how to interpret the
-             * values.  Here we assume a format of DW_EH_PE_absptr.  This works
-             * for static code, but there are other cases (for PIC code the
-             * references will be indirect).  In short, we should:
-             *
-             *  - Use the ttable format to get a scale factor for the action
-             *    index.
-             *
-             *  - Use the ttable format to fetch the required base.  For
-             *    example, a format of DW_EH_PE_funcrel would indicate that we
-             *    interpret the entries as offsets relative to the value of
-             *    _Unwind_GetRegionStart().
-             */
-            comma_exinfo_t *info;
-            info = (comma_exinfo_t *)lsda->type_table;
-            info -= action.info_index;
+            comma_exinfo_t info;
+            uint64_t value;
+
+            value = (uint64_t)lsda->type_table;
+            value -= dwarf_scale(lsda->tt_format) * action.info_index;
+            info = ((comma_exinfo_t)
+                    load_dwarf_pointer(lsda->tt_format, (void*)value));
 
             /*
              * If the info pointer is 0, then this is a catch-all.  Otherwise,
              * the exeption objects id must match the handlers associated
              * exinfo.
              */
-            if ((*info == 0) || (exception->id == *info)) {
+            if ((info == 0) || (exception->id == info)) {
                 *dst = action.info_index;
                 return 0;
             }

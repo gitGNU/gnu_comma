@@ -13,12 +13,14 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/System/Host.h"
 #include "llvm/System/Path.h"
 #include "llvm/System/Process.h"
+#include "llvm/System/Program.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
@@ -145,7 +147,7 @@ int outputIR(llvm::Module *M, llvm::sys::Path &outputPath, bool emitBitcode)
     // Unfortunately in 2.6 detection is limited to llvm::outs() in particular
     // and will not recognize the raw_fd_ostream we create bellow.  2.6-svn
     // provides an improved version.  Upgrade when 2.7 is supported.
-    if (outputPath.toString() == "-" &&
+    if (outputPath.str() == "-" &&
         llvm::sys::Process::StandardOutIsDisplayed() &&
         emitBitcode) {
         llvm::errs() <<
@@ -157,12 +159,13 @@ int outputIR(llvm::Module *M, llvm::sys::Path &outputPath, bool emitBitcode)
 
     // Determine the output file mode.  If an output file was given and we are
     // emitting bitcode use a binary stream.
-    bool mode = (emitBitcode && !outputPath.isEmpty()) ? true : false;
+    unsigned mode = (emitBitcode && !outputPath.isEmpty()) ?
+        llvm::raw_fd_ostream::F_Binary : 0;
 
     // Open a stream to the output.
     std::string message;
     std::auto_ptr<llvm::raw_ostream> output(
-        new llvm::raw_fd_ostream(outputPath.c_str(), mode, true, message));
+        new llvm::raw_fd_ostream(outputPath.c_str(), message, mode));
     if (!message.empty()) {
         llvm::errs() << message << '\n';
         return 1;
@@ -263,11 +266,11 @@ int main(int argc, char **argv)
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
     llvm::sys::Path path(InputFile);
-    if (!path.canRead() && path.toString() != "-") {
-        llvm::errs() << "Cannot open `" << path <<"' for reading.\n";
+    if (!path.canRead() && path.str() != "-") {
+        llvm::errs() << "Cannot open `" << path.str() <<"' for reading.\n";
         return 1;
     }
-    if (path.getSuffix() != "cms" && path.toString() != "-") {
+    if (path.getSuffix() != "cms" && path.str() != "-") {
         llvm::errs() << "Input files must have a `.cms' extension.\n";
         return 1;
     }
@@ -291,7 +294,8 @@ int main(int argc, char **argv)
     llvm::InitializeAllTargets();
 
     // FIXME: CodeGen should handle all of this.
-    llvm::Module *M = new llvm::Module("test_module", llvm::getGlobalContext());
+    llvm::LLVMContext context;
+    llvm::Module *M = new llvm::Module("test_module", context);
     std::string message;
     const llvm::Target *target;
     const llvm::TargetMachine *machine;

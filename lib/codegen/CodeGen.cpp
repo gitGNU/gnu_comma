@@ -181,18 +181,12 @@ llvm::Function *CodeGen::getEHExceptionIntrinsic() const
 
 llvm::Function *CodeGen::getEHSelectorIntrinsic() const
 {
-    if (TD.getPointerSizeInBits() == 32)
-        return getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i32);
-    else
-        return getLLVMIntrinsic(llvm::Intrinsic::eh_selector_i64);
+    return getLLVMIntrinsic(llvm::Intrinsic::eh_selector);
 }
 
 llvm::Function *CodeGen::getEHTypeidIntrinsic() const
 {
-    if (TD.getPointerSizeInBits() == 32)
-        return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i32);
-    else
-        return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for_i64);
+    return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for);
 }
 
 InstanceInfo *CodeGen::createInstanceInfo(DomainInstanceDecl *instance)

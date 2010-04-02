@@ -181,12 +181,21 @@ public:
 
     /// \name Memory allocation routines.
     //@{
+
+    /// Allocates \p size bytes of data on the heap with the given \p
+    /// alignment.  The result is an i8*.
     llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
                              uint64_t size, unsigned alignment) const;
 
+    /// Allocates \p size bytes of data on the heap with the given \p
+    /// alignment.  The result is an i8*.
     llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
                              llvm::Value *size, unsigned alignment) const;
 
+    /// Allocates <tt>sizeof(type) * nmemb</tt> bytes on the stack and returns
+    /// the result as a <tt>type*</tt>.  Alignment is chosen based on \p type.
+    llvm::Value *comma_alloc(llvm::IRBuilder<> &builder,
+                             const llvm::Type *type, uint64_t nmemb) const;
     //@}
 
 private:

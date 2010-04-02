@@ -18,7 +18,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/DataTypes.h"
 
 namespace comma {
 
