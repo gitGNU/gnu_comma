@@ -14,18 +14,20 @@
 
 namespace comma {
 
+class CompilationUnit;
+class TextManager;
+
 class Generator {
 
 public:
     virtual ~Generator() { }
 
     /// Constructs a code generator.
-    static Generator *create(llvm::Module *M,
-                             const llvm::TargetData &data,
-                             AstResource &resource);
+    static Generator *create(llvm::Module *M, const llvm::TargetData &data,
+                             TextManager &manager, AstResource &resource);
 
-    /// \brief Codegens a top-level declaration.
-    virtual void emitToplevelDecl(Decl *decl) = 0;
+    /// \brief Codegens a compilation unit.
+    virtual void emitCompilationUnit(CompilationUnit *cunit) = 0;
 
     /// \brief Codegens an entry function which calls into the Procedure \p proc
     /// and embeds it into the LibraryItem \p item.

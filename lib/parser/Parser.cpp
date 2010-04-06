@@ -30,7 +30,6 @@
 
 #include "llvm/ADT/APInt.h"
 
-#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -39,139 +38,11 @@ using namespace comma;
 
 Parser::Parser(TextProvider &txtProvider, IdentifierPool &idPool,
                ParseClient &client, Diagnostic &diag)
-    : txtProvider(txtProvider),
-      idPool(idPool),
-      client(client),
-      diagnostic(diag),
-      lexer(txtProvider, diag)
+    : ParserBase(txtProvider, idPool, diag),
+      client(client)
 {
     // Mark each identifier which can name an attribute.
     attrib::markAttributeIdentifiers(idPool);
-
-    // Prime the parser by loading in the first token.
-    lexer.scan(token);
-}
-
-Lexer::Token &Parser::currentToken()
-{
-    return token;
-}
-
-Lexer::Token &Parser::nextToken()
-{
-    lexer.scan(token);
-    return token;
-}
-
-Lexer::Token Parser::peekToken()
-{
-    Lexer::Token tkn;
-    lexer.peek(tkn, 0);
-    return tkn;
-}
-
-Location Parser::ignoreToken()
-{
-    Location loc = currentLocation();
-    nextToken();
-    return loc;
-}
-
-void Parser::setCurrentToken(Lexer::Token &tkn)
-{
-    token = tkn;
-}
-
-bool Parser::currentTokenIs(Lexer::Code code)
-{
-    return currentToken().getCode() == code;
-}
-
-bool Parser::nextTokenIs(Lexer::Code code)
-{
-    return peekToken().getCode() == code;
-}
-
-Lexer::Code Parser::currentTokenCode()
-{
-    return currentToken().getCode();
-}
-
-Lexer::Code Parser::peekTokenCode()
-{
-    return peekToken().getCode();
-}
-
-bool Parser::expectToken(Lexer::Code code)
-{
-    if (peekToken().getCode() == code) {
-        ignoreToken();
-        return true;
-    }
-    return false;
-}
-
-bool Parser::reduceToken(Lexer::Code code)
-{
-    if (currentTokenIs(code)) {
-        ignoreToken();
-        return true;
-    }
-    return false;
-}
-
-bool Parser::requireToken(Lexer::Code code)
-{
-    bool status = reduceToken(code);
-    if (!status)
-        report(diag::UNEXPECTED_TOKEN_WANTED)
-            << currentToken().getString()
-            << Lexer::tokenString(code);
-    return status;
-}
-
-bool Parser::seekToken(Lexer::Code code)
-{
-    while (!currentTokenIs(Lexer::TKN_EOT)) {
-        if (currentTokenIs(code))
-            return true;
-        else
-            ignoreToken();
-    }
-    return false;
-}
-
-bool Parser::seekAndConsumeToken(Lexer::Code code)
-{
-    bool status = seekToken(code);
-    if (status) ignoreToken();
-    return status;
-}
-
-bool Parser::seekTokens(Lexer::Code code0, Lexer::Code code1,
-                        Lexer::Code code2, Lexer::Code code3,
-                        Lexer::Code code4, Lexer::Code code5)
-{
-    Lexer::Code codes[] = { code0, code1, code2, code3, code4, code5 };
-    Lexer::Code *end = &codes[6];
-
-    while (!currentTokenIs(Lexer::TKN_EOT))
-    {
-        if (end != std::find(codes, end, currentTokenCode()))
-            return true;
-        else
-            ignoreToken();
-    }
-    return false;
-}
-
-bool Parser::seekAndConsumeTokens(Lexer::Code code0,
-                                  Lexer::Code code1, Lexer::Code code2,
-                                  Lexer::Code code3, Lexer::Code code4)
-{
-    bool status = seekTokens(code0, code1, code2, code3, code4);
-    if (status) ignoreToken();
-    return status;
 }
 
 bool Parser::seekCloseParen()
@@ -321,29 +192,6 @@ bool Parser::seekEndLoop(IdentifierInfo *tag)
     return false;
 }
 
-Location Parser::currentLocation()
-{
-    return currentToken().getLocation();
-}
-
-unsigned Parser::currentLine()
-{
-    return txtProvider.getLine(currentLocation());
-}
-
-unsigned Parser::currentColumn()
-{
-    return txtProvider.getColumn(currentLocation());
-}
-
-IdentifierInfo *Parser::getIdentifierInfo(const Lexer::Token &tkn)
-{
-    const char *rep = tkn.getRep();
-    unsigned length = tkn.getLength();
-    IdentifierInfo *info = &idPool.getIdentifierInfo(rep, length);
-    return info;
-}
-
 bool Parser::unitExprFollows()
 {
     return currentTokenIs(Lexer::TKN_LPAREN) && nextTokenIs(Lexer::TKN_RPAREN);
@@ -351,12 +199,10 @@ bool Parser::unitExprFollows()
 
 bool Parser::assignmentFollows()
 {
-    Lexer::Token savedToken = currentToken();
-    lexer.beginExcursion();
+    beginExcursion();
     seekNameEnd();
     bool status = currentTokenIs(Lexer::TKN_ASSIGN);
-    lexer.endExcursion();
-    setCurrentToken(savedToken);
+    endExcursion();
     return status;
 }
 
@@ -381,16 +227,14 @@ bool Parser::selectedComponentFollows()
             break;
 
         case Lexer::TKN_LPAREN: {
-            Lexer::Token savedToken = currentToken();
-            lexer.beginExcursion();
+            beginExcursion();
             ignoreToken();      // Ignore the identifier.
             do {
                 ignoreToken();  // Ignore the left paren.
                 seekCloseParen();
             } while (currentTokenIs(Lexer::TKN_LPAREN));
             status = currentTokenIs(Lexer::TKN_DOT);
-            lexer.endExcursion();
-            setCurrentToken(savedToken);
+            endExcursion();
             break;
         }
         }
@@ -403,9 +247,8 @@ bool Parser::aggregateFollows()
     assert(currentTokenIs(Lexer::TKN_LPAREN));
 
     bool result = false;
-    Lexer::Token savedToken = currentToken();
 
-    lexer.beginExcursion();
+    beginExcursion();
     ignoreToken();              // Ignore the left paren.
 
 SEEK:
@@ -437,8 +280,7 @@ SEEK:
         }
     }
 
-    lexer.endExcursion();
-    setCurrentToken(savedToken);
+    endExcursion();
     return result;
 }
 
@@ -457,42 +299,6 @@ bool Parser::attributeFollows()
 {
     return (currentTokenIs(Lexer::TKN_QUOTE) &&
             nextTokenIs(Lexer::TKN_IDENTIFIER));
-}
-
-IdentifierInfo *Parser::parseIdentifier()
-{
-    IdentifierInfo *info;
-
-    switch (currentTokenCode()) {
-    case Lexer::TKN_IDENTIFIER:
-        info = getIdentifierInfo(currentToken());
-        ignoreToken();
-        break;
-
-    case Lexer::TKN_EOT:
-        report(diag::PREMATURE_EOS);
-        info = 0;
-        break;
-
-    default:
-        report(diag::UNEXPECTED_TOKEN) << currentToken().getString();
-        info = 0;
-    }
-    return info;
-}
-
-IdentifierInfo *Parser::parseFunctionIdentifier()
-{
-    IdentifierInfo *info;
-
-    if (Lexer::isFunctionGlyph(currentToken())) {
-        const char *rep = Lexer::tokenString(currentTokenCode());
-        info = &idPool.getIdentifierInfo(rep);
-        ignoreToken();
-    }
-    else
-        info = parseIdentifier();
-    return info;
 }
 
 IdentifierInfo *Parser::parseCharacter()
@@ -796,6 +602,33 @@ void Parser::parseAddComponents()
         requireToken(Lexer::TKN_SEMI);
     }
 }
+
+void Parser::parseWithClause()
+{
+    assert(currentTokenIs(Lexer::TKN_WITH));
+
+    Location loc = ignoreToken();
+    llvm::SmallVector<IdentifierInfo *, 8> names;
+
+    do {
+        IdentifierInfo *idInfo = parseIdentifier();
+
+        if (!idInfo) {
+            seekSemi();
+            return;
+        }
+
+        names.push_back(idInfo);
+    } while (reduceToken(Lexer::TKN_DOT));
+
+    if (!requireToken(Lexer::TKN_SEMI)) {
+        seekSemi();
+        return;
+    }
+
+    client.acceptWithClause(loc, &names[0], names.size());
+}
+
 
 void Parser::parseModel()
 {
@@ -1454,6 +1287,24 @@ bool Parser::parseTopLevelDeclaration()
     }
 }
 
+void Parser::parseCompilationUnit()
+{
+PARSE_CONTEXT:
+    switch (currentTokenCode()) {
+    default:
+        break;
+
+    case Lexer::TKN_WITH:
+        parseWithClause();
+        goto PARSE_CONTEXT;
+
+    case Lexer::TKN_EOT:
+        return;
+    }
+
+    while (parseTopLevelDeclaration()) { }
+}
+
 // Converts a character array representing a Comma integer literal into an
 // llvm::APInt.  The bit width of the resulting APInt is always set to the
 // minimal number of bits needed to represent the given number.
@@ -1561,8 +1412,7 @@ Node Parser::parseDSTDefinition(bool acceptDiamond)
     // An alternative strategy would be to parse a name and look for infix
     // operators and TKN_DDOT.
     bool rangeFollows = false;
-    Lexer::Token savedToken = currentToken();
-    lexer.beginExcursion();
+    beginExcursion();
 
     if (consumeName()) {
         switch (currentTokenCode()) {
@@ -1580,8 +1430,7 @@ Node Parser::parseDSTDefinition(bool acceptDiamond)
     else
         rangeFollows = true;
 
-    lexer.endExcursion();
-    setCurrentToken(savedToken);
+    endExcursion();
 
     if (rangeFollows) {
         // FIXME: Should be parsing simple expressions here.

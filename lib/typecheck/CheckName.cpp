@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 #include "TypeCheck.h"
+#include "comma/ast/DiagPrint.h"
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
@@ -674,9 +675,19 @@ Ast *TypeCheck::finishSubroutineRef(SubroutineRef *ref)
         return 0;
     }
 
+    // For functions there is nothing to typecheck until we hit the topdown pass
+    // and verify the return type.  Procedures, on the other hand, must resolve
+    // uniquely.
     if (ref->referencesFunctions())
         return new FunctionCallExpr(ref, 0, 0, 0, 0);
-    return new ProcedureCallStmt(ref, 0, 0, 0, 0);
+    else if (ref->isResolved())
+        return new ProcedureCallStmt(ref, 0, 0, 0, 0);
+    else {
+        report(loc, diag::AMBIGUOUS_EXPRESSION);
+        for (SubroutineRef::iterator I = ref->begin(); I != ref->end(); ++I)
+            report(loc, diag::CANDIDATE_NOTE) << diag::PrintDecl(*I);
+        return 0;
+    }
 }
 
 bool TypeCheck::finishTypeRef(TypeRef *ref)

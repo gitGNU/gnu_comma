@@ -17,7 +17,7 @@
 #include "comma/ast/Cunit.h"
 #include "comma/ast/Type.h"
 #include "comma/basic/Diagnostic.h"
-#include "comma/basic/TextProvider.h"
+#include "comma/basic/TextManager.h"
 #include "comma/typecheck/Checker.h"
 
 #include "llvm/Support/Casting.h"
@@ -35,9 +35,8 @@ namespace comma {
 class TypeCheck : public Checker {
 
 public:
-    TypeCheck(Diagnostic      &diag,
-              AstResource     &resource,
-              CompilationUnit *cunit);
+    TypeCheck(TextManager &manager, Diagnostic &diag,
+              AstResource &resource, CompilationUnit *cunit);
 
     ~TypeCheck();
 
@@ -47,6 +46,9 @@ public:
     ///
     /// \see ParseClient.
     //@{
+    void acceptWithClause(Location loc, IdentifierInfo **names,
+                          unsigned numNames);
+
     void beginCapsule();
     void endCapsule();
 
@@ -237,6 +239,9 @@ public:
 
     /// Returns the AstResource used by the type checker to construct AST nodes.
     AstResource &getAstResource() { return resource; }
+
+    /// Returns the TextManager backing all sources being processed.
+    TextManager &getTextManager() { return manager; }
     //@}
 
     /// \name General Semantic Analysis.
@@ -322,6 +327,7 @@ public:
     //@}
 
 private:
+    TextManager     &manager;
     Diagnostic      &diagnostic;
     AstResource     &resource;
     CompilationUnit *compUnit;
@@ -927,7 +933,7 @@ private:
              DomainType *source, AbstractDomainDecl *target);
 
     SourceLocation getSourceLoc(Location loc) const {
-        return resource.getTextProvider().getSourceLocation(loc);
+        return manager.getSourceLocation(loc);
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {

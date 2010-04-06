@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,7 +14,8 @@
 
 using namespace comma;
 
-TextProvider::TextProvider(const llvm::sys::Path &path)
+TextProvider::TextProvider(unsigned ID, const llvm::sys::Path &path)
+    : locationStamp(ID)
 {
     memBuffer = llvm::MemoryBuffer::getFileOrSTDIN(path.c_str());
 
@@ -33,14 +34,16 @@ TextProvider::TextProvider(const llvm::sys::Path &path)
     initializeLinevec();
 }
 
-TextProvider::TextProvider(const char *raw, size_t length)
+TextProvider::TextProvider(unsigned ID, const char *raw, size_t length)
+    : locationStamp(ID)
 {
     memBuffer = llvm::MemoryBuffer::getMemBufferCopy(raw, raw + length);
     buffer = memBuffer->getBufferStart();
     initializeLinevec();
 }
 
-TextProvider::TextProvider(const std::string &str)
+TextProvider::TextProvider(unsigned ID, const std::string &str)
+    : locationStamp(ID)
 {
     const char *start = str.c_str();
     const char *end   = start + str.size();
@@ -54,9 +57,18 @@ TextProvider::~TextProvider()
     delete memBuffer;
 }
 
+void TextProvider::close()
+{
+    if (!isClosed()) {
+        finishLinevec();
+        delete memBuffer;
+        memBuffer = 0;
+    }
+}
+
 Location TextProvider::getLocation(const TextIterator &ti) const
 {
-    return indexOf(ti.cursor);
+    return Location(locationStamp, indexOf(ti.cursor));
 }
 
 SourceLocation TextProvider::getSourceLocation(const TextIterator &ti) const
@@ -75,16 +87,20 @@ SourceLocation TextProvider::getSourceLocation(const Location loc) const
 
 TextIterator TextProvider::begin() const
 {
+    assert(!isClosed() && "Cannot iterate over a closed TextProvider!");
     return TextIterator(buffer);
 }
 
 TextIterator TextProvider::end() const
 {
+    assert(!isClosed() && "Cannot iterate over a closed TextProvider!");
     return TextIterator(memBuffer->getBufferEnd());
 }
 
 std::string TextProvider::extract(Location start, Location end) const
 {
+    assert(!isClosed() && "Cannot extract text form a closed TextProvider!");
+
     std::string str;
     unsigned x = start.getOffset();
     unsigned y = end.getOffset();
@@ -97,6 +113,7 @@ std::string TextProvider::extract(Location start, Location end) const
 std::string TextProvider::extract(const TextIterator &s,
                                   const TextIterator &e) const
 {
+    assert(!isClosed() && "Cannot extract text form a closed TextProvider!");
     std::string str;
     unsigned length = e.cursor - s.cursor;
     str.insert(0, s.cursor, length);
@@ -107,6 +124,7 @@ std::string TextProvider::extract(const SourceLocation &sloc) const
 {
     assert(sloc.getTextProvider() == this &&
            "SourceLocation not associated with this TextProvider!");
+    assert(!isClosed() && "Cannot extract text form a closed TextProvider!");
 
     std::string str;
     unsigned line  = sloc.getLine();
@@ -120,6 +138,8 @@ unsigned TextProvider::extract(const TextIterator &s,
                                const TextIterator &e,
                                char *buff, size_t size) const
 {
+    assert(!isClosed() && "Cannot extract text form a closed TextProvider!");
+
     unsigned length = e.cursor - s.cursor;
 
     if (buff == 0) return length;
@@ -140,47 +160,65 @@ void TextProvider::initializeLinevec()
     maxLineIndex = 0;
 }
 
-unsigned TextProvider::getLine(Location loc) const
+unsigned TextProvider::extendLinevec(unsigned index) const
 {
-    assert(loc < indexOf(memBuffer->getBufferEnd()));
+    assert(index < indexOf(memBuffer->getBufferEnd()));
 
-    // Check that loc is within the known range of the line vector. If not,
-    // extend the vector with all lines upto this location.
-    if (loc >= maxLineIndex) {
-        unsigned line;
-        const char* cursor = &buffer[lines.back()];
-        while (cursor != &buffer[loc]) {
-            switch (*cursor++) {
-            case '\r':
-                if (*cursor == '\n')
-                    cursor++;
-            case '\n':
-            case '\f':
-                lines.push_back(indexOf(cursor));
-            }
-        }
-        // By returning the length of the vector, we provide a 1-based line
-        // number.
-        line = lines.size();
+    // If the index is within the range of the line vector we are done.
+    if (index < maxLineIndex)
+        return 0;
 
-        // Continue scanning until the end of the current line is found.
-        while (cursor != memBuffer->getBufferEnd()) {
-            switch (*cursor++) {
-            case '\r':
-                if (*cursor == '\n')
-                    cursor++;
-            case '\n':
-            case '\f':
-                lines.push_back(indexOf(cursor));
-                maxLineIndex = indexOf(cursor);
-                return line;
-            }
+    unsigned line;
+    const char* cursor = &buffer[lines.back()];
+    while (cursor != &buffer[index]) {
+        switch (*cursor++) {
+        case '\r':
+            if (*cursor == '\n')
+                cursor++;
+        case '\n':
+        case '\f':
+            lines.push_back(indexOf(cursor));
         }
-        // We have hit the end of the buffer.
-        lines.push_back(indexOf(cursor));
+    }
+    // By returning the length of the vector, we provide a 1-based line
+    // number.
+    line = lines.size();
+
+    // Continue scanning until the end of the current line is found.
+    while (cursor != memBuffer->getBufferEnd()) {
+        switch (*cursor++) {
+        case '\r':
+            if (*cursor == '\n')
+                cursor++;
+        case '\n':
+        case '\f':
+            lines.push_back(indexOf(cursor));
         maxLineIndex = indexOf(cursor);
         return line;
+        }
     }
+    // We have hit the end of the buffer.
+    lines.push_back(indexOf(cursor));
+    maxLineIndex = indexOf(cursor);
+    return line;
+}
+
+void TextProvider::finishLinevec()
+{
+    // Get the maximal offset into the memory buffer and extend the line vector.
+    unsigned index = indexOf(memBuffer->getBufferEnd()) - 1;
+    extendLinevec(index);
+}
+
+unsigned TextProvider::getLine(Location loc) const
+{
+    assert(loc.getStamp() == getNumericIdentity() &&
+           "Location not associated with this TextProvider!");
+
+    // If the location is greater than the current range of the line vector
+    // extend the line vector.
+    if (loc >= maxLineIndex)
+        return extendLinevec(loc);
 
     // Otherwise, perform a binary search over the existing line vector.
     int max = lines.size();
@@ -188,7 +226,7 @@ unsigned TextProvider::getLine(Location loc) const
     int end = max - 1;
     while (start <= end) {
         int mid = (start + end) >> 1;
-        Location candidate = lines[mid];
+        unsigned candidate = lines[mid];
         if (candidate <= loc) {
             if (mid + 1 < max) {
                 if (lines[mid + 1] <= loc) {

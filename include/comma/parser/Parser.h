@@ -9,10 +9,10 @@
 #ifndef COMMA_PARSER_PARSER_HDR_GUARD
 #define COMMA_PARSER_PARSER_HDR_GUARD
 
-#include "comma/basic/IdentifierPool.h"
 #include "comma/basic/ParameterModes.h"
 #include "comma/parser/Lexer.h"
 #include "comma/parser/ParseClient.h"
+#include "comma/parser/ParserBase.h"
 #include "llvm/ADT/SmallVector.h"
 #include <iosfwd>
 #include <stack>
@@ -25,7 +25,7 @@ class APInt;
 
 namespace comma {
 
-class Parser {
+class Parser : public ParserBase {
 
 public:
     Parser(TextProvider   &txtProvider,
@@ -38,6 +38,8 @@ public:
 
     // Generic pointer to a parse method returning a Node.
     typedef Node (Parser::*parseNodeFn)();
+
+    void parseWithClause();
 
     void parseModel();
 
@@ -74,10 +76,10 @@ public:
     Node parseReturnStmt();
     Node parseAssignmentStmt();
     Node parseTaggedStmt();
-    Node parseBlockStmt(IdentifierInfo *tag = 0, Location loc = 0);
-    Node parseWhileStmt(IdentifierInfo *tag = 0, Location loc = 0);
-    Node parseLoopStmt(IdentifierInfo *tag = 0, Location loc = 0);
-    Node parseForStmt(IdentifierInfo *tag = 0, Location loc = 0);
+    Node parseBlockStmt(IdentifierInfo *tag = 0, Location loc = Location());
+    Node parseWhileStmt(IdentifierInfo *tag = 0, Location loc = Location());
+    Node parseLoopStmt(IdentifierInfo *tag = 0, Location loc = Location());
+    Node parseForStmt(IdentifierInfo *tag = 0, Location loc = Location());
     Node parseExitStmt();
     Node parsePragmaStmt();
     Node parseProcedureCallStatement();
@@ -131,18 +133,10 @@ public:
     /// been consumed.
     bool parseTopLevelDeclaration();
 
-    /// \brief Returns true if the parser has been driven without seeing an
-    /// error and false otherwise.
-    bool parseSuccessful() const { return diagnostic.numErrors() == 0; }
+    void parseCompilationUnit();
 
 private:
-    TextProvider   &txtProvider;
-    IdentifierPool &idPool;
-    ParseClient    &client;
-    Diagnostic     &diagnostic;
-    Lexer           lexer;
-
-    Lexer::Token token;
+    ParseClient &client;
 
     // The kind of end tag which is expected.  This enumeration will be
     // expanded.
@@ -176,31 +170,6 @@ private:
     // Accumulation of IdentifierInfo nodes.
     typedef llvm::SmallVector<IdentifierInfo*, 4> IdInfoVector;
 
-    unsigned currentLine();
-    unsigned currentColumn();
-    Location currentLocation();
-
-    IdentifierInfo *getIdentifierInfo(const Lexer::Token &tkn);
-
-    Lexer::Token &nextToken();
-    Lexer::Token &currentToken();
-    Lexer::Token  peekToken();
-    void setCurrentToken(Lexer::Token &tkn);
-
-    // Ignores the current token and returns the location of the token skipped.
-    // This method is used to support the idiom of skipping reserved words and
-    // saving the location of the construct.
-    Location ignoreToken();
-
-    Lexer::Code currentTokenCode();
-    Lexer::Code peekTokenCode();
-
-    bool currentTokenIs(Lexer::Code code);
-    bool nextTokenIs(Lexer::Code code);
-    bool expectToken(Lexer::Code code);
-    bool reduceToken(Lexer::Code code);
-    bool requireToken(Lexer::Code code);
-
     // Matches a right paren assuming that the opening paren has already been
     // consumed, keeping track of nested pairs.  Consumes the closing
     // paren. Note that this method does not save the state of the token stream.
@@ -215,49 +184,12 @@ private:
     // mismatched/missing end tags.
     bool seekEndLoop(IdentifierInfo *tag = 0);
 
-    bool seekToken(Lexer::Code code);
-    bool seekAndConsumeToken(Lexer::Code code);
-
-    bool seekTokens(Lexer::Code code0,
-                    Lexer::Code code1 = Lexer::UNUSED_ID,
-                    Lexer::Code code2 = Lexer::UNUSED_ID,
-                    Lexer::Code code3 = Lexer::UNUSED_ID,
-                    Lexer::Code code4 = Lexer::UNUSED_ID,
-                    Lexer::Code code5 = Lexer::UNUSED_ID);
-
-
-    bool seekAndConsumeTokens(Lexer::Code code0,
-                              Lexer::Code code1 = Lexer::UNUSED_ID,
-                              Lexer::Code code2 = Lexer::UNUSED_ID,
-                              Lexer::Code code3 = Lexer::UNUSED_ID,
-                              Lexer::Code code4 = Lexer::UNUSED_ID);
-
     // Seeks a terminating semicolon.  This method skips all semicolons which
     // appear nested within braces.  It trys to find a semicolon at the same
     // syntatic level it was envoked at.  Note that this method does not save
     // the state of the token stream.
     bool seekSemi();
 
-    std::string currentTokenString() {
-        return currentToken().getString();
-    }
-
-    DiagnosticStream &report(Location loc, diag::Kind kind) {
-        SourceLocation sloc = txtProvider.getSourceLocation(loc);
-        return diagnostic.report(sloc, kind);
-    }
-
-    DiagnosticStream &report(SourceLocation sloc, diag::Kind kind) {
-        return diagnostic.report(sloc, kind);
-    }
-
-    DiagnosticStream &report(diag::Kind kind) {
-        SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
-        return diagnostic.report(sloc, kind);
-    }
-
-    IdentifierInfo *parseIdentifier();
-    IdentifierInfo *parseFunctionIdentifier();
     IdentifierInfo *parseCharacter();
     IdentifierInfo *parseIdentifierOrCharacter();
     IdentifierInfo *parseAnyIdentifier();

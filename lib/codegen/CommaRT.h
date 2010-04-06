@@ -56,7 +56,8 @@ public:
 
     const std::string &getTypeName(TypeId id) const;
 
-    llvm::GlobalVariable *registerCapsule(Domoid *domoid);
+    llvm::GlobalVariable *defineCapsule(Domoid *domoid);
+    llvm::GlobalVariable *declareCapsule(Domoid *domoid);
 
     llvm::Value *getDomain(llvm::IRBuilder<> &builder,
                            llvm::GlobalValue *capsuleInfo) const;

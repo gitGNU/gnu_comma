@@ -218,7 +218,7 @@ Node TypeCheck::beginSubroutineDefinition(Node declarationNode)
     // current declarative region.
     assert(!srDecl->hasBody() && "Current subroutine already has a body!");
 
-    BlockStmt *block = new BlockStmt(0, srDecl, srDecl->getIdInfo());
+    BlockStmt *block = new BlockStmt(Location(), srDecl, srDecl->getIdInfo());
     srDecl->setBody(block);
     pushDeclarativeRegion(block);
     Node blockNode = getNode(block);

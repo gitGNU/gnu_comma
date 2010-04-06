@@ -89,7 +89,7 @@ private:
     Expr *resolveArrayType(Expr *expr, Location loc);
 
     SourceLocation getSourceLoc(Location loc) const {
-        return resource.getTextProvider().getSourceLocation(loc);
+        return TC.getTextManager().getSourceLocation(loc);
     }
 
     DiagnosticStream &report(Location loc, diag::Kind kind) {

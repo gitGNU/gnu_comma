@@ -56,7 +56,6 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
         /// FIXME: Support all declaration kinds.
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
             SubroutineDecl *key = getKeySRDecl(srDecl);
-
             assert(!srInfoTable.count(key) &&
                    "Multiple declarations map to the same key!");
 

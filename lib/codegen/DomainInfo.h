@@ -63,7 +63,13 @@ public:
     ///
     /// A non-constant global variable is generated, initialized, and injected
     /// into the current module.
-    llvm::GlobalVariable *emit(const Domoid *domoid);
+    llvm::GlobalVariable *define(const Domoid *domoid);
+
+    /// \brief Declares an instance of a domain_info object.
+    ///
+    /// A non-constant global variable with external linkage is generated and
+    /// injected into the current module.
+    llvm::GlobalVariable *declare(const Domoid *domoid);
 
     /// \brief Returns the link (mangled) name of the domain_info object that
     /// would be associated with the given capsule.

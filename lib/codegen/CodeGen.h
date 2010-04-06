@@ -45,6 +45,9 @@ public:
     /// Returns the llvm::TargetData used to generate code.
     const llvm::TargetData &getTargetData() const { return TD; }
 
+    /// Returns the TextManager managing all sources being compiled.
+    TextManager &getTextManager() { return Manager; }
+
     /// Returns the AstResource used to generate new AST nodes.
     AstResource &getAstResource() const { return Resource; }
 
@@ -130,6 +133,19 @@ public:
                                            bool isConstant = false,
                                            const std::string &name = "");
 
+    /// \brief Returns a global variable with external linkage embedded in the
+    /// current module.
+    ///
+    /// \param type The type of the global.
+    ///
+    /// \param isConstant If true, the global will be allocated in a read-only
+    /// section, otherwise in a writable section.
+    ///
+    /// \param name The name of the global.
+    llvm::GlobalVariable *makeExternGlobal(const llvm::Type *type,
+                                           bool isConstant = false,
+                                           const std::string &name = "");
+
     /// \brief Returns a global variable with internal linkage embedded in the
     /// current module.
     ///
@@ -143,10 +159,12 @@ public:
                                            bool isConstant = false,
                                            const std::string &name = "");
 
-    /// \brief Creates a function with the given name and type.  The linkage
-    /// type is external.
+    /// \brief Creates a function with the given name, type, and linkage
+    /// specification.  The linkage type defaults to external.
     llvm::Function *makeFunction(const llvm::FunctionType *Ty,
-                                 const std::string &name = "");
+                                 const std::string &name = "",
+                                 llvm::GlobalValue::LinkageTypes linkTy =
+                                 llvm::GlobalValue::ExternalLinkage);
 
     /// \brief Creates a function corresponding to the given Comma subroutine
     /// declaration.
@@ -317,6 +335,9 @@ private:
     /// Data describing our target,
     const llvm::TargetData &TD;
 
+    /// The TextManager backing all sources being compiled.
+    TextManager &Manager;
+
     /// The AstResource used for generating new types.
     AstResource &Resource;
 
@@ -372,8 +393,9 @@ private:
 
     /// Constructor to be called by Generator::create.
     CodeGen(llvm::Module *M, const llvm::TargetData &data,
-            AstResource &resource);
+            TextManager &manager, AstResource &resource);
 
+    void emitCompilationUnit(CompilationUnit *cunit);
     void emitToplevelDecl(Decl *decl);
     void emitEntry(ProcedureDecl *decl);
 };

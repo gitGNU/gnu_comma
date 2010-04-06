@@ -68,31 +68,35 @@ check".
 Currently, only a very simple "driver" program is built.  This is a temporary
 tool that will be rewritten into a full-featured compiler driver in the future.
 
-This program reads a single file given on the command line (or from stdin if the
-supplied file name is "-" or missing), parses, type checks, and then emits
-either LLVM assembly code, LLVM bitcode, or a native unoptimized executable.
+This program reads a single file given on the command line, parses, type checks,
+and then emits either LLVM assembly code, LLVM bitcode, or a native executable.
+
+If the input file depends on other program components (via a 'with' clause)
+those components must be available in the directory the driver was invoked
+from.  Moreover, the file names and the principle component they define must
+match.  So, for example, a domain "D" should be defined in a file named "D.cms",
+which in turn can be referred to via a with clause of the form "with D;".
 
 There are only a few command line options:
 
- -o <file>: Specifies the output file the driver should write to.  If not given
-  or specified as "-" then stdout is written to.
+ -o <file>: When generating a native executable, specifies the name of the
+  executable.  If an output file name is not specified, it is taken to be the
+  base name of the input file.
 
  -fsyntax-only: Input is parsed and type checked but codegen is skipped.  This
   is used to check the parser and type checker in isolation.  The only output
   produced is diagnostic messages.
 
  -emit-llvm: Parse, type check, and codegen the input.  Produces LLVM assembly
-  as output.
+  as output for the input file name and any of its dependents.
 
- -emit-llvm-bc: Like -emit-llvm but produces an LLVM bitcode file instead.  The
-  driver will not print bitcode directly to the terminal.  If stdout is to be
-  used it must be redirected to a file or pipe.
+ -emit-llvm-bc: Like -emit-llvm but produces an LLVM bitcode files instead.
 
- -e: Define an entry point.  This tells the driver to emit a main stub function
-  which calls into the generated Comma code, which in turn allows the resulting
-  LLVM IR to be linked into an executable.  Currently, an entry point must be
-  the name of a nullary subroutine exported by a non-generic domain.  For
-  example, given:
+ -e: Define an entry point and generate a native executable.  This tells the
+  driver to emit a main stub function which calls into the generated Comma code,
+  which in turn allows the resulting LLVM IR to be linked into an executable.
+  Currently, an entry point must be the name of a nullary subroutine exported by
+  a non-generic domain.  For example, given:
 
      domain D with
         procedure P;
@@ -102,24 +106,27 @@ There are only a few command line options:
         end P;
      end D;
 
-  then D.P satisfies the requirements of an entry point.  For example, to print
-  out the LLVM assembly including the sub function the corresponding invocation
-  of the driver program would be:
+  then D.P satisfies the requirements of an entry point.
 
-     > driver -e D.P foo.cms -emit-llvm
+ -d: Specifies the output directory.  If an --emit-llvm, --emit-llvm-bc, or -e
+  flag is present, llvm IR (".ll" files) or llvm bitcode (".bc" files) are
+  generated for the input file and all of its dependents.  The -d flag can be
+  used to specify the directory where these output files should be written.
 
-  When neither -emit-llvm or -emit-llvm-bc are given then the driver will
-  generate a native executable.  In this case the -o flag can be used specify
-  the name of the executable.  Otherwise, the executable is named after the
-  given input file, or "a.out" when reading from stdin.  Examples:
+Here are a few examples of how to use the driver program:
 
-     > cat foo.cms | driver -e D.P   # produces executable "a.out"
+  - "driver Foo.cms":  Parse, type check, and codegen Foo.cms (and all
+    dependents) but do not produce any output.  The compilation will either
+    succeed or fail.  This is useful for testing general system sanity.
 
-     > driver foo.cms -e D.P         # produces executable "foo"
+  - "driver Foo.cms -e Foo.Run": Generate a native executable named Foo and a
+    set of bitcode files in the current directory using the entry procedure
+    Foo.Run.
 
-     > driver foo.cms -e D.P -o bar  # produces executable "bar"
+  - "driver Foo.cms -e Foo.Run -d output -o result": Generate a native
+    executable named 'result' and a set of bitcode files in the directory
+    'output' using the entry procedure Foo.Run.
 
-A special case is when the driver is invoked without any output specified (no
--emit-llvm, -emit-llvm-bc, or -e flags given).  In this case the driver goes
-thru the parse, type check, and codegen phases and either succeeds or fails.
-This is useful for testing general system sanity.
+  - "driver Foo.cms -d output --emit-llvm":  Generate a set of llvm IR files in
+    the directory 'output'.
+

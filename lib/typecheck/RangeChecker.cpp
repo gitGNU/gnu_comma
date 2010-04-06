@@ -19,8 +19,7 @@ using llvm::isa;
 
 DiagnosticStream &RangeChecker::report(Location loc, diag::Kind kind)
 {
-    AstResource &resource = TC.getAstResource();
-    SourceLocation sloc = resource.getTextProvider().getSourceLocation(loc);
+    SourceLocation sloc = TC.getTextManager().getSourceLocation(loc);
     return TC.getDiagnostic().report(sloc, kind);
 }
 

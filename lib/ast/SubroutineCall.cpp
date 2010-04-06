@@ -33,7 +33,7 @@ SubroutineCall::SubroutineCall(SubroutineRef *connective,
 SubroutineCall::SubroutineCall(SubroutineDecl *connective,
                                Expr **posArgs, unsigned numPos,
                                KeywordSelector **keyArgs, unsigned numKeys)
-    : connective(new SubroutineRef(0, connective)),
+    : connective(new SubroutineRef(Location(), connective)),
       numPositional(numPos),
       numKeys(numKeys)
 {

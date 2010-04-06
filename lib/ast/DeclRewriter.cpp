@@ -56,7 +56,8 @@ FunctionDecl *DeclRewriter::rewriteFunctionDecl(FunctionDecl *fdecl)
         Type *newType = rewriteType(origParam->getType());
         ParamValueDecl *newParam =
             new ParamValueDecl(origParam->getIdInfo(), newType,
-                               origParam->getExplicitParameterMode(), 0);
+                               origParam->getExplicitParameterMode(),
+                               Location());
         params.push_back(newParam);
     }
 

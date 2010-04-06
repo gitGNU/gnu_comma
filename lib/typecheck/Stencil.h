@@ -55,7 +55,7 @@ public:
         validFlag = true;
         subBits = 0;
         name = 0;
-        location = 0;
+        location = Location();
     }
 
     /// Returns the defining identifier associated with this stencil.

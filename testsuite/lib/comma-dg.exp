@@ -216,7 +216,7 @@ proc runCompiledTests { test_inputs } {
     foreach test_input $test_inputs {
         set test_prog $testroot/[file tail [file rootname $test_input]]
         set driver_invocation [list exec $toolroot/driver -e Test.Run \
-                                   $test_input -o $test_prog]
+                                   $test_input -o $test_prog -d $testroot]
         set retval [catch $driver_invocation errmsg]
 
         #

@@ -286,3 +286,11 @@ DIAGNOSTIC(EXIT_OUTSIDE_LOOP_CONTEXT, ERROR,
            "Exit not associated with a loop.")
 DIAGNOSTIC(NONEXISTENT_LOOP_TAG, ERROR,
            "Loop named `%0' is not visible.")
+DIAGNOSTIC(MULTIPLE_WITH_CLAUSES, WARNING,
+           "Component `%0' previously withed (`%1').")
+
+//
+// Driver diagnostics.
+//
+DIAGNOSTIC(UNIT_RESOLUTION_FAILED, ERROR,
+           "Could not resolve unit `%0'.")

@@ -30,12 +30,12 @@ namespace comma {
 class Expr : public Ast {
 
 public:
-    Expr(AstKind kind, Type *type, Location loc = 0)
+    Expr(AstKind kind, Type *type, Location loc = Location())
         : Ast(kind), type(type), location(loc) {
         assert(this->denotesExpr());
     }
 
-    Expr(AstKind kind, Location loc = 0)
+    Expr(AstKind kind, Location loc = Location())
         : Ast(kind), type(0), location(loc) {
         assert(this->denotesExpr());
     }
@@ -742,7 +742,7 @@ private:
 class ConversionExpr : public Expr
 {
 public:
-    ConversionExpr(Expr *operand, Type *target, Location loc = 0)
+    ConversionExpr(Expr *operand, Type *target, Location loc = Location())
         : Expr(AST_ConversionExpr, target, loc),
           operand(operand) { }
 

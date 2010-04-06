@@ -9,7 +9,7 @@
 // The AstResource class provides access to "universal" resources necessary for
 // builing and managing Ast trees.  It provides mechanisms for managing the
 // allocation of nodes, a single point of contact for fundamental facilities
-// like text providers and an identifier pool.
+// like an identifier pool.
 //
 //===----------------------------------------------------------------------===//
 
@@ -34,19 +34,11 @@ namespace comma {
 
 class IndexConstraint;
 class RangeConstraint;
-class TextProvider;
 
 class AstResource {
 
 public:
-    // For now, this class is simply a bag of important classes: A TextProvider
-    // associated with the file being processed, and an IdentifierPool for the
-    // global managment of identifiers.
-    AstResource(TextProvider &txtProvider, IdentifierPool &idPool);
-
-    // FIXME: Eventually we will replace this single TextProvider resource with
-    // a manager class which provides services to handle multiple input files.
-    TextProvider &getTextProvider() { return txtProvider; }
+    AstResource(IdentifierPool &idPool);
 
     IdentifierPool &getIdentifierPool() { return idPool; }
 
@@ -295,7 +287,6 @@ public:
     //@}
 
 private:
-    TextProvider &txtProvider;
     IdentifierPool &idPool;
 
     // Vectors of declaration and type nodes.

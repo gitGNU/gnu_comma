@@ -368,7 +368,7 @@ Node Parser::parseExitStmt()
     assert(currentTokenIs(Lexer::TKN_EXIT));
     Location exitLoc = ignoreToken();
     IdentifierInfo *name = 0;
-    Location nameLoc = 0;
+    Location nameLoc;
 
     if (currentTokenIs(Lexer::TKN_IDENTIFIER)) {
         nameLoc = currentLocation();
@@ -484,7 +484,7 @@ void Parser::parseExceptionStmt(Node context)
 
     // FIXME: Recovery from parse errors needs to be improved considerably.
     bool seenOthers = false;
-    Location othersLoc = 0;
+    Location othersLoc;
     do {
         Location loc = currentLocation();
         if (!requireToken(Lexer::TKN_WHEN)) {

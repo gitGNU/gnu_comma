@@ -111,7 +111,7 @@ public:
     }
 
 protected:
-    Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = 0,
+    Decl(AstKind kind, IdentifierInfo *info = 0, Location loc = Location(),
          DeclRegion *region = 0)
         : Ast(kind),
           idInfo(info),
@@ -1917,7 +1917,7 @@ class DomainTypeDecl : public TypeDecl, public DeclRegion {
 
 protected:
     DomainTypeDecl(AstKind kind, AstResource &resource,
-                   IdentifierInfo *name, Location loc = 0);
+                   IdentifierInfo *name, Location loc = Location());
 
 public:
     virtual ~DomainTypeDecl() { }

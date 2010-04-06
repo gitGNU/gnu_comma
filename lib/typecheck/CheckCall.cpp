@@ -538,7 +538,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
 
         for (unsigned i = 0; i < candidates.size(); ++i) {
             Type *type = candidates[i]->getType();
-            report(0, diag::CANDIDATE_NOTE) << diag::PrintType(type);
+            report(Location(), diag::CANDIDATE_NOTE) << diag::PrintType(type);
         }
         return false;
     }

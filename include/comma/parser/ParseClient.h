@@ -190,7 +190,18 @@ public:
     /// might choose to cache it, for instance.
     virtual void deleteNode(Node &node) = 0;
 
-    /// \name Initial Callbacks.
+    /// Called to inform the client that a with clause has been parsed.
+    ///
+    /// \param loc Location of the 'with' reserved word.
+    ///
+    /// \param names Vector of identifiers corresponding to a dotted (qualified)
+    /// name.
+    ///
+    /// \param numNames Number of elements in \p names.
+    virtual void acceptWithClause(Location loc, IdentifierInfo **names,
+                                  unsigned numNames) = 0;
+
+    /// \name Capsule Callbacks.
     ///
     /// When a top-level capsule is about to be parsed, beginCapsule is invoked
     /// to notify the client of the processing to come.  This is the first

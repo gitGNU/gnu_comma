@@ -437,8 +437,8 @@ SubroutineDecl::SubroutineDecl(AstKind kind, IdentifierInfo *name, Location loc,
     parameters = new ParamValueDecl*[numParameters];
     for (unsigned i = 0; i < numParameters; ++i) {
         Type *paramType = type->getArgType(i);
-        ParamValueDecl *param =
-            new ParamValueDecl(keywords[i], paramType, PM::MODE_DEFAULT, 0);
+        ParamValueDecl *param = new ParamValueDecl(
+            keywords[i], paramType, PM::MODE_DEFAULT, Location());
         parameters[i] = param;
     }
 }
@@ -920,8 +920,8 @@ EnumerationDecl::EnumerationDecl(AstResource &resource,
     // code, the constraint would be similar to "E'Base'First .. E'Base'Last".
     // Note that these attributes are static expressions.
     EnumerationType *base = root->getBaseSubtype();
-    Expr *lower = new FirstAE(base, 0);
-    Expr *upper = new LastAE(base, 0);
+    Expr *lower = new FirstAE(base, Location());
+    Expr *upper = new LastAE(base, Location());
 
     // Construct the subtype.
     EnumerationType *subtype;

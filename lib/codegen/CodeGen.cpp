@@ -13,8 +13,9 @@
 #include "CommaRT.h"
 #include "DependencySet.h"
 #include "comma/ast/AstResource.h"
+#include "comma/ast/Cunit.h"
 #include "comma/ast/Decl.h"
-#include "comma/basic/TextProvider.h"
+#include "comma/basic/TextManager.h"
 #include "comma/codegen/Mangle.h"
 
 using namespace comma;
@@ -24,9 +25,10 @@ using llvm::cast;
 using llvm::isa;
 
 CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
-                 AstResource &resource)
+                 TextManager &manager, AstResource &resource)
     : M(M),
       TD(data),
+      Manager(manager),
       Resource(resource),
       CRT(new CommaRT(*this)),
       moduleName(0) { }
@@ -34,6 +36,32 @@ CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
 CodeGen::~CodeGen()
 {
     delete CRT;
+}
+
+void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
+{
+    // Generate capsule info objects for each dependency.
+    typedef CompilationUnit::dep_iterator dep_iterator;
+    for (dep_iterator I = cunit->begin_dependencies(),
+             E = cunit->end_dependencies(); I != E; ++I) {
+        Decl *decl = *I;
+        if (Domoid *domoid = dyn_cast<Domoid>(decl)) {
+            std::string linkName = mangle::getLinkName(domoid);
+            capsuleInfoTable[linkName] = CRT->declareCapsule(domoid);
+        }
+
+        if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
+            InstanceInfo *info = createInstanceInfo(domain->getInstance());
+            info->markAsCompiled();
+        }
+    }
+
+    // Codegen each declaration.
+    typedef CompilationUnit::decl_iterator decl_iterator;
+    for (decl_iterator I = cunit->begin_declarations(),
+             E = cunit->end_declarations(); I != E; ++I) {
+        emitToplevelDecl(*I);
+    }
 }
 
 void CodeGen::emitToplevelDecl(Decl *decl)
@@ -45,14 +73,14 @@ void CodeGen::emitToplevelDecl(Decl *decl)
         // Generate an InstanceInfo object for this domain.
         InstanceInfo *info = createInstanceInfo(domain->getInstance());
         emitCapsule(info);
-        capsuleInfoTable[info->getLinkName()] = CRT->registerCapsule(domain);
+        capsuleInfoTable[info->getLinkName()] = CRT->defineCapsule(domain);
     }
     else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl)) {
         DependencySet *DS = new DependencySet(functor);
         dependenceTable[functor] = DS;
 
         std::string name = mangle::getLinkName(functor);
-        capsuleInfoTable[name] = CRT->registerCapsule(functor);
+        capsuleInfoTable[name] = CRT->defineCapsule(functor);
     }
     else
         return;
@@ -299,6 +327,15 @@ llvm::GlobalVariable *CodeGen::makeExternGlobal(llvm::Constant *init,
                                     init, name);
 }
 
+llvm::GlobalVariable *CodeGen::makeExternGlobal(const llvm::Type *type,
+                                                bool isConstant,
+                                                const std::string &name)
+{
+    return new llvm::GlobalVariable(*M, type, isConstant,
+                                    llvm::GlobalValue::ExternalLinkage,
+                                    0, name);
+}
+
 llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
                                                 bool isConstant,
                                                 const std::string &name)
@@ -309,10 +346,11 @@ llvm::GlobalVariable *CodeGen::makeInternGlobal(llvm::Constant *init,
 }
 
 llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
-                                      const std::string &name)
+                                      const std::string &name,
+                                      llvm::GlobalValue::LinkageTypes linkTy)
 {
     llvm::Function *fn =
-        llvm::Function::Create(Ty, llvm::Function::ExternalLinkage, name, M);
+        llvm::Function::Create(Ty, linkTy, name, M);
     return fn;
 }
 
@@ -322,10 +360,20 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
 {
     const llvm::FunctionType *fnTy = CGT.lowerSubroutine(srDecl);
     std::string fnName = mangle::getLinkName(instance, srDecl);
-    llvm::Function *fn = makeFunction(fnTy, fnName);
+    llvm::GlobalValue::LinkageTypes linkTy;
+    llvm::Function *fn;
 
     // All instances should be fully resolved.
     assert(!instance->isDependent() && "Unexpected dependent instance!");
+
+    // If this is a functor instance all functions must be defined with
+    // WeakODRLinkage (One Definition Rule, as in C++).  Otherwise use external
+    // linkage.
+    if (instance->isParameterized())
+        linkTy = llvm::GlobalValue::WeakODRLinkage;
+    else
+        linkTy = llvm::GlobalValue::ExternalLinkage;
+    fn = makeFunction(fnTy, fnName, linkTy);
 
     // Mark the function as sret if needed.
     if (CGT.getConvention(srDecl) == CodeGenTypes::CC_Sret)
@@ -394,14 +442,14 @@ llvm::Constant *CodeGen::getModuleName()
 
 SourceLocation CodeGen::getSourceLocation(Location loc)
 {
-    return getAstResource().getTextProvider().getSourceLocation(loc);
+    return getTextManager().getSourceLocation(loc);
 }
 
 //===----------------------------------------------------------------------===//
 // Generator
 
 Generator *Generator::create(llvm::Module *M, const llvm::TargetData &data,
-                             AstResource &resource)
+                             TextManager &manager, AstResource &resource)
 {
-    return new CodeGen(M, data, resource);
+    return new CodeGen(M, data, manager, resource);
 }

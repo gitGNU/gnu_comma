@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -55,6 +55,8 @@ public:
     DiagnosticStream(llvm::raw_ostream &stream);
 
     ~DiagnosticStream();
+
+    llvm::raw_ostream &getStream() { return stream; }
 
     DiagnosticStream &initialize(const SourceLocation &sloc, const char *format,
                                  diag::Type type);
@@ -130,6 +132,9 @@ public:
 
     /// Returns the number of note diagnostics posted.
     unsigned numNotes() const { return noteCount; }
+
+    /// Returns the stream this Diagnostic object posts to.
+    llvm::raw_ostream &getStream() { return diagstream.getStream(); }
 
 private:
     DiagnosticStream diagstream;

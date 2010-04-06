@@ -24,7 +24,11 @@ class TextProvider;
 /// precisely, Locations are associated with a raw unsigned value known as its
 /// offset (since a TextProvider uses it as an index into internal tables to
 /// determine its associated line/column info).  An offset of zero is reserved
-/// to indicate an invalid or non-existent location.
+/// to indicate an invalid or non-existent location.  In addition, a small
+/// numeric stamp labels an identifier as belonging to a particular
+/// TextProvider.  This allows locations to be properly associated with their
+/// corresponding TextProvider while keeping the Location objects themselves
+/// very small.
 ///
 /// Location objects are typically created via a call to
 /// TextProvider::getLocation.
@@ -34,11 +38,18 @@ class TextProvider;
 class Location {
 
 public:
-    /// \brief Constructs an invalid Location object.
-    Location() : offset(0) { }
+    /// Provides the maximum values that can be associated with a Location's
+    /// stamp and offset.
+    enum {
+        MAX_LOCATION_STAMP  = 4095,
+        MAX_LOCATION_OFFSET = 1048575
+    };
 
-    /// \brief Constructs a Location with the given offset.
-    Location(unsigned offset) : offset(offset) { }
+    /// \brief Constructs an invalid Location object.
+    Location() : stamp(0), offset(0) { }
+
+    /// \brief Constructs a Location with the given stamp and offset.
+    Location(unsigned stamp, unsigned offset) : stamp(stamp), offset(offset) { }
 
     /// \brief Returns true if this Location is invalid.
     ///
@@ -52,11 +63,15 @@ public:
     /// \brief Returns the offset associated with this Location.
     unsigned getOffset() const { return offset; }
 
+    /// \brief Returns the stamp associated with this Location.
+    unsigned getStamp() const { return stamp; }
+
     /// \brief Converts this Location to an unsigned integer.
     operator unsigned() const { return offset; }
 
 private:
-    unsigned offset;
+    unsigned stamp  : 12;
+    unsigned offset : 20;
 };
 
 /// \class SourceLocation

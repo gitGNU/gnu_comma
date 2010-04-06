@@ -57,7 +57,7 @@ protected:
     /// Default pragma constructor is used to support the generation of
     /// llvm::iplist sentinal nodes.  Such default constructed pragma nodes are
     /// invalid.
-    Pragma() : ID(pragma::UNKNOWN_PRAGMA), loc(0), nextLink(0), prevLink(0) { }
+    Pragma() : ID(pragma::UNKNOWN_PRAGMA), nextLink(0), prevLink(0) { }
     friend class llvm::ilist_sentinel_traits<Pragma>;
 
     pragma::PragmaID ID;

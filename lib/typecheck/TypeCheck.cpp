@@ -34,10 +34,10 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-TypeCheck::TypeCheck(Diagnostic      &diag,
-                     AstResource     &resource,
-                     CompilationUnit *cunit)
-    : diagnostic(diag),
+TypeCheck::TypeCheck(TextManager &manager, Diagnostic &diag,
+                     AstResource &resource, CompilationUnit *cunit)
+    : manager(manager),
+      diagnostic(diag),
       resource(resource),
       compUnit(cunit)
 {
@@ -156,6 +156,36 @@ DomainType *TypeCheck::getCurrentPercentType() const
     if (ModelDecl *model = getCurrentModel())
         return model->getPercentType();
     return 0;
+}
+
+void TypeCheck::acceptWithClause(Location loc, IdentifierInfo **names,
+                                 unsigned numNames)
+{
+    // FIXME: Support qualified names.
+    assert(numNames == 1 && "Qualified components not supported yet!");
+
+    // Find the dependency in the current compilation unit.  This operation must
+    // succeed.
+    typedef CompilationUnit::dep_iterator iterator;
+    CompilationUnit *CU = getCompilationUnit();
+    Decl *dependency = 0;
+
+    for (iterator I = CU->begin_dependencies();
+         I != CU->end_dependencies(); ++I) {
+        Decl *candidate = *I;
+        if (candidate->getIdInfo() == names[0]) {
+            dependency = candidate;
+            break;
+        }
+    }
+    assert(dependency && "Failed to resolve withed component!");
+
+    // Bring the dependency into scope.  The only time a conflict can occur is
+    // when there are multiple 'with' clauses.
+    if (Decl *conflict = scope.addDirectDecl(dependency)) {
+        report(loc, diag::MULTIPLE_WITH_CLAUSES)
+            << dependency->getIdInfo() << getSourceLoc(conflict->getLocation());
+    }
 }
 
 Node TypeCheck::acceptPercent(Location loc)
@@ -572,8 +602,8 @@ ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
         // FIXME: Support enumeration types by generating Val attribute
         // expressions.
         IntegerType *intTy = cast<IntegerType>(idxTy);
-        Expr *lowerExpr = new IntegerLiteral(lower, intTy, 0);
-        Expr *upperExpr = new IntegerLiteral(upper, intTy, 0);
+        Expr *lowerExpr = new IntegerLiteral(lower, intTy, Location());
+        Expr *upperExpr = new IntegerLiteral(upper, intTy, Location());
         idxTy = resource.createIntegerSubtype(intTy, lowerExpr, upperExpr);
         return resource.createArraySubtype(0, arrTy, &idxTy);
     }
@@ -1400,9 +1430,8 @@ PragmaAssert *TypeCheck::acceptPragmaAssert(Location loc, NodeVector &args)
     return new PragmaAssert(loc, pred, msg);
 }
 
-Checker *Checker::create(Diagnostic      &diag,
-                         AstResource     &resource,
-                         CompilationUnit *cunit)
+Checker *Checker::create(TextManager &manager, Diagnostic &diag,
+                         AstResource &resource, CompilationUnit *cunit)
 {
-    return new TypeCheck(diag, resource, cunit);
+    return new TypeCheck(manager, diag, resource, cunit);
 }

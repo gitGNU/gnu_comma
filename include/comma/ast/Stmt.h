@@ -322,7 +322,6 @@ public:
     // "else" component.
     IfStmt(Location loc, Expr *condition, StmtSequence *consequent)
         : Stmt(AST_IfStmt, loc),
-          elseLocation(0),
           condition(condition),
           consequent(consequent),
           alternate(0) { }
@@ -457,7 +456,7 @@ public:
 
 protected:
     IterationStmt(AstKind kind, Location loc)
-        : Stmt(kind, loc), tag(0), tagLoc(0), body(loc) {
+        : Stmt(kind, loc), tag(0), body(loc) {
         assert(denotesIterationStmt(kind));
     }
 

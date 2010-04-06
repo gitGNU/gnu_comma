@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -109,8 +109,15 @@ public:
     /// specifies a file name "-", then read from all of stdin instead.  If the
     /// path is invalid, this constructor will simply call abort.
     ///
+    /// The \p ID parameter is used to stamp all Location objects produced by
+    /// this TextProvider so that a raw Location object can be queried and
+    /// associated with the TextProvider of origin.
+    ///
+    /// \param ID Stamp with which to mark all Location objects produced by this
+    /// TextProvider.
+    ///
     /// \param path The file used to back this TextProvider.
-    TextProvider(const llvm::sys::Path& path);
+    TextProvider(unsigned ID, const llvm::sys::Path& path);
 
     /// \brief Construct a TextProvider over the given buffer.
     ///
@@ -118,18 +125,45 @@ public:
     /// memory.  The contents of the buffer are copied -- the TextProvider does
     /// not take ownership of the memory region.
     ///
+    /// The \p ID parameter is used to stamp all Location objects produced by
+    /// this TextProvider so that a raw Location object can be queried and
+    /// associated with the TextProvider of origin.
+    ///
+    /// \param ID Stamp with which to mark all Location objects produced by this
+    /// TextProvider.
+    ///
     /// \param buffer Pointer to the start of the memory region.
     ///
     /// \param size The size in bytes of the memory region.
-    TextProvider(const char *buffer, size_t size);
+    TextProvider(unsigned ID, const char *buffer, size_t size);
 
     /// \brief Construct a TextProvider over the given string.  The contents of
     /// the string are copied.
     ///
+    /// The \p ID parameter is used to stamp all Location objects produced by
+    /// this TextProvider so that a raw Location object can be queried and
+    /// associated with the TextProvider of origin.
+    ///
+    /// \param ID Stamp with which to mark all Location objects produced by this
+    /// TextProvider.
+    ///
     /// \param string The string used to back this TextProvider.
-    TextProvider(const std::string &string);
+    TextProvider(unsigned ID, const std::string &string);
 
     ~TextProvider();
+
+    /// \brief Closes a TextProvider.
+    ///
+    /// Deallocates all resources associated with the input file or buffer
+    /// backing this TextProvider.  All iterators become invalid, and the
+    /// extract methods can no longer be called.  However, SourceLocations can
+    /// still be extracted.
+    ///
+    /// Once a TextProvider has been closed it cannot be reopened.
+    void close();
+
+    /// \brief Returns true if this TextProvider has been closed.
+    bool isClosed() const { return memBuffer == 0; }
 
     /// \brief Returns a string identifying this TextProvider.
     ///
@@ -138,6 +172,13 @@ public:
     /// This string may be empty for providers which were constructed over raw
     /// memory buffers.
     std::string getIdentity() const { return identity; }
+
+    /// \brief Returns the numeric identifier unique to this TextProvider.
+    ///
+    /// This method returns the ID value supplied to this TextProvider when
+    /// constructed, and with which all Location objects produced by this
+    /// TextProvider are stamped.
+    unsigned getNumericIdentity() const { return locationStamp; }
 
     /// \brief Returns the Location object corresponding to the position of the
     /// supplied TextIterator.
@@ -239,9 +280,8 @@ public:
 private:
     friend class TextIterator;
 
-    // Disallow copy and assignment.
-    TextProvider(const TextProvider&);
-    TextProvider &operator=(const TextProvider&);
+    TextProvider(const TextProvider&);            // Do not implement.
+    TextProvider &operator=(const TextProvider&); // Likewise.
 
     /// Returns the offset into the underlying character buffer given a pointer
     /// into the buffer.
@@ -256,6 +296,10 @@ private:
     /// A string identifying this TextProvider.  This is typically a file name
     /// or the name of an input stream.
     std::string identity;
+
+    /// The numeric stamp used to mark all Location objects produced by this
+    /// TextProvider.
+    unsigned locationStamp;
 
     /// The underlying MemoryBuffer.
     llvm::MemoryBuffer *memBuffer;
@@ -273,6 +317,14 @@ private:
 
     /// Ensure that lines[0] == 0.
     void initializeLinevec();
+
+    /// Fills the line vector with any outstanding entries upto the given offset
+    /// in the memory buffer.  Returns the line number of the given index.
+    unsigned extendLinevec(unsigned index) const;
+
+    /// Fills the line vector with any outstanding entries for the complete
+    /// memory buffer.
+    void finishLinevec();
 
     /// We maintain a auxiliary variable maxLineIndex and keep it so that
     /// maxLineIndex >= lines[lines.length() - 1].  This allows us to easily

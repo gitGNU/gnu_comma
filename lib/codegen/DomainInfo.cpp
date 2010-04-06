@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -65,7 +65,7 @@ const llvm::PointerType *DomainInfo::getCtorPtrType() const
     return CG.getPointerType(ctorTy);
 }
 
-llvm::GlobalVariable *DomainInfo::emit(const Domoid *domoid)
+llvm::GlobalVariable *DomainInfo::define(const Domoid *domoid)
 {
     std::vector<llvm::Constant *> elts;
 
@@ -76,6 +76,11 @@ llvm::GlobalVariable *DomainInfo::emit(const Domoid *domoid)
 
     llvm::Constant *theInfo = llvm::ConstantStruct::get(getType(), elts);
     return CG.makeExternGlobal(theInfo, false, mangle::getLinkName(domoid));
+}
+
+llvm::GlobalVariable *DomainInfo::declare(const Domoid *domoid)
+{
+    return CG.makeExternGlobal(getType(), false, mangle::getLinkName(domoid));
 }
 
 std::string DomainInfo::getLinkName(const Domoid *domoid)

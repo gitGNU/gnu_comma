@@ -274,7 +274,7 @@ DiagnosticStream &AggCheckerBase::report(Location loc, diag::Kind kind)
 
 SourceLocation AggCheckerBase::getSourceLoc(Location loc)
 {
-    return TC.getAstResource().getTextProvider().getSourceLocation(loc);
+    return TC.getTextManager().getSourceLocation(loc);
 }
 
 //===----------------------------------------------------------------------===//
@@ -439,13 +439,14 @@ Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
     // values.
     unsigned bits = 32 - llvm::CountLeadingZeros_32(numComponents) + 1;
     llvm::APInt L(bits, numComponents - 1);
-    Expr *arg = new IntegerLiteral(L, 0);
+    Expr *arg = new IntegerLiteral(L, Location());
 
     // Build a call to the Val attribute.
-    FunctionCallExpr *upper = new FunctionCallExpr(attrib, 0, &arg, 1, 0, 0);
+    FunctionCallExpr *upper = new FunctionCallExpr(
+        attrib, Location(), &arg, 1, 0, 0);
 
     // Build an attribute expression for the lower bound.
-    FirstAE *lower = new FirstAE(idxTy, 0);
+    FirstAE *lower = new FirstAE(idxTy, Location());
 
     // Check the lower and upper bounds in the context of the index type.
     assert(TC.checkExprInContext(lower, idxTy) && "Invalid implicit expr!");

@@ -289,10 +289,14 @@ void CommaRT::define_alloc()
     alloc_Fn = CG.makeFunction(fnTy, "_comma_alloc");
 }
 
-
-llvm::GlobalVariable *CommaRT::registerCapsule(Domoid *domoid)
+llvm::GlobalVariable *CommaRT::defineCapsule(Domoid *domoid)
 {
-    return DInfo->emit(domoid);
+    return DInfo->define(domoid);
+}
+
+llvm::GlobalVariable *CommaRT::declareCapsule(Domoid *domoid)
+{
+    return DInfo->declare(domoid);
 }
 
 llvm::Value *CommaRT::getDomain(llvm::IRBuilder<> &builder,

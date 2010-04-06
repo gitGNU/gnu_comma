@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,9 +18,8 @@ using llvm::cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-AstResource::AstResource(TextProvider &txtProvider, IdentifierPool &idPool)
-    : txtProvider(txtProvider),
-      idPool(idPool)
+AstResource::AstResource(IdentifierPool &idPool)
+    : idPool(idPool)
 {
     initializeLanguageDefinedNodes();
 }
@@ -53,8 +52,9 @@ void AstResource::initializeBoolean()
     // Declaration order of the True and False enumeration literals is critical.
     // We need False defined first so that it codegens to 0.
     typedef std::pair<IdentifierInfo*, Location> IdLocPair;
-    IdLocPair elems[2] = { IdLocPair(falseId, 0), IdLocPair(trueId, 0) };
-    theBooleanDecl = createEnumDecl(boolId, 0, &elems[0], 2, 0);
+    IdLocPair elems[2] = { IdLocPair(falseId, Location()),
+                           IdLocPair(trueId, Location()) };
+    theBooleanDecl = createEnumDecl(boolId, Location(), &elems[0], 2, 0);
 }
 
 void AstResource::initializeCharacter()
@@ -96,9 +96,9 @@ void AstResource::initializeCharacter()
     IdLocPair elems[numNames];
     for (unsigned i = 0; i < numNames; ++i) {
         IdentifierInfo *id = getIdentifierInfo(names[i]);
-        elems[i] = IdLocPair(id, 0);
+        elems[i] = IdLocPair(id, Location());
     }
-    theCharacterDecl = createEnumDecl(charId, 0, elems, numNames, 0);
+    theCharacterDecl = createEnumDecl(charId, Location(), elems, numNames, 0);
     theCharacterDecl->markAsCharacterType();
 }
 
@@ -110,10 +110,10 @@ void AstResource::initializeRootInteger()
     IdentifierInfo *id = getIdentifierInfo("root_integer");
     llvm::APInt lower = llvm::APInt::getSignedMinValue(64);
     llvm::APInt upper = llvm::APInt::getSignedMaxValue(64);
-    IntegerLiteral *lowerExpr = new IntegerLiteral(lower, 0);
-    IntegerLiteral *upperExpr = new IntegerLiteral(upper, 0);
+    IntegerLiteral *lowerExpr = new IntegerLiteral(lower, Location());
+    IntegerLiteral *upperExpr = new IntegerLiteral(upper, Location());
     theRootIntegerDecl =
-        createIntegerDecl(id, 0, lowerExpr, upperExpr, 0);
+        createIntegerDecl(id, Location(), lowerExpr, upperExpr, 0);
 }
 
 void AstResource::initializeInteger()
@@ -122,9 +122,9 @@ void AstResource::initializeInteger()
     IdentifierInfo *integerId = getIdentifierInfo("Integer");
     llvm::APInt lower = llvm::APInt::getSignedMinValue(32);
     llvm::APInt upper = llvm::APInt::getSignedMaxValue(32);
-    IntegerLiteral *lowerExpr = new IntegerLiteral(lower, 0);
-    IntegerLiteral *upperExpr = new IntegerLiteral(upper, 0);
-    theIntegerDecl = createIntegerDecl(integerId, 0,
+    IntegerLiteral *lowerExpr = new IntegerLiteral(lower, Location());
+    IntegerLiteral *upperExpr = new IntegerLiteral(upper, Location());
+    theIntegerDecl = createIntegerDecl(integerId, Location(),
                                        lowerExpr, upperExpr, 0);
 }
 
@@ -140,10 +140,11 @@ void AstResource::initializeNatural()
     type->getUpperLimit(highInt);
 
     // Allocate static expressions for the bounds.
-    Expr *low = new IntegerLiteral(lowInt, type, 0);
-    Expr *high = new IntegerLiteral(highInt, type, 0);
+    Expr *low = new IntegerLiteral(lowInt, type, Location());
+    Expr *high = new IntegerLiteral(highInt, type, Location());
 
-    theNaturalDecl = createIntegerSubtypeDecl(name, 0, type, low, high, 0);
+    theNaturalDecl =
+        createIntegerSubtypeDecl(name, Location(), type, low, high, 0);
 }
 
 void AstResource::initializePositive()
@@ -156,10 +157,11 @@ void AstResource::initializePositive()
     type->getUpperLimit(highInt);
 
     // Allocate static expressions for the bounds.
-    Expr *low = new IntegerLiteral(lowInt, type, 0);
-    Expr *high = new IntegerLiteral(highInt, type, 0);
+    Expr *low = new IntegerLiteral(lowInt, type, Location());
+    Expr *high = new IntegerLiteral(highInt, type, Location());
 
-    thePositiveDecl = createIntegerSubtypeDecl(name, 0, type, low, high, 0);
+    thePositiveDecl =
+        createIntegerSubtypeDecl(name, Location(), type, low, high, 0);
 }
 
 void AstResource::initializeString()
@@ -167,8 +169,8 @@ void AstResource::initializeString()
     IdentifierInfo *name = getIdentifierInfo("String");
     DiscreteType *indexTy = getThePositiveType();
     DSTDefinition::DSTTag tag = DSTDefinition::Type_DST;
-    DSTDefinition *DST = new DSTDefinition(0, indexTy, tag);
-    theStringDecl = createArrayDecl(name, 0, 1, &DST,
+    DSTDefinition *DST = new DSTDefinition(Location(), indexTy, tag);
+    theStringDecl = createArrayDecl(name, Location(), 1, &DST,
                                     getTheCharacterType(), false, 0);
 }
 
@@ -176,15 +178,15 @@ void AstResource::initializeExceptions()
 {
     IdentifierInfo *PEName = getIdentifierInfo("Program_Error");
     ExceptionDecl::ExceptionKind PEKind = ExceptionDecl::Program_Error;
-    theProgramError = new ExceptionDecl(PEKind, PEName, 0, 0);
+    theProgramError = new ExceptionDecl(PEKind, PEName, Location(), 0);
 
     IdentifierInfo *CEName = getIdentifierInfo("Constraint_Error");
     ExceptionDecl::ExceptionKind CEKind = ExceptionDecl::Constraint_Error;
-    theConstraintError = new ExceptionDecl(CEKind, CEName, 0, 0);
+    theConstraintError = new ExceptionDecl(CEKind, CEName, Location(), 0);
 
     IdentifierInfo *AEName = getIdentifierInfo("Assertion_Error");
     ExceptionDecl::ExceptionKind AEKind = ExceptionDecl::Assertion_Error;
-    theAssertionError = new ExceptionDecl(AEKind, AEName, 0, 0);
+    theAssertionError = new ExceptionDecl(AEKind, AEName, Location(), 0);
 }
 
 /// Accessors to the language defined types.  We keep these out of line since we
@@ -388,8 +390,8 @@ IntegerType *AstResource::createIntegerSubtype(IntegerType *base,
                                                const llvm::APInt &high,
                                                IntegerDecl *decl)
 {
-    Expr *lowExpr = new IntegerLiteral(low, base, 0);
-    Expr *highExpr = new IntegerLiteral(high, base, 0);
+    Expr *lowExpr = new IntegerLiteral(low, base, Location());
+    Expr *highExpr = new IntegerLiteral(high, base, Location());
     return createIntegerSubtype(base, lowExpr, highExpr, decl);
 }
 
@@ -547,16 +549,21 @@ AstResource::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
     llvm::SmallVector<ParamValueDecl *, 2> params;
 
     if (ID == PO::POW_op) {
-        params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
+        Type *natural = getTheNaturalType();
         params.push_back(new ParamValueDecl(
-                             left, getTheNaturalType(), PM::MODE_DEFAULT, 0));
+                             left, type, PM::MODE_DEFAULT, Location()));
+        params.push_back(new ParamValueDecl(
+                             left, natural, PM::MODE_DEFAULT, Location()));
     } else if (PO::denotesBinaryOp(ID)) {
-        params.push_back(new ParamValueDecl(left, type, PM::MODE_DEFAULT, 0));
-        params.push_back(new ParamValueDecl(right, type, PM::MODE_DEFAULT, 0));
+        params.push_back(new ParamValueDecl(
+                             left, type, PM::MODE_DEFAULT, Location()));
+        params.push_back(new ParamValueDecl(
+                             right, type, PM::MODE_DEFAULT, Location()));
     }
     else {
         assert(PO::denotesUnaryOp(ID) && "Unexpected operator kind!");
-        params.push_back(new ParamValueDecl(right, type, PM::MODE_DEFAULT, 0));
+        params.push_back(new ParamValueDecl(
+                             right, type, PM::MODE_DEFAULT, Location()));
     }
 
     // Determine the return type.
