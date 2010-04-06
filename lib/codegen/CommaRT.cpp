@@ -551,7 +551,7 @@ llvm::Value *CommaRT::comma_alloc(llvm::IRBuilder<> &builder,
     llvm::Constant *numElt = llvm::ConstantInt::get(size->getType(), nmemb);
     llvm::Value *ptr;
 
-    size = llvm::ConstantExpr::getAdd(size, numElt);
+    size = llvm::ConstantExpr::getMul(size, numElt);
     size = llvm::ConstantExpr::getTrunc(size, CG.getInt32Ty());
     ptr = comma_alloc(builder, size, 0); // FIXME: Implement alignment.
     return builder.CreatePointerCast(ptr, type->getPointerTo());
