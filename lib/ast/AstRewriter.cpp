@@ -146,17 +146,17 @@ FunctionType *AstRewriter::rewriteType(FunctionType *ftype) const
 {
     unsigned arity = ftype->getArity();
     Type *returnType = getRewrite(ftype->getReturnType());
-    Type *paramTypes[arity];
+    llvm::SmallVector<Type*, 16> paramTypes(arity);
 
-    rewriteParameters(ftype, arity, paramTypes);
-    return resource.getFunctionType(paramTypes, arity, returnType);
+    rewriteParameters(ftype, arity, paramTypes.data());
+    return resource.getFunctionType(paramTypes.data(), arity, returnType);
 }
 
 ProcedureType *AstRewriter::rewriteType(ProcedureType *ptype) const
 {
     unsigned arity = ptype->getArity();
-    Type *paramTypes[arity];
+    llvm::SmallVector<Type*, 16> paramTypes(arity);
 
-    rewriteParameters(ptype, arity, paramTypes);
-    return resource.getProcedureType(paramTypes, arity);
+    rewriteParameters(ptype, arity, paramTypes.data());
+    return resource.getProcedureType(paramTypes.data(), arity);
 }

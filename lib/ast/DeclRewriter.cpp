@@ -139,7 +139,7 @@ ArrayDecl *DeclRewriter::rewriteArrayDecl(ArrayDecl *adecl)
     unsigned rank = adecl->getRank();
     bool isConstrained = adecl->isConstrained();
     Type *component = rewriteType(adecl->getComponentType());
-    DSTDefinition *indices[rank];
+    llvm::SmallVector<DSTDefinition*, 16> indices(rank);
 
     for (unsigned i = 0; i < rank; ++i) {
         // Just rewrite the index types into DSTDef's with the Type_DST tag.
@@ -442,7 +442,7 @@ DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
     FunctionDecl *connective = call->getConnective();
     Location loc = call->getLocation();
     unsigned numArgs = call->getNumArgs();
-    Expr *args[numArgs];
+    llvm::SmallVector<Expr*, 16> args(numArgs);
 
     if (Decl *rewrite = findRewrite(connective))
         connective = cast<FunctionDecl>(rewrite);
@@ -454,7 +454,7 @@ DeclRewriter::rewriteFunctionCall(FunctionCallExpr *call)
     for (unsigned idx = 0; I != E; ++I, ++idx)
         args[idx] = rewriteExpr(*I);
 
-    return new FunctionCallExpr(connective, loc, args, numArgs, 0, 0);
+    return new FunctionCallExpr(connective, loc, args.data(), numArgs, 0, 0);
 }
 
 AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)

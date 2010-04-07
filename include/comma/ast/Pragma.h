@@ -58,7 +58,7 @@ protected:
     /// llvm::iplist sentinal nodes.  Such default constructed pragma nodes are
     /// invalid.
     Pragma() : ID(pragma::UNKNOWN_PRAGMA), nextLink(0), prevLink(0) { }
-    friend class llvm::ilist_sentinel_traits<Pragma>;
+    friend struct llvm::ilist_sentinel_traits<Pragma>;
 
     pragma::PragmaID ID;
     Location loc;

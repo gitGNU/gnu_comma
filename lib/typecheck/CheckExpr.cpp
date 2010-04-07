@@ -40,12 +40,12 @@ Expr *TypeCheck::ensureExpr(Ast *node)
     //
     // The only cases we need to diagnose is when the node denotes a type
     // (by far the most common case), or an exception.
-    if (TypeRef *ref = dyn_cast<TypeRef>(node)) {
-        report(ref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
+    if (TypeRef *tref = dyn_cast<TypeRef>(node)) {
+        report(tref->getLocation(), diag::TYPE_FOUND_EXPECTED_EXPRESSION);
     }
     else {
-        ExceptionRef *ref = cast<ExceptionRef>(node);
-        report(ref->getLocation(), diag::EXCEPTION_CANNOT_DENOTE_VALUE);
+        ExceptionRef *eref = cast<ExceptionRef>(node);
+        report(eref->getLocation(), diag::EXCEPTION_CANNOT_DENOTE_VALUE);
     }
     return 0;
 }
@@ -465,13 +465,13 @@ Node TypeCheck::acceptAllocatorExpr(Node operandNode, Location loc)
 {
     AllocatorExpr *alloc = 0;
 
-    if (QualifiedExpr *operand = lift_node<QualifiedExpr>(operandNode))
-        alloc = new AllocatorExpr(operand, loc);
+    if (QualifiedExpr *qual = lift_node<QualifiedExpr>(operandNode))
+        alloc = new AllocatorExpr(qual, loc);
     else {
-        TypeDecl *operand = ensureCompleteTypeDecl(operandNode);
-        if (!operand)
+        TypeDecl *tdecl = ensureCompleteTypeDecl(operandNode);
+        if (!tdecl)
             return getInvalidNode();
-        alloc = new AllocatorExpr(operand->getType(), loc);
+        alloc = new AllocatorExpr(tdecl->getType(), loc);
     }
     operandNode.release();
     return getNode(alloc);

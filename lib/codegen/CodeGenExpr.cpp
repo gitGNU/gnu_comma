@@ -378,10 +378,9 @@ CodeGenRoutine::emitDiscreteRangeCheck(llvm::Value *sourceVal, Location loc,
     }
     else {
         BoundsEmitter emitter(*this);
-        BoundsEmitter::LUPair bounds =
-            emitter.getScalarBounds(Builder, targetTy);
-        lower = bounds.first;
-        upper = bounds.second;
+        BoundsEmitter::LUPair lu = emitter.getScalarBounds(Builder, targetTy);
+        lower = lu.first;
+        upper = lu.second;
     }
 
     // Extend the bounds if needed.

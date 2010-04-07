@@ -51,8 +51,7 @@ Ast *TypeCheck::checkIndirectName(Location loc, Resolver &resolver)
         if (SubroutineRef *ref = buildSubroutineRef(loc, resolver))
             return ref;
         else {
-            report(ref->getLocation(), diag::NAME_NOT_VISIBLE)
-                << resolver.getIdInfo();
+            report(loc, diag::NAME_NOT_VISIBLE) << resolver.getIdInfo();
             return 0;
         }
     }

@@ -144,7 +144,7 @@ const Type *CodeGenTypes::resolveType(const Type *type)
             // of the percent node and resolve the particular representation
             // associated with the instance.
             assert(percent->getDefinition() == context->getDefinition());
-            ((void*)percent);
+            percent = 0;        // Inhibit unused variable warning.
             instance = context;
         }
         else
@@ -174,7 +174,7 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
     if (const PercentDecl *percent = type->getPercentDecl()) {
         assert(percent->getDefinition() == context->getDefinition() &&
                "Inconsistent context for PercentDecl!");
-        ((void*)percent);
+        percent = 0;            // Inhibit unused variable warning.
         entry = lowerType(context->getRepresentationType());
     }
     else {

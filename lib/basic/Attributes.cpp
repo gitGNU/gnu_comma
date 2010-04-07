@@ -11,6 +11,7 @@
 
 #include <cstring>
 
+using namespace comma;
 using namespace comma::attrib;
 
 namespace {
