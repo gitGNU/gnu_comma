@@ -32,52 +32,10 @@ class CommaRT {
 public:
     CommaRT(CodeGen &CG);
 
-    ~CommaRT();
-
     /// \brief Returns the CodeGen object over which this runtime was
     /// constructed.
     CodeGen &getCodeGen() { return CG; }
     const CodeGen &getCodeGen() const { return CG; }
-
-    enum TypeId {
-        CRT_ITable,
-        CRT_DomainInfo,
-        CRT_DomainInstance,
-        CRT_DomainCtor
-    };
-
-    template <TypeId F>
-    struct TypeIdTraits {
-        typedef const llvm::PointerType FieldType;
-    };
-
-    template <TypeId F>
-    typename TypeIdTraits<F>::FieldType *getType() const;
-
-    const std::string &getTypeName(TypeId id) const;
-
-    llvm::GlobalVariable *defineCapsule(Domoid *domoid);
-    llvm::GlobalVariable *declareCapsule(Domoid *domoid);
-
-    llvm::Value *getDomain(llvm::IRBuilder<> &builder,
-                           llvm::GlobalValue *capsuleInfo) const;
-
-    llvm::Value *getDomain(llvm::IRBuilder<> &builder,
-                           std::vector<llvm::Value*> &args) const;
-
-    llvm::Value *getLocalCapsule(llvm::IRBuilder<> &builder,
-                                 llvm::Value *percent, unsigned ID) const;
-
-    /// Returns the formal parameter from the given domain instance with the
-    /// given index.
-    llvm::Value *getCapsuleParameter(llvm::IRBuilder<> &builder,
-                                     llvm::Value *instance,
-                                     unsigned index) const;
-
-    /// The following methods are not for public consumption.  They provide
-    /// access to objects used in other areas of the runtime codegen system.
-    const DomainInfo *getDomainInfo() const { return DInfo; }
-    const DomainInstance *getDomainInstance() const { return DInstance; }
 
     /// \name Exception Handling.
     ///
@@ -202,22 +160,7 @@ public:
 private:
     CodeGen &CG;
 
-    // Names of the basic runtime types as they appear in llvm IR.
-    std::string InvalidName;
-    std::string ITableName;
-    std::string DomainCtorName;
-
-    DomainInfo *DInfo;
-    const llvm::PointerType *DomainInfoPtrTy;
-
-    DomainInstance *DInstance;
-    const llvm::PointerType *DomainInstancePtrTy;
-
-    const llvm::PointerType *ITablePtrTy;
-    const llvm::PointerType *DomainCtorPtrTy;
-
     // Function declarations for the comma runtime functions.
-    llvm::Function *getDomainFn;
     llvm::Function *EHPersonalityFn;
     llvm::Function *unhandledExceptionFn;
     llvm::Function *raiseStaticExceptionFn;
@@ -245,11 +188,7 @@ private:
     llvm::Constant *theConstraintErrorExinfo;
     llvm::Constant *theAssertErrorExinfo;
 
-    const llvm::PointerType *getDomainCtorPtrTy();
-    const llvm::PointerType *getITablePtrTy();
-
     // Methods which build the LLVM IR for the comma runtime functions.
-    void defineGetDomain();
     void defineEHPersonality();
     void defineUnhandledException();
     void defineRaiseException();
@@ -289,30 +228,6 @@ private:
                      llvm::Value *fileName, llvm::Value *lineNum,
                      llvm::Value *message, llvm::Value *length) const;
 };
-
-template <> inline
-CommaRT::TypeIdTraits<CommaRT::CRT_ITable>::FieldType *
-CommaRT::getType<CommaRT::CRT_ITable>() const {
-    return ITablePtrTy;
-}
-
-template <> inline
-CommaRT::TypeIdTraits<CommaRT::CRT_DomainInfo>::FieldType *
-CommaRT::getType<CommaRT::CRT_DomainInfo>() const {
-    return DomainInfoPtrTy;
-}
-
-template <> inline
-CommaRT::TypeIdTraits<CommaRT::CRT_DomainInstance>::FieldType *
-CommaRT::getType<CommaRT::CRT_DomainInstance>() const {
-    return DomainInstancePtrTy;
-}
-
-template <> inline
-CommaRT::TypeIdTraits<CommaRT::CRT_DomainCtor>::FieldType *
-CommaRT::getType<CommaRT::CRT_DomainCtor>() const {
-    return DomainCtorPtrTy;
-}
 
 } // end comma namespace.
 

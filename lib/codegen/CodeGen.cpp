@@ -40,17 +40,11 @@ CodeGen::~CodeGen()
 
 void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
 {
-    // Generate capsule info objects for each dependency.
+    // Generate instance info objects for each non-parameterized dependency.
     typedef CompilationUnit::dep_iterator dep_iterator;
     for (dep_iterator I = cunit->begin_dependencies(),
              E = cunit->end_dependencies(); I != E; ++I) {
-        Decl *decl = *I;
-        if (Domoid *domoid = dyn_cast<Domoid>(decl)) {
-            std::string linkName = mangle::getLinkName(domoid);
-            capsuleInfoTable[linkName] = CRT->declareCapsule(domoid);
-        }
-
-        if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
+        if (DomainDecl *domain = dyn_cast<DomainDecl>(*I)) {
             InstanceInfo *info = createInstanceInfo(domain->getInstance());
             info->markAsCompiled();
         }
@@ -67,28 +61,15 @@ void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
     if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
-        DependencySet *DS = new DependencySet(domain);
-        dependenceTable[domain] = DS;
-
         // Generate an InstanceInfo object for this domain.
         InstanceInfo *info = createInstanceInfo(domain->getInstance());
         emitCapsule(info);
-        capsuleInfoTable[info->getLinkName()] = CRT->defineCapsule(domain);
-    }
-    else if (FunctorDecl *functor = dyn_cast<FunctorDecl>(decl)) {
-        DependencySet *DS = new DependencySet(functor);
-        dependenceTable[functor] = DS;
 
-        std::string name = mangle::getLinkName(functor);
-        capsuleInfoTable[name] = CRT->defineCapsule(functor);
+        // Continuously compile from the set of required instances so long as
+        // there exist entries which need to be codegened.
+        while (instancesPending())
+            emitNextInstance();
     }
-    else
-        return;
-
-    // Continuously compile from the set of required instances so long as there
-    // exist entries which need to be codegened.
-    while (instancesPending())
-        emitNextInstance();
 }
 
 void CodeGen::emitCapsule(InstanceInfo *info)
@@ -144,19 +125,8 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     llvm::BasicBlock *returnBB  = makeBasicBlock("return", entry);
     Builder.SetInsertPoint(entryBB);
 
-    // Lookup the domain info object for the needed domain.
-    llvm::GlobalValue *domainInfo = lookupCapsuleInfo(context->getDefinition());
-    assert(domainInfo && "Could not find domain_info for entry function!");
-
-    // Build the get_domain call.  Since this domain is not parameterized, only
-    // the domain_info object is required as an argument.
-    llvm::Value *domainInstance = CRT->getDomain(Builder, domainInfo);
-
-    // Invoke our entry function with the generated instance as its only
-    // argument.
-    llvm::SmallVector<llvm::Value*, 2> args;
-    args.push_back(domainInstance);
-    Builder.CreateInvoke(func, returnBB, landingBB, args.begin(), args.end());
+    // Invoke our entry function.
+    Builder.CreateInvoke(func, returnBB, landingBB);
 
     // Switch to normal return.
     Builder.SetInsertPoint(returnBB);
@@ -173,7 +143,7 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
 
     // Build an exception selector with a null exception info entry.  This is a
     // catch-all selector.
-    args.clear();
+    llvm::SmallVector<llvm::Value*, 3> args;
     args.push_back(except);
     args.push_back(eh_person);
     args.push_back(getNullPointer(getInt8PtrTy()));
@@ -284,17 +254,6 @@ bool CodeGen::insertGlobal(const std::string &linkName, llvm::GlobalValue *GV)
 llvm::GlobalValue *CodeGen::lookupGlobal(const std::string &linkName) const
 {
     return M->getGlobalVariable(linkName);
-}
-
-llvm::GlobalValue *CodeGen::lookupCapsuleInfo(const Domoid *domoid) const
-{
-    std::string name = mangle::getLinkName(domoid);
-    StringGlobalMap::const_iterator iter = capsuleInfoTable.find(name);
-
-    if (iter != capsuleInfoTable.end())
-        return iter->second;
-    else
-        return 0;
 }
 
 llvm::GlobalVariable *CodeGen::emitInternString(const llvm::StringRef &elems,

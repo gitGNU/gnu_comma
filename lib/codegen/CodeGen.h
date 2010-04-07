@@ -102,11 +102,6 @@ public:
     /// given link (mangled) name, or null if no such declaration exists.
     llvm::GlobalValue *lookupGlobal(const std::string &linkName) const;
 
-    /// \brief Returns an llvm value representing the static compile time info
-    /// representing a previously declared capsule, or null if no such
-    /// information is present.
-    llvm::GlobalValue *lookupCapsuleInfo(const Domoid *domoid) const;
-
     /// \brief Emits a string with internal linkage, returning the global
     /// variable for the associated data.  If addNull is true, emit as a null
     /// terminated string.
@@ -346,9 +341,6 @@ private:
 
     /// The type of table used to map strings to global values.
     typedef llvm::StringMap<llvm::GlobalValue *> StringGlobalMap;
-
-    /// A map from the link name of a capsule to its corresponding info table.
-    StringGlobalMap capsuleInfoTable;
 
     /// A map from declaration names to LLVM global values.
     StringGlobalMap globalTable;

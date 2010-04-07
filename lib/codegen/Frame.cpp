@@ -99,8 +99,7 @@ Frame::Frame(SRInfo *routineInfo,
       allocaBB(0),
       returnBB(0),
       currentSubframe(0),
-      returnValue(0),
-      implicitContext(0)
+      returnValue(0)
 {
     llvm::Module *M = SRI->getLLVMModule();
     llvm::LLVMContext &Ctx = M->getContext();
@@ -247,10 +246,6 @@ void Frame::injectSubroutineArgs(CodeGenRoutine &CGR)
         argI->setName("return.arg");
         ++argI;
     }
-
-    // The next argument is the instance structure.  Name the arg "percent".
-    argI->setName("percent");
-    implicitContext = argI++;
 
     // For each formal argument, locate the corresponding llvm argument.  This
     // is mostly a one-to-one mapping except when unconstrained arrays are

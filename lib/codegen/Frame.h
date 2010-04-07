@@ -251,8 +251,6 @@ public:
 
     llvm::Value *getReturnValue() { return returnValue; }
 
-    llvm::Value *getImplicitContext() { return implicitContext; }
-
     void emitPrologue(llvm::BasicBlock *bodyBB);
     void emitEpilogue();
 
@@ -294,9 +292,6 @@ private:
     /// The return value for this function.  This member is null when we are
     /// generating an procedure or function using the sret calling convention.
     llvm::Value *returnValue;
-
-    /// The implicit instance parameter for this function.
-    llvm::Value *implicitContext;
 
     // Map from Comma Decl's and Type's to AllocaEntry's.
     typedef llvm::DenseMap<const Ast*, ActivationEntry*> EntryMap;

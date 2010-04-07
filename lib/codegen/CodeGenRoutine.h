@@ -63,10 +63,6 @@ public:
     /// generated.
     Frame *getFrame() { return SRF; }
 
-    llvm::Value *getImplicitContext() const {
-        return SRF->getImplicitContext();
-    }
-
     void emit();
 
     CValue emitValue(Expr *expr);

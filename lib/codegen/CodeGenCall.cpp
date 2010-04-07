@@ -73,7 +73,7 @@ private:
     /// Appends the actual arguments of the callExpr to the arguments vector.
     ///
     /// Note that this method does not generate any implicit first parameter
-    /// such as sret return values or domain instances.
+    /// such as sret return values.
     void emitCallArguments();
 
     /// Helper method for emitCallArguments.
@@ -760,11 +760,6 @@ SRInfo *CallEmitter::prepareCall()
 
 SRInfo *CallEmitter::prepareLocalCall()
 {
-
-    // Insert the implicit first parameter, which for a local call is the
-    // context object handed to the current subroutine.
-    arguments.push_back(CGR.getImplicitContext());
-
     // Resolve the info structure for called subroutine.
     SubroutineDecl *srDecl = SRCall->getConnective();
     InstanceInfo *IInfo = CGC.getInstanceInfo();
@@ -788,27 +783,10 @@ SRInfo *CallEmitter::prepareForeignCall()
 SRInfo *CallEmitter::prepareDirectCall()
 {
     SubroutineDecl *srDecl = SRCall->getConnective();
-    const CommaRT &CRT = CG.getRuntime();
     InstanceInfo *IInfo = CGC.getInstanceInfo();
 
-    // Lookup the implicit context of the function we wish to call by indexing
-    // into the current subroutines implicit context.
-    //
-    // First, resolve the depencendy ID of the declaration context defining the
-    // function we wish to call.
     DomainInstanceDecl *definingDecl
         = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
-    const DependencySet &DSet = CG.getDependencySet(IInfo->getDefinition());
-    DependencySet::iterator IDPos = DSet.find(definingDecl);
-    assert(IDPos != DSet.end() && "Failed to resolve dependency!");
-    unsigned instanceID = DSet.getDependentID(IDPos);
-
-    // Generate a lookup into the current subroutines implicit context using
-    // resolved ID.
-    llvm::Value *implicitCtx;
-    implicitCtx = CGR.getImplicitContext();
-    implicitCtx = CRT.getLocalCapsule(Builder, implicitCtx, instanceID);
-    arguments.push_back(implicitCtx);
 
     // If the declaration context which provides this call is dependent (meaning
     // that it involves percent or other generic parameters),  rewrite the
@@ -857,8 +835,6 @@ SRInfo *CallEmitter::prepareDirectCall()
 
 SRInfo *CallEmitter::prepareAbstractCall()
 {
-    const CommaRT &CRT = CG.getRuntime();
-
     // Resolve the abstract domain declaration providing this call.
     SubroutineDecl *srDecl = SRCall->getConnective();
     AbstractDomainDecl *abstract =
@@ -878,15 +854,7 @@ SRInfo *CallEmitter::prepareAbstractCall()
     SubroutineDecl *resolvedRoutine;
     resolvedRoutine = resolveAbstractSubroutine(instance, abstract, srDecl);
 
-    // Index into the implicit context to obtain the the called functions
-    // context.
-    InstanceInfo *IInfo = CGC.getInstanceInfo();
-    const FunctorDecl *functor = cast<FunctorDecl>(IInfo->getDefinition());
-    unsigned index = functor->getFormalIndex(abstract);
-    llvm::Value *context = CGR.getImplicitContext();
-    arguments.push_back(CRT.getCapsuleParameter(Builder, context, index));
-
-    // Lookup the associated SRInfo and return the llvm function.
+     // Lookup the associated SRInfo and return the llvm function.
     return CG.getSRInfo(instance, resolvedRoutine);
 }
 
