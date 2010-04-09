@@ -41,7 +41,7 @@ public:
 
     void parseWithClause();
 
-    void parseModel();
+    void parseCapsule();
 
     void parseGenericFormalParams();
     void parseGenericFormalDomain();

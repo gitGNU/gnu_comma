@@ -142,19 +142,9 @@ private:
     /// and resolves the associated SRInfo object.
     SRInfo *prepareCall();
 
-    /// Appends the implicit domain instance needed for a local call and
-    /// returns the associated SRInfo.
     SRInfo *prepareLocalCall();
-
-    /// Returns the SRInfo associated with a foreign call.
     SRInfo *prepareForeignCall();
-
-    /// Appends the implicit domain instance needed for a direct call and
-    /// returns the associated SRInfo.
     SRInfo *prepareDirectCall();
-
-    /// Appends the implicit domain instance needed for an abstract call and
-    /// returns the associated SRInfo.
     SRInfo *prepareAbstractCall();
 
     /// Helper method for prepareAbstractCall.
@@ -763,8 +753,13 @@ SRInfo *CallEmitter::prepareLocalCall()
     // Resolve the info structure for called subroutine.
     SubroutineDecl *srDecl = SRCall->getConnective();
     InstanceInfo *IInfo = CGC.getInstanceInfo();
-    DomainInstanceDecl *instance = IInfo->getInstanceDecl();
-    return CGR.getCodeGen().getSRInfo(instance, srDecl);
+
+    if (DomainInstanceDecl *DID = IInfo->getDomainInstanceDecl())
+        return CGR.getCodeGen().getSRInfo(DID, srDecl);
+    else {
+        PkgInstanceDecl *PID = IInfo->getPkgInstanceDecl();
+        return CGR.getCodeGen().getSRInfo(PID, srDecl);
+    }
 }
 
 SRInfo *CallEmitter::prepareForeignCall()
@@ -772,55 +767,74 @@ SRInfo *CallEmitter::prepareForeignCall()
     // Resolve the instance for the given declaration.
     SubroutineDecl *srDecl = SRCall->getConnective();
     DeclRegion *region = srDecl->getDeclRegion();
-    DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region);
 
-    if (!instance)
-        instance = CGC.getInstanceInfo()->getInstanceDecl();
+    if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region))
+        return CG.getSRInfo(instance, srDecl);
 
-    return CG.getSRInfo(instance, srDecl);
+    if (PkgInstanceDecl *instance = dyn_cast<PkgInstanceDecl>(region))
+        return CG.getSRInfo(instance, srDecl);
+
+    // If the given subroutine was not declared in the public interface of a
+    // domain or package instance, then it must correspond to an internal
+    // declaration.  Resolve with respect to the instance currently being
+    // codegened.
+    InstanceInfo *iinfo = CGC.getInstanceInfo();
+    if (DomainInstanceDecl *instance = iinfo->getDomainInstanceDecl())
+        return CG.getSRInfo(instance, srDecl);
+    return CG.getSRInfo(iinfo->getPkgInstanceDecl(), srDecl);
 }
 
 SRInfo *CallEmitter::prepareDirectCall()
 {
     SubroutineDecl *srDecl = SRCall->getConnective();
     InstanceInfo *IInfo = CGC.getInstanceInfo();
+    CapsuleInstance *context;
 
-    DomainInstanceDecl *definingDecl
-        = cast<DomainInstanceDecl>(srDecl->getDeclRegion());
+    if (!(context = dyn_cast<DomainInstanceDecl>(srDecl->getDeclRegion())))
+        context = cast<PkgInstanceDecl>(srDecl->getDeclRegion());
 
     // If the declaration context which provides this call is dependent (meaning
     // that it involves percent or other generic parameters),  rewrite the
     // declaration using the actual arguments supplied to this instance.
-    DomainInstanceDecl *targetInstance;
+    CapsuleInstance *targetInstance;
     SubroutineDecl *targetRoutine;
-    if (definingDecl->isDependent()) {
+    if (context->isDependent()) {
         AstRewriter rewriter(CG.getAstResource());
 
-        // Map the percent node of the capsule to the current instance.
-        rewriter.addTypeRewrite(IInfo->getDefinition()->getPercentType(),
-                                IInfo->getInstanceDecl()->getType());
+        // If the current capsule is a domain map its percent node to the actual
+        // instance being codegened.
+        if (IInfo->denotesDomainInstance()) {
+            DomainInstanceDecl *instance = IInfo->getDomainInstanceDecl();
+            rewriter.addTypeRewrite(instance->getDefinition()->getPercentType(),
+                                    instance->getType());
+        }
 
-        // Map any generic formal parameters to the actual arguments of this instance.
+        // Map any generic formal parameters to the actual arguments of this
+        // instance.
         const CGContext::ParameterMap &paramMap = CGC.getParameterMap();
         rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
 
-        // Rewrite the type of the defining declaration and extract the
-        // associated instance.
-        DomainType *targetTy = rewriter.rewriteType(definingDecl->getType());
-        targetInstance = targetTy->getInstanceDecl();
+        // If the context providing this call is a domain rewrite its type
+        // according to the above rules.
+        if (context->denotesDomainInstance()) {
+            DomainInstanceDecl *domain = context->asDomainInstance();
+            DomainType *targetTy = rewriter.rewriteType(domain->getType());
+            targetInstance = targetTy->getInstanceDecl();
 
-        // Extend the rewriter with a rule to map the type of the defining
-        // declaration to the targetInstance.  Using this extended rewriter,
-        // rewrite the type of the subroutine we wish to call.  This rewritten
-        // type must match exactly one subrtouine provided by the target
+            // Extend the rewriter with a rule to map the type of the context
+            // domain to the targetInstance.
+            rewriter.addTypeRewrite(domain->getType(), targetTy);
+        }
+
+        // Rewrite the type of the subroutine and perform a lookup in the target
         // instance.
-        rewriter.addTypeRewrite(definingDecl->getType(), targetTy);
         SubroutineType *srTy = rewriter.rewriteType(srDecl->getType());
-        Decl *resolvedDecl = targetInstance->findDecl(srDecl->getIdInfo(), srTy);
+        DeclRegion *region = targetInstance->asDeclRegion();
+        Decl *resolvedDecl = region->findDecl(srDecl->getIdInfo(), srTy);
         targetRoutine = cast<SubroutineDecl>(resolvedDecl);
     }
     else {
-        targetInstance = definingDecl;
+        targetInstance = context;
         targetRoutine = srDecl;
     }
 

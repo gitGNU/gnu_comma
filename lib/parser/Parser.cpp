@@ -400,8 +400,8 @@ void Parser::parseGenericFormalParams()
 
         default:
             report(diag::UNEXPECTED_TOKEN) << currentTokenString();
-            if (seekTokens(Lexer::TKN_ABSTRACT,
-                           Lexer::TKN_DOMAIN, Lexer::TKN_SIGNATURE)) {
+            if (seekTokens(Lexer::TKN_ABSTRACT, Lexer::TKN_DOMAIN,
+                           Lexer::TKN_SIGNATURE, Lexer::TKN_PACKAGE)) {
                 if (currentTokenIs(Lexer::TKN_ABSTRACT))
                     continue;
             }
@@ -414,6 +414,7 @@ void Parser::parseGenericFormalParams()
 
         case Lexer::TKN_DOMAIN:
         case Lexer::TKN_SIGNATURE:
+        case Lexer::TKN_PACKAGE:
             client.endGenericFormals();
             return;
         }
@@ -630,9 +631,9 @@ void Parser::parseWithClause()
 }
 
 
-void Parser::parseModel()
+void Parser::parseCapsule()
 {
-    bool parsingDomain = false;
+    bool parsingSignature = false;
     IdentifierInfo *name = 0;
 
     client.beginCapsule();
@@ -640,18 +641,24 @@ void Parser::parseModel()
     if (currentTokenIs(Lexer::TKN_GENERIC))
         parseGenericFormalParams();
 
-    if (reduceToken(Lexer::TKN_DOMAIN)) {
+    if (reduceToken(Lexer::TKN_PACKAGE)) {
+        Location loc = currentLocation();
+        if (!(name = parseIdentifier()))
+            return;
+        client.beginPackageDecl(name, loc);
+    }
+    else if (reduceToken(Lexer::TKN_DOMAIN)) {
         Location loc = currentLocation();
         if (!(name = parseIdentifier()))
             return;
         client.beginDomainDecl(name, loc);
-        parsingDomain = true;
     }
     else if (reduceToken(Lexer::TKN_SIGNATURE)) {
         Location loc = currentLocation();
         if (!(name = parseIdentifier()))
             return;
         client.beginSignatureDecl(name, loc);
+        parsingSignature = true;
     }
     else {
         assert(false && "Bad token for this production!");
@@ -661,14 +668,14 @@ void Parser::parseModel()
     if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
         parseSignatureProfile();
 
-    if (parsingDomain && reduceToken(Lexer::TKN_ADD))
+    if (!parsingSignature && reduceToken(Lexer::TKN_ADD))
         parseAddComponents();
 
     client.endCapsule();
 
     // Consume and verify the end tag.  On failure seek the next top level form.
     if (!parseEndTag(name))
-        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN);
+        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN, Lexer::TKN_PACKAGE);
     else
         requireToken(Lexer::TKN_SEMI);
 }
@@ -1269,10 +1276,11 @@ bool Parser::parseTopLevelDeclaration()
 {
     for (;;) {
         switch (currentTokenCode()) {
+        case Lexer::TKN_PACKAGE:
         case Lexer::TKN_SIGNATURE:
         case Lexer::TKN_DOMAIN:
         case Lexer::TKN_GENERIC:
-            parseModel();
+            parseCapsule();
             return true;
 
         case Lexer::TKN_EOT:

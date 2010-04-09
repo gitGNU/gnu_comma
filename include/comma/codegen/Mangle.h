@@ -35,16 +35,16 @@ namespace mangle {
 /// appropriate qualification prefix and overload suffix).
 std::string getLinkName(const SubroutineDecl *sr);
 
-std::string getLinkName(const DomainInstanceDecl *instance,
+std::string getLinkName(const CapsuleInstance *instance,
                         const SubroutineDecl *sr);
 
 /// \brief Returns the name of the given Domoid as it should appear in LLVM
 /// IR.
 std::string getLinkName(const Domoid *domoid);
 
-/// \brief Returns the name of the given domain instance as it should appear
-/// in LLVM IR.
-std::string getLinkName(const DomainInstanceDecl *instance);
+/// \brief Returns the name of the given instance as it should appear in LLVM
+/// IR.
+std::string getLinkName(const CapsuleInstance *instance);
 
 /// \brief Returns the name of the given exception declaration as it should
 /// appear in LLVM IR.

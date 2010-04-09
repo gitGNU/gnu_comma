@@ -17,11 +17,14 @@ using llvm::isa;
 CGContext::CGContext(CodeGen &CG, InstanceInfo *IInfo)
     : CG(CG),
       IInfo(IInfo),
-      CGT(CG, IInfo->getInstanceDecl())
+      CGT(CG, IInfo->getDomainInstanceDecl())
 {
-    DomainInstanceDecl *instance = IInfo->getInstanceDecl();
-    Domoid *domoid = IInfo->getDefinition();
-    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(domoid)) {
+    // FIXME: Support parameter maps for parameterized packages.
+    DomainInstanceDecl *instance = IInfo->getDomainInstanceDecl();
+    if (!instance)
+        return;
+
+    if (FunctorDecl *functor = instance->getDefiningFunctor()) {
         for (unsigned i = 0; i < instance->getArity(); ++i) {
             DomainType *formal = functor->getFormalType(i);
             DomainType *actual = instance->getActualParamType(i);
@@ -32,8 +35,11 @@ CGContext::CGContext(CodeGen &CG, InstanceInfo *IInfo)
 
 bool CGContext::generatingCapsuleInstance() const
 {
-    if (generatingCapsule())
-        return IInfo->getInstanceDecl()->isParameterized();
+    // FIXME: Support parameterized packages.
+    if (generatingCapsule()) {
+        DomainInstanceDecl *instance = IInfo->getDomainInstanceDecl();
+        return instance && instance->isParameterized();
+    }
     return false;
 }
 

@@ -187,8 +187,6 @@ Node Parser::parseAttribute(Node prefix, NameOption option)
 
 Node Parser::parseName(NameOption option)
 {
-    Location loc = currentLocation();
-
     // All names start with a direct name.
     Node prefix = parseDirectName(option);
 

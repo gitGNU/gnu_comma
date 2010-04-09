@@ -95,32 +95,41 @@ bool emitEntryPoint(Generator *Gen, const CompilationUnit &cu)
         return false;
     }
 
-    std::string domainName = EntryPoint.substr(0, dotPos);
+    std::string capsuleName = EntryPoint.substr(0, dotPos);
     std::string procName = EntryPoint.substr(dotPos + 1);
 
     // Find a declaration in the given compilation unit which matches the needed
-    // domain.
-    DomainDecl *context = 0;
+    // capsule.
+    DeclRegion *region = 0;
     typedef CompilationUnit::decl_iterator ctx_iterator;
     for (ctx_iterator I = cu.begin_declarations();
          I != cu.end_declarations(); ++I) {
-        if (!(context = dyn_cast<DomainDecl>(*I)))
-            continue;
-        if (domainName == context->getString())
-            break;
+
+        if (DomainDecl *domain = dyn_cast<DomainDecl>(*I)) {
+            if (capsuleName == domain->getString()) {
+                region = domain->getInstance();
+                break;
+            }
+        }
+
+        if (PackageDecl *package = dyn_cast<PackageDecl>(*I)) {
+            if (capsuleName == package->getString()) {
+                region = package->getInstance();
+                break;
+            }
+        }
     }
 
-    if (!context) {
-        llvm::errs() << "Entry domain `" << domainName << "' not found.\n";
+    if (!region) {
+        llvm::errs() << "Entry capsule `" << capsuleName << "' not found.\n";
         return false;
     }
 
     // Find a nullary procedure declaration with the given name.
     ProcedureDecl *proc = 0;
-    DomainInstanceDecl *instance = context->getInstance();
     typedef DeclRegion::DeclIter decl_iterator;
-    for (decl_iterator I = instance->beginDecls();
-         I != instance->endDecls(); ++I) {
+    for (decl_iterator I = region->beginDecls();
+         I != region->endDecls(); ++I) {
         ProcedureDecl *candidate = dyn_cast<ProcedureDecl>(*I);
         if (!candidate)
             continue;

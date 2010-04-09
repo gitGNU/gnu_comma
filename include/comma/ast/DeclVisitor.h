@@ -42,6 +42,7 @@ public:
     ///@{
     virtual void visitAst(Ast *node);
     virtual void visitDecl(Decl *node);
+    virtual void visitCapsuleDecl(CapsuleDecl *node);
     virtual void visitModelDecl(ModelDecl *node);
     virtual void visitSigoid(Sigoid *node);
     virtual void visitDomoid(Domoid *node);
@@ -69,6 +70,8 @@ public:
     virtual void visitAddDecl(AddDecl *node);
     virtual void visitDomainDecl(DomainDecl *node);
     virtual void visitFunctorDecl(FunctorDecl *node);
+    virtual void visitPackageDecl(PackageDecl *node);
+    virtual void visitPkgInstanceDecl(PkgInstanceDecl *node);
     virtual void visitFunctionDecl(FunctionDecl *node);
     virtual void visitProcedureDecl(ProcedureDecl *node);
     virtual void visitCarrierDecl(CarrierDecl *node);

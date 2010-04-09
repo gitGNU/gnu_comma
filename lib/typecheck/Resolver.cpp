@@ -96,6 +96,7 @@ bool Resolver::resolveDirectDecls(Homonym *homonym)
             assert((isa<ValueDecl>(candidate)     ||
                     isa<TypeDecl>(candidate)      ||
                     isa<ModelDecl>(candidate)     ||
+                    isa<PackageDecl>(candidate)   ||
                     isa<ExceptionDecl>(candidate) ||
                     isa<ComponentDecl>(candidate)) &&
                    "Bad type of direct declaration!");

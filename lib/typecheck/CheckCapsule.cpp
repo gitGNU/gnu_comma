@@ -34,7 +34,7 @@ void TypeCheck::beginCapsule()
     scope.push(MODEL_SCOPE);
     GenericFormalDecls.clear();
     declarativeRegion = 0;
-    currentModel = 0;
+    currentCapsule = 0;
 }
 
 void TypeCheck::endCapsule()
@@ -45,7 +45,7 @@ void TypeCheck::endCapsule()
     assert(scope.getKind() == MODEL_SCOPE);
     scope.pop();
 
-    ModelDecl *result = getCurrentModel();
+    CapsuleDecl *result = getCurrentCapsule();
     if (Decl *conflict = scope.addDirectDecl(result)) {
         // NOTE: The result model could be freed here.
         report(result->getLocation(), diag::CONFLICTING_DECLARATION)
@@ -105,10 +105,10 @@ void TypeCheck::beginDomainDecl(IdentifierInfo *name, Location loc)
     unsigned arity = GenericFormalDecls.size();
 
     if (arity == 0)
-        currentModel = new DomainDecl(resource, name, loc);
+        currentCapsule = new DomainDecl(resource, name, loc);
     else
-        currentModel = new FunctorDecl(resource, name, loc,
-                                       &GenericFormalDecls[0], arity);
+        currentCapsule = new FunctorDecl(resource, name, loc,
+                                         &GenericFormalDecls[0], arity);
     initializeForModelDeclaration();
 }
 
@@ -119,32 +119,45 @@ void TypeCheck::beginSignatureDecl(IdentifierInfo *name, Location loc)
     unsigned arity = GenericFormalDecls.size();
 
     if (arity == 0)
-        currentModel = new SignatureDecl(resource, name, loc);
+        currentCapsule = new SignatureDecl(resource, name, loc);
     else
-        currentModel = new VarietyDecl(resource, name, loc,
-                                       &GenericFormalDecls[0], arity);
+        currentCapsule = new VarietyDecl(resource, name, loc,
+                                         &GenericFormalDecls[0], arity);
     initializeForModelDeclaration();
+}
+
+void TypeCheck::beginPackageDecl(IdentifierInfo *name, Location loc)
+{
+    // FIXME: Support generic parameters for packages.
+    assert(GenericFormalDecls.size() == 0 &&
+           "Generic packages not supported yet!");
+
+    PackageDecl *package = new PackageDecl(resource, name, loc);
+    currentCapsule = package;
+    declarativeRegion = package;
+    scope.addDirectDeclNoConflicts(currentCapsule);
 }
 
 void TypeCheck::initializeForModelDeclaration()
 {
     assert(scope.getKind() == MODEL_SCOPE);
+    ModelDecl *model = getCurrentModel();
 
     // Set the current declarative region to be the percent node of the current
     // model.
-    declarativeRegion = currentModel->getPercent();
+    declarativeRegion = model->getPercent();
 
     // For each generic formal, set its declarative region to be that the new
     // models percent node.
-    unsigned arity = currentModel->getArity();
+    unsigned arity = model->getArity();
     for (unsigned i = 0; i < arity; ++i) {
-        AbstractDomainDecl *formal = currentModel->getFormalDecl(i);
+        AbstractDomainDecl *formal = model->getFormalDecl(i);
         formal->setDeclRegion(declarativeRegion);
     }
 
     // Bring the model itself into the current scope.  This should never result
     // in a conflict.
-    scope.addDirectDeclNoConflicts(currentModel);
+    scope.addDirectDeclNoConflicts(model);
 }
 
 void TypeCheck::acceptSupersignature(Node typeNode)
@@ -205,14 +218,7 @@ void TypeCheck::beginSignatureProfile()
 
 void TypeCheck::endSignatureProfile()
 {
-    DomainTypeDecl *domain;
-
-    // Ensure that all ambiguous declarations are redeclared.  For now, the only
-    // ambiguity that can arise is wrt conflicting argument keyword sets.
-    if (ModelDecl *model = getCurrentModel())
-        domain = model->getPercent();
-    else
-        domain = cast<AbstractDomainDecl>(declarativeRegion);
+    // Currently there is nothing to do.
 }
 
 void TypeCheck::acquireImplicitDeclarations(Decl *decl)
@@ -289,27 +295,35 @@ void TypeCheck::acquireImmediateSignatureDeclarations(SigInstanceDecl *sig,
 
 void TypeCheck::beginAddExpression()
 {
-    Domoid *domoid = getCurrentDomoid();
-    assert(domoid && "Processing `add' expression outside domain context!");
-
-    // Switch to the declarative region which this domains AddDecl provides.
-    declarativeRegion = domoid->getImplementation();
-    assert(declarativeRegion && "Domain missing Add declaration node!");
+    if (checkingDomoid()) {
+        Domoid *domoid = getCurrentDomoid();
+        declarativeRegion = domoid->getImplementation();
+    }
+    else if (checkingPackage()) {
+        PackageDecl *package = getCurrentPackage();
+        declarativeRegion = package->getImplementation();
+    }
+    else
+        assert(false && "Processing add outside domain or package!");
 }
 
 void TypeCheck::endAddExpression()
 {
-    // Switch back to the declarative region of the defining domains percent
-    // node.
+    // Switch back to the declarative region of the add declarations parent.
     declarativeRegion = declarativeRegion->getParent();
-    assert(declarativeRegion == getCurrentPercent()->asDeclRegion());
 }
 
 void TypeCheck::acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode)
 {
-    // We should always be in an add declaration.
     AddDecl *add = cast<AddDecl>(declarativeRegion);
 
+    // Carrier declarations may not appear in a package body.
+    if (checkingPackage()) {
+        report(loc, diag::CARRIER_IN_PACKAGE_BODY);
+        return;
+    }
+
+    // Diagnose multiple carrier declarations.
     if (add->hasCarrier()) {
         report(loc, diag::MULTIPLE_CARRIER_DECLARATIONS);
         return;

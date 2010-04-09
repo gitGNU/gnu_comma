@@ -34,8 +34,8 @@ void DeclVisitor::visitAst(Ast *node)
 
 void DeclVisitor::visitDecl(Decl *node)
 {
-    if (ModelDecl *model = dyn_cast<ModelDecl>(node))
-        visitModelDecl(model);
+    if (CapsuleDecl *capsule = dyn_cast<CapsuleDecl>(node))
+        visitCapsuleDecl(capsule);
     else if (SubroutineDecl *routine = dyn_cast<SubroutineDecl>(node))
         visitSubroutineDecl(routine);
     else if (TypeDecl *typed = dyn_cast<TypeDecl>(node))
@@ -48,6 +48,14 @@ void DeclVisitor::visitDecl(Decl *node)
         visitExceptionDecl(exception);
     else
         assert(false && "Cannot visit this kind of node!");
+}
+
+void DeclVisitor::visitCapsuleDecl(CapsuleDecl *node)
+{
+    if (ModelDecl *model = dyn_cast<ModelDecl>(node))
+        visitModelDecl(model);
+    else
+        visitPackageDecl(cast<PackageDecl>(node));
 }
 
 void DeclVisitor::visitModelDecl(ModelDecl *node)
@@ -156,6 +164,8 @@ void DeclVisitor::visitSigInstanceDecl(SigInstanceDecl *node) { }
 void DeclVisitor::visitAddDecl(AddDecl *node) { }
 void DeclVisitor::visitDomainDecl(DomainDecl *node) { }
 void DeclVisitor::visitFunctorDecl(FunctorDecl *node) { }
+void DeclVisitor::visitPackageDecl(PackageDecl *node) { }
+void DeclVisitor::visitPkgInstanceDecl(PkgInstanceDecl *node) { }
 void DeclVisitor::visitProcedureDecl(ProcedureDecl *node) { }
 void DeclVisitor::visitCarrierDecl(CarrierDecl *node) { }
 void DeclVisitor::visitAbstractDomainDecl(AbstractDomainDecl *node) { }

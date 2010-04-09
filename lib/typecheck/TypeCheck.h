@@ -59,6 +59,7 @@ public:
 
     void beginDomainDecl(IdentifierInfo *name, Location loc);
     void beginSignatureDecl(IdentifierInfo *name, Location loc);
+    void beginPackageDecl(IdentifierInfo *name, Location loc);
 
     void beginSignatureProfile();
     void endSignatureProfile();
@@ -332,7 +333,7 @@ private:
     AstResource     &resource;
     CompilationUnit *compUnit;
     DeclRegion      *declarativeRegion;
-    ModelDecl       *currentModel;
+    CapsuleDecl     *currentCapsule;
     Scope            scope;
 
     /// The set of AbstractDomainDecls serving as parameters to the current
@@ -407,70 +408,41 @@ private:
 
     CompilationUnit *currentCompUnit() const { return compUnit; }
 
-    ModelDecl *getCurrentModel() const {
-        return currentModel;
+    //@{
+    /// Casting methods to conver the current Capsule to a more refined type.
+    /// If the current capsule is not of the requested type then 0 is returned.
+
+    CapsuleDecl *getCurrentCapsule() const {
+        return currentCapsule;
     }
 
-    // If we are processing a Sigoid, return the current model cast to a
-    // Sigoid, else 0.
+    ModelDecl *getCurrentModel() const;
     Sigoid *getCurrentSigoid() const;
-
-    // If we are processing a Signature, return the current model cast to a
-    // SignatureDecl, else 0.
     SignatureDecl *getCurrentSignature() const;
-
-    // If we are processing a Variety, return the current model cast to a
-    // VarietyDecl, else 0.
     VarietyDecl *getCurrentVariety() const;
-
-    // If we are processing a Domoid, return the current model cast to a
-    // Domoid, else 0.
     Domoid *getCurrentDomoid() const;
-
-    // If we are processing a Domain, return the current model cast to a
-    // DomainDecl, else 0.
     DomainDecl *getCurrentDomain() const;
-
-    // If we are processing a Functor, return the current model cast to a
-    // FunctorDecl, else 0.
     FunctorDecl *getCurrentFunctor() const;
-
-    // If we are processing a subroutine, return the current SubroutineDecl,
-    // else 0.
+    PackageDecl *getCurrentPackage() const;
     SubroutineDecl *getCurrentSubroutine() const;
-
-    // If we are processing a procedure, return the current ProcedureDecl, else
-    // 0.
     ProcedureDecl *getCurrentProcedure() const;
-
-    // If we are processing a function, return the current FunctionDecl, else 0.
     FunctionDecl *getCurrentFunction() const;
-
-    // Returns the type of % for the current model, or 0 if we are not currently
-    // processing a model.
     DomainType *getCurrentPercentType() const;
-
-    // Returns the % node for the current model, or 0 if we are not currently
-    // processing a model.
     PercentDecl *getCurrentPercent() const;
+    //@}
 
-    // Returns true if we are currently checking a domain.
+    //@{
+    /// Predicate methods returning true if we are currently processing the
+    /// a given type of capsule.
+    bool checkingPackage() const { return getCurrentPackage() != 0; }
+    bool checkingDomoid() const { return getCurrentDomoid() != 0; }
     bool checkingDomain() const { return getCurrentDomain() != 0; }
-
-    // Returns true if we are currently checking a functor.
     bool checkingFunctor() const { return getCurrentFunctor() != 0; }
-
-    // Returns true if we are currently checking a signature.
     bool checkingSignature() const { return getCurrentSignature() != 0; }
-
-    // Returns true if we are currently checking a variety.
     bool checkingVariety() const { return getCurrentVariety() != 0; }
-
-    // Returns true if we are currently checking a procedure.
     bool checkingProcedure() const { return getCurrentProcedure() != 0; }
-
-    // Returns true if we are currently checking a function.
     bool checkingFunction() const { return getCurrentFunction() != 0; }
+    //@}
 
     // Called when then type checker is constructed.  Populates the top level
     // scope with the default environment specified by Comma (declarations of
@@ -910,9 +882,9 @@ private:
     /// posted.
     bool finishTypeRef(TypeRef *ref);
 
-    /// Helper method for acceptSelectedComponent.  Handles the case when the
-    /// prefix denotes a type.
-    Ast *processExpandedName(TypeRef *ref, IdentifierInfo *name, Location loc,
+    /// Helper method for acceptSelectedComponent.
+    Ast *processExpandedName(DeclRegion *region,
+                             IdentifierInfo *name, Location loc,
                              bool forStatement);
 
     /// Helper method for acceptSelectedComponent.  Handles the case when the

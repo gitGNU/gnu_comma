@@ -226,6 +226,8 @@ public:
         case Ast::AST_AbstractDomainDecl:
         case Ast::AST_PercentDecl:
         case Ast::AST_AddDecl:
+        case Ast::AST_PackageDecl:
+        case Ast::AST_PkgInstanceDecl:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
         case Ast::AST_EnumerationDecl:
@@ -243,6 +245,7 @@ public:
     static bool classof(const FunctionDecl  *node) { return true; }
     static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const IntegerDecl   *node) { return true; }
+    static bool classof(const PackageDecl   *node) { return true; }
     static bool classof(const PercentDecl   *node) { return true; }
     static bool classof(const RecordDecl    *node) { return true; }
     static bool classof(const ArrayDecl     *node) { return true; }
@@ -250,6 +253,7 @@ public:
     static bool classof(const DomainInstanceDecl *node) { return true; }
     static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }
+    static bool classof(const PkgInstanceDecl    *node) { return true; }
 
 protected:
     virtual void notifyAddDecl(Decl *decl);

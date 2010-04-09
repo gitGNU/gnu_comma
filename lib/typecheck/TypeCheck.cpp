@@ -17,6 +17,7 @@
 #include "comma/ast/Decl.h"
 #include "comma/ast/DSTDefinition.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/PackageRef.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
@@ -91,34 +92,44 @@ void TypeCheck::deleteNode(Node &node)
     node.release();
 }
 
+ModelDecl *TypeCheck::getCurrentModel() const
+{
+    return dyn_cast<ModelDecl>(getCurrentCapsule());
+}
+
 Sigoid *TypeCheck::getCurrentSigoid() const
 {
-    return dyn_cast<Sigoid>(getCurrentModel());
+    return dyn_cast<Sigoid>(getCurrentCapsule());
 }
 
 SignatureDecl *TypeCheck::getCurrentSignature() const
 {
-    return dyn_cast<SignatureDecl>(getCurrentModel());
+    return dyn_cast<SignatureDecl>(getCurrentCapsule());
 }
 
 VarietyDecl *TypeCheck::getCurrentVariety() const
 {
-    return dyn_cast<VarietyDecl>(getCurrentModel());
+    return dyn_cast<VarietyDecl>(getCurrentCapsule());
 }
 
 Domoid *TypeCheck::getCurrentDomoid() const
 {
-    return dyn_cast<Domoid>(getCurrentModel());
+    return dyn_cast<Domoid>(getCurrentCapsule());
 }
 
 DomainDecl *TypeCheck::getCurrentDomain() const
 {
-    return dyn_cast<DomainDecl>(getCurrentModel());
+    return dyn_cast<DomainDecl>(getCurrentCapsule());
 }
 
 FunctorDecl *TypeCheck::getCurrentFunctor() const
 {
-    return dyn_cast<FunctorDecl>(getCurrentModel());
+    return dyn_cast<FunctorDecl>(getCurrentCapsule());
+}
+
+PackageDecl *TypeCheck::getCurrentPackage() const
+{
+    return dyn_cast<PackageDecl>(getCurrentCapsule());
 }
 
 SubroutineDecl *TypeCheck::getCurrentSubroutine() const
@@ -716,32 +727,43 @@ bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
 
 bool TypeCheck::acceptImportDeclaration(Node importedNode)
 {
-    TypeRef *ref = lift_node<TypeRef>(importedNode);
-    if (!ref) {
-        report(getNodeLoc(importedNode), diag::IMPORT_FROM_NON_DOMAIN);
-        return false;
+    if (TypeRef *ref = lift_node<TypeRef>(importedNode)) {
+        Decl *decl = ref->getDecl();
+        Location loc = ref->getLocation();
+        DomainTypeDecl *domain;
+
+        if (!(domain = dyn_cast<DomainTypeDecl>(decl))) {
+            CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl);
+            Type *ty = carrier->getType();
+            if (carrier && isa<DomainType>(ty))
+                domain = cast<DomainType>(ty)->getDomainTypeDecl();
+        }
+
+        if (!domain) {
+            report(loc, diag::IMPORT_FROM_NON_CAPSULE);
+            return false;
+        }
+
+        scope.addImport(domain);
+
+        // FIXME: Stitch this import clause into the current context.
+        new ImportDecl(domain, loc);
+        return true;
     }
 
-    Decl *decl = ref->getDecl();
-    Location loc = ref->getLocation();
-    DomainType *domain = 0;
+    if (PackageRef *ref = lift_node<PackageRef>(importedNode)) {
+        PkgInstanceDecl *package = ref->getPackageInstance();
+        Location loc = ref->getLocation();
 
-    if (CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl))
-        domain = dyn_cast<DomainType>(carrier->getType());
-    else if (DomainTypeDecl *DTD = dyn_cast<DomainTypeDecl>(decl))
-        domain = DTD->getType();
+        scope.addImport(package);
 
-    if (!domain) {
-        report(loc, diag::IMPORT_FROM_NON_DOMAIN);
-        return false;
+        // FIXME: Stitch this import clause into the current context.
+        new ImportDecl(package, loc);
+        return true;
     }
 
-    scope.addImport(domain);
-
-    // FIXME:  We need to stitch this import declaration into the current
-    // context.
-    new ImportDecl(domain, loc);
-    return true;
+    report(getNodeLoc(importedNode), diag::IMPORT_FROM_NON_CAPSULE);
+    return false;
 }
 
 void TypeCheck::beginEnumeration(IdentifierInfo *name, Location loc)

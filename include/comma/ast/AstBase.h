@@ -17,7 +17,6 @@
 #include "comma/basic/Location.h"
 #include "comma/basic/IdentifierInfo.h"
 #include "llvm/Support/Casting.h"
-#include <iosfwd>
 
 namespace comma {
 
@@ -40,6 +39,8 @@ class AstRewriter;
 class AstResource;
 class AttribExpr;
 class BlockStmt;
+class CapsuleDecl;
+class CapsuleInstance;
 class CarrierDecl;
 class ComponentDecl;
 class CompositeType;
@@ -96,6 +97,9 @@ class ModelDecl;
 class NullExpr;
 class NullStmt;
 class ObjectDecl;
+class PackageDecl;
+class PackageRef;
+class PkgInstanceDecl;
 class ParamValueDecl;
 class PercentDecl;
 class PosAD;
@@ -182,6 +186,7 @@ public:
         AST_DomainDecl,         ///< DomainDecl
         AST_VarietyDecl,        ///< VarietyDecl
         AST_FunctorDecl,        ///< FunctorDecl
+        AST_PackageDecl,        ///< PackageDecl
         AST_AddDecl,            ///< AddDecl
 
         AST_AccessDecl,         ///< AccessDecl
@@ -196,7 +201,7 @@ public:
         AST_PercentDecl,        ///< PercentDecl
 
         AST_SigInstanceDecl,    ///< SigInstanceDecl
-
+        AST_PkgInstanceDecl,    ///< PkgInstanceDecl
         //
         // Value declaration nodes.
         //
@@ -293,6 +298,7 @@ public:
         AST_SubroutineRef,      ///< SubroutineRef
         AST_TypeRef,            ///< TypeRef
         AST_ExceptionRef,       ///< ExceptionRef
+        AST_PackageRef,         ///< PackageRef
         AST_Identifier,         ///< Identifier
         AST_ComponentKey,       ///< ComponentKey
 
@@ -303,6 +309,9 @@ public:
 
         FIRST_Decl = AST_SignatureDecl,
         LAST_Decl = AST_ComponentDecl,
+
+        FIRST_CapsuleDecl = AST_SignatureDecl,
+        LAST_CapsuleDecl = AST_PackageDecl,
 
         FIRST_ModelDecl = AST_SignatureDecl,
         LAST_ModelDecl = AST_FunctorDecl,
@@ -369,6 +378,11 @@ public:
     /// Returns true if this node denotes a declaration.
     bool denotesDecl() const {
         return (FIRST_Decl <= kind && kind <= LAST_Decl);
+    }
+
+    /// Returns true if this node denotes a Capsule.
+    bool denotesCapsuleDecl() const {
+        return (FIRST_CapsuleDecl <= kind && kind <= LAST_CapsuleDecl);
     }
 
     /// Returns true if this node denotes a Model.

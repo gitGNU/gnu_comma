@@ -12,6 +12,7 @@
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/KeywordSelector.h"
+#include "comma/ast/PackageRef.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 #include "comma/basic/Attributes.h"
@@ -108,14 +109,18 @@ Ast *TypeCheck::checkDirectName(IdentifierInfo *name, Location loc,
         return new ExceptionRef(loc, edecl);
     }
 
-    // If a direct capsule (which currently means Domoid's and Sigoid's) is
-    // visible, we distinguish between parameterized and non-parameterized
-    // cases.  For the former case, return a TypeRef to the unique instance.
-    // For the latter case, form an incomplete TypeRef to the functor or
-    // variety.
+    // If a direct capsule is visible, we distinguish between models and
+    // packages.  In the former case a TypeRef is returned, in the latter a
+    // PkgInstanceDecl.
     if (resolver.hasDirectCapsule()) {
-        ModelDecl *mdecl = resolver.getDirectCapsule();
-        return buildTypeRefForModel(loc, mdecl);
+        CapsuleDecl *capsule = resolver.getDirectCapsule();
+        if (ModelDecl *model = dyn_cast<ModelDecl>(capsule))
+            return buildTypeRefForModel(loc, model);
+        else {
+            // FIXME:  Ensure the resolved package is not parameterized.
+            PackageDecl *package = cast<PackageDecl>(capsule);
+            return new PackageRef(loc, package->getInstance());
+        }
     }
 
     // Filter the subroutines depending on what kind of name we are trying to
@@ -181,25 +186,10 @@ Node TypeCheck::acceptCharacterLiteral(IdentifierInfo *lit, Location loc)
     return acceptDirectName(lit, loc, false);
 }
 
-
-Ast *TypeCheck::processExpandedName(TypeRef *ref,
+Ast *TypeCheck::processExpandedName(DeclRegion *region,
                                     IdentifierInfo *name, Location loc,
                                     bool forStatement)
 {
-    // Currently, a signature can never be used as the prefix to a component.
-    if (ref->referencesSigInstance()) {
-        report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
-        return 0;
-    }
-
-    // Ensure the parser called finishName on the prefix.
-    assert(ref->isComplete() && "Invalid prefix node!");
-
-    // All complete TypeRef's (with the expection of SigInstanceDecl's)
-    // point to a decl which is also a DeclRegion.
-    DeclRegion *region = ref->getDecl()->asDeclRegion();
-    assert(region && "Prefix is not a DeclRegion!");
-
     // Scan the entire set of declaration nodes, matching against the components
     // with the given name.  In addition, look for enumeration declarations
     // which in turn provide a literal of the given name.  This allows the
@@ -305,8 +295,24 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
 {
     Ast *result = 0;
 
-    if (TypeRef *ref = lift_node<TypeRef>(prefix))
-        result = processExpandedName(ref, name, loc, forStatement);
+    if (TypeRef *Tyref = lift_node<TypeRef>(prefix)) {
+        // Currently, a signature can never be used as the prefix to a
+        // component.
+        if (Tyref->referencesSigInstance()) {
+            report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
+            result = 0;
+        }
+        else {
+            // Ensure the parser called finishName on the prefix.
+            assert(Tyref->isComplete() && "Invalid prefix node!");
+            DeclRegion *region = Tyref->getDecl()->asDeclRegion();
+            result = processExpandedName(region, name, loc, forStatement);
+        }
+    }
+    else if (PackageRef *Pref = lift_node<PackageRef>(prefix)) {
+        PkgInstanceDecl *pkg = Pref->getPackageInstance();
+        result = processExpandedName(pkg, name, loc, forStatement);
+    }
     else if (Expr *expr = lift_node<Expr>(prefix))
         result = processSelectedComponent(expr, name, loc, forStatement);
     else {
@@ -636,8 +642,8 @@ Node TypeCheck::acceptAttribute(Node prefixNode,
 
 Node TypeCheck::finishName(Node name)
 {
-    // This method is called on all names which are applied to a set of
-    // arguments.  We need to consider two cases:
+    // This method is called to "complete" a name.  We need to consider three
+    // cases:
     //
     //   - If the name is a TypeRef, it must be complete (e.g. not name a
     //     variety or functor).
@@ -659,6 +665,8 @@ Node TypeCheck::finishName(Node name)
         }
         return getInvalidNode();
     }
+
+    name.release();
     return name;
 }
 

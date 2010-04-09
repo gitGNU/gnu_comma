@@ -40,6 +40,8 @@ DeclRegion *Decl::asDeclRegion()
         return static_cast<AbstractDomainDecl*>(this);
     case AST_PercentDecl:
         return static_cast<PercentDecl*>(this);
+    case AST_PkgInstanceDecl:
+        return static_cast<PkgInstanceDecl*>(this);
     case AST_EnumerationDecl:
         return static_cast<EnumerationDecl*>(this);
     case AST_AddDecl:
@@ -66,13 +68,34 @@ Decl *Decl::resolveOrigin()
 }
 
 //===----------------------------------------------------------------------===//
+// PackageDecl
+PackageDecl::PackageDecl(AstResource &resource, IdentifierInfo *name, Location loc)
+        : CapsuleDecl(resource, AST_PackageDecl, name, loc),
+          DeclRegion(AST_PackageDecl),
+          implementation(new AddDecl(this)),
+          instance(0) { }
+
+PackageDecl::~PackageDecl()
+{
+    delete implementation;
+}
+
+PkgInstanceDecl *PackageDecl::getInstance()
+{
+    if (instance)
+        return instance;
+
+    instance = new PkgInstanceDecl(getIdInfo(), getLocation(), this);
+    return instance;
+}
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 
 ModelDecl::ModelDecl(AstResource &resource,
                      AstKind kind, IdentifierInfo *name, Location loc)
-    : Decl(kind, name, loc),
-      percent(0),
-      resource(resource)
+    : CapsuleDecl(resource, kind, name, loc),
+      percent(0)
 {
     percent = new PercentDecl(resource, this);
 }
@@ -224,6 +247,11 @@ AddDecl::AddDecl(PercentDecl *percent)
       DeclRegion(AST_AddDecl, percent),
       carrier(0) { }
 
+AddDecl::AddDecl(PackageDecl *package)
+    : Decl(AST_AddDecl),
+      DeclRegion(AST_AddDecl, package),
+      carrier(0) { }
+
 Domoid *AddDecl::getImplementedDomoid()
 {
     Ast *parent = getParent()->asAst();
@@ -232,7 +260,7 @@ Domoid *AddDecl::getImplementedDomoid()
         return cast<Domoid>(percent->getDefinition());
     else {
         DomainInstanceDecl *instance = cast<DomainInstanceDecl>(parent);
-        return instance->getDefinition();
+        return instance->getDefiningDomoid();
     }
 }
 
@@ -246,6 +274,11 @@ FunctorDecl *AddDecl::getImplementedFunctor()
     return dyn_cast<FunctorDecl>(getImplementedDomoid());
 }
 
+PackageDecl *AddDecl::getImplementedPackage()
+{
+    return dyn_cast<PackageDecl>(getParent()->asAst());
+}
+
 bool AddDecl::implementsDomain() const
 {
     return getImplementedDomain() != 0;
@@ -254,6 +287,11 @@ bool AddDecl::implementsDomain() const
 bool AddDecl::implementsFunctor() const
 {
     return getImplementedFunctor() != 0;
+}
+
+bool AddDecl::implementsPackage() const
+{
+    return getImplementedPackage() != 0;
 }
 
 //===----------------------------------------------------------------------===//
@@ -694,7 +732,7 @@ AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
 DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
                                        DomainDecl *domain)
     : DomainTypeDecl(AST_DomainInstanceDecl, resource, domain->getIdInfo()),
-      definition(domain)
+      CapsuleInstance(domain)
 {
     PercentDecl *percent = domain->getPercent();
 
@@ -710,14 +748,8 @@ DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
                                        FunctorDecl *functor,
                                        DomainTypeDecl **args, unsigned numArgs)
     : DomainTypeDecl(AST_DomainInstanceDecl, resource, functor->getIdInfo()),
-      definition(functor)
+      CapsuleInstance(functor, args, numArgs)
 {
-    assert(functor->getArity() == numArgs &&
-           "Wrong number of arguments for domain instance!");
-
-    arguments = new DomainTypeDecl*[numArgs];
-    std::copy(args, args + numArgs, arguments);
-
     // Ensure that we are notified if the declarations provided by percent
     // change.
     PercentDecl *percent = functor->getPercent();
@@ -768,7 +800,7 @@ void DomainInstanceDecl::finalize()
 
 void DomainInstanceDecl::initializeRepresentation(DeclRewriter &rewriter)
 {
-    AddDecl *orig = definition->getImplementation();
+    AddDecl *orig = getDefinition()->getImplementation();
     CarrierDecl *decl = 0;
 
     // Set the origin of the rewriter to the add declaration of our
@@ -798,34 +830,12 @@ void DomainInstanceDecl::initializeRepresentation(DeclRewriter &rewriter)
     carrier = decl;
 }
 
-bool DomainInstanceDecl::isDependent() const
-{
-    for (unsigned i = 0; i < getArity(); ++i) {
-        const DomainType *param = cast<DomainType>(getActualParamType(i));
-        if (param->isAbstract())
-            return true;
-        if (param->denotesPercent())
-            return true;
-        if (param->getInstanceDecl()->isDependent())
-            return true;
-    }
-    return false;
-}
-
-unsigned DomainInstanceDecl::getArity() const
-{
-    if (getType()->denotesPercent())
-        return 0;
-    if (FunctorDecl *functor = dyn_cast<FunctorDecl>(definition))
-        return functor->getArity();
-    return 0;
-}
-
 void DomainInstanceDecl::notifyAddDecl(Decl *decl)
 {
-    AstResource &resource = getDefinition()->getAstResource();
+    Domoid *domoid = getDefinition();
+    AstResource &resource = domoid->getAstResource();
     DeclRewriter rewriter(resource, this, decl->getDeclRegion());
-    rewriter.addTypeRewrite(getDefinition()->getPercentType(), getType());
+    rewriter.addTypeRewrite(domoid->getPercentType(), getType());
     rewriter.installRewrites(getType());
     addDeclarationUsingRewrites(rewriter, decl);
 }
@@ -849,6 +859,22 @@ PercentDecl::PercentDecl(AstResource &resource, ModelDecl *model)
     : DomainTypeDecl(AST_PercentDecl, resource,
                      resource.getIdentifierInfo("%"), model->getLocation()),
       underlyingModel(model) { }
+
+//===----------------------------------------------------------------------===//
+// PkgInstanceDecl
+
+PkgInstanceDecl::PkgInstanceDecl(IdentifierInfo *name, Location loc,
+                                 PackageDecl *package)
+    : Decl(AST_PkgInstanceDecl, name, loc),
+      DeclRegion(AST_PkgInstanceDecl),
+      CapsuleInstance(package)
+{
+    // Generate our own copy of the public exports provided by the package.
+    AstResource &resource = Definition->getAstResource();
+    std::auto_ptr<DeclRewriter> rewriter(
+        new DeclRewriter(resource, this, package));
+    addDeclarationsUsingRewrites(*rewriter, package);
+}
 
 //===----------------------------------------------------------------------===//
 // ParamValueDecl

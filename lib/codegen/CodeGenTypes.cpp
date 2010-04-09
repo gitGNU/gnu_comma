@@ -108,7 +108,7 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     }
 }
 
-void CodeGenTypes::addInstanceRewrites(const DomainInstanceDecl *instance)
+void CodeGenTypes::addInstanceRewrites(const CapsuleInstance *instance)
 {
     const FunctorDecl *functor = instance->getDefiningFunctor();
     if (!functor)
@@ -145,7 +145,7 @@ const Type *CodeGenTypes::resolveType(const Type *type)
             // associated with the instance.
             assert(percent->getDefinition() == context->getDefinition());
             percent = 0;        // Inhibit unused variable warning.
-            instance = context;
+            instance = context->asDomainInstance();
         }
         else
             instance = domTy->getInstanceDecl();
@@ -175,7 +175,7 @@ const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
         assert(percent->getDefinition() == context->getDefinition() &&
                "Inconsistent context for PercentDecl!");
         percent = 0;            // Inhibit unused variable warning.
-        entry = lowerType(context->getRepresentationType());
+        entry = lowerType(context->asDomainInstance()->getRepresentationType());
     }
     else {
         const DomainInstanceDecl *instance = type->getInstanceDecl();

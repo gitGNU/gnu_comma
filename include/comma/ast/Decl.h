@@ -10,6 +10,7 @@
 #define COMMA_AST_DECL_HDR_GUARD
 
 #include "comma/ast/AstBase.h"
+#include "comma/ast/CapsuleInstance.h"
 #include "comma/ast/DeclRegion.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/SignatureSet.h"
@@ -129,29 +130,6 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// ImportDecl
-//
-// Represents import declarations.
-class ImportDecl : public Decl {
-
-public:
-    ImportDecl(Type *target, Location loc)
-        : Decl(AST_ImportDecl, 0, loc),
-          targetType(target) { }
-
-    Type *getImportedType() { return targetType; }
-    const Type *getImportedType() const { return targetType; }
-
-    static bool classof(const ImportDecl *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_ImportDecl;
-    }
-
-private:
-    Type *targetType;
-};
-
-//===----------------------------------------------------------------------===//
 // ExceptionDecl
 //
 /// \class
@@ -192,11 +170,76 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// CapsuleDecl
+//
+// Capsules serve as the common base class for packages, domains, and
+// signatures.
+class CapsuleDecl : public Decl {
+
+public:
+    virtual ~CapsuleDecl() { }
+
+    /// Returns the AstResource object associated with this model.
+    ///
+    /// This method is intended for use by other nodes in the AST, not by
+    /// clients of the AST itself.
+    AstResource &getAstResource() { return resource; }
+
+    static bool classof(const CapsuleDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->denotesCapsuleDecl();
+    }
+
+protected:
+    CapsuleDecl(AstResource &resource, AstKind kind,
+                IdentifierInfo *name, Location loc)
+        : Decl(kind, name, loc), resource(resource) { }
+
+    // The AstResource we use to construct sub-nodes.
+    AstResource &resource;
+};
+
+//===----------------------------------------------------------------------===//
+// PackageDecl
+//
+// Declaration node representing packages.
+class PackageDecl : public CapsuleDecl, public DeclRegion {
+
+public:
+    ~PackageDecl();
+
+    PackageDecl(AstResource &resource, IdentifierInfo *name, Location loc);
+
+    //@{
+    /// Returns the AddDecl implementing this package.
+    AddDecl *getImplementation() { return implementation; }
+    const AddDecl *getImplementation() const { return implementation; }
+    //@}
+
+    //@{
+    /// Returns the instance corresponding to this package.
+    PkgInstanceDecl *getInstance();
+    const PkgInstanceDecl *getInstance() const {
+        return const_cast<PackageDecl*>(this)->getInstance();
+    }
+    //@}
+
+    static bool classof(const PackageDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PackageDecl;
+    }
+
+private:
+    AddDecl *implementation;
+    PkgInstanceDecl *instance;
+};
+
+//===----------------------------------------------------------------------===//
 // ModelDecl
 //
 // Models represent those attributes and characteristics which both signatures
 // and domains share.
-class ModelDecl : public Decl {
+class ModelDecl : public CapsuleDecl {
 
 public:
     virtual ~ModelDecl();
@@ -264,12 +307,6 @@ public:
     /// node.
     bool addDirectSignature(SigInstanceDecl *signature);
 
-    /// Returns the AstResource object associated with this model.
-    ///
-    /// This method is intended for use by other nodes in the AST, not by
-    /// clients of the AST itself.
-    AstResource &getAstResource() { return resource; }
-
     // Support isa and dyn_cast.
     static bool classof(const ModelDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -282,9 +319,6 @@ protected:
 
     // The unique PercentDecl representing this model.
     PercentDecl *percent;
-
-    // The AstResource we use to construct sub-nodes.
-    AstResource &resource;
 };
 
 //===----------------------------------------------------------------------===//
@@ -448,13 +482,16 @@ protected:
 /// \class
 ///
 /// This class represents an add expression.  It provides a declarative region
-/// for the body of a domain and contains all the private functions and values
-/// which the domain defines.
+/// for the body of a domain or package and contains all private functions and
+/// values.
 class AddDecl : public Decl, public DeclRegion {
 
 public:
     /// Creates an AddDecl to represent the body of the given percent decl.
     AddDecl(PercentDecl *percent);
+
+    /// Creates an AddDecl to represent the body of the given package.
+    AddDecl(PackageDecl *package);
 
     /// Returns true if this Add implements a DomainDecl.
     bool implementsDomain() const;
@@ -462,7 +499,10 @@ public:
     /// Returns true if this Add implements a FunctorDecl.
     bool implementsFunctor() const;
 
-    // @{
+    /// Returns true if this Add implements a PackageDecl.
+    bool implementsPackage() const;
+
+    //@{
     /// Returns the domoid which this add implements.
     const Domoid *getImplementedDomoid() const {
         return const_cast<AddDecl*>(this)->getImplementedDomoid();
@@ -488,17 +528,32 @@ public:
     FunctorDecl *getImplementedFunctor();
     //@}
 
+    //@{
+    /// Returns the package which this add implements.
+    const PackageDecl *getImplementedPackage() const {
+        return const_cast<AddDecl*>(this)->getImplementedPackage();
+    }
+    PackageDecl *getImplementedPackage();
+    //@}
+
     /// Returns true if a carrier has been associated with this declaration.
+    ///
+    /// Note that packages never have a carrier.
     bool hasCarrier() const { return carrier != 0; }
 
     /// Sets the carrier for this declaration.
+    ///
+    /// This method will assert if the carrier as already been set or if this
+    /// Add is associated with a package.
     void setCarrier(CarrierDecl *carrier) {
         assert(!hasCarrier() && "Cannot reset carrier declaration!");
+        assert(!getImplementedPackage() &&
+               "Cannot associate carrier with a package!");
         this->carrier = carrier;
     }
 
     //@{
-    /// Returns the carrier declaration, or NULL if a carrier has not yet been
+    /// Returns the carrier declaration or 0 if a carrier has not yet been
     /// defined.
     CarrierDecl *getCarrier() { return carrier; }
     const CarrierDecl *getCarrier() const { return carrier; }
@@ -1984,65 +2039,23 @@ private:
 
 //===----------------------------------------------------------------------===//
 // DomainInstanceDecl
-class DomainInstanceDecl : public DomainTypeDecl, public llvm::FoldingSetNode {
-
+class DomainInstanceDecl : public DomainTypeDecl,
+                           public CapsuleInstance, public llvm::FoldingSetNode
+{
 public:
     DomainInstanceDecl(AstResource &resource, DomainDecl *domain);
 
     DomainInstanceDecl(AstResource &resource, FunctorDecl *functor,
                        DomainTypeDecl **args, unsigned numArgs);
 
-    /// Returns the Domoid defining this instance.
-    Domoid *getDefinition() { return definition; }
-    const Domoid *getDefinition() const { return definition; }
-
-    /// If this is an instance of a domain, return the corresponding domain
-    /// declaration.  Otherwise null is returned.
-    DomainDecl *getDefiningDomain() const;
-
-    /// If this is a functor instance, return the corresponding functor
-    /// declaration.  Otherwise null is returned.
-    FunctorDecl *getDefiningFunctor() const;
+    //@{
+    /// Override CapsuleInstance::getDefinition.
+    Domoid *getDefinition() { return getDefiningDomoid(); }
+    const Domoid *getDefinition() const { return getDefiningDomoid(); }
+    //@}
 
     /// Returns the SignatureSet of this instance.
     const SignatureSet &getSignatureSet() const { return sigset; }
-
-    /// Returns true if this instance represents percent or is a parameterized
-    /// instance, and in the latter case, if any of the arguments involve
-    /// abstract domain decls or percent nodes.
-    bool isDependent() const;
-
-    /// Returns true if this is an instance of a functor.
-    bool isParameterized() const { return getArity() != 0; }
-
-    /// Returns the arity of the underlying declaration.
-    unsigned getArity() const;
-
-    /// Returns the i'th actual parameter.  This method asserts if its argument
-    /// is out of range, or if this is not an instance of a functor.
-    DomainTypeDecl *getActualParam(unsigned n) const {
-        assert(isParameterized() && "Not a parameterized instance!");
-        assert(n < getArity() && "Index out of range!");
-        return arguments[n];
-    }
-
-    //@{
-    /// \brief Returns the type of the i'th actual parameter.
-    ///
-    /// This method asserts if its argument is out of range, or if this is not
-    /// an instance of a functor.
-    const DomainType *getActualParamType(unsigned n) const {
-        return getActualParam(n)->getType();
-    }
-    DomainType *getActualParamType(unsigned n) {
-        return getActualParam(n)->getType();
-    }
-    //@}
-
-    /// Iterators over the arguments supplied to this instance.
-    typedef DomainTypeDecl **arg_iterator;
-    arg_iterator beginArguments() const { return arguments; }
-    arg_iterator endArguments() const { return &arguments[getArity()]; }
 
     /// \name Representation Type.
     ///
@@ -2061,7 +2074,7 @@ public:
 
     /// Method required by LLVM::FoldingSet.
     void Profile(llvm::FoldingSetNodeID &id) {
-        Profile(id, &arguments[0], getArity());
+        Profile(id, &Arguments[0], getArity());
     }
 
     /// Called by FunctorDecl when memoizing.
@@ -2075,8 +2088,6 @@ public:
     }
 
 private:
-    Domoid *definition;
-    DomainTypeDecl **arguments;
     SignatureSet sigset;
 
     typedef llvm::PointerUnion<CarrierDecl*, DeclRewriter*> CarrierRewrite;
@@ -2130,6 +2141,54 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// PkgInstanceDecl
+
+class PkgInstanceDecl : public Decl, public DeclRegion, public CapsuleInstance {
+
+public:
+    PkgInstanceDecl(IdentifierInfo *name, Location loc,
+                    PackageDecl *package);
+
+    //@{
+    /// Override CapsuleInstance::getDefinition.
+    PackageDecl *getDefinition() { return getDefiningPackage(); }
+    const PackageDecl *getDefinition() const { return getDefiningPackage(); }
+    //@}
+
+    static bool classof(const PkgInstanceDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PkgInstanceDecl;
+    }
+};
+
+//===----------------------------------------------------------------------===//
+// ImportClause
+//
+// Represents import declarations.
+class ImportDecl : public Decl {
+
+public:
+    ImportDecl(DomainTypeDecl *target, Location loc)
+        : Decl(AST_ImportDecl, 0, loc),
+          target(target) { }
+
+    ImportDecl(PkgInstanceDecl *target, Location loc)
+        : Decl(AST_ImportDecl, 0, loc),
+          target(target) { }
+
+    Decl *getImportedDecl() { return target; }
+    const Decl *getImportedDecl() const { return target; }
+
+    static bool classof(const ImportDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_ImportDecl;
+    }
+
+private:
+    Decl *target;
+};
+
+//===----------------------------------------------------------------------===//
 // Inline methods, now that the decl hierarchy is in place.
 
 inline const DomainType *ModelDecl::getPercentType() const
@@ -2160,16 +2219,6 @@ inline DomainDecl *Domoid::getDomain()
 inline FunctorDecl *Domoid::getFunctor()
 {
     return llvm::dyn_cast<FunctorDecl>(this);
-}
-
-inline DomainDecl *DomainInstanceDecl::getDefiningDomain() const
-{
-    return llvm::dyn_cast<DomainDecl>(definition);
-}
-
-inline FunctorDecl *DomainInstanceDecl::getDefiningFunctor() const
-{
-    return llvm::dyn_cast<FunctorDecl>(definition);
 }
 
 inline DomainType *SigInstanceDecl::getActualParamType(unsigned n) const {

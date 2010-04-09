@@ -29,7 +29,7 @@ class CodeGen;
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(CodeGen &CG, DomainInstanceDecl *context)
+    CodeGenTypes(CodeGen &CG, CapsuleInstance *context = 0)
         : CG(CG), topScope(rewrites), context(context) {
         if (context)
             addInstanceRewrites(context);
@@ -108,7 +108,7 @@ private:
     RewriteMap rewrites;
     RewriteScope topScope;
 
-    DomainInstanceDecl *context;
+    CapsuleInstance *context;
 
     /// Map from ComponentDecl's to the associated index within an llvm
     /// structure.
@@ -127,7 +127,7 @@ private:
 
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
 
-    void addInstanceRewrites(const DomainInstanceDecl *instance);
+    void addInstanceRewrites(const CapsuleInstance *instance);
 
     /// \brief Returns a reference to a slot in the type map corresponding to
     /// the given Comma type.

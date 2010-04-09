@@ -22,15 +22,16 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     // Declaration nodes which correspond to the public view always have their
     // origin link set to the corresponding private view.
     DeclRegion *region = srDecl->getDeclRegion();
-    if (isa<DomainInstanceDecl>(region)) {
+    if (isa<DomainInstanceDecl>(region) || isa<PkgInstanceDecl>(region)) {
         srDecl = srDecl->getOrigin();
         region = srDecl->getDeclRegion();
     }
 
     // Check that some basic assumptions hold.  The declarative region must have
-    // been resolved to either a PercentDecl or AddDecl.
-    assert((isa<PercentDecl>(region) || isa<AddDecl>(region)) &&
-           "Inconsistent context for subroutine declaration!");
+    // been resolved to either a PercentDecl, AddDecl, or PackageDecl.
+    assert((isa<PercentDecl>(region) || isa<AddDecl>(region) ||
+            isa<PackageDecl>(region))
+           && "Inconsistent context for subroutine declaration!");
 
     // Further reduce the SubroutineDecl to its completion, if present.
     if (srDecl->getDefiningDeclaration())
@@ -39,20 +40,28 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     return srDecl;
 }
 
-InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
+InstanceInfo::InstanceInfo(CodeGen &CG, CapsuleInstance *instance)
         : instance(instance),
           linkName(mangle::getLinkName(instance)),
           compiledFlag(false)
 {
     CodeGenTypes CGT(CG, instance);
 
+    // Populate the info table with all declarations provided by the instance.
+    populateInfoTable(CG, CGT, instance);
+}
+
+void InstanceInfo::populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
+                                     CapsuleInstance *instance)
+{
     DeclRegion::DeclIter I;
     DeclRegion::DeclIter E;
+    DeclRegion *region = instance->asDeclRegion();
 
     // Construct an SRInfo node for each public declaration provided by the
-    // instance.
-    E = instance->endDecls();
-    for (I = instance->beginDecls(); I != E; ++I) {
+    // region.
+    E = region->endDecls();
+    for (I = region->beginDecls(); I != E; ++I) {
         /// FIXME: Support all declaration kinds.
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
             SubroutineDecl *key = getKeySRDecl(srDecl);
@@ -64,19 +73,22 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
         }
     }
 
-    // Similarly for every private declaration that is not visible thru the
-    // public interface.
-    Domoid *domoid = instance->getDefinition();
-    AddDecl *impl = domoid->getImplementation();
+    // Similarly for all private declarations.
+    AddDecl *impl;
+
+    if (instance->denotesDomainInstance())
+        impl = instance->getDefiningDomoid()->getImplementation();
+    else
+        impl = instance->getDefiningPackage()->getImplementation();
+
     E = impl->endDecls();
     for (I = impl->beginDecls(); I != E; ++I) {
-        // FIXME: Support all declaration kinds.
+        /// FIXME: Support all declaration kinds.
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
             SubroutineDecl *key = getKeySRDecl(srDecl);
 
-            // If an info structure already exists for this declaration, skip
-            // it.
-            if (srInfoTable.count(key))
+            // If an info structure already exists for this declaration skip it.
+            if(srInfoTable.count(key))
                 continue;
 
             llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
@@ -84,3 +96,4 @@ InstanceInfo::InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance)
         }
     }
 }
+

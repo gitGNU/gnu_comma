@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -29,16 +29,50 @@ class InstanceInfo {
 
 public:
     //@{
-    /// Returns the domoid underlying this particular instance.
-    const Domoid *getDefinition() const { return instance->getDefinition(); }
-    Domoid *getDefinition() { return instance->getDefinition(); }
+    /// Returns the capsule underlying this particular instance.
+    const CapsuleDecl *getDefinition() const {
+        return instance->getDefinition();
+    }
+    CapsuleDecl *getDefinition() { return instance->getDefinition(); }
     //@}
 
     //@{
-    /// Returns the instance declaration node this info represents.
-    const DomainInstanceDecl *getInstanceDecl() const { return instance; }
-    DomainInstanceDecl *getInstanceDecl() { return instance; }
+    /// Returns the instance object corresponding to this info.
+    const CapsuleInstance *getInstance() const { return instance; }
+    CapsuleInstance *getInstance() { return instance; }
     //@}
+
+    //@{
+    /// Returns the domain instance declaration node this info represents, or
+    /// null if this instance represents a package.
+    const DomainInstanceDecl *getDomainInstanceDecl() const {
+        return instance->asDomainInstance();
+    }
+    DomainInstanceDecl *getDomainInstanceDecl() {
+        return instance->asDomainInstance();
+    }
+    //@}
+
+    //@{
+    /// Returns the package instance declaration node this info represents, or
+    /// null if this instance represents a domain.
+    const PkgInstanceDecl *getPkgInstanceDecl() const {
+        return instance->asPkgInstance();
+    }
+    PkgInstanceDecl *getPkgInstanceDecl() {
+        return instance->asPkgInstance();
+    }
+    //@}
+
+    /// Returns true if this instance info corresponds to a domain.
+    bool denotesDomainInstance() const {
+        return instance->denotesDomainInstance();
+    }
+
+    /// Returns true if this instance info corresponds to a package.
+    bool denotesPkgInstance() const {
+        return instance->denotesPkgInstance();
+    }
 
     /// Returns the link (mangled) name of this instance.
     llvm::StringRef getLinkName() const { return linkName; }
@@ -64,12 +98,13 @@ public:
     bool isCompiled() const { return compiledFlag; }
 
 private:
-    /// Creates an InstanceInfo object for the given domain instance.
-    InstanceInfo(CodeGen &CG, DomainInstanceDecl *instance);
+    /// Creates an InstanceInfo object for the given instance.
+    InstanceInfo(CodeGen &CG, CapsuleInstance *instance);
+
     friend class CodeGen;
 
-    /// The domain instance associated with this info.
-    DomainInstanceDecl *instance;
+    /// The instance declaration associated with this info.
+    CapsuleInstance *instance;
 
     /// Map from subroutine declarations to the corresponding SRInfo objects.
     typedef llvm::DenseMap<SubroutineDecl*, SRInfo*> SRInfoMap;
@@ -78,12 +113,17 @@ private:
     /// The mangled name of this instance;
     std::string linkName;
 
-    bool compiledFlag;            ///< True if this instance has been codegen'ed.
+    bool compiledFlag;          ///< True if this instance has been codegen'ed.
 
     /// The AST provides several views of a subroutine.  This routine chooses a
     /// canonical declaration accessable from all views to be used as a key in
     /// the srInfoTable.
     static SubroutineDecl *getKeySRDecl(SubroutineDecl *srDecl);
+
+    /// Populates the srInfoTable with the declarations provided by the
+    /// given instance.
+    void populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
+                           CapsuleInstance *instance);
 };
 
 } // end comma namespace.

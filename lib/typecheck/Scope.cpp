@@ -25,21 +25,30 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Scope::Entry method.
 
-bool Scope::Entry::containsImportDecl(DomainType *type)
+bool Scope::Entry::containsImport(DomainTypeDecl *domain)
 {
     ImportIterator endIter = endImportDecls();
 
     for (ImportIterator iter = beginImportDecls(); iter != endIter; ++iter)
-        if (type == *iter) return true;
+        if (domain == *iter) return true;
     return false;
 }
 
-bool Scope::Entry::containsImportDecl(IdentifierInfo *name)
+bool Scope::Entry::containsImport(IdentifierInfo *name)
 {
     ImportIterator endIter = endImportDecls();
 
     for (ImportIterator iter = beginImportDecls(); iter != endIter; ++iter)
         if (name == (*iter)->getIdInfo()) return true;
+    return false;
+}
+
+bool Scope::Entry::containsImport(PkgInstanceDecl *package)
+{
+    ImportIterator endIter = endImportDecls();
+
+    for (ImportIterator iter = beginImportDecls(); iter != endIter; ++iter)
+        if (package == *iter) return true;
     return false;
 }
 
@@ -131,14 +140,16 @@ void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
     }
 }
 
-void Scope::Entry::addImportDecl(DomainType *type)
+void Scope::Entry::addImport(DomainTypeDecl *domain)
 {
-    typedef DeclRegion::DeclIter DeclIter;
-    DomainTypeDecl *domain = type->getDomainTypeDecl();
-    assert(domain && "Cannot import from the given domain!");
-
     importDeclarativeRegion(domain);
-    importDecls.push_back(type);
+    importDecls.push_back(domain);
+}
+
+void Scope::Entry::addImport(PkgInstanceDecl *package)
+{
+    importDeclarativeRegion(package);
+    importDecls.push_back(package);
 }
 
 // Turns this into an uninitialized (dead) scope entry.  This method is
@@ -155,7 +166,7 @@ void Scope::Entry::clear()
     ImportIterator endImportIter = endImportDecls();
     for (ImportIterator importIter = beginImportDecls();
          importIter != endImportIter; ++importIter)
-        clearDeclarativeRegion((*importIter)->getDomainTypeDecl());
+        clearDeclarativeRegion((*importIter)->asDeclRegion());
 
     kind = DEAD_SCOPE;
     directDecls.clear();
@@ -221,16 +232,34 @@ void Scope::pop()
     return;
 }
 
-bool Scope::addImport(DomainType *type)
+bool Scope::addImport(DomainTypeDecl *domain)
 {
-    // First, walk the current stack of frames and check that this type has not
-    // already been imported.
+    // First, walk the current stack of frames and check that this domain has
+    // not already been imported.
     for (EntryStack::const_iterator entryIter = entries.begin();
-         entryIter != entries.end(); ++entryIter)
-        if ((*entryIter)->containsImportDecl(type)) return true;
+         entryIter != entries.end(); ++entryIter) {
+        if ((*entryIter)->containsImport(domain))
+            return true;
+    }
 
     // The import is not yet in scope.  Register it with the current entry.
-    entries.front()->addImportDecl(type);
+    entries.front()->addImport(domain);
+
+    return false;
+}
+
+bool Scope::addImport(PkgInstanceDecl *package)
+{
+    // First, walk the current stack of frames and check that this package has
+    // not already been imported.
+    for (EntryStack::const_iterator entryIter = entries.begin();
+         entryIter != entries.end(); ++entryIter) {
+        if ((*entryIter)->containsImport(package))
+            return true;
+    }
+
+    // The import is not yet in scope.  Register it with the current entry.
+    entries.front()->addImport(package);
 
     return false;
 }
@@ -331,14 +360,14 @@ void Scope::dump() const
             std::cerr << "  Imports:\n";
             for (Entry::ImportIterator importIter = entry->beginImportDecls();
                  importIter != entry->endImportDecls(); ++importIter) {
-                DomainType *type = *importIter;
-                std::cerr << "   " << type->getString() << " : ";
-                type->dump();
+                Decl *import = *importIter;
+                DeclRegion *region = import->asDeclRegion();
+                std::cerr << "   " << import->getString() << " : ";
+                import->dump();
                 std::cerr << '\n';
 
-                DomainTypeDecl *domain = type->getDomainTypeDecl();
-                for (DeclRegion::DeclIter iter = domain->beginDecls();
-                     iter != domain->endDecls(); ++iter) {
+                for (DeclRegion::DeclIter iter = region->beginDecls();
+                     iter != region->endDecls(); ++iter) {
                     std::cerr << "      ";
                     (*iter)->dump();
                     std::cerr << '\n';

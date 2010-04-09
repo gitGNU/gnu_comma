@@ -23,6 +23,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "DomainDecl",
     "VarietyDecl",
     "FunctorDecl",
+    "PackageDecl",
     "AddDecl",
 
     "AccessDecl",

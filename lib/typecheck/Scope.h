@@ -72,10 +72,15 @@ public:
     // assert in debug builds if a conflict is found.
     void addDirectDeclNoConflicts(Decl *decl);
 
-    // Adds an import into the scope, making all of the exports from the given
-    // type indirectly visible.  Returns true if the given type has already been
+    // Adds a domain import into the scope, making all of the public exports
+    // indirectly visible.  Returns true if the given domain has already been
     // imported and false otherwise.
-    bool addImport(DomainType *type);
+    bool addImport(DomainTypeDecl *domain);
+
+    // Adds a package import into the scope, making all of the public exports
+    // indirectly visible.  Returns true if the given package has already been
+    // imported and false otherwise.
+    bool addImport(PkgInstanceDecl *package);
 
     /// Returns a cleared (empty) Resolver object to be used for lookups.
     Resolver &getResolver() {
@@ -92,8 +97,9 @@ private:
         // The set of lexical declarations associated with this entry.
         typedef llvm::SmallPtrSet<Decl*, 16> DeclSet;
 
-        // Collection of imports associated with this entry.
-        typedef llvm::SmallVector<DomainType*, 8> ImportVector;
+        // Collection of imports associated with this entry.  These are either
+        // DomainTypeDecl's or PkgInstanceDecl's.
+        typedef llvm::SmallVector<Decl*, 8> ImportVector;
 
     public:
         Entry(ScopeKind kind, unsigned tag)
@@ -130,13 +136,15 @@ private:
             return directDecls.count(decl);
         }
 
-        void addImportDecl(DomainType *type);
+        void addImport(DomainTypeDecl *domain);
+        void addImport(PkgInstanceDecl *package);
 
         // Returns the number of imported declarations managed by this frame.
         unsigned numImportDecls() const { return importDecls.size(); }
 
-        bool containsImportDecl(IdentifierInfo *name);
-        bool containsImportDecl(DomainType *type);
+        bool containsImport(IdentifierInfo *name);
+        bool containsImport(DomainTypeDecl *domain);
+        bool containsImport(PkgInstanceDecl *package);
 
         // Iterators over the direct declarations managed by this frame.
         typedef DeclSet::const_iterator DirectIterator;

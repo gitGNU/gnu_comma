@@ -253,6 +253,7 @@ public:
     //@{
     virtual void beginDomainDecl(IdentifierInfo *name, Location loc) = 0;
     virtual void beginSignatureDecl(IdentifierInfo *name, Location loc) = 0;
+    virtual void beginPackageDecl(IdentifierInfo *name, Location loc) = 0;
     //@}
 
     /// \name Signature Profile Callbacks.

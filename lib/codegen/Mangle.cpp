@@ -141,38 +141,31 @@ unsigned getRegionIndex(const DeclRegion *region, IdentifierInfo *idInfo,
 /// For the given SubroutineDecl, locates the PercentDecl corresponding the the
 /// domain which defines the subroutine, and the view of the subroutine within
 /// the PercentDecl (if available).
-std::pair<const PercentDecl*, const SubroutineDecl*>
-getPercentImage(const SubroutineDecl *srDecl)
+std::pair<const DeclRegion*, const SubroutineDecl*>
+getPublicRegion(const SubroutineDecl *srDecl)
 {
-    typedef std::pair<const PercentDecl*, const SubroutineDecl*> Pair;
+    typedef std::pair<const DeclRegion*, const SubroutineDecl*> Pair;
 
     const DeclRegion *region = srDecl->getDeclRegion();
-    const PercentDecl *percent = 0;
-    const SubroutineDecl *target = 0;
 
-    /// There are three cases.  The simplest is when the given subroutine is
-    /// declared within a PercentDecl.
-    if ((percent = dyn_cast<PercentDecl>(region)))
-        return Pair(percent, srDecl);
+    /// Check if the region already corresponds to the public exports.
+    if (isa<PercentDecl>(region) || isa<PackageDecl>(region))
+        return Pair(region, srDecl);
 
-    /// Next, the declaration context may be a DomainInstanceDecl.  In this case
-    /// the given subroutine declaration has its origin link set directly to
-    /// internal declaration in percent.
-    if (isa<DomainInstanceDecl>(region)) {
-        target = srDecl->getOrigin();
-        percent = cast<PercentDecl>(target->getDeclRegion());
-        return Pair(percent, target);
+    /// If the declaration context is a DomainInstanceDecl or PkgInstanceDecl
+    /// the given subroutine declaration has its origin link set directly to the
+    /// original declaration.
+    if (isa<DomainInstanceDecl>(region) || isa<PkgInstanceDecl>(region)) {
+        const SubroutineDecl *target = srDecl->getOrigin();
+        return Pair(target->getDeclRegion(), target);
     }
 
     /// Finally, the given subroutine must be declared in the context of an
-    /// AddDecl.  Check if srDecl is the completion of declaration in the
-    /// corresponding PercentDecl and if so, return the "forward declaration".
-    /// Otherwise, there is no view of the subroutine in percent and so the
-    /// target is set to null.
+    /// AddDecl.  Check if srDecl is the completion of a declaration in the
+    /// corresponding public view (the parent region) and if so, return the
+    /// "forward declaration".
     const AddDecl *add = cast<AddDecl>(region);
-    percent = cast<PercentDecl>(add->getParent());
-    target = srDecl->getForwardDeclaration();
-    return Pair(percent, target);
+    return Pair(add->getParent(), srDecl->getForwardDeclaration());
 }
 
 /// \brief Returns the number of declarations which precede \p srDecl.
@@ -186,14 +179,14 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
     unsigned index = 0;
     IdentifierInfo *idInfo = srDecl->getIdInfo();
 
-    // Resolve the PercentDecl corresponding to this subroutine.
-    std::pair<const PercentDecl*, const SubroutineDecl*> percentImage;
-    percentImage = getPercentImage(srDecl);
+    // Resolve the DeclRegion corresponding to this subroutine.
+    std::pair<const DeclRegion*, const SubroutineDecl*> lookup;
+    lookup = getPublicRegion(srDecl);
 
     // Generate the index wrt the resolved PercentDecl.  If there is a match,
     // return the computed index.
-    if (getRegionIndex(percentImage.first, idInfo,
-                       percentImage.second, index))
+    if (lookup.second &&
+        getRegionIndex(lookup.first, idInfo, lookup.second, index))
         return index;
 
     // Otherwise, srDecl must denote a declaration which is private to the
@@ -209,7 +202,7 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
 
 } // end anonymous namespace.
 
-std::string comma::mangle::getLinkName(const DomainInstanceDecl *instance,
+std::string comma::mangle::getLinkName(const CapsuleInstance *instance,
                                        const SubroutineDecl *srDecl)
 {
     // If the given subroutine is imported use the external name given by the
@@ -256,12 +249,12 @@ std::string comma::mangle::getLinkName(const Domoid *domoid)
     return domoid->getString();
 }
 
-std::string comma::mangle::getLinkName(const DomainInstanceDecl *instance)
+std::string comma::mangle::getLinkName(const CapsuleInstance *instance)
 {
     assert(!instance->isDependent() &&
            "Cannot form link names for dependent instance declarations!");
 
-    std::string name = instance->getString();
+    std::string name = instance->getDefinition()->getString();
     for (unsigned i = 0; i < instance->getArity(); ++i) {
         const DomainType *param =
             cast<DomainType>(instance->getActualParamType(i));

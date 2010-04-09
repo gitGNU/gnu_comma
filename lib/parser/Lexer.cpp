@@ -314,6 +314,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_DECLARE;
         else if (strncmp(str, "generic", length) == 0)
             code = TKN_GENERIC;
+        else if (strncmp(str, "package", length) == 0)
+            code = TKN_PACKAGE;
         else if (strncmp(str, "subtype", length) == 0)
             code = TKN_SUBTYPE;
         else if (strncmp(str, "reverse", length) == 0)

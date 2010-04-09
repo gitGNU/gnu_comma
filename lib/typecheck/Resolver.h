@@ -99,7 +99,7 @@ public:
 
     /// Returns true if a direct capsule has been resolved.
     bool hasDirectCapsule() const {
-        return directDecl && llvm::isa<ModelDecl>(directDecl);
+        return directDecl && llvm::isa<CapsuleDecl>(directDecl);
     }
 
     /// Returns true if a direct exception has been resolved.
@@ -156,8 +156,8 @@ public:
 
     /// Returns the direct capsule associated with this resolver, or 0 if no
     /// such declaration could be resolved.
-    ModelDecl *getDirectCapsule() const {
-        return hasDirectCapsule() ? llvm::cast<ModelDecl>(directDecl) : 0;
+    CapsuleDecl *getDirectCapsule() const {
+        return hasDirectCapsule() ? llvm::cast<CapsuleDecl>(directDecl) : 0;
     }
 
     /// Returns the direct exception associated with this resolver, or null if

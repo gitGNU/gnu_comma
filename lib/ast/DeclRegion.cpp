@@ -145,6 +145,10 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const DomainInstanceDecl*>(this);
     case Ast::AST_AddDecl:
         return static_cast<const AddDecl*>(this);
+    case Ast::AST_PackageDecl:
+        return static_cast<const PackageDecl*>(this);
+    case Ast::AST_PkgInstanceDecl:
+        return static_cast<const PkgInstanceDecl*>(this);
     case Ast::AST_EnumerationDecl:
         return static_cast<const EnumerationDecl*>(this);
     case Ast::AST_BlockStmt:

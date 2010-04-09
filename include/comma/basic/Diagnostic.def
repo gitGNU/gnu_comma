@@ -117,8 +117,9 @@ DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
            "Argument `%0' already provided by a positional parameter.")
 DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
-DIAGNOSTIC(IMPORT_FROM_NON_DOMAIN, ERROR,
-           "Expression does not denote a domain, and so cannot be imported.")
+DIAGNOSTIC(IMPORT_FROM_NON_CAPSULE, ERROR,
+           "Expression does not denote a domain or package "
+           "and so cannot be imported.")
 DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
            "The name `%0' is not visible.")
 DIAGNOSTIC(INVALID_CONTEXT_FOR_PROCEDURE, ERROR,
@@ -133,6 +134,8 @@ DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
            "Multiple imports cause declaration hiding.")
 DIAGNOSTIC(MULTIPLE_CARRIER_DECLARATIONS, ERROR,
            "Multiple carrier declarations.")
+DIAGNOSTIC(CARRIER_IN_PACKAGE_BODY, ERROR,
+           "Packages can not define a carrier.")
 DIAGNOSTIC(INDEFINITE_CARRIER_TYPE, ERROR,
            "Carrier types may not be indefinite.")
 DIAGNOSTIC(EMPTY_RETURN_IN_FUNCTION, ERROR,

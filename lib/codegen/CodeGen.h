@@ -61,8 +61,7 @@ public:
     /// \return true if the instance was not already present in the worklist and
     /// false otherwise.
     ///
-    /// The given instance must not be dependent (meaning that
-    /// DomainInstanceDecl::isDependent must return false).
+    /// The given instance must not be dependent.
     ///
     /// When an instance is inserted into the worklist, a few actions take
     /// place.  First, the instance is schedualed for codegen, meaning that
@@ -70,13 +69,13 @@ public:
     /// current module.  Second, forward declarations are created for each of
     /// the instances subroutines.  These declarations are accessible thru the
     /// lookupGlobal method using the appropriately mangled name.
-    bool extendWorklist(DomainInstanceDecl *instace);
+    bool extendWorklist(CapsuleInstance *instance);
 
-    InstanceInfo *lookupInstanceInfo(const DomainInstanceDecl *instance) const {
-        return instanceTable.lookup(instance);
+    InstanceInfo *lookupInstanceInfo(const CapsuleInstance *instance) const {
+        return InstanceTable.lookup(instance);
     }
 
-    InstanceInfo *getInstanceInfo(const DomainInstanceDecl *instance) const {
+    InstanceInfo *getInstanceInfo(const CapsuleInstance *instance) const {
         InstanceInfo *info = lookupInstanceInfo(instance);
         assert(info && "Instance lookup failed!");
         return info;
@@ -84,9 +83,9 @@ public:
 
     /// \brief Returns the SRInfo object associated with \p srDecl.
     ///
-    /// The given instance must be a domain registered with the code generator.
-    /// If the lookup of \p srDecl fails an assertion will fire.
-    SRInfo *getSRInfo(DomainInstanceDecl *instance, SubroutineDecl *srDecl);
+    /// The given instance must be a domain or package registered with the code
+    /// generator.  If the lookup of \p srDecl fails an assertion will fire.
+    SRInfo *getSRInfo(CapsuleInstance *instance, SubroutineDecl *srDecl);
 
     /// FIXME: This method needs to be encapsulated in a seperate structure.
     const DependencySet &getDependencySet(const Domoid *domoid);
@@ -161,9 +160,11 @@ public:
                                  llvm::GlobalValue::LinkageTypes linkTy =
                                  llvm::GlobalValue::ExternalLinkage);
 
-    /// \brief Creates a function corresponding to the given Comma subroutine
+    /// \brief Creates a function corresponding to the given subroutine
     /// declaration.
-    llvm::Function *makeFunction(const DomainInstanceDecl *instance,
+    ///
+    /// The subroutine must be associated with the given domain instance.
+    llvm::Function *makeFunction(const CapsuleInstance *instance,
                                  const SubroutineDecl *srDecl,
                                  CodeGenTypes &CGT);
 
@@ -345,10 +346,10 @@ private:
     /// A map from declaration names to LLVM global values.
     StringGlobalMap globalTable;
 
-    /// Table mapping domain instance declarations to the corresponding
-    /// InstanceInfo objects.
-    typedef llvm::DenseMap<const DomainInstanceDecl*, InstanceInfo*> InstanceMap;
-    InstanceMap instanceTable;
+    /// Table mapping instance declarations to the corresponding InstanceInfo
+    /// objects.
+    typedef llvm::DenseMap<const CapsuleInstance*, InstanceInfo*> InstanceMap;
+    InstanceMap InstanceTable;
 
     /// FIXME: Temporary mapping from Domoids to their dependency sets.  This
     /// information will be encapsulated in an as-yet undefined class.
@@ -358,21 +359,22 @@ private:
     /// Name of this module is a constant internal global value (null terminated
     /// C-string).
     ///
-    /// This value is initialized when first requested thru the getModuleName method.
+    /// This value is initialized when first requested thru the getModuleName
+    /// method.
     llvm::Constant *moduleName;
 
     /// Generates an InstanceInfo object and adds it to the instance table.
     ///
     /// This method will assert if there already exists an info object for the
     /// given instance.
-    InstanceInfo *createInstanceInfo(DomainInstanceDecl *instance);
+    InstanceInfo *createInstanceInfo(CapsuleInstance *instance);
 
-    /// Returns true if there exists an member in the instance table which needs
+    /// Returns true if there exists a member in the instance table which needs
     /// to be compiled.
     bool instancesPending() const;
 
-    /// Compiles the next member of the instance table.  This operation could
-    /// very well expand the table to include more instances.
+    /// Compiles the next member of the instance table.  This operation may very
+    /// well expand the table to include more instances.
     void emitNextInstance();
 
     /// Emits the capsule described by the given info.

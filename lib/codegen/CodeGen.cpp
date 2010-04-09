@@ -48,6 +48,10 @@ void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
             InstanceInfo *info = createInstanceInfo(domain->getInstance());
             info->markAsCompiled();
         }
+        if (PackageDecl *package = dyn_cast<PackageDecl>(*I)) {
+            InstanceInfo *info = createInstanceInfo(package->getInstance());
+            info->markAsCompiled();
+        }
     }
 
     // Codegen each declaration.
@@ -60,9 +64,15 @@ void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
 
 void CodeGen::emitToplevelDecl(Decl *decl)
 {
-    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl)) {
-        // Generate an InstanceInfo object for this domain.
-        InstanceInfo *info = createInstanceInfo(domain->getInstance());
+    InstanceInfo *info = 0;
+
+    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl))
+        info = createInstanceInfo(domain->getInstance());
+
+    if (PackageDecl *package = dyn_cast<PackageDecl>(decl))
+        info = createInstanceInfo(package->getInstance());
+
+    if (info) {
         emitCapsule(info);
 
         // Continuously compile from the set of required instances so long as
@@ -77,11 +87,22 @@ void CodeGen::emitCapsule(InstanceInfo *info)
     CGContext CGC(*this, info);
 
     // Codegen each subroutine.
-    const AddDecl *add = info->getDefinition()->getImplementation();
+    const AddDecl *add;
+    CapsuleInstance *instance = info->getInstance();
+    if (info->denotesDomainInstance()) {
+        DomainInstanceDecl *dom = info->getDomainInstanceDecl();
+        add = dom->getDefinition()->getImplementation();
+    }
+    else {
+        assert(info->denotesPkgInstance());
+        PkgInstanceDecl *pkg = info->getPkgInstanceDecl();
+        add = pkg->getDefinition()->getImplementation();
+    }
+
     for (DeclRegion::ConstDeclIter I = add->beginDecls(), E = add->endDecls();
          I != E; ++I) {
         if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
-            SRInfo *SRI = getSRInfo(info->getInstanceDecl(), SRD);
+            SRInfo *SRI = getSRInfo(instance, SRD);
             CodeGenRoutine CGR(CGC, SRI);
             CGR.emit();
         }
@@ -94,16 +115,18 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     // Basic sanity checks on the declaration.
     assert(pdecl->getArity() == 0 && "Entry procedures must be nullary!");
 
-    // Get the procedures declarative region. This must be an instance of a
-    // non-parameterized domain.
+    // Lookup the generated function.
+    llvm::Value *func;
     DeclRegion *region = pdecl->getDeclRegion();
-    DomainInstanceDecl *context = cast<DomainInstanceDecl>(region);
-    assert(!context->isParameterized() &&
-           "Cannot call entry procedures in a parameterized context!");
-
-    // Lookup the previously codegened function for this decl.
-    SRInfo *info = getSRInfo(context, pdecl);
-    llvm::Value *func = info->getLLVMFunction();
+    if (DomainInstanceDecl *domain = dyn_cast<DomainInstanceDecl>(region)) {
+        assert(!domain->isParameterized() &&
+               "Cannot call entry procedures in a parameterized context!");
+        func = getSRInfo(domain, pdecl)->getLLVMFunction();
+    }
+    else {
+        PkgInstanceDecl *package = cast<PkgInstanceDecl>(region);
+        func = getSRInfo(package, pdecl)->getLLVMFunction();
+    }
 
     // Build the function type for the entry stub.
     //
@@ -187,21 +210,21 @@ llvm::Function *CodeGen::getEHTypeidIntrinsic() const
     return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for);
 }
 
-InstanceInfo *CodeGen::createInstanceInfo(DomainInstanceDecl *instance)
+InstanceInfo *CodeGen::createInstanceInfo(CapsuleInstance *instance)
 {
     assert(!lookupInstanceInfo(instance) &&
            "Instance already has associated info!");
 
     InstanceInfo *info = new InstanceInfo(*this, instance);
-    instanceTable[instance] = info;
+    InstanceTable[instance] = info;
     return info;
 }
 
 bool CodeGen::instancesPending() const
 {
     typedef InstanceMap::const_iterator iterator;
-    iterator E = instanceTable.end();
-    for (iterator I = instanceTable.begin(); I != E; ++I) {
+    iterator E = InstanceTable.end();
+    for (iterator I = InstanceTable.begin(); I != E; ++I) {
         if (!I->second->isCompiled())
             return true;
     }
@@ -211,8 +234,8 @@ bool CodeGen::instancesPending() const
 void CodeGen::emitNextInstance()
 {
     typedef InstanceMap::iterator iterator;
-    iterator E = instanceTable.end();
-    for (iterator I = instanceTable.begin(); I != E; ++I) {
+    iterator E = InstanceTable.end();
+    for (iterator I = InstanceTable.begin(); I != E; ++I) {
         if (I->second->isCompiled())
             continue;
         emitCapsule(I->second);
@@ -220,7 +243,7 @@ void CodeGen::emitNextInstance()
     }
 }
 
-bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
+bool CodeGen::extendWorklist(CapsuleInstance *instance)
 {
     assert(!instance->isDependent() && "Cannot codegen dependent instances!");
 
@@ -233,7 +256,7 @@ bool CodeGen::extendWorklist(DomainInstanceDecl *instance)
     return true;
 }
 
-SRInfo *CodeGen::getSRInfo(DomainInstanceDecl *instance,
+SRInfo *CodeGen::getSRInfo(CapsuleInstance *instance,
                            SubroutineDecl *srDecl)
 {
     InstanceInfo *IInfo = getInstanceInfo(instance);
@@ -313,7 +336,7 @@ llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
     return fn;
 }
 
-llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
+llvm::Function *CodeGen::makeFunction(const CapsuleInstance *instance,
                                       const SubroutineDecl *srDecl,
                                       CodeGenTypes &CGT)
 {
@@ -325,7 +348,7 @@ llvm::Function *CodeGen::makeFunction(const DomainInstanceDecl *instance,
     // All instances should be fully resolved.
     assert(!instance->isDependent() && "Unexpected dependent instance!");
 
-    // If this is a functor instance all functions must be defined with
+    // If this is a parameterized instance all functions must be defined with
     // WeakODRLinkage (One Definition Rule, as in C++).  Otherwise use external
     // linkage.
     if (instance->isParameterized())
@@ -347,7 +370,6 @@ llvm::Function *CodeGen::makeInternFunction(const llvm::FunctionType *Ty,
         llvm::Function::Create(Ty, llvm::Function::InternalLinkage, name, M);
     return fn;
 }
-
 
 llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
                                            const llvm::APInt &value) const
