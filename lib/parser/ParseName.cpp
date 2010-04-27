@@ -51,12 +51,14 @@ Node Parser::parseInj()
     assert(currentTokenIs(Lexer::TKN_INJ));
     Location loc = ignoreToken();
 
-    if (!requireToken(Lexer::TKN_LPAREN))
+    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
+        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
         return getInvalidNode();
+    }
 
-    Node expr = parseExpr();
+    Node expr = parseParenExpr();
 
-    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
+    if (expr.isInvalid())
         return getInvalidNode();
 
     return client.acceptInj(loc, expr);
@@ -67,15 +69,15 @@ Node Parser::parsePrj()
     assert(currentTokenIs(Lexer::TKN_PRJ));
     Location loc = ignoreToken();
 
-    if (!requireToken(Lexer::TKN_LPAREN))
-        return getInvalidNode();
-
-    Node expr = parseExpr();
-
-    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN)) {
-        seekCloseParen();
+    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
+        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
         return getInvalidNode();
     }
+
+    Node expr = parseParenExpr();
+
+    if (expr.isInvalid())
+        return getInvalidNode();
 
     return client.acceptPrj(loc, expr);
 }
