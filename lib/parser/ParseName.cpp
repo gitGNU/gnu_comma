@@ -24,8 +24,10 @@ Node Parser::parseDirectName(NameOption option)
         break;
 
     case Lexer::TKN_IDENTIFIER:
-        if (IdentifierInfo *name = parseIdentifier())
-            return client.acceptDirectName(name, loc, option);
+        if (IdentifierInfo *name = parseIdentifier()) {
+            bool forStatement = option == Statement_Name;
+            return client.acceptDirectName(name, loc, forStatement);
+        }
         break;
 
     case Lexer::TKN_CHARACTER:
