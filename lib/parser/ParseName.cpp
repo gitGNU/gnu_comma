@@ -51,14 +51,12 @@ Node Parser::parseInj()
     assert(currentTokenIs(Lexer::TKN_INJ));
     Location loc = ignoreToken();
 
-    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
-        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
+    if (!requireToken(Lexer::TKN_LPAREN))
         return getInvalidNode();
-    }
 
-    Node expr = parseParenExpr();
+    Node expr = parseExpr();
 
-    if (expr.isInvalid())
+    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
         return getInvalidNode();
 
     return client.acceptInj(loc, expr);
