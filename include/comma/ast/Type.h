@@ -1136,6 +1136,9 @@ private:
     ArrayType(IdentifierInfo *name, ArrayType *rootType,
               DiscreteType **indices);
 
+    /// Creates an anonymous constrained array subtype.
+    ArrayType(ArrayType *rootType, DiscreteType **indices);
+
     /// Creates an unconstrained array subtype.
     ArrayType(IdentifierInfo *name, ArrayType *rootType);
 

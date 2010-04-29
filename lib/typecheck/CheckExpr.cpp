@@ -11,6 +11,7 @@
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/AggExpr.h"
 #include "comma/ast/ExceptionRef.h"
+#include "comma/ast/STIndication.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 
@@ -465,15 +466,23 @@ Node TypeCheck::acceptAllocatorExpr(Node operandNode, Location loc)
 {
     AllocatorExpr *alloc = 0;
 
-    if (QualifiedExpr *qual = lift_node<QualifiedExpr>(operandNode))
+    if (QualifiedExpr *qual = lift_node<QualifiedExpr>(operandNode)) {
+        operandNode.release();
         alloc = new AllocatorExpr(qual, loc);
-    else {
-        TypeDecl *tdecl = ensureCompleteTypeDecl(operandNode);
-        if (!tdecl)
-            return getInvalidNode();
-        alloc = new AllocatorExpr(tdecl->getType(), loc);
     }
-    operandNode.release();
+    else {
+        STIndication *STI = cast_node<STIndication>(operandNode);
+        PrimaryType *allocatedType = STI->getType();
+
+        if (allocatedType->isUnconstrained()) {
+            report(STI->getLocation(),
+                   diag::CANNOT_ALLOC_UNCONSTRAINED_TYPE_WITHOUT_INIT);
+            return getInvalidNode();
+        }
+        else
+            alloc = new AllocatorExpr(STI->getType(), loc);
+    }
+
     return getNode(alloc);
 }
 

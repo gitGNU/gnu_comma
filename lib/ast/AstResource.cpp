@@ -449,6 +449,14 @@ ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
     return res;
 }
 
+ArrayType *AstResource::createArraySubtype(ArrayType *base,
+                                           DiscreteType **indices)
+{
+    ArrayType *res = new ArrayType(base, indices);
+    types.push_back(res);
+    return res;
+}
+
 ArrayType *AstResource::createArraySubtype(IdentifierInfo *name,
                                            ArrayType *base)
 {

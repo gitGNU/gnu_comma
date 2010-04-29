@@ -196,8 +196,23 @@ Node Parser::parseName(NameOption option)
         return prefix;
 
     for ( ;; ) {
-        if (currentTokenIs(Lexer::TKN_LPAREN))
-            prefix = parseApplication(prefix);
+        if (currentTokenIs(Lexer::TKN_LPAREN)) {
+            if (option == Elide_Application) {
+                bool selectorFollows = false;
+                beginExcursion();
+                ignoreToken();
+                if (seekCloseParen() && currentTokenIs(Lexer::TKN_DOT))
+                    selectorFollows = true;
+                endExcursion();
+
+                if (selectorFollows)
+                    prefix = parseApplication(prefix);
+                else
+                    return prefix;
+            }
+            else
+                prefix = parseApplication(prefix);
+        }
         else if (reduceToken(Lexer::TKN_DOT)) {
             prefix = client.finishName(prefix);
             if (prefix.isValid())

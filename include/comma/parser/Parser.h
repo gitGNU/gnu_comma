@@ -105,9 +105,17 @@ public:
         /// procedure).
         Statement_Name,
 
-        /// Indicates that Range attributes are valid (e.g. a the control in a
+        /// Indicates that Range attributes are valid (e.g. as the control in a
         /// \c for statement.
         Accept_Range_Attribute,
+
+        /// Requests that name parsing stops at the first opening paren that
+        /// does not form the prefix to a qualified name.  This option is used
+        /// when parsing subtype indications where parens delimit constraints.
+        ///
+        /// For example, with the Elide_Application option the name
+        /// "Foo(X).Bar(Y)" is parsed into the name "Foo(X).Bar".
+        Elide_Application
     };
 
     Node parseName(NameOption option = No_Option);
@@ -319,6 +327,13 @@ private:
     // minimal number of bits needed to represent the given number.
     void decimalLiteralToAPInt(const char *start, unsigned length,
                                llvm::APInt &value);
+
+
+    bool parseRange(Node &lower, Node &upper);
+    Node parseSubtypeIndicationRange(Node subtypeMark);
+    Node parseSubtypeIndicationArgument();
+    Node parseSubtypeIndicationArguments(Node subtypeMark);
+    Node parseSubtypeIndication();
 };
 
 } // End comma namespace

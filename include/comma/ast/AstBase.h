@@ -126,6 +126,7 @@ class SelectedExpr;
 class Sigoid;
 class SignatureDecl;
 class SigInstanceDecl;
+class STIndication;
 class Stmt;
 class StmtSequence;
 class StringLiteral;
@@ -292,6 +293,7 @@ public:
         //
         AST_KeywordSelector,    ///< KeywordSelector
         AST_DSTDefinition,      ///< DSTDefinition
+        AST_STIndication,       ///< STIndication
         AST_Range,              ///< Range
         AST_ArrayRangeAttrib,   ///< ArrayRangeAttrib
         AST_ScalarRangeAttrib,  ///< ScalarRangeAttrib

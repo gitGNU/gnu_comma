@@ -1160,6 +1160,15 @@ ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType,
     assert(this->isSubtype());
 }
 
+ArrayType::ArrayType(ArrayType *rootType, DiscreteType **indices)
+    : CompositeType(AST_ArrayType, rootType, true),
+      indices(indices, indices + rootType->getRank()),
+      componentType(rootType->getComponentType())
+{
+    setConstraintBit();
+    assert(this->isSubtype());
+}
+
 ArrayType::ArrayType(IdentifierInfo *name, ArrayType *rootType)
     : CompositeType(AST_ArrayType, rootType, true),
       indices(rootType->begin(), rootType->end()),

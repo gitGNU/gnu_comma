@@ -136,6 +136,11 @@ public:
     /// grammar.
     bool denotesName() const;
 
+    /// Returns a copy of this Expr.
+    ///
+    /// FIXME: Implement.
+    Expr *clone() { return this; }
+
     // Support isa/dyn_cast.
     static bool classof(const Expr *node) { return true; }
     static bool classof(const Ast *node) {

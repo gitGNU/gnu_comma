@@ -104,6 +104,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "KeywordSelector",
     "DSTDefinition",
+    "STIndication",
     "Range",
     "ArrayRangeAttrib",
     "ScalarRangeAttrib",

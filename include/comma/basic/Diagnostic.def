@@ -291,6 +291,13 @@ DIAGNOSTIC(NONEXISTENT_LOOP_TAG, ERROR,
            "Loop named `%0' is not visible.")
 DIAGNOSTIC(MULTIPLE_WITH_CLAUSES, WARNING,
            "Component `%0' previously withed (`%1').")
+DIAGNOSTIC(INVALID_CONSTRAINT_FOR_TYPE, ERROR,
+           "Invalid constraint for type `%0'.")
+DIAGNOSTIC(CONSTRAINING_CONSTRAINED_ARRAY, ERROR,
+           "Array subtype already constrained.")
+DIAGNOSTIC(CANNOT_ALLOC_UNCONSTRAINED_TYPE_WITHOUT_INIT, ERROR,
+           "Cannot allocate objects of unconstrained type without "
+           "initialization.")
 
 //
 // Driver diagnostics.

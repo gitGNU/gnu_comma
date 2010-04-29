@@ -131,6 +131,10 @@ public:
     Node acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained);
     Node acceptDSTDefinition(Node lower, Node upper);
 
+    Node acceptSubtypeIndication(Node prefix);
+    Node acceptSubtypeIndication(Node prefix, Node lower, Node upper);
+    Node acceptSubtypeIndication(Node prefix, NodeVector &arguments);
+
     Node acceptExitStmt(Location exitLoc,
                         IdentifierInfo *tag, Location tagLoc,
                         Node condition);
@@ -857,7 +861,7 @@ private:
     ///
     /// \param name The object identifier.
     ///
-    /// \param arrDecl Declaration node corresponding to the type of the object.
+    /// \param arrTy Type corresponding to the object.
     ///
     /// \param init Initialization expression, or null if there is no
     /// initializer.
@@ -865,7 +869,7 @@ private:
     /// \return An ObjectDecl node or null if the declaration did not type
     /// check.
     ObjectDecl *acceptArrayObjectDeclaration(Location loc, IdentifierInfo *name,
-                                             ArrayDecl *arrDecl, Expr *init);
+                                             ArrayType *arrTy, Expr *init);
 
     /// Returns a constrained array subtype derived from the given type \p arrTy
     /// and an array valued expression (typically an array initializer) \p init.

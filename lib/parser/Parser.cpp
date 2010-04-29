@@ -975,13 +975,13 @@ bool Parser::parseObjectDeclaration()
         return false;
     }
 
-    Node type = parseName();
+    Node subtype = parseSubtypeIndication();
 
-    if (type.isValid()) {
+    if (subtype.isValid()) {
         if (reduceToken(Lexer::TKN_RENAMES)) {
             Node target = parseName();
             if (target.isValid()) {
-                client.acceptRenamedObjectDeclaration(loc, id, type, target);
+                client.acceptRenamedObjectDeclaration(loc, id, subtype, target);
                 return true;
             }
         }
@@ -990,7 +990,7 @@ bool Parser::parseObjectDeclaration()
             if (reduceToken(Lexer::TKN_ASSIGN))
                 init = parseExpr();
             if (init.isValid()) {
-                client.acceptObjectDeclaration(loc, id, type, init);
+                client.acceptObjectDeclaration(loc, id, subtype, init);
                 return true;
             }
         }
@@ -1094,7 +1094,7 @@ bool Parser::parseSubtype()
     // range constraints.
     if (requireToken(Lexer::TKN_RANGE)) {
         Node low = parseExpr();
-        if (low.isInvalid() or !requireToken(Lexer::TKN_DDOT)) {
+        if (low.isInvalid() || !requireToken(Lexer::TKN_DDOT)) {
             seekSemi();
             return false;
         }

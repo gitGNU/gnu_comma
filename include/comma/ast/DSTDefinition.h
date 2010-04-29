@@ -81,7 +81,7 @@ public:
     bool definedUsingAttrib() const { return getTag() == Attribute_DST; }
 
     //@{
-    /// When definedUsingAttib is true, returns the RangeAttrib associated with
+    /// When definedUsingAttrib is true, returns the RangeAttrib associated with
     /// this DSTDefinition.
     //@{
     const RangeAttrib *getAttrib() const;
@@ -90,10 +90,6 @@ public:
 
     /// Returns true if this DSTDefinition was specified using a simple subtype
     /// mark.
-    ///
-    /// \note When a discrete subtype is supplied to the constructor, this is
-    /// the resulting state.  A DSTDefinition is `promoted' to a constrained
-    /// definition with a call to addConstraint().
     bool definedUsingSubtype() const { return getTag() == Type_DST; }
 
     /// Returns true if this DSTDefinition was specified using an explicity

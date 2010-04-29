@@ -561,6 +561,36 @@ public:
     virtual Node acceptDSTDefinition(Node lower, Node upper) = 0;
     //@}
 
+    /// \name Subtype Indication Callbacks.
+    ///
+    /// These callbacks are invoked to inform the client of a subtype
+    /// indication.
+    //@{
+
+    /// Called when the subtype indication is not associated with a constraint.
+    virtual Node acceptSubtypeIndication(Node prefix) = 0;
+
+    /// Called when the subtype is constrained by a range.
+    virtual Node acceptSubtypeIndication(Node prefix, Node lower, Node upper) = 0;
+
+    /// Called when the subtype indication is accompanied by a set of
+    /// parenthesized constraints.
+    ///
+    /// This callback is invoked for subtype indications corresponding to an
+    /// array subtype with index constraints or a domain parameterization (and,
+    /// eventually, discriminated records).
+    ///
+    /// Unfortunately the grammar is ambiguous for this case.  For example,
+    /// arrays can have ranges as index constraints whereas discriminated
+    /// records accept arbitrary expressions.  For example, the parser cannot
+    /// determine which of the arguments in "Foo(X..Y, A => B)" are incorrect.
+    /// As a consequence, the client must be prepared to handle a mix of
+    /// expressions, keyword selections, and discrete subtype definitions in the
+    /// argument vector and decide if the Nodes are compatible with the given
+    /// prefix.
+    virtual Node acceptSubtypeIndication(Node prefix, NodeVector &arguments) = 0;
+    //@}
+
     /// \brief Indicates an exit statement to the client.
     ///
     /// \param exitLoc Location of the exit reserved word.

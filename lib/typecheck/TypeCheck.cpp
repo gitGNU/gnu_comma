@@ -15,11 +15,13 @@
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DiagPrint.h"
 #include "comma/ast/DSTDefinition.h"
 #include "comma/ast/KeywordSelector.h"
 #include "comma/ast/PackageRef.h"
 #include "comma/ast/Pragma.h"
 #include "comma/ast/RangeAttrib.h"
+#include "comma/ast/STIndication.h"
 #include "comma/ast/Stmt.h"
 #include "comma/ast/TypeRef.h"
 
@@ -636,11 +638,9 @@ ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
 
 ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
                                                     IdentifierInfo *name,
-                                                    ArrayDecl *arrDecl,
+                                                    ArrayType *arrTy,
                                                     Expr *init)
 {
-    ArrayType *arrTy = arrDecl->getType();
-
     if (!arrTy->isConstrained() && (init == 0)) {
         report(loc, diag::UNCONSTRAINED_ARRAY_OBJECT_REQUIRES_INIT);
         return 0;
@@ -658,24 +658,22 @@ ObjectDecl *TypeCheck::acceptArrayObjectDeclaration(Location loc,
 }
 
 bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
-                                        Node refNode, Node initializerNode)
+                                        Node STINode, Node initializerNode)
 {
     Expr *init = 0;
     ObjectDecl *decl = 0;
-    TypeDecl *tyDecl = ensureCompleteTypeDecl(refNode);
-
-    if (!tyDecl) return false;
+    STIndication *STI = cast_node<STIndication>(STINode);
 
     if (!initializerNode.isNull())
         init = ensureExpr(initializerNode);
 
-    if (ArrayDecl *arrDecl = dyn_cast<ArrayDecl>(tyDecl)) {
-        decl = acceptArrayObjectDeclaration(loc, name, arrDecl, init);
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(STI->getType())) {
+        decl = acceptArrayObjectDeclaration(loc, name, arrTy, init);
         if (decl == 0)
             return false;
     }
     else {
-        Type *objTy = tyDecl->getType();
+        Type *objTy = STI->getType();
         if (init) {
             init = checkExprInContext(init, objTy);
             if (!init)
@@ -684,8 +682,8 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
         decl = new ObjectDecl(name, objTy, loc, init);
     }
 
+    // Do not release STINode as we are now finished with it.
     initializerNode.release();
-    refNode.release();
 
     if (Decl *conflict = scope.addDirectDecl(decl)) {
         SourceLocation sloc = getSourceLoc(conflict->getLocation());
@@ -698,22 +696,17 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
 
 bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
                                                IdentifierInfo *name,
-                                               Node refNode, Node targetNode)
+                                               Node STINode, Node targetNode)
 {
-    Expr *target;
-    TypeDecl *tyDecl;;
+    STIndication *STI = cast_node<STIndication>(STINode);
+    Expr *target = ensureExpr(targetNode);
 
-    if (!(tyDecl = ensureCompleteTypeDecl(refNode)) ||
-        !(target = ensureExpr(targetNode)))
-        return false;
-
-    if (!(target = checkExprInContext(target, tyDecl->getType())))
+    if (!target || !(target = checkExprInContext(target, STI->getType())))
         return false;
 
     RenamedObjectDecl *decl;
-    refNode.release();
     targetNode.release();
-    decl = new RenamedObjectDecl(name, tyDecl->getType(), loc, target);
+    decl = new RenamedObjectDecl(name, STI->getType(), loc, target);
 
     if (Decl *conflict = scope.addDirectDecl(decl)) {
         SourceLocation sloc = getSourceLoc(conflict->getLocation());
@@ -1141,10 +1134,8 @@ Node TypeCheck::acceptDSTDefinition(Node name, Node lowerNode, Node upperNode)
     DSTDefinition::DSTTag tag = DSTDefinition::Constrained_DST;
     DSTDefinition *result = new DSTDefinition(ref->getLocation(), subtype, tag);
 
-    name.release();
     lowerNode.release();
     upperNode.release();
-    delete ref;
     return getNode(result);
 }
 
@@ -1194,6 +1185,168 @@ Node TypeCheck::acceptDSTDefinition(Node lowerNode, Node upperNode)
     upperNode.release();
     DSTDefinition::DSTTag tag = DSTDefinition::Range_DST;
     return getNode(new DSTDefinition(lower->getLocation(), subtype, tag));
+}
+
+//===----------------------------------------------------------------------===//
+// Subtype indication callbacks.
+
+Node TypeCheck::acceptSubtypeIndication(Node prefix)
+{
+    TypeRef *ref = lift_node<TypeRef>(prefix);
+    TypeDecl *decl;
+
+    if (!ref) {
+        report(getNodeLoc(prefix), diag::NOT_A_TYPE);
+        return getInvalidNode();
+    }
+
+    if (!(decl = ensureCompleteTypeDecl(ref->getDecl(), ref->getLocation())))
+        return getInvalidNode();
+
+    // Do not release the prefix as we are done with the TypeRef.
+    return getNode(new STIndication(ref->getLocation(), decl->getType()));
+}
+
+Node TypeCheck::acceptSubtypeIndication(Node prefix,
+                                        Node lowerNode, Node upperNode)
+{
+    TypeRef *ref = lift_node<TypeRef>(prefix);
+    DiscreteType *subtype = 0;
+
+    if (ref) {
+        if (TypeDecl *decl = ref->getTypeDecl())
+            subtype = dyn_cast<DiscreteType>(decl->getType());
+    }
+
+    if (!subtype) {
+        report(getNodeLoc(prefix), diag::EXPECTED_DISCRETE_SUBTYPE_OR_RANGE);
+        return getInvalidNode();
+    }
+
+    Expr *lower = ensureExpr(lowerNode);
+    Expr *upper = ensureExpr(upperNode);
+    if (!(lower && upper))
+        return getInvalidNode();
+
+    subtype = RangeChecker(*this).checkSubtypeRange(subtype, lower, upper);
+    if (!subtype)
+        return getInvalidNode();
+
+    lowerNode.release();
+    upperNode.release();
+    return getNode(new STIndication(ref->getLocation(), subtype));
+}
+
+Node TypeCheck::acceptSubtypeIndication(Node prefix, NodeVector &arguments)
+{
+    TypeRef *ref = lift_node<TypeRef>(prefix);
+
+    if (!ref) {
+        report(getNodeLoc(prefix), diag::NOT_A_TYPE);
+        return getInvalidNode();
+    }
+
+    // Process functor applications as though they were simple names.
+    if (ref->referencesFunctor()) {
+        if (TypeRef *dom = acceptTypeApplication(ref, arguments)) {
+            TypeDecl *decl;
+            STIndication *STI;
+            decl = dom->getTypeDecl();
+            STI = new STIndication(ref->getLocation(), decl->getType());
+            arguments.release();
+            return getNode(STI);
+        }
+        return getInvalidNode();
+    }
+
+    // Otherwise, we must have a type declaration which resolves to an array
+    // type.
+    //
+    // FIXME: Discriminated records need to be supported here.
+    //
+    // FIXME: According to ARM 3.6.1 the prefix may also be an unconstrained
+    // access subtype, provided its designated subtype is an unconstrained array
+    // subtype.
+    ArrayDecl *decl = dyn_cast_or_null<ArrayDecl>(ref->getDecl());
+
+    if (!decl) {
+        report(ref->getLocation(), diag::INVALID_CONSTRAINT_FOR_TYPE)
+            << diag::PrintDecl(ref->getDecl());
+        return getInvalidNode();
+    }
+
+    // Ensure that the number of indices matches that of the array type.
+    if (decl->getRank() != arguments.size()) {
+        report(ref->getLocation(), diag::WRONG_NUM_SUBSCRIPTS_FOR_ARRAY);
+        return getInvalidNode();
+    }
+
+    // Ensure that the array type is itself unconstrained.
+    if (decl->getType()->isConstrained()) {
+        report(ref->getLocation(), diag::CONSTRAINING_CONSTRAINED_ARRAY);
+        return getInvalidNode();
+    }
+
+    // Each argument must be a DSTDefinition.  For subtype indications the
+    // parser cannot guarantee that each argument is of the required form -- we
+    // may have expressions, keyword selectors, etc.  Use a node lifter instead
+    // of casting.
+    typedef NodeLifter<DSTDefinition> Lifter;
+    typedef llvm::mapped_iterator<NodeVector::iterator, Lifter> Mapper;
+    typedef llvm::SmallVector<DSTDefinition*, 8> IndexVec;
+    typedef llvm::SmallVector<DiscreteType*, 8> TypeVec;
+    IndexVec indices(Mapper(arguments.begin(), Lifter()),
+                     Mapper(arguments.end(), Lifter()));
+    TypeVec indexTypes;
+
+    for (unsigned i = 0; i < indices.size(); ++i) {
+        DSTDefinition *DST = indices[i];
+
+        // Check that we successfully lifted the index node to a DSTDefinition.
+        if (!DST) {
+            report(getNodeLoc(arguments[i]), diag::EXPECTED_DISCRETE_INDEX);
+            return getInvalidNode();
+        }
+
+        // We should never get an unconstrained index from the parser ("range
+        // <>") -- assert this fact.
+        assert(DST->getTag() != DSTDefinition::Unconstrained_DST &&
+               "Expecting only constrained index types for subtype indication!");
+
+        indexTypes.push_back(DST->getType());
+    }
+
+    for (unsigned i = 0; i < indexTypes.size(); ++i) {
+        DiscreteType *constraintTy = indexTypes[i];
+        DiscreteType *targetTy = decl->getIndexType(i);
+
+        // We know the DSTDefinition is well formed.  Ensure that the index type
+        // of the array is compatible.
+        if (!covers(constraintTy, targetTy)) {
+            report(indices[i]->getLocation(), diag::INCOMPATIBLE_TYPES);
+            return getInvalidNode();
+        }
+
+        // Check if the constraint requires conversions to the index type.
+        //
+        // We must not modify types once they are created.  Build a new discrete
+        // subtype with the constraint bounds wrapped in conversion expressions.
+        if (conversionRequired(constraintTy, targetTy)) {
+            Expr *lower = constraintTy->getConstraint()->getLowerBound();
+            Expr *upper = constraintTy->getConstraint()->getUpperBound();
+            lower = convertIfNeeded(lower->clone(), targetTy);
+            upper = convertIfNeeded(upper->clone(), targetTy);
+            indexTypes[i] = resource.createDiscreteSubtype(
+                targetTy, lower, upper);
+        }
+    }
+
+    // Build the subtype node and wrap it in an STIndication.  Since we do not
+    // store the DSTDefinition or the prefix TypeRef, do not release them.
+    ArrayType *base = decl->getType();
+    ArrayType *type = resource.createArraySubtype(base, &indexTypes[0]);
+    STIndication *STI = new STIndication(ref->getLocation(), type);
+    return getNode(STI);
 }
 
 bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,

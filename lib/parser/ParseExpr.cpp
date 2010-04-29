@@ -358,26 +358,33 @@ Node Parser::parseAllocatorExpr()
     assert(currentTokenIs(Lexer::TKN_NEW));
 
     Location loc = ignoreToken(); // Ignore the "new" token.
+    Node operand = getNullNode();
 
-    // FIXME:  We should be parsing a general subtype indication as opposed to a
-    // simple name.
-    Node operand = parseName();
+    // Determine if a qualified name follows.
+    beginExcursion();
+    bool haveQualifier = consumeName() && qualificationFollows();
+    endExcursion();
 
-    if (operand.isInvalid()) {
-        // Consume a qualified expression if possible.
-        if (qualificationFollows()) {
-            ignoreToken();       // Ignore the quote.
-            ignoreToken();       // Ignore the left paren.
-            seekCloseParen();
-        }
-        return getInvalidNode();
-    }
+    if (haveQualifier) {
+        operand = parseName();
 
-    if (qualificationFollows()) {
-        operand = parseQualifiedExpr(operand);
-        if (operand.isInvalid())
+        // Skip past the qualifier if possible.
+        if (operand.isInvalid()) {
+            if (qualificationFollows()) {
+                ignoreToken();  // Ignore the quote.
+                ignoreToken();  // Ignore the left paren.
+                seekCloseParen();
+            }
             return getInvalidNode();
+        }
+
+        operand = parseQualifiedExpr(operand);
     }
+    else
+        operand = parseSubtypeIndication();
+
+    if (operand.isInvalid())
+        return getInvalidNode();
 
     return client.acceptAllocatorExpr(operand, loc);
 }

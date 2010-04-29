@@ -93,6 +93,7 @@ private:
     CValue emitKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
     CValue emitStaticKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
     CValue emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
+    CValue emitRangeKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
     CValue emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst);
 
     CValue emitArrayConversion(ConversionExpr *convert, llvm::Value *dst,
@@ -170,23 +171,28 @@ CValue ArrayEmitter::emitAllocator(AllocatorExpr *expr)
     if (arrTy->isDefiniteType())
         return emitDefiniteAllocator(expr, arrTy);
 
+    if (arrTy->isConstrained())
+        return emitConstrainedAllocator(expr, arrTy);
+
     assert(expr->isInitialized() &&
-           "Cannot codegen uninitialized indefinite allocators!");
-    Expr *operand = expr->getInitializer();
+           "Cannot codegen indefinite unconstrained aggregate allocators!");
 
-    if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(operand))
-        operand = qual->getOperand();
+    // Resolve the initialization expression and corresponding type.
+    Expr *init = expr->getInitializer();
+    while (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(init))
+        init = qual->getOperand();
+    arrTy = cast<ArrayType>(init->getType());
 
-    ArrayType *operandTy = cast<ArrayType>(CGR.resolveType(operand));
-    if (operandTy->isConstrained())
-        return emitConstrainedAllocator(expr, operandTy);
+    // Treat the allocator as constrained if its initializer is.
+    if (arrTy->isConstrained())
+        return emitConstrainedAllocator(expr, arrTy);
 
     // Function calls, formal parameters and object declarations are the only
-    // types of expression which can have an unconstrained type.
-    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(operand))
+    // types of expression which can be of unconstrained array type.
+    if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(init))
         return emitCallAllocator(expr, call, arrTy);
 
-    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(operand)) {
+    if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(init)) {
         ValueDecl *value = dyn_cast<ValueDecl>(ref->getDeclaration());
         if (value)
             return emitValueAllocator(expr, value, arrTy);
@@ -237,17 +243,17 @@ CValue ArrayEmitter::emitConstrainedAllocator(AllocatorExpr *expr,
     resultTy = CGT.lowerFatAccessType(expr->getType());
     dataTy = cast<llvm::PointerType>(resultTy->getElementType(0));
 
-    // Compute the size of the array.  Use static information if possible,
-    // otherwise compute at runtime.
+    // Compute the size and bounds of the array.  Use static information if
+    // possible, otherwise compute at runtime.
+    BoundsEmitter emitter(CGR);
+    llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
     llvm::Value *size;
     if (arrTy->isStaticallyConstrained()) {
         uint64_t staticSize = CGT.getTypeSize(loweredTy);
         size = llvm::ConstantInt::get(CG.getInt32Ty(), staticSize);
     }
     else {
-        BoundsEmitter emitter(CGR);
         uint64_t staticSize = CGT.getTypeSize(loweredTy->getElementType());
-        llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
         llvm::Value *length = emitter.computeTotalBoundLength(Builder, bounds);
         size = llvm::ConstantInt::get(CG.getInt32Ty(), staticSize);
         size = Builder.CreateMul(size, length);
@@ -259,17 +265,20 @@ CValue ArrayEmitter::emitConstrainedAllocator(AllocatorExpr *expr,
     unsigned align = CGT.getTypeAlignment(loweredTy);
     llvm::Value *data = CRT.comma_alloc(Builder, size, align);
     data = Builder.CreatePointerCast(data, dataTy);
-    CValue agg = emit(expr->getInitializer(), data, false);
 
-    // Create a temporary to hold the fat pointer and store the data pointer.
+    // Create a temporary to hold the fat pointer and store the data pointer and
+    // bounds.
     llvm::Value *fatPtr = frame()->createTemp(resultTy);
-    llvm::Value *bounds = agg.second();
-    Builder.CreateStore(data, Builder.CreateStructGEP(fatPtr, 0));
-
-    // Load the bounds if needed and populate the fat pointer.
     if (isa<llvm::PointerType>(bounds->getType()))
         bounds = Builder.CreateLoad(bounds);
     Builder.CreateStore(bounds, Builder.CreateStructGEP(fatPtr, 1));
+    Builder.CreateStore(data, Builder.CreateStructGEP(fatPtr, 0));
+
+    // Initialize the data if needed.
+    //
+    // FIXME: Perform default initialization otherwise.
+    if (expr->isInitialized())
+        emit(expr->getInitializer(), data, false);
 
     // Finished.
     return CValue::getFat(fatPtr);
@@ -878,7 +887,7 @@ void ArrayEmitter::fillInOthers(AggregateExpr *agg, llvm::Value *dst,
     }
 }
 
-CValue ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+CValue ArrayEmitter::emitRangeKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 {
     ArrayType *arrTy = cast<ArrayType>(expr->getType());
     AggregateExpr::key_iterator I = expr->key_begin();
@@ -929,6 +938,32 @@ CValue ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 
     // Set the insert point to the merge block and return.
     Builder.SetInsertPoint(mergeBB);
+    return CValue::getArray(dst, bounds);
+}
+
+CValue ArrayEmitter::emitDynamicKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
+{
+    AggregateExpr::key_iterator I = expr->key_begin();
+
+    // The key is either a range or a simple expression.
+    if (I->getAsRange())
+        return emitRangeKeyedAgg(expr, dst);
+
+    // The case of a simple expression is trivial.  Allocate an array with one
+    // element and store the result.  We evaluate the index regardless to ensure
+    // any checks are performed.  This type of aggregate is very similar to an
+    // assignment.
+    Expr *key = I->getAsExpr();
+    Expr *value = I.getExpr();
+    ArrayType *arrTy = cast<ArrayType>(expr->getType());
+    llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
+
+    if (dst == 0)
+        allocArray(arrTy, bounds, dst);
+
+    CGR.emitValue(key);
+    llvm::Value *ptr = Builder.CreateConstInBoundsGEP2_64(dst, 0, 0);
+    emitComponent(value, ptr);
     return CValue::getArray(dst, bounds);
 }
 
@@ -1392,13 +1427,9 @@ void CodeGenRoutine::emitCompositeObjectDecl(ObjectDecl *objDecl)
         const llvm::Type *loweredTy = CGT.lowerArrayType(arrTy);
 
         if (!objDecl->hasInitializer()) {
-            // FIXME: Support dynamicly sized arrays and default initialization.
-            assert(arrTy->isStaticallyConstrained() &&
-                   "Cannot codegen non-static arrays without initializer!");
-
             SRF->createEntry(objDecl, activation::Slot, loweredTy);
             SRF->associate(objDecl, activation::Bounds,
-                           emitter.synthStaticArrayBounds(Builder, arrTy));
+                           emitter.synthArrayBounds(Builder, arrTy));
             return;
         }
 

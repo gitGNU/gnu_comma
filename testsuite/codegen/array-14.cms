@@ -1,0 +1,52 @@
+--=== testsuite/codegen/array-14.cms -------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2010, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+package Test with
+   procedure Run;
+add
+   type Arr is array (Positive range <>) of Integer;
+   type Arr_Ref is access Arr;
+
+   function Make_Dynamic_Array_Subtype (Lower : Integer; Upper : Integer)
+     return Arr_Ref is
+      A : Arr_Ref := new Arr (Lower .. Upper);
+   begin
+      if A'Length > 1 then
+         A.all    := (Lower .. Upper => 0);
+         A(Upper) := 100;
+      elsif A'Length = 1 then
+         A.all    := (A'First => 111);
+      end if;
+      return A;
+   end Make_Dynamic_Array_Subtype;
+
+   procedure Run is
+      A1 : Arr_Ref := Make_Dynamic_Array_Subtype(1, 70);
+      A2 : Arr_Ref := Make_Dynamic_Array_Subtype(4, 4);
+      A3 : Arr_Ref := Make_Dynamic_Array_Subtype(2, 1);
+   begin
+      for I in A1'First .. A1'Last - 1 loop
+         pragma Assert(A1(I) = 0);
+         null;
+      end loop;
+
+      pragma Assert(A1(A1'Last)  = 100);
+      pragma Assert(A2(A2'First) = 111);
+      pragma Assert(A2(A2'Last)  = 111);
+      pragma Assert(A3'Length    = 0);
+
+      declare
+         A3 : Arr_Ref := Make_Dynamic_Array_Subtype(0, 1);
+      begin
+         pragma Assert(false);
+         null;
+      exception
+         when Constraint_Error => return;
+      end;
+   end Run;
+end Test;

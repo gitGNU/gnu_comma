@@ -178,6 +178,9 @@ public:
     ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base,
                                   DiscreteType **indices);
 
+    /// Returns an anonymous constrained array subtype node.
+    ArrayType *createArraySubtype(ArrayType *base, DiscreteType **indices);
+
     /// Returns an unconstrained array subtype node.
     ArrayType *createArraySubtype(IdentifierInfo *name, ArrayType *base);
     //@}
