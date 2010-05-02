@@ -16,7 +16,11 @@ DIAGNOSTIC(UNTERMINATED_STRING, ERROR,
 DIAGNOSTIC(NEWLINE_IN_STRING_LIT, ERROR,
            "Illegal newline within string literal.")
 DIAGNOSTIC(LEADING_ZERO_IN_INTEGER_LIT, ERROR,
-           "Invalid integer literal (leading zero).")
+           "Malformed numeric literal (leading zero).")
+DIAGNOSTIC(MALFORMED_NUMERIC_LITERAL, ERROR,
+           "Malformed numeric literal.")
+DIAGNOSTIC(NEGATIVE_EXPONENT_IN_INTEGER_LITERAL, ERROR,
+           "Negative exponent in integer literal.")
 DIAGNOSTIC(INVALID_CHARACTER, ERROR,
            "Invalid character `%0'.")
 DIAGNOSTIC(CONSECUTIVE_UNDERSCORE, ERROR,

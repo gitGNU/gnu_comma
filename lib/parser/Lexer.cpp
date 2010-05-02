@@ -55,6 +55,7 @@ std::string Lexer::tokenString(const Token &token)
 
     case TKN_IDENTIFIER:
     case TKN_INTEGER:
+    case TKN_REAL:
     case TKN_STRING:
     case TKN_CHARACTER:
         return std::string(token.getRep(), token.getLength());
@@ -190,6 +191,11 @@ void Lexer::emitStringToken(const TextIterator &start, const TextIterator &end)
 void Lexer::emitIntegerToken(const TextIterator &start, const TextIterator &end)
 {
     emitToken(TKN_INTEGER, start, end);
+}
+
+void Lexer::emitRealToken(const TextIterator &start, const TextIterator &end)
+{
+    emitToken(TKN_REAL, start, end);
 }
 
 void Lexer::emitIdentifierToken(const TextIterator &start, const TextIterator &end)
@@ -642,43 +648,127 @@ bool Lexer::scanNumeric()
 {
     Location loc = currentLocation();
     TextIterator start = currentIter;
+    bool isReal = false;
     unsigned c = peekStream();
 
-    if (isDecimalDigit(c)) {
-        ignoreStream();
+    if (!isDecimalDigit(c))
+        return false;
 
-        // Decimal literals cannot have a leading zero (except for the zero
-        // literal, of course).  When we spot such a malformed integer, emit a
-        // diagnostic and drop the leading zeros.
-        if (c == '0' && isDecimalDigit(peekStream())) {
-            report(loc, diag::LEADING_ZERO_IN_INTEGER_LIT);
+    ignoreStream();
 
-            while (peekStream() == '0') ignoreStream();
+    // Decimal literals cannot have a leading zero (except for the zero
+    // literal, of course).  When we spot such a malformed integer, emit a
+    // diagnostic and drop the leading zeros.
+    if (c == '0' && isDecimalDigit(peekStream())) {
+        report(loc, diag::LEADING_ZERO_IN_INTEGER_LIT);
 
-            // Check if we have a string of zeros.  Simply return the zero token
-            // in such a case.  Otherwise, continue scanning normally.
-            if (!isDecimalDigit(peekStream())) {
-                TextIterator end = start;
-                emitIntegerToken(start, ++end);
-                return true;
-            }
-            else c = readStream();
+        while (peekStream() == '0') ignoreStream();
+
+        // Check if we have a string of zeros.  Simply return the zero token
+        // in such a case.  Otherwise, continue scanning normally.
+        if (!isDecimalDigit(peekStream())) {
+            TextIterator end = start;
+            emitIntegerToken(start, ++end);
+            return true;
         }
-
-        for (;;) {
+        else
             c = readStream();
+    }
 
-            if (isDecimalDigit(c) || c == '_')
-                continue;
-            else {
+    for (;;) {
+        c = readStream();
+
+        if (isDecimalDigit(c) || c == '_')
+            continue;
+
+        // Check for decimal point.
+        if (c == '.') {
+
+            // Check for '..'.
+            if (peekStream() == '.') {
                 ungetStream();
                 break;
             }
+
+            // Ensure there are not multiple decimal points in this literal.
+            if (isReal) {
+                report(loc, diag::MALFORMED_NUMERIC_LITERAL);
+                ungetStream();
+                emitRealToken(start, currentIter);
+                return true;
+            }
+
+            // If the decimal point is not followed by a digit return an
+            // integer token.
+            if (!isDecimalDigit(peekStream())) {
+                report(loc, diag::MALFORMED_NUMERIC_LITERAL);
+                TextIterator end = currentIter;
+                emitIntegerToken(start, --end);
+                return true;
+            }
+
+            isReal = true;
+            continue;
         }
-        emitIntegerToken(start, currentIter);
-        return true;
+
+        // Scan past any exponent part plus optional sign.
+        if (c == 'E' || c == 'e') {
+
+            // Save the text iterator pointing at the exponent and back up to
+            // the last valid decimal digit.
+            TextIterator end = currentIter;
+            --end;
+
+            c = peekStream();
+
+            if (c == '-') {
+                // Integer literals may not have a negative exponent.  In this
+                // case we exclude the exponent part of the literal from the
+                // token.
+                if (!isReal) {
+                    report(loc, diag::NEGATIVE_EXPONENT_IN_INTEGER_LITERAL);
+                    do {
+                        ignoreStream();
+                        c = peekStream();
+                    } while (isDecimalDigit(c) || c == '_');
+                    emitIntegerToken(start, end);
+                    return true;
+                }
+
+                ignoreStream();
+                c = peekStream();
+            }
+            else if (c == '+') {
+                ignoreStream();
+                c = peekStream();
+            }
+
+            // The exponent and optional sign must be followed by a digit.  If
+            // we do not have a well formed exponent emit the literal without
+            // it.
+            if (!isDecimalDigit(c)) {
+                report(loc, diag::MALFORMED_NUMERIC_LITERAL);
+                if (isReal)
+                    emitRealToken(start, end);
+                else
+                    emitIntegerToken(start, end);
+                return true;
+            }
+
+            continue;
+        }
+
+        // The current character does not contribute to the literal.
+        ungetStream();
+        break;
     }
-    return false;
+
+    if (isReal)
+        emitRealToken(start, currentIter);
+    else
+        emitIntegerToken(start, currentIter);
+
+    return true;
 }
 
 void Lexer::beginExcursion()

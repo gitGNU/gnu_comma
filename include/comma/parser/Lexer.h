@@ -203,6 +203,8 @@ private:
 
     void emitIntegerToken(const TextIterator &start, const TextIterator &end);
 
+    void emitRealToken(const TextIterator &start, const TextIterator &end);
+
     void emitIdentifierToken(const TextIterator &start,
                              const TextIterator &end);
 
