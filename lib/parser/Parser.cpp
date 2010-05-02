@@ -1320,21 +1320,73 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
                                    llvm::APInt &value)
 {
     std::string digits;
-    for (const char *cursor = start; cursor != start + length; ++cursor) {
-        char ch = *cursor;
+    std::string exponent;
+    unsigned bits;
+    char ch;
+    const char *cursor;
+
+    for (cursor = start; cursor != start + length; ++cursor) {
+        ch = *cursor;
+
+        if (ch == 'e' || ch == 'E')
+            break;
+
         if (ch != '_')
             digits.push_back(ch);
     }
-    assert(!digits.empty() && "Empty string literal!");
+    assert(!digits.empty() && "Empty integer literal!");
 
-    // Get the binary value and adjust the number of bits to an accurate width.
-    unsigned numBits = llvm::APInt::getBitsNeeded(digits, 10);
-    value = llvm::APInt(numBits, digits, 10);
+    if (ch == 'e' || ch == 'E') {
+        for (++cursor; cursor != start + length; ++cursor) {
+            if ((ch = *cursor) != '_')
+                exponent.push_back(ch);
+        }
+        assert(!exponent.empty() && "Empty integer exponent!");
+    }
+
+    // Compute the number of bits needed for the integer "mantissa".
+    bits = llvm::APInt::getBitsNeeded(digits, 10);
+    value = llvm::APInt(bits, digits, 10);
+
+    // N * N bit multiplication requires at most 2*N bits.  Form the exponent as
+    // as some power of ten.
+    //
+    // FIXME:  This is horribly inefficient.
+    if (!exponent.empty()) {
+        bits = llvm::APInt::getBitsNeeded(exponent, 10);
+        llvm::APInt exp(bits, exponent, 10);
+
+        // Compute the value of the exponent.
+        if (exp != 0) {
+            llvm::APInt accu(4, 10);
+            llvm::APInt base(4, 10);
+
+            while (exp != 1) {
+                --exp;
+                accu.zext(2 * accu.getBitWidth());
+                base.zext(2 * base.getBitWidth());
+                accu *= base;
+            }
+
+            // Extend both the mantissa and exponent to the same bit width,
+            // reserving space for the final multiplication.
+            if (value.getBitWidth() > accu.getBitWidth())
+                accu.zext(value.getBitWidth());
+            else if (value.getBitWidth() < accu.getBitWidth())
+                value.zext(accu.getBitWidth());
+            accu.zext(2 * accu.getBitWidth());
+            value.zext(2 * value.getBitWidth());
+
+            // Compute the value.
+            value *= accu;
+        }
+    }
+
     if (value == 0)
-        numBits = 1;
+        bits = 1;
     else
-        numBits = value.getActiveBits();
-    value.zextOrTrunc(numBits);
+        bits = value.getActiveBits();
+    value.zextOrTrunc(bits);
 }
 
 void Parser::parseDeclarationPragma()
