@@ -1,0 +1,31 @@
+-- Ensure subtype declarations are properly rewritten.
+
+domain Test with
+
+   subtype Small is Positive range 1 .. 10;
+
+   procedure Update (A : in out %; I : Small);
+
+   procedure Run;
+
+add
+
+   type Arr is array (Small) of Integer;
+
+   carrier Rep is Arr;
+
+   procedure Update (A : in out %; I : Small) is
+   begin
+      -- Check for consistent rewrite of public type "Small" and internal type
+      -- "Arr".
+      inj(A)(I) := 0;
+   end Update;
+
+   procedure Run is
+      X : Arr := (others => 1);
+   begin
+      Update(prj(X), 1);
+   end Run;
+
+end Test;
+

@@ -178,10 +178,17 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
     IntegerDecl *result;
     AstResource &resource = getAstResource();
 
-    result = resource.createIntegerDecl(name, loc, lower, upper, context);
-    result->generateImplicitDeclarations(resource);
-    result->setOrigin(idecl);
+    if (idecl->isSubtypeDeclaration()) {
+        IntegerType *subtype = idecl->getType()->getAncestorType();
+        result = resource.createIntegerSubtypeDecl(name, loc, subtype,
+                                                   lower, upper, context);
+    }
+    else {
+        result = resource.createIntegerDecl(name, loc, lower, upper, context);
+        result->generateImplicitDeclarations(resource);
+    }
 
+    result->setOrigin(idecl);
     IntegerType *sourceTy = idecl->getType();
     IntegerType *targetTy = result->getType();
 
