@@ -38,6 +38,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "PercentDecl",
 
     "SigInstanceDecl",
+    "PkgInstanceDecl",
 
     "LoopDecl",
     "ObjectDecl",
