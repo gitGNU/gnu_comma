@@ -191,18 +191,27 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
 {
     IdentifierInfo *name = idecl->getIdInfo();
     Location loc = idecl->getLocation();
-    Expr *lower = rewriteExpr(idecl->getLowBoundExpr());
-    Expr *upper = rewriteExpr(idecl->getHighBoundExpr());
 
     IntegerDecl *result;
     AstResource &resource = getAstResource();
 
     if (idecl->isSubtypeDeclaration()) {
-        IntegerType *subtype = idecl->getType()->getAncestorType();
-        result = resource.createIntegerSubtypeDecl(name, loc, subtype,
-                                                   lower, upper, context);
+        IntegerType *type = idecl->getType();
+        IntegerType *base = type->getAncestorType();
+
+        if (type->isConstrained()) {
+            Expr *lower = rewriteExpr(idecl->getLowBoundExpr());
+            Expr *upper = rewriteExpr(idecl->getHighBoundExpr());
+            result = resource.createIntegerSubtypeDecl
+                (name, loc, base, lower, upper, context);
+        }
+        else
+            result = resource.createIntegerSubtypeDecl
+                (name, loc, base, context);
     }
     else {
+        Expr *lower = rewriteExpr(idecl->getLowBoundExpr());
+        Expr *upper = rewriteExpr(idecl->getHighBoundExpr());
         result = resource.createIntegerDecl(name, loc, lower, upper, context);
         result->generateImplicitDeclarations(resource);
     }

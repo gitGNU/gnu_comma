@@ -3,6 +3,7 @@
 domain Test with
 
    subtype Small is Positive range 1 .. 10;
+   subtype Pos is Positive;
 
    procedure Update (A : in out %; I : Small);
 
@@ -10,15 +11,15 @@ domain Test with
 
 add
 
-   type Arr is array (Small) of Integer;
+   type Arr is array (Small) of Pos;
 
    carrier Rep is Arr;
 
    procedure Update (A : in out %; I : Small) is
    begin
-      -- Check for consistent rewrite of public type "Small" and internal type
-      -- "Arr".
-      inj(A)(I) := 0;
+      -- Check for consistent rewrite of public type "Small", "Pos", and
+      -- internal type "Arr".
+      inj(A)(I) := 10;
    end Update;
 
    procedure Run is
