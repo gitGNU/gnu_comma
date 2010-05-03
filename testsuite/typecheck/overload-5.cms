@@ -1,0 +1,29 @@
+-- Ensure preference for root_integer operations override user declared
+-- operators when appropriate.
+
+package Test with
+   procedure Run;
+add
+
+   function < (Left : Integer; Right : Integer) return Boolean is
+   begin
+      return Integer.<(Right, Left);
+   end <;
+
+   procedure Run is
+      X : Integer := 0;
+   begin
+      if 5 < 4 then             -- Preference for root_integer.
+         pragma Assert(false);
+         null;
+      end if;
+
+      if X < 4 then             -- EXPECTED-ERROR: Ambiguous expression
+         null;
+      end if;
+   end Run;
+
+end Test;
+
+
+

@@ -316,16 +316,11 @@ TypeCheck::resolvePreferredOperator(SVImpl<FunctionDecl*>::Type &decls)
         FunctionDecl *candidate = *I;
         if (candidate->isPrimitive()) {
             if (candidate->isDeclaredIn(theRootInteger)) {
-                // We have a prefered function.  We should never get more than
+                // We have a preferred function.  We should never get more than
                 // one match.
-                assert(preference == 0 && "More than one prefered decl!");
+                assert(preference == 0 && "More than one preferred decl!");
                 preference = candidate;
             }
-        }
-        else {
-            // There are non-primitive operations. We cannot prefer a primitive
-            // operator in this case.
-            return 0;
         }
     }
     return preference;
