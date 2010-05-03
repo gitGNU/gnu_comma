@@ -1,0 +1,27 @@
+
+domain Test with
+
+   subtype Upper is Character range 'A' .. 'Z';
+
+   procedure Update (A : in out %; B : Upper);
+
+   procedure Run;
+
+add
+   type Arr is array (Upper) of Integer;
+
+   carrier Rep is Arr;
+
+   procedure Update (A : in out %; B : Upper) is
+   begin
+      inj(A)(B) := 1;
+   end Update;
+
+   procedure Run is
+      X : Arr := (others => 0);
+   begin
+      Update(prj(X), 'A');
+   end Run;
+end Test;
+
+

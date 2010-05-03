@@ -100,30 +100,49 @@ DeclRewriter::rewriteEnumerationDecl(EnumerationDecl *edecl)
 {
     typedef std::pair<IdentifierInfo*, Location> Pair;
 
+    AstResource &resource = getAstResource();
     IdentifierInfo *name = edecl->getIdInfo();
-    llvm::SmallVector<Pair, 8> elems;
+    Location loc = edecl->getLocation();
+    EnumerationDecl *result;
 
-    // Enumeration declarations do not require any rewriting.  Just construct a
-    // new declaration which is otherwise identical to the one given.
-    //
-    // Traverse the given decls region and extract each enumeration literal
-    // therein.  Note that the DeclRegion of an enumeration contains
-    // declarations for its primitive operations as well.
-    typedef DeclRegion::DeclIter iterator;
-    iterator I = edecl->beginDecls();
-    iterator E = edecl->endDecls();
-    for ( ; I != E; ++I) {
-        EnumLiteral *lit = dyn_cast<EnumLiteral>(*I);
-        if (!lit)
-            continue;
-        IdentifierInfo *litId = lit->getIdInfo();
-        elems.push_back(Pair(litId, lit->getLocation()));
+    if (edecl->isSubtypeDeclaration()) {
+        EnumerationType *etype = edecl->getType();
+        EnumerationType *base = etype->getAncestorType();
+
+        if (Range *range = etype->getConstraint()) {
+            Expr *lower = rewriteExpr(range->getLowerBound());
+            Expr *upper = rewriteExpr(range->getUpperBound());
+            result = resource.createEnumSubtypeDecl
+                (name, loc, base, lower, upper, context);
+        }
+        else
+            result = resource.createEnumSubtypeDecl(name, loc, base, context);
+    }
+    else {
+        // Enumeration type declarations do not require any rewriting.  Just
+        // construct a new declaration which is otherwise identical to the one
+        // given.
+        //
+        // Traverse the given decls region and extract each enumeration literal
+        // therein.  Note that the DeclRegion of an enumeration contains
+        // declarations for its primitive operations as well.
+        typedef DeclRegion::DeclIter iterator;
+        iterator I = edecl->beginDecls();
+        iterator E = edecl->endDecls();
+        llvm::SmallVector<Pair, 8> elems;
+        for ( ; I != E; ++I) {
+            EnumLiteral *lit = dyn_cast<EnumLiteral>(*I);
+            if (!lit)
+                continue;
+            IdentifierInfo *litId = lit->getIdInfo();
+            elems.push_back(Pair(litId, lit->getLocation()));
+        }
+
+        result = resource.createEnumDecl
+            (name, loc, &elems[0], elems.size(), context);
+        result->generateImplicitDeclarations(resource);
     }
 
-    AstResource &resource = getAstResource();
-    EnumerationDecl *result = resource.createEnumDecl
-        (name, edecl->getLocation(), &elems[0], elems.size(), context);
-    result->generateImplicitDeclarations(resource);
     result->setOrigin(edecl);
 
     // Inject rewrite rules mapping the old enumeration to the new.
