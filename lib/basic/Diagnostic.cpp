@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license.  See LICENSE.txt for details.
 //
-// Copyright (C) 2008-2009, Stephen Wilson
+// Copyright (C) 2008-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -41,8 +41,10 @@ DiagnosticStream &DiagnosticStream::initialize(const SourceLocation &sloc,
     this->format = format;
     this->type = type;
 
-    emitSourceLocation(sloc);
-    message << ": ";
+    if (sloc.isValid()) {
+        emitSourceLocation(sloc);
+        message << ": ";
+    }
     emitDiagnosticType(type);
     message << ": ";
 
@@ -87,7 +89,7 @@ void DiagnosticStream::emitFormatComponent()
     // properly, strip the source line of any trailing newlines.
     stream << message.str() << '\n';
 
-    if (type != diag::NOTE) {
+    if (type != diag::NOTE && sourceLoc.isValid()) {
         std::string source = sourceLoc.getTextProvider()->extract(sourceLoc);
         unsigned    column = sourceLoc.getColumn();
         size_t      endLoc = source.find('\n');
@@ -196,6 +198,13 @@ DiagnosticStream &Diagnostic::report(const SourceLocation &loc, diag::Kind kind)
     }
 
     return diagstream.initialize(loc, getFormat(kind), type);
+}
+
+DiagnosticStream &Diagnostic::report(diag::Kind kind)
+{
+    // Just construct an invalid source location object.  A DiagnosticStream
+    // will not use invalid locations.
+    return report(SourceLocation(), kind);
 }
 
 diag::Type Diagnostic::getType(diag::Kind kind)

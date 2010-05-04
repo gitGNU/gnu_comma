@@ -98,8 +98,20 @@ public:
     SourceLocation(unsigned line, unsigned column, const TextProvider *provider)
         : line(line), column(column), provider(provider) { }
 
-    /// \brief Constructs an uninitialized SourceLocation object.
+    /// \brief Constructs an uninitialized (invalid) SourceLocation object.
     SourceLocation() : line(0), column(0), provider(0) { }
+
+    /// \brief Returns true if this is a valid SourceLocation object.
+    ///
+    /// Valid source location objects have an associated TextProvider as well as
+    /// line/column info.
+    bool isValid() const { return provider != 0; }
+
+    /// \brief Returns true if this is an invalid SourceLocation object.
+    ///
+    /// Invalid source location objects do not have an associated TextProvider
+    /// or defined line/column info.
+    bool isInvalid() const { return provider == 0; }
 
     /// \brief Accesses the line coordinate.
     unsigned getLine() const { return line; }

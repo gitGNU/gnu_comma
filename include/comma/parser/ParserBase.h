@@ -133,10 +133,7 @@ protected:
 
     /// Begins a posting to the diagnostic stream with the given diagnostic kind
     /// and uses the current location to qualify the report.
-    DiagnosticStream &report(diag::Kind kind) {
-        SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
-        return diagnostic.report(sloc, kind);
-    }
+    DiagnosticStream &report(diag::Kind kind);
 
     /// Saves the current token stream, enabling speculative parsing.
     void beginExcursion();

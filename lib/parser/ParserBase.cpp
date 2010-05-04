@@ -22,6 +22,16 @@ ParserBase::ParserBase(TextProvider &txtProvider, IdentifierPool &idPool,
     lexer.scan(token);
 }
 
+DiagnosticStream &ParserBase::report(diag::Kind kind)
+{
+    if (currentLocation().isValid()) {
+        SourceLocation sloc = txtProvider.getSourceLocation(currentLocation());
+        return diagnostic.report(sloc, kind);
+    }
+    else
+        return diagnostic.report(kind);
+}
+
 bool ParserBase::requireToken(Lexer::Code code)
 {
     bool status = reduceToken(code);

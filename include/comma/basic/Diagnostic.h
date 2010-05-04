@@ -110,6 +110,11 @@ public:
     /// required by the diagnostic \p kind.
     DiagnosticStream &report(const SourceLocation &loc, diag::Kind kind);
 
+    /// Returns a DiagnosticStream which is ready to accept the arguments
+    /// required by the diagnostic \p kind, but will not propagate location
+    /// information.
+    DiagnosticStream &report(diag::Kind kind);
+
     /// Returns the format control string for the given diagnostic kind.
     const char *getFormat(diag::Kind kind);
 
