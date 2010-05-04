@@ -510,10 +510,6 @@ bool Lexer::scanGlyph()
         code = TKN_AMPER;
         break;
 
-    case '@':
-        code = TKN_AT;
-        break;
-
     case '|':
         code = TKN_BAR;
         break;
