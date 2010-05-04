@@ -327,6 +327,16 @@ public:
     /// \param forStatement If true, check that \p name denotes a procedure.
     Ast *checkDirectName(IdentifierInfo *name, Location loc, bool forStatement);
 
+    /// Completes a node representing a name.
+    ///
+    /// FIXME: This method is public to supplement checkDirectName.  Would be
+    /// better to provide a replacement for checkDirectName which calls
+    /// finishName when needed instead of placing the burden on the caller (see
+    /// ArrayAggChecker::convertAggregateIdentifiers for an example).
+    ///
+    /// \see ParseClient::finishName.
+    Ast *finishName(Ast *node);
+
     /// Basic type equality predicate.
     static bool covers(Type *A, Type *B);
     //@}

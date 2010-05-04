@@ -640,7 +640,7 @@ Node TypeCheck::acceptAttribute(Node prefixNode,
     return getInvalidNode();
 }
 
-Node TypeCheck::finishName(Node name)
+Ast *TypeCheck::finishName(Ast *node)
 {
     // This method is called to "complete" a name.  We need to consider three
     // cases:
@@ -650,24 +650,29 @@ Node TypeCheck::finishName(Node name)
     //
     //   - If the name is a SubroutineRef, it must contain at least one nullary
     //     subroutine.
-    if (SubroutineRef *ref = lift_node<SubroutineRef>(name)) {
-        if (Ast *call = finishSubroutineRef(ref)) {
-            name.release();
-            return getNode(call);
-        }
-        return getInvalidNode();
+    if (SubroutineRef *ref = dyn_cast<SubroutineRef>(node)) {
+        return finishSubroutineRef(ref);
     }
 
-    if (TypeRef *ref = lift_node<TypeRef>(name)) {
-        if (finishTypeRef(ref)) {
-            name.release();
-            return name;
-        }
-        return getInvalidNode();
+    if (TypeRef *ref = dyn_cast<TypeRef>(node)) {
+        if (finishTypeRef(ref))
+            return ref;
+        return 0;
     }
 
-    name.release();
-    return name;
+    // FIXME: Perhaps we are being too permissive here.  We should assert that
+    // the node is in fact a name.
+    return node;
+}
+
+Node TypeCheck::finishName(Node node)
+{
+    Ast *name = cast_node<Ast>(node);
+    if (Ast *result = finishName(name)) {
+        node.release();
+        return getNode(result);
+    }
+    return getInvalidNode();
 }
 
 Ast *TypeCheck::finishSubroutineRef(SubroutineRef *ref)

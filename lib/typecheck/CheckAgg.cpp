@@ -310,7 +310,7 @@ bool ArrayAggChecker::convertAggregateIdentifiers(AggregateExpr *agg)
         Identifier *id = key->getAsIdentifier();
         Ast *rep = TC.checkDirectName(id->getIdInfo(), id->getLocation(),
                                       /*forStatement*/ false);
-        if (!rep) {
+        if (!rep || !(rep = TC.finishName(rep))) {
             allOK = false;
             continue;
         }

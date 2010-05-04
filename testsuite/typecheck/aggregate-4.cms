@@ -1,0 +1,17 @@
+-- Ensure aggregate expressions with enumeration literals as keys type check.
+
+package Test with
+   procedure Run;
+add
+
+   type Enum_T is (X, Y, Z, W);
+   type Array_T is array (Enum_T) of Integer;
+
+   procedure Run is
+      A : Array_T := (X => 1, Y => 2, Z => 3, W => 0);
+   begin
+      null;
+   end Run;
+
+end Test;
+
