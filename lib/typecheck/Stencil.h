@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -42,6 +42,8 @@ namespace comma {
 class ASTStencil {
 
 public:
+    virtual ~ASTStencil() { }
+
     ASTStencil() { reset(); }
 
     /// Initialize this stencil with the given location.

@@ -34,6 +34,8 @@ protected:
     DeclarationTable declarations;
 
 public:
+    virtual ~DeclRegion() { }
+
     DeclRegion *getParent() { return parent; }
     const DeclRegion *getParent() const { return parent; }
 

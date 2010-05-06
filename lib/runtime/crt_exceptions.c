@@ -2,7 +2,7 @@
  *
  * This file is distributed under the MIT license. See LICENSE.txt for details.
  *
- * Copyright (C) 2009, Stephen Wilson
+ * Copyright (C) 2009-2010, Stephen Wilson
  *
  *===----------------------------------------------------------------------===*/
 
@@ -20,94 +20,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-
-/*
- * Forward declarations.
- */
-struct _Unwind_Exception;
-struct _Unwind_Context;
-
-/*
- * Reason codes used to communicate the outcomes of several operations.
- */
-typedef enum {
-    _URC_NO_REASON = 0,
-    _URC_FOREIGN_EXCEPTION_CAUGHT = 1,
-    _URC_FATAL_PHASE2_ERROR = 2,
-    _URC_FATAL_PHASE1_ERROR = 3,
-    _URC_NORMAL_STOP = 4,
-    _URC_END_OF_STACK = 5,
-    _URC_HANDLER_FOUND = 6,
-    _URC_INSTALL_CONTEXT = 7,
-    _URC_CONTINUE_UNWIND = 8
-} _Unwind_Reason_Code;
-
-/*
- * The type of an exception cleanup function.  This is used, for example, when
- * an exception handler needs to free a forgien exception object.
- */
-typedef void (*_Unwind_Exception_Cleanup_Fn) (_Unwind_Reason_Code reason,
-                                              struct _Unwind_Exception *exc);
-
-/*
- * The system routine which raises an exception.
- */
-extern _Unwind_Reason_Code
-_Unwind_RaiseException(struct _Unwind_Exception *exception_object);
-
-/*
- * Propagates an existing exception object.  Causes unwinding to proceed
- * further.
- */
-extern void _Unwind_Resume(struct _Unwind_Exception *exception_object);
-
-/*
- * Accessor the the LSDA.
- */
-extern uintptr_t
-_Unwind_GetLanguageSpecificData(struct _Unwind_Context *context);
-
-/*
- * Accessor to the start of the handler/cleanup code.
- */
-extern uintptr_t
-_Unwind_GetRegionStart(struct _Unwind_Context *context);
-
-/*
- * Accessor to the instruction pointer.  This pointer is one past the
- * instruction which actually resulted in the raising of an exception.
- */
-extern uintptr_t _Unwind_GetIP(struct _Unwind_Context *context);
-
-/*
- * Sets the value of the given general purpose registe.
- */
-extern void _Unwind_SetGR(struct _Unwind_Context *context,
-                          int reg, uintptr_t value);
-
-/*
- * Sets the instruction pointer to the given value.
- */
-extern void _Unwind_SetIP(struct _Unwind_Context *context, uintptr_t IP);
-
-/*
- * The exception header structure which all exception objects must contain.
- */
-struct _Unwind_Exception {
-    uint64_t                     exception_class;
-    _Unwind_Exception_Cleanup_Fn exception_cleanup;
-    uint64_t                     private_1;
-    uint64_t                     private_2;
-};
-
-/*
- * The action argument to the personality routine, and the various action codes.
- */
-typedef int _Unwind_Action;
-static const _Unwind_Action _UA_SEARCH_PHASE  = 1;
-static const _Unwind_Action _UA_CLEANUP_PHASE = 2;
-static const _Unwind_Action _UA_HANDLER_FRAME = 4;
-static const _Unwind_Action _UA_FORCE_UNWIND  = 8;
+#include <unwind.h>
 
 /*===----------------------------------------------------------------------===
  * DWARF value parsing.
@@ -182,7 +95,7 @@ static unsigned char *parse_uleb128(unsigned char *start, uint64_t *value)
 
 static unsigned char *parse_sleb128(unsigned char *start, int64_t *value)
 {
-    uint64_t res = 0;
+    uintptr_t res = 0;
     unsigned bits = 0;
 
     /*
@@ -190,7 +103,7 @@ static unsigned char *parse_sleb128(unsigned char *start, int64_t *value)
      * using the lower 7 bits in little-endian order.
      */
     while (*start & 0x80) {
-        res |= (((uint64_t)*start) & 0x7F) << bits;
+        res |= (((uintptr_t)*start) & 0x7F) << bits;
         bits += 7;
         ++start;
     }
@@ -198,14 +111,14 @@ static unsigned char *parse_sleb128(unsigned char *start, int64_t *value)
     /*
      * Bring in the most significant byte.  If it is signed, extend the result.
      */
-    res |= (((uint64_t)*start) & 0x7F) << bits;
+    res |= (((uintptr_t)*start) & 0x7F) << bits;
 
     if (*start & 0x40) {
         bits += 7;
-        res |= ~((uint64_t)0) << bits;
+        res |= ~((uintptr_t)0) << bits;
     }
 
-    *value = (int64_t)res;
+    *value = (uintptr_t)res;
     return ++start;
 }
 
@@ -292,6 +205,9 @@ static unsigned dwarf_scale(Dwarf_Encoding ID)
     default:
         res = 1;
         break;
+    case DW_EH_PE_absptr:
+        res = sizeof(void*);
+        break;
     case DW_EH_PE_udata2:
     case DW_EH_PE_sdata2:
         res = 2;
@@ -308,13 +224,16 @@ static unsigned dwarf_scale(Dwarf_Encoding ID)
     return res;
 }
 
-static uint64_t load_dwarf_pointer(Dwarf_Encoding ID, void *ptr)
+static uintptr_t load_dwarf_pointer(Dwarf_Encoding ID, void *ptr)
 {
-    uint64_t res;
+    uintptr_t res;
     switch (ID) {
     default:
         assert(0 && "Ivalid DWARF encoding!");
         return 0;
+    case DW_EH_PE_absptr:
+        res = *((uintptr_t*)ptr);
+        break;
     case DW_EH_PE_udata2:
         res = *((uint16_t*)ptr);
         break;
@@ -476,7 +395,7 @@ struct LSDA_Header {
     /*
      * Start of the landing pad code, corresoinding the @LPStart.
      */
-    intptr_t lpstart;
+    uintptr_t lpstart;
 
     /*
      * DWARF format attribute used for interpreting @TTBase.
@@ -882,9 +801,9 @@ match_exception(struct LSDA_Header *lsda,
 
         if (action.info_index > 0) {
             comma_exinfo_t info;
-            uint64_t value;
+            uintptr_t value;
 
-            value = (uint64_t)lsda->type_table;
+            value = (uintptr_t)lsda->type_table;
             value -= dwarf_scale(lsda->tt_format) * action.info_index;
             info = ((comma_exinfo_t)
                     load_dwarf_pointer(lsda->tt_format, (void*)value));
@@ -1079,7 +998,7 @@ _comma_eh_personality(int version,
     struct LSDA_Header lsda;
     struct Call_Site site;
     uint64_t id;
-    intptr_t handler;
+    uintptr_t handler;
 
     /*
      * The C++ Itanium ABI specifies a version number of 1.  This is the only

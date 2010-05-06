@@ -172,6 +172,8 @@ public:
 class ParseClient {
 
 public:
+    virtual ~ParseClient() { }
+
     /// Nodes cannot be constructed from outside a parse client, yet many of the
     /// callbacks take null nodes indicateing a non-existant argument.  This
     /// method is made available to the parser so that it has a means of
