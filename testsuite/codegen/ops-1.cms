@@ -1,0 +1,70 @@
+-- Based on c4/c45503a.ada in ACATS.
+
+package Test with
+   procedure Run;
+add
+   procedure Run is
+      I0  : Integer := 0;
+      I1  : Integer := 1;
+      I2  : Integer := 2;
+      I3  : Integer := 3;
+      I4  : Integer := 4;
+      I5  : Integer := 5;
+      I10 : Integer := 10;
+      I11 : Integer := 11;
+      I12 : Integer := 12;
+      I13 : Integer := 13;
+      I14 : Integer := 14;
+      N1  : Integer := -1;
+      N2  : Integer := -2;
+      N3  : Integer := -3;
+      N4  : Integer := -4;
+      N5  : Integer := -5;
+      N10 : Integer := -10;
+      N11 : Integer := -11;
+      N12 : Integer := -12;
+      N13 : Integer := -13;
+      N14 : Integer := -14;
+   begin
+      pragma Assert(I10 rem I5 = I0);
+      pragma Assert(I12 rem I5 = I2);
+      pragma Assert(I13 rem I5 = I3);
+      pragma Assert(I14 rem I5 = I4);
+      pragma Assert(I10 rem N5 = I0);
+      pragma Assert(I11 rem N5 = I1);
+      pragma Assert(I12 rem N5 = I2);
+      pragma Assert(I13 rem N5 = I3);
+      pragma Assert(I14 rem N5 = I4);
+      pragma Assert(N10 rem I5 = I0);
+      pragma Assert(N11 rem I5 = N1);
+      pragma Assert(N12 rem I5 = N2);
+      pragma Assert(N13 rem I5 = N3);
+      pragma Assert(N14 rem I5 = N4);
+      pragma Assert(N10 rem N5 = I0);
+      pragma Assert(N11 rem N5 = N1);
+      pragma Assert(N12 rem N5 = N2);
+      pragma Assert(N13 rem N5 = N3);
+      pragma Assert(N14 rem N5 = N4);
+      pragma Assert(I10 mod I5 = I0);
+      pragma Assert(I11 mod I5 = I1);
+      pragma Assert(I12 mod I5 = I2);
+      pragma Assert(I13 mod I5 = I3);
+      pragma Assert(I14 mod I5 = I4);
+      pragma Assert(I10 mod N5 = I0);
+      pragma Assert(I11 mod N5 = N4);
+      pragma Assert(I13 mod N5 = N2);
+      pragma Assert(I14 mod N5 = N1);
+      pragma Assert(N10 mod I5 = I0);
+      pragma Assert(N11 mod I5 = I4);
+      pragma Assert(N12 mod I5 = I3);
+      pragma Assert(N13 mod I5 = I2);
+      pragma Assert(N14 mod I5 = I1);
+      pragma Assert(N10 mod N5 = I0);
+      pragma Assert(N11 mod N5 = N1);
+      pragma Assert(N12 mod N5 = N2);
+      pragma Assert(N13 mod N5 = N3);
+      pragma Assert(N14 mod N5 = N4);
+      null;
+   end Run;
+end Test;
+

@@ -664,29 +664,23 @@ llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
 llvm::Value *CallEmitter::emitMod(llvm::Value *lhs, llvm::Value *rhs)
 {
     // FIXME: Raise an exception if rhs is zero.
-    const llvm::Type *doubleTy = Builder.getDoubleTy();
-    llvm::Constant *doubleZero = llvm::ConstantFP::get(doubleTy, 0.0);
-    llvm::Constant  *doubleOne = llvm::ConstantFP::get(doubleTy, 1.0);
+    //
+    // Build:
+    //
+    //   R := lhs rem rhs;
+    //   if equal_sign(lhs, rhs) or (R = 0)
+    //      return R;
+    //   else
+    //      return rhs + R;
+    llvm::Value *rem = Builder.CreateSRem(lhs, rhs);
+    llvm::Value *zero = llvm::ConstantInt::get(lhs->getType(), 0);
+    llvm::Value *lhsNeg = Builder.CreateICmpSLT(lhs, zero);
+    llvm::Value *rhsNeg = Builder.CreateICmpSLT(rhs, zero);
+    llvm::Value *remZro = Builder.CreateICmpEQ(rem, zero);
+    llvm::Value *negOps = Builder.CreateICmpEQ(lhsNeg, rhsNeg);
+    llvm::Value *pred = Builder.CreateOr(negOps, remZro);
 
-    // Convert lhs and rhs to floating point values.
-    llvm::Value *Flhs = Builder.CreateSIToFP(lhs, doubleTy);
-    llvm::Value *Frhs = Builder.CreateSIToFP(rhs, doubleTy);
-
-    // Divide Flhs by Frhs.
-    llvm::Value *floor;
-    floor = Builder.CreateFDiv(Flhs, Frhs);
-
-    // Test if the quotient is < 0.  If so, subtract 1.0 since truncation is
-    // towards zero.
-    llvm::Value *isNeg;
-    llvm::Value *bias;
-    isNeg = Builder.CreateFCmpOLT(floor, doubleZero);
-    bias  = Builder.CreateSelect(isNeg, doubleOne, doubleZero);
-    floor = Builder.CreateFSub(floor, bias);
-    floor = Builder.CreateFPToSI(floor, lhs->getType());
-
-    // Compute lhs - rhs * floor.
-    return Builder.CreateSub(lhs, Builder.CreateMul(rhs, floor));
+    return Builder.CreateSelect(pred, rem, Builder.CreateAdd(rhs, rem));
 }
 
 llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)
