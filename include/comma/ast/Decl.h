@@ -1064,7 +1064,13 @@ public:
     /// takes ownership of the supplied pragma.
     void attachPragma(Pragma *P) { pragmas.push_front(P); }
 
-    /// Returns the first pragma attached to this declaration with the given ID.
+    /// Locates a pragma with the given ID.
+    ///
+    /// This method traverses the set of pragmas associated with this
+    /// declaration, as well as any pragmas associated with a related
+    /// declaration (forward, defining, or origin).  To scan the set of pragmas
+    /// associated with this declaration and this declaration alone use a
+    /// pragma_iterator instead.
     const Pragma *findPragma(pragma::PragmaID ID) const;
 
     /// Returns true if a pragma with the given ID has been assoiated with this
