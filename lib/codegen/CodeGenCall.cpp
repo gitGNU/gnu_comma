@@ -372,10 +372,11 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
             assert(!paramTy->isConstrained());
 
             // Simply emit the call using the vstack and pass the resulting
-            // temporaries to the subroutine.
+            // temporaries to the subroutine.  Do not pass in the bounds if this
+            // is a call to an imported subroutine.
             CValue arrValue = CGR.emitVStackCall(call);
             arguments.push_back(arrValue.first());
-            if (!targetTy->isConstrained())
+            if (!targetTy->isConstrained() || !SRCall->isForeignCall())
                 arguments.push_back(arrValue.second());
         }
         return;
@@ -403,16 +404,19 @@ void CallEmitter::emitArrayArgument(Expr *param, PM::ParameterMode mode,
         if (contextTy != components->getType())
             components = Builder.CreatePointerCast(components, contextTy);
 
-        // Pass the components plus the bounds.
-        llvm::Value *bounds = arrValue.second();
-        const llvm::Type *boundsTy = bounds->getType();
-        if (boundsTy->isAggregateType()) {
-            llvm::Value *slot = frame()->createTemp(boundsTy);
-            Builder.CreateStore(bounds, slot);
-            bounds = slot;
-        }
+        // Pass the components.  If this subroutine is imported we are finished,
+        // otherwise pass the bounds in as well.
         arguments.push_back(components);
-        arguments.push_back(bounds);
+        if (!SRCall->isForeignCall()) {
+            llvm::Value *bounds = arrValue.second();
+            const llvm::Type *boundsTy = bounds->getType();
+            if (boundsTy->isAggregateType()) {
+                llvm::Value *slot = frame()->createTemp(boundsTy);
+                Builder.CreateStore(bounds, slot);
+                bounds = slot;
+            }
+            arguments.push_back(bounds);
+        }
     }
 }
 

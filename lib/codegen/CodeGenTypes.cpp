@@ -241,9 +241,11 @@ CodeGenTypes::lowerSubroutine(const SubroutineDecl *decl)
             args.push_back(loweredTy->getPointerTo());
 
             // If the parameter is an unconstrained array generate an implicit
-            // second argument for the bounds.
+            // second argument for the bounds (unless this is a imported C
+            // declaration).
             if (const ArrayType *arrTy = dyn_cast<ArrayType>(compTy)) {
-                if (!compTy->isConstrained())
+                if (!compTy->isConstrained() &&
+                    !decl->hasPragma(pragma::Import))
                     args.push_back(lowerArrayBounds(arrTy)->getPointerTo());
             }
         }

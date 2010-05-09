@@ -977,20 +977,20 @@ public:
     //@{
     /// Specialization of Decl::getOrigin().
     SubroutineDecl *getOrigin() {
-        return llvm::cast<SubroutineDecl>(Decl::getOrigin());
+        return llvm::cast_or_null<SubroutineDecl>(Decl::getOrigin());
     }
     const SubroutineDecl *getOrigin() const {
-        return llvm::cast<SubroutineDecl>(Decl::getOrigin());
+        return llvm::cast_or_null<SubroutineDecl>(Decl::getOrigin());
     }
     //@}
 
     //@{
     /// Specialization of Decl::resolveOrigin().
     SubroutineDecl *resolveOrigin() {
-        return llvm::cast<SubroutineDecl>(Decl::resolveOrigin());
+        return llvm::cast_or_null<SubroutineDecl>(Decl::resolveOrigin());
     }
     const SubroutineDecl *resolveOrigin() const {
-        return llvm::cast<SubroutineDecl>(Decl::resolveOrigin());
+        return llvm::cast_or_null<SubroutineDecl>(Decl::resolveOrigin());
     }
     //@}
 
@@ -1124,6 +1124,11 @@ protected:
 
     llvm::PointerIntPair<SubroutineDecl*, 1, DeclLinkTag> declarationLink;
     llvm::iplist<Pragma> pragmas;
+
+private:
+    /// Helper for findPragma.  Scans only this declarations pragma list and not
+    /// those associated with a forward declaration or completion.
+    const Pragma *locatePragma(pragma::PragmaID ID) const;
 };
 
 //===----------------------------------------------------------------------===//

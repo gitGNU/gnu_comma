@@ -575,7 +575,7 @@ BlockStmt *SubroutineDecl::getBody()
     return 0;
 }
 
-const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const
+const Pragma *SubroutineDecl::locatePragma(pragma::PragmaID ID) const
 {
     const_pragma_iterator I = begin_pragmas();
     const_pragma_iterator E = end_pragmas();
@@ -583,6 +583,27 @@ const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const
         if (I->getKind() == ID)
             return &*I;
     }
+    return 0;
+}
+
+const Pragma *SubroutineDecl::findPragma(pragma::PragmaID ID) const
+{
+    // Check local pragmas.
+    if (const Pragma *pragma = locatePragma(ID))
+        return pragma;
+
+    // Check forward declarations.
+    if (const SubroutineDecl *fwdDecl = getForwardDeclaration())
+        return fwdDecl->locatePragma(ID);
+
+    // Check completions.
+    if (const SubroutineDecl *defDecl = getDefiningDeclaration())
+        return defDecl->locatePragma(ID);
+
+    // Recurse into any declarations from which we were derived.
+    if (const SubroutineDecl *origin = getOrigin())
+        return origin->findPragma(ID);
+
     return 0;
 }
 
