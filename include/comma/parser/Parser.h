@@ -131,6 +131,7 @@ public:
     bool parseSubtype();
     void parseEnumerationList();
     bool parseIntegerRange(IdentifierInfo *name, Location loc);
+    bool parseModularInteger(IdentifierInfo *name, Location loc);
 
     void parseArrayIndexProfile(NodeVector &indices);
     bool parseArrayTypeDecl(IdentifierInfo *name, Location loc);

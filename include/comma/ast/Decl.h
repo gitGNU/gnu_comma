@@ -1621,9 +1621,19 @@ private:
 // These nodes represent integer type declarations.
 class IntegerDecl : public TypeDecl, public DeclRegion {
 
+    /// The following flags are or'ed together into the Ast::bits field
+    /// indicating if this is a subtype and/or modular type declaration.
+    enum IDeclFlags {
+        Subtype_FLAG = 1 << 0,
+        Modular_FLAG = 1 << 1
+    };
+
 public:
     /// Returns true if this declaration declares an integer subtype.
-    bool isSubtypeDeclaration() const { return bits; }
+    bool isSubtypeDeclaration() const { return bits & Subtype_FLAG; }
+
+    /// Returns true if this declaration declares a modular type.
+    bool isModularDeclaration() const { return bits & Modular_FLAG; }
 
     /// Populates the declarative region of this type with all implicit
     /// operations.  This must be called once the type has been constructed to
@@ -1655,17 +1665,33 @@ public:
 
     //@{
     /// Returns the expression denoting the lower bound of this integer
-    /// declaration.
-    Expr *getLowBoundExpr() { return lowExpr; }
-    const Expr *getLowBoundExpr() const { return lowExpr; }
+    /// declaration.  If this denotes an unconstrained subtype declaration or a
+    /// modular type declaration this method returns null.
+    Expr *getLowBoundExpr();
+    const Expr *getLowBoundExpr() const {
+        return const_cast<IntegerDecl*>(this)->getLowBoundExpr();
+    }
     //@}
 
     //@{
     /// Returns the expression denoting the upper bound of this integer
-    /// declaration.
-    Expr *getHighBoundExpr() { return highExpr; }
-    const Expr *getHighBoundExpr() const { return highExpr; }
+    /// declaration.  If this denotes an unconstrained subtype declaration or a
+    //modular type declaration this method returns null.
+    Expr *getHighBoundExpr();
+    const Expr *getHighBoundExpr() const {
+        return const_cast<IntegerDecl*>(this)->getHighBoundExpr();
+    }
     //@}
+
+    //@{
+    /// If this is a modular integer type declaration return the modulus, else
+    /// null.
+    Expr *getModulusExpr();
+    const Expr *getModulusExpr() const {
+        return const_cast<IntegerDecl*>(this)->getModulusExpr();
+    }
+    //@}
+
 
     /// Returns the declaration corresponding to the Pos attribute.
     PosAD *getPosAttribute() { return posAttribute; }
@@ -1679,6 +1705,7 @@ public:
     /// type an assertion will fire.
     FunctionAttribDecl *getAttribute(attrib::AttributeID ID);
 
+    // Support isa/dyn_cast.
     static bool classof(const IntegerDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_IntegerDecl;
@@ -1705,6 +1732,12 @@ private:
                 IdentifierInfo *name, Location loc,
                 Expr *lower, Expr *upper, DeclRegion *parent);
 
+    /// Creates a modular Integer type declaration.
+    IntegerDecl(AstResource &resource,
+                IdentifierInfo *name, Location loc,
+                Expr *modulus, DeclRegion *parent);
+
+
     /// Constructs an unconstrained integer subtype declaration.
     IntegerDecl(AstResource &resource,
                 IdentifierInfo *name, Location loc,
@@ -1718,7 +1751,7 @@ private:
 
     friend class AstResource;
 
-    Expr *lowExpr;              // Expr forming the lower bound.
+    Expr *lowExpr;              // Expr forming the lower bound or modulus.
     Expr *highExpr;             // Expr forming the high bound.
 
     PosAD *posAttribute;        // Declaration node for the Pos attribute.

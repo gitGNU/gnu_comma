@@ -208,6 +208,8 @@ public:
 
     void acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
                                Node low, Node high);
+    void acceptModularTypeDecl(IdentifierInfo *name, Location loc,
+                               Node modulus);
 
     void acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
                                  Node subtype, Node low, Node high);
@@ -308,6 +310,10 @@ public:
     /// Returns true if \p expr is a static integer expression.  Otherwise false
     /// is returned and diagnostics are posted.
     bool ensureStaticIntegerExpr(Expr *expr);
+
+    /// Returns true if \p expr is a positive static integer expression.
+    /// Otherwise false is returned and diagnostics are posted.
+    bool ensurePositiveIntegerExpr(Expr *expr);
 
     /// Checks if \p node resolves to an expression and returns that expression
     /// on success.  Else null is returned and diagnostics are posted.

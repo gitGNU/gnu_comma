@@ -835,6 +835,15 @@ public:
     virtual void acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
                                        Node low, Node high) = 0;
 
+    /// Called to process modular integer type declarations.
+    ///
+    /// Given a definition of the form <tt>type T is mod X</tt> this callback is
+    /// invoked with \p name set to the identifier \c T, \p loc set to the
+    /// location of \p name, and \p modulus set to an expression node
+    /// representing \c X.
+    virtual void acceptModularTypeDecl(IdentifierInfo *name, Location loc,
+                                       Node modulus) = 0;
+
     /// Called to process a range constrained discrete subtype declaration.
     ///
     /// For example, given a declaration of the form <tt>subtype S is T range

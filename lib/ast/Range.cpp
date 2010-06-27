@@ -59,13 +59,29 @@ void Range::checkAndAdjustLimits()
     assert(rangeTy && "Range type not set!");
 
     unsigned width = rangeTy->getSize();
-    if (hasStaticLowerBound()) {
-        assert(lowerValue.getMinSignedBits() <= width && "Bounds too wide!");
-        lowerValue.sextOrTrunc(width);
+    if (rangeTy->isSigned())  {
+        if (hasStaticLowerBound()) {
+            assert(lowerValue.getMinSignedBits() <= width
+                   && "Bounds too wide!");
+            lowerValue.sextOrTrunc(width);
+        }
+        if (hasStaticUpperBound()) {
+            assert(upperValue.getMinSignedBits() <= width
+                   && "Bounds too wide!");
+            upperValue.sextOrTrunc(width);
+        }
     }
-    if (hasStaticUpperBound()) {
-        assert(upperValue.getMinSignedBits() <= width && "Bounds too wide!");
-        upperValue.sextOrTrunc(width);
+    else {
+        if (hasStaticLowerBound()) {
+            assert(lowerValue.getActiveBits() <= width
+                   && "Bounds too wide!");
+            lowerValue.zextOrTrunc(width);
+        }
+        if (hasStaticUpperBound()) {
+            assert(upperValue.getActiveBits() <= width
+                   && "Bounds too wide!");
+            upperValue.zextOrTrunc(width);
+        }
     }
 }
 

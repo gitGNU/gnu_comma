@@ -561,6 +561,26 @@ bool TypeCheck::ensureStaticIntegerExpr(Expr *expr)
     return false;
 }
 
+bool TypeCheck::ensurePositiveIntegerExpr(Expr *expr)
+{
+    llvm::APInt zero;
+    llvm::APInt value;
+    IntegerType *type;
+
+    if (!ensureStaticIntegerExpr(expr, value))
+        return false;
+
+    zero = llvm::APInt::getMinValue(value.getBitWidth());
+    type = cast<IntegerType>(expr->getType());
+
+    if (type->isSigned() ? value.sgt(zero) : value.ugt(zero))
+        return true;
+    else {
+        report(expr->getLocation(), diag::EXPECTED_POSITIVE_EXPRESSION);
+        return false;
+    }
+}
+
 ArrayType *TypeCheck::getConstrainedArraySubtype(ArrayType *arrTy, Expr *init)
 {
     // FIXME: The following code assumes integer index types exclusively.
@@ -855,6 +875,32 @@ void TypeCheck::acceptIntegerTypeDecl(IdentifierInfo *name, Location loc,
         introduceImplicitDecls(decl);
     }
 }
+
+void TypeCheck::acceptModularTypeDecl(IdentifierInfo *name, Location loc,
+                                      Node modulusNode)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    Expr *modulus = cast_node<Expr>(modulusNode);
+
+    // Ensure the modulus resolves to some integer type.
+    if (!checkExprInContext(modulus, Type::CLASS_Integer))
+        return;
+
+    // Ensure the modulus is static and positive.
+    if (!ensurePositiveIntegerExpr(modulus))
+        return;
+
+    // Obtain an integer type to represent the base type of this declaration.
+    modulusNode.release();
+    IntegerDecl *decl;
+    decl = resource.createIntegerDecl(name, loc, modulus, region);
+
+    if (introduceTypeDeclaration(decl)) {
+        decl->generateImplicitDeclarations(resource);
+        introduceImplicitDecls(decl);
+    }
+}
+
 
 void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
                                         Node subtypeNode,

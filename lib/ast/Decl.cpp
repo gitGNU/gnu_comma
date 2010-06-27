@@ -1155,6 +1155,45 @@ IntegerDecl::IntegerDecl(AstResource &resource,
     valAttribute = ValAD::create(resource, this);
 }
 
+IntegerDecl::IntegerDecl(AstResource &resource,
+                         IdentifierInfo *name, Location loc,
+                         Expr *modulus, DeclRegion *parent)
+    : TypeDecl(AST_IntegerDecl, name, loc, parent),
+      DeclRegion(AST_IntegerDecl, parent),
+      lowExpr(0), highExpr(modulus)
+{
+    assert(highExpr->isStaticDiscreteExpr());
+
+    llvm::APInt highVal;
+    llvm::APInt lowVal;
+
+    // Extract the contant value of the modulus and form a range constraint from
+    // 0 .. modulus - 1.
+    modulus->staticDiscreteValue(highVal);
+
+    // Set lowVal to zero.
+    lowVal = llvm::APInt::getMinValue(highVal.getBitWidth());
+
+    // FIXME: This should be wrapped in a debug macro.
+    if (cast<DiscreteType>(modulus->getType())->isSigned())
+        assert(highVal.sgt(lowVal));
+    else
+        assert(highVal.ugt(lowVal));
+
+    --highVal;
+
+    bits |= Modular_FLAG;
+
+    lowExpr = new IntegerLiteral(lowVal, loc);
+
+    IntegerType *base = resource.createIntegerType(this, lowVal, highVal);
+    CorrespondingType = resource.createIntegerSubtype(base, lowVal, highVal);
+
+    // Initialize the required attribute declarations now that the type is in
+    // place.
+    posAttribute = PosAD::create(resource, this);
+    valAttribute = ValAD::create(resource, this);
+}
 
 IntegerDecl::IntegerDecl(AstResource &resource,
                          IdentifierInfo *name, Location loc,
@@ -1163,7 +1202,12 @@ IntegerDecl::IntegerDecl(AstResource &resource,
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(0), highExpr(0)
 {
-    bits = true;                // Mark this as a subtype.
+    // Mark this as a subtype and, if the parent type is modular, as a modular
+    // type.
+    bits = Subtype_FLAG;
+    if (subtype->isModular())
+        bits |= Modular_FLAG;
+
     CorrespondingType = resource.createIntegerSubtype(subtype, this);
     posAttribute = PosAD::create(resource, this);
     valAttribute = ValAD::create(resource, this);
@@ -1177,11 +1221,48 @@ IntegerDecl::IntegerDecl(AstResource &resource,
       DeclRegion(AST_IntegerDecl, parent),
       lowExpr(lower), highExpr(upper)
 {
-    bits = true;                // Mark this as a subtype.
+    // Mark this as a subtype and, if the parent type is modular, as a modular
+    // type.
+    bits = Subtype_FLAG;
+    if (subtype->isModular())
+        bits |= Modular_FLAG;
+
     CorrespondingType = resource.createIntegerSubtype
         (subtype, lower, upper, this);
     posAttribute = PosAD::create(resource, this);
     valAttribute = ValAD::create(resource, this);
+}
+
+Expr *IntegerDecl::getLowBoundExpr()
+{
+    if (!isModularDeclaration())
+        return lowExpr;
+    return 0;
+}
+
+Expr *IntegerDecl::getHighBoundExpr()
+{
+    if (!isModularDeclaration())
+        return highExpr;
+    return 0;
+}
+
+Expr *IntegerDecl::getModulusExpr()
+{
+    if (isModularDeclaration()) {
+        // The modulus is always associated with the defining declaration of the
+        // root type.
+        if (isSubtypeDeclaration()) {
+            IntegerType *rootType;
+            IntegerDecl *rootDecl;
+            rootType = getType()->getRootType();
+            rootDecl = cast<IntegerDecl>(rootType->getDefiningDecl());
+            return rootDecl->getModulusExpr();
+        }
+        else
+            return highExpr;
+    }
+    return 0;
 }
 
 // Note that we could perform these initializations in the constructor, but it

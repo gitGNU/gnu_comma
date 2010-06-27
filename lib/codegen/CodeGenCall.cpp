@@ -119,11 +119,11 @@ private:
     /// Generates a call into the Comma runtime to handle exponentiation.
     llvm::Value *emitExponential(llvm::Value *x, llvm::Value *n);
 
-    /// Synthesizes a "mod" operation.
-    llvm::Value *emitMod(llvm::Value *lhs, llvm::Value *rhs);
-
     /// Synthesizes a "rem" operation.
     llvm::Value *emitRem(llvm::Value *lhs, llvm::Value *rhs);
+
+    /// Synthesizes a "mod" operation.
+    llvm::Value *emitMod(const Type *argTy, llvm::Value *lhs, llvm::Value *rhs);
 
     /// Synthesizes a "=" operation.
     llvm::Value *emitEQ(Type *argTy, llvm::Value *lhs, llvm::Value *rhs);
@@ -493,7 +493,7 @@ llvm::Value *CallEmitter::emitPrimitiveCall()
             break;
 
         case PO::MOD_op:
-            result = emitMod(lhs, rhs);
+            result = emitMod(argTy, lhs, rhs);
             break;
 
         case PO::REM_op:
@@ -665,8 +665,11 @@ llvm::Value *CallEmitter::emitExponential(llvm::Value *x, llvm::Value *n)
     return result;
 }
 
-llvm::Value *CallEmitter::emitMod(llvm::Value *lhs, llvm::Value *rhs)
+llvm::Value *CallEmitter::emitMod(const Type *argTy,
+                                  llvm::Value *lhs, llvm::Value *rhs)
 {
+    const DiscreteType *discTy = cast<DiscreteType>(argTy);
+
     // FIXME: Raise an exception if rhs is zero.
     //
     // Build:
@@ -676,15 +679,18 @@ llvm::Value *CallEmitter::emitMod(llvm::Value *lhs, llvm::Value *rhs)
     //      return R;
     //   else
     //      return rhs + R;
-    llvm::Value *rem = Builder.CreateSRem(lhs, rhs);
-    llvm::Value *zero = llvm::ConstantInt::get(lhs->getType(), 0);
-    llvm::Value *lhsNeg = Builder.CreateICmpSLT(lhs, zero);
-    llvm::Value *rhsNeg = Builder.CreateICmpSLT(rhs, zero);
-    llvm::Value *remZro = Builder.CreateICmpEQ(rem, zero);
-    llvm::Value *negOps = Builder.CreateICmpEQ(lhsNeg, rhsNeg);
-    llvm::Value *pred = Builder.CreateOr(negOps, remZro);
+    if (discTy->isSigned()) {
+        llvm::Value *rem = Builder.CreateSRem(lhs, rhs);
+        llvm::Value *zero = llvm::ConstantInt::get(lhs->getType(), 0);
+        llvm::Value *lhsNeg = Builder.CreateICmpSLT(lhs, zero);
+        llvm::Value *rhsNeg = Builder.CreateICmpSLT(rhs, zero);
+        llvm::Value *remZro = Builder.CreateICmpEQ(rem, zero);
+        llvm::Value *negOps = Builder.CreateICmpEQ(lhsNeg, rhsNeg);
+        llvm::Value *pred = Builder.CreateOr(negOps, remZro);
 
-    return Builder.CreateSelect(pred, rem, Builder.CreateAdd(rhs, rem));
+        return Builder.CreateSelect(pred, rem, Builder.CreateAdd(rhs, rem));
+    } else
+        return Builder.CreateURem(lhs, rhs);
 }
 
 llvm::Value *CallEmitter::emitRem(llvm::Value *lhs, llvm::Value *rhs)

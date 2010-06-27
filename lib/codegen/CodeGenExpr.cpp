@@ -101,19 +101,21 @@ CValue CodeGenRoutine::emitNullExpr(NullExpr *expr)
 
 CValue CodeGenRoutine::emitIntegerLiteral(IntegerLiteral *expr)
 {
-    const llvm::IntegerType *ty =
-        cast<llvm::IntegerType>(CGT.lowerType(expr->getType()));
+    const IntegerType *intTy;
+    const llvm::IntegerType *loweredTy;
     llvm::APInt val(expr->getValue());
 
-    // All comma integer literals are represented as signed APInt's.  Sign
-    // extend the value if needed to fit in the representation type.
+    intTy = cast<IntegerType>(expr->getType());
+    loweredTy = cast<llvm::IntegerType>(CGT.lowerType(intTy));
+
+    // All comma integer literals are represented as signed APInt's.  Extend the
+    // value if needed to fit in the representation type.
     unsigned valWidth = val.getBitWidth();
-    unsigned tyWidth = ty->getBitWidth();
+    unsigned tyWidth = loweredTy->getBitWidth();
     assert(valWidth <= tyWidth && "Value/Type width mismatch!");
 
     if (valWidth < tyWidth)
-        val.sext(tyWidth);
-
+        intTy->isSigned() ? val.sext(tyWidth) : val.zext(tyWidth);
     return CValue::get(llvm::ConstantInt::get(CG.getLLVMContext(), val));
 }
 
@@ -459,12 +461,47 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
     if (exprTy == targetTy)
         return sourceVal;
 
-    unsigned sourceWidth = cast<llvm::IntegerType>(sourceVal->getType())->getBitWidth();
-    unsigned targetWidth = loweredTy->getBitWidth();
+    unsigned sourceWidth;
+    unsigned targetWidth;
+    sourceWidth = cast<llvm::IntegerType>(sourceVal->getType())->getBitWidth();
+    targetWidth = loweredTy->getBitWidth();
+
+    // When the target type is modular just reduce the expression by the
+    // modulus.
+    if (IntegerType *intTy = dyn_cast<IntegerType>(targetTy)) {
+        if (intTy->isModular()) {
+            IntegerDecl *intDecl;
+            llvm::APInt modulusConstant;
+            llvm::Value *modulus;
+            intDecl = cast<IntegerDecl>(intTy->getDefiningDecl());
+
+
+            if (targetWidth > sourceWidth) {
+                if (targetTy->isSigned())
+                    sourceVal = Builder.CreateSExt(sourceVal, loweredTy);
+                else
+                    sourceVal = Builder.CreateZExt(sourceVal, loweredTy);
+            }
+            else if (targetWidth < sourceWidth)
+                sourceVal = Builder.CreateTrunc(sourceVal, loweredTy);
+
+            // The modulus can be wider than the type itself when it is a power
+            // of two.  In this case we do not need to compute the remainder.
+            intDecl->getModulusExpr()->staticDiscreteValue(modulusConstant);
+            if (modulusConstant.getActiveBits() > targetWidth)
+                return sourceVal;
+            else {
+                if (modulusConstant.getBitWidth() < targetWidth)
+                    modulusConstant.zext(targetWidth);
+                modulus = llvm::ConstantInt::get(loweredTy, modulusConstant);
+                return Builder.CreateURem(sourceVal, modulus);
+            }
+        }
+    }
 
     if (DiscreteType *sourceTy = dyn_cast<DiscreteType>(exprTy)) {
         // If the target type contains the source type then a range check is
-        // unnessary.
+        // unnecessary.
         if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
             if (targetWidth == sourceWidth)
                 return sourceVal;

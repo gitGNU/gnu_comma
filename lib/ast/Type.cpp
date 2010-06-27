@@ -543,8 +543,10 @@ unsigned DiscreteType::getPreferredSize(uint64_t bits)
 
 bool DiscreteType::isSigned() const
 {
-    // Integer types are signed but enumerations are not.
-    return isa<IntegerType>(this);
+    if (isa<EnumerationType>(this))
+        return false;
+    else
+        return !cast<IntegerType>(this)->isModular();
 }
 
 uint64_t DiscreteType::length() const
@@ -657,9 +659,7 @@ public:
     UnconstrainedEnumType(EnumerationType *base,
                           EnumerationDecl *decl = 0)
         : EnumerationType(UnconstrainedEnumType_KIND, base),
-          definingDecl(decl) {
-        assert(decl == 0 || decl->isSubtypeDeclaration());
-    }
+          definingDecl(decl) { }
 
     /// Returns true if this is an anonymous subtype.
     bool isAnonymous() const { return definingDecl == 0; }
@@ -770,7 +770,7 @@ EnumerationType *RootEnumType::getBaseSubtype()
     return baseType;
 }
 
-EnumerationDecl *EnumerationType::getDefiningDecl()
+TypeDecl *EnumerationType::getDefiningDecl()
 {
     RootEnumType *root = cast<RootEnumType>(getRootType());
     return root->getDefiningDecl();
@@ -778,7 +778,7 @@ EnumerationDecl *EnumerationType::getDefiningDecl()
 
 bool EnumerationType::isCharacterType() const
 {
-    return getDefiningDecl()->isCharacterType();
+    return cast<EnumerationDecl>(getDefiningDecl())->isCharacterType();
 };
 
 uint64_t EnumerationType::getNumLiterals() const
@@ -973,9 +973,7 @@ public:
     UnconstrainedIntegerType(IntegerType *base,
                              IntegerDecl *decl = 0)
         : IntegerType(UnconstrainedIntegerType_KIND, base),
-          definingDecl(decl) {
-        assert(decl == 0 || decl->isSubtypeDeclaration());
-    }
+          definingDecl(decl) { }
 
     /// Returns true if this is an anonymous subtype.
     bool isAnonymous() const { return definingDecl == 0; }
@@ -1021,7 +1019,7 @@ RootIntegerType::RootIntegerType(AstResource &resource,
 
     // Build the base unconstrained subtype node.
     baseType = cast<UnconstrainedIntegerType>
-        (resource.createIntegerSubtype(this));
+        (resource.createIntegerSubtype(this, decl));
 }
 
 void RootIntegerType::initBounds(const llvm::APInt &low,
@@ -1029,13 +1027,24 @@ void RootIntegerType::initBounds(const llvm::APInt &low,
 {
     // The base range represents a two's-complement signed integer.  We must be
     // symmetric about zero and include the values of the bounds.  Therefore,
-    // even for null ranges, our base range is at least 2**7-1 .. 2**7.
-    unsigned minimalWidth = std::max(low.getMinSignedBits(),
-                                     high.getMinSignedBits());
+    // even for null ranges, our base range is at least -2**7 .. 2**7 - 1.
 
-    unsigned preferredWidth = DiscreteType::getPreferredSize(minimalWidth);
-    lowerBound = llvm::APInt::getSignedMinValue(preferredWidth);
-    upperBound = llvm::APInt::getSignedMaxValue(preferredWidth);
+    if (isSigned()) {
+        unsigned lowBits = low.getMinSignedBits();
+        unsigned highBits = high.getMinSignedBits();
+        unsigned minimalWidth = std::max(lowBits, highBits);
+        unsigned preferredWidth = DiscreteType::getPreferredSize(minimalWidth);
+        lowerBound = llvm::APInt::getSignedMinValue(preferredWidth);
+        upperBound = llvm::APInt::getSignedMaxValue(preferredWidth);
+    }
+    else {
+        unsigned lowBits = low.getActiveBits();
+        unsigned highBits = high.getActiveBits();
+        unsigned minimalWidth = std::max(lowBits, highBits);
+        unsigned preferredWidth = DiscreteType::getPreferredSize(minimalWidth);
+        lowerBound = llvm::APInt::getMinValue(preferredWidth);
+        upperBound = llvm::APInt::getMaxValue(preferredWidth);
+    }
 }
 
 IntegerType *IntegerType::create(AstResource &resource, IntegerDecl *decl,
@@ -1063,6 +1072,11 @@ IntegerType *IntegerType::getBaseSubtype()
 {
     RootIntegerType *root = cast<RootIntegerType>(this->getRootType());
     return root->getBaseSubtype();
+}
+
+bool IntegerType::isModular() const
+{
+    return cast<IntegerDecl>(getDefiningDecl())->isModularDeclaration();
 }
 
 Range *IntegerType::getConstraint()
@@ -1125,12 +1139,12 @@ uint64_t IntegerType::getSize() const
 
 PosAD *IntegerType::getPosAttribute()
 {
-    return getDefiningDecl()->getPosAttribute();
+    return cast<IntegerDecl>(getDefiningDecl())->getPosAttribute();
 }
 
 ValAD *IntegerType::getValAttribute()
 {
-    return getDefiningDecl()->getValAttribute();
+    return cast<IntegerDecl>(getDefiningDecl())->getValAttribute();
 }
 
 //===----------------------------------------------------------------------===//

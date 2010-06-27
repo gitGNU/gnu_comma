@@ -319,6 +319,7 @@ EnumerationType *AstResource::createEnumType(EnumerationDecl *decl)
 EnumerationType *AstResource::createEnumSubtype(EnumerationType *base,
                                                 EnumerationDecl *decl)
 {
+    decl = decl ? decl : cast<EnumerationDecl>(base->getDefiningDecl());
     EnumerationType *res = EnumerationType::createSubtype(base, decl);
     types.push_back(res);
     return res;
@@ -329,6 +330,7 @@ EnumerationType *AstResource::createEnumSubtype(EnumerationType *base,
                                                 EnumerationDecl *decl)
 {
     EnumerationType *res;
+    decl = decl ? decl : cast<EnumerationDecl>(base->getDefiningDecl());
     res = EnumerationType::createConstrainedSubtype(base, low, high, decl);
     types.push_back(res);
     return res;
@@ -340,6 +342,15 @@ IntegerDecl *AstResource::createIntegerDecl(IdentifierInfo *name, Location loc,
 {
     IntegerDecl *res;
     res = new IntegerDecl(*this, name, loc, lowRange, highRange, parent);
+    decls.push_back(res);
+    return res;
+}
+
+IntegerDecl *AstResource::createIntegerDecl(IdentifierInfo *name, Location loc,
+                                            Expr *modulus, DeclRegion *parent)
+{
+    IntegerDecl *res;
+    res = new IntegerDecl(*this, name, loc, modulus, parent);
     decls.push_back(res);
     return res;
 }
@@ -380,6 +391,7 @@ IntegerType *AstResource::createIntegerSubtype(IntegerType *base,
                                                IntegerDecl *decl)
 {
     IntegerType *res;
+    decl = decl ? decl : cast<IntegerDecl>(base->getDefiningDecl());
     res = IntegerType::createConstrainedSubtype(base, low, high, decl);
     types.push_back(res);
     return res;
@@ -392,12 +404,14 @@ IntegerType *AstResource::createIntegerSubtype(IntegerType *base,
 {
     Expr *lowExpr = new IntegerLiteral(low, base, Location());
     Expr *highExpr = new IntegerLiteral(high, base, Location());
+    decl = decl ? decl : cast<IntegerDecl>(base->getDefiningDecl());
     return createIntegerSubtype(base, lowExpr, highExpr, decl);
 }
 
 IntegerType *AstResource::createIntegerSubtype(IntegerType *base,
                                                IntegerDecl *decl)
 {
+    decl = decl ? decl : cast<IntegerDecl>(base->getDefiningDecl());
     IntegerType *res = IntegerType::createSubtype(base, decl);
     types.push_back(res);
     return res;
@@ -407,13 +421,14 @@ DiscreteType *AstResource::createDiscreteSubtype(DiscreteType *base,
                                                  Expr *low, Expr *high,
                                                  TypeDecl *decl)
 {
+    decl = decl ? decl : base->getDefiningDecl();
     if (IntegerType *intTy = dyn_cast<IntegerType>(base)) {
-        IntegerDecl *subdecl = cast_or_null<IntegerDecl>(decl);
+        IntegerDecl *subdecl = cast<IntegerDecl>(decl);
         return createIntegerSubtype(intTy, low, high, subdecl);
     }
     else {
         EnumerationType *enumTy = cast<EnumerationType>(base);
-        EnumerationDecl *subdecl = cast_or_null<EnumerationDecl>(decl);
+        EnumerationDecl *subdecl = cast<EnumerationDecl>(decl);
         return createEnumSubtype(enumTy, low, high, subdecl);
     }
 }

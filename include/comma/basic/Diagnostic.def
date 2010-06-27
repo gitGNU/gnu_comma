@@ -57,6 +57,8 @@ DIAGNOSTIC(EMPTY_ENUMERATION, ERROR,
            "Empty enumerations are not permitted.")
 DIAGNOSTIC(NON_STATIC_EXPRESSION, ERROR,
            "Static expression required.")
+DIAGNOSTIC(EXPECTED_POSITIVE_EXPRESSION, ERROR,
+           "Strictly positive expression required.")
 DIAGNOSTIC(EMPTY_ARRAY_TYPE_INDICES, ERROR,
            "Empty array index profiles are not permitted.")
 DIAGNOSTIC(UNKNOWN_ATTRIBUTE, ERROR,

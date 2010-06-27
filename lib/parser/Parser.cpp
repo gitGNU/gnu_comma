@@ -1051,6 +1051,9 @@ bool Parser::parseType()
     case Lexer::TKN_RANGE:
         return parseIntegerRange(name, loc);
 
+    case Lexer::TKN_MOD:
+        return parseModularInteger(name, loc);
+
     case Lexer::TKN_ARRAY:
         return parseArrayTypeDecl(name, loc);
 
@@ -1164,6 +1167,21 @@ bool Parser::parseIntegerRange(IdentifierInfo *name, Location loc)
     }
 
     client.acceptIntegerTypeDecl(name, loc, low, high);
+    return true;
+}
+
+bool Parser::parseModularInteger(IdentifierInfo *name, Location loc)
+{
+    assert(currentTokenIs(Lexer::TKN_MOD));
+    ignoreToken();
+
+    Node modulus = parseExpr();
+    if (modulus.isInvalid()) {
+        seekSemi();
+        return false;
+    }
+
+    client.acceptModularTypeDecl(name, loc, modulus);
     return true;
 }
 

@@ -670,7 +670,7 @@ public:
 
     /// Returns true if this denotes a signed discrete type.
     ///
-    /// Currently, Integers are signed while enumerations are unsigned.
+    /// Integers are signed while modular and enumeration types are not.
     bool isSigned() const;
 
     //@{
@@ -712,6 +712,15 @@ public:
     /// Returns the declaration corresponding to the Val attribute for this
     /// type.
     virtual ValAD *getValAttribute() = 0;
+
+    //@{
+    /// Returns the declaration defining this discrete type.
+    ///
+    /// FIXME: This interface is awkward.  We cannot use covariant return types
+    /// to specialize these methods since we cannot directly depend on Decl.h.
+    virtual const TypeDecl *getDefiningDecl() const = 0;
+    virtual TypeDecl *getDefiningDecl() = 0;
+    //@}
 
     // Support isa/dyn_cast.
     static bool classof(const DiscreteType *node) { return true; }
@@ -802,10 +811,10 @@ public:
 
     //@{
     /// Returns the underlying enumeration declaration for this type.
-    const EnumerationDecl *getDefiningDecl() const {
+    const TypeDecl *getDefiningDecl() const {
         return const_cast<EnumerationType*>(this)->getDefiningDecl();
     }
-    EnumerationDecl *getDefiningDecl();
+    TypeDecl *getDefiningDecl();
     //@}
 
     /// Returns the declaration corresponding to the Pos attribute for this
@@ -891,8 +900,10 @@ public:
     /// \see DiscreteType::getUpperLimit().
     void getUpperLimit(llvm::APInt &res) const;
 
-    /// Returns true if the base integer type can represent the given value
-    /// (interpreted as signed).
+    /// Returns true if the base integer type can represent the given value.
+    ///
+    /// The given APInt is interpreted as signed or unsigned depending on if
+    /// this denotes, repectively, a signed or unsigned (modular) integer type.
     bool baseContains(const llvm::APInt &value) const;
 
     /// Returns the number of bits needed to represent this type.
@@ -913,6 +924,9 @@ public:
 
     /// Returns true if this type is constrained.
     bool isConstrained() const { return getConstraint() != 0; }
+
+    /// Returns true if this type denotes a modular (unsigned) integer type.
+    bool isModular() const;
 
     //@{
     /// \brief Returns the Range associated with this IntegerType, or null if
@@ -939,6 +953,14 @@ public:
     const IntegerType *getAncestorType() const {
         return llvm::cast<IntegerType>(PrimaryType::getAncestorType());
     }
+    //@}
+
+    //@{
+    /// Returns the declaration defining this discrete type.
+    const TypeDecl *getDefiningDecl() const {
+        return const_cast<IntegerType*>(this)->getDefiningDecl();
+    }
+    TypeDecl *getDefiningDecl() = 0;
     //@}
 
     /// Returns the declaration corresponding to the Pos attribute for this
@@ -981,14 +1003,6 @@ private:
 
     //@}
     friend class AstResource;
-
-    //@{
-    /// Returns the declaration defining this integer type.
-    const IntegerDecl *getDefiningDecl() const {
-        return const_cast<IntegerType*>(this)->getDefiningDecl();
-    }
-    virtual IntegerDecl *getDefiningDecl() = 0;
-    //@}
 
 protected:
     /// IntegerType nodes are implemented using three internal classes

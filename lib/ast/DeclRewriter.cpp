@@ -209,6 +209,11 @@ IntegerDecl *DeclRewriter::rewriteIntegerDecl(IntegerDecl *idecl)
             result = resource.createIntegerSubtypeDecl
                 (name, loc, base, context);
     }
+    else if (idecl->isModularDeclaration()) {
+        Expr *modulus = rewriteExpr(idecl->getModulusExpr());
+        result = resource.createIntegerDecl(name, loc, modulus, context);
+        result->generateImplicitDeclarations(resource);
+    }
     else {
         Expr *lower = rewriteExpr(idecl->getLowBoundExpr());
         Expr *upper = rewriteExpr(idecl->getHighBoundExpr());
