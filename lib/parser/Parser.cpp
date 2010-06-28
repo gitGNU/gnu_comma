@@ -295,12 +295,6 @@ bool Parser::qualificationFollows()
     return currentTokenIs(Lexer::TKN_QUOTE) && nextTokenIs(Lexer::TKN_LPAREN);
 }
 
-bool Parser::attributeFollows()
-{
-    return (currentTokenIs(Lexer::TKN_QUOTE) &&
-            nextTokenIs(Lexer::TKN_IDENTIFIER));
-}
-
 IdentifierInfo *Parser::parseCharacter()
 {
     if (currentTokenIs(Lexer::TKN_CHARACTER)) {
@@ -579,8 +573,8 @@ void Parser::parseAddComponents()
             parseProcedureDeclOrDefinition();
             break;
 
-        case Lexer::TKN_IMPORT:
-            parseImportDeclaration();
+        case Lexer::TKN_USE:
+            parseUseDeclaration();
             break;
 
         case Lexer::TKN_CARRIER:
@@ -949,8 +943,8 @@ bool Parser::parseDeclaration()
     case Lexer::TKN_PROCEDURE:
         return parseProcedureDeclaration().isValid();
 
-    case Lexer::TKN_IMPORT:
-        return parseImportDeclaration();
+    case Lexer::TKN_USE:
+        return parseUseDeclaration();
 
     case Lexer::TKN_TYPE:
         return parseType();
@@ -999,15 +993,15 @@ bool Parser::parseObjectDeclaration()
     return false;
 }
 
-bool Parser::parseImportDeclaration()
+bool Parser::parseUseDeclaration()
 {
-    assert(currentTokenIs(Lexer::TKN_IMPORT));
+    assert(currentTokenIs(Lexer::TKN_USE));
     ignoreToken();
 
-    Node importedType = parseName();
+    Node usedType = parseName();
 
-    if (importedType.isValid()) {
-        client.acceptImportDeclaration(importedType);
+    if (usedType.isValid()) {
+        client.acceptUseDeclaration(usedType);
         return true;
     }
     return false;
@@ -1334,17 +1328,18 @@ PARSE_CONTEXT:
 // Converts a character array representing a Comma integer literal into an
 // llvm::APInt.  The bit width of the resulting APInt is always set to the
 // minimal number of bits needed to represent the given number.
-void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
-                                   llvm::APInt &value)
+void Parser::decimalLiteralToAPInt(llvm::StringRef string, llvm::APInt &value)
 {
-    std::string digits;
-    std::string exponent;
+    llvm::SmallString<32> digits;
+    llvm::SmallString<16> exponent;
     unsigned bits;
     char ch;
-    const char *cursor;
 
-    for (cursor = start; cursor != start + length; ++cursor) {
-        ch = *cursor;
+    typedef llvm::StringRef::iterator iterator;
+    iterator I = string.begin();
+    iterator E = string.end();
+    for ( ; I != E; ++I) {
+        ch = *I;
 
         if (ch == 'e' || ch == 'E')
             break;
@@ -1355,8 +1350,8 @@ void Parser::decimalLiteralToAPInt(const char *start, unsigned length,
     assert(!digits.empty() && "Empty integer literal!");
 
     if (ch == 'e' || ch == 'E') {
-        for (++cursor; cursor != start + length; ++cursor) {
-            if ((ch = *cursor) != '_')
+        for (++I; I != E; ++I) {
+            if ((ch = *I) != '_')
                 exponent.push_back(ch);
         }
         assert(!exponent.empty() && "Empty integer exponent!");

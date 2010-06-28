@@ -4,7 +4,7 @@ domain Test with
 add
    type Arr is array (Positive range <>) of Positive;
 
-   procedure Reverse (A : in out Arr) is
+   procedure Invert (A : in out Arr) is
       I : Positive;
       L : Positive := A'First;
       H : Positive := A'Last;
@@ -16,7 +16,7 @@ add
          L := L + 1;
          H := H - 1;
       end loop;
-   end Reverse;
+   end Invert;
 
    procedure Run is
       A : Arr := (1..10_000 => 1);
@@ -26,7 +26,7 @@ add
          A(I) := I;
       end loop;
 
-      Reverse(A);
+      Invert(A);
 
       declare
          J : Positive := 1;
@@ -37,7 +37,7 @@ add
          end loop;
       end;
 
-      Reverse(A);
+      Invert(A);
 
       for I in A'Range loop
          pragma Assert (A(I) = I);

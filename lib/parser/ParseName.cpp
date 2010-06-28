@@ -165,11 +165,11 @@ Node Parser::parseParameterAssociation()
 
 Node Parser::parseAttribute(Node prefix, NameOption option)
 {
-    assert(attributeFollows());
-    ignoreToken();              // Ignore the quote.
+    assert(currentTokenIs(Lexer::TKN_ATTRIBUTE));
 
     Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifier();
+    IdentifierInfo *name = getIdentifierInfo(currentToken());
+    ignoreToken();              // Skip the attribute.
 
     if (name->getAttributeID() == attrib::UNKNOWN_ATTRIBUTE) {
         report(loc, diag::UNKNOWN_ATTRIBUTE) << name;
@@ -218,7 +218,7 @@ Node Parser::parseName(NameOption option)
             if (prefix.isValid())
                 prefix = parseSelectedComponent(prefix, option);
         }
-        else if (attributeFollows()) {
+        else if (currentTokenIs(Lexer::TKN_ATTRIBUTE)) {
             prefix = client.finishName(prefix);
             if (prefix.isValid())
                 prefix = parseAttribute(prefix, option);
@@ -300,10 +300,8 @@ bool Parser::consumeName()
                 break;
             };
         }
-        else if (attributeFollows()) {
-            ignoreToken();      // Ignore the quote.
-            ignoreToken();      // Ignore the attribute name.
-        }
+        else if (currentTokenIs(Lexer::TKN_ATTRIBUTE))
+            ignoreToken();      // Ignore the attribute.
         else
             consume = false;
     }

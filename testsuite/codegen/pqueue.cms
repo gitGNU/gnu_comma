@@ -154,7 +154,7 @@ add
    -- Run
    --
    procedure Run is
-      import Priority_Queue;
+      use Priority_Queue;
       Q         : Priority_Queue := Create;
       Max_Size  : Natural        := 2**8;
       Test_Data : Data_Vector    := (1..Max_Size => 0);

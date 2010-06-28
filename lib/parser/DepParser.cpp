@@ -16,11 +16,11 @@
 
 using namespace comma;
 
-bool DepParser::skipImport()
+bool DepParser::skipUse()
 {
-    assert(currentTokenIs(Lexer::TKN_IMPORT));
+    assert(currentTokenIs(Lexer::TKN_USE));
 
-    // We do not need to parse the import clause.  Simply seek and consume the
+    // We do not need to parse the use clause.  Simply seek and consume the
     // terminating semicolon.
     return seekAndConsumeToken(Lexer::TKN_SEMI);
 }
@@ -62,8 +62,8 @@ bool DepParser::parseDependencies(DepSet &dependencies)
         default:
             return true;
 
-        case Lexer::TKN_IMPORT:
-            status = skipImport();
+        case Lexer::TKN_USE:
+            status = skipUse();
             break;
 
         case Lexer::TKN_WITH:

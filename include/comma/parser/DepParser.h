@@ -36,9 +36,9 @@ public:
     bool parseDependencies(DepSet &dependencies);
 
 private:
-    /// Skips past an 'import' clause.  Returns true if the clause was
-    /// successfully skipped and false otherwise.
-    bool skipImport();
+    /// Skips past a 'use' clause.  Returns true if the clause was successfully
+    /// skipped and false otherwise.
+    bool skipUse();
 
     /// Parses a with clause and generates the associated dependency info.
     /// Returns true if the parse was successful and false otherwise.  Adds the

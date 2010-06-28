@@ -726,8 +726,8 @@ public:
     /// \param loc Location of the reserved word \c all.
     virtual Node acceptDereference(Node prefix, Location loc) = 0;
 
-    /// Submits an import from the given type node.
-    virtual bool acceptImportDeclaration(Node importedType) = 0;
+    /// Submits a 'use' clause from the given type node.
+    virtual bool acceptUseDeclaration(Node usedType) = 0;
 
     virtual Node acceptIfStmt(Location loc, Node condition,
                               NodeVector &consequents) = 0;

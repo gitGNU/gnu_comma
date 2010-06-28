@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "comma/parser/Lexer.h"
+
 #include <cstring>
 
 using namespace comma;
@@ -20,12 +21,12 @@ Lexer::Lexer(TextProvider &txtProvider, Diagnostic &diag)
       index(0)
 { }
 
-std::string Lexer::Token::getString() const
+llvm::StringRef Lexer::Token::getString() const
 {
     return Lexer::tokenString(*this);
 }
 
-const char *Lexer::tokenString(const Code code)
+llvm::StringRef Lexer::tokenString(const Code code)
 {
     const char *result;
 
@@ -44,21 +45,22 @@ const char *Lexer::tokenString(const Code code)
     return result;
 }
 
-std::string Lexer::tokenString(const Token &token)
+llvm::StringRef Lexer::tokenString(const Token &token)
 {
     Code code = token.getCode();
 
     switch (code) {
     default:
-        return std::string(tokenString(code));
+        return tokenString(code);
         break;
 
+    case TKN_ATTRIBUTE:
     case TKN_IDENTIFIER:
     case TKN_INTEGER:
     case TKN_REAL:
     case TKN_STRING:
     case TKN_CHARACTER:
-        return std::string(token.getRep(), token.getLength());
+        return token.getRep();
     }
 }
 
@@ -175,12 +177,12 @@ void Lexer::emitToken(Code code,
     Location    loc    = txtProvider.getLocation(start);
     const char *string = &start;
     unsigned    length = &end - &start;
-    *targetToken = Token(code, loc, string, length);
+    *targetToken = Token(code, loc, llvm::StringRef(string, length));
 }
 
 void Lexer::emitToken(Code code, Location loc)
 {
-    *targetToken = Token(code, loc, 0, 0);
+    *targetToken = Token(code, loc, llvm::StringRef(0, 0));
 }
 
 void Lexer::emitStringToken(const TextIterator &start, const TextIterator &end)
@@ -198,9 +200,14 @@ void Lexer::emitRealToken(const TextIterator &start, const TextIterator &end)
     emitToken(TKN_REAL, start, end);
 }
 
-void Lexer::emitIdentifierToken(const TextIterator &start, const TextIterator &end)
+void Lexer::emitIdentifierToken(Location loc)
 {
-    emitToken(TKN_IDENTIFIER, start, end);
+    *targetToken = Token(TKN_IDENTIFIER, loc, nameBuff.str());
+}
+
+void Lexer::emitAttributeToken(Location loc)
+{
+    *targetToken = Token(TKN_ATTRIBUTE, loc, nameBuff.str());
 }
 
 void Lexer::emitCharacterToken(const TextIterator &start, const TextIterator &end)
@@ -208,11 +215,11 @@ void Lexer::emitCharacterToken(const TextIterator &start, const TextIterator &en
     emitToken(TKN_CHARACTER, start, end);
 }
 
-Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
+Lexer::Code Lexer::getTokenCode() const
 {
     Code code = UNUSED_ID;
-    const char *str = &start;
-    unsigned length = &end - &start;
+    const char *str = &nameBuff[0];
+    unsigned length = nameBuff.size();
 
     switch (length) {
     case 1:
@@ -260,6 +267,8 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_NEW;
         else if (strncmp(str, "all", length) == 0)
             code = TKN_ALL;
+        else if (strncmp(str, "use", length) == 0)
+            code = TKN_USE;
         break;
 
     case 4:
@@ -301,8 +310,6 @@ Lexer::Code Lexer::getTokenCode(TextIterator &start, TextIterator &end) const
             code = TKN_DOMAIN;
         else if (strncmp(str, "return", length) == 0)
             code = TKN_RETURN;
-        else if (strncmp(str, "import", length) == 0)
-            code = TKN_IMPORT;
         else if (strncmp(str, "pragma", length) == 0)
             code = TKN_PRAGMA;
         else if (strncmp(str, "others", length) == 0)
@@ -361,27 +368,49 @@ void Lexer::diagnoseConsecutiveUnderscores(unsigned c1, unsigned c2)
     }
 }
 
-bool Lexer::scanWord()
+bool Lexer::consumeName()
 {
-    TextIterator start = currentIter;
     unsigned c1, c2;
 
     if (isInitialIdentifierChar(c1 = peekStream())) {
         do {
+            nameBuff.push_back(std::tolower(c1));
             ignoreStream();
             c2 = peekStream();
             diagnoseConsecutiveUnderscores(c1, c2);
         } while (isInnerIdentifierChar(c1 = c2));
 
-        Code code = getTokenCode(start, currentIter);
-
-        if (code == UNUSED_ID)
-            emitIdentifierToken(start, currentIter);
-        else
-            emitToken(code, txtProvider.getLocation(start));
         return true;
     }
     return false;
+}
+
+bool Lexer::scanName()
+{
+    Location loc = currentLocation();
+
+    if (consumeName()) {
+        Code code = getTokenCode();
+
+        if (code == UNUSED_ID)
+            emitIdentifierToken(loc);
+        else
+            emitToken(code, loc);
+        nameBuff.clear();
+        return true;
+    }
+    return false;
+}
+
+void Lexer::scanAttribute(Location loc)
+{
+    TextIterator start = currentIter;
+
+    if (!consumeName())
+        report(loc, diag::INVALID_ATTRIBUTE);
+
+    emitAttributeToken(loc);
+    nameBuff.clear();
 }
 
 bool Lexer::scanGlyph()
@@ -562,27 +591,30 @@ bool Lexer::scanCharacter()
         ignoreStream();
         c = readStream();
 
+        // Check for empty enumeration literal.  This is not valid.  Consume and
+        // report.
         if (c == '\'') {
-            // Empty enumeration literal.  This is not valid.  Consume and
-            // report.
             report(loc, diag::EMPTY_CHARACTER_LITERAL);
             emitCharacterToken(start, currentIter);
             return true;
         }
 
+        // If we do not have a terminating quote there are two valid options.
+        // Either we have a qualified expression (a quote-left-pren), or an
+        // attribute.
         if (peekStream() != '\'') {
-            // If the character is not terminated, this must be an attribute
-            // selector.  Unget the current character and return a quote token.
             ungetStream();
-            emitToken(TKN_QUOTE, loc);
+            if (peekStream() == '(')
+                emitToken(TKN_QUOTE, loc);
+            else
+                scanAttribute(loc);
             return true;
         }
 
         // Special case for the character representing a left paren.  We need to
-        // deal with the special case of a qualified expression containing a
-        // character.  Take "Character'('x')" or "String'('x', 'y')" for
-        // example.  We handle this oddball case by checking if another quote is
-        // two characters away.
+        // deal with qualified expressions containing a character.  Take
+        // "Character'('x')" or "String'('x', 'y')" for example.  We handle this
+        // oddball case by checking if another quote is two characters away.
         if (c == '(') {
             TextIterator cursor = currentIter;
             if (*++cursor && *++cursor == '\'') {
@@ -848,7 +880,7 @@ void Lexer::scanToken()
             return;
         }
 
-        if (scanWord())      return;
+        if (scanName())      return;
         if (scanGlyph())     return;
         if (scanString())    return;
         if (scanNumeric())   return;

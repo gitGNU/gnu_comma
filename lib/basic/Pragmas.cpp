@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,8 +15,8 @@ using namespace comma::pragma;
 namespace {
 
 static const char *pragmaNames[] = {
-    "Assert",
-    "Import"
+    "assert",
+    "import"
 };
 
 } // end anonymous namespace.

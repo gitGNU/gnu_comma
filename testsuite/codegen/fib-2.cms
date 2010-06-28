@@ -28,7 +28,7 @@ domain General_Fib with
    -- provided by Arith_Dom.
 
 add
-   import Arith_Dom;
+   use Arith_Dom;
 
    function Fib(N : Arith_Dom) return Arith_Dom is
    begin
@@ -127,8 +127,8 @@ domain Test with
    procedure Run;
 add
    procedure Run is
-      import ADom;
-      import General_Fib(ADom);
+      use ADom;
+      use General_Fib(ADom);
       I : Integer := To_Integer(Fib(From_Integer(10)));
    begin
       pragma Assert(I = 55);

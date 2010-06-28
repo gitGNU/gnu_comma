@@ -50,7 +50,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumLiteral",
     "PosAD",
     "ValAD",
-    "ImportDecl",
+    "UseDecl",
     "ExceptionDecl",
     "ComponentDecl",
 

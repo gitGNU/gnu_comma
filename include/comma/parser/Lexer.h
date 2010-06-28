@@ -11,8 +11,10 @@
 
 #include "comma/basic/Diagnostic.h"
 #include "comma/basic/TextProvider.h"
+
+#include "llvm/ADT/SmallString.h"
+
 #include <iosfwd>
-#include <string>
 
 namespace comma {
 
@@ -55,31 +57,25 @@ public:
 
         Location getLocation() const { return location; }
 
-        const char *getRep() const { return string; }
+        llvm::StringRef getRep() const { return string.str(); }
 
-        unsigned getLength() const { return length; }
+        unsigned getLength() const { return string.size(); }
 
         // This method provides a string representation of the token.
-        std::string getString() const;
+        llvm::StringRef getString() const;
 
     private:
-        Lexer::Code code   : 8;
-        unsigned    length : 24;
-        Location    location;
-        const char *string;
+        Lexer::Code code;
+        Location location;
+        llvm::SmallString<32> string;
 
         // Declare Lexer as a friend to give access to the following
         // constructor.
         friend class Lexer;
 
-        Token(Lexer::Code code,
-              Location    location,
-              const char *string,
-              unsigned length)
-            : code(code),
-              length(length),
-              location(location),
-              string(string) { }
+        Token(Lexer::Code code, Location location, llvm::StringRef string)
+            : code(code), location(location),
+              string(string.begin(), string.end()) { }
     };
 
     // Scans a single token from the input stream.  When the stream is
@@ -140,10 +136,10 @@ public:
 
     // Returns a static string representation of the given token code, or NULL
     // if no such representation is available.
-    static const char *tokenString(Code code);
+    static llvm::StringRef tokenString(Code code);
 
     // Returns the string representation of the given token.
-    static std::string tokenString(const Token &tkn);
+    static llvm::StringRef tokenString(const Token &tkn);
 
 private:
     void scanToken();
@@ -152,7 +148,7 @@ private:
 
     bool eatComment();
 
-    bool scanWord();
+    bool scanName();
 
     bool scanGlyph();
 
@@ -163,6 +159,10 @@ private:
     bool scanNumeric();
 
     bool scanEscape();
+
+    void scanAttribute(Location loc);
+
+    bool consumeName();
 
     static bool isAlphabetic(unsigned c);
 
@@ -186,11 +186,11 @@ private:
     void ungetStream();
     void ignoreStream();
 
-    // Returns the token code assoicated with the chatacter string delimited by
-    // start and end.  If the string exactly matches a reserved word (this
-    // function will not recignize glyph tokens) the words corresponding code is
+    // Returns the token code assoicated with the chatacters currently
+    // constained in nameBuff.  If the string exactly matches a reserved name
+    // (this function will not recignize glyph tokens) the corresponding code is
     // returned, else UNUSED_ID if there is no match.
-    Code getTokenCode(TextIterator &start, TextIterator &end) const;
+    Code getTokenCode() const;
 
     void emitToken(Code code,
                    const TextIterator &start, const TextIterator &end);
@@ -205,8 +205,14 @@ private:
 
     void emitRealToken(const TextIterator &start, const TextIterator &end);
 
-    void emitIdentifierToken(const TextIterator &start,
-                             const TextIterator &end);
+    // Create an identifier token using the contents of nameBuff and the given
+    // location.
+    void emitIdentifierToken(Location loc);
+
+    // Create an attribute token using the contents of nameBuff (which is
+    // assumed to contain only the attribute identifier and not the initial
+    // quote).  \p loc denotes the location of the attributes quote.
+    void emitAttributeToken(Location loc);
 
     void emitCharacterToken(const TextIterator &start, const TextIterator &end);
 
@@ -256,6 +262,10 @@ private:
     // A stack of positions into the token vector, used to implement
     // savePosition and restorePosition.
     std::vector<unsigned> positionStack;
+
+    // Buffer area into which names are accumulated and canonicalized (with
+    // respect to case).
+    llvm::SmallString<64> nameBuff;
 
     // Index into our token vector.  This index is non-zero only when an
     // excursion has ended with a call to endExcursion.

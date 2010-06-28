@@ -157,7 +157,7 @@ void DeclVisitor::visitFunctionDecl(FunctionDecl *node)
 // Leaf visitors.
 //===----------------------------------------------------------------------===//
 
-void DeclVisitor::visitImportDecl(ImportDecl *node) { }
+void DeclVisitor::visitUseDecl(UseDecl *node) { }
 void DeclVisitor::visitSignatureDecl(SignatureDecl *node) { }
 void DeclVisitor::visitVarietyDecl(VarietyDecl *node) { }
 void DeclVisitor::visitSigInstanceDecl(SigInstanceDecl *node) { }

@@ -738,9 +738,9 @@ bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
     return true;
 }
 
-bool TypeCheck::acceptImportDeclaration(Node importedNode)
+bool TypeCheck::acceptUseDeclaration(Node usedNode)
 {
-    if (TypeRef *ref = lift_node<TypeRef>(importedNode)) {
+    if (TypeRef *ref = lift_node<TypeRef>(usedNode)) {
         Decl *decl = ref->getDecl();
         Location loc = ref->getLocation();
         DomainTypeDecl *domain;
@@ -753,29 +753,29 @@ bool TypeCheck::acceptImportDeclaration(Node importedNode)
         }
 
         if (!domain) {
-            report(loc, diag::IMPORT_FROM_NON_CAPSULE);
+            report(loc, diag::USING_OF_NON_CAPSULE);
             return false;
         }
 
         scope.addImport(domain);
 
         // FIXME: Stitch this import clause into the current context.
-        new ImportDecl(domain, loc);
+        new UseDecl(domain, loc);
         return true;
     }
 
-    if (PackageRef *ref = lift_node<PackageRef>(importedNode)) {
+    if (PackageRef *ref = lift_node<PackageRef>(usedNode)) {
         PkgInstanceDecl *package = ref->getPackageInstance();
         Location loc = ref->getLocation();
 
         scope.addImport(package);
 
         // FIXME: Stitch this import clause into the current context.
-        new ImportDecl(package, loc);
+        new UseDecl(package, loc);
         return true;
     }
 
-    report(getNodeLoc(importedNode), diag::IMPORT_FROM_NON_CAPSULE);
+    report(getNodeLoc(usedNode), diag::USING_OF_NON_CAPSULE);
     return false;
 }
 

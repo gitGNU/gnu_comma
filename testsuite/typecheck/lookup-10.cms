@@ -1,4 +1,4 @@
--- Ensure the "exports" of a type are propagated by an import.
+-- Ensure the "exports" of a type are propagated by `use'.
 
 domain D with
    type T is range 1..10;
@@ -8,7 +8,7 @@ domain Test with
    procedure Run;
 add
    procedure Run is
-      import D;
+      use D;
       A : T := 1;
       B : T := A + 1;
    begin end Run;

@@ -46,7 +46,7 @@ domain Singly_Linked_List with
    -- Returns the element at the given index.  Raises Program_Error if Index is
    -- not strictly less then the length of List.
 
-   procedure Reverse (List : in out %);
+   procedure Invert (List : in out %);
    -- Reverses the order of the elements in List.
 
 add
@@ -166,9 +166,9 @@ add
    end Element;
 
    --
-   -- Reverse
+   -- Invert
    --
-   procedure Reverse (List : in out %) is
+   procedure Invert (List : in out %) is
       Cursor : Cell_Access := null;
       Next   : Cell_Access := null;
       Prev   : Cell_Access := null;
@@ -186,7 +186,7 @@ add
       Cursor     := Head.First;
       Head.First := Head.Last;
       Head.Last  := Cursor;
-   end Reverse;
+   end Invert;
 
    --
    -- Append
@@ -293,9 +293,9 @@ domain Test with
 add
 
    procedure Run is
-      import Singly_Linked_List(Pair(Int));
-      import Pair(Int);
-      import Int;
+      use Singly_Linked_List(Pair(Int));
+      use Pair(Int);
+      use Int;
 
       L : Singly_Linked_List(Pair(Int)) := Empty;
    begin
@@ -314,7 +314,7 @@ add
          end;
       end loop;
 
-      Reverse(L);
+      Invert(L);
       for I in 0..Length(L) - 1 loop
          declare
             P : Pair(Int) := Element(L, I);

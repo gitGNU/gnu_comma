@@ -25,7 +25,7 @@ domain D2 add
 
    -- Ensure unqualified calls resolve.
    procedure Test2 (x : D1) is
-      import F(D1);
+      use F(D1);
    begin
       Foo(x);
    end Test2;

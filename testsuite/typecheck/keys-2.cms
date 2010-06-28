@@ -9,7 +9,7 @@ signature T end T;
 
 generic
    abstract domain X is S;
--- EXPECTED-ERROR: no argument keyword named `A'
+-- EXPECTED-ERROR: no argument keyword named `a'
 signature U4 is T(X, A => X) end U4;
 
 generic

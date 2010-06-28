@@ -2206,26 +2206,26 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// ImportClause
+// UseDecl
 //
-// Represents import declarations.
-class ImportDecl : public Decl {
+// Represents using declarations.
+class UseDecl : public Decl {
 
 public:
-    ImportDecl(DomainTypeDecl *target, Location loc)
-        : Decl(AST_ImportDecl, 0, loc),
+    UseDecl(DomainTypeDecl *target, Location loc)
+        : Decl(AST_UseDecl, 0, loc),
           target(target) { }
 
-    ImportDecl(PkgInstanceDecl *target, Location loc)
-        : Decl(AST_ImportDecl, 0, loc),
+    UseDecl(PkgInstanceDecl *target, Location loc)
+        : Decl(AST_UseDecl, 0, loc),
           target(target) { }
 
-    Decl *getImportedDecl() { return target; }
-    const Decl *getImportedDecl() const { return target; }
+    Decl *getUsedDecl() { return target; }
+    const Decl *getUsedDecl() const { return target; }
 
-    static bool classof(const ImportDecl *node) { return true; }
+    static bool classof(const UseDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_ImportDecl;
+        return node->getKind() == AST_UseDecl;
     }
 
 private:

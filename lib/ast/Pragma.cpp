@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,7 +26,7 @@ PragmaImport::PragmaImport(Location loc, Convention convention,
 PragmaImport::Convention PragmaImport::getConventionID(llvm::StringRef &ref)
 {
     // There is only one convention supported ATM: C.
-    if (ref.size() == 1 && ref[0] == 'C')
+    if (ref.size() == 1 && ref[0] == 'c')
         return C;
     return UNKNOWN_CONVENTION;
 }

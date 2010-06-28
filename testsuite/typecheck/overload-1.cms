@@ -9,7 +9,7 @@ end S;
 generic
    abstract domain X is S;
 domain D add
-   import X;
+   use X;
    procedure Test is
    begin
       P(true);

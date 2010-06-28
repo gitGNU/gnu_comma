@@ -15,7 +15,7 @@ domain E add
 
    function Test return Boolean is
       Foo : Not_Bool := X;
-      import D;
+      use D;
    begin
       return Foo;               -- EXPECTED-ERROR: Incompatible type
    end Test;

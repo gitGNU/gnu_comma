@@ -149,7 +149,7 @@ public:
 
     Node acceptPercent(Location loc);
 
-    bool acceptImportDeclaration(Node importedType);
+    bool acceptUseDeclaration(Node usedType);
 
     Node acceptProcedureCall(Node name);
 

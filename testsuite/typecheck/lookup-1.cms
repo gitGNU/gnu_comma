@@ -19,7 +19,7 @@ domain E add
    end Foo;
 
    function Test return A is
-      import D;
+      use D;
    begin
       return Foo(Foo(true));
    end Test;

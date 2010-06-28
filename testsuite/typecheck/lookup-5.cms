@@ -1,4 +1,4 @@
--- Ensure local variables shadow imported procedures.
+-- Ensure local variables shadow used procedures.
 
 domain D with
    procedure Foo;
@@ -10,7 +10,7 @@ domain E add
 
    procedure Test is
       Foo : Boolean := true;
-      import D;
+      use D;
    begin
       Foo;                      -- EXPECTED-ERROR: Expected procedure
    end Test;

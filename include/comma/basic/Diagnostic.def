@@ -29,6 +29,8 @@ DIAGNOSTIC(UNTERMINATED_CHARACTER_LITERAL, ERROR,
            "Character literal not terminated.")
 DIAGNOSTIC(EMPTY_CHARACTER_LITERAL, ERROR,
            "Empty character literal.")
+DIAGNOSTIC(INVALID_ATTRIBUTE, ERROR,
+           "Invalid attribute.")
 
 //
 // Parser diagnostics.
@@ -123,9 +125,9 @@ DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
            "Argument `%0' already provided by a positional parameter.")
 DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
-DIAGNOSTIC(IMPORT_FROM_NON_CAPSULE, ERROR,
+DIAGNOSTIC(USING_OF_NON_CAPSULE, ERROR,
            "Expression does not denote a domain or package "
-           "and so cannot be imported.")
+           "and so cannot be used.")
 DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
            "The name `%0' is not visible.")
 DIAGNOSTIC(INVALID_CONTEXT_FOR_PROCEDURE, ERROR,

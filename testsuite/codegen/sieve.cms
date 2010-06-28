@@ -131,7 +131,7 @@ domain Test with
    procedure Run;
 add
    procedure Run is
-      import Sieve_of_Eratosthenes;
+      use Sieve_of_Eratosthenes;
       A : Prime_Array := Sieve(30);
    begin
       pragma Assert(A(1)  = 2);

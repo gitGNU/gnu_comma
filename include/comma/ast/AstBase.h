@@ -78,7 +78,7 @@ class FunctorType;
 class HandlerStmt;
 class Identifier;
 class IfStmt;
-class ImportDecl;
+class UseDecl;
 class IndexedArrayExpr;
 class IncompleteType;
 class IncompleteTypeDecl;
@@ -220,7 +220,7 @@ public:
         AST_PosAD,              ///< PosAD
         AST_ValAD,              ///< ValAD
 
-        AST_ImportDecl,         ///< ImportDecl
+        AST_UseDecl,            ///< UseDecl
         AST_ExceptionDecl,      ///< ExceptionDecl
         AST_ComponentDecl,      ///< ComponentDecl
 

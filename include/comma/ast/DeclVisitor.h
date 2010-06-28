@@ -63,7 +63,7 @@ public:
     /// hierarchy and invokes the next most specific method.
     ///
     ///@{
-    virtual void visitImportDecl(ImportDecl *node);
+    virtual void visitUseDecl(UseDecl *node);
     virtual void visitSignatureDecl(SignatureDecl *node);
     virtual void visitVarietyDecl(VarietyDecl *node);
     virtual void visitSigInstanceDecl(SigInstanceDecl *node);

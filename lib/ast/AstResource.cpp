@@ -44,7 +44,7 @@ void AstResource::initializeLanguageDefinedNodes()
 
 void AstResource::initializeBoolean()
 {
-    IdentifierInfo *boolId = getIdentifierInfo("Boolean");
+    IdentifierInfo *boolId = getIdentifierInfo("boolean");
     IdentifierInfo *trueId = getIdentifierInfo("true");
     IdentifierInfo *falseId = getIdentifierInfo("false");
 
@@ -66,11 +66,11 @@ void AstResource::initializeCharacter()
     // type.
     static const unsigned numNames = 128;
     const char* names[numNames] = {
-        "NUL",   "SOH",   "STX",   "ETX",   "EOT",   "ENQ",   "ACK",   "BEL",
-        "BS",    "HT",    "LF",    "VT",    "FF",    "CR",    "SO",    "SI",
+        "nul",   "soh",   "stx",   "etx",   "eot",   "enq",   "ack",   "bel",
+        "bs",    "ht",    "lf",    "vt",    "ff",    "cr",    "so",    "si",
 
-        "DLE",   "DC1",   "DC2",   "DC3",   "DC4",   "NAK",   "SYN",   "ETB",
-        "CAN",   "EM",    "SUB",   "ESC",   "FS",    "GS",    "RS",    "US",
+        "dle",   "dc1",   "dc2",   "dc3",   "dc4",   "nak",   "syn",   "etb",
+        "can",   "em",    "sub",   "esc",   "fs",    "gs",    "rs",    "us",
 
         "' '",   "'!'",   "'\"'",  "'#'",   "'$'",   "'%'",   "'&'",   "'''",
         "'('",   "')'",   "'*'",   "'+'",   "','",   "'-'",   "'.'",   "'/'",
@@ -88,9 +88,9 @@ void AstResource::initializeCharacter()
         "'h'",   "'i'",   "'j'",   "'k'",   "'l'",   "'m'",   "'n'",   "'o'",
 
         "'p'",   "'q'",   "'r'",   "'s'",   "'t'",   "'u'",   "'v'",   "'w'",
-        "'x'",   "'y'",   "'z'",   "'{'",   "'|'",   "'}'",   "'~'",   "DEL" };
+        "'x'",   "'y'",   "'z'",   "'{'",   "'|'",   "'}'",   "'~'",   "del" };
 
-    IdentifierInfo *charId = getIdentifierInfo("Character");
+    IdentifierInfo *charId = getIdentifierInfo("character");
 
     typedef std::pair<IdentifierInfo*, Location> IdLocPair;
     IdLocPair elems[numNames];
@@ -119,7 +119,7 @@ void AstResource::initializeRootInteger()
 void AstResource::initializeInteger()
 {
     // Define Integer as a signed 32 bit type.
-    IdentifierInfo *integerId = getIdentifierInfo("Integer");
+    IdentifierInfo *integerId = getIdentifierInfo("integer");
     llvm::APInt lower = llvm::APInt::getSignedMinValue(32);
     llvm::APInt upper = llvm::APInt::getSignedMaxValue(32);
     IntegerLiteral *lowerExpr = new IntegerLiteral(lower, Location());
@@ -132,7 +132,7 @@ void AstResource::initializeNatural()
 {
     // FIXME: This is a temporary hack until we have actual subtype declaration
     // nodes.
-    IdentifierInfo *name = getIdentifierInfo("Natural");
+    IdentifierInfo *name = getIdentifierInfo("natural");
     IntegerType *type = theIntegerDecl->getType();
     unsigned width = type->getSize();
     llvm::APInt lowInt(width, 0, false);
@@ -149,7 +149,7 @@ void AstResource::initializeNatural()
 
 void AstResource::initializePositive()
 {
-    IdentifierInfo *name = getIdentifierInfo("Positive");
+    IdentifierInfo *name = getIdentifierInfo("positive");
     IntegerType *type = theIntegerDecl->getType();
     unsigned width = type->getSize();
     llvm::APInt lowInt(width, 1, false);
@@ -166,7 +166,7 @@ void AstResource::initializePositive()
 
 void AstResource::initializeString()
 {
-    IdentifierInfo *name = getIdentifierInfo("String");
+    IdentifierInfo *name = getIdentifierInfo("string");
     DiscreteType *indexTy = getThePositiveType();
     DSTDefinition::DSTTag tag = DSTDefinition::Type_DST;
     DSTDefinition *DST = new DSTDefinition(Location(), indexTy, tag);
@@ -176,15 +176,15 @@ void AstResource::initializeString()
 
 void AstResource::initializeExceptions()
 {
-    IdentifierInfo *PEName = getIdentifierInfo("Program_Error");
+    IdentifierInfo *PEName = getIdentifierInfo("program_error");
     ExceptionDecl::ExceptionKind PEKind = ExceptionDecl::Program_Error;
     theProgramError = new ExceptionDecl(PEKind, PEName, Location(), 0);
 
-    IdentifierInfo *CEName = getIdentifierInfo("Constraint_Error");
+    IdentifierInfo *CEName = getIdentifierInfo("constraint_error");
     ExceptionDecl::ExceptionKind CEKind = ExceptionDecl::Constraint_Error;
     theConstraintError = new ExceptionDecl(CEKind, CEName, Location(), 0);
 
-    IdentifierInfo *AEName = getIdentifierInfo("Assertion_Error");
+    IdentifierInfo *AEName = getIdentifierInfo("assertion_error");
     ExceptionDecl::ExceptionKind AEKind = ExceptionDecl::Assertion_Error;
     theAssertionError = new ExceptionDecl(AEKind, AEName, Location(), 0);
 }
@@ -565,8 +565,8 @@ AstResource::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
     assert(PO::denotesOperator(ID) && "Not a primitive operator!");
 
     IdentifierInfo *name = getIdentifierInfo(PO::getOpName(ID));
-    IdentifierInfo *left = getIdentifierInfo("Left");
-    IdentifierInfo *right = getIdentifierInfo("Right");
+    IdentifierInfo *left = getIdentifierInfo("left");
+    IdentifierInfo *right = getIdentifierInfo("right");
 
     // Create the parameter declarations.
     llvm::SmallVector<ParamValueDecl *, 2> params;

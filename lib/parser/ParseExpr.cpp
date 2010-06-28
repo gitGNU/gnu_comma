@@ -321,12 +321,11 @@ Node Parser::parseIntegerLiteral()
 {
     assert(currentTokenIs(Lexer::TKN_INTEGER));
 
-    const char *rep = currentToken().getRep();
-    unsigned repLen = currentToken().getLength();
+    llvm::StringRef rep = currentToken().getRep();
     Location loc = ignoreToken();
 
     llvm::APInt value;
-    decimalLiteralToAPInt(rep, repLen, value);
+    decimalLiteralToAPInt(rep, value);
     return client.acceptIntegerLiteral(value, loc);
 }
 
@@ -334,11 +333,10 @@ Node Parser::parseStringLiteral()
 {
     assert(currentTokenIs(Lexer::TKN_STRING));
 
-    const char *rep = currentToken().getRep();
-    unsigned repLen = currentToken().getLength();
+    llvm::StringRef rep = currentToken().getRep();
     Location loc = ignoreToken();
 
-    return client.acceptStringLiteral(rep, repLen, loc);
+    return client.acceptStringLiteral(rep.data(), rep.size(), loc);
 }
 
 Node Parser::parseQualifiedExpr(Node qualifier)

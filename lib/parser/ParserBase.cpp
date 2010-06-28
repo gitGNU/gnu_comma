@@ -107,9 +107,8 @@ void ParserBase::forgetExcursion()
 
 IdentifierInfo *ParserBase::getIdentifierInfo(const Lexer::Token &tkn)
 {
-    const char *rep = tkn.getRep();
-    unsigned length = tkn.getLength();
-    IdentifierInfo *info = &idPool.getIdentifierInfo(rep, length);
+    llvm::StringRef rep = tkn.getRep();
+    IdentifierInfo *info = &idPool.getIdentifierInfo(rep);
     return info;
 }
 
@@ -140,7 +139,7 @@ IdentifierInfo *ParserBase::parseFunctionIdentifier()
     IdentifierInfo *info;
 
     if (Lexer::isFunctionGlyph(currentToken())) {
-        const char *rep = Lexer::tokenString(currentTokenCode());
+        llvm::StringRef rep = Lexer::tokenString(currentTokenCode());
         info = &idPool.getIdentifierInfo(rep);
         ignoreToken();
     }

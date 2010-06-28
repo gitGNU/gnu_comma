@@ -42,7 +42,7 @@ domain F is Type_Sig(D) with
    -- elements set to Elem.
 
 add
-   import D;
+   use D;
 
    type D_Vec_Access is access D_Vec;
 
@@ -90,7 +90,7 @@ domain Test with
    procedure Run;
 add
    procedure Run is
-      import F(Int_Like);
+      use F(Int_Like);
       A : F(Int_Like) := Make;
    begin
       Modify(A, Int_Like.From_Int(88));

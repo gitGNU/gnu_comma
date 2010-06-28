@@ -1,4 +1,4 @@
--- Ensure super-signatures propagate enumeration literals via imports.
+-- Ensure super-signatures propagate enumeration literals via use clause.
 
 signature S with
    type T1 is (E1);
@@ -8,7 +8,7 @@ domain D is S end D;
 
 domain E add
    procedure P is
-      import D;
+      use D;
       V : T1 := E1;
    begin end P;
 end E;

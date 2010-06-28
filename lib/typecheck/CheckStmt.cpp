@@ -405,7 +405,7 @@ Node TypeCheck::acceptPragmaStmt(IdentifierInfo *name, Location loc,
     Pragma *pragma = 0;
 
     // The only pragma we currently support is "Assert".
-    if (name == resource.getIdentifierInfo("Assert"))
+    if (name == resource.getIdentifierInfo("assert"))
         pragma = acceptPragmaAssert(loc, argNodes);
     else {
         // The parser knows all about pragmas, so we should always have a match.

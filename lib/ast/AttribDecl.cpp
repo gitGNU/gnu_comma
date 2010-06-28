@@ -25,7 +25,7 @@ PosAD *PosAD::create(AstResource &resource, IntegerDecl *prefixDecl)
 
     // S'Pos denotes a function with the following profile:
     //    function (Arg : S'Base) return universal_integer;
-    IdentifierInfo *key = resource.getIdentifierInfo("Arg");
+    IdentifierInfo *key = resource.getIdentifierInfo("arg");
     Type *argType = prefix->getBaseSubtype();
     Type *retType = UniversalType::getUniversalInteger();
 
@@ -42,7 +42,7 @@ PosAD *PosAD::create(AstResource &resource, EnumerationDecl *prefixDecl)
 
     // S'Pos denotes a function with the following profile:
     //    function (Arg : S'Base) return universal_integer;
-    IdentifierInfo *key = resource.getIdentifierInfo("Arg");
+    IdentifierInfo *key = resource.getIdentifierInfo("arg");
     Type *argType = prefix->getBaseSubtype();
     Type *retType = UniversalType::getUniversalInteger();
 
@@ -61,7 +61,7 @@ ValAD *ValAD::create(AstResource &resource, IntegerDecl *prefixDecl)
 
     // S'Val denotes a function with the following profile:
     //   function (Arg : universal_integer) return S'Base
-    IdentifierInfo *key = resource.getIdentifierInfo("Arg");
+    IdentifierInfo *key = resource.getIdentifierInfo("arg");
     Type *argType = UniversalType::getUniversalInteger();
     Type *retType = prefix->getBaseSubtype();
 
@@ -78,7 +78,7 @@ ValAD *ValAD::create(AstResource &resource, EnumerationDecl *prefixDecl)
 
     // S'Val denotes a function with the following profile:
     //   function (Arg : universal_integer) return S'Base
-    IdentifierInfo *key = resource.getIdentifierInfo("Arg");
+    IdentifierInfo *key = resource.getIdentifierInfo("arg");
     Type *argType = UniversalType::getUniversalInteger();
     Type *retType = prefix->getBaseSubtype();
 

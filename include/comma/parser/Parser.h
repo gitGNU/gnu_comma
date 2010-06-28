@@ -66,7 +66,7 @@ public:
 
     bool parseDeclaration();
     bool parseObjectDeclaration();
-    bool parseImportDeclaration();
+    bool parseUseDeclaration();
 
     void parseCarrier();
     void parseAddComponents();
@@ -283,13 +283,6 @@ private:
     /// by a TKN_LPAREN.
     bool qualificationFollows();
 
-    /// \brief Returns true if an attribute follows.
-    ///
-    /// This method can be called once a name has been consumed.  An attribute
-    /// is identified when the token stream yield a TKN_QUOTE followed by a
-    /// TKN_IDENTIFIER.
-    bool attributeFollows();
-
     Node parseExponentialOperator();
     Node parseMultiplicativeOperator();
     Node parseBinaryAdditiveOperator(Node lhs);
@@ -326,8 +319,7 @@ private:
     // Converts a character array representing a Comma integer literal into an
     // llvm::APInt.  The bit width of the resulting APInt is always set to the
     // minimal number of bits needed to represent the given number.
-    void decimalLiteralToAPInt(const char *start, unsigned length,
-                               llvm::APInt &value);
+    void decimalLiteralToAPInt(llvm::StringRef string, llvm::APInt &value);
 
 
     bool parseRange(Node &lower, Node &upper);

@@ -32,7 +32,7 @@ domain Test with
    procedure Run;
 add
    procedure Run is
-      import D;
+      use D;
       X : D := Create(A'(1, 2, 3));
    begin
       pragma Assert (Lower(X) = 1);

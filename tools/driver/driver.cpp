@@ -27,6 +27,7 @@
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -97,6 +98,12 @@ bool emitEntryPoint(Generator *Gen, const CompilationUnit &cu)
 
     std::string capsuleName = EntryPoint.substr(0, dotPos);
     std::string procName = EntryPoint.substr(dotPos + 1);
+
+    // Bring the capsule and procedure name into canonical lower case form.
+    std::transform(capsuleName.begin(), capsuleName.end(), capsuleName.begin(),
+                   static_cast<int(*)(int)>(std::tolower));
+    std::transform(procName.begin(), procName.end(), procName.begin(),
+                   static_cast<int(*)(int)>(std::tolower));
 
     // Find a declaration in the given compilation unit which matches the needed
     // capsule.

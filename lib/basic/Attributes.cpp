@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,12 +17,12 @@ using namespace comma::attrib;
 namespace {
 
 static const char *attributeNames[] = {
-    "First",
-    "Length",
-    "Pos",
-    "Val",
-    "Last",
-    "Range",
+    "first",
+    "length",
+    "pos",
+    "val",
+    "last",
+    "range",
 };
 
 } // end anonymous namespace.
