@@ -41,20 +41,15 @@ public:
 
     void parseWithClause();
 
-    void parseCapsule();
-
-    void parseGenericFormalParams();
-    void parseGenericFormalDomain();
-
-    void parseSignatureProfile();
-    void parseSupersignatureProfile();
-    void parseWithComponents();
+    void parsePackage();
+    void parsePackageSpec();
+    void parsePackageBody();
 
     bool parseSubroutineParameter();
     void parseSubroutineParameters();
 
-    Node parseFunctionDeclaration(bool parsingSignatureProfile = false);
-    Node parseProcedureDeclaration(bool parsingSignatureProfile = false);
+    Node parseFunctionDeclaration();
+    Node parseProcedureDeclaration();
     void parseFunctionDeclOrDefinition();
     void parseProcedureDeclOrDefinition();
 
@@ -67,9 +62,6 @@ public:
     bool parseDeclaration();
     bool parseObjectDeclaration();
     bool parseUseDeclaration();
-
-    void parseCarrier();
-    void parseAddComponents();
 
     Node parseStatement();
     Node parseIfStmt();

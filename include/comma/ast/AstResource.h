@@ -61,19 +61,6 @@ public:
     /// Returns a uniqued ProcedureType.
     ProcedureType *getProcedureType(Type **argTypes, unsigned numArgs);
 
-    /// \name Domain type constructors.
-    //@{
-
-    /// Creates a DomainType node.
-    ///
-    /// Constructs a root domain type and its first subtype.  Returns the first
-    /// subtype.
-    DomainType *createDomainType(DomainTypeDecl *decl);
-
-    /// Creates a subtype of the given domain type node.
-    DomainType *createDomainSubtype(DomainType *rootTy, IdentifierInfo *name);
-    //@}
-
     /// \name Enumeration declaration and type constructors.
     //@{
     /// Creates an enumeration declaration node.

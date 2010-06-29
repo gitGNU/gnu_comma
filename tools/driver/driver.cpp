@@ -111,14 +111,6 @@ bool emitEntryPoint(Generator *Gen, const CompilationUnit &cu)
     typedef CompilationUnit::decl_iterator ctx_iterator;
     for (ctx_iterator I = cu.begin_declarations();
          I != cu.end_declarations(); ++I) {
-
-        if (DomainDecl *domain = dyn_cast<DomainDecl>(*I)) {
-            if (capsuleName == domain->getString()) {
-                region = domain->getInstance();
-                break;
-            }
-        }
-
         if (PackageDecl *package = dyn_cast<PackageDecl>(*I)) {
             if (capsuleName == package->getString()) {
                 region = package->getInstance();

@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 /// \file
 ///
-/// \brief Information associated with each capsule instance emitted by the code
+/// \brief Information associated with each package instance emitted by the code
 /// generator.
 //===----------------------------------------------------------------------===//
 
@@ -22,57 +22,24 @@
 
 namespace comma {
 
-class CodeGen;
 class SRInfo;
 
 class InstanceInfo {
 
 public:
     //@{
-    /// Returns the capsule underlying this particular instance.
-    const CapsuleDecl *getDefinition() const {
+    /// Returns the package underlying this particular instance.
+    const PackageDecl *getDefinition() const {
         return instance->getDefinition();
     }
-    CapsuleDecl *getDefinition() { return instance->getDefinition(); }
+    PackageDecl *getDefinition() { return instance->getDefinition(); }
     //@}
 
     //@{
     /// Returns the instance object corresponding to this info.
-    const CapsuleInstance *getInstance() const { return instance; }
-    CapsuleInstance *getInstance() { return instance; }
+    const PkgInstanceDecl *getInstance() const { return instance; }
+    PkgInstanceDecl *getInstance() { return instance; }
     //@}
-
-    //@{
-    /// Returns the domain instance declaration node this info represents, or
-    /// null if this instance represents a package.
-    const DomainInstanceDecl *getDomainInstanceDecl() const {
-        return instance->asDomainInstance();
-    }
-    DomainInstanceDecl *getDomainInstanceDecl() {
-        return instance->asDomainInstance();
-    }
-    //@}
-
-    //@{
-    /// Returns the package instance declaration node this info represents, or
-    /// null if this instance represents a domain.
-    const PkgInstanceDecl *getPkgInstanceDecl() const {
-        return instance->asPkgInstance();
-    }
-    PkgInstanceDecl *getPkgInstanceDecl() {
-        return instance->asPkgInstance();
-    }
-    //@}
-
-    /// Returns true if this instance info corresponds to a domain.
-    bool denotesDomainInstance() const {
-        return instance->denotesDomainInstance();
-    }
-
-    /// Returns true if this instance info corresponds to a package.
-    bool denotesPkgInstance() const {
-        return instance->denotesPkgInstance();
-    }
 
     /// Returns the link (mangled) name of this instance.
     llvm::StringRef getLinkName() const { return linkName; }
@@ -99,12 +66,12 @@ public:
 
 private:
     /// Creates an InstanceInfo object for the given instance.
-    InstanceInfo(CodeGen &CG, CapsuleInstance *instance);
+    InstanceInfo(CodeGen &CG, PkgInstanceDecl *instance);
 
     friend class CodeGen;
 
     /// The instance declaration associated with this info.
-    CapsuleInstance *instance;
+    PkgInstanceDecl *instance;
 
     /// Map from subroutine declarations to the corresponding SRInfo objects.
     typedef llvm::DenseMap<SubroutineDecl*, SRInfo*> SRInfoMap;
@@ -123,7 +90,7 @@ private:
     /// Populates the srInfoTable with the declarations provided by the
     /// given instance.
     void populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
-                           CapsuleInstance *instance);
+                           PkgInstanceDecl *instance);
 };
 
 } // end comma namespace.

@@ -290,22 +290,6 @@ DeclRewriter::rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD)
     return result;
 }
 
-CarrierDecl *DeclRewriter::rewriteCarrierDecl(CarrierDecl *carrier)
-{
-    CarrierDecl *result;
-    if ((result = cast_or_null<CarrierDecl>(findRewrite(carrier))))
-        return result;
-
-    IdentifierInfo *name = carrier->getIdInfo();
-    Location loc = carrier->getLocation();
-    PrimaryType *rep = cast<PrimaryType>(rewriteType(carrier->getType()));
-    result = new CarrierDecl(getAstResource(), name, rep, loc);
-
-    addTypeRewrite(carrier->getType(), result->getType());
-    addDeclRewrite(carrier, result);
-    return result;
-}
-
 AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
 {
     AccessDecl *result;
@@ -369,14 +353,9 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
         result = rewriteIncompleteTypeDecl(cast<IncompleteTypeDecl>(decl));
         break;
 
-    case Ast::AST_CarrierDecl:
-        result = rewriteCarrierDecl(cast<CarrierDecl>(decl));
-        break;
-
     case Ast::AST_AccessDecl:
         result = rewriteAccessDecl(cast<AccessDecl>(decl));
         break;
-
     }
 
     return result;

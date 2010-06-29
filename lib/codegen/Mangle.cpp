@@ -138,9 +138,9 @@ unsigned getRegionIndex(const DeclRegion *region, IdentifierInfo *idInfo,
 
 /// \brief Helper function for getOverloadIndex().
 ///
-/// For the given SubroutineDecl, locates the PercentDecl corresponding the the
-/// domain which defines the subroutine, and the view of the subroutine within
-/// the PercentDecl (if available).
+/// For the given SubroutineDecl, locates the PackageDecl of the package which
+/// defines the subroutine, and the view of the subroutine within the
+/// PackageDecl (if available).
 std::pair<const DeclRegion*, const SubroutineDecl*>
 getPublicRegion(const SubroutineDecl *srDecl)
 {
@@ -149,13 +149,13 @@ getPublicRegion(const SubroutineDecl *srDecl)
     const DeclRegion *region = srDecl->getDeclRegion();
 
     /// Check if the region already corresponds to the public exports.
-    if (isa<PercentDecl>(region) || isa<PackageDecl>(region))
+    if (isa<PackageDecl>(region))
         return Pair(region, srDecl);
 
-    /// If the declaration context is a DomainInstanceDecl or PkgInstanceDecl
-    /// the given subroutine declaration has its origin link set directly to the
-    /// original declaration.
-    if (isa<DomainInstanceDecl>(region) || isa<PkgInstanceDecl>(region)) {
+    /// If the declaration context is a PkgInstanceDecl the given subroutine
+    /// declaration has its origin link set directly to the original
+    /// declaration.
+    if (isa<PkgInstanceDecl>(region)) {
         const SubroutineDecl *target = srDecl->getOrigin();
         return Pair(target->getDeclRegion(), target);
     }
@@ -183,14 +183,14 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
     std::pair<const DeclRegion*, const SubroutineDecl*> lookup;
     lookup = getPublicRegion(srDecl);
 
-    // Generate the index wrt the resolved PercentDecl.  If there is a match,
+    // Generate the index wrt the resolved PackageDecl.  If there is a match,
     // return the computed index.
     if (lookup.second &&
         getRegionIndex(lookup.first, idInfo, lookup.second, index))
         return index;
 
     // Otherwise, srDecl must denote a declaration which is private to the
-    // corresponding domain.  Search the body of the domain for a match.
+    // corresponding package.  Search the body of the package for a match.
     const AddDecl *add = cast<AddDecl>(srDecl->getDeclRegion());
     if (getRegionIndex(add, idInfo, srDecl, index))
         return index;
@@ -202,7 +202,7 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
 
 } // end anonymous namespace.
 
-std::string comma::mangle::getLinkName(const CapsuleInstance *instance,
+std::string comma::mangle::getLinkName(const PkgInstanceDecl *instance,
                                        const SubroutineDecl *srDecl)
 {
     // If the given subroutine is imported use the external name given by the
@@ -223,55 +223,9 @@ std::string comma::mangle::getLinkName(const CapsuleInstance *instance,
     return name;
 }
 
-std::string comma::mangle::getLinkName(const SubroutineDecl *srDecl)
+std::string comma::mangle::getLinkName(const PkgInstanceDecl *instance)
 {
-    // All subroutine decls must either be resolved within the context of a
-    // domain (non-parameterized) or be an external declaration provided by an
-    // instance.
-    const DeclRegion *region = srDecl->getDeclRegion();
-    const DomainInstanceDecl *instance;
-
-    if (isa<AddDecl>(region))
-        region = cast<PercentDecl>(region->getParent());
-
-    if (const PercentDecl *percent = dyn_cast<PercentDecl>(region)) {
-        const DomainDecl *domain = cast<DomainDecl>(percent->getDefinition());
-        instance = domain->getInstance();
-    }
-    else
-        instance = cast<DomainInstanceDecl>(region);
-
-    return getLinkName(instance, srDecl);
-}
-
-std::string comma::mangle::getLinkName(const Domoid *domoid)
-{
-    return domoid->getString();
-}
-
-std::string comma::mangle::getLinkName(const CapsuleInstance *instance)
-{
-    assert(!instance->isDependent() &&
-           "Cannot form link names for dependent instance declarations!");
-
-    std::string name = instance->getDefinition()->getString();
-    for (unsigned i = 0; i < instance->getArity(); ++i) {
-        const DomainType *param =
-            cast<DomainType>(instance->getActualParamType(i));
-        std::ostringstream ss;
-
-        if (param->denotesPercent()) {
-            // Mangle percent nodes to the name of the corresponding domain.
-            const PercentDecl *percent = param->getPercentDecl();
-            const Domoid *model = cast<Domoid>(percent->getDefinition());
-            ss << "__" << i <<  getLinkName(model);
-        }
-        else {
-            ss << "__" << i << getLinkName(param->getInstanceDecl());
-            name += ss.str();
-        }
-    }
-    return name;
+    return instance->getDefinition()->getString();
 }
 
 std::string comma::mangle::getLinkName(const ExceptionDecl *exception)
@@ -279,16 +233,15 @@ std::string comma::mangle::getLinkName(const ExceptionDecl *exception)
     // FIXME: Factor out and share with implementation of getLinkName for
     // subroutine declarations.
     const DeclRegion *region = exception->getDeclRegion();
-    const DomainInstanceDecl *instance;
-    if (isa<AddDecl>(region))
-        region = cast<PercentDecl>(region->getParent());
+    const PkgInstanceDecl *instance;
 
-    if (const PercentDecl *percent = dyn_cast<PercentDecl>(region)) {
-        const DomainDecl *domain = cast<DomainDecl>(percent->getDefinition());
-        instance = domain->getInstance();
-    }
+    if (isa<AddDecl>(region))
+        region = region->getParent();
+
+    if (const PackageDecl *package = dyn_cast<PackageDecl>(region))
+        instance = package->getInstance();
     else
-        instance = cast<DomainInstanceDecl>(region);
+        instance = cast<PkgInstanceDecl>(region);
 
     std::string name = getLinkName(instance) + "__";
     name.append(exception->getString());

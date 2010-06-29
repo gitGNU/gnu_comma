@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CGContext.h"
 #include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
 #include "BoundsEmitter.h"
 #include "comma/ast/AggExpr.h"
 
@@ -45,7 +45,7 @@ llvm::Value *synthBounds(llvm::IRBuilder<> &Builder,
 BoundsEmitter::BoundsEmitter(CodeGenRoutine &CGR)
   : CGR(CGR),
     CG(CGR.getCodeGen()),
-    CGT(CGR.getCGC().getCGT()) { }
+    CGT(CG.getCGT()) { }
 
 const llvm::StructType *BoundsEmitter::getType(const ArrayType *arrTy)
 {

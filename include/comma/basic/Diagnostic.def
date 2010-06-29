@@ -87,10 +87,6 @@ DIAGNOSTIC(MIXED_LOGICAL_OPERATORS, ERROR,
 //
 DIAGNOSTIC(DUPLICATE_FORMAL_PARAM, ERROR,
            "Duplicate formal parameter `%0'.")
-DIAGNOSTIC(NOT_A_SIGNATURE, ERROR,
-           "Entity does not denote a signature.")
-DIAGNOSTIC(NOT_A_DOMAIN, ERROR,
-           "Entity does not denote a domain.")
 DIAGNOSTIC(NOT_AN_EXPRESSION, ERROR,
            "Entity does not denote an expression.")
 DIAGNOSTIC(NOT_AN_EXCEPTION, ERROR,
@@ -101,8 +97,6 @@ DIAGNOSTIC(TYPE_CANNOT_DENOTE_VALUE, ERROR,
            "Type cannot denote a value.")
 DIAGNOSTIC(EXCEPTION_CANNOT_DENOTE_VALUE, ERROR,
            "Exception cannot denote a value.")
-DIAGNOSTIC(DOMAIN_PARAM_DOES_NOT_SATISFY, ERROR,
-           "Domain is not a valid actual for the generic parameter `%0'.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
            "The type `%0' is not visible.")
 DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
@@ -125,9 +119,8 @@ DIAGNOSTIC(PARAM_PROVIDED_POSITIONALLY, ERROR,
            "Argument `%0' already provided by a positional parameter.")
 DIAGNOSTIC(OUT_MODE_IN_FUNCTION, ERROR,
            "Function parameters cannot have an `out' mode.")
-DIAGNOSTIC(USING_OF_NON_CAPSULE, ERROR,
-           "Expression does not denote a domain or package "
-           "and so cannot be used.")
+DIAGNOSTIC(NOT_A_PACKAGE, ERROR,
+           "The name `%0' does not denote a package.")
 DIAGNOSTIC(NAME_NOT_VISIBLE, ERROR,
            "The name `%0' is not visible.")
 DIAGNOSTIC(INVALID_CONTEXT_FOR_PROCEDURE, ERROR,
@@ -140,40 +133,22 @@ DIAGNOSTIC(AMBIGUOUS_EXPRESSION, ERROR,
            "Ambiguous expression.")
 DIAGNOSTIC(MULTIPLE_IMPORT_AMBIGUITY, ERROR,
            "Multiple imports cause declaration hiding.")
-DIAGNOSTIC(MULTIPLE_CARRIER_DECLARATIONS, ERROR,
-           "Multiple carrier declarations.")
-DIAGNOSTIC(CARRIER_IN_PACKAGE_BODY, ERROR,
-           "Packages can not define a carrier.")
-DIAGNOSTIC(INDEFINITE_CARRIER_TYPE, ERROR,
-           "Carrier types may not be indefinite.")
 DIAGNOSTIC(EMPTY_RETURN_IN_FUNCTION, ERROR,
            "Missing value in return from function.")
 DIAGNOSTIC(NONEMPTY_RETURN_IN_PROCEDURE, ERROR,
            "Cannot return a value from a procedure.")
 DIAGNOSTIC(MULTIPLE_ENUMERATION_LITERALS, ERROR,
            "Multiple enumeration value `%0'.")
-DIAGNOSTIC(INVALID_INJ_CONTEXT, ERROR,
-           "`inj' expressions can only appear in a domain context.")
-DIAGNOSTIC(INVALID_PRJ_CONTEXT, ERROR,
-           "`prj' expressions can only appear in a domain context.")
-DIAGNOSTIC(CARRIER_TYPE_UNDEFINED, ERROR,
-           "Missing carrier definition before call to `inj' or `prj'.")
 DIAGNOSTIC(CONFLICTING_TYPE_DECLS, ERROR,
            "Multiple declarations of type `%0'.\n   (inherited from `%1' and `%2')")
-DIAGNOSTIC(PERCENT_EQUIVALENT, WARNING,
-           "Type expression equivalent to `%%'.")
 DIAGNOSTIC(MODEL_FORMAL_SHADOW, ERROR,
            "Formal parameter `%0' shadows type declaration.")
 DIAGNOSTIC(REDECLARATION, ERROR,
            "Redeclaration of `%0'.")
 DIAGNOSTIC(DECLARATION_CONFLICTS, ERROR,
            "`%0' conflicts with declaration at `%1'.")
-DIAGNOSTIC(REDUNDANT_SIGNATURE_INCLUSION, WARNING,
-           "Redundant inclusion of signature `%0'.")
-DIAGNOSTIC(CONFLICTING_SIGNATURE_INCLUSION, ERROR,
-           "Inclusion of signature `%0' provides conflicting declarations.")
 DIAGNOSTIC(MISSING_EXPORT, ERROR,
-           "Domain `%0' is missing export `%1'.")
+           "Package `%0' is missing export `%1'.")
 DIAGNOSTIC(MISSING_TYPE_COMPLETION, ERROR,
            "Missing completion for type `%0'.")
 DIAGNOSTIC(INVALID_TARGET_FOR_ASSIGNMENT, ERROR,
@@ -196,13 +171,6 @@ DIAGNOSTIC(INCOMPATIBLE_MODE_REDECLARATION, ERROR,
            "Parameter mode conflicts with previous definition at `%0'")
 DIAGNOSTIC(INVALID_TYPE_PARAM, ERROR,
            "`%0' cannot be used to parameterize a type.")
-DIAGNOSTIC(INVALID_SIGNATURE_QUALIFICATION, ERROR,
-           "`%0' denotes a signature, and cannot be used as a qualifier "
-           "in this context.")
-DIAGNOSTIC(EXPECTING_SIGNATURE_QUALIFIER, ERROR,
-           "`%0' must be explicitly qualified by its corresponding signature.")
-DIAGNOSTIC(NOT_A_SUPERSIGNATURE, ERROR,
-           "`%0' does not name a visible supersignature.")
 DIAGNOSTIC(NOT_A_COMPONENT_OF, ERROR,
            "`%0' is not a component of `%0'.")
 DIAGNOSTIC(WRONG_NUM_SUBSCRIPTS_FOR_ARRAY, ERROR,
@@ -306,6 +274,11 @@ DIAGNOSTIC(CONSTRAINING_CONSTRAINED_ARRAY, ERROR,
 DIAGNOSTIC(CANNOT_ALLOC_UNCONSTRAINED_TYPE_WITHOUT_INIT, ERROR,
            "Cannot allocate objects of unconstrained type without "
            "initialization.")
+DIAGNOSTIC(PACKAGE_BODY_ALREADY_DEFINED, ERROR,
+           "Body for package `%0' already defined at `%1'.")
+DIAGNOSTIC(WRONG_LEVEL_FOR_PACKAGE_BODY, ERROR,
+           "Package implementations must be defined at the same level as the "
+           "specification.")
 
 //
 // Driver diagnostics.

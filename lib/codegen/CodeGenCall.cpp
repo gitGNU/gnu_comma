@@ -7,11 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
-#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
-#include "DependencySet.h"
+#include "InstanceInfo.h"
 #include "SRInfo.h"
 #include "comma/ast/AstRewriter.h"
 #include "comma/ast/AttribDecl.h"
@@ -33,8 +32,7 @@ public:
     CallEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
         : CGR(CGR),
           CG(CGR.getCodeGen()),
-          CGC(CGR.getCGC()),
-          CGT(CGC.getCGT()),
+          CGT(CG.getCGT()),
           Builder(Builder) { }
 
     CValue emitSimpleCall(SubroutineCall *call);
@@ -58,7 +56,6 @@ private:
     /// The code generation context.
     CodeGenRoutine &CGR;
     CodeGen &CG;
-    CGContext &CGC;
     CodeGenTypes &CGT;
 
     /// The builder we are injecting code into.
@@ -145,18 +142,6 @@ private:
     SRInfo *prepareLocalCall();
     SRInfo *prepareForeignCall();
     SRInfo *prepareDirectCall();
-    SRInfo *prepareAbstractCall();
-
-    /// Helper method for prepareAbstractCall.
-    ///
-    /// Given an abstract domain \p abstract and a subroutine \p target provided
-    /// by the domain, resolve the corresponding declaration in \p instance
-    /// (which must be a fully resolved (non-dependent) instance corresponding
-    /// to the given abstract domain).
-    SubroutineDecl *
-    resolveAbstractSubroutine(DomainInstanceDecl *instance,
-                              AbstractDomainDecl *abstract,
-                              SubroutineDecl *target);
 
     /// Applies the arguments to the given function.  Synthesizes either a call
     /// or invoke instruction depending on if the current context is handled or
@@ -744,8 +729,6 @@ SRInfo *CallEmitter::prepareCall()
         return prepareLocalCall();
     else if (SRCall->isDirectCall())
         return prepareDirectCall();
-    else if (SRCall->isAbstractCall())
-        return prepareAbstractCall();
     else {
         assert(false && "Unsupported call type!");
         return 0;
@@ -756,14 +739,9 @@ SRInfo *CallEmitter::prepareLocalCall()
 {
     // Resolve the info structure for called subroutine.
     SubroutineDecl *srDecl = SRCall->getConnective();
-    InstanceInfo *IInfo = CGC.getInstanceInfo();
-
-    if (DomainInstanceDecl *DID = IInfo->getDomainInstanceDecl())
-        return CGR.getCodeGen().getSRInfo(DID, srDecl);
-    else {
-        PkgInstanceDecl *PID = IInfo->getPkgInstanceDecl();
-        return CGR.getCodeGen().getSRInfo(PID, srDecl);
-    }
+    InstanceInfo *IInfo = CG.getInstanceInfo();
+    PkgInstanceDecl *PID = IInfo->getInstance();
+    return CGR.getCodeGen().getSRInfo(PID, srDecl);
 }
 
 SRInfo *CallEmitter::prepareForeignCall()
@@ -772,128 +750,28 @@ SRInfo *CallEmitter::prepareForeignCall()
     SubroutineDecl *srDecl = SRCall->getConnective();
     DeclRegion *region = srDecl->getDeclRegion();
 
-    if (DomainInstanceDecl *instance = dyn_cast<DomainInstanceDecl>(region))
-        return CG.getSRInfo(instance, srDecl);
-
     if (PkgInstanceDecl *instance = dyn_cast<PkgInstanceDecl>(region))
         return CG.getSRInfo(instance, srDecl);
 
     // If the given subroutine was not declared in the public interface of a
-    // domain or package instance, then it must correspond to an internal
-    // declaration.  Resolve with respect to the instance currently being
-    // codegened.
-    InstanceInfo *iinfo = CGC.getInstanceInfo();
-    if (DomainInstanceDecl *instance = iinfo->getDomainInstanceDecl())
-        return CG.getSRInfo(instance, srDecl);
-    return CG.getSRInfo(iinfo->getPkgInstanceDecl(), srDecl);
+    // package instance, then it must correspond to an internal declaration.
+    // Resolve with respect to the instance currently being codegened.
+    InstanceInfo *iinfo = CG.getInstanceInfo();
+    return CG.getSRInfo(iinfo->getInstance(), srDecl);
 }
 
 SRInfo *CallEmitter::prepareDirectCall()
 {
     SubroutineDecl *srDecl = SRCall->getConnective();
-    InstanceInfo *IInfo = CGC.getInstanceInfo();
-    CapsuleInstance *context;
-
-    if (!(context = dyn_cast<DomainInstanceDecl>(srDecl->getDeclRegion())))
-        context = cast<PkgInstanceDecl>(srDecl->getDeclRegion());
-
-    // If the declaration context which provides this call is dependent (meaning
-    // that it involves percent or other generic parameters),  rewrite the
-    // declaration using the actual arguments supplied to this instance.
-    CapsuleInstance *targetInstance;
-    SubroutineDecl *targetRoutine;
-    if (context->isDependent()) {
-        AstRewriter rewriter(CG.getAstResource());
-
-        // If the current capsule is a domain map its percent node to the actual
-        // instance being codegened.
-        if (IInfo->denotesDomainInstance()) {
-            DomainInstanceDecl *instance = IInfo->getDomainInstanceDecl();
-            rewriter.addTypeRewrite(instance->getDefinition()->getPercentType(),
-                                    instance->getType());
-        }
-
-        // Map any generic formal parameters to the actual arguments of this
-        // instance.
-        const CGContext::ParameterMap &paramMap = CGC.getParameterMap();
-        rewriter.addTypeRewrites(paramMap.begin(), paramMap.end());
-
-        // If the context providing this call is a domain rewrite its type
-        // according to the above rules.
-        if (context->denotesDomainInstance()) {
-            DomainInstanceDecl *domain = context->asDomainInstance();
-            DomainType *targetTy = rewriter.rewriteType(domain->getType());
-            targetInstance = targetTy->getInstanceDecl();
-
-            // Extend the rewriter with a rule to map the type of the context
-            // domain to the targetInstance.
-            rewriter.addTypeRewrite(domain->getType(), targetTy);
-        }
-
-        // Rewrite the type of the subroutine and perform a lookup in the target
-        // instance.
-        SubroutineType *srTy = rewriter.rewriteType(srDecl->getType());
-        DeclRegion *region = targetInstance->asDeclRegion();
-        Decl *resolvedDecl = region->findDecl(srDecl->getIdInfo(), srTy);
-        targetRoutine = cast<SubroutineDecl>(resolvedDecl);
-    }
-    else {
-        targetInstance = context;
-        targetRoutine = srDecl;
-    }
+    PkgInstanceDecl *instance = cast<PkgInstanceDecl>(srDecl->getDeclRegion());
 
     // Add the target instance to the code generators worklist.  This will
     // generate SRInfo objects for this particular instance if they do not
     // already exist and schedual the associated functions for generation.
-    CG.extendWorklist(targetInstance);
-
-    // Lookup the corresponding SRInfo object.
-    return CG.getSRInfo(targetInstance, targetRoutine);
-}
-
-SRInfo *CallEmitter::prepareAbstractCall()
-{
-    // Resolve the abstract domain declaration providing this call.
-    SubroutineDecl *srDecl = SRCall->getConnective();
-    AbstractDomainDecl *abstract =
-        cast<AbstractDomainDecl>(srDecl->getDeclRegion());
-
-    // Resolve the abstract domain to a concrete type using the parameter map
-    // provided by the capsule context.
-    DomainInstanceDecl *instance = CGC.rewriteAbstractDecl(abstract);
-    assert(instance && "Failed to resolve abstract domain!");
-
-    // Add this instance to the code generators worklist, thereby ensuring
-    // forward declarations are generated and that the implementation will be
-    // codegened.
     CG.extendWorklist(instance);
 
-    // Resolve the needed routine.
-    SubroutineDecl *resolvedRoutine;
-    resolvedRoutine = resolveAbstractSubroutine(instance, abstract, srDecl);
-
-     // Lookup the associated SRInfo and return the llvm function.
-    return CG.getSRInfo(instance, resolvedRoutine);
-}
-
-SubroutineDecl *
-CallEmitter::resolveAbstractSubroutine(DomainInstanceDecl *instance,
-                                       AbstractDomainDecl *abstract,
-                                       SubroutineDecl *target)
-{
-    DomainType *abstractTy = abstract->getType();
-
-    // The instance must provide a subroutine declaration with a type matching
-    // that of the original, with the only exception being that occurrences of
-    // abstractTy are mapped to the type of the given instance.  Use an
-    // AstRewriter to obtain the required target type.
-    AstRewriter rewriter(CGR.getCodeGen().getAstResource());
-    rewriter.addTypeRewrite(abstractTy, instance->getType());
-    SubroutineType *targetTy = rewriter.rewriteType(target->getType());
-
-    // Lookup the target declaration directly in the instance.
-    Decl *resolvedDecl = instance->findDecl(target->getIdInfo(), targetTy);
-    return cast<SubroutineDecl>(resolvedDecl);
+    // Lookup the corresponding SRInfo object.
+    return CG.getSRInfo(instance, srDecl);
 }
 
 } // end anonymous namespace.

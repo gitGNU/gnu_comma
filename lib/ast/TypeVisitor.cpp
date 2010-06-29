@@ -23,8 +23,6 @@ void TypeVisitor::visitType(Type *node)
 {
     if (SubroutineType *srTy = dyn_cast<SubroutineType>(node))
         visitSubroutineType(srTy);
-    else if (DomainType *domTy = dyn_cast<DomainType>(node))
-        visitDomainType(domTy);
     else if (IntegerType *intTy = dyn_cast<IntegerType>(node))
         visitIntegerType(intTy);
     else if (ArrayType *arrTy = dyn_cast<ArrayType>(node))
@@ -54,7 +52,6 @@ void TypeVisitor::visitSubroutineType(SubroutineType *node)
 //===----------------------------------------------------------------------===//
 // Non-virtual visitors, with empty out-of-line implementations.
 
-void TypeVisitor::visitDomainType(DomainType *node) { }
 void TypeVisitor::visitFunctionType(FunctionType *node) { }
 void TypeVisitor::visitProcedureType(ProcedureType *node) { }
 void TypeVisitor::visitEnumerationType(EnumerationType *node) { }

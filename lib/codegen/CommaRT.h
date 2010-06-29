@@ -23,8 +23,6 @@ class TargetData;
 namespace comma {
 
 class CodeGen;
-class DomainInfo;
-class DomainInstance;
 class Frame;
 
 class CommaRT {

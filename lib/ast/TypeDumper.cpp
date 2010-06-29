@@ -55,21 +55,6 @@ llvm::raw_ostream &TypeDumper::dumpParameters(SubroutineType *node)
     return S << ")";
 }
 
-void TypeDumper::visitDomainType(DomainType *node)
-{
-    printHeader(node) << ' ' << node->getDomainTypeDecl()->getString();
-    if (DomainInstanceDecl *instance = node->getInstanceDecl()) {
-        indent();
-        for (unsigned i = 0; i < instance->getArity(); ++i) {
-            S << '\n';
-            printIndentation();
-            visitType(instance->getActualParamType(i));
-        }
-        dedent();
-    }
-    S << '>';
-}
-
 void TypeDumper::visitFunctionType(FunctionType *node)
 {
     printHeader(node) << ' ';

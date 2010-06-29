@@ -25,15 +25,6 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Scope::Entry method.
 
-bool Scope::Entry::containsImport(DomainTypeDecl *domain)
-{
-    ImportIterator endIter = endImportDecls();
-
-    for (ImportIterator iter = beginImportDecls(); iter != endIter; ++iter)
-        if (domain == *iter) return true;
-    return false;
-}
-
 bool Scope::Entry::containsImport(IdentifierInfo *name)
 {
     ImportIterator endIter = endImportDecls();
@@ -115,8 +106,10 @@ void Scope::Entry::importDeclarativeRegion(DeclRegion *region)
 
         homonym->addImportDecl(decl);
 
-        // Import the contents of enumeration and integer decls.
-        if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
+        // Import the contents of array, enumeration and integer decls.
+        if (ArrayDecl *adecl = dyn_cast<ArrayDecl>(decl))
+            importDeclarativeRegion(adecl);
+        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
             importDeclarativeRegion(edecl);
         else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(decl))
             importDeclarativeRegion(idecl);
@@ -140,12 +133,6 @@ void Scope::Entry::clearDeclarativeRegion(DeclRegion *region)
     }
 }
 
-void Scope::Entry::addImport(DomainTypeDecl *domain)
-{
-    importDeclarativeRegion(domain);
-    importDecls.push_back(domain);
-}
-
 void Scope::Entry::addImport(PkgInstanceDecl *package)
 {
     importDeclarativeRegion(package);
@@ -166,7 +153,7 @@ void Scope::Entry::clear()
     ImportIterator endImportIter = endImportDecls();
     for (ImportIterator importIter = beginImportDecls();
          importIter != endImportIter; ++importIter)
-        clearDeclarativeRegion((*importIter)->asDeclRegion());
+        clearDeclarativeRegion(*importIter);
 
     kind = DEAD_SCOPE;
     directDecls.clear();
@@ -232,22 +219,6 @@ void Scope::pop()
     return;
 }
 
-bool Scope::addImport(DomainTypeDecl *domain)
-{
-    // First, walk the current stack of frames and check that this domain has
-    // not already been imported.
-    for (EntryStack::const_iterator entryIter = entries.begin();
-         entryIter != entries.end(); ++entryIter) {
-        if ((*entryIter)->containsImport(domain))
-            return true;
-    }
-
-    // The import is not yet in scope.  Register it with the current entry.
-    entries.front()->addImport(domain);
-
-    return false;
-}
-
 bool Scope::addImport(PkgInstanceDecl *package)
 {
     // First, walk the current stack of frames and check that this package has
@@ -264,9 +235,8 @@ bool Scope::addImport(PkgInstanceDecl *package)
     return false;
 }
 
-Decl *Scope::addDirectDecl(Decl *decl) {
-    assert(!isa<DomainInstanceDecl>(decl) &&
-           "Cannot add domain instance declarations to a scope!");
+Decl *Scope::addDirectDecl(Decl *decl)
+{
     if (Decl *conflict = findConflictingDirectDecl(decl))
         return conflict;
     entries.front()->addDirectDecl(decl);
@@ -275,8 +245,6 @@ Decl *Scope::addDirectDecl(Decl *decl) {
 
 void Scope::addDirectDeclNoConflicts(Decl *decl)
 {
-    assert(!isa<DomainInstanceDecl>(decl) &&
-           "Cannot add domain instance declarations to a scope!");
     assert(findConflictingDirectDecl(decl) == 0 &&
            "Conflicting decl found when there should be none!");
     entries.front()->addDirectDecl(decl);
@@ -331,8 +299,8 @@ void Scope::dump() const
         case CUNIT_SCOPE:
             std::cerr << "CUINT_SCOPE\n";
             break;
-        case MODEL_SCOPE:
-            std::cerr << "MODEL_SCOPE\n";
+        case PACKAGE_SCOPE:
+            std::cerr << "PACKAGE_SCOPE\n";
             break;
         case SUBROUTINE_SCOPE:
             std::cerr << "SUBROUTINE_SCOPE\n";

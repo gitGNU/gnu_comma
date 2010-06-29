@@ -94,44 +94,10 @@ void TypeCheck::deleteNode(Node &node)
     node.release();
 }
 
-ModelDecl *TypeCheck::getCurrentModel() const
-{
-    return dyn_cast<ModelDecl>(getCurrentCapsule());
-}
-
-Sigoid *TypeCheck::getCurrentSigoid() const
-{
-    return dyn_cast<Sigoid>(getCurrentCapsule());
-}
-
-SignatureDecl *TypeCheck::getCurrentSignature() const
-{
-    return dyn_cast<SignatureDecl>(getCurrentCapsule());
-}
-
-VarietyDecl *TypeCheck::getCurrentVariety() const
-{
-    return dyn_cast<VarietyDecl>(getCurrentCapsule());
-}
-
-Domoid *TypeCheck::getCurrentDomoid() const
-{
-    return dyn_cast<Domoid>(getCurrentCapsule());
-}
-
-DomainDecl *TypeCheck::getCurrentDomain() const
-{
-    return dyn_cast<DomainDecl>(getCurrentCapsule());
-}
-
-FunctorDecl *TypeCheck::getCurrentFunctor() const
-{
-    return dyn_cast<FunctorDecl>(getCurrentCapsule());
-}
 
 PackageDecl *TypeCheck::getCurrentPackage() const
 {
-    return dyn_cast<PackageDecl>(getCurrentCapsule());
+    return currentPackage;
 }
 
 SubroutineDecl *TypeCheck::getCurrentSubroutine() const
@@ -155,20 +121,6 @@ ProcedureDecl *TypeCheck::getCurrentProcedure() const
 FunctionDecl *TypeCheck::getCurrentFunction() const
 {
     return dyn_cast_or_null<FunctionDecl>(getCurrentSubroutine());
-}
-
-PercentDecl *TypeCheck::getCurrentPercent() const
-{
-    if (ModelDecl *model = getCurrentModel())
-        return model->getPercent();
-    return 0;
-}
-
-DomainType *TypeCheck::getCurrentPercentType() const
-{
-    if (ModelDecl *model = getCurrentModel())
-        return model->getPercentType();
-    return 0;
 }
 
 void TypeCheck::acceptWithClause(Location loc, IdentifierInfo **names,
@@ -199,284 +151,6 @@ void TypeCheck::acceptWithClause(Location loc, IdentifierInfo **names,
         report(loc, diag::MULTIPLE_WITH_CLAUSES)
             << dependency->getIdInfo() << getSourceLoc(conflict->getLocation());
     }
-}
-
-Node TypeCheck::acceptPercent(Location loc)
-{
-    TypeRef *ref = 0;
-
-    // We are either processing a model or a generic formal domain.
-    //
-    // When processing a model, return the associated percent decl.  When
-    // processing a generic formal domain, return the AbstractDomainDecl.
-    if (ModelDecl *model = getCurrentModel())
-        ref = new TypeRef(loc, model->getPercent());
-    else {
-        // FIXME: Use a cleaner interface when available.
-        AbstractDomainDecl *decl = cast<AbstractDomainDecl>(declarativeRegion);
-        ref = new TypeRef(loc, decl);
-    }
-    return getNode(ref);
-}
-
-// Returns true if the given decl is equivalent to % in the context of the
-// current domain.
-//
-// FIXME: This does not work when processing a formal domain.
-bool TypeCheck::denotesDomainPercent(const Decl *decl)
-{
-    if (checkingDomain()) {
-        DomainDecl *domain = getCurrentDomain();
-        const DomainDecl *candidate = dyn_cast<DomainDecl>(decl);
-        if (candidate && domain)
-            return domain == candidate;
-    }
-    return false;
-}
-
-// Returns true if we are currently checking a functor, and if the given functor
-// declaration together with the provided arguments would denote an instance
-// which is equivalent to % in the current context.  For example, given:
-//
-//   domain F (X : T) with
-//      procedure Foo (A : F(X));
-//      ...
-//
-// Then "F(X)" is equivalent to %.  More generally, a functor F applied to its
-// formal arguments in the body of F is equivalent to %.
-//
-// This function assumes that the number and types of the supplied arguments are
-// compatible with the given functor.
-bool TypeCheck::denotesFunctorPercent(const FunctorDecl *functor,
-                                      DomainTypeDecl **args, unsigned numArgs)
-{
-    assert(functor->getArity() == numArgs);
-
-    if (checkingFunctor()) {
-        FunctorDecl *currentFunctor = getCurrentFunctor();
-        if (currentFunctor != functor)
-            return false;
-        for (unsigned i = 0; i < numArgs; ++i) {
-            DomainType *formal = currentFunctor->getFormalType(i);
-            if (formal != args[i]->getType())
-                return false;
-        }
-        return true;
-    }
-    return false;
-}
-
-bool TypeCheck::ensureNonRecursiveInstance(
-    FunctorDecl *decl, DomainTypeDecl **args, unsigned numArgs, Location loc)
-{
-    if (!checkingFunctor() || (decl != getCurrentFunctor()))
-        return true;
-    for (unsigned i = 0; i < numArgs; ++i) {
-        // FIXME: DomainTypeDecls should provide the involvesPercent method.
-        DomainType *argTy = args[i]->getType();
-        if (argTy->involvesPercent()) {
-            report(loc, diag::SELF_RECURSIVE_INSTANCE);
-            return false;
-        }
-    }
-    return true;
-}
-
-/// Resolves the argument type of a Functor or Variety given previous actual
-/// arguments.
-///
-/// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>, this
-/// function resolves the type of \c U(X) given an actual parameter for \c X.
-/// It is assumed that the actual arguments provided are compatible with the
-/// given model.
-SigInstanceDecl *
-TypeCheck::resolveFormalSignature(ModelDecl *parameterizedModel,
-                                  Type **arguments, unsigned numArguments)
-{
-    assert(parameterizedModel->isParameterized());
-    assert(numArguments < parameterizedModel->getArity());
-
-    AstRewriter rewriter(resource);
-
-    // For each actual argument, establish a map from the formal parameter to
-    // the actual.
-    for (unsigned i = 0; i < numArguments; ++i) {
-        Type *formal = parameterizedModel->getFormalType(i);
-        Type *actual = arguments[i];
-        rewriter.addTypeRewrite(formal, actual);
-    }
-
-    SigInstanceDecl *target = parameterizedModel->getFormalSignature(numArguments);
-    return rewriter.rewriteSigInstance(target);
-}
-
-// Ensures that the given TypeRef is of a sort compatible with the
-// parameterization of a variety or functor (e.g. the TypeRef resolves to a
-// DomainTypeDecl).  Returns the resolved DomainTypeDecl on sucess.  Otherwise
-// diagnostics are posted and null is returned.
-DomainTypeDecl *TypeCheck::ensureValidModelParam(TypeRef *ref)
-{
-    TypeDecl *arg = ref->getTypeDecl();
-    DomainTypeDecl *dom = dyn_cast_or_null<DomainTypeDecl>(arg);
-    if (!dom) {
-        Location loc = ref->getLocation();
-        report(loc, diag::INVALID_TYPE_PARAM) << ref->getIdInfo();
-    }
-    return dom;
-}
-
-TypeRef *
-TypeCheck::acceptTypeApplication(TypeRef *ref,
-                                 SVImpl<TypeRef*>::Type &posArgs,
-                                 SVImpl<KeywordSelector*>::Type &keyedArgs)
-{
-    Location loc = ref->getLocation();
-    IdentifierInfo *name = ref->getIdInfo();
-
-    // If the type reference is complete, we cannot apply any arguments.
-    if (ref->isComplete()) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
-        return 0;
-    }
-
-    ModelDecl *model = ref->getModelDecl();
-    unsigned numPositional = posArgs.size();
-    unsigned numKeyed = keyedArgs.size();
-    unsigned numArgs = numPositional + numKeyed;
-
-    if (model->getArity() != numArgs) {
-        report(loc, diag::WRONG_NUM_ARGS_FOR_TYPE) << name;
-        return 0;
-    }
-
-    // Check that the model accepts the given keywords.
-    if (!checkModelKeywordArgs(model, numPositional, keyedArgs))
-        return 0;
-
-    // Build the a sorted vector of arguments, checking that each type reference
-    // denotes a domain.  Similarly build a vector of sorted locations for each
-    // argument.
-    llvm::SmallVector<DomainTypeDecl *, 8> args(numArgs);
-    llvm::SmallVector<Location, 8> argLocs(numArgs);
-
-    // Process the positional parameters.
-    for (unsigned i = 0; i < numPositional; ++i) {
-        DomainTypeDecl *dom = ensureValidModelParam(posArgs[i]);
-        if (!dom)
-            return 0;
-        args[i] = dom;
-        argLocs[i] = posArgs[i]->getLocation();
-    }
-
-    // Process the keyed parameters, placing them in their sorted positions
-    // (checkModelKeywordArgs has already assured us this mapping will not
-    // conflict).
-    for (unsigned i = 0; i < numKeyed; ++i) {
-        KeywordSelector *selector = keyedArgs[i];
-        TypeRef *argRef = keyedArgs[i]->getTypeRef();
-        DomainTypeDecl *dom = ensureValidModelParam(argRef);
-
-        if (!dom)
-            return 0;
-
-        IdentifierInfo *key = selector->getKeyword();
-        unsigned index = unsigned(model->getKeywordIndex(key));
-        args[index] = dom;
-        argLocs[index] = argRef->getLocation();
-    }
-
-    // Check that the arguments satisfy the parameterization constraints of the
-    // model.
-    if (!checkModelArgs(model, args, argLocs))
-        return 0;
-
-
-    // Obtain a memoized type node for this particular argument set.
-    TypeRef *instanceRef = 0;
-    if (VarietyDecl *V = dyn_cast<VarietyDecl>(model)) {
-        SigInstanceDecl *instance = V->getInstance(&args[0], numArgs);
-        instanceRef = new TypeRef(loc, instance);
-    }
-    else {
-        FunctorDecl *F = cast<FunctorDecl>(model);
-
-        // Ensure the requested instance is not self recursive.
-        if (!ensureNonRecursiveInstance(F, &args[0], numArgs, loc))
-            return false;
-
-        // If this particular functor parameterization is equivalent to %, warn
-        // and canonicalize to the unique percent node.
-        if (denotesFunctorPercent(F, &args[0], numArgs)) {
-            report(loc, diag::PERCENT_EQUIVALENT);
-            instanceRef = new TypeRef(loc, getCurrentPercent());
-        }
-        else {
-            DomainInstanceDecl *instance;
-            instance = F->getInstance(&args[0], numArgs);
-            instanceRef = new TypeRef(loc, instance);
-        }
-    }
-    return instanceRef;
-}
-
-bool TypeCheck::checkModelArgs(ModelDecl *model,
-                               SVImpl<DomainTypeDecl*>::Type &args,
-                               SVImpl<Location>::Type &argLocs)
-{
-    AstRewriter rewrites(resource);
-    unsigned numArgs = args.size();
-    for (unsigned i = 0; i < numArgs; ++i) {
-        DomainType *argTy = args[i]->getType();
-        Location argLoc = argLocs[i];
-        AbstractDomainDecl *target = model->getFormalDecl(i);
-
-        // Extend the rewriter mapping the formal argument type to the type of
-        // the actual argument.
-        rewrites.addTypeRewrite(target->getType(), argTy);
-
-        // Check the argument in the using the rewriter as context.
-        if (!checkSignatureProfile(rewrites, argTy, target, argLoc))
-            return false;
-    }
-
-    return true;
-}
-
-bool TypeCheck::checkModelKeywordArgs(ModelDecl *model, unsigned numPositional,
-                                      SVImpl<KeywordSelector*>::Type &keyedArgs)
-{
-    unsigned numKeys = keyedArgs.size();
-    for (unsigned i = 0; i < numKeys; ++i) {
-        KeywordSelector *selector = keyedArgs[i];
-        IdentifierInfo *keyword = selector->getKeyword();
-        Location keywordLoc = selector->getLocation();
-        int keywordIdx = model->getKeywordIndex(keyword);
-
-        // Ensure the given keyword exists.
-        if (keywordIdx < 0) {
-            report(keywordLoc, diag::TYPE_HAS_NO_SUCH_KEYWORD)
-                << keyword << model->getIdInfo();
-            return false;
-        }
-
-        // The corresponding index of the keyword must be greater than the
-        // number of supplied positional parameters (otherwise it would
-        // `overlap' a positional parameter).
-        if ((unsigned)keywordIdx < numPositional) {
-            report(keywordLoc, diag::PARAM_PROVIDED_POSITIONALLY) << keyword;
-            return false;
-        }
-
-        // Ensure that this keyword is not a duplicate of any preceeding
-        // keyword.
-        for (unsigned j = 0; j < i; ++j) {
-            if (keyedArgs[j]->getKeyword() == keyword) {
-                report(keywordLoc, diag::DUPLICATE_KEYWORD) << keyword;
-                return false;
-            }
-        }
-    }
-    return true;
 }
 
 TypeDecl *TypeCheck::ensureCompleteTypeDecl(Decl *decl, Location loc,
@@ -740,42 +414,18 @@ bool TypeCheck::acceptRenamedObjectDeclaration(Location loc,
 
 bool TypeCheck::acceptUseDeclaration(Node usedNode)
 {
-    if (TypeRef *ref = lift_node<TypeRef>(usedNode)) {
-        Decl *decl = ref->getDecl();
-        Location loc = ref->getLocation();
-        DomainTypeDecl *domain;
-
-        if (!(domain = dyn_cast<DomainTypeDecl>(decl))) {
-            CarrierDecl *carrier = dyn_cast<CarrierDecl>(decl);
-            Type *ty = carrier->getType();
-            if (carrier && isa<DomainType>(ty))
-                domain = cast<DomainType>(ty)->getDomainTypeDecl();
-        }
-
-        if (!domain) {
-            report(loc, diag::USING_OF_NON_CAPSULE);
-            return false;
-        }
-
-        scope.addImport(domain);
-
-        // FIXME: Stitch this import clause into the current context.
-        new UseDecl(domain, loc);
-        return true;
-    }
-
     if (PackageRef *ref = lift_node<PackageRef>(usedNode)) {
         PkgInstanceDecl *package = ref->getPackageInstance();
         Location loc = ref->getLocation();
 
         scope.addImport(package);
 
-        // FIXME: Stitch this import clause into the current context.
+        // FIXME: Stitch this use clause into the current context.
         new UseDecl(package, loc);
         return true;
     }
 
-    report(getNodeLoc(usedNode), diag::USING_OF_NON_CAPSULE);
+    report(getNodeLoc(usedNode), diag::NOT_A_PACKAGE);
     return false;
 }
 
@@ -901,7 +551,6 @@ void TypeCheck::acceptModularTypeDecl(IdentifierInfo *name, Location loc,
     }
 }
 
-
 void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
                                         Node subtypeNode,
                                         Node lowNode, Node highNode)
@@ -914,7 +563,7 @@ void TypeCheck::acceptRangedSubtypeDecl(IdentifierInfo *name, Location loc,
         return;
     }
 
-    TypeDecl *tyDecl = tyRef->getTypeDecl();
+    TypeDecl *tyDecl = tyRef->getDecl();
     if (!tyDecl) {
         report(tyRef->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
         return;
@@ -977,19 +626,15 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
 
     /// FIXME: The only kind of unconstrained subtype declarations we currently
     /// support are discrete subtypes.
-    DiscreteType *baseTy = 0;
-
-    if (TypeDecl *tyDecl = subtype->getTypeDecl()) {
-        baseTy = dyn_cast<DiscreteType>(tyDecl->getType());
-    }
+    TypeDecl *tyDecl = subtype->getDecl();
+    DiscreteType *baseTy = dyn_cast<DiscreteType>(tyDecl->getType());
 
     if (!baseTy) {
         report(subtype->getLocation(), diag::INVALID_SUBTYPE_INDICATION);
         return;
     }
 
-    TypeDecl *decl = 0;
-
+    tyDecl = 0;
     switch (baseTy->getKind()) {
     default:
         assert(false && "Unexpected subtype indication!");
@@ -997,19 +642,19 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
 
     case Ast::AST_IntegerType: {
         IntegerType *intTy = cast<IntegerType>(baseTy);
-        decl = resource.createIntegerSubtypeDecl(name, loc, intTy, region);
+        tyDecl = resource.createIntegerSubtypeDecl(name, loc, intTy, region);
         break;
     }
 
     case Ast::AST_EnumerationType : {
         EnumerationType *enumTy = cast<EnumerationType>(baseTy);
-        decl = resource.createEnumSubtypeDecl(name, loc, enumTy, region);
+        tyDecl = resource.createEnumSubtypeDecl(name, loc, enumTy, region);
         break;
     }
     }
 
     subtypeNode.release();
-    introduceTypeDeclaration(decl);
+    introduceTypeDeclaration(tyDecl);
 }
 
 void TypeCheck::acceptIncompleteTypeDecl(IdentifierInfo *name, Location loc)
@@ -1158,9 +803,8 @@ Node TypeCheck::acceptDSTDefinition(Node name, Node lowerNode, Node upperNode)
     DiscreteType *subtype = 0;
 
     if (ref) {
-        if (TypeDecl *decl = ref->getTypeDecl()) {
-            subtype = dyn_cast<DiscreteType>(decl->getType());
-        }
+        TypeDecl *decl = ref->getDecl();
+        subtype = dyn_cast<DiscreteType>(decl->getType());
     }
 
     if (!subtype) {
@@ -1190,13 +834,12 @@ Node TypeCheck::acceptDSTDefinition(Node nameOrAttribute, bool isUnconstrained)
     DSTDefinition *result = 0;
 
     if (TypeRef *ref = lift_node<TypeRef>(nameOrAttribute)) {
-        if (TypeDecl *decl = ref->getTypeDecl()) {
-            if (DiscreteType *type = dyn_cast<DiscreteType>(decl->getType())) {
-                DSTDefinition::DSTTag tag = isUnconstrained ?
-                    DSTDefinition::Unconstrained_DST : DSTDefinition::Type_DST;
-                result = new DSTDefinition(ref->getLocation(), type, tag);
-                delete ref;
-            }
+        TypeDecl *decl = ref->getDecl();
+        if (DiscreteType *type = dyn_cast<DiscreteType>(decl->getType())) {
+            DSTDefinition::DSTTag tag = isUnconstrained ?
+                DSTDefinition::Unconstrained_DST : DSTDefinition::Type_DST;
+            result = new DSTDefinition(ref->getLocation(), type, tag);
+            delete ref;
         }
     }
     else if (RangeAttrib *attrib = lift_node<RangeAttrib>(nameOrAttribute)) {
@@ -1260,8 +903,8 @@ Node TypeCheck::acceptSubtypeIndication(Node prefix,
     DiscreteType *subtype = 0;
 
     if (ref) {
-        if (TypeDecl *decl = ref->getTypeDecl())
-            subtype = dyn_cast<DiscreteType>(decl->getType());
+        TypeDecl *decl = ref->getDecl();
+        subtype = dyn_cast<DiscreteType>(decl->getType());
     }
 
     if (!subtype) {
@@ -1292,21 +935,7 @@ Node TypeCheck::acceptSubtypeIndication(Node prefix, NodeVector &arguments)
         return getInvalidNode();
     }
 
-    // Process functor applications as though they were simple names.
-    if (ref->referencesFunctor()) {
-        if (TypeRef *dom = acceptTypeApplication(ref, arguments)) {
-            TypeDecl *decl;
-            STIndication *STI;
-            decl = dom->getTypeDecl();
-            STI = new STIndication(ref->getLocation(), decl->getType());
-            arguments.release();
-            return getNode(STI);
-        }
-        return getInvalidNode();
-    }
-
-    // Otherwise, we must have a type declaration which resolves to an array
-    // type.
+    // We must have a type declaration which resolves to an array type.
     //
     // FIXME: Discriminated records need to be supported here.
     //
@@ -1393,25 +1022,6 @@ Node TypeCheck::acceptSubtypeIndication(Node prefix, NodeVector &arguments)
     ArrayType *type = resource.createArraySubtype(base, &indexTypes[0]);
     STIndication *STI = new STIndication(ref->getLocation(), type);
     return getNode(STI);
-}
-
-bool TypeCheck::checkSignatureProfile(const AstRewriter &rewrites,
-                                      Type *source, AbstractDomainDecl *target,
-                                      Location loc)
-{
-    if (DomainType *domain = dyn_cast<DomainType>(source)) {
-        if (!has(rewrites, domain, target)) {
-            report(loc, diag::DOMAIN_PARAM_DOES_NOT_SATISFY)
-                << target->getString();
-            return false;
-        }
-        return true;
-    }
-
-    // Otherwise, the source does not denote a domain, and so cannot satisfy the
-    // signature constraint.
-    report(loc, diag::NOT_A_DOMAIN);
-    return false;
 }
 
 void TypeCheck::introduceImplicitDecls(DeclRegion *region)

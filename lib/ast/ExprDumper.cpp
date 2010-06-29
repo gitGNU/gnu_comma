@@ -44,16 +44,6 @@ void ExprDumper::visitIndexedArrayExpr(IndexedArrayExpr *node)
     printHeader(node) << '>';
 }
 
-void ExprDumper::visitInjExpr(InjExpr *node)
-{
-    printHeader(node) << '>';
-}
-
-void ExprDumper::visitPrjExpr(PrjExpr *node)
-{
-    printHeader(node) << '>';
-}
-
 void ExprDumper::visitIntegerLiteral(IntegerLiteral *node)
 {
     printHeader(node) << " '";

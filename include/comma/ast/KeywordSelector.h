@@ -22,7 +22,7 @@
 namespace comma {
 
 /// This class represents keyword selectors as used when forming (for example)
-/// subroutine calls or functor instantiations.
+/// subroutine calls or generic instantiations.
 ///
 /// Since the right hand side of a keyword selector can be an expression or a
 /// type, depending on the context it appears in, we define two corresponding

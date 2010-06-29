@@ -203,92 +203,27 @@ public:
     virtual void acceptWithClause(Location loc, IdentifierInfo **names,
                                   unsigned numNames) = 0;
 
-    /// \name Capsule Callbacks.
-    ///
-    /// When a top-level capsule is about to be parsed, beginCapsule is invoked
-    /// to notify the client of the processing to come.  This is the first
-    /// callback the parser ever invokes on its client.  Once the capsule has
-    /// been parsed (successfully or not), endCapsule is called.
+    /// \name Package Callbacks.
     ///
     //@{
-    virtual void beginCapsule() = 0;
-    virtual void endCapsule() = 0;
+    /// Called at the beginning of a package spec.  When this callback returns
+    /// true the client must then accept a sequence of basic declarative items
+    /// until endPackageSpec is called.  Otherwise the package spec is skipped
+    /// and endPackageSpec is not called.
+    virtual bool beginPackageSpec(IdentifierInfo *name, Location loc) = 0;
+
+    /// Completes a package spec.
+    virtual void endPackageSpec() = 0;
+
+    /// Called at the begining of a package body.  When this callback returns
+    /// true the client must then accept a sequence of declarative items until
+    /// endPackageBody is called.  Otherwise the package body is skipped and
+    /// endPackageBody is not called.
+    virtual bool beginPackageBody(IdentifierInfo *name, Location loc) = 0;
+
+    /// Completes a package body.
+    virtual void endPackageBody() = 0;
     //@}
-
-    /// \name Generic Formal Callbacks.
-    ///
-    /// The following callbacks are invoked when processing generic formal
-    /// parameters.
-    ///
-    //@{
-    ///
-    /// \name Generic Formal Delimiters.
-    ///
-    /// Processing of a generic formal part begins with a call to
-    /// beginGenericFormals and completes with a call to endGenericFormals.
-    /// These calls delimit the scope of a generic formal part to the client.
-    ///
-    //@{
-    virtual void beginGenericFormals() = 0;
-    virtual void endGenericFormals() = 0;
-    //@}
-
-    /// Called to notify the client of a generic formal domain parameter.
-    ///
-    /// \param name The defining identifier of the domain.
-    ///
-    /// \param loc Location of the defining identifier.
-    ///
-    /// \param sig If the formal domain was specified as satisfying a particular
-    /// signature, \p sig is a valid node as returned by a call to parseName().
-    /// Otherwise \p sig is a null node.
-    virtual void acceptFormalDomain(IdentifierInfo *name, Location loc,
-                                    Node sig) = 0;
-
-    /// \name Capsule Callbacks.
-    ///
-    /// Once the generic formal part has been processed (if present at all), one
-    /// following callbacks is invoked to inform the client of the type and name
-    /// of the upcomming capsule.  The context established by these callbacks is
-    /// terminated when endCapsule is called.
-    ///
-    //@{
-    virtual void beginDomainDecl(IdentifierInfo *name, Location loc) = 0;
-    virtual void beginSignatureDecl(IdentifierInfo *name, Location loc) = 0;
-    virtual void beginPackageDecl(IdentifierInfo *name, Location loc) = 0;
-    //@}
-
-    /// \name Signature Profile Callbacks.
-    ///
-    //@{
-    ///
-    /// \name Signature Profile Delimiters
-    ///
-    /// When the signature profile of a top-level capsule or generic formal
-    /// domain is about to be processed, beginSignatureProfile is called.  Once
-    /// the processing of the profile is finished (regarless of whether the
-    /// parse was successful or not) endSignatureProfile is called.
-    ///
-    //@{
-    virtual void beginSignatureProfile() = 0;
-    virtual void endSignatureProfile() = 0;
-    //@}
-
-    /// Called for each super signature defined in a signature profile.
-    virtual void acceptSupersignature(Node typeNode) = 0;
-    //@}
-
-    /// Called at the begining of an add expression.  The client accepts
-    /// components of an add expression after this call until endAddExpression
-    /// is called.
-    virtual void beginAddExpression() = 0;
-
-    /// Completes an add expression.
-    virtual void endAddExpression() = 0;
-
-    /// Invoked when the parser consumes a carrier declaration.
-    virtual void acceptCarrier(IdentifierInfo *name, Location loc,
-                               Node typeNode) = 0;
 
     /// \name Subroutine Declaration Callbacks.
     ///
@@ -579,8 +514,8 @@ public:
     /// parenthesized constraints.
     ///
     /// This callback is invoked for subtype indications corresponding to an
-    /// array subtype with index constraints or a domain parameterization (and,
-    /// eventually, discriminated records).
+    /// array subtype with index constraints (and, eventually, discriminated
+    /// records).
     ///
     /// Unfortunately the grammar is ambiguous for this case.  For example,
     /// arrays can have ranges as index constraints whereas discriminated
@@ -674,17 +609,7 @@ public:
                                                 IdentifierInfo *name,
                                                 Node type, Node target) = 0;
 
-    virtual Node acceptPercent(Location loc) = 0;
-
     virtual Node acceptProcedureCall(Node name) = 0;
-
-    /// Called for "inj" expressions.  loc is the location of the inj token and
-    /// expr is its argument.
-    virtual Node acceptInj(Location loc, Node expr) = 0;
-
-    /// Called for "prj" expressions.  loc is the location of the prj token and
-    /// expr is its argument.
-    virtual Node acceptPrj(Location loc, Node expr) = 0;
 
     virtual Node acceptIntegerLiteral(llvm::APInt &value, Location loc) = 0;
 

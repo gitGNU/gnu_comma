@@ -42,8 +42,6 @@ void ExprVisitor::visitExpr(Expr *node)
         case DISPATCH(FunctionCallExpr, node);
         case DISPATCH(IndexedArrayExpr, node);
         case DISPATCH(SelectedExpr, node);
-        case DISPATCH(InjExpr, node);
-        case DISPATCH(PrjExpr, node);
         case DISPATCH(IntegerLiteral, node);
         case DISPATCH(StringLiteral, node);
         case DISPATCH(AggregateExpr, node);
@@ -78,8 +76,6 @@ void ExprVisitor::visitDeclRefExpr(DeclRefExpr *node) { }
 void ExprVisitor::visitFunctionCallExpr(FunctionCallExpr *node) { }
 void ExprVisitor::visitIndexedArrayExpr(IndexedArrayExpr *node) { }
 void ExprVisitor::visitSelectedExpr(SelectedExpr *node) { }
-void ExprVisitor::visitInjExpr(InjExpr *node) { }
-void ExprVisitor::visitPrjExpr(PrjExpr *node) { }
 void ExprVisitor::visitIntegerLiteral(IntegerLiteral *node) { }
 void ExprVisitor::visitStringLiteral(StringLiteral *node) { }
 void ExprVisitor::visitAggregateExpr(AggregateExpr *node) { }

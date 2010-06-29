@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -97,9 +97,9 @@ public:
         return directDecl && llvm::isa<TypeDecl>(directDecl);
     }
 
-    /// Returns true if a direct capsule has been resolved.
-    bool hasDirectCapsule() const {
-        return directDecl && llvm::isa<CapsuleDecl>(directDecl);
+    /// Returns true if a direct package has been resolved.
+    bool hasDirectPackage() const {
+        return directDecl && llvm::isa<PackageDecl>(directDecl);
     }
 
     /// Returns true if a direct exception has been resolved.
@@ -154,10 +154,10 @@ public:
         return hasDirectType() ? llvm::cast<TypeDecl>(directDecl) : 0;
     }
 
-    /// Returns the direct capsule associated with this resolver, or 0 if no
+    /// Returns the direct package associated with this resolver, or 0 if no
     /// such declaration could be resolved.
-    CapsuleDecl *getDirectCapsule() const {
-        return hasDirectCapsule() ? llvm::cast<CapsuleDecl>(directDecl) : 0;
+    PackageDecl *getDirectPackage() const {
+        return hasDirectPackage() ? llvm::cast<PackageDecl>(directDecl) : 0;
     }
 
     /// Returns the direct exception associated with this resolver, or null if

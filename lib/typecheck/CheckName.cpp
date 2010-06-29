@@ -95,9 +95,7 @@ Ast *TypeCheck::checkDirectName(IdentifierInfo *name, Location loc,
         return new DeclRefExpr(vdecl, loc);
     }
 
-    // If there is a direct type, it shadows all other names.  Note that we do
-    // not support parameterized types (as opposed to varieties and functors)
-    // yet.
+    // If there is a direct type, it shadows all other names.
     if (resolver.hasDirectType()) {
         TypeDecl *tdecl = resolver.getDirectType();
         return new TypeRef(loc, tdecl);
@@ -109,18 +107,10 @@ Ast *TypeCheck::checkDirectName(IdentifierInfo *name, Location loc,
         return new ExceptionRef(loc, edecl);
     }
 
-    // If a direct capsule is visible, we distinguish between models and
-    // packages.  In the former case a TypeRef is returned, in the latter a
-    // PkgInstanceDecl.
-    if (resolver.hasDirectCapsule()) {
-        CapsuleDecl *capsule = resolver.getDirectCapsule();
-        if (ModelDecl *model = dyn_cast<ModelDecl>(capsule))
-            return buildTypeRefForModel(loc, model);
-        else {
-            // FIXME:  Ensure the resolved package is not parameterized.
-            PackageDecl *package = cast<PackageDecl>(capsule);
-            return new PackageRef(loc, package->getInstance());
-        }
+    // Ditto for direct packages.
+    if (resolver.hasDirectPackage()) {
+        PackageDecl *package = resolver.getDirectPackage();
+        return new PackageRef(loc, package->getInstance());
     }
 
     // Filter the subroutines depending on what kind of name we are trying to
@@ -145,41 +135,6 @@ Ast *TypeCheck::checkDirectName(IdentifierInfo *name, Location loc,
     return checkIndirectName(loc, resolver);
 }
 
-TypeRef *TypeCheck::buildTypeRefForModel(Location loc, ModelDecl *mdecl)
-{
-    TypeRef *ref = 0;
-
-    switch (mdecl->getKind()) {
-
-    default:
-        assert(false && "Bad kind of model!");
-        break;
-
-    case Ast::AST_DomainDecl: {
-        DomainDecl *dom = cast<DomainDecl>(mdecl);
-        ref = new TypeRef(loc, dom->getInstance());
-        break;
-    }
-
-    case Ast::AST_SignatureDecl: {
-        SignatureDecl *sig = cast<SignatureDecl>(mdecl);
-        ref = new TypeRef(loc, sig->getInstance());
-        break;
-    }
-
-    case Ast::AST_FunctorDecl:
-        ref = new TypeRef(loc, cast<FunctorDecl>(mdecl));
-        break;
-
-    case Ast::AST_VarietyDecl:
-        ref = new TypeRef(loc, cast<VarietyDecl>(mdecl));
-        break;
-
-    };
-    return ref;
-}
-
-
 Node TypeCheck::acceptCharacterLiteral(IdentifierInfo *lit, Location loc)
 {
     // We treat character literals as simple functions with funny names.
@@ -195,15 +150,14 @@ Ast *TypeCheck::processExpandedName(DeclRegion *region,
     // which in turn provide a literal of the given name.  This allows the
     // "short hand qualification" of enumeration literals.  For example, given:
     //
-    //   domain D with type T is (X); end D;
+    //   package P is type T is (X); end P;
     //
-    // then the qualified name D.X will resolve to D.T.X.  Note however that the
+    // then the qualified name P.X will resolve to P.T.X.  Note however that the
     // two forms are not equivalent, as the former will match all functions
-    // named X declared in D (as well as other enumeration literals of the same
+    // named X declared in P (as well as other enumeration literals of the same
     // name).
     llvm::SmallVector<SubroutineDecl*, 8> overloads;
 
-    SCAN_AGAIN:
     for (DeclRegion::DeclIter I = region->beginDecls(), E = region->endDecls();
          I != E; ++I) {
         Decl *decl = *I;
@@ -232,15 +186,6 @@ Ast *TypeCheck::processExpandedName(DeclRegion *region,
             if (EnumLiteral *lit = edecl->findLiteral(name))
                 overloads.push_back(lit);
         }
-    }
-
-    // If the overload set is empty, check if the declarative region is a
-    // percent decl.  If so, scan the implementation of the associated domain
-    // (which is valid since a percent decl is only available as a prefix from
-    // within the internal view of the domain).
-    if (PercentDecl *percent = dyn_cast<PercentDecl>(region)) {
-        region = cast<Domoid>(percent->getDefinition())->getImplementation();
-        goto SCAN_AGAIN;
     }
 
     if (overloads.empty()) {
@@ -296,18 +241,8 @@ Node TypeCheck::acceptSelectedComponent(Node prefix,
     Ast *result = 0;
 
     if (TypeRef *Tyref = lift_node<TypeRef>(prefix)) {
-        // Currently, a signature can never be used as the prefix to a
-        // component.
-        if (Tyref->referencesSigInstance()) {
-            report(loc, diag::INVALID_PREFIX_FOR_COMPONENT) << name;
-            result = 0;
-        }
-        else {
-            // Ensure the parser called finishName on the prefix.
-            assert(Tyref->isComplete() && "Invalid prefix node!");
-            DeclRegion *region = Tyref->getDecl()->asDeclRegion();
-            result = processExpandedName(region, name, loc, forStatement);
-        }
+        DeclRegion *region = Tyref->getDecl()->asDeclRegion();
+        result = processExpandedName(region, name, loc, forStatement);
     }
     else if (PackageRef *Pref = lift_node<PackageRef>(prefix)) {
         PkgInstanceDecl *pkg = Pref->getPackageInstance();
@@ -342,7 +277,6 @@ Node TypeCheck::acceptParameterAssociation(IdentifierInfo *key, Location loc,
     if (TypeRef *ref = lift_node<TypeRef>(rhs)) {
         KeywordSelector *selector = new KeywordSelector(key, loc, ref);
         rhs.release();
-        assert(ref->isComplete() && "Invalid TypeRef!");
         return getNode(selector);
     }
 
@@ -356,7 +290,7 @@ Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
 {
     // There are three cases (currently):
     //
-    //   - The prefix is an incomplete TypeRef (a variety or functor).
+    //   - The prefix is a TypeRef (type conversion).
     //
     //   - The prefix is a SubroutineRef naming a family of subroutines.
     //
@@ -371,12 +305,8 @@ Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
         return getInvalidNode();
     }
 
-    if (TypeRef *ref = lift_node<TypeRef>(prefix)) {
-        if (TypeRef *tyRef = acceptTypeApplication(ref, argNodes)) {
-            prefix.release();
-            argNodes.release();
-            return getNode(tyRef);
-        }
+    if (lift_node<TypeRef>(prefix)) {
+        assert(false && "Type applications not yet supported!");
         return getInvalidNode();
     }
 
@@ -522,72 +452,6 @@ Ast *TypeCheck::acceptSubroutineApplication(SubroutineRef *ref,
     return acceptSubroutineCall(ref, posArgs, keyedArgs);
 }
 
-bool TypeCheck::checkTypeArgumentNodes(NodeVector &argNodes,
-                                       SVImpl<TypeRef*>::Type &positional,
-                                       SVImpl<KeywordSelector*>::Type &keyed)
-{
-    NodeVector::iterator I = argNodes.begin();
-    NodeVector::iterator E = argNodes.end();
-
-    // Grab the positional args.
-    for ( ; I != E; ++I) {
-        if (TypeRef *ref = lift_node<TypeRef>(*I)) {
-            assert(ref->isComplete() && "Incomplete TypeRef!");
-            positional.push_back(ref);
-        }
-        else
-            break;
-    }
-
-    // Grab the keyword args.
-    for ( ; I != E; ++I) {
-        if (KeywordSelector *KS = lift_node<KeywordSelector>(*I))
-            if (KS->isTypeSelector()) {
-                assert(KS->getTypeRef()->isComplete() && "Incomplete TypeRef!");
-                keyed.push_back(KS);
-                continue;
-            }
-        break;
-    }
-
-    // If we did not consume all of the argument nodes, the iterator must point
-    // to an Expr, a selector to an Expr, or a ProcedureCall.  Diagnose.
-    if (I != E) {
-        if (ProcedureCallStmt *call = lift_node<ProcedureCallStmt>(*I)) {
-            report(call->getLocation(), diag::INVALID_CONTEXT_FOR_PROCEDURE);
-            return false;
-        }
-
-        Expr *expr = lift_node<Expr>(*I);
-        if (!expr) {
-            KeywordSelector *KS = cast_node<KeywordSelector>(*I);
-            assert(KS->isExprSelector());
-            expr = KS->getExpression();
-        }
-        report(expr->getLocation(), diag::EXPRESSION_AS_TYPE_PARAM);
-        return false;
-    }
-    return true;
-}
-
-TypeRef *TypeCheck::acceptTypeApplication(TypeRef *ref, NodeVector &argNodes)
-{
-    // If the type reference is already complete, is cannot accept any
-    // arguments.
-    if (ref->isComplete()) {
-        report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_TYPE)
-            << ref->getIdInfo();
-        return 0;
-    }
-
-    llvm::SmallVector<TypeRef*, 8> positionalArgs;
-    llvm::SmallVector<KeywordSelector*, 8> keyedArgs;
-    if (!checkTypeArgumentNodes(argNodes, positionalArgs, keyedArgs))
-        return 0;
-
-    return acceptTypeApplication(ref, positionalArgs, keyedArgs);
-}
-
 bool TypeCheck::checkArrayIndexNodes(NodeVector &argNodes,
                                      SVImpl<Expr*>::Type &indices)
 {
@@ -642,23 +506,10 @@ Node TypeCheck::acceptAttribute(Node prefixNode,
 
 Ast *TypeCheck::finishName(Ast *node)
 {
-    // This method is called to "complete" a name.  We need to consider three
-    // cases:
-    //
-    //   - If the name is a TypeRef, it must be complete (e.g. not name a
-    //     variety or functor).
-    //
-    //   - If the name is a SubroutineRef, it must contain at least one nullary
-    //     subroutine.
-    if (SubroutineRef *ref = dyn_cast<SubroutineRef>(node)) {
+    // This method is called to "complete" a name.  If the name is a
+    // SubroutineRef, it must contain at least one nullary subroutine.
+    if (SubroutineRef *ref = dyn_cast<SubroutineRef>(node))
         return finishSubroutineRef(ref);
-    }
-
-    if (TypeRef *ref = dyn_cast<TypeRef>(node)) {
-        if (finishTypeRef(ref))
-            return ref;
-        return 0;
-    }
 
     // FIXME: Perhaps we are being too permissive here.  We should assert that
     // the node is in fact a name.
@@ -702,14 +553,3 @@ Ast *TypeCheck::finishSubroutineRef(SubroutineRef *ref)
     }
 }
 
-bool TypeCheck::finishTypeRef(TypeRef *ref)
-{
-    // If the type is incomplete, we should have been applied to a set of
-    // arguments.
-    if (ref->isIncomplete()) {
-        report(ref->getLocation(), diag::WRONG_NUM_ARGS_FOR_TYPE)
-            << ref->getIdInfo();
-        return false;
-    }
-    return true;
-}

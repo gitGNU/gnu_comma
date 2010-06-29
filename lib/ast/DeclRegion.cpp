@@ -26,7 +26,8 @@ using llvm::dyn_cast;
 using llvm::cast;
 using llvm::isa;
 
-void DeclRegion::addDecl(Decl *decl) {
+void DeclRegion::addDecl(Decl *decl)
+{
     declarations.push_back(decl);
     notifyObserversOfAddition(decl);
 }
@@ -133,16 +134,10 @@ const Ast *DeclRegion::asAst() const
     default:
         assert(false && "Unknown delcarative region kind!");
         return 0;
-    case Ast::AST_PercentDecl:
-        return static_cast<const PercentDecl*>(this);
     case Ast::AST_FunctionDecl:
         return static_cast<const FunctionDecl*>(this);
     case Ast::AST_ProcedureDecl:
         return static_cast<const ProcedureDecl*>(this);
-    case Ast::AST_AbstractDomainDecl:
-        return static_cast<const AbstractDomainDecl*>(this);
-    case Ast::AST_DomainInstanceDecl:
-        return static_cast<const DomainInstanceDecl*>(this);
     case Ast::AST_AddDecl:
         return static_cast<const AddDecl*>(this);
     case Ast::AST_PackageDecl:

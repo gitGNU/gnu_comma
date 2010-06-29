@@ -383,58 +383,6 @@ Expr *TypeCheck::resolveSelectedExpr(SelectedExpr *select, Type *context)
     return convertIfNeeded(select, context);
 }
 
-Node TypeCheck::acceptInj(Location loc, Node exprNode)
-{
-    Domoid *domoid = getCurrentDomoid();
-
-    if (!domoid) {
-        report(loc, diag::INVALID_INJ_CONTEXT);
-        return getInvalidNode();
-    }
-
-    // Check that the given expression is of the current domain type.
-    DomainType *domTy = domoid->getPercentType();
-    Expr *expr = ensureExpr(exprNode);
-    if (!expr || !(expr = checkExprInContext(expr, domTy)))
-        return getInvalidNode();
-
-    // Check that the carrier type has been defined.
-    CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
-    if (!carrier) {
-        report(loc, diag::CARRIER_TYPE_UNDEFINED);
-        return getInvalidNode();
-    }
-
-    exprNode.release();
-    return getNode(new InjExpr(expr, carrier->getType(), loc));
-}
-
-Node TypeCheck::acceptPrj(Location loc, Node exprNode)
-{
-    Domoid *domoid = getCurrentDomoid();
-
-    if (!domoid) {
-        report(loc, diag::INVALID_PRJ_CONTEXT);
-        return getInvalidNode();
-    }
-
-    // Check that the carrier type has been defined.
-    CarrierDecl *carrier = domoid->getImplementation()->getCarrier();
-    if (!carrier) {
-        report(loc, diag::CARRIER_TYPE_UNDEFINED);
-        return getInvalidNode();
-    }
-
-    Type *carrierTy = carrier->getType();
-    Expr *expr = ensureExpr(exprNode);
-    if (!expr || !(expr = checkExprInContext(expr, carrierTy)))
-        return getInvalidNode();
-
-    exprNode.release();
-    DomainType *prjType = domoid->getPercentType();
-    return getNode(new PrjExpr(expr, prjType, loc));
-}
-
 Node TypeCheck::acceptIntegerLiteral(llvm::APInt &value, Location loc)
 {
     // Integer literals are always unsigned (we have yet to apply a negation

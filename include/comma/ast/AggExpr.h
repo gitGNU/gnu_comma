@@ -141,7 +141,7 @@ public:
     }
     DiscreteType *getAsDiscreteType() {
         if (TypeRef *ref = getAsTypeRef()) {
-            return llvm::cast<DiscreteType>(ref->getTypeDecl()->getType());
+            return llvm::cast<DiscreteType>(ref->getDecl()->getType());
         }
         return 0;
     }
@@ -163,7 +163,7 @@ public:
     }
     const DiscreteType *getAsDiscreteType() const {
         if (const TypeRef *ref = getAsTypeRef()) {
-            return llvm::cast<DiscreteType>(ref->getTypeDecl()->getType());
+            return llvm::cast<DiscreteType>(ref->getDecl()->getType());
         }
         return 0;
     }

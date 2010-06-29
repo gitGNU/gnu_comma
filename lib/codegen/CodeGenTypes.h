@@ -12,7 +12,6 @@
 #include "comma/ast/AstBase.h"
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/DerivedTypes.h"
 
 namespace comma {
@@ -29,15 +28,9 @@ class CodeGen;
 class CodeGenTypes {
 
 public:
-    CodeGenTypes(CodeGen &CG, CapsuleInstance *context = 0)
-        : CG(CG), topScope(rewrites), context(context) {
-        if (context)
-            addInstanceRewrites(context);
-    };
+    CodeGenTypes(CodeGen &CG) : CG(CG) { };
 
     const llvm::Type *lowerType(const Type *type);
-
-    const llvm::Type *lowerDomainType(const DomainType *type);
 
     const llvm::IntegerType *lowerEnumType(const EnumerationType *type);
 
@@ -83,9 +76,7 @@ public:
 
     /// Resolves the given type.
     ///
-    /// In the case a domain types this method resolves the underlying
-    /// representation.  In the case of incomplete types this method resolves
-    /// the completion.
+    /// For incomplete and private types this method resolves the completion.
     const Type *resolveType(const Type *type);
 
     /// \name Calling Conventions.
@@ -103,13 +94,6 @@ public:
 private:
     CodeGen &CG;
 
-    typedef llvm::ScopedHashTable<const Type*, const Type*> RewriteMap;
-    typedef llvm::ScopedHashTableScope<const Type*, const Type*> RewriteScope;
-    RewriteMap rewrites;
-    RewriteScope topScope;
-
-    CapsuleInstance *context;
-
     /// Map from ComponentDecl's to the associated index within an llvm
     /// structure.
     typedef llvm::DenseMap<const ComponentDecl*, unsigned> ComponentIndexMap;
@@ -123,11 +107,7 @@ private:
     typedef llvm::DenseMap<const Type*, const llvm::Type*> TypeMap;
     TypeMap loweredTypes;
 
-    const DomainType *rewriteAbstractDecl(const AbstractDomainDecl *abstract);
-
     const llvm::IntegerType *getTypeForWidth(unsigned numBits);
-
-    void addInstanceRewrites(const CapsuleInstance *instance);
 
     /// \brief Returns a reference to a slot in the type map corresponding to
     /// the given Comma type.

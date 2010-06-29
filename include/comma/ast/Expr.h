@@ -117,8 +117,8 @@ public:
     ///
     ///   - A renamed object declaration which signifies a mutable expression.
     ///
-    /// A mutable DeclRefExpr may be wrapped by an inj, prj, dereference,
-    /// component selection, or array index expression.
+    /// A mutable DeclRefExpr may be wrapped by a dereference, component
+    /// selection, or array index expression.
     ///
     /// \param immutable If \c this is not a mutable expression then \p
     /// immutable is set to first subexpression which forbids mutability.  The
@@ -127,10 +127,6 @@ public:
     ///
     /// \return True if this is a mutable expression false otherwise.
     bool isMutable(Expr *&immutable);
-
-    /// Strips any outer layers of inj/prj expressions and returns the inner
-    /// operand.
-    Expr *ignoreInjPrj();
 
     /// Returns true if this node denotes a name as defined in the Comma
     /// grammar.
@@ -404,52 +400,6 @@ private:
     Expr *prefix;
     ComponentUnion component;
     Location componentLoc;
-};
-
-//===----------------------------------------------------------------------===//
-// InjExpr
-//
-// Represents "inj" expressions, mapping domain types to their carrier types.
-class InjExpr : public Expr {
-
-public:
-    InjExpr(Expr *argument, Type *resultType, Location loc)
-        : Expr(AST_InjExpr, resultType, loc),
-          operand(argument) { }
-
-    Expr *getOperand() { return operand; }
-    const Expr *getOperand() const { return operand; }
-
-    static bool classof(const InjExpr *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_InjExpr;
-    }
-
-private:
-    Expr *operand;
-};
-
-//===----------------------------------------------------------------------===//
-// PrjExpr
-//
-// Represents "prj" expressions, mapping carrier types to their domains.
-class PrjExpr : public Expr {
-
-public:
-    PrjExpr(Expr *argument, DomainType *resultType, Location loc)
-        : Expr(AST_PrjExpr, resultType, loc),
-          operand(argument) { }
-
-    Expr *getOperand() { return operand; }
-    const Expr *getOperand() const { return operand; }
-
-    static bool classof(const PrjExpr *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_PrjExpr;
-    }
-
-private:
-    Expr *operand;
 };
 
 //===----------------------------------------------------------------------===//

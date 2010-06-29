@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
-#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -29,10 +28,9 @@ using llvm::dyn_cast_or_null;
 using llvm::cast;
 using llvm::isa;
 
-CodeGenRoutine::CodeGenRoutine(CGContext &CGC, SRInfo *info)
-    : CG(CGC.getCG()),
-      CGC(CGC),
-      CGT(CGC.getCGT()),
+CodeGenRoutine::CodeGenRoutine(CodeGen &CG, SRInfo *info)
+    : CG(CG),
+      CGT(CG.getCGT()),
       CRT(CG.getRuntime()),
       SRI(info),
       Builder(CG.getLLVMContext()),
@@ -122,7 +120,7 @@ void CodeGenRoutine::emitObjectDecl(ObjectDecl *objDecl)
 void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
 {
     Type *objTy = resolveType(objDecl->getType());
-    Expr *objExpr = objDecl->getRenamedExpr()->ignoreInjPrj();
+    Expr *objExpr = objDecl->getRenamedExpr();
     llvm::Value *objValue;
     llvm::Value *objBounds;
 
@@ -158,9 +156,6 @@ void CodeGenRoutine::emitRenamedObjectDecl(RenamedObjectDecl *objDecl)
 
 CValue CodeGenRoutine::emitReference(Expr *expr)
 {
-    // Remove any outer inj and prj expressions.
-    expr = expr->ignoreInjPrj();
-
     CValue result;
 
     // The most common case is a reference to a declaration.
@@ -199,12 +194,6 @@ CValue CodeGenRoutine::emitValue(Expr *expr)
 
     case Ast::AST_DereferenceExpr:
         return emitDereferencedValue(cast<DereferenceExpr>(expr));
-
-    case Ast::AST_InjExpr:
-        return emitInjExpr(cast<InjExpr>(expr));
-
-    case Ast::AST_PrjExpr:
-        return emitPrjExpr(cast<PrjExpr>(expr));
 
     case Ast::AST_IntegerLiteral:
         return emitIntegerLiteral(cast<IntegerLiteral>(expr));

@@ -27,13 +27,10 @@ class Function;
 
 namespace comma {
 
-class CGContext;
-
 // This class provides for code generation of subroutines.
 class CodeGenRoutine {
 
     CodeGen       &CG;
-    CGContext     &CGC;
     CodeGenTypes  &CGT;
     const CommaRT &CRT;
 
@@ -47,13 +44,10 @@ class CodeGenRoutine {
     Frame *SRF;
 
 public:
-    CodeGenRoutine(CGContext &CGC, SRInfo *info);
+    CodeGenRoutine(CodeGen &CG, SRInfo *info);
 
     /// Returns the code generator.
     CodeGen &getCodeGen() { return CG; }
-
-    /// Returns the code generator context.
-    CGContext &getCGC() { return CGC; }
 
     /// \brief Returns the SRInfo object corresponding to the subroutine being
     /// generated.
@@ -143,8 +137,6 @@ private:
                                     llvm::BasicBlock *predecessor = 0);
 
     CValue emitDeclRefExpr(DeclRefExpr *expr);
-    CValue emitPrjExpr(PrjExpr *expr);
-    CValue emitInjExpr(InjExpr *expr);
     CValue emitIntegerLiteral(IntegerLiteral *expr);
     CValue emitIndexedArrayValue(IndexedArrayExpr *expr);
     CValue emitConversionValue(ConversionExpr *expr);
@@ -166,16 +158,6 @@ private:
     /// Emits a range check over discrete types.
     void emitDiscreteRangeCheck(llvm::Value *sourceVal, Location loc,
                                 Type *sourceTy, DiscreteType *targetTy);
-
-    /// Helper method for emitAbstractCall.
-    ///
-    /// Resolves the target subroutine for an abstract call, given an instance
-    /// serving as a formal parameter to a functor, an AbstractDomainDecl \p
-    /// abstract and a target subroutine (assumed to be an export of the
-    /// abstract domain).
-    SubroutineDecl *resolveAbstractSubroutine(DomainInstanceDecl *instance,
-                                              AbstractDomainDecl *abstract,
-                                              SubroutineDecl *target);
 
     /// Emits an assertion pragma.
     void emitPragmaAssert(PragmaAssert *pragma);

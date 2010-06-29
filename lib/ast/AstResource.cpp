@@ -255,26 +255,6 @@ ProcedureType *AstResource::getProcedureType(Type **argTypes, unsigned numArgs)
     return res;
 }
 
-DomainType *AstResource::createDomainType(DomainTypeDecl *decl)
-{
-    DomainType *domTy;
-
-    // Construct the root type.
-    domTy = new DomainType(decl);
-    types.push_back(domTy);
-
-    // Construct a named first subtype of the root.
-    domTy = new DomainType(domTy, domTy->getIdInfo());
-    types.push_back(domTy);
-    return domTy;
-}
-
-DomainType *AstResource::createDomainSubtype(DomainType *root,
-                                             IdentifierInfo *name)
-{
-    return new DomainType(root, name);
-}
-
 EnumerationDecl *
 AstResource::createEnumDecl(IdentifierInfo *name, Location loc,
                             std::pair<IdentifierInfo*, Location> *elems,

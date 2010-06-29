@@ -99,13 +99,6 @@ public:
     /// given type.
     bool isUniversalTypeOf(const Type *type) const;
 
-    /// Returns true if this type involves a percent node.
-    ///
-    /// More precisely, this method returns true if the node itself denotes
-    /// percent, or if this is a composite, parameterized domain, or subroutine
-    /// type with a component type which involves percent.
-    bool involvesPercent() const;
-
     /// \brief Returns true if this is an indenfinite type.
     ///
     /// An indefinite type is a type whose size is unknown at compile time.
@@ -506,94 +499,6 @@ private:
     /// to the corresponding incomplete type declaration.  For subtypes, this is
     /// a pointer to the identifier info naming the subtype.
     llvm::PointerUnion<IncompleteTypeDecl *, IdentifierInfo *> definingDecl;
-};
-
-
-//===----------------------------------------------------------------------===//
-// DomainType
-class DomainType : public PrimaryType {
-
-public:
-    /// Returns the defining identifier of this type.
-    IdentifierInfo *getIdInfo() const;
-
-    /// Returns the defining identifier of this type as a C-string.
-    const char *getString() const { return getIdInfo()->getString(); }
-
-    /// Returns true if this node is a percent node.
-    bool denotesPercent() const { return getPercentDecl() != 0; }
-
-    /// Returns true if the underlying declaration is an DomainInstanceDecl.
-    bool isConcrete() const { return getInstanceDecl() != 0; }
-
-    /// Returns true if the underlying declaration is an AbstractDomainDecl.
-    bool isAbstract() const { return getAbstractDecl() != 0; }
-
-    //@
-    /// Return the associated DomainTypeDecl.
-    const DomainTypeDecl *getDomainTypeDecl() const;
-    DomainTypeDecl *getDomainTypeDecl();
-    //@}
-
-    //@{
-    /// If this node represents %, return the associated PercentDecl, else null.
-    const PercentDecl *getPercentDecl() const;
-    PercentDecl *getPercentDecl();
-    //@}
-
-    //@
-    /// If this node is concrete, return the underlying DomainInstanceDecl, else
-    /// null.
-    const DomainInstanceDecl *getInstanceDecl() const;
-    DomainInstanceDecl *getInstanceDecl();
-    //@}
-
-    //@{
-    /// If this node is abstract, return underlying AbstractDomainDecl, else
-    /// null.
-    const AbstractDomainDecl *getAbstractDecl() const;
-    AbstractDomainDecl *getAbstractDecl();
-    //@}
-
-    //@{
-    /// If this type is associated with a DomainInstanceDecl, returns the
-    /// representation type of this domain, otherwise null.
-    const PrimaryType *getRepresentationType() const {
-        return const_cast<DomainType*>(this)->getRepresentationType();
-    }
-    PrimaryType *getRepresentationType();
-    //@}
-
-    //@{
-    /// Specialize PrimaryType::getRootType().
-    DomainType *getRootType() {
-        return llvm::cast<DomainType>(PrimaryType::getRootType());
-    }
-    const DomainType *getRootType() const {
-        return llvm::cast<DomainType>(PrimaryType::getRootType());
-    }
-    //@}
-
-    /// Support isa and dyn_cast.
-    static bool classof(const DomainType *node) { return true; }
-    static bool classof(const Ast *node) {
-        return node->getKind() == AST_DomainType;
-    }
-
-private:
-    /// Creates a type representing the given domain type declaration.
-    DomainType(DomainTypeDecl *DTDecl);
-
-    /// Creates a subtype of the given domain type.
-    DomainType(DomainType *rootType, IdentifierInfo *name);
-
-    /// Domain types are allocated and managed by AstResource.
-    friend class AstResource;
-
-    /// When root domain types are constructed, this union contains a pointer to
-    /// the corresponding domain declaration.  For subtypes, this is a pointer
-    /// to the identifier info naming the subtype.
-    llvm::PointerUnion<DomainTypeDecl*, IdentifierInfo*> definingDecl;
 };
 
 //===----------------------------------------------------------------------===//

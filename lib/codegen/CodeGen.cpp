@@ -8,10 +8,10 @@
 
 #include "CodeGen.h"
 #include "SRInfo.h"
-#include "CGContext.h"
 #include "CodeGenRoutine.h"
+#include "CodeGenTypes.h"
 #include "CommaRT.h"
-#include "DependencySet.h"
+#include "InstanceInfo.h"
 #include "comma/ast/AstResource.h"
 #include "comma/ast/Cunit.h"
 #include "comma/ast/Decl.h"
@@ -31,6 +31,7 @@ CodeGen::CodeGen(llvm::Module *M, const llvm::TargetData &data,
       Manager(manager),
       Resource(resource),
       CRT(new CommaRT(*this)),
+      CGT(new CodeGenTypes(*this)),
       moduleName(0) { }
 
 CodeGen::~CodeGen()
@@ -44,10 +45,6 @@ void CodeGen::emitCompilationUnit(CompilationUnit *cunit)
     typedef CompilationUnit::dep_iterator dep_iterator;
     for (dep_iterator I = cunit->begin_dependencies(),
              E = cunit->end_dependencies(); I != E; ++I) {
-        if (DomainDecl *domain = dyn_cast<DomainDecl>(*I)) {
-            InstanceInfo *info = createInstanceInfo(domain->getInstance());
-            info->markAsCompiled();
-        }
         if (PackageDecl *package = dyn_cast<PackageDecl>(*I)) {
             InstanceInfo *info = createInstanceInfo(package->getInstance());
             info->markAsCompiled();
@@ -66,14 +63,11 @@ void CodeGen::emitToplevelDecl(Decl *decl)
 {
     InstanceInfo *info = 0;
 
-    if (DomainDecl *domain = dyn_cast<DomainDecl>(decl))
-        info = createInstanceInfo(domain->getInstance());
-
     if (PackageDecl *package = dyn_cast<PackageDecl>(decl))
         info = createInstanceInfo(package->getInstance());
 
     if (info) {
-        emitCapsule(info);
+        emitPackage(info);
 
         // Continuously compile from the set of required instances so long as
         // there exist entries which need to be codegened.
@@ -82,32 +76,23 @@ void CodeGen::emitToplevelDecl(Decl *decl)
     }
 }
 
-void CodeGen::emitCapsule(InstanceInfo *info)
+void CodeGen::emitPackage(InstanceInfo *info)
 {
-    CGContext CGC(*this, info);
-
     // Codegen each subroutine.
-    const AddDecl *add;
-    CapsuleInstance *instance = info->getInstance();
-    if (info->denotesDomainInstance()) {
-        DomainInstanceDecl *dom = info->getDomainInstanceDecl();
-        add = dom->getDefinition()->getImplementation();
-    }
-    else {
-        assert(info->denotesPkgInstance());
-        PkgInstanceDecl *pkg = info->getPkgInstanceDecl();
-        add = pkg->getDefinition()->getImplementation();
-    }
+    IInfo = info;
+    PkgInstanceDecl *instance = IInfo->getInstance();
+    const AddDecl *add = instance->getDefinition()->getImplementation();
 
     for (DeclRegion::ConstDeclIter I = add->beginDecls(), E = add->endDecls();
          I != E; ++I) {
         if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
             SRInfo *SRI = getSRInfo(instance, SRD);
-            CodeGenRoutine CGR(CGC, SRI);
+            CodeGenRoutine CGR(*this, SRI);
             CGR.emit();
         }
     }
-    info->markAsCompiled();
+    IInfo->markAsCompiled();
+    IInfo = 0;
 }
 
 void CodeGen::emitEntry(ProcedureDecl *pdecl)
@@ -116,17 +101,9 @@ void CodeGen::emitEntry(ProcedureDecl *pdecl)
     assert(pdecl->getArity() == 0 && "Entry procedures must be nullary!");
 
     // Lookup the generated function.
-    llvm::Value *func;
     DeclRegion *region = pdecl->getDeclRegion();
-    if (DomainInstanceDecl *domain = dyn_cast<DomainInstanceDecl>(region)) {
-        assert(!domain->isParameterized() &&
-               "Cannot call entry procedures in a parameterized context!");
-        func = getSRInfo(domain, pdecl)->getLLVMFunction();
-    }
-    else {
-        PkgInstanceDecl *package = cast<PkgInstanceDecl>(region);
-        func = getSRInfo(package, pdecl)->getLLVMFunction();
-    }
+    PkgInstanceDecl *package = cast<PkgInstanceDecl>(region);
+    llvm::Value *func = getSRInfo(package, pdecl)->getLLVMFunction();
 
     // Build the function type for the entry stub.
     //
@@ -210,7 +187,7 @@ llvm::Function *CodeGen::getEHTypeidIntrinsic() const
     return getLLVMIntrinsic(llvm::Intrinsic::eh_typeid_for);
 }
 
-InstanceInfo *CodeGen::createInstanceInfo(CapsuleInstance *instance)
+InstanceInfo *CodeGen::createInstanceInfo(PkgInstanceDecl *instance)
 {
     assert(!lookupInstanceInfo(instance) &&
            "Instance already has associated info!");
@@ -238,15 +215,13 @@ void CodeGen::emitNextInstance()
     for (iterator I = InstanceTable.begin(); I != E; ++I) {
         if (I->second->isCompiled())
             continue;
-        emitCapsule(I->second);
+        emitPackage(I->second);
         return;
     }
 }
 
-bool CodeGen::extendWorklist(CapsuleInstance *instance)
+bool CodeGen::extendWorklist(PkgInstanceDecl *instance)
 {
-    assert(!instance->isDependent() && "Cannot codegen dependent instances!");
-
     // If there is already and entry for this instance we will codegen it
     // eventually (if we have not already).
     if (lookupInstanceInfo(instance))
@@ -256,7 +231,7 @@ bool CodeGen::extendWorklist(CapsuleInstance *instance)
     return true;
 }
 
-SRInfo *CodeGen::getSRInfo(CapsuleInstance *instance,
+SRInfo *CodeGen::getSRInfo(PkgInstanceDecl *instance,
                            SubroutineDecl *srDecl)
 {
     InstanceInfo *IInfo = getInstanceInfo(instance);
@@ -336,26 +311,17 @@ llvm::Function *CodeGen::makeFunction(const llvm::FunctionType *Ty,
     return fn;
 }
 
-llvm::Function *CodeGen::makeFunction(const CapsuleInstance *instance,
+llvm::Function *CodeGen::makeFunction(const PkgInstanceDecl *instance,
                                       const SubroutineDecl *srDecl,
                                       CodeGenTypes &CGT)
 {
     const llvm::FunctionType *fnTy = CGT.lowerSubroutine(srDecl);
     std::string fnName = mangle::getLinkName(instance, srDecl);
-    llvm::GlobalValue::LinkageTypes linkTy;
     llvm::Function *fn;
 
-    // All instances should be fully resolved.
-    assert(!instance->isDependent() && "Unexpected dependent instance!");
-
-    // If this is a parameterized instance all functions must be defined with
-    // WeakODRLinkage (One Definition Rule, as in C++).  Otherwise use external
-    // linkage.
-    if (instance->isParameterized())
-        linkTy = llvm::GlobalValue::WeakODRLinkage;
-    else
-        linkTy = llvm::GlobalValue::ExternalLinkage;
-    fn = makeFunction(fnTy, fnName, linkTy);
+    // FIXME: When we support generic packages the linkage type must be
+    // WeakODRLinkage.
+    fn = makeFunction(fnTy, fnName, llvm::GlobalValue::ExternalLinkage);
 
     // Mark the function as sret if needed.
     if (CGT.getConvention(srDecl) == CodeGenTypes::CC_Sret)
@@ -396,18 +362,6 @@ llvm::ConstantInt *CodeGen::getConstantInt(const llvm::IntegerType *type,
     }
 
     return cast<llvm::ConstantInt>(res);
-}
-
-const DependencySet &CodeGen::getDependencySet(const Domoid *domoid)
-{
-    DependenceMap::value_type &entry = dependenceTable.FindAndConstruct(domoid);
-
-    if (entry.second)
-        return *entry.second;
-
-    DependencySet *DS = new DependencySet(domoid);
-    entry.second = DS;
-    return *DS;
 }
 
 llvm::Constant *CodeGen::getModuleName()

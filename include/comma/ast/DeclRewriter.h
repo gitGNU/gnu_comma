@@ -94,8 +94,6 @@ public:
     IncompleteTypeDecl *rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD);
 
     AccessDecl *rewriteAccessDecl(AccessDecl *access);
-
-    CarrierDecl *rewriteCarrierDecl(CarrierDecl *carrier);
     //@}
 
     /// Rewrites the given declaration node.

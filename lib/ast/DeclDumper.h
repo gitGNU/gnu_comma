@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -61,20 +61,10 @@ private:
     /// '>'.  The indentation level can change while a node is being printed,
     /// but the level is always restored once the printing is complete.
     void visitUseDecl(UseDecl *node);
-    void visitSignatureDecl(SignatureDecl *node);
-    void visitVarietyDecl(VarietyDecl *node);
-    void visitSigInstanceDecl(SigInstanceDecl *node);
     void visitAddDecl(AddDecl *node);
-    void visitDomainDecl(DomainDecl *node);
-    void visitFunctorDecl(FunctorDecl *node);
     void visitSubroutineDecl(SubroutineDecl *node);
     void visitFunctionDecl(FunctionDecl *node);
     void visitProcedureDecl(ProcedureDecl *node);
-    void visitCarrierDecl(CarrierDecl *node);
-    void visitDomainTypeDecl(DomainTypeDecl *node);
-    void visitAbstractDomainDecl(AbstractDomainDecl *node);
-    void visitDomainInstanceDecl(DomainInstanceDecl *node);
-    void visitPercentDecl(PercentDecl *node);
     void visitLoopDecl(LoopDecl *node);
     void visitParamValueDecl(ParamValueDecl *node);
     void visitObjectDecl(ObjectDecl *node);

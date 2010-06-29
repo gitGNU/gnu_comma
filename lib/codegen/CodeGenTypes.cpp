@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CGContext.h"
 #include "CodeGen.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -84,9 +83,6 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
         assert(false && "Cannot lower the given Type!");
         return 0;
 
-    case Ast::AST_DomainType:
-        return lowerDomainType(cast<DomainType>(type));
-
     case Ast::AST_EnumerationType:
     case Ast::AST_IntegerType:
         return lowerDiscreteType(cast<DiscreteType>(type));
@@ -108,86 +104,12 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     }
 }
 
-void CodeGenTypes::addInstanceRewrites(const CapsuleInstance *instance)
-{
-    const FunctorDecl *functor = instance->getDefiningFunctor();
-    if (!functor)
-        return;
-
-    unsigned arity = functor->getArity();
-    for (unsigned i = 0; i < arity; ++i) {
-        const Type *key = functor->getFormalType(i);
-        const Type *value = instance->getActualParamType(i);
-        rewrites.insert(key, value);
-    }
-}
-
-const DomainType *
-CodeGenTypes::rewriteAbstractDecl(const AbstractDomainDecl *abstract)
-{
-    typedef RewriteMap::iterator iterator;
-    iterator I = rewrites.begin(abstract->getType());
-    assert(I != rewrites.end() && "Could not resolve abstract type!");
-    return cast<DomainType>(*I);
-}
-
 const Type *CodeGenTypes::resolveType(const Type *type)
 {
-    if (const DomainType *domTy = dyn_cast<DomainType>(type)) {
-
-        if (const AbstractDomainDecl *decl = domTy->getAbstractDecl())
-            return resolveType(rewriteAbstractDecl(decl));
-
-        const DomainInstanceDecl *instance;
-        if (const PercentDecl *percent = domTy->getPercentDecl()) {
-            // Ensure that the current context represents a particular instance
-            // of the percent node and resolve the particular representation
-            // associated with the instance.
-            assert(percent->getDefinition() == context->getDefinition());
-            percent = 0;        // Inhibit unused variable warning.
-            instance = context->asDomainInstance();
-        }
-        else
-            instance = domTy->getInstanceDecl();
-
-        if (instance->isParameterized() && instance->isDependent()) {
-            RewriteScope scope(rewrites);
-            addInstanceRewrites(instance);
-            return resolveType(instance->getRepresentationType());
-        }
-        else
-            return resolveType(instance->getRepresentationType());
-    }
-    else if (const IncompleteType *IT = dyn_cast<IncompleteType>(type))
+    if (const IncompleteType *IT = dyn_cast<IncompleteType>(type))
         return resolveType(IT->getCompleteType());
 
     return type;
-}
-
-const llvm::Type *CodeGenTypes::lowerDomainType(const DomainType *type)
-{
-    const llvm::Type *entry = 0;
-
-    if (type->isAbstract())
-        type = rewriteAbstractDecl(type->getAbstractDecl());
-
-    if (const PercentDecl *percent = type->getPercentDecl()) {
-        assert(percent->getDefinition() == context->getDefinition() &&
-               "Inconsistent context for PercentDecl!");
-        percent = 0;            // Inhibit unused variable warning.
-        entry = lowerType(context->asDomainInstance()->getRepresentationType());
-    }
-    else {
-        const DomainInstanceDecl *instance = type->getInstanceDecl();
-        if (instance->isParameterized()) {
-            RewriteScope scope(rewrites);
-            addInstanceRewrites(instance);
-            entry = lowerType(instance->getRepresentationType());
-        }
-        else
-            entry = lowerType(instance->getRepresentationType());
-    }
-    return entry;
 }
 
 const llvm::FunctionType *

@@ -19,25 +19,16 @@ using llvm::cast;
 using llvm::isa;
 
 const char *Ast::kindStrings[LAST_AstKind] = {
-    "SignatureDecl",
-    "DomainDecl",
-    "VarietyDecl",
-    "FunctorDecl",
     "PackageDecl",
     "AddDecl",
 
     "AccessDecl",
-    "CarrierDecl",
     "EnumerationDecl",
     "IncompleteTypeDecl",
     "IntegerDecl",
     "ArrayDecl",
     "RecordDecl",
-    "AbstractDomainDecl",
-    "DomainInstanceDecl",
-    "PercentDecl",
 
-    "SigInstanceDecl",
     "PkgInstanceDecl",
 
     "LoopDecl",
@@ -60,7 +51,6 @@ const char *Ast::kindStrings[LAST_AstKind] = {
 
     "AccessType",
     "ArrayType",
-    "DomainType",
     "EnumerationType",
     "IncompleteType",
     "IntegerType",
@@ -73,11 +63,9 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "DereferenceExpr",
     "FunctionCallExpr",
     "IndexedArrayExpr",
-    "InjExpr",
     "IntegerLiteral",
     "NullExpr",
     "AggregateExpr",
-    "PrjExpr",
     "QualifiedExpr",
     "SelectedExpr",
     "StringLiteral",

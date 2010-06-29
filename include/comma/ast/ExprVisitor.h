@@ -34,8 +34,6 @@ public:
     virtual void visitFunctionCallExpr(FunctionCallExpr *node);
     virtual void visitIndexedArrayExpr(IndexedArrayExpr *node);
     virtual void visitSelectedExpr(SelectedExpr *node);
-    virtual void visitInjExpr(InjExpr *node);
-    virtual void visitPrjExpr(PrjExpr *node);
     virtual void visitIntegerLiteral(IntegerLiteral *node);
     virtual void visitStringLiteral(StringLiteral *node);
     virtual void visitConversionExpr(ConversionExpr *node);

@@ -43,21 +43,6 @@ void DeclDumper::visitUseDecl(UseDecl *node)
     printHeader(node) << '>';
 }
 
-void DeclDumper::visitSignatureDecl(SignatureDecl *node)
-{
-    printHeader(node) << '>';
-}
-
-void DeclDumper::visitVarietyDecl(VarietyDecl *node)
-{
-    printHeader(node) << '>';
-}
-
-void DeclDumper::visitSigInstanceDecl(SigInstanceDecl *node)
-{
-    printHeader(node) << '>';
-}
-
 void DeclDumper::visitAddDecl(AddDecl *node)
 {
     printHeader(node);
@@ -74,26 +59,6 @@ void DeclDumper::visitAddDecl(AddDecl *node)
         dedent();
     }
     S << '>';
-}
-
-void DeclDumper::visitDomainDecl(DomainDecl *node)
-{
-    printHeader(node) << '\n';
-    indent();
-    printIndentation();
-    visitPercentDecl(node->getPercent());
-
-    if (AddDecl *add = node->getImplementation()) {
-        S << '\n';
-        printIndentation();
-        visitAddDecl(add);
-    }
-    S << '>';
-}
-
-void DeclDumper::visitFunctorDecl(FunctorDecl *node)
-{
-    printHeader(node) << '>';
 }
 
 void DeclDumper::visitSubroutineDecl(SubroutineDecl *node)
@@ -119,64 +84,6 @@ void DeclDumper::visitFunctionDecl(FunctionDecl *node)
 void DeclDumper::visitProcedureDecl(ProcedureDecl *node)
 {
     visitSubroutineDecl(node);
-}
-
-void DeclDumper::visitCarrierDecl(CarrierDecl *node)
-{
-    printHeader(node) << '>';
-}
-
-void DeclDumper::visitDomainTypeDecl(DomainTypeDecl *node)
-{
-    if (AbstractDomainDecl *abstract = dyn_cast<AbstractDomainDecl>(node))
-        visitAbstractDomainDecl(abstract);
-    else {
-        DomainInstanceDecl *instance = cast<DomainInstanceDecl>(node);
-        visitDomainInstanceDecl(instance);
-    }
-}
-
-void DeclDumper::visitAbstractDomainDecl(AbstractDomainDecl *node)
-{
-    printHeader(node) << '>';
-}
-
-void DeclDumper::visitDomainInstanceDecl(DomainInstanceDecl *node)
-{
-    printHeader(node);
-
-    if (unsigned arity = node->getArity()) {
-        S << '\n';
-        indent();
-        printIndentation() << ":Params";
-        indent();
-        for (unsigned i = 0; i < arity; ++i) {
-            S << '\n';
-            printIndentation();
-            visitDomainTypeDecl(node->getActualParam(i));
-        }
-        dedent();
-        dedent();
-    }
-    S << '>';
-}
-
-void DeclDumper::visitPercentDecl(PercentDecl *node)
-{
-    printHeader(node);
-
-    if (node->countDecls()) {
-        indent();
-        DeclRegion::DeclRegion::DeclIter I = node->beginDecls();
-        DeclRegion::DeclRegion::DeclIter E = node->endDecls();
-        for ( ; I != E; ++I) {
-            S << '\n';
-            printIndentation();
-            visitDecl(*I);
-        }
-        dedent();
-    }
-    S << '>';
 }
 
 void DeclDumper::visitParamValueDecl(ParamValueDecl *node)

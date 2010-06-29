@@ -209,10 +209,10 @@ public:
     /// \brief Adds the declarations from the given region to this one using the
     /// supplied rewrite rules.
     ///
-    /// This method is intended to support subclasses which have some subset of
-    /// their declarative regions defined in terms of another declaration.  For
-    /// example, domain instances are a rewritten version of the domains
-    /// PercentDecl.
+    /// This method is intended to support nodes which have some subset of their
+    /// declarative regions defined in terms of another declaration.  The
+    /// primary example of this how package instances are a rewritten version of
+    /// the corresponding PackageDecl.
     void addDeclarationsUsingRewrites(DeclRewriter &rewrites,
                                       const DeclRegion *region);
 
@@ -224,9 +224,6 @@ public:
         switch (node->getKind()) {
         default:
             return false;
-        case Ast::AST_DomainInstanceDecl:
-        case Ast::AST_AbstractDomainDecl:
-        case Ast::AST_PercentDecl:
         case Ast::AST_AddDecl:
         case Ast::AST_PackageDecl:
         case Ast::AST_PkgInstanceDecl:
@@ -248,12 +245,9 @@ public:
     static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const IntegerDecl   *node) { return true; }
     static bool classof(const PackageDecl   *node) { return true; }
-    static bool classof(const PercentDecl   *node) { return true; }
     static bool classof(const RecordDecl    *node) { return true; }
     static bool classof(const ArrayDecl     *node) { return true; }
     static bool classof(const AccessDecl    *node) { return true; }
-    static bool classof(const DomainInstanceDecl *node) { return true; }
-    static bool classof(const AbstractDomainDecl *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }
     static bool classof(const PkgInstanceDecl    *node) { return true; }
 

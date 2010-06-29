@@ -221,7 +221,7 @@ bool SubroutineCall::isDirectCall() const
 
     const SubroutineDecl *decl = getConnective();
     const DeclRegion *region = decl->getDeclRegion();
-    return isa<DomainInstanceDecl>(region) || isa<PkgInstanceDecl>(region);
+    return isa<PkgInstanceDecl>(region);
 }
 
 bool SubroutineCall::isLocalCall() const
@@ -229,22 +229,11 @@ bool SubroutineCall::isLocalCall() const
     if (isAmbiguous())
         return false;
 
-    // If the declarative region maps to an add, percent, or package decl then
-    // this is a local call.
+    // If the declarative region maps to an add or package decl then this is a
+    // local call.
     const SubroutineDecl *decl = getConnective();
     const DeclRegion *region = decl->getDeclRegion();
-    return (isa<AddDecl>(region) || isa<PercentDecl>(region) ||
-            isa<PackageDecl>(region));
-}
-
-bool SubroutineCall::isAbstractCall() const
-{
-    if (isAmbiguous())
-        return false;
-
-    const SubroutineDecl *decl = getConnective();
-    const DeclRegion *region = decl->getDeclRegion();
-    return isa<AbstractDomainDecl>(region);
+    return (isa<AddDecl>(region) || isa<PackageDecl>(region));
 }
 
 bool SubroutineCall::isForeignCall() const

@@ -37,7 +37,7 @@ public:
     ///
     ///   - The procedure must be nullary.  Parameters are not accepted.
     ///
-    ///   - The procedure must be defined within a domain, not a functor.
+    ///   - The procedure must be defined within a non-generic package.
     ///
     ///   - The procedure must have been codegened.
     ///

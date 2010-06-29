@@ -161,51 +161,6 @@ bool Type::isUniversalTypeOf(const Type *type) const
     return false;
 }
 
-bool Type::involvesPercent() const
-{
-    if (const DomainType *domTy = dyn_cast<DomainType>(this)) {
-        if (domTy->denotesPercent())
-            return true;
-
-        if (const DomainInstanceDecl *instance = domTy->getInstanceDecl()) {
-            unsigned arity = instance->getArity();
-            for (unsigned i = 0; i < arity; ++i) {
-                const DomainType *param = instance->getActualParamType(i);
-                if (param->involvesPercent())
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    if (const ArrayType *arrTy = dyn_cast<ArrayType>(this))
-        return arrTy->getComponentType()->involvesPercent();
-
-    if (const SubroutineType *subTy = dyn_cast<SubroutineType>(this)) {
-        SubroutineType::arg_type_iterator I = subTy->begin();
-        SubroutineType::arg_type_iterator E = subTy->end();
-        for ( ; I != E; ++I) {
-            const Type *argTy = *I;
-            if (argTy->involvesPercent())
-                return true;
-        }
-
-        if (const FunctionType *fnTy = dyn_cast<FunctionType>(subTy))
-            return fnTy->getReturnType()->involvesPercent();
-    }
-
-    if (const RecordType *recordTy = dyn_cast<RecordType>(this)) {
-        unsigned components = recordTy->numComponents();
-        for (unsigned i = 0; i < components; ++i) {
-            if (recordTy->getComponentType(i)->involvesPercent())
-                return true;
-        }
-        return false;
-    }
-
-    return false;
-}
-
 bool Type::isIndefiniteType() const
 {
     if (const ArrayType *arrTy = dyn_cast<ArrayType>(this))
@@ -328,79 +283,6 @@ PrimaryType *IncompleteType::getCompleteType()
 {
     assert(hasCompletion() && "Type does not have a completion!");
     return getDefiningDecl()->getCompletion()->getType();
-}
-
-//===----------------------------------------------------------------------===//
-// DomainType
-
-DomainType::DomainType(DomainTypeDecl *DTDecl)
-    : PrimaryType(AST_DomainType, 0, false),
-      definingDecl(DTDecl)
-{ }
-
-DomainType::DomainType(DomainType *rootType, IdentifierInfo *name)
-    : PrimaryType(AST_DomainType, rootType, true),
-      definingDecl(name)
-{ }
-
-IdentifierInfo *DomainType::getIdInfo() const
-{
-    if (DomainTypeDecl *decl = definingDecl.dyn_cast<DomainTypeDecl*>())
-        return decl->getIdInfo();
-    return definingDecl.get<IdentifierInfo*>();
-}
-
-PrimaryType *DomainType::getRepresentationType()
-{
-    if (DomainInstanceDecl *decl = getInstanceDecl())
-        return decl->getRepresentationType();
-    return 0;
-}
-
-//===----------------------------------------------------------------------===//
-// The following getXXXDecl methods cannot be inlined into Type.h since we do
-// not want Type.h to directly depend on Decl.h.
-
-const DomainTypeDecl *DomainType::getDomainTypeDecl() const
-{
-    const DomainType *root = isSubtype() ? getRootType() : this;
-    return root->definingDecl.get<DomainTypeDecl*>();
-}
-
-DomainTypeDecl *DomainType::getDomainTypeDecl()
-{
-    DomainType *root = isSubtype() ? getRootType() : this;
-    return root->definingDecl.get<DomainTypeDecl*>();
-}
-
-const PercentDecl *DomainType::getPercentDecl() const
-{
-    return dyn_cast<PercentDecl>(getDomainTypeDecl());
-}
-
-PercentDecl *DomainType::getPercentDecl()
-{
-    return dyn_cast<PercentDecl>(getDomainTypeDecl());
-}
-
-const DomainInstanceDecl *DomainType::getInstanceDecl() const
-{
-    return dyn_cast<DomainInstanceDecl>(getDomainTypeDecl());
-}
-
-DomainInstanceDecl *DomainType::getInstanceDecl()
-{
-    return dyn_cast<DomainInstanceDecl>(getDomainTypeDecl());
-}
-
-const AbstractDomainDecl *DomainType::getAbstractDecl() const
-{
-    return dyn_cast<AbstractDomainDecl>(getDomainTypeDecl());
-}
-
-AbstractDomainDecl *DomainType::getAbstractDecl()
-{
-    return dyn_cast<AbstractDomainDecl>(getDomainTypeDecl());
 }
 
 //===----------------------------------------------------------------------===//

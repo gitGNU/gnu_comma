@@ -23,7 +23,6 @@ namespace comma {
 
 class CodeGenTypes;
 class CommaRT;
-class DependencySet;
 class InstanceInfo;
 class SRInfo;
 
@@ -34,6 +33,9 @@ public:
 
     /// Returns the interface to the runtime system.
     CommaRT &getRuntime() const { return *CRT; }
+
+    /// Returns the type generator.
+    CodeGenTypes &getCGT() const { return *CGT; }
 
     /// Returns the module we are generating code for.
     const llvm::Module *getModule() const { return M; }
@@ -50,6 +52,13 @@ public:
 
     /// Returns the AstResource used to generate new AST nodes.
     AstResource &getAstResource() const { return Resource; }
+
+    //@{
+    /// Returns the InstanceInfo object currently being generated, or null if
+    /// there is no package currently registered.
+    const InstanceInfo *getInstanceInfo() const { return IInfo; }
+    InstanceInfo *getInstanceInfo() { return IInfo; }
+    //@}
 
     /// Returns the LLVMContext associated with this code generator.
     llvm::LLVMContext &getLLVMContext() const {
@@ -69,13 +78,13 @@ public:
     /// current module.  Second, forward declarations are created for each of
     /// the instances subroutines.  These declarations are accessible thru the
     /// lookupGlobal method using the appropriately mangled name.
-    bool extendWorklist(CapsuleInstance *instance);
+    bool extendWorklist(PkgInstanceDecl *instance);
 
-    InstanceInfo *lookupInstanceInfo(const CapsuleInstance *instance) const {
+    InstanceInfo *lookupInstanceInfo(const PkgInstanceDecl *instance) const {
         return InstanceTable.lookup(instance);
     }
 
-    InstanceInfo *getInstanceInfo(const CapsuleInstance *instance) const {
+    InstanceInfo *getInstanceInfo(const PkgInstanceDecl *instance) const {
         InstanceInfo *info = lookupInstanceInfo(instance);
         assert(info && "Instance lookup failed!");
         return info;
@@ -83,12 +92,9 @@ public:
 
     /// \brief Returns the SRInfo object associated with \p srDecl.
     ///
-    /// The given instance must be a domain or package registered with the code
-    /// generator.  If the lookup of \p srDecl fails an assertion will fire.
-    SRInfo *getSRInfo(CapsuleInstance *instance, SubroutineDecl *srDecl);
-
-    /// FIXME: This method needs to be encapsulated in a seperate structure.
-    const DependencySet &getDependencySet(const Domoid *domoid);
+    /// The given instance must be registered with the code generator.  If the
+    /// lookup of \p srDecl fails an assertion will fire.
+    SRInfo *getSRInfo(PkgInstanceDecl *instance, SubroutineDecl *srDecl);
 
     /// \brief Adds a mapping between the given link name and an LLVM
     /// GlobalValue into the global table.
@@ -163,8 +169,8 @@ public:
     /// \brief Creates a function corresponding to the given subroutine
     /// declaration.
     ///
-    /// The subroutine must be associated with the given domain instance.
-    llvm::Function *makeFunction(const CapsuleInstance *instance,
+    /// The subroutine must be associated with the given package instance.
+    llvm::Function *makeFunction(const PkgInstanceDecl *instance,
                                  const SubroutineDecl *srDecl,
                                  CodeGenTypes &CGT);
 
@@ -340,6 +346,12 @@ private:
     /// Interface to the runtime system.
     CommaRT *CRT;
 
+    /// Type generator;
+    CodeGenTypes *CGT;
+
+    /// Current instance being generated.
+    InstanceInfo *IInfo;
+
     /// The type of table used to map strings to global values.
     typedef llvm::StringMap<llvm::GlobalValue *> StringGlobalMap;
 
@@ -348,13 +360,8 @@ private:
 
     /// Table mapping instance declarations to the corresponding InstanceInfo
     /// objects.
-    typedef llvm::DenseMap<const CapsuleInstance*, InstanceInfo*> InstanceMap;
+    typedef llvm::DenseMap<const PkgInstanceDecl*, InstanceInfo*> InstanceMap;
     InstanceMap InstanceTable;
-
-    /// FIXME: Temporary mapping from Domoids to their dependency sets.  This
-    /// information will be encapsulated in an as-yet undefined class.
-    typedef llvm::DenseMap<const Domoid*, DependencySet*> DependenceMap;
-    DependenceMap dependenceTable;
 
     /// Name of this module is a constant internal global value (null terminated
     /// C-string).
@@ -367,7 +374,7 @@ private:
     ///
     /// This method will assert if there already exists an info object for the
     /// given instance.
-    InstanceInfo *createInstanceInfo(CapsuleInstance *instance);
+    InstanceInfo *createInstanceInfo(PkgInstanceDecl *instance);
 
     /// Returns true if there exists a member in the instance table which needs
     /// to be compiled.
@@ -377,8 +384,8 @@ private:
     /// well expand the table to include more instances.
     void emitNextInstance();
 
-    /// Emits the capsule described by the given info.
-    void emitCapsule(InstanceInfo *info);
+    /// Emits the package described by the given info.
+    void emitPackage(InstanceInfo *info);
 
     //===------------------------------------------------------------------===//
     // Generator interface and support.

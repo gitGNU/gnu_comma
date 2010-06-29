@@ -34,60 +34,16 @@ void DeclVisitor::visitAst(Ast *node)
 
 void DeclVisitor::visitDecl(Decl *node)
 {
-    if (CapsuleDecl *capsule = dyn_cast<CapsuleDecl>(node))
-        visitCapsuleDecl(capsule);
-    else if (SubroutineDecl *routine = dyn_cast<SubroutineDecl>(node))
+    if (SubroutineDecl *routine = dyn_cast<SubroutineDecl>(node))
         visitSubroutineDecl(routine);
     else if (TypeDecl *typed = dyn_cast<TypeDecl>(node))
         visitTypeDecl(typed);
     else if (ValueDecl *value = dyn_cast<ValueDecl>(node))
         visitValueDecl(value);
-    else if (SigInstanceDecl *instance = dyn_cast<SigInstanceDecl>(node))
-        visitSigInstanceDecl(instance);
     else if (ExceptionDecl *exception = dyn_cast<ExceptionDecl>(node))
         visitExceptionDecl(exception);
     else
         assert(false && "Cannot visit this kind of node!");
-}
-
-void DeclVisitor::visitCapsuleDecl(CapsuleDecl *node)
-{
-    if (ModelDecl *model = dyn_cast<ModelDecl>(node))
-        visitModelDecl(model);
-    else
-        visitPackageDecl(cast<PackageDecl>(node));
-}
-
-void DeclVisitor::visitModelDecl(ModelDecl *node)
-{
-    if (Domoid *domoid = dyn_cast<Domoid>(node))
-        visitDomoid(domoid);
-    else if (Sigoid *sigoid = dyn_cast<Sigoid>(node))
-        visitSigoid(sigoid);
-    else
-        assert(false && "Cannot visit this kind of node!");
-}
-
-void DeclVisitor::visitSigoid(Sigoid *node)
-{
-    switch (node->getKind()) {
-    default:
-        assert(false && "Cannot visit this kind of node!");
-        break;
-    case DISPATCH(SignatureDecl, node);
-    case DISPATCH(VarietyDecl, node);
-    };
-}
-
-void DeclVisitor::visitDomoid(Domoid *node)
-{
-    switch (node->getKind()) {
-    default:
-        assert(false && "Cannot visit this kind of node!");
-        break;
-    case DISPATCH(DomainDecl, node);
-    case DISPATCH(FunctorDecl, node);
-    };
 }
 
 void DeclVisitor::visitSubroutineDecl(SubroutineDecl *node)
@@ -107,13 +63,9 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
     default:
         assert(false && "Cannot visit this kind of node!");
         break;
-    case DISPATCH(AbstractDomainDecl, node);
     case DISPATCH(ArrayDecl, node);
-    case DISPATCH(CarrierDecl, node);
-    case DISPATCH(DomainInstanceDecl, node);
     case DISPATCH(EnumerationDecl, node);
     case DISPATCH(IntegerDecl, node);
-    case DISPATCH(PercentDecl, node);
     case DISPATCH(IncompleteTypeDecl, node);
     };
 }
@@ -128,18 +80,6 @@ void DeclVisitor::visitValueDecl(ValueDecl *node)
     case DISPATCH(ParamValueDecl, node);
     case DISPATCH(LoopDecl, node);
     case DISPATCH(RenamedObjectDecl, node);
-    };
-}
-
-void DeclVisitor::visitDomainTypeDecl(DomainTypeDecl *node)
-{
-    switch (node->getKind()) {
-    default:
-        assert(false && "Cannot visit this kind of node!");
-        break;
-    case DISPATCH(DomainInstanceDecl, node);
-    case DISPATCH(PercentDecl, node);
-    case DISPATCH(AbstractDomainDecl, node);
     };
 }
 
@@ -158,19 +98,10 @@ void DeclVisitor::visitFunctionDecl(FunctionDecl *node)
 //===----------------------------------------------------------------------===//
 
 void DeclVisitor::visitUseDecl(UseDecl *node) { }
-void DeclVisitor::visitSignatureDecl(SignatureDecl *node) { }
-void DeclVisitor::visitVarietyDecl(VarietyDecl *node) { }
-void DeclVisitor::visitSigInstanceDecl(SigInstanceDecl *node) { }
 void DeclVisitor::visitAddDecl(AddDecl *node) { }
-void DeclVisitor::visitDomainDecl(DomainDecl *node) { }
-void DeclVisitor::visitFunctorDecl(FunctorDecl *node) { }
 void DeclVisitor::visitPackageDecl(PackageDecl *node) { }
 void DeclVisitor::visitPkgInstanceDecl(PkgInstanceDecl *node) { }
 void DeclVisitor::visitProcedureDecl(ProcedureDecl *node) { }
-void DeclVisitor::visitCarrierDecl(CarrierDecl *node) { }
-void DeclVisitor::visitAbstractDomainDecl(AbstractDomainDecl *node) { }
-void DeclVisitor::visitDomainInstanceDecl(DomainInstanceDecl *node) { }
-void DeclVisitor::visitPercentDecl(PercentDecl *node) { }
 void DeclVisitor::visitLoopDecl(LoopDecl *node) { }
 void DeclVisitor::visitParamValueDecl(ParamValueDecl *node) { }
 void DeclVisitor::visitObjectDecl(ObjectDecl *node) { }

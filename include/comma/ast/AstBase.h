@@ -23,7 +23,6 @@ namespace comma {
 //
 // Forward declarations for all Ast nodes.
 //
-class AbstractDomainDecl;
 class AccessDecl;
 class AccessType;
 class AddDecl;
@@ -39,9 +38,6 @@ class AstRewriter;
 class AstResource;
 class AttribExpr;
 class BlockStmt;
-class CapsuleDecl;
-class CapsuleInstance;
-class CarrierDecl;
 class ComponentDecl;
 class CompositeType;
 class CompilationUnit;
@@ -53,11 +49,6 @@ class DeclRewriter;
 class DereferenceExpr;
 class DiamondExpr;
 class DiscreteType;
-class DomainDecl;
-class DomainInstanceDecl;
-class DomainType;
-class DomainTypeDecl;
-class Domoid;
 class DSTDefinition;
 class EnumerationDecl;
 class EnumLiteral;
@@ -73,8 +64,6 @@ class FunctionAttribDecl;
 class FunctionCallExpr;
 class FunctionDecl;
 class FunctionType;
-class FunctorDecl;
-class FunctorType;
 class HandlerStmt;
 class Identifier;
 class IfStmt;
@@ -82,7 +71,6 @@ class UseDecl;
 class IndexedArrayExpr;
 class IncompleteType;
 class IncompleteTypeDecl;
-class InjExpr;
 class IntegerDecl;
 class IntegerLiteral;
 class IntegerType;
@@ -93,7 +81,6 @@ class LastArrayAE;
 class LengthAE;
 class LoopDecl;
 class LoopStmt;
-class ModelDecl;
 class NullExpr;
 class NullStmt;
 class ObjectDecl;
@@ -101,14 +88,12 @@ class PackageDecl;
 class PackageRef;
 class PkgInstanceDecl;
 class ParamValueDecl;
-class PercentDecl;
 class PosAD;
 class Pragma;
 class PragmaAssert;
 class PragmaImport;
 class PragmaStmt;
 class PrimaryType;
-class PrjExpr;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
@@ -123,9 +108,6 @@ class ReturnStmt;
 class ScalarBoundAE;
 class ScalarRangeAttrib;
 class SelectedExpr;
-class Sigoid;
-class SignatureDecl;
-class SigInstanceDecl;
 class STIndication;
 class Stmt;
 class StmtSequence;
@@ -140,8 +122,6 @@ class TypeRef;
 class UniversalType;
 class ValAD;
 class ValueDecl;
-class VarietyDecl;
-class VarietyType;
 class WhileStmt;
 
 /// \class Ast
@@ -175,34 +155,26 @@ public:
         //
         // Decl nodes.  There are currently four sub-categories.
         //
-        //    - Model decls which denotes signatures and domains.
+        //    - Package and package body declarations.
         //
-        //    - Type declarations (carriers, enums, etc).
+        //    - Type declarations (records, enums, etc).
         //
         //    - Subroutine decls denoting functions and procedures.
         //
         //    - Value decls denoting elements of a type.
         //
-        AST_SignatureDecl,      ///< SignatureDecl
-        AST_DomainDecl,         ///< DomainDecl
-        AST_VarietyDecl,        ///< VarietyDecl
-        AST_FunctorDecl,        ///< FunctorDecl
         AST_PackageDecl,        ///< PackageDecl
         AST_AddDecl,            ///< AddDecl
 
         AST_AccessDecl,         ///< AccessDecl
-        AST_CarrierDecl,        ///< CarrierDecl
         AST_EnumerationDecl,    ///< EnumerationDecl
         AST_IncompleteTypeDecl, ///< IncompleteTypeDecl
         AST_IntegerDecl,        ///< IntegerDecl
         AST_ArrayDecl,          ///< ArrayDecl
         AST_RecordDecl,         ///< RecordDecl
-        AST_AbstractDomainDecl, ///< AbstractDomainDecl
-        AST_DomainInstanceDecl, ///< DomainInstanceDecl
-        AST_PercentDecl,        ///< PercentDecl
 
-        AST_SigInstanceDecl,    ///< SigInstanceDecl
         AST_PkgInstanceDecl,    ///< PkgInstanceDecl
+
         //
         // Value declaration nodes.
         //
@@ -236,7 +208,6 @@ public:
         //
         AST_AccessType,         ///< AccessType
         AST_ArrayType,          ///< ArrayType
-        AST_DomainType,         ///< DomainType
         AST_EnumerationType,    ///< EnumerationType
         AST_IncompleteType,     ///< IncompleteType
         AST_IntegerType,        ///< IntegerType
@@ -252,11 +223,9 @@ public:
         AST_DereferenceExpr,    ///< DereferenceExpr
         AST_FunctionCallExpr,   ///< FunctionCallExpr
         AST_IndexedArrayExpr,   ///< IndexedArrayExpr
-        AST_InjExpr,            ///< InjExpr
         AST_IntegerLiteral,     ///< IntegerLiteral
         AST_NullExpr,           ///< NullExpr
         AST_AggregateExpr,      ///< AggregateExpr
-        AST_PrjExpr,            ///< PrjExpr
         AST_QualifiedExpr,      ///< QualifiedExpr
         AST_SelectedExpr,       ///< SelectedExpr
         AST_StringLiteral,      ///< StringLiteral
@@ -309,20 +278,11 @@ public:
         //
         LAST_AstKind,
 
-        FIRST_Decl = AST_SignatureDecl,
+        FIRST_Decl = AST_PackageDecl,
         LAST_Decl = AST_ComponentDecl,
 
-        FIRST_CapsuleDecl = AST_SignatureDecl,
-        LAST_CapsuleDecl = AST_PackageDecl,
-
-        FIRST_ModelDecl = AST_SignatureDecl,
-        LAST_ModelDecl = AST_FunctorDecl,
-
         FIRST_TypeDecl = AST_AccessDecl,
-        LAST_TypeDecl = AST_PercentDecl,
-
-        FIRST_DomainType = AST_AbstractDomainDecl,
-        LAST_DomainType = AST_PercentDecl,
+        LAST_TypeDecl = AST_RecordDecl,
 
         FIRST_ValueDecl = AST_LoopDecl,
         LAST_ValueDecl = AST_RenamedObjectDecl,
@@ -382,16 +342,6 @@ public:
         return (FIRST_Decl <= kind && kind <= LAST_Decl);
     }
 
-    /// Returns true if this node denotes a Capsule.
-    bool denotesCapsuleDecl() const {
-        return (FIRST_CapsuleDecl <= kind && kind <= LAST_CapsuleDecl);
-    }
-
-    /// Returns true if this node denotes a Model.
-    bool denotesModelDecl() const {
-        return (FIRST_ModelDecl <= kind && kind <= LAST_ModelDecl);
-    }
-
     /// Returns true if this node denotes a type declaration.
     bool denotesTypeDecl() const {
         return (FIRST_TypeDecl <= kind && kind <= LAST_TypeDecl);
@@ -406,11 +356,6 @@ public:
     /// Returns true if this node denotes a Value.
     bool denotesValueDecl() const {
         return (FIRST_ValueDecl <= kind && kind <= LAST_ValueDecl);
-    }
-
-    /// Returns true if this node denotes a domain type decl.
-    bool denotesDomainTypeDecl() const {
-        return (FIRST_DomainType <= kind && kind <= LAST_DomainType);
     }
 
     /// Returns true if this node denotes a Type.

@@ -28,7 +28,7 @@ namespace comma {
 /// it is like a scope where the components of an AST can be resolved with
 /// respect to the "bindings" established in the rewriter.  For example, the
 /// AstRewriter can encapsulate the mappings from the formal to actual
-/// parameters of a functor, or from a % node to a concrete domain type.
+/// parameters of a generic package.
 ///
 /// Methods are provided to build and interrogate the set of mappings, and to
 /// create new nodes using the installed set of rules.
@@ -56,21 +56,6 @@ public:
             rewrites[I->first] = I->second;
     }
 
-    /// \brief Generates rewrite rules for a DomainType.
-    ///
-    /// Populates this rewriter with rules mapping the formal argument nodes of
-    /// the underlying domain declaration to the actual arguments provided by \p
-    /// context.  This method is a no-op when \p context is not parameterized.
-    void installRewrites(DomainType *context);
-
-    /// \brief Generates rewrite rules for a SigInstanceDecl.
-    ///
-    /// Populates this rewriter with rules mapping the formal argument nodes of
-    /// the underlying signature declaration to the actual arguments provided by
-    /// \p context.  This method is a no-op when \p context is not
-    /// parameterized.
-    void installRewrites(SigInstanceDecl *context);
-
     /// Returns true if a rewrite rule is associated with \p source.
     bool hasRewriteRule(Type *source) const {
         return getRewrite(source) != source;
@@ -89,21 +74,12 @@ public:
     //@{
     Type *rewriteType(Type *type) const;
 
-    DomainType *rewriteType(DomainType *dom) const;
-
     SubroutineType *rewriteType(SubroutineType *srType) const;
 
     FunctionType *rewriteType(FunctionType *ftype) const;
 
     ProcedureType *rewriteType(ProcedureType *ftype) const;
     //@}
-
-    /// Rewrites the parameterization of the given SigInstanceDecl.
-    ///
-    /// If no rewrite rules apply, the argument is returned unchanged.
-    /// Otherwise, a uniqued SigInstanceDecl is returned representing the
-    /// rewritten parameterization.
-    SigInstanceDecl *rewriteSigInstance(SigInstanceDecl *sig) const;
 
     // Returns the AstResource used to construct rewritten nodes.
     AstResource &getAstResource() const { return resource; }

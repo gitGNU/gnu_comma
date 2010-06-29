@@ -143,9 +143,6 @@ void AssignmentEmitter::emit(AssignmentStmt *stmt)
     Expr *lhs = stmt->getTarget();
     Expr *rhs = stmt->getAssignedExpr();
 
-    // Remove any layers of inj/prj expressions from the left hand side.
-    lhs = lhs->ignoreInjPrj();
-
 #define DISPATCH(KIND, LHS, RHS)              \
     Ast::AST_ ## KIND:                        \
         emitAssignment(cast<KIND>(LHS), RHS); \

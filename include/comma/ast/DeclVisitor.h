@@ -34,21 +34,16 @@ public:
     /// the inner nodes of the declaration hierarchy.  Default implementations
     /// are provided.  The behaviour is to simply dispatch over the set of
     /// concrete subclasses.  For example, the default method for visiting a
-    /// Domoid will resolve its argument to either a DomainDecl or FunctorDecl
-    /// and then invoke the specialized visitor for the resolved type.  Of
-    /// course, an implementation may choose to override any or all of these
-    /// methods.
+    /// SubroutineDecl will resolve its argument to either a ProcedureDecl or
+    /// FunctionDecl and then invoke the specialized visitor for the resolved
+    /// type.  Of course, an implementation may choose to override any or all of
+    /// these methods.
     ///
     ///@{
     virtual void visitAst(Ast *node);
     virtual void visitDecl(Decl *node);
-    virtual void visitCapsuleDecl(CapsuleDecl *node);
-    virtual void visitModelDecl(ModelDecl *node);
-    virtual void visitSigoid(Sigoid *node);
-    virtual void visitDomoid(Domoid *node);
     virtual void visitSubroutineDecl(SubroutineDecl *node);
     virtual void visitTypeDecl(TypeDecl *node);
-    virtual void visitDomainTypeDecl(DomainTypeDecl *node);
     virtual void visitValueDecl(ValueDecl *node);
     ///@}
 
@@ -64,20 +59,11 @@ public:
     ///
     ///@{
     virtual void visitUseDecl(UseDecl *node);
-    virtual void visitSignatureDecl(SignatureDecl *node);
-    virtual void visitVarietyDecl(VarietyDecl *node);
-    virtual void visitSigInstanceDecl(SigInstanceDecl *node);
     virtual void visitAddDecl(AddDecl *node);
-    virtual void visitDomainDecl(DomainDecl *node);
-    virtual void visitFunctorDecl(FunctorDecl *node);
     virtual void visitPackageDecl(PackageDecl *node);
     virtual void visitPkgInstanceDecl(PkgInstanceDecl *node);
     virtual void visitFunctionDecl(FunctionDecl *node);
     virtual void visitProcedureDecl(ProcedureDecl *node);
-    virtual void visitCarrierDecl(CarrierDecl *node);
-    virtual void visitAbstractDomainDecl(AbstractDomainDecl *node);
-    virtual void visitDomainInstanceDecl(DomainInstanceDecl *node);
-    virtual void visitPercentDecl(PercentDecl *node);
     virtual void visitLoopDecl(LoopDecl *node);
     virtual void visitParamValueDecl(ParamValueDecl *node);
     virtual void visitObjectDecl(ObjectDecl *node);

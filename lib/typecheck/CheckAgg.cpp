@@ -319,8 +319,8 @@ bool ArrayAggChecker::convertAggregateIdentifiers(AggregateExpr *agg)
         // TypeCheck::acceptAggregateKey.  This code should be factored out and
         // shared.
         if (TypeRef *ref = dyn_cast<TypeRef>(rep)) {
-            TypeDecl *decl = ref->getTypeDecl();
-            if (!decl || !decl->getType()->isDiscreteType()) {
+            TypeDecl *decl = ref->getDecl();
+            if (!decl->getType()->isDiscreteType()) {
                 report(ref->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
                 allOK = false;
             }
@@ -1026,8 +1026,8 @@ Node TypeCheck::acceptAggregateKey(Node keyNode)
         // Diagnose bad type references now.  Only discrete subtypes are valid
         // keys in an (array) aggregate.  Specific checks wrt the actual index
         // type are defered until the expected type of the aggregate is known.
-        TypeDecl *decl = ref->getTypeDecl();
-        if (!decl || !decl->getType()->isDiscreteType()) {
+        TypeDecl *decl = ref->getDecl();
+        if (!decl->getType()->isDiscreteType()) {
             report(ref->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
             return getInvalidNode();
         }

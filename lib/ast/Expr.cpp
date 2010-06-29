@@ -93,39 +93,10 @@ TRY_AGAIN:
     case AST_DereferenceExpr:
         cursor = cast<DereferenceExpr>(cursor)->getPrefix();
         break;
-
-    case AST_InjExpr:
-        cursor = cast<InjExpr>(cursor)->getOperand();
-        break;
-
-    case AST_PrjExpr:
-        cursor = cast<PrjExpr>(cursor)->getOperand();
-        break;
     }
 
     // Continue to walk the expression tree and try again.
     goto TRY_AGAIN;
-}
-
-Expr *Expr::ignoreInjPrj()
-{
-    Expr *cursor = this;
-
-    for (;;) {
-        switch (cursor->getKind()) {
-
-        default:
-            return cursor;
-
-        case Ast::AST_InjExpr:
-            cursor = cast<InjExpr>(cursor)->getOperand();
-            break;
-
-        case Ast::AST_PrjExpr:
-            cursor = cast<PrjExpr>(cursor)->getOperand();
-            break;
-        }
-    }
 }
 
 bool Expr::denotesName() const
@@ -143,8 +114,6 @@ bool Expr::denotesName() const
     case AST_IndexedArrayExpr:
     case AST_ConversionExpr:
     case AST_DereferenceExpr:
-    case AST_InjExpr:
-    case AST_PrjExpr:
         result = true;
         break;
 

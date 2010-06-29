@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -38,7 +38,6 @@ private:
     llvm::raw_ostream &stream;
 
     // Type printers.
-    void visitDomainType(DomainType *node);
     void visitSubroutineType(SubroutineType *node);
     void visitEnumerationType(EnumerationType *node);
     void visitIntegerType(IntegerType *node);
@@ -48,7 +47,6 @@ private:
     // Decl printers.  Currently only a few are supported.
     void visitFunctionDecl(FunctionDecl *node);
     void visitProcedureDecl(ProcedureDecl *node);
-    void visitDomainTypeDecl(DomainTypeDecl *node);
 
     // Helper methods.
     void printParameterProfile(SubroutineDecl *node);
@@ -59,11 +57,6 @@ private:
 
 //===----------------------------------------------------------------------===//
 // PrettyPrinter methods.
-
-void PrettyPrinter::visitDomainType(DomainType *node)
-{
-    visitDomainTypeDecl(node->getDomainTypeDecl());
-}
 
 void PrettyPrinter::visitSubroutineType(SubroutineType *node)
 {
@@ -148,7 +141,7 @@ void PrettyPrinter::printQualifiedName(const char *name, DeclRegion *region)
     ParentSet parents;
 
     while (region) {
-        // Bump past AddDecl's and add the containing PercentDecl.
+        // Bump past AddDecl's and add the containing PackageDecl.
         Ast *ast = region->asAst();
         if (isa<AddDecl>(ast)) {
             region = region->getParent();
@@ -162,11 +155,8 @@ void PrettyPrinter::printQualifiedName(const char *name, DeclRegion *region)
     ParentSet::reverse_iterator I = parents.rbegin();
     ParentSet::reverse_iterator E = parents.rend();
     for (; I != E; ++I) {
-        if (DomainTypeDecl *decl = dyn_cast<DomainTypeDecl>(*I))
-            visitDomainTypeDecl(decl);
-        else if (Decl *decl = dyn_cast<Decl>(*I))
-            stream << decl->getString();
-        stream << '.';
+        Decl *decl = cast<Decl>(*I);
+        stream << decl->getString() << '.';
     }
 
     stream << name;
@@ -187,29 +177,6 @@ void PrettyPrinter::visitProcedureDecl(ProcedureDecl *node)
     printQualifiedName(node->getString(), node->getDeclRegion());
     printParameterProfile(node);
 }
-
-void PrettyPrinter::visitDomainTypeDecl(DomainTypeDecl *node)
-{
-    if (isa<PercentDecl>(node))
-        stream << '%';
-    else if (DomainInstanceDecl *decl = dyn_cast<DomainInstanceDecl>(node)) {
-        stream << decl->getString();
-
-        if (decl->isParameterized()) {
-            stream << '(';
-            DomainInstanceDecl::arg_iterator I = decl->beginArguments();
-            visitDomainTypeDecl(*I);
-            while (++I != decl->endArguments()) {
-                stream << ", ";
-                visitDomainTypeDecl(*I);
-            }
-            stream << ')';
-        }
-    }
-    else if (AbstractDomainDecl *decl = dyn_cast<AbstractDomainDecl>(node))
-        stream << decl->getString();
-}
-
 
 //===----------------------------------------------------------------------===//
 // Public API.

@@ -34,52 +34,9 @@ Node Parser::parseDirectName(NameOption option)
         if (IdentifierInfo *name = parseCharacter())
             return client.acceptCharacterLiteral(name, loc);
         break;
-
-    case Lexer::TKN_PERCENT:
-        return client.acceptPercent(ignoreToken());
-
-    case Lexer::TKN_INJ:
-        return parseInj();
-
-    case Lexer::TKN_PRJ:
-        return parsePrj();
     };
 
     return getInvalidNode();
-}
-
-Node Parser::parseInj()
-{
-    assert(currentTokenIs(Lexer::TKN_INJ));
-    Location loc = ignoreToken();
-
-    if (!requireToken(Lexer::TKN_LPAREN))
-        return getInvalidNode();
-
-    Node expr = parseExpr();
-
-    if (expr.isInvalid() || !requireToken(Lexer::TKN_RPAREN))
-        return getInvalidNode();
-
-    return client.acceptInj(loc, expr);
-}
-
-Node Parser::parsePrj()
-{
-    assert(currentTokenIs(Lexer::TKN_PRJ));
-    Location loc = ignoreToken();
-
-    if (!currentTokenIs(Lexer::TKN_LPAREN)) {
-        report(diag::UNEXPECTED_TOKEN_WANTED) << currentTokenString() << ")";
-        return getInvalidNode();
-    }
-
-    Node expr = parseParenExpr();
-
-    if (expr.isInvalid())
-        return getInvalidNode();
-
-    return client.acceptPrj(loc, expr);
 }
 
 Node Parser::parseSelectedComponent(Node prefix, NameOption option)
@@ -249,9 +206,6 @@ void Parser::seekNameEnd()
         case Lexer::TKN_IDENTIFIER:
         case Lexer::TKN_DOT:
         case Lexer::TKN_CHARACTER:
-        case Lexer::TKN_PERCENT:
-        case Lexer::TKN_INJ:
-        case Lexer::TKN_PRJ:
         case Lexer::TKN_ALL:
             ignoreToken();
             break;
@@ -272,9 +226,6 @@ bool Parser::consumeName()
         return false;
     case Lexer::TKN_CHARACTER:
     case Lexer::TKN_IDENTIFIER:
-    case Lexer::TKN_PERCENT:
-    case Lexer::TKN_INJ:
-    case Lexer::TKN_PRJ:
         break;
     }
 

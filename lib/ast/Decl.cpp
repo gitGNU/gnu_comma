@@ -34,12 +34,6 @@ DeclRegion *Decl::asDeclRegion()
     switch (getKind()) {
     default:
         return 0;
-    case AST_DomainInstanceDecl:
-        return static_cast<DomainInstanceDecl*>(this);
-    case AST_AbstractDomainDecl:
-        return static_cast<AbstractDomainDecl*>(this);
-    case AST_PercentDecl:
-        return static_cast<PercentDecl*>(this);
     case AST_PkgInstanceDecl:
         return static_cast<PkgInstanceDecl*>(this);
     case AST_EnumerationDecl:
@@ -70,14 +64,23 @@ Decl *Decl::resolveOrigin()
 //===----------------------------------------------------------------------===//
 // PackageDecl
 PackageDecl::PackageDecl(AstResource &resource, IdentifierInfo *name, Location loc)
-        : CapsuleDecl(resource, AST_PackageDecl, name, loc),
+        : Decl(AST_PackageDecl, name, loc),
           DeclRegion(AST_PackageDecl),
-          implementation(new AddDecl(this)),
+          resource(resource),
+          implementation(0),
           instance(0) { }
 
 PackageDecl::~PackageDecl()
 {
     delete implementation;
+}
+
+void PackageDecl::setImplementation(AddDecl *body)
+{
+    assert(implementation == 0 && "Cannot reset package body!");
+    assert(body != 0 && "Cannot set null package body!");
+
+    implementation = body;
 }
 
 PkgInstanceDecl *PackageDecl::getInstance()
@@ -90,343 +93,14 @@ PkgInstanceDecl *PackageDecl::getInstance()
 }
 
 //===----------------------------------------------------------------------===//
-// ModelDecl
-
-ModelDecl::ModelDecl(AstResource &resource,
-                     AstKind kind, IdentifierInfo *name, Location loc)
-    : CapsuleDecl(resource, kind, name, loc),
-      percent(0)
-{
-    percent = new PercentDecl(resource, this);
-}
-
-ModelDecl::~ModelDecl()
-{
-    delete percent;
-}
-
-const SignatureSet &ModelDecl::getSignatureSet() const
-{
-    return percent->getSignatureSet();
-}
-
-bool ModelDecl::addDirectSignature(SigInstanceDecl *signature)
-{
-    // Rewrite % nodes of the signature to the % nodes of this model and map any
-    // formal arguments to the actuals.
-    AstRewriter rewrites(resource);
-    rewrites.addTypeRewrite(signature->getSigoid()->getPercentType(),
-                            getPercentType());
-    rewrites.installRewrites(signature);
-    return percent->sigset.addDirectSignature(signature, rewrites);
-}
-
-unsigned ModelDecl::getArity() const
-{
-    return 0;
-}
-
-/// Returns the abstract domain declaration corresponding the i'th formal
-/// parameter.  This method will assert if this declaration is not
-/// parameterized.
-AbstractDomainDecl *ModelDecl::getFormalDecl(unsigned i)
-{
-    assert(!isParameterized() &&
-           "Parameterized decls must implement this method!");
-    assert(false &&
-           "Cannot retrieve formal decls from a non-parameterized model!");
-    return 0;
-}
-
-/// Returns the index of the given AbstractDomainDecl which must be a formal
-/// parameter of this model.  This method will assert if this declaration is not
-/// parameterized.
-unsigned ModelDecl::getFormalIndex(const AbstractDomainDecl *ADDecl) const
-{
-    assert(isParameterized() &&
-           "Cannot retrieve formal index from a non-parameterized model!");
-    unsigned arity = getArity();
-    for (unsigned i = 0; i < arity; ++i) {
-        const AbstractDomainDecl *candidate = getFormalDecl(i);
-        if (candidate == ADDecl)
-            return i;
-    }
-    assert(false && "Not a formal parameter decl!");
-    return -1U;
-}
-
-DomainType *ModelDecl::getFormalType(unsigned i)
-{
-    assert(isParameterized() &&
-           "Cannot retrieve formal type from a non-parameterized model!");
-    return getFormalDecl(i)->getType();
-}
-
-/// Returns the SigInstanceDecl which the i'th actual parameter must satisfy.
-/// This method will assert if this declaration is not parameterized.
-SigInstanceDecl *ModelDecl::getFormalSignature(unsigned i) const
-{
-    assert(isParameterized() &&
-           "Cannot retrieve formal signature from a non-parameterized model!");
-    return getFormalDecl(i)->getPrincipleSignature();
-}
-
-/// Returns the IdentifierInfo which labels the i'th formal parameter.  This
-/// method will assert if this declaration is not parameterized.
-IdentifierInfo *ModelDecl::getFormalIdInfo(unsigned i) const
-{
-    assert(isParameterized() &&
-           "Cannot retrieve formal identifier from a non-parameterized model!");
-    return getFormalDecl(i)->getIdInfo();
-}
-
-/// Returns the index of the parameter corresponding to the given keyword,
-/// or -1 if no such keyword exists.  This method will assert if this
-/// declaration is not parameterized.
-int ModelDecl::getKeywordIndex(IdentifierInfo *keyword) const
-{
-    assert(isParameterized() &&
-           "Cannot retrieve keyword index from a non-parameterized model!");
-    for (unsigned i = 0; i < getArity(); ++i)
-        if (getFormalDecl(i)->getIdInfo() == keyword)
-            return i;
-    return -1;
-}
-
-//===----------------------------------------------------------------------===//
-// SignatureDecl
-SignatureDecl::SignatureDecl(AstResource &resource,
-                             IdentifierInfo *info, const Location &loc)
-    : Sigoid(resource, AST_SignatureDecl, info, loc)
-{
-    theInstance = new SigInstanceDecl(this);
-}
-
-//===----------------------------------------------------------------------===//
-// VarietyDecl
-
-VarietyDecl::VarietyDecl(AstResource &resource,
-                         IdentifierInfo *name, Location loc,
-                         AbstractDomainDecl **formals, unsigned arity)
-    : Sigoid(resource, AST_VarietyDecl, name, loc),
-      arity(arity)
-{
-    formalDecls = new AbstractDomainDecl*[arity];
-    std::copy(formals, formals + arity, formalDecls);
-}
-
-SigInstanceDecl *
-VarietyDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
-{
-    llvm::FoldingSetNodeID id;
-    void *insertPos = 0;
-    SigInstanceDecl *instance;
-
-    SigInstanceDecl::Profile(id, args, numArgs);
-    instance = instances.FindNodeOrInsertPos(id, insertPos);
-    if (instance)
-        return instance;
-
-    instance = new SigInstanceDecl(this, args, numArgs);
-    instances.InsertNode(instance, insertPos);
-    return instance;
-}
-
-//===----------------------------------------------------------------------===//
-// Domoid
-
-Domoid::Domoid(AstResource &resource,
-               AstKind kind, IdentifierInfo *idInfo, Location loc)
-    : ModelDecl(resource, kind, idInfo, loc) { }
-
-//===----------------------------------------------------------------------===//
 // AddDecl
 
-AddDecl::AddDecl(PercentDecl *percent)
-    : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, percent),
-      carrier(0) { }
-
-AddDecl::AddDecl(PackageDecl *package)
+AddDecl::AddDecl(PackageDecl *package, Location loc)
     : Decl(AST_AddDecl),
       DeclRegion(AST_AddDecl, package),
-      carrier(0) { }
-
-Domoid *AddDecl::getImplementedDomoid()
+      loc(loc)
 {
-    Ast *parent = getParent()->asAst();
-
-    if (PercentDecl *percent = dyn_cast<PercentDecl>(parent))
-        return cast<Domoid>(percent->getDefinition());
-    else {
-        DomainInstanceDecl *instance = cast<DomainInstanceDecl>(parent);
-        return instance->getDefiningDomoid();
-    }
-}
-
-DomainDecl *AddDecl::getImplementedDomain()
-{
-    return dyn_cast<DomainDecl>(getImplementedDomoid());
-}
-
-FunctorDecl *AddDecl::getImplementedFunctor()
-{
-    return dyn_cast<FunctorDecl>(getImplementedDomoid());
-}
-
-PackageDecl *AddDecl::getImplementedPackage()
-{
-    return dyn_cast<PackageDecl>(getParent()->asAst());
-}
-
-bool AddDecl::implementsDomain() const
-{
-    return getImplementedDomain() != 0;
-}
-
-bool AddDecl::implementsFunctor() const
-{
-    return getImplementedFunctor() != 0;
-}
-
-bool AddDecl::implementsPackage() const
-{
-    return getImplementedPackage() != 0;
-}
-
-//===----------------------------------------------------------------------===//
-// DomainDecl
-
-DomainDecl::DomainDecl(AstResource &resource,
-                       IdentifierInfo *name, const Location &loc)
-    : Domoid(resource, AST_DomainDecl, name, loc),
-      instance(0)
-{
-    implementation = new AddDecl(getPercent());
-}
-
-// FIXME: This is a temporary solution to the problem of initializing domain
-// instances before the corresponding DomDecl is fully initialized.  In
-// particular, we need a machanism similar to the observer failcility in
-// DeclRegion but for signature sets.
-DomainInstanceDecl *DomainDecl::getInstance()
-{
-    if (instance == 0)
-        instance = new DomainInstanceDecl(getAstResource(), this);
-    return instance;
-}
-
-void DomainDecl::finalize()
-{
-    // Construct (if needed) and notify our one and only instance that this
-    // domain is finished.
-    getInstance()->finalize();
-
-    // Mark this domain a finalized.
-    bits = 1;
-}
-
-bool DomainDecl::isFinalized() const
-{
-    return bits == 1;
-}
-
-//===----------------------------------------------------------------------===//
-// FunctorDecl
-
-FunctorDecl::FunctorDecl(AstResource &resource,
-                         IdentifierInfo *name, Location loc,
-                         AbstractDomainDecl **formals, unsigned arity)
-    : Domoid(resource, AST_FunctorDecl, name, loc),
-      arity(arity)
-{
-    assert(arity && "Cannot construct functors with no arguments!");
-
-    formalDecls = new AbstractDomainDecl*[arity];
-    std::copy(formals, formals + arity, formalDecls);
-    implementation = new AddDecl(getPercent());
-}
-
-DomainInstanceDecl *
-FunctorDecl::getInstance(DomainTypeDecl **args, unsigned numArgs)
-{
-    llvm::FoldingSetNodeID id;
-    void *insertPos = 0;
-    DomainInstanceDecl *instance;
-
-    DomainInstanceDecl::Profile(id, args, numArgs);
-    instance = instances.FindNodeOrInsertPos(id, insertPos);
-    if (instance) return instance;
-
-    instance = new DomainInstanceDecl(getAstResource(), this, args, numArgs);
-    instances.InsertNode(instance, insertPos);
-    return instance;
-}
-
-
-void FunctorDecl::finalize()
-{
-    // Notify any instances that this functor is finished.
-    InstanceSet::iterator I = instances.begin();
-    InstanceSet::iterator E = instances.end();
-    for ( ; I != E; ++I)
-        I->finalize();
-
-    // Mark this functor as finalized.
-    bits = 1;
-}
-
-bool FunctorDecl::isFinalized() const
-{
-    return bits == 1;
-}
-
-//===----------------------------------------------------------------------===//
-// SigInstanceDecl
-
-SigInstanceDecl::SigInstanceDecl(SignatureDecl *decl)
-    : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
-      underlyingSigoid(decl),
-      arguments(0)
-{ }
-
-SigInstanceDecl::SigInstanceDecl(VarietyDecl *decl,
-                                 DomainTypeDecl **args, unsigned numArgs)
-    : Decl(AST_SigInstanceDecl, decl->getIdInfo()),
-      underlyingSigoid(decl)
-{
-    assert(numArgs && "No arguments given to parameterized instance!");
-    arguments = new DomainTypeDecl*[numArgs];
-    std::copy(args, args + numArgs, arguments);
-}
-
-SignatureDecl *SigInstanceDecl::getSignature() const
-{
-    return dyn_cast<SignatureDecl>(underlyingSigoid);
-}
-
-VarietyDecl *SigInstanceDecl::getVariety() const
-{
-    return dyn_cast<VarietyDecl>(underlyingSigoid);
-}
-
-unsigned SigInstanceDecl::getArity() const
-{
-    VarietyDecl *variety = getVariety();
-    if (variety)
-        return variety->getArity();
-    return 0;
-}
-
-void SigInstanceDecl::Profile(llvm::FoldingSetNodeID &ID,
-                              DomainTypeDecl **args, unsigned numArgs)
-{
-    if (numArgs == 0)
-        ID.AddPointer(0);
-    else {
-        for (unsigned i = 0; i < numArgs; ++i)
-            ID.AddPointer(args[i]);
-    }
+    package->setImplementation(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -689,8 +363,7 @@ bool IncompleteTypeDecl::isCompatibleCompletion(const TypeDecl *decl) const
     if (thisRegion == completion)
         return true;
 
-    if (isa<PercentDecl>(thisRegion) && isa<AddDecl>(completion) &&
-        thisRegion == completion->getParent())
+    if (isa<AddDecl>(completion) && thisRegion == completion->getParent())
         return true;
 
     return false;
@@ -709,192 +382,6 @@ bool IncompleteTypeDecl::completionIsVisibleIn(const DeclRegion *region) const
     } while ((region = region->getParent()));
 
     return false;
-}
-
-//===----------------------------------------------------------------------===//
-// DomainTypeDecl
-
-DomainTypeDecl::DomainTypeDecl(AstKind kind, AstResource &resource,
-                               IdentifierInfo *name, Location loc)
-    : TypeDecl(kind, name, loc),
-      DeclRegion(kind)
-{
-    assert(this->denotesDomainTypeDecl());
-    CorrespondingType = resource.createDomainType(this);
-}
-
-//===----------------------------------------------------------------------===//
-// AbstractDomainDecl
-
-AbstractDomainDecl::AbstractDomainDecl(AstResource &resource,
-                                       IdentifierInfo *name, Location loc,
-                                       SigInstanceDecl *sig)
-    : DomainTypeDecl(AST_AbstractDomainDecl, resource, name, loc)
-{
-    Sigoid *sigoid = sig->getSigoid();
-    PercentDecl *percent = sigoid->getPercent();
-    DeclRewriter rewriter(sigoid->getAstResource(), this, percent);
-
-    // Establish a mapping from the % node of the signature to the type of this
-    // abstract domain.
-    rewriter.addTypeRewrite(sigoid->getPercentType(), getType());
-
-    // Establish mappings from the formal parameters of the signature to the
-    // actual parameters of the given instance (this is a no-op if the signature
-    // is not parametrized).
-    rewriter.installRewrites(sig);
-
-    sigset.addDirectSignature(sig, rewriter);
-    addDeclarationsUsingRewrites(rewriter, percent);
-}
-
-//===----------------------------------------------------------------------===//
-// DomainInstanceDecl
-DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
-                                       DomainDecl *domain)
-    : DomainTypeDecl(AST_DomainInstanceDecl, resource, domain->getIdInfo()),
-      CapsuleInstance(domain)
-{
-    PercentDecl *percent = domain->getPercent();
-
-    // Ensure that we are notified if the declarations provided by the percent
-    // node of the defining domoid change.
-    percent->addObserver(this);
-
-    // Initialize the available declarations.
-    initializeInstance(domain);
-}
-
-DomainInstanceDecl::DomainInstanceDecl(AstResource &resource,
-                                       FunctorDecl *functor,
-                                       DomainTypeDecl **args, unsigned numArgs)
-    : DomainTypeDecl(AST_DomainInstanceDecl, resource, functor->getIdInfo()),
-      CapsuleInstance(functor, args, numArgs)
-{
-    // Ensure that we are notified if the declarations provided by percent
-    // change.
-    PercentDecl *percent = functor->getPercent();
-    percent->addObserver(this);
-
-    // Initialize the available declarations.
-    initializeInstance(functor);
-}
-
-void DomainInstanceDecl::initializeInstance(Domoid *definition)
-{
-    AstResource &resource = definition->getAstResource();
-    PercentDecl *percent = definition->getPercent();
-
-    // Obtain a rewritten version of the public exports provided by percent.
-    DeclRewriter *rewriter = new DeclRewriter(resource, this, percent);
-    rewriter->addTypeRewrite(definition->getPercentType(), getType());
-    rewriter->installRewrites(getType());
-    addDeclarationsUsingRewrites(*rewriter, percent);
-
-    // Populate our signature set with a rewritten version.
-    const SignatureSet &SS = definition->getSignatureSet();
-    for (SignatureSet::const_iterator I = SS.begin(); I != SS.end(); ++I)
-        sigset.addDirectSignature(*I, *rewriter);
-
-    // Initialize the body if the defining domoid is finalized.  Otherwise hold
-    // onto the rewriter untill we are in a finalized state.
-    if (definition->isFinalized()) {
-        initializeRepresentation(*rewriter);
-        delete rewriter;
-    }
-    else {
-        carrier = rewriter;
-        representationType = 0;
-    }
-}
-
-void DomainInstanceDecl::finalize()
-{
-    // If we have not yet initialized the representation of this instance
-    // compute it now.
-    if (representationType) return;
-
-    DeclRewriter *rewriter = carrier.get<DeclRewriter*>();
-    initializeRepresentation(*rewriter);
-    delete rewriter;
-}
-
-void DomainInstanceDecl::initializeRepresentation(DeclRewriter &rewriter)
-{
-    AddDecl *orig = getDefinition()->getImplementation();
-    CarrierDecl *decl = 0;
-
-    // Set the origin of the rewriter to the add declaration of our
-    // implementation.  This ensures that if the representation of this domain
-    // depends on additional declarations, only those appearing in the "add" are
-    // rewritten.  Also note that the context of the rewriter remains associated
-    // with this instance, resulting in all new declaration nodes being declared
-    // "inside" this instance (but are otherwise invisible since they are not
-    // added to the region via a call to addDecl).
-    assert(rewriter.getContext() == this && "Inconsistent rewrite context!");
-    rewriter.setOrigin(orig);
-
-    // FIXME: No need for the conditional when it is guaranteed that a finalized
-    // domain defines a carrier.
-    if (orig->hasCarrier()) {
-        decl = rewriter.rewriteCarrierDecl(orig->getCarrier());
-
-        // Resolve the representation type of this domain.
-        PrimaryType *rep = decl->getType();
-
-        if (DomainType *domain = dyn_cast<DomainType>(rep)) {
-            DomainInstanceDecl *instance = domain->getInstanceDecl();
-            rep = instance->getRepresentationType();
-        }
-        representationType = rep;
-    }
-    carrier = decl;
-}
-
-void DomainInstanceDecl::notifyAddDecl(Decl *decl)
-{
-    Domoid *domoid = getDefinition();
-    AstResource &resource = domoid->getAstResource();
-    DeclRewriter rewriter(resource, this, decl->getDeclRegion());
-    rewriter.addTypeRewrite(domoid->getPercentType(), getType());
-    rewriter.installRewrites(getType());
-    addDeclarationUsingRewrites(rewriter, decl);
-}
-
-void DomainInstanceDecl::notifyRemoveDecl(Decl *decl)
-{
-    // FIXME:  Implement.
-}
-
-void DomainInstanceDecl::Profile(llvm::FoldingSetNodeID &id,
-                                 DomainTypeDecl **args, unsigned numArgs)
-{
-    for (unsigned i = 0; i < numArgs; ++i)
-        id.AddPointer(args[i]);
-}
-
-//===----------------------------------------------------------------------===//
-// PercentDecl
-
-PercentDecl::PercentDecl(AstResource &resource, ModelDecl *model)
-    : DomainTypeDecl(AST_PercentDecl, resource,
-                     resource.getIdentifierInfo("%"), model->getLocation()),
-      underlyingModel(model) { }
-
-//===----------------------------------------------------------------------===//
-// PkgInstanceDecl
-
-PkgInstanceDecl::PkgInstanceDecl(IdentifierInfo *name, Location loc,
-                                 PackageDecl *package)
-    : Decl(AST_PkgInstanceDecl, name, loc),
-      DeclRegion(AST_PkgInstanceDecl),
-      CapsuleInstance(package)
-{
-    // Generate our own copy of the public exports provided by the package.
-    AstResource &resource = Definition->getAstResource();
-    std::auto_ptr<DeclRewriter> rewriter(
-        new DeclRewriter(resource, this, package));
-    addDeclarationsUsingRewrites(*rewriter, package);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1395,4 +882,21 @@ void AccessDecl::generateImplicitDeclarations(AstResource &resource)
 
     addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
     addDecl(resource.createPrimitiveDecl(PO::NE_op, loc, type, this));
+}
+
+//===----------------------------------------------------------------------===//
+// PkgInstanceDecl
+PkgInstanceDecl::PkgInstanceDecl(IdentifierInfo *name, Location loc,
+                                 PackageDecl *package)
+    : Decl(AST_PkgInstanceDecl, name, loc),
+      DeclRegion(AST_PkgInstanceDecl, package),
+      definition(package)
+{
+    // Generate our own copy of the public exports provided by the package.
+    //
+    // FIXME: We should use the DeclRegion observer list for this.
+    AstResource &resource = package->getAstResource();
+    std::auto_ptr<DeclRewriter> rewriter(
+        new DeclRewriter(resource, this, package));
+    addDeclarationsUsingRewrites(*rewriter, package);
 }

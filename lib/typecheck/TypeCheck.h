@@ -49,27 +49,10 @@ public:
     void acceptWithClause(Location loc, IdentifierInfo **names,
                           unsigned numNames);
 
-    void beginCapsule();
-    void endCapsule();
-
-    void beginGenericFormals();
-    void endGenericFormals();
-
-    void acceptFormalDomain(IdentifierInfo *name, Location loc, Node sig);
-
-    void beginDomainDecl(IdentifierInfo *name, Location loc);
-    void beginSignatureDecl(IdentifierInfo *name, Location loc);
-    void beginPackageDecl(IdentifierInfo *name, Location loc);
-
-    void beginSignatureProfile();
-    void endSignatureProfile();
-
-    void acceptSupersignature(Node typeNode);
-
-    void beginAddExpression();
-    void endAddExpression();
-
-    void acceptCarrier(IdentifierInfo *name, Location loc, Node typeNode);
+    bool beginPackageSpec(IdentifierInfo *name, Location loc);
+    void endPackageSpec();
+    bool beginPackageBody(IdentifierInfo *name, Location loc);
+    void endPackageBody();
 
     void beginFunctionDeclaration(IdentifierInfo *name, Location loc);
     void beginProcedureDeclaration(IdentifierInfo *name, Location loc);
@@ -147,15 +130,9 @@ public:
 
     void acceptDeclarationInitializer(Node declNode, Node initializer);
 
-    Node acceptPercent(Location loc);
-
     bool acceptUseDeclaration(Node usedType);
 
     Node acceptProcedureCall(Node name);
-
-    Node acceptInj(Location loc, Node expr);
-
-    Node acceptPrj(Location loc, Node expr);
 
     Node acceptIntegerLiteral(llvm::APInt &value, Location loc);
 
@@ -353,12 +330,8 @@ private:
     AstResource     &resource;
     CompilationUnit *compUnit;
     DeclRegion      *declarativeRegion;
-    CapsuleDecl     *currentCapsule;
+    PackageDecl     *currentPackage;
     Scope            scope;
-
-    /// The set of AbstractDomainDecls serving as parameters to the current
-    /// capsule.
-    llvm::SmallVector<AbstractDomainDecl *, 8> GenericFormalDecls;
 
     /// Stencil classes used to hold intermediate results.
     EnumDeclStencil enumStencil;
@@ -429,37 +402,18 @@ private:
     CompilationUnit *currentCompUnit() const { return compUnit; }
 
     //@{
-    /// Casting methods to conver the current Capsule to a more refined type.
-    /// If the current capsule is not of the requested type then 0 is returned.
-
-    CapsuleDecl *getCurrentCapsule() const {
-        return currentCapsule;
-    }
-
-    ModelDecl *getCurrentModel() const;
-    Sigoid *getCurrentSigoid() const;
-    SignatureDecl *getCurrentSignature() const;
-    VarietyDecl *getCurrentVariety() const;
-    Domoid *getCurrentDomoid() const;
-    DomainDecl *getCurrentDomain() const;
-    FunctorDecl *getCurrentFunctor() const;
+    /// Accessors to the current (innermost) type checking context.  If the
+    /// current context is not of the requested type null is returned.
     PackageDecl *getCurrentPackage() const;
     SubroutineDecl *getCurrentSubroutine() const;
     ProcedureDecl *getCurrentProcedure() const;
     FunctionDecl *getCurrentFunction() const;
-    DomainType *getCurrentPercentType() const;
-    PercentDecl *getCurrentPercent() const;
     //@}
 
     //@{
     /// Predicate methods returning true if we are currently processing the
-    /// a given type of capsule.
+    /// a given type of object.
     bool checkingPackage() const { return getCurrentPackage() != 0; }
-    bool checkingDomoid() const { return getCurrentDomoid() != 0; }
-    bool checkingDomain() const { return getCurrentDomain() != 0; }
-    bool checkingFunctor() const { return getCurrentFunctor() != 0; }
-    bool checkingSignature() const { return getCurrentSignature() != 0; }
-    bool checkingVariety() const { return getCurrentVariety() != 0; }
     bool checkingProcedure() const { return getCurrentProcedure() != 0; }
     bool checkingFunction() const { return getCurrentFunction() != 0; }
     //@}
@@ -468,12 +422,6 @@ private:
     // scope with the default environment specified by Comma (declarations of
     // primitive types like Boolean, for example).
     void populateInitialEnvironment();
-
-    /// Helper to beginDomainDecl and beginSignatureDecl.
-    ///
-    /// Assumes the current model has been set.  Performs the common actions
-    /// necessary to begin processing both signature and domain declarations.
-    void initializeForModelDeclaration();
 
     /// Returns true if the subroutines \p X and \p Y are compatible.
     ///
@@ -489,25 +437,8 @@ private:
     ///    - they both have the same keywords.
     bool compatibleSubroutineDecls(SubroutineDecl *X, SubroutineDecl *Y);
 
-    /// If the given functor represents the current capsule being checked,
-    /// ensure that none of the argument types directly reference %.  Returns
-    /// true if the given functor and argument combination is legal, otherwise
-    /// false is returned and diagnostics are posted.
-    bool ensureNonRecursiveInstance(FunctorDecl *decl,
-                                    DomainTypeDecl **args, unsigned numArgs,
-                                    Location loc);
-
     /// Brings the implicit declarations provided by \p decl into scope.
     void acquireImplicitDeclarations(Decl *decl);
-
-    /// Using the current model as context, rewrites the set of immediate
-    /// declarations provided by the given signature.  Each declaration that
-    /// does not conflict with another declaration in scope is is added both to
-    /// the scope and to the current DeclRegion.  The given Location is the
-    /// position of the super signature indication.  This method is used to
-    /// implement acceptSupersignature.
-    void acquireImmediateSignatureDeclarations(SigInstanceDecl *sig,
-                                               Location loc);
 
     /// Ensures the given Node resolves to a complete type declaration.
     ///
@@ -705,51 +636,10 @@ private:
     /// declarations.
     bool checkApplicableArgument(Expr *expr, Type *targetType);
 
-    // Returns true if the given type is compatible with the given abstract
-    // domain decl in the environment established by the given rewrites.
-    //
-    // In this case, the source must denote a domain which satisfies the entire
-    // signature profile of the target.  The supplied location indicates the
-    // position of the source type.
-    bool checkSignatureProfile(const AstRewriter &rewrites, Type *source,
-                               AbstractDomainDecl *target, Location loc);
-
     // Verifies that the given AddDecl satisfies the constraints imposed by its
-    // signature.  Returns true if the constraints are satisfied.  Otherwise,
-    // false is returned and diagnostics are posted.
+    // specification.  Returns true if the constraints are satisfied.
+    // Otherwise, false is returned and diagnostics are posted.
     bool ensureExportConstraints(AddDecl *add);
-
-    // Returns true if the given decl is equivalent to % in the context of the
-    // current domain.
-    bool denotesDomainPercent(const Decl *decl);
-
-    // Returns true if we are currently checking a functor, and if the given
-    // functor declaration together with the provided arguments would denote an
-    // instance which is equivalent to % in the current context.  For example,
-    // given:
-    //
-    //   domain F (X : T) with
-    //      procedure Foo (A : F(X));
-    //      ...
-    //
-    // Then "F(X)" is equivalent to %.  More generally, a functor F applied to
-    // its formal arguments in the body of F is equivalent to %.
-    //
-    // This function assumes that the number and types of the supplied arguments
-    // are compatible with the given functor.
-    bool denotesFunctorPercent(const FunctorDecl *functor,
-                               DomainTypeDecl **args, unsigned numArgs);
-
-    /// Resolves the argument type of a Functor or Variety given previous actual
-    /// arguments.
-    ///
-    /// For a dependent argument list of the form <tt>(X : T, Y : U(X))</tt>,
-    /// this function resolves the type of \c U(X) given an actual parameter for
-    /// \c X.  It is assumed that the actual arguments provided are compatible
-    /// with the given model.
-    SigInstanceDecl *resolveFormalSignature(ModelDecl *parameterizedModel,
-                                            Type **arguments,
-                                            unsigned numArguments);
 
     /// Returns true if the given parameter is of mode "in", and thus capatable
     /// with a function declaration.  Otherwise false is returned an a
@@ -768,70 +658,9 @@ private:
     /// declaration is not added.
     void introduceImplicitDecls(DeclRegion *region);
 
-    /// Utility routine for building TypeRef nodes over the given model.
-    TypeRef *buildTypeRefForModel(Location loc, ModelDecl *mdecl);
-
     /// Processes the indirect names in the given resolver.  If no indirect
     /// names could be found, a diagnostic is posted and and null is returned.
     Ast *checkIndirectName(Location loc, Resolver &resolver);
-
-    /// Checks that the given TypeRef can be applied to the given arguments.
-    ///
-    /// \return A new TypeRef representing the application if successful and
-    /// null otherwise.
-    TypeRef *acceptTypeApplication(TypeRef *ref, NodeVector &argNodes);
-
-    /// Checks that the given TypeRef can be applied to the given arguments.
-    ///
-    /// \return A new TypeRef representing the application if successful and
-    /// null otherwise.
-    TypeRef *acceptTypeApplication(TypeRef *ref,
-                                   SVImpl<TypeRef *>::Type &posArgs,
-                                   SVImpl<KeywordSelector *>::Type &keyedArgs);
-
-    /// Given a vector \p argNodes of Node's representing the arguments to a
-    /// subroutine call, extracts the AST nodes and fills in the vectors \p
-    /// positional and \p keyed with the positional and keyed arguments,
-    /// respectively.
-    ///
-    /// This method ensures that the argument nodes are generally compatible
-    /// with a type application; namely, that all positional and keyed arguments
-    /// denote TypeRef's.  If this conversion fails, diagnostics are posted,
-    /// false is returned, and the contents of the given vectors is undefined.
-    bool checkTypeArgumentNodes(NodeVector &argNodes,
-                                SVImpl<TypeRef*>::Type &positional,
-                                SVImpl<KeywordSelector*>::Type &keyed);
-
-    /// Checks that the given TypeRef is valid as a type parameter.  If the
-    /// check fails, diagnostics are posted.
-    ///
-    /// \return The DomainTypeDecl corresponding to \p ref (the only valid kind
-    /// of type parameter ATM), or null.
-    DomainTypeDecl *ensureValidModelParam(TypeRef *ref);
-
-    /// Checks that the given keyword arguments can be used as arguments to the
-    /// given model (which must be parameterized), assuming \p numPositional
-    /// positional parameters are a part of the call.  For example, given:
-    ///
-    /// \verbatim
-    ///     F(X, Y, P => Z);
-    /// \endverbatim
-    ///
-    /// Then \p numPositional would be 2 and \p keyedArgs would be a vector of
-    /// length 1 containing the keyword selector representing <tt>P => Z</tt>.
-    bool checkModelKeywordArgs(ModelDecl *model, unsigned numPositional,
-                               SVImpl<KeywordSelector*>::Type &keyedArgs);
-
-    /// Ensures that the given arguments \p args is compatible with the
-    /// parameterized mode \p model. The \p argLocs vector contains a Location
-    /// entry for each argument.
-    ///
-    /// This method handles any dependency relationships amongst the models
-    /// formal parameters.  Returns true if the checks succeed, otherwise false
-    /// is returned and diagnostics are posted.
-    bool checkModelArgs(ModelDecl *model,
-                        SVImpl<DomainTypeDecl*>::Type &args,
-                        SVImpl<Location>::Type &argLocs);
 
     /// Introduces the given type declaration node into the current scope and
     /// declarative region.
@@ -896,12 +725,6 @@ private:
     /// On failure, null is returned and diagnostics posted.
     Ast *finishSubroutineRef(SubroutineRef *ref);
 
-    /// Ensures that the given TypeRef denotes a fully applied type (as opposed
-    /// to an incomplete reference to a variety or functor).  Returns true if
-    /// the check succeeds.  Otherwise false is returned and diagnostics are
-    /// posted.
-    bool finishTypeRef(TypeRef *ref);
-
     /// Helper method for acceptSelectedComponent.
     Ast *processExpandedName(DeclRegion *region,
                              IdentifierInfo *name, Location loc,
@@ -919,10 +742,6 @@ private:
 
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);
-
-    bool has(DomainType *source, SigInstanceDecl *target);
-    bool has(const AstRewriter &rewrites,
-             DomainType *source, AbstractDomainDecl *target);
 
     SourceLocation getSourceLoc(Location loc) const {
         return manager.getSourceLocation(loc);

@@ -33,18 +33,12 @@ namespace mangle {
 /// with a zero followed by a spelled out alternative.  For example, "*"
 /// translates into "0multiply" and "+" translates into "0plus" (with
 /// appropriate qualification prefix and overload suffix).
-std::string getLinkName(const SubroutineDecl *sr);
-
-std::string getLinkName(const CapsuleInstance *instance,
+std::string getLinkName(const PkgInstanceDecl *instance,
                         const SubroutineDecl *sr);
 
-/// \brief Returns the name of the given Domoid as it should appear in LLVM
-/// IR.
-std::string getLinkName(const Domoid *domoid);
-
-/// \brief Returns the name of the given instance as it should appear in LLVM
-/// IR.
-std::string getLinkName(const CapsuleInstance *instance);
+/// \brief Returns the name of the given package instance as it should appear in
+/// LLVM IR.
+std::string getLinkName(const PkgInstanceDecl *instance);
 
 /// \brief Returns the name of the given exception declaration as it should
 /// appear in LLVM IR.

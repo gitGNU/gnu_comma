@@ -104,21 +104,15 @@ public:
     /// Returns true if this is a local call.
     ///
     /// A local call is one which references a subroutine declaration which is
-    /// internal to a capsule.  A consequence of beeing local is that callee
-    /// must be local to the capsule as well.
+    /// internal to a package.  A consequence of being local is that the callee
+    /// must be local to the package as well.
     bool isLocalCall() const;
 
     /// Returns true if this is a direct call.
     ///
     /// A direct call is one which references a subroutine declaration provided
-    /// by a concrete (non-abstract) domain, and is not a local call.
+    /// by a concrete (non-generic) package, and is not a local call.
     bool isDirectCall() const;
-
-    /// Returns true if this is an abstract call.
-    ///
-    /// A call is abstract if it references a subroutine declaration provided by
-    /// an abstract domain.
-    bool isAbstractCall() const;
 
     /// Returns true if this is a foreign call.
     ///

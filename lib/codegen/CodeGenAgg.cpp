@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "BoundsEmitter.h"
-#include "CGContext.h"
 #include "CodeGenRoutine.h"
 #include "CodeGenTypes.h"
 #include "CommaRT.h"
@@ -209,7 +208,7 @@ CValue ArrayEmitter::emitDefiniteAllocator(AllocatorExpr *expr,
 
     const llvm::ArrayType *loweredTy;
     const llvm::PointerType *resultTy;
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGenTypes &CGT = CGR.getCodeGen().getCGT();
     CommaRT &CRT = CGR.getCodeGen().getRuntime();
 
     loweredTy = CGT.lowerArrayType(arrTy);
@@ -235,8 +234,8 @@ CValue ArrayEmitter::emitConstrainedAllocator(AllocatorExpr *expr,
     const llvm::ArrayType *loweredTy;
     const llvm::StructType *resultTy;
     const llvm::PointerType *dataTy;
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
     CodeGen &CG = CGR.getCodeGen();
+    CodeGenTypes &CGT = CG.getCGT();
     CommaRT &CRT = CG.getRuntime();
 
     loweredTy = CGT.lowerArrayType(arrTy);
@@ -290,7 +289,7 @@ CValue ArrayEmitter::emitCallAllocator(AllocatorExpr *expr,
 {
     CodeGen &CG = CGR.getCodeGen();
     CommaRT &CRT = CG.getRuntime();
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGenTypes &CGT = CG.getCGT();
 
     const llvm::Type *componentTy;
     const llvm::StructType *boundsTy;
@@ -349,7 +348,7 @@ CValue ArrayEmitter::emitValueAllocator(AllocatorExpr *expr,
 {
     CodeGen &CG = CGR.getCodeGen();
     CommaRT &CRT = CG.getRuntime();
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGenTypes &CGT = CG.getCGT();
 
     const llvm::Type *componentTy;
     const llvm::PointerType *targetTy;
@@ -405,12 +404,6 @@ CValue ArrayEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 
     if (AggregateExpr *agg = dyn_cast<AggregateExpr>(expr))
         return emitAggregate(agg, dst);
-
-    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
-        return emit(inj->getOperand(), dst, genTmp);
-
-    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
-        return emit(prj->getOperand(), dst, genTmp);
 
     if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
         return emit(qual->getOperand(), dst, genTmp);
@@ -528,7 +521,7 @@ CValue ArrayEmitter::emitAggregate(AggregateExpr *expr, llvm::Value *dst)
 CValue ArrayEmitter::emitDefault(ArrayType *arrTy, llvm::Value *dst)
 {
     CodeGen &CG = CGR.getCodeGen();
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGenTypes &CGT = CG.getCGT();
 
     llvm::Value *bounds = emitter.synthArrayBounds(Builder, arrTy);
     llvm::Value *length = 0;
@@ -561,7 +554,7 @@ CValue ArrayEmitter::emitStringLiteral(StringLiteral *expr)
 
     // Build a constant array representing the literal.
     CodeGen &CG = CGR.getCodeGen();
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGenTypes &CGT = CG.getCGT();
     const llvm::ArrayType *arrTy = CGT.lowerArrayType(expr->getType());
     const llvm::Type *elemTy = arrTy->getElementType();
     llvm::StringRef string = expr->getString();
@@ -991,14 +984,14 @@ CValue ArrayEmitter::emitOthersKeyedAgg(AggregateExpr *expr, llvm::Value *dst)
 llvm::Value *ArrayEmitter::allocArray(ArrayType *arrTy, llvm::Value *bounds,
                                       llvm::Value *&dst)
 {
-    CodeGenTypes &CGT = CGR.getCGC().getCGT();
+    CodeGen &CG = CGR.getCodeGen();
+    CodeGenTypes &CGT = CG.getCGT();
 
     if (arrTy->isStaticallyConstrained()) {
         dst = frame()->createTemp(CGT.lowerArrayType(arrTy));
         return 0;
     }
     else {
-        CodeGen &CG = CGR.getCodeGen();
         const llvm::Type *componentTy;
         const llvm::Type *dstTy;
         llvm::Value *length;
@@ -1022,7 +1015,7 @@ class RecordEmitter {
 public:
     RecordEmitter(CodeGenRoutine &CGR, llvm::IRBuilder<> &Builder)
         : CGR(CGR),
-          CGT(CGR.getCGC().getCGT()),
+          CGT(CGR.getCodeGen().getCGT()),
           emitter(CGR),
           Builder(Builder) { }
 
@@ -1124,12 +1117,6 @@ CValue RecordEmitter::emit(Expr *expr, llvm::Value *dst, bool genTmp)
 
     if (FunctionCallExpr *call = dyn_cast<FunctionCallExpr>(expr))
         return emitCall(call, dst);
-
-    if (InjExpr *inj = dyn_cast<InjExpr>(expr))
-        return emit(inj->getOperand(), dst, genTmp);
-
-    if (PrjExpr *prj = dyn_cast<PrjExpr>(expr))
-        return emit(prj->getOperand(), dst, genTmp);
 
     if (QualifiedExpr *qual = dyn_cast<QualifiedExpr>(expr))
         return emit(qual->getOperand(), dst, genTmp);

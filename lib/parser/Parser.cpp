@@ -383,221 +383,6 @@ bool Parser::parseLoopEndTag(IdentifierInfo *expectedTag)
     return true;
 }
 
-void Parser::parseGenericFormalParams()
-{
-    assert(currentTokenIs(Lexer::TKN_GENERIC));
-    ignoreToken();
-
-    client.beginGenericFormals();
-    for ( ;; ) {
-        switch (currentTokenCode()) {
-
-        default:
-            report(diag::UNEXPECTED_TOKEN) << currentTokenString();
-            if (seekTokens(Lexer::TKN_ABSTRACT, Lexer::TKN_DOMAIN,
-                           Lexer::TKN_SIGNATURE, Lexer::TKN_PACKAGE)) {
-                if (currentTokenIs(Lexer::TKN_ABSTRACT))
-                    continue;
-            }
-            client.endGenericFormals();
-            return;
-
-        case Lexer::TKN_ABSTRACT:
-            parseGenericFormalDomain();
-            break;
-
-        case Lexer::TKN_DOMAIN:
-        case Lexer::TKN_SIGNATURE:
-        case Lexer::TKN_PACKAGE:
-            client.endGenericFormals();
-            return;
-        }
-    }
-}
-
-void Parser::parseGenericFormalDomain()
-{
-    assert(currentTokenIs(Lexer::TKN_ABSTRACT));
-    ignoreToken();
-
-    if (!requireToken(Lexer::TKN_DOMAIN)) {
-        seekToken(Lexer::TKN_SEMI);
-        return;
-    }
-
-    Location loc = currentLocation();
-    IdentifierInfo *name = parseIdentifier();
-
-    if (!name) {
-        seekToken(Lexer::TKN_SEMI);
-        return;
-    }
-
-    if (reduceToken(Lexer::TKN_IS)) {
-        Node sig = parseName();
-        if (sig.isValid())
-            client.acceptFormalDomain(name, loc, sig);
-    }
-    else
-        client.acceptFormalDomain(name, loc, getNullNode());
-
-    requireToken(Lexer::TKN_SEMI);
-}
-
-void Parser::parseSignatureProfile()
-{
-    client.beginSignatureProfile();
-
-    if (currentTokenIs(Lexer::TKN_IS))
-        parseSupersignatureProfile();
-
-    if (reduceToken(Lexer::TKN_WITH))
-        parseWithComponents();
-
-    client.endSignatureProfile();
-}
-
-// Parses a sequence of super-signatures in a 'with' expression.
-void Parser::parseSupersignatureProfile()
-{
-    assert(currentTokenIs(Lexer::TKN_IS));
-    Location isLoc = ignoreToken();
-
-    // Check for a resonably common case of writing "is" where one ment "with".
-    switch (currentTokenCode()) {
-    default:
-        break;
-    case Lexer::TKN_PROCEDURE:
-    case Lexer::TKN_FUNCTION:
-    case Lexer::TKN_TYPE:
-    case Lexer::TKN_SUBTYPE:
-        // Report that we expected a "with" token and continue parsing as though
-        // we had a "with".
-        report(isLoc, diag::UNEXPECTED_TOKEN_WANTED)
-            << Lexer::tokenString(Lexer::TKN_IS)
-            << Lexer::tokenString(Lexer::TKN_WITH);
-        parseWithComponents();
-        return;
-    }
-
-    // Otherwise, parse the super signature list.
-    do {
-        Node super = parseName();
-
-        if (super.isValid())
-            client.acceptSupersignature(super);
-        else {
-            seekTokens(Lexer::TKN_AND, Lexer::TKN_ADD,
-                       Lexer::TKN_WITH, Lexer::TKN_END);
-        }
-    } while (reduceToken(Lexer::TKN_AND));
-}
-
-void Parser::parseWithComponents()
-{
-    bool status = false;
-
-    for (;;) {
-        switch (currentTokenCode()) {
-        default:
-            return;
-
-        case Lexer::TKN_FUNCTION:
-            status = parseFunctionDeclaration(true).isValid();
-            break;
-
-        case Lexer::TKN_PROCEDURE:
-            status = parseProcedureDeclaration(true).isValid();
-            break;
-
-        case Lexer::TKN_TYPE:
-            status = parseType();
-            break;
-
-        case Lexer::TKN_SUBTYPE:
-            status = parseSubtype();
-            break;
-        }
-
-        if (!status)
-            seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
-                       Lexer::TKN_TYPE,     Lexer::TKN_SEMI,
-                       Lexer::TKN_END,      Lexer::TKN_ADD);
-
-        requireToken(Lexer::TKN_SEMI);
-    }
-}
-
-void Parser::parseCarrier()
-{
-    assert(currentTokenIs(Lexer::TKN_CARRIER));
-
-    Location loc = ignoreToken();
-    IdentifierInfo *name = parseIdentifier();
-
-    if (!name) {
-        seekToken(Lexer::TKN_SEMI);
-        return;
-    }
-
-    if (!requireToken(Lexer::TKN_IS)) {
-        seekToken(Lexer::TKN_SEMI);
-        return;
-    }
-
-    Node type = parseName();
-
-    if (type.isInvalid()) {
-        seekToken(Lexer::TKN_SEMI);
-        return;
-    }
-
-    client.acceptCarrier(name, loc, type);
-}
-
-void Parser::parseAddComponents()
-{
-    client.beginAddExpression();
-
-    for (;;) {
-        switch (currentTokenCode()) {
-        default:
-            client.endAddExpression();
-            return;
-
-        case Lexer::TKN_FUNCTION:
-            parseFunctionDeclOrDefinition();
-            break;
-
-        case Lexer::TKN_PROCEDURE:
-            parseProcedureDeclOrDefinition();
-            break;
-
-        case Lexer::TKN_USE:
-            parseUseDeclaration();
-            break;
-
-        case Lexer::TKN_CARRIER:
-            parseCarrier();
-            break;
-
-        case Lexer::TKN_TYPE:
-            parseType();
-            break;
-
-        case Lexer::TKN_SUBTYPE:
-            parseSubtype();
-            break;
-
-        case Lexer::TKN_PRAGMA:
-            parseDeclarationPragma();
-            break;
-        }
-
-        requireToken(Lexer::TKN_SEMI);
-    }
-}
-
 void Parser::parseWithClause()
 {
     assert(currentTokenIs(Lexer::TKN_WITH));
@@ -624,52 +409,117 @@ void Parser::parseWithClause()
     client.acceptWithClause(loc, &names[0], names.size());
 }
 
-
-void Parser::parseCapsule()
+void Parser::parsePackageBody()
 {
-    bool parsingSignature = false;
+    for (;;) {
+        switch (currentTokenCode()) {
+        default:
+            return;
+
+        case Lexer::TKN_FUNCTION:
+            parseFunctionDeclOrDefinition();
+            break;
+
+        case Lexer::TKN_PROCEDURE:
+            parseProcedureDeclOrDefinition();
+            break;
+
+        case Lexer::TKN_USE:
+            parseUseDeclaration();
+            break;
+
+        case Lexer::TKN_TYPE:
+            parseType();
+            break;
+
+        case Lexer::TKN_SUBTYPE:
+            parseSubtype();
+            break;
+
+        case Lexer::TKN_PRAGMA:
+            parseDeclarationPragma();
+            break;
+        }
+
+        requireToken(Lexer::TKN_SEMI);
+    }
+}
+
+void Parser::parsePackageSpec()
+{
+    bool status = false;
+
+    for (;;) {
+        switch (currentTokenCode()) {
+        default:
+            return;
+
+        case Lexer::TKN_FUNCTION:
+            status = parseFunctionDeclaration().isValid();
+            break;
+
+        case Lexer::TKN_PROCEDURE:
+            status = parseProcedureDeclaration().isValid();
+            break;
+
+        case Lexer::TKN_TYPE:
+            status = parseType();
+            break;
+
+        case Lexer::TKN_SUBTYPE:
+            status = parseSubtype();
+            break;
+        }
+
+        if (!status)
+            seekTokens(Lexer::TKN_FUNCTION, Lexer::TKN_PROCEDURE,
+                       Lexer::TKN_TYPE,     Lexer::TKN_SEMI,
+                       Lexer::TKN_END);
+
+        requireToken(Lexer::TKN_SEMI);
+    }
+}
+
+void Parser::parsePackage()
+{
+    assert(currentTokenIs(Lexer::TKN_PACKAGE));
+    ignoreToken();
+
     IdentifierInfo *name = 0;
 
-    client.beginCapsule();
+    if (reduceToken(Lexer::TKN_BODY)) {
+        Location loc = currentLocation();
 
-    if (currentTokenIs(Lexer::TKN_GENERIC))
-        parseGenericFormalParams();
+        if (!(name = parseIdentifier())) return;
 
-    if (reduceToken(Lexer::TKN_PACKAGE)) {
-        Location loc = currentLocation();
-        if (!(name = parseIdentifier()))
+        if (!(requireToken(Lexer::TKN_IS) &&
+              client.beginPackageBody(name, loc))) {
+            seekAndConsumeEndTag(name);
+            reduceToken(Lexer::TKN_SEMI);
             return;
-        client.beginPackageDecl(name, loc);
-    }
-    else if (reduceToken(Lexer::TKN_DOMAIN)) {
-        Location loc = currentLocation();
-        if (!(name = parseIdentifier()))
-            return;
-        client.beginDomainDecl(name, loc);
-    }
-    else if (reduceToken(Lexer::TKN_SIGNATURE)) {
-        Location loc = currentLocation();
-        if (!(name = parseIdentifier()))
-            return;
-        client.beginSignatureDecl(name, loc);
-        parsingSignature = true;
+        }
+        parsePackageBody();
+        client.endPackageBody();
     }
     else {
-        assert(false && "Bad token for this production!");
-        return;
+        Location loc = currentLocation();
+
+        if (!(name = parseIdentifier())) return;
+
+        if (!(requireToken(Lexer::TKN_IS) &&
+              client.beginPackageSpec(name, loc))) {
+            seekAndConsumeEndTag(name);
+            reduceToken(Lexer::TKN_SEMI);
+            return;
+        }
+        parsePackageSpec();
+        client.endPackageSpec();
     }
-
-    if (currentTokenIs(Lexer::TKN_IS) || currentTokenIs(Lexer::TKN_WITH))
-        parseSignatureProfile();
-
-    if (!parsingSignature && reduceToken(Lexer::TKN_ADD))
-        parseAddComponents();
-
-    client.endCapsule();
 
     // Consume and verify the end tag.  On failure seek the next top level form.
     if (!parseEndTag(name))
-        seekTokens(Lexer::TKN_SIGNATURE, Lexer::TKN_DOMAIN, Lexer::TKN_PACKAGE);
+        seekTokens(Lexer::TKN_PACKAGE, Lexer::TKN_PROCEDURE,
+                   Lexer::TKN_FUNCTION);
     else
         requireToken(Lexer::TKN_SEMI);
 }
@@ -771,7 +621,7 @@ void Parser::parseSubroutineParameters()
     }
 }
 
-Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
+Node Parser::parseFunctionDeclaration()
 {
     assert(currentTokenIs(Lexer::TKN_FUNCTION));
     ignoreToken();
@@ -809,7 +659,7 @@ Node Parser::parseFunctionDeclaration(bool parsingSignatureProfile)
     return client.endSubroutineDeclaration(bodyFollows);
 }
 
-Node Parser::parseProcedureDeclaration(bool parsingSignatureProfile)
+Node Parser::parseProcedureDeclaration()
 {
     assert(currentTokenIs(Lexer::TKN_PROCEDURE));
     ignoreToken();
@@ -1289,10 +1139,7 @@ bool Parser::parseTopLevelDeclaration()
     for (;;) {
         switch (currentTokenCode()) {
         case Lexer::TKN_PACKAGE:
-        case Lexer::TKN_SIGNATURE:
-        case Lexer::TKN_DOMAIN:
-        case Lexer::TKN_GENERIC:
-            parseCapsule();
+            parsePackage();
             return true;
 
         case Lexer::TKN_EOT:

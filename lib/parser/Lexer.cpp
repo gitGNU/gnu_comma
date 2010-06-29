@@ -245,12 +245,6 @@ Lexer::Code Lexer::getTokenCode() const
             code = TKN_END;
         else if (strncmp(str, "out", length) == 0)
             code = TKN_OUT;
-        else if (strncmp(str, "add", length) == 0)
-            code = TKN_ADD;
-        else if (strncmp(str, "inj", length) == 0)
-            code = TKN_INJ;
-        else if (strncmp(str, "prj", length) == 0)
-            code = TKN_PRJ;
         else if (strncmp(str, "and", length) == 0)
             code = TKN_AND;
         else if (strncmp(str, "mod", length) == 0)
@@ -288,6 +282,8 @@ Lexer::Code Lexer::getTokenCode() const
             code = TKN_NULL;
         else if (strncmp(str, "exit", length) == 0)
             code = TKN_EXIT;
+        else if (strncmp(str, "body", length) == 0)
+            code = TKN_BODY;
         break;
 
     case 5:
@@ -306,9 +302,7 @@ Lexer::Code Lexer::getTokenCode() const
         break;
 
     case 6:
-        if (strncmp(str, "domain", length) == 0)
-            code = TKN_DOMAIN;
-        else if (strncmp(str, "return", length) == 0)
+        if (strncmp(str, "return", length) == 0)
             code = TKN_RETURN;
         else if (strncmp(str, "pragma", length) == 0)
             code = TKN_PRAGMA;
@@ -323,9 +317,7 @@ Lexer::Code Lexer::getTokenCode() const
         break;
 
     case 7:
-        if (strncmp(str, "carrier", length) == 0)
-            code = TKN_CARRIER;
-        else if (strncmp(str, "declare", length) == 0)
+        if (strncmp(str, "declare", length) == 0)
             code = TKN_DECLARE;
         else if (strncmp(str, "generic", length) == 0)
             code = TKN_GENERIC;
@@ -349,8 +341,6 @@ Lexer::Code Lexer::getTokenCode() const
     case 9:
         if (strncmp(str, "procedure", length) == 0)
             code = TKN_PROCEDURE;
-        else if (strncmp(str, "signature", length) == 0)
-            code = TKN_SIGNATURE;
         else if (strncmp(str, "exception", length) == 0)
             code = TKN_EXCEPTION;
         break;

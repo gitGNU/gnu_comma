@@ -59,8 +59,6 @@ private:
     void visitDeclRefExpr(DeclRefExpr *node);
     void visitFunctionCallExpr(FunctionCallExpr *node);
     void visitIndexedArrayExpr(IndexedArrayExpr *node);
-    void visitInjExpr(InjExpr *node);
-    void visitPrjExpr(PrjExpr *node);
     void visitIntegerLiteral(IntegerLiteral *node);
     void visitStringLiteral(StringLiteral *node);
     void visitAggregateExpr(AggregateExpr *node);

@@ -145,11 +145,8 @@ AttribExpr *AttributeChecker::checkBound(Ast *prefix, Location loc)
 
 ScalarBoundAE *AttributeChecker::checkScalarBound(TypeRef *prefix, Location loc)
 {
-    // FIXME:  It is possible that the TypeRef is incomplete.  We should
-    // diagnose that fact rather than ignore it.
-
-    // When the prefix is a type, it must resolve to a scalar type.
-    TypeDecl *decl = prefix->getTypeDecl();
+    // Resolve the prefix to a scalar type.
+    TypeDecl *decl = prefix->getDecl();
     DiscreteType *prefixTy = dyn_cast<DiscreteType>(decl->getType());
 
     if (!decl) {
@@ -186,12 +183,12 @@ RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
     // Otherwise, the prefix must be a TypeRef resolving to a scalar type.
     TypeRef *ref = dyn_cast<TypeRef>(prefix);
 
-    if (!ref || !ref->referencesTypeDecl()) {
+    if (!ref) {
         report(loc, diag::INVALID_ATTRIB_PREFIX) << attributeName();
         return 0;
     }
 
-    TypeDecl *tyDecl = ref->getTypeDecl();
+    TypeDecl *tyDecl = ref->getDecl();
     DiscreteType *prefixTy = dyn_cast<DiscreteType>(tyDecl->getType());
 
     if (!prefixTy) {
@@ -199,6 +196,7 @@ RangeAttrib *AttributeChecker::checkRange(Ast *prefix, Location loc)
         return 0;
     }
 
+    delete ref;
     return new ScalarRangeAttrib(prefixTy, loc);
 }
 
@@ -209,12 +207,12 @@ SubroutineRef *AttributeChecker::checkPosVal(Ast *prefix, Location loc)
 
     TypeRef *ref = dyn_cast<TypeRef>(prefix);
 
-    if (!(ref && ref->referencesTypeDecl())) {
+    if (!ref) {
         report(prefix->getLocation(), diag::EXPECTED_DISCRETE_SUBTYPE);
         return 0;
     }
 
-    TypeDecl *tyDecl = ref->getTypeDecl();
+    TypeDecl *tyDecl = ref->getDecl();
     FunctionAttribDecl *attrib;
 
     if (IntegerDecl *intDecl = dyn_cast<IntegerDecl>(tyDecl))
@@ -226,6 +224,7 @@ SubroutineRef *AttributeChecker::checkPosVal(Ast *prefix, Location loc)
         return 0;
     }
 
+    delete ref;
     return new SubroutineRef(loc, attrib);
 }
 

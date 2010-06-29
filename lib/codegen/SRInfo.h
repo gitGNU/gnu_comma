@@ -28,31 +28,33 @@ class SRInfo {
 public:
     /// \name Canonical Subroutines
     ///
-    /// Currently, all subroutines are declared within the context of a domain.
-    /// DomainInstanceDecl's provide a public view of a domains declarations,
-    /// whereas PercentDecl's and AddDecl's provide an internal view.  All
-    /// publicly visible declarations have a corresponding internal declaration.
-    /// The "canonical" declaration is an internal declaration resolved to a
+    /// Currently, all subroutines are declared within the context of a package.
+    /// PkgInstanceDecl's provide a public view of a package declarations,
+    /// whereas PackageDecl and AddDecl provide internal views.  All publicly
+    /// visible declarations have a corresponding internal declaration.  The
+    /// "canonical" declaration is an internal declaration resolved to a
     /// completion (definition) when possible.  Consider the following:
     ///
     /// \code
-    ///   domain D with
+    ///   package P is
     ///      procedure Foo;
     ///      procedure Bar;
-    ///   add
+    ///   end P;
+    ///
+    ///   package body P is
     ///      procedure Foo is ... end Foo;
     ///      pragma Import(C, Bar, "bar_impl");
-    ///   end D;
+    ///   end P;
     /// \endcode
     ///
-    /// The public view of \c D is represented by a unique DomainInstanceDecl
-    /// which provides declarations for \c Foo and \c Bar.  These public decls
-    /// have a corresponding internal representation in the unique PercentDecl
-    /// associated with \c D.  The declaration for Foo has a completion
-    /// (definition) is \c D's AddDecl -- this is the "canonical" declaration
+    /// The public view of \c P is represented by a unique PkgInstanceDecl which
+    /// provides declarations for \c Foo and \c Bar.  These public decls have a
+    /// corresponding internal representation in the unique PackageDecl
+    /// associated with \c P.  The declaration for Foo has a completion
+    /// (definition) is \c P's AddDecl -- this is the "canonical" declaration
     /// for \c Foo.  The declaration for Bar does not have a completion in the
     /// AddDecl since it is imported -- the "canonical" declaration is the one
-    /// provided by \c D's PercentDecl.
+    /// provided by \c P's PackageDecl.
     ///
     /// \see InstanceInfo::getKeySRDecl()
 

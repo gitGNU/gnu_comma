@@ -33,11 +33,10 @@ CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
         return CValue::getFat(exprValue);
 
     // If we have a renamed object decl which simply renames another declaration
-    // (after stripping any inj/prj's) emit the object as an alias for its rhs.
-    // Otherwise the renamed declaration is associated with a slot to the
-    // (already emitted) value.
+    // emit the object as an alias for its rhs.  Otherwise the renamed
+    // declaration is associated with a slot to the (already emitted) value.
     if (RenamedObjectDecl *ROD = dyn_cast<RenamedObjectDecl>(refDecl)) {
-        Expr *renamedExpr = ROD->getRenamedExpr()->ignoreInjPrj();
+        Expr *renamedExpr = ROD->getRenamedExpr();
         if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(renamedExpr))
             return emitDeclRefExpr(DRE);
         else
@@ -63,16 +62,6 @@ CValue CodeGenRoutine::emitDeclRefExpr(DeclRefExpr *expr)
 
     assert(false && "Unexpected type of expression!");
     return CValue::get(0);
-}
-
-CValue CodeGenRoutine::emitInjExpr(InjExpr *expr)
-{
-    return emitValue(expr->getOperand());
-}
-
-CValue CodeGenRoutine::emitPrjExpr(PrjExpr *expr)
-{
-    return emitValue(expr->getOperand());
 }
 
 CValue CodeGenRoutine::emitNullExpr(NullExpr *expr)

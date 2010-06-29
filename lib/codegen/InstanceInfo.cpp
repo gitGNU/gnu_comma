@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGen.h"
 #include "CodeGenTypes.h"
 #include "InstanceInfo.h"
 #include "SRInfo.h"
@@ -22,15 +21,14 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     // Declaration nodes which correspond to the public view always have their
     // origin link set to the corresponding private view.
     DeclRegion *region = srDecl->getDeclRegion();
-    if (isa<DomainInstanceDecl>(region) || isa<PkgInstanceDecl>(region)) {
+    if (isa<PkgInstanceDecl>(region)) {
         srDecl = srDecl->getOrigin();
         region = srDecl->getDeclRegion();
     }
 
     // Check that some basic assumptions hold.  The declarative region must have
-    // been resolved to either a PercentDecl, AddDecl, or PackageDecl.
-    assert((isa<PercentDecl>(region) || isa<AddDecl>(region) ||
-            isa<PackageDecl>(region))
+    // been resolved to either an AddDecl or PackageDecl.
+    assert((isa<AddDecl>(region) || isa<PackageDecl>(region))
            && "Inconsistent context for subroutine declaration!");
 
     // Further reduce the SubroutineDecl to its completion, if present.
@@ -40,28 +38,25 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     return srDecl;
 }
 
-InstanceInfo::InstanceInfo(CodeGen &CG, CapsuleInstance *instance)
+InstanceInfo::InstanceInfo(CodeGen &CG, PkgInstanceDecl *instance)
         : instance(instance),
           linkName(mangle::getLinkName(instance)),
           compiledFlag(false)
 {
-    CodeGenTypes CGT(CG, instance);
-
     // Populate the info table with all declarations provided by the instance.
-    populateInfoTable(CG, CGT, instance);
+    populateInfoTable(CG, CG.getCGT(), instance);
 }
 
 void InstanceInfo::populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
-                                     CapsuleInstance *instance)
+                                     PkgInstanceDecl *instance)
 {
     DeclRegion::DeclIter I;
     DeclRegion::DeclIter E;
-    DeclRegion *region = instance->asDeclRegion();
 
     // Construct an SRInfo node for each public declaration provided by the
     // region.
-    E = region->endDecls();
-    for (I = region->beginDecls(); I != E; ++I) {
+    E = instance->endDecls();
+    for (I = instance->beginDecls(); I != E; ++I) {
         /// FIXME: Support all declaration kinds.
         if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
             SubroutineDecl *key = getKeySRDecl(srDecl);
@@ -74,12 +69,7 @@ void InstanceInfo::populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
     }
 
     // Similarly for all private declarations.
-    AddDecl *impl;
-
-    if (instance->denotesDomainInstance())
-        impl = instance->getDefiningDomoid()->getImplementation();
-    else
-        impl = instance->getDefiningPackage()->getImplementation();
+    AddDecl *impl = instance->getDefinition()->getImplementation();
 
     E = impl->endDecls();
     for (I = impl->beginDecls(); I != E; ++I) {
