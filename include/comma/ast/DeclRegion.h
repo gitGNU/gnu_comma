@@ -224,7 +224,7 @@ public:
         switch (node->getKind()) {
         default:
             return false;
-        case Ast::AST_AddDecl:
+        case Ast::AST_BodyDecl:
         case Ast::AST_PackageDecl:
         case Ast::AST_PkgInstanceDecl:
         case Ast::AST_ProcedureDecl:
@@ -239,7 +239,7 @@ public:
         }
     }
 
-    static bool classof(const AddDecl       *node) { return true; }
+    static bool classof(const BodyDecl      *node) { return true; }
     static bool classof(const ProcedureDecl *node) { return true; }
     static bool classof(const FunctionDecl  *node) { return true; }
     static bool classof(const BlockStmt     *node) { return true; }

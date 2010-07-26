@@ -636,10 +636,10 @@ private:
     /// declarations.
     bool checkApplicableArgument(Expr *expr, Type *targetType);
 
-    // Verifies that the given AddDecl satisfies the constraints imposed by its
+    // Verifies that the given BodyDecl satisfies the constraints imposed by its
     // specification.  Returns true if the constraints are satisfied.
     // Otherwise, false is returned and diagnostics are posted.
-    bool ensureExportConstraints(AddDecl *add);
+    bool ensureExportConstraints(BodyDecl *add);
 
     /// Returns true if the given parameter is of mode "in", and thus capatable
     /// with a function declaration.  Otherwise false is returned an a

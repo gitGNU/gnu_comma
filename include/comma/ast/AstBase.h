@@ -25,7 +25,6 @@ namespace comma {
 //
 class AccessDecl;
 class AccessType;
-class AddDecl;
 class AggregateExpr;
 class AllocatorExpr;
 class ArrayBoundAE;
@@ -38,6 +37,7 @@ class AstRewriter;
 class AstResource;
 class AttribExpr;
 class BlockStmt;
+class BodyDecl;
 class ComponentDecl;
 class CompositeType;
 class CompilationUnit;
@@ -164,7 +164,7 @@ public:
         //    - Value decls denoting elements of a type.
         //
         AST_PackageDecl,        ///< PackageDecl
-        AST_AddDecl,            ///< AddDecl
+        AST_BodyDecl,           ///< BodyDecl
 
         AST_AccessDecl,         ///< AccessDecl
         AST_EnumerationDecl,    ///< EnumerationDecl

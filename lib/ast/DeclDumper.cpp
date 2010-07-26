@@ -43,7 +43,7 @@ void DeclDumper::visitUseDecl(UseDecl *node)
     printHeader(node) << '>';
 }
 
-void DeclDumper::visitAddDecl(AddDecl *node)
+void DeclDumper::visitBodyDecl(BodyDecl *node)
 {
     printHeader(node);
 

@@ -183,10 +183,10 @@ public:
     bool hasImplementation() const { return implementation != 0; }
 
     //@{
-    /// Returns the AddDecl implementing this package, or null if a body has not
-    /// yet been associated.
-    AddDecl *getImplementation() { return implementation; }
-    const AddDecl *getImplementation() const { return implementation; }
+    /// Returns the BodyDecl implementing this package, or null if a body has
+    /// not yet been associated.
+    BodyDecl *getImplementation() { return implementation; }
+    const BodyDecl *getImplementation() const { return implementation; }
     //@}
 
     //@{
@@ -204,36 +204,35 @@ public:
 
 private:
     AstResource &resource;
-    AddDecl *implementation;
+    BodyDecl *implementation;
     PkgInstanceDecl *instance;
 
-    /// Make AddDecl a friend.  AddDecl is permitted to call setImplementation
+    /// Make BodyDecl a friend.  BodyDecl is permitted to call setImplementation
     /// in order to register itself with its package.
-    friend class AddDecl;
+    friend class BodyDecl;
 
     /// Sets the implementation of this package.  Once set, a package
     /// implementation cannot be reset.
-    void setImplementation(AddDecl *body);
+    void setImplementation(BodyDecl *body);
 };
 
 //===----------------------------------------------------------------------===//
-// AddDecl
+// BodyDecl
 //
-/// \class
+/// \class BodyDecl
 ///
-/// This class represents an add expression.  It provides a declarative region
-/// for the body of a package and contains all private functions and values.
-class AddDecl : public Decl, public DeclRegion {
+/// This class represents the body (implementation) of a package.
+class BodyDecl : public Decl, public DeclRegion {
 
 public:
-    /// Creates an AddDecl to represent the body of the given package.
-    AddDecl(PackageDecl *package, Location loc);
+    /// Creates a BodyDecl to represent the body of the given package.
+    BodyDecl(PackageDecl *package, Location loc);
 
-    /// Returns the location of this AddDecl.
+    /// Returns the location of this BodyDecl.
     Location getLocation() const { return loc; }
 
     //@{
-    /// Returns the package which this add implements.
+    /// Returns the package which this body implements.
     const PackageDecl *getImplementedPackage() const {
         return llvm::cast<PackageDecl>(getParent());
     }
@@ -243,9 +242,9 @@ public:
     //@}
 
     // Support isa/dyn_cast.
-    static bool classof(const AddDecl *node) { return true; }
+    static bool classof(const BodyDecl *node) { return true; }
     static bool classof(const Ast *node) {
-        return node->getKind() == AST_AddDecl;
+        return node->getKind() == AST_BodyDecl;
     }
 
 private:

@@ -27,8 +27,8 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     }
 
     // Check that some basic assumptions hold.  The declarative region must have
-    // been resolved to either an AddDecl or PackageDecl.
-    assert((isa<AddDecl>(region) || isa<PackageDecl>(region))
+    // been resolved to either an BodyDecl or PackageDecl.
+    assert((isa<BodyDecl>(region) || isa<PackageDecl>(region))
            && "Inconsistent context for subroutine declaration!");
 
     // Further reduce the SubroutineDecl to its completion, if present.
@@ -69,7 +69,7 @@ void InstanceInfo::populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
     }
 
     // Similarly for all private declarations.
-    AddDecl *impl = instance->getDefinition()->getImplementation();
+    BodyDecl *impl = instance->getDefinition()->getImplementation();
 
     E = impl->endDecls();
     for (I = impl->beginDecls(); I != E; ++I) {

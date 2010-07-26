@@ -38,8 +38,8 @@ DeclRegion *Decl::asDeclRegion()
         return static_cast<PkgInstanceDecl*>(this);
     case AST_EnumerationDecl:
         return static_cast<EnumerationDecl*>(this);
-    case AST_AddDecl:
-        return static_cast<AddDecl*>(this);
+    case AST_BodyDecl:
+        return static_cast<BodyDecl*>(this);
     case AST_FunctionDecl:
         return static_cast<FunctionDecl*>(this);
     case AST_ProcedureDecl:
@@ -75,7 +75,7 @@ PackageDecl::~PackageDecl()
     delete implementation;
 }
 
-void PackageDecl::setImplementation(AddDecl *body)
+void PackageDecl::setImplementation(BodyDecl *body)
 {
     assert(implementation == 0 && "Cannot reset package body!");
     assert(body != 0 && "Cannot set null package body!");
@@ -93,11 +93,11 @@ PkgInstanceDecl *PackageDecl::getInstance()
 }
 
 //===----------------------------------------------------------------------===//
-// AddDecl
+// BodyDecl
 
-AddDecl::AddDecl(PackageDecl *package, Location loc)
-    : Decl(AST_AddDecl),
-      DeclRegion(AST_AddDecl, package),
+BodyDecl::BodyDecl(PackageDecl *package, Location loc)
+    : Decl(AST_BodyDecl),
+      DeclRegion(AST_BodyDecl, package),
       loc(loc)
 {
     package->setImplementation(this);
@@ -363,7 +363,7 @@ bool IncompleteTypeDecl::isCompatibleCompletion(const TypeDecl *decl) const
     if (thisRegion == completion)
         return true;
 
-    if (isa<AddDecl>(completion) && thisRegion == completion->getParent())
+    if (isa<BodyDecl>(completion) && thisRegion == completion->getParent())
         return true;
 
     return false;

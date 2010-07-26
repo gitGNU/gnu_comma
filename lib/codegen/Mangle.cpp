@@ -161,11 +161,11 @@ getPublicRegion(const SubroutineDecl *srDecl)
     }
 
     /// Finally, the given subroutine must be declared in the context of an
-    /// AddDecl.  Check if srDecl is the completion of a declaration in the
+    /// BodyDecl.  Check if srDecl is the completion of a declaration in the
     /// corresponding public view (the parent region) and if so, return the
     /// "forward declaration".
-    const AddDecl *add = cast<AddDecl>(region);
-    return Pair(add->getParent(), srDecl->getForwardDeclaration());
+    const BodyDecl *body = cast<BodyDecl>(region);
+    return Pair(body->getParent(), srDecl->getForwardDeclaration());
 }
 
 /// \brief Returns the number of declarations which precede \p srDecl.
@@ -191,8 +191,8 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
 
     // Otherwise, srDecl must denote a declaration which is private to the
     // corresponding package.  Search the body of the package for a match.
-    const AddDecl *add = cast<AddDecl>(srDecl->getDeclRegion());
-    if (getRegionIndex(add, idInfo, srDecl, index))
+    const BodyDecl *body = cast<BodyDecl>(srDecl->getDeclRegion());
+    if (getRegionIndex(body, idInfo, srDecl, index))
         return index;
 
     // We should always find a match.
@@ -235,7 +235,7 @@ std::string comma::mangle::getLinkName(const ExceptionDecl *exception)
     const DeclRegion *region = exception->getDeclRegion();
     const PkgInstanceDecl *instance;
 
-    if (isa<AddDecl>(region))
+    if (isa<BodyDecl>(region))
         region = region->getParent();
 
     if (const PackageDecl *package = dyn_cast<PackageDecl>(region))

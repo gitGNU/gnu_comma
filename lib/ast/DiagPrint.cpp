@@ -141,9 +141,9 @@ void PrettyPrinter::printQualifiedName(const char *name, DeclRegion *region)
     ParentSet parents;
 
     while (region) {
-        // Bump past AddDecl's and add the containing PackageDecl.
+        // Bump past BodyDecl's and add the containing PackageDecl.
         Ast *ast = region->asAst();
-        if (isa<AddDecl>(ast)) {
+        if (isa<BodyDecl>(ast)) {
             region = region->getParent();
             parents.push_back(region->asAst());
         }

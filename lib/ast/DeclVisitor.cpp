@@ -98,7 +98,7 @@ void DeclVisitor::visitFunctionDecl(FunctionDecl *node)
 //===----------------------------------------------------------------------===//
 
 void DeclVisitor::visitUseDecl(UseDecl *node) { }
-void DeclVisitor::visitAddDecl(AddDecl *node) { }
+void DeclVisitor::visitBodyDecl(BodyDecl *node) { }
 void DeclVisitor::visitPackageDecl(PackageDecl *node) { }
 void DeclVisitor::visitPkgInstanceDecl(PkgInstanceDecl *node) { }
 void DeclVisitor::visitProcedureDecl(ProcedureDecl *node) { }

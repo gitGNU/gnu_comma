@@ -81,9 +81,9 @@ void CodeGen::emitPackage(InstanceInfo *info)
     // Codegen each subroutine.
     IInfo = info;
     PkgInstanceDecl *instance = IInfo->getInstance();
-    const AddDecl *add = instance->getDefinition()->getImplementation();
+    const BodyDecl *body = instance->getDefinition()->getImplementation();
 
-    for (DeclRegion::ConstDeclIter I = add->beginDecls(), E = add->endDecls();
+    for (DeclRegion::ConstDeclIter I = body->beginDecls(), E = body->endDecls();
          I != E; ++I) {
         if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
             SRInfo *SRI = getSRInfo(instance, SRD);

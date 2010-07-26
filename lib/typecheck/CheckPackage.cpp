@@ -98,20 +98,20 @@ bool TypeCheck::beginPackageBody(IdentifierInfo *name, Location loc)
 
     // Ensure the package does not have a body associated with it yet.
     if (package->hasImplementation()) {
-        AddDecl *body = package->getImplementation();
+        BodyDecl *body = package->getImplementation();
         SourceLocation sloc = getSourceLoc(body->getLocation());
         report(loc, diag::PACKAGE_BODY_ALREADY_DEFINED) << name << sloc;
         return false;
     }
 
-    // Construct the package body.  The AddDecl automatically registers itself
+    // Construct the package body.  The BodyDecl automatically registers itself
     // with the package.
-    AddDecl *add = new AddDecl(package, loc);
+    BodyDecl *body = new BodyDecl(package, loc);
 
     // Setup the environment.
     scope.push(PACKAGE_SCOPE);
     currentPackage = package;
-    declarativeRegion = add;
+    declarativeRegion = body;
 
     // Bring all of the packages declarations into scope.
     //
@@ -134,7 +134,7 @@ void TypeCheck::endPackageBody()
 {
     assert(scope.getKind() == PACKAGE_SCOPE);
 
-    AddDecl *body = cast<AddDecl>(declarativeRegion);
+    BodyDecl *body = cast<BodyDecl>(declarativeRegion);
     ensureExportConstraints(body);
 
     // A package body is a child of the declarative region of its spec.  Pop two
@@ -144,11 +144,11 @@ void TypeCheck::endPackageBody()
     scope.pop();
 }
 
-bool TypeCheck::ensureExportConstraints(AddDecl *add)
+bool TypeCheck::ensureExportConstraints(BodyDecl *body)
 {
-    PackageDecl *package = add->getImplementedPackage();
+    PackageDecl *package = body->getImplementedPackage();
     IdentifierInfo *packageName = package->getIdInfo();
-    Location bodyLoc = add->getLocation();
+    Location bodyLoc = body->getLocation();
 
     bool allOK = true;
 

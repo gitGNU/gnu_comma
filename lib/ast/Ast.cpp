@@ -20,7 +20,7 @@ using llvm::isa;
 
 const char *Ast::kindStrings[LAST_AstKind] = {
     "PackageDecl",
-    "AddDecl",
+    "BodyDecl",
 
     "AccessDecl",
     "EnumerationDecl",

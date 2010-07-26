@@ -59,7 +59,7 @@ public:
     ///
     ///@{
     virtual void visitUseDecl(UseDecl *node);
-    virtual void visitAddDecl(AddDecl *node);
+    virtual void visitBodyDecl(BodyDecl *node);
     virtual void visitPackageDecl(PackageDecl *node);
     virtual void visitPkgInstanceDecl(PkgInstanceDecl *node);
     virtual void visitFunctionDecl(FunctionDecl *node);

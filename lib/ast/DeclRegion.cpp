@@ -138,8 +138,8 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const FunctionDecl*>(this);
     case Ast::AST_ProcedureDecl:
         return static_cast<const ProcedureDecl*>(this);
-    case Ast::AST_AddDecl:
-        return static_cast<const AddDecl*>(this);
+    case Ast::AST_BodyDecl:
+        return static_cast<const BodyDecl*>(this);
     case Ast::AST_PackageDecl:
         return static_cast<const PackageDecl*>(this);
     case Ast::AST_PkgInstanceDecl:

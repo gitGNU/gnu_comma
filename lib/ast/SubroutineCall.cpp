@@ -233,7 +233,7 @@ bool SubroutineCall::isLocalCall() const
     // local call.
     const SubroutineDecl *decl = getConnective();
     const DeclRegion *region = decl->getDeclRegion();
-    return (isa<AddDecl>(region) || isa<PackageDecl>(region));
+    return (isa<BodyDecl>(region) || isa<PackageDecl>(region));
 }
 
 bool SubroutineCall::isForeignCall() const

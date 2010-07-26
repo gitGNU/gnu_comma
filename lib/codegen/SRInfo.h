@@ -30,7 +30,7 @@ public:
     ///
     /// Currently, all subroutines are declared within the context of a package.
     /// PkgInstanceDecl's provide a public view of a package declarations,
-    /// whereas PackageDecl and AddDecl provide internal views.  All publicly
+    /// whereas PackageDecl and BodyDecl provide internal views.  All publicly
     /// visible declarations have a corresponding internal declaration.  The
     /// "canonical" declaration is an internal declaration resolved to a
     /// completion (definition) when possible.  Consider the following:
@@ -51,9 +51,9 @@ public:
     /// provides declarations for \c Foo and \c Bar.  These public decls have a
     /// corresponding internal representation in the unique PackageDecl
     /// associated with \c P.  The declaration for Foo has a completion
-    /// (definition) is \c P's AddDecl -- this is the "canonical" declaration
+    /// (definition) is \c P's BodyDecl -- this is the "canonical" declaration
     /// for \c Foo.  The declaration for Bar does not have a completion in the
-    /// AddDecl since it is imported -- the "canonical" declaration is the one
+    /// BodyDecl since it is imported -- the "canonical" declaration is the one
     /// provided by \c P's PackageDecl.
     ///
     /// \see InstanceInfo::getKeySRDecl()
