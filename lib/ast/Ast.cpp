@@ -101,7 +101,8 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "TypeRef",
     "ExceptionRef",
     "Identifier",
-    "ComponentKey"
+    "ComponentKey",
+    "PrivatePart"
 };
 
 void Ast::dump()

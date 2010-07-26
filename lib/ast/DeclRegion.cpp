@@ -142,6 +142,8 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const BodyDecl*>(this);
     case Ast::AST_PackageDecl:
         return static_cast<const PackageDecl*>(this);
+    case Ast::AST_PrivatePart:
+        return static_cast<const PrivatePart*>(this);
     case Ast::AST_PkgInstanceDecl:
         return static_cast<const PkgInstanceDecl*>(this);
     case Ast::AST_EnumerationDecl:

@@ -189,6 +189,16 @@ public:
     const BodyDecl *getImplementation() const { return implementation; }
     //@}
 
+    /// Returns true if this package has a private part.
+    bool hasPrivatePart() const { return privateDeclarations != 0; }
+
+    //@{
+    /// Returns the PrivatePart node encapsulating the private declarations of
+    /// this package, or null if a private part has not yet been associated.
+    PrivatePart *getPrivatePart() { return privateDeclarations; }
+    const PrivatePart *getPrivatePart() const { return privateDeclarations; }
+    //@}
+
     //@{
     /// Returns the instance corresponding to this package.
     PkgInstanceDecl *getInstance();
@@ -205,15 +215,57 @@ public:
 private:
     AstResource &resource;
     BodyDecl *implementation;
+    PrivatePart *privateDeclarations;
     PkgInstanceDecl *instance;
 
-    /// Make BodyDecl a friend.  BodyDecl is permitted to call setImplementation
-    /// in order to register itself with its package.
+    /// Make BodyDecl and PrivatePart friends.  BodyDecl is permitted to call
+    /// setImplementation in order to register itself with its package, likewise
+    /// PrivatePart may call setPrivatePart.
     friend class BodyDecl;
+    friend class PrivatePart;
 
     /// Sets the implementation of this package.  Once set, a package
     /// implementation cannot be reset.
     void setImplementation(BodyDecl *body);
+
+    /// Sets the private part of this package.  This method if for use by a
+    /// PrivatePart node can only be called once.
+    void setPrivatePart(PrivatePart *privateDeclarations);
+};
+
+//===----------------------------------------------------------------------===//
+/// \class PrivatePart
+///
+/// \brief Encapsulates the private declarations of a package.
+class PrivatePart : public Ast, public DeclRegion 
+{
+public:
+    /// Creates a PrivateDecl to represent the private declarations of the given
+    /// package.  Upon construction, a PrivateDecl automatically registers
+    /// itself with the given package.
+    PrivatePart(PackageDecl *package, Location loc);
+    
+    /// Returns the location of the "private" keyword.
+    Location getLocation() const { return loc; }
+    
+    //@{
+    /// Returns the package to which this PrivateDecl belongs.
+    const PackageDecl *getPackage() const {
+        return llvm::cast<PackageDecl>(getParent());
+    }
+    PackageDecl *getPackage() {
+        return llvm::cast<PackageDecl>(getParent());
+    }
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const PrivatePart *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PrivatePart;
+    }
+
+private:
+    Location loc;
 };
 
 //===----------------------------------------------------------------------===//
@@ -233,12 +285,10 @@ public:
 
     //@{
     /// Returns the package which this body implements.
-    const PackageDecl *getImplementedPackage() const {
-        return llvm::cast<PackageDecl>(getParent());
+    const PackageDecl *getPackage() const {
+        return const_cast<BodyDecl*>(this)->getPackage();
     }
-    PackageDecl *getImplementedPackage() {
-        return llvm::cast<PackageDecl>(getParent());
-    }
+    PackageDecl *getPackage();
     //@}
 
     // Support isa/dyn_cast.

@@ -43,11 +43,13 @@ public:
 
     void parsePackage();
     void parsePackageSpec();
+    void parsePackagePrivatePart();
     void parsePackageBody();
 
     bool parseSubroutineParameter();
     void parseSubroutineParameters();
 
+    void parseBasicDeclarativeItemSequence();
     Node parseFunctionDeclaration();
     Node parseProcedureDeclaration();
     void parseFunctionDeclOrDefinition();

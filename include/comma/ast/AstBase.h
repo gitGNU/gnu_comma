@@ -94,6 +94,7 @@ class PragmaAssert;
 class PragmaImport;
 class PragmaStmt;
 class PrimaryType;
+class PrivatePart;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
@@ -272,6 +273,7 @@ public:
         AST_PackageRef,         ///< PackageRef
         AST_Identifier,         ///< Identifier
         AST_ComponentKey,       ///< ComponentKey
+        AST_PrivatePart,        ///< PrivatePart
 
         //
         // Delimitiers providing classification of the above codes.

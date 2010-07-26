@@ -329,6 +329,8 @@ Lexer::Code Lexer::getTokenCode() const
             code = TKN_REVERSE;
         else if (strncmp(str, "renames", length) == 0)
             code = TKN_RENAMES;
+        else if (strncmp(str, "private", length) == 0)
+            code = TKN_PRIVATE;
         break;
 
     case 8:

@@ -68,6 +68,7 @@ PackageDecl::PackageDecl(AstResource &resource, IdentifierInfo *name, Location l
           DeclRegion(AST_PackageDecl),
           resource(resource),
           implementation(0),
+          privateDeclarations(0),
           instance(0) { }
 
 PackageDecl::~PackageDecl()
@@ -83,6 +84,14 @@ void PackageDecl::setImplementation(BodyDecl *body)
     implementation = body;
 }
 
+void PackageDecl::setPrivatePart(PrivatePart *ppart)
+{
+    assert(privateDeclarations == 0 && "Cannot reset private part!");
+    assert(ppart != 0 && "Cannot set null private part!");
+
+    privateDeclarations = ppart;
+}
+
 PkgInstanceDecl *PackageDecl::getInstance()
 {
     if (instance)
@@ -93,14 +102,40 @@ PkgInstanceDecl *PackageDecl::getInstance()
 }
 
 //===----------------------------------------------------------------------===//
+// PrivatePart
+
+PrivatePart::PrivatePart(PackageDecl *package, Location loc)
+  : Ast(AST_PrivatePart), 
+    DeclRegion(AST_PrivatePart, package), loc(loc) 
+{ 
+    package->setPrivatePart(this);
+}
+
+//===----------------------------------------------------------------------===//
 // BodyDecl
 
 BodyDecl::BodyDecl(PackageDecl *package, Location loc)
     : Decl(AST_BodyDecl),
-      DeclRegion(AST_BodyDecl, package),
+      DeclRegion(AST_BodyDecl),
       loc(loc)
 {
+    // Check if the given package has a private part.  The declarative region of
+    // a body is always under the private part when it exists.
+    if (package->hasPrivatePart())
+        setParent(package->getPrivatePart());
+    else
+        setParent(package);
+
     package->setImplementation(this);
+}
+
+PackageDecl *BodyDecl::getPackage()
+{
+    DeclRegion *parent = getParent();
+    if (isa<PackageDecl>(parent))
+        return cast<PackageDecl>(parent);
+    else 
+        return cast<PrivatePart>(parent)->getPackage();
 }
 
 //===----------------------------------------------------------------------===//

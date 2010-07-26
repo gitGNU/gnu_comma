@@ -208,9 +208,13 @@ public:
     //@{
     /// Called at the beginning of a package spec.  When this callback returns
     /// true the client must then accept a sequence of basic declarative items
-    /// until endPackageSpec is called.  Otherwise the package spec is skipped
-    /// and endPackageSpec is not called.
+    /// until either endPackageSpec or beginPackagePrivate is called.  Otherwise
+    /// the package spec is skipped and endPackageSpec is not called.
     virtual bool beginPackageSpec(IdentifierInfo *name, Location loc) = 0;
+
+    /// Called at the begining of the private part of a package.  The private
+    /// part of the package is terminated with a call to endPackageSpec.
+    virtual void beginPackagePrivatePart(Location loc) = 0;
 
     /// Completes a package spec.
     virtual void endPackageSpec() = 0;

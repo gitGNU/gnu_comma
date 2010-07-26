@@ -226,6 +226,7 @@ public:
             return false;
         case Ast::AST_BodyDecl:
         case Ast::AST_PackageDecl:
+        case Ast::AST_PrivatePart:
         case Ast::AST_PkgInstanceDecl:
         case Ast::AST_ProcedureDecl:
         case Ast::AST_FunctionDecl:
@@ -245,6 +246,7 @@ public:
     static bool classof(const BlockStmt     *node) { return true; }
     static bool classof(const IntegerDecl   *node) { return true; }
     static bool classof(const PackageDecl   *node) { return true; }
+    static bool classof(const PrivatePart   *node) { return true; }
     static bool classof(const RecordDecl    *node) { return true; }
     static bool classof(const ArrayDecl     *node) { return true; }
     static bool classof(const AccessDecl    *node) { return true; }

@@ -1,0 +1,25 @@
+
+package A is
+   procedure P;
+private
+   procedure Hidden;
+end A;
+
+package body A is
+
+   procedure P is begin null; end P;
+
+   procedure Hidden is begin null; end Hidden;
+end A;
+
+package Test is
+   procedure Run;
+end Test;
+
+package body Test is
+   procedure Run is
+   begin
+      A.P;                      -- OK.
+      A.Hidden;                 -- EXPECTED-ERROR: not visible
+   end Run;
+end Test;

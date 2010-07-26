@@ -27,8 +27,9 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
     }
 
     // Check that some basic assumptions hold.  The declarative region must have
-    // been resolved to either an BodyDecl or PackageDecl.
-    assert((isa<BodyDecl>(region) || isa<PackageDecl>(region))
+    // been resolved to either a BodyDecl, PrivatePart, or PackageDecl.
+    assert((isa<BodyDecl>(region) || isa<PackageDecl>(region) || 
+            isa<PrivatePart>(region))
            && "Inconsistent context for subroutine declaration!");
 
     // Further reduce the SubroutineDecl to its completion, if present.

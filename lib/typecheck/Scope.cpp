@@ -302,6 +302,9 @@ void Scope::dump() const
         case PACKAGE_SCOPE:
             std::cerr << "PACKAGE_SCOPE\n";
             break;
+        case PRIVATE_SCOPE:
+            std::cerr << "PRIVATE_SCOPE\n";
+            break;
         case SUBROUTINE_SCOPE:
             std::cerr << "SUBROUTINE_SCOPE\n";
             break;

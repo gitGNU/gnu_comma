@@ -1024,6 +1024,20 @@ Node TypeCheck::acceptSubtypeIndication(Node prefix, NodeVector &arguments)
     return getNode(STI);
 }
 
+void TypeCheck::introduceDeclRegion(DeclRegion *region)
+{
+    typedef DeclRegion::DeclIter iterator;
+    for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
+        scope.addDirectDeclNoConflicts(*I);
+        if (ArrayDecl *adecl = dyn_cast<ArrayDecl>(*I))
+            introduceImplicitDecls(adecl);
+        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(*I))
+            introduceImplicitDecls(edecl);
+        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(*I))
+            introduceImplicitDecls(idecl);
+    }
+}
+
 void TypeCheck::introduceImplicitDecls(DeclRegion *region)
 {
     typedef DeclRegion::DeclIter iterator;

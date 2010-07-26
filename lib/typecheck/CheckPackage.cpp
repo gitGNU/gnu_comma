@@ -56,8 +56,21 @@ bool TypeCheck::beginPackageSpec(IdentifierInfo *name, Location loc)
     return true;
 }
 
+void TypeCheck::beginPackagePrivatePart(Location loc)
+{
+    assert(scope.getKind() == PACKAGE_SCOPE);
+    assert(!currentPackage->hasPrivatePart());
+
+    PrivatePart *ppart = new PrivatePart(currentPackage, loc);
+    scope.push(PRIVATE_SCOPE);
+    declarativeRegion = ppart;
+}
+
 void TypeCheck::endPackageSpec()
 {
+    if (scope.getKind() == PRIVATE_SCOPE)
+        scope.pop();
+
     assert(scope.getKind() == PACKAGE_SCOPE);
     scope.pop();
 
@@ -70,7 +83,7 @@ void TypeCheck::endPackageSpec()
     else
         compUnit->addDeclaration(result);
 
-    declarativeRegion = declarativeRegion->getParent();
+    declarativeRegion = result->getParent();
     currentPackage = dyn_cast_or_null<PackageDecl>(declarativeRegion);
 }
 
@@ -116,17 +129,11 @@ bool TypeCheck::beginPackageBody(IdentifierInfo *name, Location loc)
     // Bring all of the packages declarations into scope.
     //
     // FIXME: Import generic parameters as well.
+    introduceDeclRegion(package);
+    if (package->hasPrivatePart())
+        introduceDeclRegion(package->getPrivatePart());
+
     // FIXME: A method should be provided by Scope to handle this.
-    typedef DeclRegion::DeclIter iterator;
-    for (iterator I = package->beginDecls(); I != package->endDecls(); ++I) {
-        scope.addDirectDeclNoConflicts(*I);
-        if (ArrayDecl *adecl = dyn_cast<ArrayDecl>(*I))
-            introduceImplicitDecls(adecl);
-        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(*I))
-            introduceImplicitDecls(edecl);
-        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(*I))
-            introduceImplicitDecls(idecl);
-    }
     return true;
 }
 
@@ -146,7 +153,7 @@ void TypeCheck::endPackageBody()
 
 bool TypeCheck::ensureExportConstraints(BodyDecl *body)
 {
-    PackageDecl *package = body->getImplementedPackage();
+    PackageDecl *package = body->getPackage();
     IdentifierInfo *packageName = package->getIdInfo();
     Location bodyLoc = body->getLocation();
 

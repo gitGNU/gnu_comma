@@ -445,7 +445,17 @@ void Parser::parsePackageBody()
     }
 }
 
+void Parser::parsePackagePrivatePart()
+{
+    parseBasicDeclarativeItemSequence();
+}
+
 void Parser::parsePackageSpec()
+{
+    parseBasicDeclarativeItemSequence();
+}
+
+void Parser::parseBasicDeclarativeItemSequence()
 {
     bool status = false;
 
@@ -486,9 +496,10 @@ void Parser::parsePackage()
     ignoreToken();
 
     IdentifierInfo *name = 0;
+    Location loc;
 
     if (reduceToken(Lexer::TKN_BODY)) {
-        Location loc = currentLocation();
+        loc = currentLocation();
 
         if (!(name = parseIdentifier())) return;
 
@@ -502,7 +513,7 @@ void Parser::parsePackage()
         client.endPackageBody();
     }
     else {
-        Location loc = currentLocation();
+        loc = currentLocation();
 
         if (!(name = parseIdentifier())) return;
 
@@ -513,6 +524,13 @@ void Parser::parsePackage()
             return;
         }
         parsePackageSpec();
+
+        if (currentTokenIs(Lexer::TKN_PRIVATE)) {
+            loc = ignoreToken();
+            client.beginPackagePrivatePart(currentLocation());
+            parsePackagePrivatePart();
+        }
+
         client.endPackageSpec();
     }
 

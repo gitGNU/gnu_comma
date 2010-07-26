@@ -124,12 +124,12 @@ comma-mode-syntax-table."
      `(,(concat
          "\\<"
          (regexp-opt
-          '("abstract" "access" "add" "all" "and" "array" "carrier" "begin"
-            "declare" "digits" "domain" "else" "elsif" "end" "exception" "exit"
+          '("abstract" "access" "all" "and" "array" "begin" "body"
+            "declare" "digits" "else" "elsif" "end" "exception" "exit"
             "for" "function" "generic" "if" "in" "inj" "is" "loop" "mod" "new"
-            "not" "null" "of" "out" "or" "others" "package" "pragma" "prj"
+            "not" "null" "of" "out" "or" "others" "package" "pragma" "private"
             "procedure" "raise" "range" "record" "renames" "rem" "return"
-            "reverse" "signature" "subtype" "then" "type" "use" "when" "while"
+            "reverse" "subtype" "then" "type" "use" "when" "while"
             "with" "xor") t)
          "\\>")
        (1 font-lock-keyword-face))

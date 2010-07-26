@@ -50,6 +50,7 @@ public:
                           unsigned numNames);
 
     bool beginPackageSpec(IdentifierInfo *name, Location loc);
+    void beginPackagePrivatePart(Location loc);
     void endPackageSpec();
     bool beginPackageBody(IdentifierInfo *name, Location loc);
     void endPackageBody();
@@ -650,6 +651,9 @@ private:
     /// Forms a generic enumeration literal AST node.  Returns true if the
     /// literal was generated successfully.
     bool acceptEnumerationLiteral(IdentifierInfo *name, Location loc);
+
+    /// Adds a declarative region to the current scope as direct names.
+    void introduceDeclRegion(DeclRegion *region);
 
     /// Adds the declarations present in the given region to the current scope
     /// as direct names.  This subroutine is used to introduce the implicit

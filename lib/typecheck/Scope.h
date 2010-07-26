@@ -26,6 +26,7 @@ enum ScopeKind {
     BASIC_SCOPE,            ///< Multipurpose scope.
     CUNIT_SCOPE,            ///< Compilation unit scope.
     PACKAGE_SCOPE,          ///< Package scope.
+    PRIVATE_SCOPE,          ///< Package private scope.
     SUBROUTINE_SCOPE,       ///< Subroutine scope.
     RECORD_SCOPE            ///< Record type declaration scope.
 };

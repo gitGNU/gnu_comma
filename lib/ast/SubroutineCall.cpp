@@ -229,11 +229,12 @@ bool SubroutineCall::isLocalCall() const
     if (isAmbiguous())
         return false;
 
-    // If the declarative region maps to an add or package decl then this is a
-    // local call.
+    // If the declarative region maps to a body, private part, or package decl
+    // then this is a local call.
     const SubroutineDecl *decl = getConnective();
     const DeclRegion *region = decl->getDeclRegion();
-    return (isa<BodyDecl>(region) || isa<PackageDecl>(region));
+    return (isa<PackageDecl>(region) || isa<BodyDecl>(region) || 
+            isa<PrivatePart>(region));
 }
 
 bool SubroutineCall::isForeignCall() const
