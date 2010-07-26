@@ -1,8 +1,11 @@
 -- Test array's with general discrete subtype definitions as indices.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
+
    type Idx  is range 1..10;
    type Arr1 is array (1..10) of Integer;
    type Arr2 is array (Positive range 1..10) of Integer;

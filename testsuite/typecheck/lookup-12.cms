@@ -1,8 +1,10 @@
 -- Ensure handlers cannot see the contents of their associated blocks.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       X : Integer := 0;
    begin

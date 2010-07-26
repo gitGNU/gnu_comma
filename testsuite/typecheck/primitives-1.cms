@@ -1,6 +1,10 @@
 -- This file tests that the primitive types and operations are all available.
 
-domain Primitive_Tests_1 add
+package Primitive_Tests_1 is
+  procedure Test;
+end Primitive_Tests_1;
+
+package body Primitive_Tests_1 is
 
   function Test_Bool_EQ (X : Boolean) return Boolean is
   begin
@@ -16,5 +20,12 @@ domain Primitive_Tests_1 add
   begin
      return X < X;
   end Test_Integer_LT;
+
+  procedure Test is
+  begin
+     pragma Assert (Test_Bool_EQ(true));
+     pragma Assert (Test_Integer_EQ(0));
+     pragma Assert (not Test_Integer_LT(0));
+  end Test;
 
 end Primitive_Tests_1;

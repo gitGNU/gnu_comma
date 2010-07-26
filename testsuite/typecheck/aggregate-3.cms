@@ -1,8 +1,10 @@
 -- Ensure bounds implied by aggregate expressions are propagated.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       S : String := (1..5 => 'x', 6..10 => 'y');
    begin

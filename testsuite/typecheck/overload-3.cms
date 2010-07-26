@@ -1,6 +1,10 @@
 -- Simple overload resolution speed test.
 
-domain D add
+package D is
+  procedure Test;
+end D;
+
+package body D is
 
   type S is (X);
   type T is (X);

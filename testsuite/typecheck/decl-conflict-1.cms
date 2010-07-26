@@ -1,10 +1,11 @@
 -- Ensure multiple subroutine declarations are caught, independent of keyword
 -- names.
 
-signature S with
-   procedure P (X : %);
-   procedure P (Y : %);         -- EXPECTED-ERROR: conflicts with declaration
+package S is
+   procedure P (X : Boolean);
+   procedure P (Y : Boolean);   -- EXPECTED-ERROR: conflicts with declaration
 
-   function F (X : %) return %;
-   function F (Y : %) return %; -- EXPECTED-ERROR: conflicts with declaration
+   function F (X : Boolean) return Boolean;
+   -- EXPECTED-ERROR: conflicts with declaration
+   function F (Y : Boolean) return Boolean; 
 end S;

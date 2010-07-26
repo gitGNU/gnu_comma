@@ -1,8 +1,11 @@
 -- Ensure nested object declarations can shadow outer decls.
 
-domain D add
-   carrier Rep is Boolean;
-   procedure P (X : %) is
+package D is
+   procedure P (X : Integer);
+end D;
+
+package body D is
+   procedure P (X : Integer) is
       Y : Boolean := false;
    begin
       Nested : declare
@@ -11,4 +14,5 @@ domain D add
       begin end Nested;
    end P;
 end D;
+
 

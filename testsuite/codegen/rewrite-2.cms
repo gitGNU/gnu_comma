@@ -1,26 +1,23 @@
 
-domain Test with
+package Test is
 
    subtype Upper is Character range 'A' .. 'Z';
 
-   procedure Update (A : in out %; B : Upper);
-
    procedure Run;
+end Test;
 
-add
+package body Test is
    type Arr is array (Upper) of Integer;
 
-   carrier Rep is Arr;
-
-   procedure Update (A : in out %; B : Upper) is
+   procedure Update (A : in out Arr; B : Upper) is
    begin
-      inj(A)(B) := 1;
+      A(B) := 1;
    end Update;
 
    procedure Run is
       X : Arr := (others => 0);
    begin
-      Update(prj(X), 'A');
+      Update(X, 'A');
    end Run;
 end Test;
 

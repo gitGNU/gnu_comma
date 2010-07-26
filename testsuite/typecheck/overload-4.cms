@@ -1,8 +1,10 @@
 -- Some overload checks with respect to selected components.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type R1 is record
       X : Integer;
    end record;

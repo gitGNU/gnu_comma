@@ -1,9 +1,11 @@
 -- Check that some basic constraints on Comma's primitive integer types are
 -- respected.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    procedure Update_Integer (Target : in out Integer;
                              Source :        Integer);

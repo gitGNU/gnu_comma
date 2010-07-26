@@ -1,10 +1,14 @@
 -- Ensure enumeration types can be qualified.
 
-domain D with
+package D is
    type T is (V);
 end D;
 
-domain E add
+package E is
+   procedure Test (X : D.T);
+end E;
+
+package body E is
    procedure Test (X : D.T) is begin end Test;
 end E;
 

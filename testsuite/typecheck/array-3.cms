@@ -1,8 +1,11 @@
 -- Constrained array checks.
 
-domain D with
+package D is
    procedure P;
-add
+end D;
+
+package body D is
+
    type Idx is range 0 .. 2**8 - 1;
    type Arr is array (Idx) of Integer;
 

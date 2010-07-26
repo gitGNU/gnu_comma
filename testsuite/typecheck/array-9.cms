@@ -1,14 +1,15 @@
 -- Ensure that array aggregates cannot be keyed by non-static expressions.
 
-domain Test with
+package Test is
    type Idx is range 1..10;
    procedure Run (I : Idx);
-add
+end Test;
+
+package body Test is
    type Arr is array (Idx) of Integer;
 
    procedure Run (I : Idx) is
       -- EXPECTED-ERROR: Static expression required.
       A : Arr := (I => 0, others => 0);
    begin end Run;
-
 end Test;

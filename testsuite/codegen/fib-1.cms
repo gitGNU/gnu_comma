@@ -8,9 +8,11 @@
 
 -- Simple Fibonacci function.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    function Fib (X : Natural) return Natural is
    begin
       if X = 0 then

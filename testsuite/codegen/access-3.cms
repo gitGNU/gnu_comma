@@ -1,8 +1,10 @@
 -- Fat access type checks.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    type String_Access is access String;
 

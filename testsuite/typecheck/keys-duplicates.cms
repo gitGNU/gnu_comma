@@ -1,8 +1,16 @@
 -- Ensure duplicate keys are in error.
-domain D add
-  procedure F (X : %; Y : %; Z : %) is begin end F;
-  procedure T (A : %) is
+package P is
+  procedure Test (A : Boolean);
+end P;
+
+package body P is
+  procedure F (X : Boolean; Y : Boolean; Z : Boolean) is 
+  begin 
+     null;
+  end F;
+
+  procedure Test (A : Boolean) is
   begin
      F(A, Y => A, Y => A);      -- EXPECTED-ERROR: Duplicate argument keyword
   end T;
-end D;
+end P;

@@ -1,8 +1,16 @@
 -- Ensure keys follow all positional parameters.
-domain D add
-  procedure Foo (X : %; Y : %; Z : %) is begin end Foo;
 
-  procedure Bar (A : %) is
+package D is
+  procedure Bar (A : Boolean);
+end D;
+
+package body D is
+  procedure Foo (X : Boolean; Y : Boolean; Z : Boolean) is 
+  begin 
+     null;
+  end Foo;
+
+  procedure Bar (A : Boolean) is
   begin
      -- EXPECTED-ERROR: Positional arguments may not follow
      Foo (A, Z => A, A);

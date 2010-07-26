@@ -1,12 +1,14 @@
 -- Ensure the "exports" of a type are propagated by `use'.
 
-domain D with
+package D is
    type T is range 1..10;
 end D;
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       use D;
       A : T := 1;

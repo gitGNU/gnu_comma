@@ -1,7 +1,11 @@
 -- Diagnose non-existant keys.
-domain D add
-   procedure P (X : %) is begin end P;
-   procedure T (A : %) is
+package D is
+   procedure Test (A : Boolean);
+end D;
+
+package body D is
+   procedure P (X : Boolean) is begin end P;
+   procedure T (A : Boolean) is
    begin
       P(NoSuchKey => A);        -- EXPECTED-ERROR: no argument keyword
    end T;

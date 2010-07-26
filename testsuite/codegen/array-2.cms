@@ -1,8 +1,10 @@
 -- Simple test of indefinite array types.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Assert_String (S : String) is
    begin
       for I in S'Range loop

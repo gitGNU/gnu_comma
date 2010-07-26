@@ -3,9 +3,11 @@
 -- FIXME: This test should have a timeout since a failure would manifest as an
 -- infinite loop.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Throw is
    begin
       raise Program_Error;

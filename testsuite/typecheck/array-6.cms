@@ -1,8 +1,10 @@
 -- Test array's with general discrete subtype definitions as indices.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type E is (A, B, C, D);
    subtype E_Sub is E range B..C;
 

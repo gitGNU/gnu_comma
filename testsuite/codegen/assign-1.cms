@@ -1,8 +1,10 @@
 -- Check assignments to fat access types.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       type Ptr is access String;
       P : Ptr := new String'("Test");

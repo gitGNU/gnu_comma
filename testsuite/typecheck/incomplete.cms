@@ -1,6 +1,6 @@
 -- Basic testing of incomplete type sanity.
 
-domain Test with
+package Test is
    type Incomplete;
 
    -- EXPECTED-ERROR:  Invalid context for incomplete type
@@ -17,6 +17,5 @@ domain Test with
    -- EXPECTED-ERROR:  Invalid context for incomplete type
    type Invalid is array (Positive range <>) of Incomplete;
 
-add
-   type Incomplete is range 0..2**7-1;
 end Test;
+

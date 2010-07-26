@@ -1,12 +1,16 @@
 -- Ensure local variables shadow used procedures.
 
-domain D with
+package D is
    procedure Foo;
-add
+end D;
+
+package body D is
    procedure Foo is begin end Foo;
 end D;
 
-domain E add
+package E is end E;
+
+package body E is
 
    procedure Test is
       Foo : Boolean := true;

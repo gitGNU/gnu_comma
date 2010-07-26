@@ -1,6 +1,10 @@
 -- Ensure parameters of mode "in" cannot be assigned to.
 
-domain D add
+package D is
+   procedure P (X : Boolean);
+end D;
+
+package body D is
    procedure P (X : Boolean) is
    begin
       X := true;                -- EXPECTED-ERROR: does not denote a variable

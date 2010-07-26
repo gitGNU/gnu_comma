@@ -148,7 +148,7 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
 {
     PackageDecl *package = add->getImplementedPackage();
     IdentifierInfo *packageName = package->getIdInfo();
-    Location packageLoc = package->getLocation();
+    Location bodyLoc = add->getLocation();
 
     bool allOK = true;
 
@@ -178,7 +178,7 @@ bool TypeCheck::ensureExportConstraints(AddDecl *add)
         // FIXME: We need a better diagnostic here.  In particular, we should be
         // reporting the location of the declaration.
         if (!decl->getDefiningDeclaration()) {
-            report(packageLoc, diag::MISSING_EXPORT)
+            report(bodyLoc, diag::MISSING_EXPORT)
                 << packageName << decl->getIdInfo();
             allOK = false;
         }

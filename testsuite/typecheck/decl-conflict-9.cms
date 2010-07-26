@@ -1,6 +1,6 @@
 -- Ensure subroutine profiles which reduce to a common root type conflict.
 
-signature Test with
+package Test is
 
    procedure Foo (X : Integer);
    -- EXPECTED-ERROR: conflicts with declaration

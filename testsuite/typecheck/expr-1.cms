@@ -1,8 +1,12 @@
 -- Ensure types are not valid in expression contexts.
 
-domain D add
+package D is
+   function F return Integer;
+end D;
+
+package body D is
    function F return Integer is
    begin
-      return Bool;              -- EXPECTED-ERROR: not visible
+      return Boolean;           -- EXPECTED-ERROR: Type in expression
    end F;
 end D;

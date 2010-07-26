@@ -1,13 +1,17 @@
 -- Ensure local variables shadow local procedures.
 
-domain D add
+package D is
+   procedure Foo;
+end D;
 
-  procedure Foo is begin end Foo;
+package body D is
 
-  procedure Test is
-     Foo : Boolean := true;
-  begin
-     Foo;                       -- EXPECTED-ERROR: Expected procedure
-  end Test;
+   procedure Foo is begin end Foo;
+
+   procedure Test is
+      Foo : Boolean := true;
+   begin
+      Foo;                       -- EXPECTED-ERROR: Expected procedure
+   end Test;
 
 end D;

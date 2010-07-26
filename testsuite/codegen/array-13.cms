@@ -1,7 +1,9 @@
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Rec is record
       F : Integer;
    end record;

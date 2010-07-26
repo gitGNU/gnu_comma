@@ -1,5 +1,5 @@
 -- Ensure empty enumerations are in error.
-signature S with
+package S is
    -- EXPECTED-ERROR: Empty enumerations are not permitted.
    type X is ();
 end S;

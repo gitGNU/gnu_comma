@@ -1,8 +1,10 @@
 -- Check exception propagation thru contexts which do not have handlers.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Throw is
    begin
       raise Program_Error;

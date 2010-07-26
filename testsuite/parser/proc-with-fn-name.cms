@@ -1,9 +1,8 @@
 -- Ensure procedures cannot have function names.
 
-signature S with
+package S is
    -- EXPECTED-ERROR: Unexpected token
    procedure * (X : Integer; Y : Integer);
-
 end S;
 
 

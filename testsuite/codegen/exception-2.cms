@@ -1,8 +1,10 @@
 -- Test exception propagation.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    type Exception_Kind is (PE, CE, None);
 

@@ -1,7 +1,10 @@
 -- Ensure duplicate object declarations are caught.
 
-domain D add
-   carrier Rep is Boolean;
+package D is
+   procedure P;
+end D;
+
+package body D is
    procedure P is
       X : Boolean := true;
       X : Boolean := false;     -- EXPECTED-ERROR: conflicts with declaration

@@ -1,8 +1,10 @@
 -- Ensure raises are caught by immediately enclosing handler.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
    begin
       raise Program_Error;

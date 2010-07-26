@@ -1,10 +1,10 @@
 -- Test commit 967b6b0ae50485f87132ca22e40e39d3ab892221
 
-domain Test with
+package Test is
    procedure Run;
-add
-   carrier Rep is Positive;
+end Test;
 
+package body Test is
    function Message return String is
    begin
       return "Message!";

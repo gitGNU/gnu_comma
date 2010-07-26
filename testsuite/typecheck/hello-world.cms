@@ -2,9 +2,11 @@
 --
 -- FIXME:  This test should be simplifed as Comma evolves.
 
-domain D with
+package D is
    procedure Hello_World;
-add
+end D;
+
+package body D is
 
    function Put_Char (C : Character) return Integer;
    pragma Import (C, Put_Char, "putchar");

@@ -1,6 +1,10 @@
 -- Ensure a simple Fibonacci function typechecks.
 
-domain D add
+package D is
+   function Fib (X : Integer) return Integer;
+end D;
+
+package body D is
 
    function Fib(X : Integer) return Integer is
    begin

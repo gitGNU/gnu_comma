@@ -1,8 +1,11 @@
 -- Ensure direct decls cannot shadow formal parameters.
 
-domain D add
-   carrier Rep is Boolean;
-   procedure P (X : Boolean) is
+package P is
+   procedure F (X : Boolean);
+end P;
+
+package body P is
+   procedure F (X : Boolean) is
       X : Boolean := true;      -- EXPECTED-ERROR: conflicts with declaration
-   begin end P;
-end D;
+   begin end F;
+end P;

@@ -1,8 +1,10 @@
 -- Various exit control flow tests.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       Done : Boolean := false;
    begin

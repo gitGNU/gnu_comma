@@ -1,10 +1,10 @@
 -- Ensure that non-discrete types as array indices are diagnosed.
-domain Test add
+package Test is
    type Idx is null record;
    -- EXPECTED-ERROR: discrete type .* required
    type A1 is array (Idx) of Integer;
    -- EXPECTED-ERROR: discrete type .* required
-   type A2 is array (%) of Integer;
+   type A2 is array (String) of Integer;
 end Test;
 
 

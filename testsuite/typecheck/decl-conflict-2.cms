@@ -1,7 +1,7 @@
 -- Ensure type names and subroutine names conflict.
 
-signature S with
+package S is
    type T is (A);
    procedure T;                 -- EXPECTED-ERROR: conflicts with declaration
-   function T return %;         -- EXPECTED-ERROR: conflicts with declaration
+   function T return Boolean;   -- EXPECTED-ERROR: conflicts with declaration
 end S;

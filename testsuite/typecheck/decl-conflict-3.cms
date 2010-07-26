@@ -1,7 +1,7 @@
 -- Ensure direct names cannot coincide with a capsules name.
 
-signature S with
+package S is
    type S is (A);               -- EXPECTED-ERROR: conflicts with declaration
    procedure S;                 -- EXPECTED-ERROR: conflicts with declaration
-   function S return %;         -- EXPECTED-ERROR: conflicts with declaration
+   function S return Boolean;   -- EXPECTED-ERROR: conflicts with declaration
 end S;

@@ -1,9 +1,6 @@
 -- Ensure functions cannot have parameters of mode "out".
 
-domain D add
+package D is
    -- EXPECTED-ERROR: cannot have an `out' mode
-   function F (X : out Boolean) return Boolean is
-   begin
-      return true;
-   end F;
+   function F (X : out Boolean) return Boolean;
 end D;

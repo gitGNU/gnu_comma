@@ -1,26 +1,26 @@
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Cell;
    type Cell_Access is access Cell;
 
    type Cell is record
       Elem : Integer;
-      Next : %;
+      Next : Cell_Access;
    end record;
 
-   carrier Rep is Cell_Access;
-
-   procedure Update (E : in out %) is
+   procedure Update (E : in out Cell_Access) is
    begin
-      inj(E) := null;
+      E := null;
    end Update;
 
    procedure Run is
-      E : % := prj(new Cell'(Elem => 0, Next => prj(null)));
+      E : Cell_Access := new Cell'(Elem => 0, Next => null);
    begin
       Update(E);
-      pragma Assert(inj(E) = null);
+      pragma Assert(E = null);
    end Run;
 end Test;

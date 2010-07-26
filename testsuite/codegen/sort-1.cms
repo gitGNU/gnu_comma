@@ -1,7 +1,9 @@
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    procedure Bubble (A : in out String; Swap_Seen : out Boolean) is
       J : Positive;

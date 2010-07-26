@@ -1,8 +1,10 @@
 -- Ensure null dereferences are checked at runtime.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type FPtr is access String;
    type TPtr is access Integer;
 

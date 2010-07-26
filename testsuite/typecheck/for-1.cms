@@ -1,8 +1,10 @@
 -- Ensure loop ranges default to an Integer subtype.
 
-domain D with
+package D is
    function F return Integer;
-add
+end D;
+
+package body D is
    function F return Integer is
       Sum : Integer := 0;
    begin

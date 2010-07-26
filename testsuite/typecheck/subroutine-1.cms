@@ -1,6 +1,6 @@
 -- Ensure binary functions cannot be defined with one argument.
 
-signature S with
+package S is
    -- EXPECTED-ERROR: Wrong number of arguments for operator
    function * (X : Integer) return Integer;
 end S;

@@ -1,9 +1,11 @@
 -- Ensure preference for root_integer operations override user declared
 -- operators when appropriate.
 
-package Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    function < (Left : Integer; Right : Integer) return Boolean is
    begin

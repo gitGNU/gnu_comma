@@ -1,17 +1,13 @@
--- Ensure local declarations in an add cannot conflict with the domains name or
--- parameters.
+-- Ensure local declarations in a body cannot conflict with the package name.
 
-domain D add
-   type D is (A);               -- EXPECTED-ERROR: conflicts with declaration
+package P is
+   type P is (A);               -- EXPECTED-ERROR: conflicts with declaration
 
-   type E is (D);               -- EXPECTED-ERROR: conflicts with declaration
-
-   -- EXPECTED-ERROR: conflicts with declaration
-   function D return Integer is
-   begin
-      return 0;
-   end D;
+   type E is (P);               -- EXPECTED-ERROR: conflicts with declaration
 
    -- EXPECTED-ERROR: conflicts with declaration
-   procedure D is begin end D;
-end D;
+   function P return Integer;
+
+   -- EXPECTED-ERROR: conflicts with declaration
+   procedure P;
+end P;

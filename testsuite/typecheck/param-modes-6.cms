@@ -1,6 +1,11 @@
 -- Ensure function results are not usable in an "out" or "in out" context.
 
-domain D add
+package D is
+   procedure Test1;
+   procedure Test2;
+end D;
+
+package body D is
 
    function F return Boolean is
    begin

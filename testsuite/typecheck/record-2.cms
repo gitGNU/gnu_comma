@@ -1,6 +1,10 @@
 -- Check number of positional components in record aggregate expressions.
 
-domain Test add
+package Test is
+   procedure Run;
+end Test;
+
+package body Test is
    type E is (Foo, Bar, Baz);
 
    type R is record

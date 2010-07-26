@@ -1,15 +1,19 @@
 -- Ensure local and imported function declarations overload.
 
-domain D with
+package D is
    function Foo (X : Boolean) return Boolean;
-add
+end D;
+
+package body D is
    function Foo (X : Boolean) return Boolean is
    begin
       return X;
    end Foo;
 end D;
 
-domain E add
+package E is end E;
+
+package body E is
 
    type A is (An_A);
 

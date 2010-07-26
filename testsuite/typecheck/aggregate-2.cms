@@ -1,8 +1,10 @@
 -- Check that non-continuous aggregates are OK in presence of an others clause.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Idx is range 1..10;
    type Fixed_String is array (Idx) of Character;
 

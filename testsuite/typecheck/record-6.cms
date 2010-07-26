@@ -1,6 +1,6 @@
 -- Ensure indefinite types are invalid as record components.
 
-domain Test add
+package Test is
    type Indefinite is array (Positive range <>) of Integer;
 
    type R1 is record

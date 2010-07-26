@@ -1,7 +1,9 @@
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type E is (A, B, C, D);
    subtype E_Sub is E range B..D;
    subtype E_Nul is E range D..A;

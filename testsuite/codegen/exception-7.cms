@@ -1,8 +1,10 @@
 -- Check exceptions passing thru variable length stack allocations.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    procedure Throw is
    begin

@@ -6,9 +6,11 @@
 --
 --===------------------------------------------------------------------------===
 
-package Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Arr is array (Positive range <>) of Integer;
    type Arr_Ref is access Arr;
 

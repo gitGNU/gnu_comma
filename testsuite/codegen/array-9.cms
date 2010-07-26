@@ -1,7 +1,9 @@
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    subtype Idx is Positive range 1..100;
    type Fixed_String is array (Idx) of Character;
 

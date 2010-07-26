@@ -1,8 +1,10 @@
 -- Array aggregate codegen tests.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Arr is array (Integer range 1..10) of Integer;
 
    procedure Assert_Arr(A : Arr; X : Integer) is

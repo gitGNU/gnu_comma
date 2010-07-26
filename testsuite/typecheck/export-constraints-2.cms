@@ -1,7 +1,8 @@
--- Tests that exports are verified even when there is no "add".
+-- Simple export verification.
 
-signature S with
+package S is
    procedure P;
 end S;
 
-domain D is S end D;            -- EXPECTED-ERROR: missing export
+-- EXPECTED-ERROR: missing export
+package body S is end S;

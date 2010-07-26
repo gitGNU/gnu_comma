@@ -1,6 +1,6 @@
 -- Ensure array types cannot have indefinite component types.
 
-domain Test add
+package Test is
 
    type ComponentArr is array (Positive range <>) of Integer;
 

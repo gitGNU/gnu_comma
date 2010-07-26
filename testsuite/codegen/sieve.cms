@@ -9,7 +9,7 @@
 -- Simple, inefficient, sieve of Eratosthenes.  Written to test that array
 -- codegen is sane.
 
-domain Sieve_of_Eratosthenes with
+package Sieve_of_Eratosthenes is
 
    type Prime_Array is array (Positive range <>) of Positive;
 
@@ -17,7 +17,10 @@ domain Sieve_of_Eratosthenes with
    -- Using the sieve of Eratosthenes algorithm, returns an array containing the
    -- first N primes.
 
-add
+end Sieve_of_Eratosthenes;
+
+
+package body Sieve_of_Eratosthenes is
 
    function Make_Sieve (N : Positive) return Prime_Array;
    -- Returns an array containing a increasing sequence of N numbers.
@@ -127,9 +130,11 @@ add
 
 end Sieve_of_Eratosthenes;
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       use Sieve_of_Eratosthenes;
       A : Prime_Array := Sieve(30);

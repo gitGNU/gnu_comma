@@ -1,8 +1,10 @@
 -- Check default initialization in contexts involving "<>".
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    type Idx is range 1..10;
 

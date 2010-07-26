@@ -1,17 +1,21 @@
 -- Parse selected operators.
 
-domain D with
+package D is
    function = (X : Character; Y : Character) return Character;
-add
+end D;
+
+package body D is
    function = (X : Character; Y : Character) return Character is
    begin
       return X;
    end =;
 end D;
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       C : Character := D.=('a', 'b');
    begin end Run;

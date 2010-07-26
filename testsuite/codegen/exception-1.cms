@@ -1,9 +1,11 @@
 -- Simple exception propagation tests.
 
-domain Thrower with
+package Thrower is
    procedure Throw_PE;
    procedure Throw_CE;
-add
+end Thrower;
+
+package body Thrower is
    procedure Throw_PE is
    begin
       raise Program_Error;
@@ -15,10 +17,11 @@ add
    end Throw_CE;
 end Thrower;
 
-
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    procedure Run is
    begin

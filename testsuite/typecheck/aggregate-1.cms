@@ -1,8 +1,10 @@
 -- Ensure keyed aggregates lacking an others clause are continuous.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       -- EXPECTED-ERROR: Discrete choice not continuous
       S : String := (1..3 => 'x', 5..6 => 'y');

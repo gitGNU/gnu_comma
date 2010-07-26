@@ -1,6 +1,9 @@
 -- Various record checks.
+package Test is
+   procedure Run;
+end Test;
 
-domain Test add
+package body Test is
    type E is (Foo, Bar, Baz);
 
    type R is record

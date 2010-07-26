@@ -1,8 +1,10 @@
 -- Test indefinite arrays with component arrays.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    subtype Idx is Integer range 1..3;
    type Fixed is array (Idx) of Character;
    type Nested is array (Positive range <>) of Fixed;

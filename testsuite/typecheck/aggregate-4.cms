@@ -1,8 +1,10 @@
 -- Ensure aggregate expressions with enumeration literals as keys type check.
 
-package Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
 
    type Enum_T is (X, Y, Z, W);
    type Array_T is array (Enum_T) of Integer;

@@ -1,31 +1,28 @@
 -- Ensure subtype declarations are properly rewritten.
 
-domain Test with
+package Test is
 
    subtype Small is Positive range 1 .. 10;
    subtype Pos is Positive;
 
-   procedure Update (A : in out %; I : Small);
-
    procedure Run;
+end Test;
 
-add
+package body Test is
 
    type Arr is array (Small) of Pos;
 
-   carrier Rep is Arr;
-
-   procedure Update (A : in out %; I : Small) is
+   procedure Update (A : in out Arr; I : Small) is
    begin
       -- Check for consistent rewrite of public type "Small", "Pos", and
       -- internal type "Arr".
-      inj(A)(I) := 10;
+      A(I) := 10;
    end Update;
 
    procedure Run is
       X : Arr := (others => 1);
    begin
-      Update(prj(X), 1);
+      Update(X, 1);
    end Run;
 
 end Test;

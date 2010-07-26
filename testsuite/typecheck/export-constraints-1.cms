@@ -1,12 +1,12 @@
 -- Ensure export implementations match the public parameter mode profile.
 
-domain D with                   -- EXPECTED-ERROR: missing export
-   procedure P (X : in out %);
-add
-   carrier Rep is Integer;
+package P is
+   procedure D (X : in out Boolean);
+end P;
 
+package body P is               -- EXPECTED-ERROR: missing export
    -- EXPECTED-ERROR: conflicts with declaration
-   procedure P (X : in %) is begin end P;
-end D;
+   procedure D (X : in Boolean) is begin end D;
+end P;
 
 

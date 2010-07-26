@@ -1,8 +1,10 @@
 -- Based on c4/c45503a.ada in ACATS.
 
-package Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       I0  : Integer := 0;
       I1  : Integer := 1;

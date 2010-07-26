@@ -1,8 +1,10 @@
 -- Codegen tests for the Length attribute.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type A is array (Positive range <>) of Integer;
 
    function Make (P : Positive) return A is

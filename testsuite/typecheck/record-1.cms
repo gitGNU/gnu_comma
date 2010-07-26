@@ -1,6 +1,10 @@
 -- Check for well formed selectors in record aggregate expressions.
 
-domain Test add
+package Test is
+   procedure Run;
+end Test;
+
+package body Test is
    type E is (Foo, Bar);
 
    type R is record

@@ -1,8 +1,10 @@
 -- Testing array of arrays.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    type Idx is range 1..10;
    type Fixed is array (Idx) of Character;
    type Nested is array (Positive range <>) of Fixed;

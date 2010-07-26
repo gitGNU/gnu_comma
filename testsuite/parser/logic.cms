@@ -1,8 +1,10 @@
 -- Check that logical operators don't mingle.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       A : Boolean := true;
       B : Boolean := true;

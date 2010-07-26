@@ -1,9 +1,10 @@
 -- Check corner case where iteration over index type is likely to overflow.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
 
+package body Test is
    type Idx is range -2**7..2**7-1;
    type Fixed_String is array (Idx) of Character;
 

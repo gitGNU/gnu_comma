@@ -1,8 +1,10 @@
 -- Ensure qualified character literals are lexed properly.
 
-domain Test with
+package Test is
    procedure Run;
-add
+end Test;
+
+package body Test is
    procedure Run is
       C : Character := Character'('x');
       S : String    := String'('x','y','z');

@@ -1,10 +1,12 @@
 -- Ensure "short hand" enumeration qualification.
 
-domain D with
+package D is
    type T is (V);
 end D;
 
-domain E add
+package E is end E;
+
+package body E is
    procedure Foo (X : D.T) is begin end Foo;
 
    procedure Test is
