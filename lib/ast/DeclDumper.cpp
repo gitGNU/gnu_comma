@@ -38,6 +38,58 @@ llvm::raw_ostream &DeclDumper::printHeader(Ast *node)
 //===----------------------------------------------------------------------===//
 // Visitor implementations.
 
+void DeclDumper::visitPackageDecl(PackageDecl *node)
+{
+    printHeader(node);
+    indent();
+
+    typedef DeclRegion::DeclIter iterator;
+
+    iterator I = node->beginDecls();
+    iterator E = node->endDecls();
+    for ( ; I != E; ++I) {
+        S << '\n';
+        printIndentation();
+        visitDecl(*I);
+    }
+
+    if (node->hasPrivatePart()) {
+        S << "\n\n";
+        printIndentation();
+        S << "<private";
+        indent();
+
+        I = node->getPrivatePart()->beginDecls();
+        E = node->getPrivatePart()->endDecls();
+        for ( ; I != E; ++I) {
+            S << '\n';
+            printIndentation();
+            visitDecl(*I);
+        }
+        S << '>';
+        dedent();
+    }
+
+    if (node->hasImplementation()) {
+        S << "\n\n";
+        printIndentation();
+        S << "<body";
+        indent();
+
+        I = node->getImplementation()->beginDecls();
+        E = node->getImplementation()->endDecls();
+        for ( ; I != E; ++I) {
+            S << '\n';
+            printIndentation();
+            visitDecl(*I);
+        }
+        S << '>';
+        dedent();
+    }
+
+    S << '>';
+}
+
 void DeclDumper::visitUseDecl(UseDecl *node)
 {
     printHeader(node) << '>';
@@ -139,3 +191,47 @@ void DeclDumper::visitIncompleteTypeDecl(IncompleteTypeDecl *node)
     printHeader(node) << '>';
 }
 
+void DeclDumper::visitPrivateTypeDecl(PrivateTypeDecl *node)
+{
+    unsigned tags = node->getTypeTags();
+    printHeader(node);
+
+    if (tags & PrivateTypeDecl::Abstract)
+        S << " abstract";
+    if (tags & PrivateTypeDecl::Tagged)
+        S << " tagged";
+    if (tags & PrivateTypeDecl::Limited)
+        S << " limited";
+    S << '>';
+}
+
+void DeclDumper::visitAccessDecl(AccessDecl *node)
+{
+    printHeader(node) << ' ';
+    dumpAST(node->getType());
+    S << '>';
+}
+
+void DeclDumper::visitRecordDecl(RecordDecl *node)
+{
+    printHeader(node);
+    indent();
+
+    typedef DeclRegion::DeclIter iterator;
+    iterator I = node->beginDecls();
+    iterator E = node->endDecls();
+    for ( ; I != E; ++I) {
+        S << '\n';
+        printIndentation();
+        visitDecl(*I);
+    }
+    dedent();
+    S << '>';
+}
+
+void DeclDumper::visitComponentDecl(ComponentDecl *node)
+{
+    printHeader(node) << ' ';
+    dumpAST(node->getType());
+    S << '>';
+}

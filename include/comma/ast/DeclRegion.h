@@ -236,6 +236,7 @@ public:
         case Ast::AST_RecordDecl:
         case Ast::AST_BlockStmt:
         case Ast::AST_AccessDecl:
+        case Ast::AST_PrivateTypeDecl:
             return true;
         }
     }
@@ -252,6 +253,7 @@ public:
     static bool classof(const AccessDecl    *node) { return true; }
     static bool classof(const EnumerationDecl    *node) { return true; }
     static bool classof(const PkgInstanceDecl    *node) { return true; }
+    static bool classof(const PrivateTypeDecl    *node) { return true; }
 
 protected:
     virtual void notifyAddDecl(Decl *decl);

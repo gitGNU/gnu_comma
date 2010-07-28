@@ -106,6 +106,11 @@ void TypeDumper::visitAccessType(AccessType *node)
     S << '>';
 }
 
+void TypeDumper::visitPrivateType(PrivateType *node)
+{
+    printHeader(node) << '>';
+}
+
 void TypeDumper::visitRecordType(RecordType *node)
 {
     printHeader(node);

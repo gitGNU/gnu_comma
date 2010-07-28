@@ -71,6 +71,7 @@ private:
     void visitArrayType(ArrayType *node);
     void visitAccessType(AccessType *node);
     void visitRecordType(RecordType *node);
+    void visitPrivateType(PrivateType *node);
 };
 
 } // end comma namespace.

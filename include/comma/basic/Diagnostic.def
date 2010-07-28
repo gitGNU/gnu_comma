@@ -99,8 +99,10 @@ DIAGNOSTIC(EXCEPTION_CANNOT_DENOTE_VALUE, ERROR,
            "Exception cannot denote a value.")
 DIAGNOSTIC(TYPE_NOT_VISIBLE, ERROR,
            "The type `%0' is not visible.")
-DIAGNOSTIC(WRONG_NUM_ARGS_FOR_TYPE, ERROR,
-           "Wrong number of arguments for type `%0'.")
+DIAGNOSTIC(WRONG_NUM_ARGS_FOR_CONVERSION, ERROR,
+           "Type conversions can only be applied to one argument.")
+DIAGNOSTIC(INVALID_CONVERSION, ERROR,
+           "Object of type `%0' is not convertable to an object of type `%1'.")
 DIAGNOSTIC(SUBROUTINE_REDECLARATION, ERROR,
            "Redeclaration of subroutine `%0' originally defined at `%1'.")
 DIAGNOSTIC(CONFLICTING_DECLARATION, ERROR,
@@ -279,6 +281,9 @@ DIAGNOSTIC(PACKAGE_BODY_ALREADY_DEFINED, ERROR,
 DIAGNOSTIC(WRONG_LEVEL_FOR_PACKAGE_BODY, ERROR,
            "Package implementations must be defined at the same level as the "
            "specification.")
+DIAGNOSTIC(INVALID_CONTEXT_FOR_PRIVATE_TYPE, ERROR,
+           "Private type declarations may only appear in the public part of "
+           "a package.")
 
 //
 // Driver diagnostics.

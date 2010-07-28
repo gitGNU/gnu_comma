@@ -35,6 +35,8 @@ void TypeVisitor::visitType(Type *node)
         visitAccessType(accessTy);
     else if (IncompleteType *incompleteTy = dyn_cast<IncompleteType>(node))
         visitIncompleteType(incompleteTy);
+    else if (PrivateType *privateTy = dyn_cast<PrivateType>(node))
+        visitPrivateType(privateTy);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -60,3 +62,4 @@ void TypeVisitor::visitArrayType(ArrayType *node) { }
 void TypeVisitor::visitRecordType(RecordType *node) { }
 void TypeVisitor::visitAccessType(AccessType *node) { }
 void TypeVisitor::visitIncompleteType(IncompleteType *node) { }
+void TypeVisitor::visitPrivateType(PrivateType *node) { }

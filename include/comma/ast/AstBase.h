@@ -95,6 +95,8 @@ class PragmaImport;
 class PragmaStmt;
 class PrimaryType;
 class PrivatePart;
+class PrivateType;
+class PrivateTypeDecl;
 class ProcedureCallStmt;
 class ProcedureDecl;
 class ProcedureType;
@@ -172,6 +174,7 @@ public:
         AST_IncompleteTypeDecl, ///< IncompleteTypeDecl
         AST_IntegerDecl,        ///< IntegerDecl
         AST_ArrayDecl,          ///< ArrayDecl
+        AST_PrivateTypeDecl,    ///< PrivateTypeDecl
         AST_RecordDecl,         ///< RecordDecl
 
         AST_PkgInstanceDecl,    ///< PkgInstanceDecl
@@ -212,6 +215,7 @@ public:
         AST_EnumerationType,    ///< EnumerationType
         AST_IncompleteType,     ///< IncompleteType
         AST_IntegerType,        ///< IntegerType
+        AST_PrivateType,        ///< PrivateType
         AST_RecordType,         ///< RecordType
 
         //

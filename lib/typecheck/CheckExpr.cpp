@@ -10,6 +10,7 @@
 #include "TypeCheck.h"
 #include "comma/ast/AttribExpr.h"
 #include "comma/ast/AggExpr.h"
+#include "comma/ast/DiagPrint.h"
 #include "comma/ast/ExceptionRef.h"
 #include "comma/ast/STIndication.h"
 #include "comma/ast/Stmt.h"
@@ -470,6 +471,50 @@ Node TypeCheck::acceptDereference(Node prefixNode, Location loc)
     return getNode(deref);
 }
 
+ConversionExpr *TypeCheck::acceptConversionExpr(TypeRef *prefix,
+                                                NodeVector &args)
+{
+    Expr *arg;
 
+    // Simple argument tests: ensure we have a sane number of arguments and that
+    // the operand is an expression.
+    if (args.size() != 1) {
+        report(prefix->getLocation(), diag::WRONG_NUM_ARGS_FOR_CONVERSION);
+        return 0;
+    }
 
+    if (!(arg = ensureExpr(args.front())))
+        return 0;
+
+    // We cannot use a conversion expression as context for type resolution.
+    if (!arg->hasType()) {
+        report(arg->getLocation(), diag::AMBIGUOUS_EXPRESSION);
+        return 0;
+    }
+
+    Type *sourceTy = resolveType(arg->getType());
+    Type *targetTy = resolveType(prefix->getType());
+
+    // Trivial compatiability.
+    //
+    // FIXME: Perhaps a note mentioning redundant conversion should be posted
+    // here.
+    if (covers(sourceTy, targetTy))
+        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+
+    // Numeric conversions.
+    if (sourceTy->isNumericType() && targetTy->isNumericType())
+        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+
+    // Access conversions.
+    //
+    // FIXME:  There is much more to do here, but the following is fine for the
+    // current implementation.
+    if (sourceTy->isAccessType() && targetTy->isAccessType())
+        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+
+    report(prefix->getLocation(), diag::INVALID_CONVERSION)
+        << diag::PrintType(sourceTy) << diag::PrintType(targetTy);
+    return 0;
+}
 

@@ -42,6 +42,10 @@ void DeclVisitor::visitDecl(Decl *node)
         visitValueDecl(value);
     else if (ExceptionDecl *exception = dyn_cast<ExceptionDecl>(node))
         visitExceptionDecl(exception);
+    else if (PackageDecl *package = dyn_cast<PackageDecl>(node))
+        visitPackageDecl(package);
+    else if (ComponentDecl *component = dyn_cast<ComponentDecl>(node))
+        visitComponentDecl(component);
     else
         assert(false && "Cannot visit this kind of node!");
 }
@@ -67,6 +71,9 @@ void DeclVisitor::visitTypeDecl(TypeDecl *node)
     case DISPATCH(EnumerationDecl, node);
     case DISPATCH(IntegerDecl, node);
     case DISPATCH(IncompleteTypeDecl, node);
+    case DISPATCH(PrivateTypeDecl, node);
+    case DISPATCH(AccessDecl, node);
+    case DISPATCH(RecordDecl, node);
     };
 }
 
@@ -112,3 +119,7 @@ void DeclVisitor::visitIntegerDecl(IntegerDecl *node) { }
 void DeclVisitor::visitArrayDecl(ArrayDecl *node) { }
 void DeclVisitor::visitExceptionDecl(ExceptionDecl *node) { }
 void DeclVisitor::visitIncompleteTypeDecl(IncompleteTypeDecl *node) { }
+void DeclVisitor::visitPrivateTypeDecl(PrivateTypeDecl *node) { }
+void DeclVisitor::visitAccessDecl(AccessDecl *node) { }
+void DeclVisitor::visitRecordDecl(RecordDecl *node) { }
+void DeclVisitor::visitComponentDecl(ComponentDecl *node) { }

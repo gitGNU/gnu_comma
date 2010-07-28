@@ -99,6 +99,9 @@ const llvm::Type *CodeGenTypes::lowerType(const Type *type)
     case Ast::AST_IncompleteType:
         return lowerIncompleteType(cast<IncompleteType>(type));
 
+    case Ast::AST_PrivateType:
+        return lowerPrivateType(cast<PrivateType>(type));
+
     case Ast::AST_UniversalType:
         return lowerUniversalType(cast<UniversalType>(type));
     }
@@ -108,6 +111,8 @@ const Type *CodeGenTypes::resolveType(const Type *type)
 {
     if (const IncompleteType *IT = dyn_cast<IncompleteType>(type))
         return resolveType(IT->getCompleteType());
+    else if (const PrivateType *PT = dyn_cast<PrivateType>(type))
+        return resolveType(PT->getCompleteType());
 
     return type;
 }
@@ -290,6 +295,11 @@ const llvm::StructType *CodeGenTypes::lowerRecordType(const RecordType *recTy)
 }
 
 const llvm::Type *CodeGenTypes::lowerIncompleteType(const IncompleteType *type)
+{
+    return lowerType(type->getCompleteType());
+}
+
+const llvm::Type *CodeGenTypes::lowerPrivateType(const PrivateType *type)
 {
     return lowerType(type->getCompleteType());
 }

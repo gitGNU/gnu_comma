@@ -160,12 +160,20 @@ getPublicRegion(const SubroutineDecl *srDecl)
         return Pair(target->getDeclRegion(), target);
     }
 
+    /// If the declaration is declared in the private part of a package it is
+    /// never a member of the public view.
+    if (isa<PrivatePart>(region))
+        return Pair(region->getParent(), 0);
+
     /// Finally, the given subroutine must be declared in the context of an
     /// BodyDecl.  Check if srDecl is the completion of a declaration in the
-    /// corresponding public view (the parent region) and if so, return the
-    /// "forward declaration".
-    const BodyDecl *body = cast<BodyDecl>(region);
-    return Pair(body->getParent(), srDecl->getForwardDeclaration());
+    /// corresponding public or private view (the parent region) and if so,
+    /// return the "forward declaration".
+    assert(isa<BodyDecl>(region));
+    region = region->getParent();
+    if (isa<PrivatePart>(region))
+        region = region->getParent();
+    return Pair(region, srDecl->getForwardDeclaration());
 }
 
 /// \brief Returns the number of declarations which precede \p srDecl.
@@ -181,13 +189,22 @@ unsigned getOverloadIndex(const SubroutineDecl *srDecl)
 
     // Resolve the DeclRegion corresponding to this subroutine.
     std::pair<const DeclRegion*, const SubroutineDecl*> lookup;
+    const PackageDecl *package;
+    const SubroutineDecl *target;
     lookup = getPublicRegion(srDecl);
+    package = cast<PackageDecl>(lookup.first);
+    target = lookup.second;
 
     // Generate the index wrt the resolved PackageDecl.  If there is a match,
     // return the computed index.
-    if (lookup.second &&
-        getRegionIndex(lookup.first, idInfo, lookup.second, index))
+    if (target && getRegionIndex(package, idInfo, target, index))
         return index;
+
+    // Next, scan the private part of the package if available.
+    if (const PrivatePart *ppart = package->getPrivatePart()) {
+        if (getRegionIndex(ppart, idInfo, srDecl, index))
+            return index;
+    }
 
     // Otherwise, srDecl must denote a declaration which is private to the
     // corresponding package.  Search the body of the package for a match.

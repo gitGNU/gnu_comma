@@ -668,7 +668,12 @@ Node Parser::parseFunctionDeclaration()
 
     client.acceptFunctionReturnType(returnNode);
 
-    bool bodyFollows = currentTokenIs(Lexer::TKN_IS);
+    // We check for both TKN_IS and TKN_BEGIN to help diagnose missing 'is'
+    // tokens.
+    //
+    // FIXME:  Another option is to just check for TKN_SEMI.
+    bool bodyFollows = (currentTokenIs(Lexer::TKN_IS) ||
+                        currentTokenIs(Lexer::TKN_BEGIN));
 
     // FIXME: We should model the parser state with more than a tag stack.
     if (bodyFollows)
@@ -771,6 +776,11 @@ void Parser::parseFunctionDeclOrDefinition()
 
     if (reduceToken(Lexer::TKN_IS))
         parseSubroutineBody(decl);
+    else if (!currentTokenIs(Lexer::TKN_SEMI)) {
+        report(diag::UNEXPECTED_TOKEN_WANTED)
+            << currentToken().getString()
+            << Lexer::tokenString(Lexer::TKN_IS);
+    }
     return;
 }
 
@@ -925,6 +935,10 @@ bool Parser::parseType()
 
     case Lexer::TKN_ACCESS:
         return parseAccessTypeDecl(name, loc);
+
+    case Lexer::TKN_LIMITED:
+    case Lexer::TKN_PRIVATE:
+        return parsePrivateTypeDecl(name, loc);
     }
 
     return false;
@@ -1149,6 +1163,22 @@ bool Parser::parseAccessTypeDecl(IdentifierInfo *name, Location loc)
         return false;
 
     client.acceptAccessTypeDecl(name, loc, subtypeNode);
+    return true;
+}
+
+bool Parser::parsePrivateTypeDecl(IdentifierInfo *name, Location loc)
+{
+    unsigned typeTag = 0;
+
+    if (reduceToken(Lexer::TKN_LIMITED))
+        typeTag |= ParseClient::LimitedTypeTag;
+
+    if (!requireToken(Lexer::TKN_PRIVATE)) {
+        seekSemi();
+        return false;
+    }
+
+    client.acceptPrivateTypeDecl(name, loc, typeTag);
     return true;
 }
 

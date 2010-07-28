@@ -94,6 +94,8 @@ public:
     IncompleteTypeDecl *rewriteIncompleteTypeDecl(IncompleteTypeDecl *ITD);
 
     AccessDecl *rewriteAccessDecl(AccessDecl *access);
+
+    PrivateTypeDecl *rewritePrivateTypeDecl(PrivateTypeDecl *pdecl);
     //@}
 
     /// Rewrites the given declaration node.

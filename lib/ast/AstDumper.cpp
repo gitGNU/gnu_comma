@@ -12,6 +12,7 @@
 #include "StmtDumper.h"
 #include "TypeDumper.h"
 #include "comma/ast/Decl.h"
+#include "comma/ast/DSTDefinition.h"
 #include "comma/ast/Expr.h"
 #include "comma/ast/RangeAttrib.h"
 #include "comma/ast/Stmt.h"
@@ -108,6 +109,12 @@ llvm::raw_ostream &AstDumper::dumpRangeAttrib(RangeAttrib *node)
     return dump(node->getPrefix(), indentLevel) << '>';
 }
 
+llvm::raw_ostream &AstDumper::dumpDSTDefinition(DSTDefinition *node)
+{
+    printHeader(node) << ' ';
+    return dump(node->getType(), indentLevel) << '>';
+}
+
 llvm::raw_ostream &AstDumper::dump(Ast *node, unsigned level)
 {
     unsigned savedLevel = indentLevel;
@@ -130,6 +137,10 @@ llvm::raw_ostream &AstDumper::dump(Ast *node, unsigned level)
         case Ast::AST_ArrayRangeAttrib:
         case Ast::AST_ScalarRangeAttrib:
             dumpRangeAttrib(cast<RangeAttrib>(node));
+            break;
+
+        case Ast::AST_DSTDefinition:
+            dumpDSTDefinition(cast<DSTDefinition>(node));
             break;
         };
     }

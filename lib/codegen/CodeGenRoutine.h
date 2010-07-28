@@ -153,7 +153,8 @@ private:
     llvm::Value *emitLengthAE(LengthAE *expr);
 
     // Conversion emitters.
-    llvm::Value *emitDiscreteConversion(Expr *expr, DiscreteType *target);
+    CValue emitDiscreteConversion(Expr *expr, DiscreteType *target);
+    CValue emitAccessConversion(Expr *expr, AccessType *target);
 
     /// Emits a range check over discrete types.
     void emitDiscreteRangeCheck(llvm::Value *sourceVal, Location loc,

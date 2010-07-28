@@ -205,13 +205,20 @@ TypeDecl *TypeCheck::ensureTypeDecl(Node node, bool report)
 
 Type *TypeCheck::resolveType(Type *type) const
 {
-    // If the given type is an incomplete type determine if it is appropriate to
-    // resolve the type to its completion.
+    // If the given type is incomplete or private determine if it is appropriate
+    // to resolve the type to its completion.
     if (IncompleteType *opaqueTy = dyn_cast<IncompleteType>(type)) {
         IncompleteTypeDecl *ITD = opaqueTy->getDefiningDecl();
         if (ITD->completionIsVisibleIn(currentDeclarativeRegion()))
-            type = ITD->getCompletion()->getType();
+            return resolveType(ITD->getCompletion()->getType());
     }
+    else if (PrivateType *privateTy = dyn_cast<PrivateType>(type)) {
+        PrivateTypeDecl *PTD = privateTy->getDefiningDecl();
+        if (PTD->hasCompletion() &&
+            PTD->completionIsVisibleIn(currentDeclarativeRegion()))
+            return resolveType(PTD->getCompletion()->getType());
+    }
+
     return type;
 }
 
@@ -624,33 +631,32 @@ void TypeCheck::acceptSubtypeDecl(IdentifierInfo *name, Location loc,
         return;
     }
 
-    /// FIXME: The only kind of unconstrained subtype declarations we currently
-    /// support are discrete subtypes.
     TypeDecl *tyDecl = subtype->getDecl();
-    DiscreteType *baseTy = dyn_cast<DiscreteType>(tyDecl->getType());
 
-    if (!baseTy) {
+    if (DiscreteType *discTy = dyn_cast<DiscreteType>(tyDecl->getType())) {
+        switch (discTy->getKind()) {
+        default:
+            assert(false && "Unexpected subtype indication!");
+            break;
+
+        case Ast::AST_IntegerType: {
+            IntegerType *intTy = cast<IntegerType>(discTy);
+            tyDecl = resource.createIntegerSubtypeDecl(name, loc, intTy, region);
+            break;
+        }
+
+        case Ast::AST_EnumerationType : {
+            EnumerationType *enumTy = cast<EnumerationType>(discTy);
+            tyDecl = resource.createEnumSubtypeDecl(name, loc, enumTy, region);
+            break;
+        }
+        }
+    }
+    else if (AccessType *ptrTy = dyn_cast<AccessType>(tyDecl->getType()))
+        tyDecl = resource.createAccessSubtypeDecl(name, loc, ptrTy, region);
+    else {
         report(subtype->getLocation(), diag::INVALID_SUBTYPE_INDICATION);
         return;
-    }
-
-    tyDecl = 0;
-    switch (baseTy->getKind()) {
-    default:
-        assert(false && "Unexpected subtype indication!");
-        break;
-
-    case Ast::AST_IntegerType: {
-        IntegerType *intTy = cast<IntegerType>(baseTy);
-        tyDecl = resource.createIntegerSubtypeDecl(name, loc, intTy, region);
-        break;
-    }
-
-    case Ast::AST_EnumerationType : {
-        EnumerationType *enumTy = cast<EnumerationType>(baseTy);
-        tyDecl = resource.createEnumSubtypeDecl(name, loc, enumTy, region);
-        break;
-    }
     }
 
     subtypeNode.release();
@@ -791,6 +797,35 @@ void TypeCheck::acceptAccessTypeDecl(IdentifierInfo *name, Location loc,
     if (introduceTypeDeclaration(access)) {
         access->generateImplicitDeclarations(resource);
         introduceImplicitDecls(access);
+    }
+}
+
+void TypeCheck::acceptPrivateTypeDecl(IdentifierInfo *name, Location loc,
+                                      unsigned typeTag)
+{
+    DeclRegion *region = currentDeclarativeRegion();
+    PackageDecl *package = dyn_cast<PackageDecl>(region);
+
+    // Private types may only be declared in the public part of a package
+    // specification.
+    if (!package) {
+        report(loc, diag::INVALID_CONTEXT_FOR_PRIVATE_TYPE);
+        return;
+    }
+
+    // Convert the type tags from the ParseClient encoding to the internal AST
+    // encoding.
+    unsigned tags = 0;
+    tags |= (typeTag & AbstractTypeTag) ? PrivateTypeDecl::Abstract : 0;
+    tags |= (typeTag & LimitedTypeTag) ? PrivateTypeDecl::Limited : 0;
+    tags |= (typeTag & TaggedTypeTag) ? PrivateTypeDecl::Tagged : 0;
+
+    PrivateTypeDecl *decl =
+        new PrivateTypeDecl(resource, name, loc, tags, region);
+
+    if (introduceTypeDeclaration(decl)) {
+        decl->generateImplicitDeclarations(resource);
+        introduceImplicitDecls(decl);
     }
 }
 
@@ -1028,13 +1063,24 @@ void TypeCheck::introduceDeclRegion(DeclRegion *region)
 {
     typedef DeclRegion::DeclIter iterator;
     for (iterator I = region->beginDecls(); I != region->endDecls(); ++I) {
-        scope.addDirectDeclNoConflicts(*I);
-        if (ArrayDecl *adecl = dyn_cast<ArrayDecl>(*I))
-            introduceImplicitDecls(adecl);
-        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(*I))
-            introduceImplicitDecls(edecl);
-        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(*I))
-            introduceImplicitDecls(idecl);
+        Decl *decl = *I;
+        if (Decl *conflict = scope.addDirectDecl(decl)) {
+            // Conflicts should only happen with private types.
+            assert(isa<PrivateTypeDecl>(conflict) &&
+                   "Inconsistent private type decl!");
+        }
+
+        switch (decl->getKind()) {
+        default:
+            break;
+
+        case Ast::AST_ArrayDecl:
+        case Ast::AST_EnumerationDecl:
+        case Ast::AST_IntegerDecl:
+        case Ast::AST_AccessDecl:
+            introduceImplicitDecls(cast<DeclRegion>(decl));
+            break;
+        }
     }
 }
 
@@ -1061,11 +1107,24 @@ bool TypeCheck::introduceTypeDeclaration(TypeDecl *decl)
             if (ITD->isCompatibleCompletion(decl)) {
                 ITD->setCompletion(decl);
 
-                // Only add the type declaration to the current declarative
-                // region if the incomplete declaration was declared elsewhere.
+                // Ensure the completion lives in the same declarative region as
+                // its initial declaration.
+                assert(ITD->isDeclaredIn(currentDeclarativeRegion()) &&
+                       "Inconsistent region for incomplete type completion!");
+
+                // FIXME:  Remove once the above assertion stops firing.
                 if (ITD->getDeclRegion() != currentDeclarativeRegion())
                     currentDeclarativeRegion()->addDecl(decl);
 
+                return true;
+            }
+        }
+
+        // Otherwise we must have a private type declaration.
+        if (PrivateTypeDecl *PTD = dyn_cast<PrivateTypeDecl>(conflict)) {
+            if (PTD->isCompatibleCompletion(decl)) {
+                PTD->setCompletion(decl);
+                currentDeclarativeRegion()->addDecl(decl);
                 return true;
             }
         }
@@ -1096,6 +1155,22 @@ bool TypeCheck::covers(Type *A, Type *B)
     if (A->isUniversalTypeOf(B) || B->isUniversalTypeOf(A))
         return true;
 
+    // If either A or B denote private types, resolve their completions if it is
+    // possible to do so with respect to the current context.
+    if (PrivateType *ptype = dyn_cast<PrivateType>(A)) {
+        PrivateTypeDecl *decl = ptype->getDefiningDecl();
+        if (decl->completionIsVisibleIn(currentDeclarativeRegion()) &&
+            ptype->hasCompletion())
+            return covers(ptype->getCompleteType(), B);
+    }
+
+    if (PrivateType *ptype = dyn_cast<PrivateType>(B)) {
+        PrivateTypeDecl *decl = ptype->getDefiningDecl();
+        if (decl->completionIsVisibleIn(currentDeclarativeRegion()) &&
+            ptype->hasCompletion())
+            return covers(A, ptype->getCompleteType());
+    }
+
     Type *rootTypeA = A;
     Type *rootTypeB = B;
 
@@ -1110,6 +1185,9 @@ bool TypeCheck::covers(Type *A, Type *B)
 
 bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
 {
+    sourceTy = resolveType(sourceTy);
+    targetTy = resolveType(targetTy);
+
     if (sourceTy == targetTy)
         return false;
 

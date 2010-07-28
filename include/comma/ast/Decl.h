@@ -66,7 +66,7 @@ public:
 
     /// Returns this cast to a DeclRegion, or null if this decl is not also a
     /// declarative region.
-    DeclRegion *asDeclRegion();
+    DeclRegion *asDeclRegion() const;
 
     /// Returns the origin of this decl, or null if there is no associated
     /// origin.
@@ -237,17 +237,17 @@ private:
 /// \class PrivatePart
 ///
 /// \brief Encapsulates the private declarations of a package.
-class PrivatePart : public Ast, public DeclRegion 
+class PrivatePart : public Ast, public DeclRegion
 {
 public:
     /// Creates a PrivateDecl to represent the private declarations of the given
     /// package.  Upon construction, a PrivateDecl automatically registers
     /// itself with the given package.
     PrivatePart(PackageDecl *package, Location loc);
-    
+
     /// Returns the location of the "private" keyword.
     Location getLocation() const { return loc; }
-    
+
     //@{
     /// Returns the package to which this PrivateDecl belongs.
     const PackageDecl *getPackage() const {
@@ -920,6 +920,15 @@ public:
     PrimaryType *getType() { return CorrespondingType; }
     //@}
 
+    /// Populates the declarative region of this type with all implicit
+    /// operations.  This must be called once the type has been constructed to
+    /// gain access to the types operations.
+    virtual void generateImplicitDeclarations(AstResource &resource);
+
+    /// Returns true if this denotes a subtype declarations.
+    virtual bool isSubtypeDeclaration() const = 0;
+
+    // Support isa/dyn_cast.
     static bool classof(const TypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->denotesTypeDecl();
@@ -955,7 +964,7 @@ protected:
 class IncompleteTypeDecl : public TypeDecl {
 
 public:
-    /// \brief Returns true if this declaration has a completions.
+    /// \brief Returns true if this declaration has a completion.
     bool hasCompletion() const { return completion != 0; }
 
     /// \brief Sets the completion of this declaration.
@@ -992,10 +1001,11 @@ public:
     ///     the given declaration was declared in the private portion.
     bool isCompatibleCompletion(const TypeDecl *decl) const;
 
-
     /// Returns true if the completion of this indirect type declaration
     /// is visible from within the given declarative region.
     bool completionIsVisibleIn(const DeclRegion *region) const;
+
+    bool isSubtypeDeclaration() const { return false; }
 
     // Support isa/dyn_cast.
     static bool classof(const IncompleteTypeDecl *node) { return true; }
@@ -1355,6 +1365,8 @@ public:
     /// Returns true if this declaration is constrained.
     bool isConstrained() const { return getType()->isConstrained(); }
 
+    bool isSubtypeDeclaration() const;
+
     //@{
     /// Iterators over the the index types of this array.
     typedef ArrayType::iterator index_iterator;
@@ -1424,6 +1436,8 @@ public:
     }
     ComponentDecl *getComponent(unsigned i);
     //@}
+
+    bool isSubtypeDeclaration() const;
 
     static bool classof(const RecordDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1498,7 +1512,12 @@ private:
 /// \class
 ///
 /// \brief This class encapsulates an access type declaration.
-class AccessDecl : public TypeDecl, public DeclRegion {
+class AccessDecl : public TypeDecl, public DeclRegion
+{
+    // Various flags which are munged into the bits member of this node.
+    enum {
+        Subtype_FLAG = 1 << 0
+    };
 
 public:
     /// Populates the declarative region of this type with all implicit
@@ -1517,6 +1536,8 @@ public:
     }
     //@}
 
+    bool isSubtypeDeclaration() const;
+
     // Support isa/dyn_cast.
     static bool classof(const AccessDecl *node) { return true; }
     static bool classof(const Ast *node) {
@@ -1527,8 +1548,82 @@ private:
     AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
                Type *targetType, DeclRegion *parent);
 
+    AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+               AccessType *baseType, DeclRegion *parent);
+
     // AccessDecl's are constructed and managed by AstResource.
     friend class AstResource;
+};
+
+//===----------------------------------------------------------------------===//
+/// \class PrivateTypeDecl
+///
+/// \brief Represents a private type declaration.
+class PrivateTypeDecl : public TypeDecl, public DeclRegion
+{
+public:
+    enum TypeTag {
+        Abstract = 1 << 0,
+        Tagged   = 1 << 1,
+        Limited  = 1 << 2
+    };
+
+    PrivateTypeDecl(AstResource &resource, IdentifierInfo *name, Location loc,
+                    unsigned tags, DeclRegion *context);
+
+    /// \brief Returns true if the given declaration could serve as a
+    /// completion.
+    ///
+    /// A declaration can complete this private type declaration if:
+    ///
+    ///   - This declaration is itself without a completion,
+    ///
+    ///   - If the given declaration appears in the public part of a package and
+    ///     this declaration appears in the private part of the same package.
+    bool isCompatibleCompletion(const TypeDecl *decl) const;
+
+    //@{
+    /// \brief Returns the completion of this declaration if one has been set,
+    /// else null.
+    const TypeDecl *getCompletion() const { return completion; }
+    TypeDecl *getCompletion() { return completion; }
+    //@}
+
+    /// Returns true if this declaration has a completion.
+    bool hasCompletion() const { return completion != 0; }
+
+    /// \brief Sets the completion of this declaration.
+    void setCompletion(TypeDecl *decl) { completion = decl; }
+
+    /// Returns true if the completion of this private type declaration is
+    /// visible from within the given declarative region.
+    bool completionIsVisibleIn(const DeclRegion *region) const;
+
+    void generateImplicitDeclarations(AstResource &resource);
+
+    /// Returns a bitmask of type tags that have been applied to this
+    /// declaration.
+    unsigned getTypeTags() const { return bits; }
+
+    /// Returns true if this is a limited type declaration.
+    bool isLimited() const { return bits & Limited; }
+
+    /// Returns true if this is an abstract type declaration.
+    bool isAbstract() const { return bits & Abstract; }
+
+    /// Returns true if this is a tagged type declaration.
+    bool isTagged() const { return bits & Tagged; }
+
+    bool isSubtypeDeclaration() const { return false; }
+
+    // Support isa/dyn_cast.
+    static bool classof(const PkgInstanceDecl *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PrivateTypeDecl;
+    }
+
+private:
+    TypeDecl *completion;
 };
 
 //===----------------------------------------------------------------------===//

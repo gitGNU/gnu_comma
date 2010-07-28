@@ -56,6 +56,10 @@ public:
     /// Returns true if this type denotes an integer type.
     bool isIntegerType() const;
 
+    /// Returns true if this type denotes a numeric type (either an integer or
+    /// real type).
+    bool isNumericType() const;
+
     /// Returns true if this type denotes an enumeration type.
     bool isEnumType() const;
 
@@ -935,6 +939,61 @@ protected:
 public:
     /// Returns the IntegerKind of this node.  For internal use only.
     IntegerKind getIntegerKind() const { return IntegerKind(bits); }
+};
+
+//===----------------------------------------------------------------------===//
+/// \class PrivateType
+///
+/// \brief Represents a private type.
+class PrivateType : public PrimaryType
+{
+public:
+    //@{
+    /// Returns the declaration defining this private type.
+    const PrivateTypeDecl *getDefiningDecl() const {
+        return const_cast<PrivateType*>(this)->getDefiningDecl();
+    }
+    PrivateTypeDecl *getDefiningDecl();
+    //@}
+
+    //@{
+    /// Specialize PrimaryType::getRootType().
+    PrivateType *getRootType() {
+        return llvm::cast<PrivateType>(PrimaryType::getRootType());
+    }
+    const PrivateType *getRootType() const {
+        return llvm::cast<PrivateType>(PrimaryType::getRootType());
+    }
+    //@}
+
+    /// Returns true if this type as a completion.
+    bool hasCompletion() const;
+
+    //@{
+    /// Returns the underlying complete type.
+    const PrimaryType *getCompleteType() const {
+        return const_cast<PrivateType*>(this)->getCompleteType();
+    }
+    PrimaryType *getCompleteType();
+    //@}
+
+    // Support isa/dyn_cast.
+    static bool classof(const PrimaryType *node) { return true; }
+    static bool classof(const Ast *node) {
+        return node->getKind() == AST_PrivateType;
+    }
+
+private:
+    friend class AstResource;
+
+    static PrivateType *createPrivateType(PrivateTypeDecl *decl);
+    static PrivateType *createPrivateSubtype(PrivateType *base);
+
+    // Internal constructor (not for use by AstResource).
+    PrivateType(PrivateTypeDecl *decl);
+    PrivateType(PrivateType *base);
+
+    PrivateTypeDecl *definingDecl;
 };
 
 //===----------------------------------------------------------------------===//

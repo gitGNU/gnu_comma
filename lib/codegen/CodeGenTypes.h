@@ -50,6 +50,8 @@ public:
 
     const llvm::Type *lowerAccessType(const AccessType *type);
 
+    const llvm::Type *lowerPrivateType(const PrivateType *type);
+
     const llvm::Type *lowerUniversalType(const UniversalType *type);
 
     /// Returns the structure type used to hold the bounds of an unconstrained

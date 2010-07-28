@@ -66,6 +66,12 @@ bool Type::isIntegerType() const
     return isa<IntegerType>(this);
 }
 
+bool Type::isNumericType() const
+{
+    // FIXME: Extend for real types once implemented.
+    return isIntegerType();
+}
+
 bool Type::isEnumType() const
 {
     return isa<EnumerationType>(this);
@@ -217,6 +223,9 @@ bool SubroutineType::compareProfiles(const SubroutineType *X,
         return false;
 
     if (procedureProfile && !isa<ProcedureType>(Y))
+        return false;
+
+    if (!procedureProfile && isa<ProcedureType>(Y))
         return false;
 
     for (unsigned i = 0; i < arity; ++i) {
@@ -1027,6 +1036,49 @@ PosAD *IntegerType::getPosAttribute()
 ValAD *IntegerType::getValAttribute()
 {
     return cast<IntegerDecl>(getDefiningDecl())->getValAttribute();
+}
+
+//===----------------------------------------------------------------------===//
+// PrivateType
+PrivateType::PrivateType(PrivateTypeDecl *decl)
+    : PrimaryType(AST_PrivateType, NULL, false),
+      definingDecl(decl)
+{
+}
+
+PrivateType::PrivateType(PrivateType *base)
+    : PrimaryType(AST_PrivateType, base, true),
+      definingDecl(0)
+{
+}
+
+PrivateType *PrivateType::createPrivateType(PrivateTypeDecl *decl)
+{
+    return new PrivateType(decl);
+}
+
+PrivateType *PrivateType::createPrivateSubtype(PrivateType *base)
+{
+    return new PrivateType(base);
+}
+
+PrivateTypeDecl *PrivateType::getDefiningDecl()
+{
+    if (isSubtype())
+        return getRootType()->getDefiningDecl();
+    assert(definingDecl && "Private type without corresponding declaration!");
+    return definingDecl;
+}
+
+bool PrivateType::hasCompletion() const
+{
+    return getDefiningDecl()->hasCompletion();
+}
+
+PrimaryType *PrivateType::getCompleteType()
+{
+    assert(hasCompletion() && "Type does not have a completion!");
+    return getDefiningDecl()->getCompletion()->getType();
 }
 
 //===----------------------------------------------------------------------===//

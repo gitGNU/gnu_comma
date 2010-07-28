@@ -39,8 +39,17 @@ public:
     /// Returns the IdentifierInfo of the underlying decl.
     IdentifierInfo *getIdInfo() const { return target->getIdInfo(); }
 
+    //@{
     /// If this references a type declaration, return it, else null.
-    TypeDecl *getDecl() const { return target; }
+    const TypeDecl *getDecl() const { return target; }
+    TypeDecl *getDecl() { return target; }
+    //@}
+
+    //@{
+    /// Returns the referenced type.
+    const Type *getType() const { return target->getType(); }
+    Type *getType() { return target->getType(); }
+    //@}
 
     // Support isa and dyn_cast.
     static bool classof(const TypeRef *node) { return true; }

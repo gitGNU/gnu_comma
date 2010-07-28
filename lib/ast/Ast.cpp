@@ -27,6 +27,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "IncompleteTypeDecl",
     "IntegerDecl",
     "ArrayDecl",
+    "PrivateTypeDecl",
     "RecordDecl",
 
     "PkgInstanceDecl",
@@ -54,6 +55,7 @@ const char *Ast::kindStrings[LAST_AstKind] = {
     "EnumerationType",
     "IncompleteType",
     "IntegerType",
+    "PrivateType",
     "RecordType",
 
     "AllocatorExpr",

@@ -74,6 +74,10 @@ public:
     virtual void visitArrayDecl(ArrayDecl *node);
     virtual void visitExceptionDecl(ExceptionDecl *node);
     virtual void visitIncompleteTypeDecl(IncompleteTypeDecl *node);
+    virtual void visitPrivateTypeDecl(PrivateTypeDecl *node);
+    virtual void visitAccessDecl(AccessDecl *node);
+    virtual void visitRecordDecl(RecordDecl *node);
+    virtual void visitComponentDecl(ComponentDecl *node);
     ///@}
 };
 

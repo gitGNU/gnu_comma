@@ -83,12 +83,15 @@ void CodeGen::emitPackage(InstanceInfo *info)
     PkgInstanceDecl *instance = IInfo->getInstance();
     const BodyDecl *body = instance->getDefinition()->getImplementation();
 
-    for (DeclRegion::ConstDeclIter I = body->beginDecls(), E = body->endDecls();
-         I != E; ++I) {
-        if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
-            SRInfo *SRI = getSRInfo(instance, SRD);
-            CodeGenRoutine CGR(*this, SRI);
-            CGR.emit();
+    if (body) {
+        typedef DeclRegion::ConstDeclIter iterator;
+        for (iterator I = body->beginDecls(), E = body->endDecls();
+             I != E; ++I) {
+            if (SubroutineDecl *SRD = dyn_cast<SubroutineDecl>(*I)) {
+                SRInfo *SRI = getSRInfo(instance, SRD);
+                CodeGenRoutine CGR(*this, SRI);
+                CGR.emit();
+            }
         }
     }
     IInfo->markAsCompiled();

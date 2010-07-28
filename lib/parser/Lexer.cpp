@@ -331,6 +331,8 @@ Lexer::Code Lexer::getTokenCode() const
             code = TKN_RENAMES;
         else if (strncmp(str, "private", length) == 0)
             code = TKN_PRIVATE;
+        else if (strncmp(str, "limited", length) == 0)
+            code = TKN_LIMITED;
         break;
 
     case 8:

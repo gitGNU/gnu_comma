@@ -263,12 +263,13 @@ CValue CodeGenRoutine::emitDereferencedValue(DereferenceExpr *expr)
 
 CValue CodeGenRoutine::emitConversionValue(ConversionExpr *expr)
 {
-    // The only type of conversions we currently support are those which involve
-    // discrete types.
-    if (DiscreteType *target = dyn_cast<DiscreteType>(expr->getType())) {
-        llvm::Value *value = emitDiscreteConversion(expr->getOperand(), target);
-        return CValue::get(value);
-    }
+    Type *targetTy = expr->getType();
+
+    if (DiscreteType *target = dyn_cast<DiscreteType>(targetTy))
+        return emitDiscreteConversion(expr->getOperand(), target);
+
+    if (AccessType *target = dyn_cast<AccessType>(targetTy))
+        return emitAccessConversion(expr->getOperand(), target);
 
     assert(false && "Cannot codegen given conversion yet!");
     return CValue::get(0);
@@ -438,8 +439,8 @@ void CodeGenRoutine::emitNullAccessCheck(llvm::Value *pointer, Location loc)
     Builder.SetInsertPoint(passBlock);
 }
 
-llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
-                                                    DiscreteType *targetTy)
+CValue CodeGenRoutine::emitDiscreteConversion(Expr *expr,
+                                              DiscreteType *targetTy)
 {
     // Evaluate the source expression.
     Type *exprTy = expr->getType();
@@ -448,7 +449,7 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
 
     // If the expression and target types are identical, we are done.
     if (exprTy == targetTy)
-        return sourceVal;
+        return CValue::get(sourceVal);
 
     unsigned sourceWidth;
     unsigned targetWidth;
@@ -462,8 +463,8 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
             IntegerDecl *intDecl;
             llvm::APInt modulusConstant;
             llvm::Value *modulus;
+            llvm::Value *result;
             intDecl = cast<IntegerDecl>(intTy->getDefiningDecl());
-
 
             if (targetWidth > sourceWidth) {
                 if (targetTy->isSigned())
@@ -478,13 +479,14 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
             // of two.  In this case we do not need to compute the remainder.
             intDecl->getModulusExpr()->staticDiscreteValue(modulusConstant);
             if (modulusConstant.getActiveBits() > targetWidth)
-                return sourceVal;
+                result = sourceVal;
             else {
                 if (modulusConstant.getBitWidth() < targetWidth)
                     modulusConstant.zext(targetWidth);
                 modulus = llvm::ConstantInt::get(loweredTy, modulusConstant);
-                return Builder.CreateURem(sourceVal, modulus);
+                result = Builder.CreateURem(sourceVal, modulus);
             }
+            return CValue::get(result);
         }
     }
 
@@ -492,14 +494,17 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
         // If the target type contains the source type then a range check is
         // unnecessary.
         if (targetTy->contains(sourceTy) == DiscreteType::Is_Contained) {
+            llvm::Value *result = 0;
             if (targetWidth == sourceWidth)
-                return sourceVal;
+                result = sourceVal;
             else if (targetWidth > sourceWidth) {
                 if (targetTy->isSigned())
-                    return Builder.CreateSExt(sourceVal, loweredTy);
+                    result = Builder.CreateSExt(sourceVal, loweredTy);
                 else
-                    return Builder.CreateZExt(sourceVal, loweredTy);
+                    result = Builder.CreateZExt(sourceVal, loweredTy);
             }
+            if (result)
+                return CValue::get(result);
         }
     }
     else {
@@ -520,7 +525,27 @@ llvm::Value *CodeGenRoutine::emitDiscreteConversion(Expr *expr,
         else
             sourceVal = Builder.CreateZExt(sourceVal, loweredTy);
     }
-    return sourceVal;
+    return CValue::get(sourceVal);
+}
+
+CValue CodeGenRoutine::emitAccessConversion(Expr *expr, AccessType *targetTy)
+{
+    // FIXME:  Implement support for conversions between fat and thin access
+    // types.
+    //
+    // FIXME: Need to emit null constraint checks if appropriate.
+
+    Type *sourceTy = expr->getType();
+
+    assert(!targetTy->isFatAccessType()
+           && "Fat access conversions not supported!");
+    assert(!sourceTy->isFatAccessType()
+           && "Fat access conversions not supported!");
+
+    // For thin access types we simply emit a bitcast.
+    llvm::Value *operand = emitValue(expr).first();
+    return CValue::get(Builder.CreatePointerCast(
+                           operand, CGT.lowerAccessType(targetTy)));
 }
 
 CValue CodeGenRoutine::emitAttribExpr(AttribExpr *expr)

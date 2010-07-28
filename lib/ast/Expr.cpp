@@ -254,8 +254,12 @@ DereferenceExpr::DereferenceExpr(Expr *prefix, Location loc, bool isImplicit)
     : Expr(AST_DereferenceExpr, loc),
       prefix(prefix)
 {
-    AccessType *prefixType = cast<AccessType>(prefix->getType());
-    setType(prefixType->getTargetType());
+    Type *prefixTy = prefix->getType();
+    PrivateType *privateTy = 0;
 
+    while ((privateTy = dyn_cast<PrivateType>(prefixTy)))
+        prefixTy = privateTy->getCompleteType();
+
+    setType(cast<AccessType>(prefixTy)->getTargetType());
     bits = isImplicit;
 }

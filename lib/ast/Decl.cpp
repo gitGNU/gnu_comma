@@ -29,26 +29,45 @@ using llvm::isa;
 //===----------------------------------------------------------------------===//
 // Decl
 
-DeclRegion *Decl::asDeclRegion()
+DeclRegion *Decl::asDeclRegion() const
 {
+    const DeclRegion *region = 0;
+
     switch (getKind()) {
     default:
-        return 0;
+        break;;
     case AST_PkgInstanceDecl:
-        return static_cast<PkgInstanceDecl*>(this);
+        region = static_cast<const PkgInstanceDecl*>(this);
+        break;
     case AST_EnumerationDecl:
-        return static_cast<EnumerationDecl*>(this);
+        region = static_cast<const EnumerationDecl*>(this);
+        break;
     case AST_BodyDecl:
-        return static_cast<BodyDecl*>(this);
+        region = static_cast<const BodyDecl*>(this);
+        break;
     case AST_FunctionDecl:
-        return static_cast<FunctionDecl*>(this);
+        region = static_cast<const FunctionDecl*>(this);
+        break;
     case AST_ProcedureDecl:
-        return static_cast<ProcedureDecl*>(this);
+        region = static_cast<const ProcedureDecl*>(this);
+        break;
     case AST_IntegerDecl:
-        return static_cast<IntegerDecl*>(this);
+        region = static_cast<const IntegerDecl*>(this);
+        break;
     case AST_AccessDecl:
-        return static_cast<AccessDecl*>(this);
+        region = static_cast<const AccessDecl*>(this);
+        break;
+    case AST_PrivateTypeDecl:
+        region = static_cast<const PrivateTypeDecl*>(this);
+        break;
+    case AST_ArrayDecl:
+        region = static_cast<const PrivateTypeDecl*>(this);
+        break;
+    case AST_RecordDecl:
+        region = static_cast<const PrivateTypeDecl*>(this);
+        break;
     }
+    return const_cast<DeclRegion*>(region);
 }
 
 Decl *Decl::resolveOrigin()
@@ -63,7 +82,8 @@ Decl *Decl::resolveOrigin()
 
 //===----------------------------------------------------------------------===//
 // PackageDecl
-PackageDecl::PackageDecl(AstResource &resource, IdentifierInfo *name, Location loc)
+PackageDecl::PackageDecl(AstResource &resource, IdentifierInfo *name,
+                         Location loc)
         : Decl(AST_PackageDecl, name, loc),
           DeclRegion(AST_PackageDecl),
           resource(resource),
@@ -105,9 +125,9 @@ PkgInstanceDecl *PackageDecl::getInstance()
 // PrivatePart
 
 PrivatePart::PrivatePart(PackageDecl *package, Location loc)
-  : Ast(AST_PrivatePart), 
-    DeclRegion(AST_PrivatePart, package), loc(loc) 
-{ 
+  : Ast(AST_PrivatePart),
+    DeclRegion(AST_PrivatePart, package), loc(loc)
+{
     package->setPrivatePart(this);
 }
 
@@ -134,7 +154,7 @@ PackageDecl *BodyDecl::getPackage()
     DeclRegion *parent = getParent();
     if (isa<PackageDecl>(parent))
         return cast<PackageDecl>(parent);
-    else 
+    else
         return cast<PrivatePart>(parent)->getPackage();
 }
 
@@ -370,6 +390,13 @@ bool FunctionDecl::denotesFunctionDecl(const Ast *node)
     AstKind kind = node->getKind();
     return (kind == AST_FunctionDecl || kind == AST_EnumLiteral ||
             llvm::isa<FunctionAttribDecl>(node));
+}
+
+//===----------------------------------------------------------------------===//
+// TypeDecl
+void TypeDecl::generateImplicitDeclarations(AstResource &resource)
+{
+    // Default implementation does nothing.
 }
 
 //===----------------------------------------------------------------------===//
@@ -862,6 +889,12 @@ ArrayDecl::ArrayDecl(AstResource &resource,
     CorrespondingType = resource.createArraySubtype(name, base);
 }
 
+bool ArrayDecl::isSubtypeDeclaration() const
+{
+    // FIXME: Extend to support array subtypes.
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // RecordDecl
 RecordDecl::RecordDecl(AstResource &resource, IdentifierInfo *name,
@@ -897,10 +930,16 @@ ComponentDecl *RecordDecl::getComponent(IdentifierInfo *name)
     return cast<ComponentDecl>(*range.first);
 }
 
+bool RecordDecl::isSubtypeDeclaration() const
+{
+    // FIXME: Extend to support array subtypes.
+    return false;
+}
+
 //===----------------------------------------------------------------------===//
 // AccessDecl
-AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc,
-                       Type *targetType, DeclRegion *parent)
+AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name,
+                       Location loc, Type *targetType, DeclRegion *parent)
     : TypeDecl(AST_AccessDecl, name, loc, parent),
       DeclRegion(AST_AccessDecl, parent)
 {
@@ -908,11 +947,81 @@ AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name, Location loc
     CorrespondingType = resource.createAccessSubtype(name, base);
 }
 
+AccessDecl::AccessDecl(AstResource &resource, IdentifierInfo *name,
+                       Location loc, AccessType *baseType, DeclRegion *parent)
+    : TypeDecl(AST_AccessDecl, name, loc, parent),
+      DeclRegion(AST_AccessDecl, parent)
+{
+    bits = Subtype_FLAG;
+    CorrespondingType = resource.createAccessSubtype(name, baseType);
+}
+
 void AccessDecl::generateImplicitDeclarations(AstResource &resource)
 {
     // FIXME: We will eventually need to specify the operand type specifically
     // as an unconstrained access type.
     AccessType *type = getType();
+    Location loc = getLocation();
+
+    addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));
+    addDecl(resource.createPrimitiveDecl(PO::NE_op, loc, type, this));
+}
+
+bool AccessDecl::isSubtypeDeclaration() const
+{
+    return bits & Subtype_FLAG;
+}
+
+//===----------------------------------------------------------------------===//
+// PrivateTypeDecl
+PrivateTypeDecl::PrivateTypeDecl(AstResource &resource,
+                                 IdentifierInfo *name, Location loc,
+                                 unsigned tags, DeclRegion *context)
+    : TypeDecl(AST_PrivateTypeDecl, name, loc, context),
+      DeclRegion(AST_PrivateTypeDecl, context),
+      completion(0)
+{
+    CorrespondingType = resource.createPrivateType(this);
+
+    // If the abstract bit was passed ensure the tagged bit is set as well.
+    if (tags & Abstract)
+        tags = Tagged;
+
+    bits = tags;
+}
+
+bool PrivateTypeDecl::isCompatibleCompletion(const TypeDecl *decl) const
+{
+    const DeclRegion *region = decl->getDeclRegion();
+    const PrivatePart *ppart = dyn_cast<PrivatePart>(region);
+
+    // Ensure the decl was declared in the private part of the package defining
+    // this private type.
+    if (!(ppart && ppart->getParent() == this->getDeclRegion()))
+        return false;
+
+    // Ensure the declaration defines a new type.
+    return !decl->isSubtypeDeclaration();
+}
+
+bool PrivateTypeDecl::completionIsVisibleIn(const DeclRegion *region) const
+{
+    const DeclRegion *target = getDeclRegion();
+
+    do {
+        if (region == target)
+            return true;
+    } while ((region = region->getParent()));
+
+    return false;
+}
+
+void PrivateTypeDecl::generateImplicitDeclarations(AstResource &resource)
+{
+    if (isLimited())
+        return;
+
+    Type *type = getType();
     Location loc = getLocation();
 
     addDecl(resource.createPrimitiveDecl(PO::EQ_op, loc, type, this));

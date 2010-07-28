@@ -124,7 +124,10 @@ Node TypeCheck::acceptIfStmt(Location loc, Node conditionNode,
     typedef NodeCaster<Stmt> caster;
     typedef llvm::mapped_iterator<NodeVector::iterator, caster> iterator;
 
-    Expr *pred = cast_node<Expr>(conditionNode);
+    Expr *pred = ensureExpr(conditionNode);
+
+    if (!pred)
+        return getInvalidNode();
 
     if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
         iterator I(consequentNodes.begin(), caster());
@@ -257,14 +260,18 @@ Node TypeCheck::beginWhileStmt(Location loc, Node conditionNode,
     if (!pred)
         return getInvalidNode();
 
-    conditionNode.release();
-    WhileStmt *loop = new WhileStmt(loc, pred);
+    if ((pred = checkExprInContext(pred, resource.getTheBooleanType()))) {
+        conditionNode.release();
+        WhileStmt *loop = new WhileStmt(loc, pred);
 
-    if (tag)
-        loop->setTag(tag, tagLoc);
+        if (tag)
+            loop->setTag(tag, tagLoc);
 
-    activeLoops.push_back(loop);
-    return getNode(loop);
+        activeLoops.push_back(loop);
+        return getNode(loop);
+    }
+
+   return getInvalidNode();
 }
 
 Node TypeCheck::endWhileStmt(Node whileNode)

@@ -1,0 +1,247 @@
+--=== testsuite/codegen/pqueue.cms ---------------------------- -*- comma -*-===
+--
+-- This file is distributed under the MIT license. See LICENSE.txt for details.
+--
+-- Copyright (C) 2010, Stephen Wilson
+--
+--===------------------------------------------------------------------------===
+
+--===------------------------------------------------------------------------===
+--
+-- Very simple priority queue of a fixed size.
+--
+-- FIXME: This test should be extended into a more realistic example as Comma's
+-- capabilities permit.
+--
+package Priority_Queues is
+
+   type Priority_Queue is private;
+
+   function Create return Priority_Queue;
+   -- Creates an empty priority queue.
+
+   function Size (Queue : Priority_Queue) return Natural;
+   -- Returns the number of elements contained in the given queue.
+
+   function Empty (Queue : Priority_Queue) return Boolean;
+   -- Returns true if the given queue is empty.
+
+   procedure Put (I : Integer; Queue : in out Priority_Queue);
+   -- Adds the intger I to the given Queue in priority sequence.  If Queue
+   -- already contains Max_Size elements Program_Error is raised.
+
+   procedure Get (I : out Integer; Queue : in out Priority_Queue);
+   -- Returns the next integer available from the queue.  If Queue is empty
+   -- Program_Error is raised.
+
+private
+
+   type Data_Vector is array (Natural range <>) of Integer;
+   type Data_Access is access Data_Vector;
+
+   type Priority_Queue is record
+      Data : Data_Access;
+      Size : Natural;
+      Free : Natural;
+   end record;
+
+end Priority_Queues;
+
+package body Priority_Queues is
+
+   procedure Grow (Q : in out Priority_Queue) is
+      Next_Size : Natural     := 2 * Q.Size;
+      Next_Buff : Data_Access := new Data_Vector'(0..Next_Size => 0);
+   begin
+      for I in 0..Q.Size loop
+         Next_Buff(I) := Q.Data(I);
+      end loop;
+      Q.Data := Next_Buff;
+      Q.Size := Next_Size;
+   end Grow;
+
+   --
+   -- Create
+   --
+   function Create return Priority_Queue is
+      Default_Size : Natural := 16;
+   begin
+      return (Data => new Data_Vector'(0..Default_Size => 0),
+              Size => Default_Size,
+              Free => 0);
+   end Create;
+
+   --
+   -- Size
+   --
+   function Size (Queue : Priority_Queue) return Natural is
+   begin
+      return Queue.Free;
+   end Size;
+
+   --
+   -- Empty
+   --
+   function Empty (Queue : Priority_Queue) return Boolean is
+   begin
+      return Size(Queue) = 0;
+   end Empty;
+
+   --
+   -- Put
+   --
+   procedure Put (I : Integer; Queue : in out Priority_Queue) is
+      Idx : Natural := 0;
+   begin
+      if Queue.Free = Queue.Size then
+         Grow(Queue);
+      end if;
+
+      Queue.Data(Queue.Free) := I;
+
+      while Queue.Data(Idx) < I loop
+         Idx := Idx + 1;
+      end loop;
+
+      if Idx < Queue.Free then
+         for J in reverse Idx + 1 .. Queue.Free loop
+            Queue.Data(J) := Queue.Data(J - 1);
+         end loop;
+         Queue.Data(Idx) := I;
+      end if;
+
+      Queue.Free := Queue.Free + 1;
+   end Put;
+
+   --
+   -- Get
+   --
+   procedure Get (I : out Integer; Queue : in out Priority_Queue) is
+   begin
+      if Queue.Free = 0 then
+         raise Program_Error;
+      end if;
+
+      I := Queue.Data(0);
+
+      Queue.Free := Queue.Free - 1;
+      for J in 0 .. Queue.Free - 1 loop
+         Queue.Data(J) := Queue.Data(J + 1);
+      end loop;
+   end Get;
+
+end Priority_Queues;
+
+--===------------------------------------------------------------------------===
+--
+-- Test package.
+--
+package Test is
+   procedure Run;
+end Test;
+
+package body Test is
+
+   type Data_Vector is array (Positive range <>) of Integer;
+   -- A vector to hold the test data fed into a Priority_Queue.
+
+   function Random (N : Integer) return Integer;
+   -- Returns a random integer.  The initial seed value should be large (say
+   -- greater than 1000).
+
+   procedure Sort (V : in out Data_Vector);
+   -- Sorts the given vector.
+
+   --===---------------------------------------------------------------------===
+   -- Implementation.
+   --===---------------------------------------------------------------------===
+
+   --
+   -- Run
+   --
+   procedure Run is
+      use Priority_Queues;
+      Q         : Priority_Queue := Create;
+      Max_Size  : Natural        := 2**8;
+      Test_Data : Data_Vector    := (1..Max_Size => 0);
+      Seed      : Integer        := 3822;
+   begin
+
+      -- Populate the test data with a bunch of "random" integers.
+      for I in Test_Data'Range loop
+         Seed         := Random(Seed);
+         Test_Data(I) := Seed;
+      end loop;
+
+      -- Ensure the queue is initially empty.
+      pragma Assert(Empty(Q));
+
+      -- Add each element from the test data to the queue.
+      for I in Test_Data'Range loop
+         Put(Test_Data(I), Q);
+      end loop;
+
+      -- Ensure the queue is now at it's full capacity.
+      pragma Assert(Size(Q) = Max_Size);
+
+      -- Sort the test data.
+      Sort(Test_Data);
+
+      -- Ensure that all of the elements come out of the queue in order.
+      for I in Test_Data'Range loop
+         declare
+            Result : Integer;
+         begin
+            Get(Result, Q);
+            pragma Assert(Result = Test_Data(I));
+         end;
+      end loop;
+
+      -- Ensure the queue is empty.
+      pragma Assert(Empty(Q));
+
+   end Run;
+
+   --
+   -- Sort
+   --
+   procedure Sort (V : in out Data_Vector) is
+   begin
+      loop
+         declare
+            J      : Positive;
+            Tmp    : Integer;
+            Sorted : Boolean := true;
+         begin
+
+            for I in V'First .. V'Last - 1 loop
+               J := I + 1;
+               if V(J) < V(I) then
+                  Tmp    := V(I);
+                  V(I)   := V(J);
+                  V(J)   := Tmp;
+                  Sorted := false;
+               end if;
+            end loop;
+
+            exit when Sorted;
+
+         end;
+      end loop;
+   end Sort;
+
+   --
+   -- Random
+   --
+   -- See section 3.6 in TAOCP volume 2 for details.
+   function Random (N : Integer) return Integer is
+      M : Integer := 2147483647;
+      A : Integer := 48271;
+      Q : Integer := 444888;
+      R : Integer := 3399;
+   begin
+      return A * (N rem Q) - R * (N / Q);
+   end Random;
+
+end Test;
+

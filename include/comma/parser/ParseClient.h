@@ -174,6 +174,16 @@ class ParseClient {
 public:
     virtual ~ParseClient() { }
 
+    /// Enumeration itemizing the various tags that can be associated with a
+    /// type declartions.  Elements of this enumeration can be or'ed together to
+    /// create a composite tag.
+    enum TypeTag {
+        AbstractTypeTag     = 1 << 0,
+        TaggedTypeTag       = 1 << 1,
+        LimitedTypeTag      = 1 << 2,
+        SynchronizedTypeTag = 1 << 3
+    };
+
     /// Nodes cannot be constructed from outside a parse client, yet many of the
     /// callbacks take null nodes indicateing a non-existant argument.  This
     /// method is made available to the parser so that it has a means of
@@ -844,6 +854,10 @@ public:
     /// Completes the definition of a record type.
     virtual void endRecord() = 0;
     //@}
+
+    /// Informs the client of a private type declaration.
+    virtual void acceptPrivateTypeDecl(IdentifierInfo *name, Location loc,
+                                       unsigned typeTag) = 0;
 
 protected:
     /// Allow sub-classes to construct arbitrary nodes.

@@ -1,0 +1,16 @@
+-- Ensure private types can only be declared in the appropriate context.
+
+package Test is
+   procedure P;
+   type T1 is private;
+private
+   -- EXPECTED-ERROR: Private type declarations may only appear
+   type T2 is private;
+   type T1 is range Integer'First .. Integer'Last;
+end Test;
+
+package body Test is
+   -- EXPECTED-ERROR: Private type declarations may only appear
+   type T3 is private;
+   procedure P is begin null; end P;
+end Test;

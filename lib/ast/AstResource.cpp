@@ -413,6 +413,17 @@ DiscreteType *AstResource::createDiscreteSubtype(DiscreteType *base,
     }
 }
 
+PrivateType *AstResource::createPrivateType(PrivateTypeDecl *decl)
+{
+    PrivateType *base;
+    PrivateType *subtype;
+
+    base = PrivateType::createPrivateType(decl);
+    subtype = PrivateType::createPrivateSubtype(base);
+    types.push_back(base);
+    types.push_back(subtype);
+    return subtype;
+}
 
 ArrayDecl *AstResource::createArrayDecl(IdentifierInfo *name, Location loc,
                                         unsigned rank, DSTDefinition **indices,
@@ -491,6 +502,16 @@ AccessDecl *AstResource::createAccessDecl(IdentifierInfo *name, Location loc,
     return result;
 }
 
+AccessDecl *AstResource::createAccessSubtypeDecl(IdentifierInfo *name,
+                                                 Location loc,
+                                                 AccessType *baseType,
+                                                 DeclRegion *parent)
+{
+    AccessDecl *result = new AccessDecl(*this, name, loc, baseType, parent);
+    decls.push_back(result);
+    return result;
+}
+
 AccessType *AstResource::createAccessType(AccessDecl *decl, Type *targetType)
 {
     AccessType *result = new AccessType(decl, targetType);
@@ -556,7 +577,7 @@ AstResource::createPrimitiveDecl(PO::PrimitiveID ID, Location loc,
         params.push_back(new ParamValueDecl(
                              left, type, PM::MODE_DEFAULT, Location()));
         params.push_back(new ParamValueDecl(
-                             left, natural, PM::MODE_DEFAULT, Location()));
+                             right, natural, PM::MODE_DEFAULT, Location()));
     } else if (PO::denotesBinaryOp(ID)) {
         params.push_back(new ParamValueDecl(
                              left, type, PM::MODE_DEFAULT, Location()));

@@ -288,39 +288,34 @@ Node TypeCheck::acceptParameterAssociation(IdentifierInfo *key, Location loc,
 
 Node TypeCheck::acceptApplication(Node prefix, NodeVector &argNodes)
 {
+    Ast *result = 0;
+
     // There are three cases (currently):
-    //
-    //   - The prefix is a TypeRef (type conversion).
     //
     //   - The prefix is a SubroutineRef naming a family of subroutines.
     //
+    //   - The prefix is a TypeRef (type conversion).
+    //
     //   - The prefix is an Expr resolving to an object of ArrayType.
     //
-    if (SubroutineRef *ref = lift_node<SubroutineRef>(prefix)) {
-        if (Ast *call = acceptSubroutineApplication(ref, argNodes)) {
-            prefix.release();
-            argNodes.release();
-            return getNode(call);
-        }
-        return getInvalidNode();
+    if (SubroutineRef *ref = lift_node<SubroutineRef>(prefix))
+        result = acceptSubroutineApplication(ref, argNodes);
+    else if (TypeRef *ref = lift_node<TypeRef>(prefix))
+        result = acceptConversionExpr(ref, argNodes);
+    else if (Expr *expr = lift_node<Expr>(prefix))
+        result = acceptIndexedArray(expr, argNodes);
+    else {
+        assert(false && "Bad prefix node!");
+        result = 0;
     }
 
-    if (lift_node<TypeRef>(prefix)) {
-        assert(false && "Type applications not yet supported!");
-        return getInvalidNode();
+    if (result) {
+        prefix.release();
+        argNodes.release();
+        return getNode(result);
     }
-
-    if (Expr *expr = lift_node<Expr>(prefix)) {
-        if (IndexedArrayExpr *IAE = acceptIndexedArray(expr, argNodes)) {
-            prefix.release();
-            argNodes.release();
-            return getNode(IAE);
-        }
+    else
         return getInvalidNode();
-    }
-
-    assert(false && "Bad prefix node!");
-    return getInvalidNode();
 }
 
 bool

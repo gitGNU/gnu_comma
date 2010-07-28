@@ -28,7 +28,7 @@ SubroutineDecl *InstanceInfo::getKeySRDecl(SubroutineDecl *srDecl)
 
     // Check that some basic assumptions hold.  The declarative region must have
     // been resolved to either a BodyDecl, PrivatePart, or PackageDecl.
-    assert((isa<BodyDecl>(region) || isa<PackageDecl>(region) || 
+    assert((isa<BodyDecl>(region) || isa<PackageDecl>(region) ||
             isa<PrivatePart>(region))
            && "Inconsistent context for subroutine declaration!");
 
@@ -69,21 +69,41 @@ void InstanceInfo::populateInfoTable(CodeGen &CG, CodeGenTypes &CGT,
         }
     }
 
-    // Similarly for all private declarations.
-    BodyDecl *impl = instance->getDefinition()->getImplementation();
+    // Similarly for each private declaration.
+    if (PrivatePart *ppart = instance->getDefinition()->getPrivatePart()) {
+        E = ppart->endDecls();
+        for (I = ppart->beginDecls(); I != E; ++I) {
+            /// FIXME: Support all declaration kinds.
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
+                SubroutineDecl *key = getKeySRDecl(srDecl);
 
-    E = impl->endDecls();
-    for (I = impl->beginDecls(); I != E; ++I) {
-        /// FIXME: Support all declaration kinds.
-        if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
-            SubroutineDecl *key = getKeySRDecl(srDecl);
+                // If an info structure already exists for this declaration skip
+                // it.
+                if(srInfoTable.count(key))
+                    continue;
 
-            // If an info structure already exists for this declaration skip it.
-            if(srInfoTable.count(key))
-                continue;
+                llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
+                srInfoTable[key] = new SRInfo(key, fn);
+            }
+        }
+    }
 
-            llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
-            srInfoTable[key] = new SRInfo(key, fn);
+    // Similarly for all declarations contained in the body (if it exists).
+    if (BodyDecl *impl = instance->getDefinition()->getImplementation()) {
+        E = impl->endDecls();
+        for (I = impl->beginDecls(); I != E; ++I) {
+            /// FIXME: Support all declaration kinds.
+            if (SubroutineDecl *srDecl = dyn_cast<SubroutineDecl>(*I)) {
+                SubroutineDecl *key = getKeySRDecl(srDecl);
+
+                // If an info structure already exists for this declaration skip
+                // it.
+                if(srInfoTable.count(key))
+                    continue;
+
+                llvm::Function *fn = CG.makeFunction(instance, srDecl, CGT);
+                srInfoTable[key] = new SRInfo(key, fn);
+            }
         }
     }
 }

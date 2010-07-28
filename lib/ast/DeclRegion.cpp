@@ -158,6 +158,8 @@ const Ast *DeclRegion::asAst() const
         return static_cast<const ArrayDecl*>(this);
     case Ast::AST_AccessDecl:
         return static_cast<const AccessDecl*>(this);
+    case Ast::AST_PrivateTypeDecl:
+        return static_cast<const PrivateTypeDecl*>(this);
     }
 }
 

@@ -63,7 +63,7 @@ makeSubroutineCall(SubroutineRef *ref,
 /// arguments to reflect any conversions needed to properly form a call to the
 /// given subroutine.
 void
-convertSubroutineArguments(SubroutineDecl *decl,
+convertSubroutineArguments(TypeCheck *TC, SubroutineDecl *decl,
                            llvm::SmallVectorImpl<Expr*> &posArgs,
                            llvm::SmallVectorImpl<KeywordSelector*> &keyArgs)
 {
@@ -72,7 +72,7 @@ convertSubroutineArguments(SubroutineDecl *decl,
     for (unsigned i = 0; PI != posArgs.end(); ++PI, ++i) {
         Expr *arg = *PI;
         Type *targetType = decl->getParamType(i);
-        *PI = TypeCheck::convertIfNeeded(arg, targetType);
+        *PI = TC->convertIfNeeded(arg, targetType);
     }
 
     typedef llvm::SmallVectorImpl<KeywordSelector*>::iterator key_iterator;
@@ -82,14 +82,14 @@ convertSubroutineArguments(SubroutineDecl *decl,
         Expr *arg = selector->getExpression();
         unsigned index = unsigned(decl->getKeywordIndex(selector));
         Type *targetType = decl->getParamType(index);
-        selector->setRHS(TypeCheck::convertIfNeeded(arg, targetType));
+        selector->setRHS(TC->convertIfNeeded(arg, targetType));
     }
 }
 
 /// Injects implicit ConversionExpr nodes into the argument set of the given
 /// SubroutineCall to reflect any conversions needed to properly form a call to
 /// the given subroutine.
-void convertSubroutineCallArguments(SubroutineCall *call)
+void convertSubroutineCallArguments(TypeCheck *TC, SubroutineCall *call)
 {
     assert(call->isUnambiguous() && "Expected resolved call!");
 
@@ -100,7 +100,7 @@ void convertSubroutineCallArguments(SubroutineCall *call)
     for (unsigned i = 0; I != E; ++I, ++i) {
         Expr *arg = *I;
         Type *targetType = decl->getParamType(i);
-        call->setArgument(I, TypeCheck::convertIfNeeded(arg, targetType));
+        call->setArgument(I, TC->convertIfNeeded(arg, targetType));
     }
 }
 
@@ -108,8 +108,8 @@ void convertSubroutineCallArguments(SubroutineCall *call)
 
 bool TypeCheck::checkApplicableArgument(Expr *arg, Type *targetType)
 {
-    // If the argument as a fully resolved type, all we currently do is test for
-    // type equality.
+    // If we have an expression with a resolved type and type coverage, we are
+    // done.
     if (arg->hasResolvedType())
         return covers(arg->getType(), targetType);
 
@@ -345,7 +345,7 @@ TypeCheck::checkSubroutineCall(SubroutineRef *ref,
     if (!checkSubroutineArguments(decl, posArgs, keyArgs))
         return 0;
 
-    convertSubroutineArguments(decl, posArgs, keyArgs);
+    convertSubroutineArguments(this, decl, posArgs, keyArgs);
     return makeSubroutineCall(ref, posArgs.data(), posArgs.size(),
                               keyArgs.data(), keyArgs.size());
 }
@@ -486,7 +486,7 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call, Type *targetType)
     call->resolveConnective(preference);
     if (!checkSubroutineCallArguments(call))
         return 0;
-    convertSubroutineCallArguments(call);
+    convertSubroutineCallArguments(this, call);
     return convertIfNeeded(call, targetType);
 }
 
@@ -543,7 +543,7 @@ bool TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
     call->resolveConnective(preference);
     if (!checkSubroutineCallArguments(call))
         return false;
-    convertSubroutineCallArguments(call);
+    convertSubroutineCallArguments(this, call);
     return true;
 }
 
@@ -591,7 +591,7 @@ Expr *TypeCheck::resolveFunctionCall(FunctionCallExpr *call,
     call->resolveConnective(connective);
     if (!checkSubroutineCallArguments(call))
         return 0;
-    convertSubroutineCallArguments(call);
+    convertSubroutineCallArguments(this, call);
 
     // Do not apply any conversions to this function call since the target type
     // is with respect to a selected component, not to the returned record.

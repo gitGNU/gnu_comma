@@ -131,6 +131,7 @@ public:
     bool parseArrayTypeDecl(IdentifierInfo *name, Location loc);
     bool parseRecordTypeDecl(IdentifierInfo *name, Location loc);
     bool parseAccessTypeDecl(IdentifierInfo *name, Location loc);
+    bool parsePrivateTypeDecl(IdentifierInfo *name, Location loc);
 
     /// \brief Parses a top level construct.  Returns false once all tokens have
     /// been consumed.

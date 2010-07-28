@@ -106,13 +106,18 @@ void Scope::Entry::importDeclarativeRegion(DeclRegion *region)
 
         homonym->addImportDecl(decl);
 
-        // Import the contents of array, enumeration and integer decls.
-        if (ArrayDecl *adecl = dyn_cast<ArrayDecl>(decl))
-            importDeclarativeRegion(adecl);
-        else if (EnumerationDecl *edecl = dyn_cast<EnumerationDecl>(decl))
-            importDeclarativeRegion(edecl);
-        else if (IntegerDecl *idecl = dyn_cast<IntegerDecl>(decl))
-            importDeclarativeRegion(idecl);
+        switch (decl->getKind())
+        {
+        default:
+            break;
+
+        case Ast::AST_ArrayDecl:
+        case Ast::AST_EnumerationDecl:
+        case Ast::AST_IntegerDecl:
+        case Ast::AST_PrivateTypeDecl:
+            importDeclarativeRegion(cast<DeclRegion>(decl));
+            break;
+        }
     }
 }
 
@@ -301,9 +306,6 @@ void Scope::dump() const
             break;
         case PACKAGE_SCOPE:
             std::cerr << "PACKAGE_SCOPE\n";
-            break;
-        case PRIVATE_SCOPE:
-            std::cerr << "PRIVATE_SCOPE\n";
             break;
         case SUBROUTINE_SCOPE:
             std::cerr << "SUBROUTINE_SCOPE\n";

@@ -2,7 +2,7 @@
 //
 // This file is distributed under the MIT license. See LICENSE.txt for details.
 //
-// Copyright (C) 2009, Stephen Wilson
+// Copyright (C) 2009-2010, Stephen Wilson
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,18 +18,12 @@
 #ifndef COMMA_AST_ASTDUMPER_HDR_GUARD
 #define COMMA_AST_ASTDUMPER_HDR_GUARD
 
+#include "comma/ast/AstBase.h"
 #include "comma/basic/ParameterModes.h"
 
 #include "llvm/Support/raw_ostream.h"
 
 namespace comma {
-
-class Ast;
-class Decl;
-class Expr;
-class RangeAttrib;
-class Stmt;
-class Type;
 
 /// A virtual base class encapsulating common functionality amongst the various
 /// dumpers.
@@ -116,8 +110,11 @@ private:
     /// indentation level.
     llvm::raw_ostream &dumpType(Type *node);
 
-    /// Dumpts a range attribute.
+    /// Dumps a range attribute.
     llvm::raw_ostream &dumpRangeAttrib(RangeAttrib *node);
+
+    /// Dumps a DSTDefinition node.
+    llvm::raw_ostream &dumpDSTDefinition(DSTDefinition *node);
 };
 
 } // end comma namespace.

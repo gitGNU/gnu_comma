@@ -61,27 +61,26 @@ void TypeCheck::beginPackagePrivatePart(Location loc)
     assert(scope.getKind() == PACKAGE_SCOPE);
     assert(!currentPackage->hasPrivatePart());
 
-    PrivatePart *ppart = new PrivatePart(currentPackage, loc);
-    scope.push(PRIVATE_SCOPE);
-    declarativeRegion = ppart;
+    // Simply set the declarative region to a new PrivatePart node.  The private
+    // part of a package is not a new scope.
+    declarativeRegion = new PrivatePart(currentPackage, loc);
 }
 
 void TypeCheck::endPackageSpec()
 {
-    if (scope.getKind() == PRIVATE_SCOPE)
-        scope.pop();
-
     assert(scope.getKind() == PACKAGE_SCOPE);
     scope.pop();
 
     PackageDecl *result = currentPackage;
-    if (Decl *conflict = scope.addDirectDecl(result)) {
-        // FIXME: The current package should be freed here.
-        report(result->getLocation(), diag::CONFLICTING_DECLARATION)
-            << result->getIdInfo() << getSourceLoc(conflict->getLocation());
+    if (ensurePrivateConstraints(result)) {
+        if (Decl *conflict = scope.addDirectDecl(result)) {
+            // FIXME: The current package should be freed here.
+            report(result->getLocation(), diag::CONFLICTING_DECLARATION)
+                << result->getIdInfo() << getSourceLoc(conflict->getLocation());
+        }
+        else
+            compUnit->addDeclaration(result);
     }
-    else
-        compUnit->addDeclaration(result);
 
     declarativeRegion = result->getParent();
     currentPackage = dyn_cast_or_null<PackageDecl>(declarativeRegion);
@@ -133,7 +132,6 @@ bool TypeCheck::beginPackageBody(IdentifierInfo *name, Location loc)
     if (package->hasPrivatePart())
         introduceDeclRegion(package->getPrivatePart());
 
-    // FIXME: A method should be provided by Scope to handle this.
     return true;
 }
 
@@ -160,7 +158,7 @@ bool TypeCheck::ensureExportConstraints(BodyDecl *body)
     bool allOK = true;
 
     // Traverse the set of declarations defined by the package specification and
-    // ensure the body provides a definition.
+    // ensure the body or private part provide a completion.
     typedef DeclRegion::ConstDeclIter iterator;
     for (iterator I = package->beginDecls(); I != package->endDecls(); ++I) {
 
@@ -169,7 +167,7 @@ bool TypeCheck::ensureExportConstraints(BodyDecl *body)
             if (!ITD->hasCompletion()) {
                 report(ITD->getLocation(), diag::MISSING_TYPE_COMPLETION)
                     << ITD->getIdInfo();
-                allOK=false;
+                allOK = false;
             }
             continue;
         }
@@ -191,4 +189,29 @@ bool TypeCheck::ensureExportConstraints(BodyDecl *body)
         }
     }
     return allOK;
+}
+
+bool TypeCheck::ensurePrivateConstraints(PackageDecl *package)
+{
+    PrivatePart *ppart = 0;
+
+    if (package->hasPrivatePart())
+        ppart = package->getPrivatePart();
+
+    typedef DeclRegion::DeclIter iterator;
+    iterator I = package->beginDecls();
+    iterator E = package->endDecls();
+    for ( ; I != E; ++I) {
+        Decl *decl = *I;
+
+        // Ensure private type declarations have been completed.
+        if (PrivateTypeDecl *pdecl = dyn_cast<PrivateTypeDecl>(decl)) {
+            if (!(ppart && pdecl->hasCompletion())) {
+                report(pdecl->getLocation(), diag::MISSING_TYPE_COMPLETION)
+                    << pdecl->getIdInfo();
+                return false;
+            }
+        }
+    }
+    return true;
 }

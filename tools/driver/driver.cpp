@@ -80,6 +80,11 @@ llvm::cl::opt<bool>
 DisableOpt("disable-opt",
            llvm::cl::desc("Disable all optimizations."));
 
+// Dump the AST.
+llvm::cl::opt<bool>
+DumpAST("dump-ast",
+        llvm::cl::desc("Dump ast to stderr."));
+
 namespace {
 
 // Selects a procedure to use as an entry point and generates the corresponding
@@ -386,6 +391,18 @@ bool compileSourceItem(SourceItem *RootItem, AstResource &Resource,
         // We are finished with the source code.  Close the TextProvider and
         // release the associated resources.
         TP.close();
+
+        // Dump the ast if we were asked.
+        if (DumpAST) {
+            typedef CompilationUnit::decl_iterator iterator;
+            iterator I = CU->begin_declarations();
+            iterator E = CU->end_declarations();
+            for ( ; I != E; ++I) {
+                Decl *decl = *I;
+                decl->dump();
+                llvm::errs() << '\n';
+            }
+        }
 
         // Stop processing if the SourceItem did not parse/typecheck cleanly.
         if (Diag.numErrors() != 0)

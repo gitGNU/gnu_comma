@@ -54,6 +54,7 @@ public:
     virtual void visitRecordType(RecordType *node);
     virtual void visitAccessType(AccessType *node);
     virtual void visitIncompleteType(IncompleteType *node);
+    virtual void visitPrivateType(PrivateType *node);
     //@}
 };
 

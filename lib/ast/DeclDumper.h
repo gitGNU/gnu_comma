@@ -60,6 +60,7 @@ private:
     /// are delimited with '<' and '>', the last character printed is always
     /// '>'.  The indentation level can change while a node is being printed,
     /// but the level is always restored once the printing is complete.
+    void visitPackageDecl(PackageDecl *node);
     void visitUseDecl(UseDecl *node);
     void visitBodyDecl(BodyDecl *node);
     void visitSubroutineDecl(SubroutineDecl *node);
@@ -74,6 +75,10 @@ private:
     void visitArrayDecl(ArrayDecl *node);
     void visitExceptionDecl(ExceptionDecl *node);
     void visitIncompleteTypeDecl(IncompleteTypeDecl *node);
+    void visitPrivateTypeDecl(PrivateTypeDecl *node);
+    void visitAccessDecl(AccessDecl *node);
+    void visitRecordDecl(RecordDecl *node);
+    void visitComponentDecl(ComponentDecl *node);
 };
 
 } // end comma namespace.

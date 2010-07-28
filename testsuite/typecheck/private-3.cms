@@ -1,0 +1,8 @@
+-- Ensure private types have a completion.
+
+package Test is
+   type T1 is private;           -- EXPECTED-ERROR: Missing completion
+   type T2 is private;
+private
+   type T2 is range Integer'First .. Integer'Last;
+end Test;

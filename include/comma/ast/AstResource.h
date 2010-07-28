@@ -144,6 +144,9 @@ public:
                                       IntegerDecl *decl = 0);
     //@}
 
+    /// Creates both a private type and first subtype, returning the latter.
+    PrivateType *createPrivateType(PrivateTypeDecl *decl);
+
     /// Creates a discrete subtype with the given bounds as constraints.
     ///
     /// The actual type returned depends on the actual type of the given base.
@@ -194,6 +197,11 @@ public:
     /// Creates an access type declaration node.
     AccessDecl *createAccessDecl(IdentifierInfo *name, Location loc,
                                  Type *targetType, DeclRegion *parent);
+
+    /// Creates an access subtype declaration node.
+    AccessDecl *createAccessSubtypeDecl(IdentifierInfo *name, Location loc,
+                                        AccessType *baseType,
+                                        DeclRegion *parent);
 
     /// Creates an access type corresponding to the given declaration and target
     /// type node.

@@ -323,6 +323,27 @@ AccessDecl *DeclRewriter::rewriteAccessDecl(AccessDecl *access)
     return result;
 }
 
+PrivateTypeDecl *DeclRewriter::rewritePrivateTypeDecl(PrivateTypeDecl *pdecl)
+{
+    PrivateTypeDecl *result;
+    if ((result = cast_or_null<PrivateTypeDecl>(findRewrite(pdecl))))
+        return result;
+
+    AstResource &resource = getAstResource();
+    IdentifierInfo *name = pdecl->getIdInfo();
+    Location loc = pdecl->getLocation();
+    unsigned tags = pdecl->getTypeTags();
+
+    result = new PrivateTypeDecl(resource, name, loc, tags, context);
+    result->setOrigin(pdecl);
+    result->generateImplicitDeclarations(resource);
+    addTypeRewrite(pdecl->getType(), result->getType());
+    addDeclRewrite(pdecl, result);
+    mirrorRegion(pdecl, result);
+    result->setCompletion(rewriteTypeDecl(pdecl->getCompletion()));
+    return result;
+}
+
 TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
 {
     TypeDecl *result = 0;
@@ -355,6 +376,10 @@ TypeDecl *DeclRewriter::rewriteTypeDecl(TypeDecl *decl)
 
     case Ast::AST_AccessDecl:
         result = rewriteAccessDecl(cast<AccessDecl>(decl));
+        break;
+
+    case Ast::AST_PrivateTypeDecl:
+        result = rewritePrivateTypeDecl(cast<PrivateTypeDecl>(decl));
         break;
     }
 
@@ -490,7 +515,7 @@ AttribExpr *DeclRewriter::rewriteAttrib(AttribExpr *attrib)
         else
             result = new LastAE(prefix, loc);
     }
-    if (LengthAE *length = dyn_cast<LengthAE>(attrib)) {
+    else if (LengthAE *length = dyn_cast<LengthAE>(attrib)) {
         // FIXME: Support array subtype prefix.
         Expr *prefix = length->getPrefixExpr();
         assert(prefix && "Cannot rewrite attribute!");

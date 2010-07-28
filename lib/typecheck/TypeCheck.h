@@ -203,6 +203,12 @@ public:
     void acceptRecordComponent(IdentifierInfo *name, Location loc, Node type);
     void endRecord();
 
+    void acceptPrivateTypeDecl(IdentifierInfo *name, Location loc,
+                               unsigned typeTag);
+
+    void acceptDerivedTypeDecl(IdentifierInfo *name, Location loc,
+                               Node parentNode);
+
     // Delete the underlying Ast node.
     void deleteNode(Node &node);
     //@}
@@ -234,10 +240,10 @@ public:
 
     /// Returns true if the type \p source requires a conversion to be
     /// compatible with the type \p target.
-    static bool conversionRequired(Type *source, Type *target);
+    bool conversionRequired(Type *source, Type *target);
 
     /// Wraps the given expression in a ConversionExpr if needed.
-    static Expr *convertIfNeeded(Expr *expr, Type *target);
+    Expr *convertIfNeeded(Expr *expr, Type *target);
 
     /// Returns a dereferenced type of \p source which covers the type \p target
     /// or null if no such type exists.
@@ -322,7 +328,11 @@ public:
     Ast *finishName(Ast *node);
 
     /// Basic type equality predicate.
-    static bool covers(Type *A, Type *B);
+    ///
+    /// Note that this function is context sensitive.  In particular, it can use
+    /// the current declarative region to determine if the types \p A and \p B
+    /// cover.
+    bool covers(Type *A, Type *B);
     //@}
 
 private:
@@ -642,6 +652,10 @@ private:
     // Otherwise, false is returned and diagnostics are posted.
     bool ensureExportConstraints(BodyDecl *add);
 
+    // Verifies that the given package declaration provides all necessary
+    // declarations in its private part to satisfy its specification.
+    bool ensurePrivateConstraints(PackageDecl *package);
+
     /// Returns true if the given parameter is of mode "in", and thus capatable
     /// with a function declaration.  Otherwise false is returned an a
     /// diagnostic is posted.
@@ -743,6 +757,9 @@ private:
     PragmaAssert *acceptPragmaAssert(Location loc, NodeVector &args);
 
     Ast *checkAttribute(attrib::AttributeID, Ast *prefix, Location loc);
+
+    /// Checks a type conversion expression.
+    ConversionExpr *acceptConversionExpr(TypeRef *prefix, NodeVector &args);
 
     /// Returns the location of \p node.
     static Location getNodeLoc(Node node);
