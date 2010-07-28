@@ -1617,7 +1617,7 @@ public:
     bool isSubtypeDeclaration() const { return false; }
 
     // Support isa/dyn_cast.
-    static bool classof(const PkgInstanceDecl *node) { return true; }
+    static bool classof(const PrivateTypeDecl *node) { return true; }
     static bool classof(const Ast *node) {
         return node->getKind() == AST_PrivateTypeDecl;
     }
