@@ -49,7 +49,8 @@ SourceManager::SourceManager(IdentifierPool &IdPool,
     }
 }
 
-SourceItem *SourceManager::getOrCreateSourceItem(llvm::sys::Path &path) {
+SourceItem *SourceManager::getOrCreateSourceItem(llvm::sys::Path &path)
+{
     const std::string &key = path.str();
     SourceMap::iterator I = SourceTable.find(key);
     if (I != SourceTable.end())
