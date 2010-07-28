@@ -697,13 +697,18 @@ private:
 class ConversionExpr : public Expr
 {
 public:
-    ConversionExpr(Expr *operand, Type *target, Location loc = Location())
+    ConversionExpr(Expr *operand, Type *target, Location loc, bool isImplicit)
         : Expr(AST_ConversionExpr, target, loc),
-          operand(operand) { }
+          operand(operand) {
+        bits = isImplicit;
+    }
 
     /// Returns the expression to be converted.
     const Expr *getOperand() const { return operand; }
     Expr *getOperand() { return operand; }
+
+    // Returns true if this is an implicit conversion node.
+    bool isImplicit() const { return bits != 0; }
 
     // Support isa and dyn_cast.
     static bool classof(const ConversionExpr *node) { return true; }

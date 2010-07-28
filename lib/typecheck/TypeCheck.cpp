@@ -1114,12 +1114,10 @@ bool TypeCheck::introduceTypeDeclaration(TypeDecl *decl)
         if (IncompleteTypeDecl *ITD = dyn_cast<IncompleteTypeDecl>(conflict)) {
             if (ITD->isCompatibleCompletion(decl)) {
                 ITD->setCompletion(decl);
-
                 // Do not add the declaration unless it appears in a separate
                 // declarative region.
                 if (ITD->getDeclRegion() != currentDeclarativeRegion())
                     currentDeclarativeRegion()->addDecl(decl);
-
                 return true;
             }
         }
@@ -1232,7 +1230,7 @@ bool TypeCheck::conversionRequired(Type *sourceTy, Type *targetTy)
 Expr *TypeCheck::convertIfNeeded(Expr *expr, Type *target)
 {
     if (conversionRequired(expr->getType(), target))
-        return new ConversionExpr(expr, target, expr->getLocation());
+        return new ConversionExpr(expr, target, expr->getLocation(), true);
     return expr;
 }
 

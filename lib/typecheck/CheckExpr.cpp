@@ -300,7 +300,7 @@ Expr *TypeCheck::resolveIntegerLiteral(IntegerLiteral *intLit, Type *context)
     }
 
     intLit->setType(rootTy);
-    return new ConversionExpr(intLit, context);
+    return new ConversionExpr(intLit, context, intLit->getLocation(), true);
 }
 
 Expr *TypeCheck::resolveNullExpr(NullExpr *expr, Type *context)
@@ -500,18 +500,18 @@ ConversionExpr *TypeCheck::acceptConversionExpr(TypeRef *prefix,
     // FIXME: Perhaps a note mentioning redundant conversion should be posted
     // here.
     if (covers(sourceTy, targetTy))
-        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+        return new ConversionExpr(arg, targetTy, prefix->getLocation(), false);
 
     // Numeric conversions.
     if (sourceTy->isNumericType() && targetTy->isNumericType())
-        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+        return new ConversionExpr(arg, targetTy, prefix->getLocation(), false);
 
     // Access conversions.
     //
     // FIXME:  There is much more to do here, but the following is fine for the
     // current implementation.
     if (sourceTy->isAccessType() && targetTy->isAccessType())
-        return new ConversionExpr(arg, targetTy, prefix->getLocation());
+        return new ConversionExpr(arg, targetTy, prefix->getLocation(), false);
 
     report(prefix->getLocation(), diag::INVALID_CONVERSION)
         << diag::PrintType(sourceTy) << diag::PrintType(targetTy);

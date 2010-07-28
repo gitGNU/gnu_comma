@@ -425,7 +425,7 @@ Expr *ArrayAggChecker::resolvePositionalAggExpr(AggregateExpr *agg,
         ArrayType *unconstrainedTy;
         unconstrainedTy = TC.getAstResource().createArraySubtype(0, context);
         agg->setType(unconstrainedTy);
-        return new ConversionExpr(agg, context);
+        return new ConversionExpr(agg, context, agg->getLocation(), true);
     }
 
     // Otherwise, the context is unconstrained.  Generate a constrained subtype.

@@ -553,7 +553,9 @@ ConversionExpr *DeclRewriter::rewriteConversion(ConversionExpr *conv)
 {
     Expr *operand = rewriteExpr(conv->getOperand());
     Type *targetTy = rewriteType(conv->getType());
-    return new ConversionExpr(operand, targetTy, conv->getLocation());
+    Location loc = conv->getLocation();
+    bool isImplicit = conv->isImplicit();
+    return new ConversionExpr(operand, targetTy, loc, isImplicit);
 }
 
 Expr *DeclRewriter::rewriteExpr(Expr *expr)

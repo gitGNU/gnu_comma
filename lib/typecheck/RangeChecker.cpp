@@ -91,8 +91,8 @@ DiscreteType *RangeChecker::checkDSTRange(Expr *lower, Expr *upper)
     // with conversion expressions to Integer.
     if (rangeTy == TC.getAstResource().getTheRootIntegerType()) {
         rangeTy = TC.getAstResource().getTheIntegerType();
-        lower = new ConversionExpr(lower, rangeTy, lower->getLocation());
-        upper = new ConversionExpr(upper, rangeTy, upper->getLocation());
+        lower = new ConversionExpr(lower, rangeTy, lower->getLocation(), true);
+        upper = new ConversionExpr(upper, rangeTy, upper->getLocation(), true);
     }
 
     // Form a constrained discrete subtype constrained by the given bounds.

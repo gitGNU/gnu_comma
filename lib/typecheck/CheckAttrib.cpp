@@ -325,7 +325,7 @@ Expr *AttributeChecker::resolveAttribute(AttribExpr *attrib, Type *context)
     }
 
     length->setType(rootTy);
-    return new ConversionExpr(length, context);
+    return new ConversionExpr(length, context, loc, true);
 }
 
 } // end anonymous namespace.
