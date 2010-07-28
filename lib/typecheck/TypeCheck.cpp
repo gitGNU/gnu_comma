@@ -364,24 +364,32 @@ bool TypeCheck::acceptObjectDeclaration(Location loc, IdentifierInfo *name,
     Expr *init = 0;
     ObjectDecl *decl = 0;
     STIndication *STI = cast_node<STIndication>(STINode);
+    Type *STIType = resolveType(STI->getType());
 
     if (!initializerNode.isNull())
         init = ensureExpr(initializerNode);
 
-    if (ArrayType *arrTy = dyn_cast<ArrayType>(STI->getType())) {
+    if (ArrayType *arrTy = dyn_cast<ArrayType>(STIType))
         decl = acceptArrayObjectDeclaration(loc, name, arrTy, init);
-        if (decl == 0)
-            return false;
-    }
     else {
-        Type *objTy = STI->getType();
         if (init) {
-            init = checkExprInContext(init, objTy);
+            init = checkExprInContext(init, STIType);
             if (!init)
                 return false;
         }
-        decl = new ObjectDecl(name, objTy, loc, init);
+        else if (PrivateType *ptype = dyn_cast<PrivateType>(STIType)) {
+            // Limited types must have initializers.
+            PrivateTypeDecl *pdecl = ptype->getDefiningDecl();
+            if (pdecl->isLimited()) {
+                report(loc, diag::LIMITED_OBJECT_REQUIRES_INIT);
+                return false;
+            }
+        }
+        decl = new ObjectDecl(name, STIType, loc, init);
     }
+
+    if (decl == 0)
+        return false;
 
     // Do not release STINode as we are now finished with it.
     initializerNode.release();
