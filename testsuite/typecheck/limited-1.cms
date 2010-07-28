@@ -1,0 +1,22 @@
+
+package P is
+   type T is limited private;
+private
+   type T is range Integer'First .. Integer'Last;
+end P;
+
+package Test is
+   procedure Run;
+end Test;
+
+package body Test is
+   use P;
+   procedure Run is
+      X : T;                    -- EXPECTED-ERROR: require initialization
+   begin
+      null;
+   end Run;
+end Test;
+
+
+
