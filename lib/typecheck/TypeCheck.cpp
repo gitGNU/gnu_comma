@@ -1115,12 +1115,8 @@ bool TypeCheck::introduceTypeDeclaration(TypeDecl *decl)
             if (ITD->isCompatibleCompletion(decl)) {
                 ITD->setCompletion(decl);
 
-                // Ensure the completion lives in the same declarative region as
-                // its initial declaration.
-                assert(ITD->isDeclaredIn(currentDeclarativeRegion()) &&
-                       "Inconsistent region for incomplete type completion!");
-
-                // FIXME:  Remove once the above assertion stops firing.
+                // Do not add the declaration unless it appears in a separate
+                // declarative region.
                 if (ITD->getDeclRegion() != currentDeclarativeRegion())
                     currentDeclarativeRegion()->addDecl(decl);
 
